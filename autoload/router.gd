@@ -12,3 +12,11 @@ var match_snapshot: Dictionary = {}
 
 func go(scene: String) -> void:
 	get_tree().call_deferred("change_scene_to_file", scene)
+
+
+func _ready() -> void:
+	GameSocket.session_lost.connect(_on_session_lost)
+
+
+func _on_session_lost() -> void:
+	go(LOGIN)

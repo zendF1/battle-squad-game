@@ -1,6 +1,7 @@
 extends Node
 ## REST client for cmd/api. Adds the bearer token, unwraps the envelope (core/api_response.gd)
-## and retries once after refreshing the token on 401. Concurrent 401s share one refresh.
+## and retries once after refreshing the token on 401. Concurrent 401s share one refresh, and a
+## 401 for a request sent with a token that has since been replaced retries without refreshing.
 ## A 401 is returned to callers only when the session is really gone (no refresh token, or the
 ## server rejected it); a refresh that failed for network/server reasons is reported as
 ## AUTH_REFRESH_FAILED (status 0) and keeps the tokens, so callers show "retry", not Login.
@@ -22,8 +23,12 @@ func post_json(path: String, body: Variant = {}) -> Dictionary:
 
 
 func request(method: int, path: String, body: Variant = null, auth: bool = true, retry: bool = true) -> Dictionary:
+	var sent_with := Session.access_token
 	var res := await _send(method, path, body, auth)
 	if res.status == 401 and auth and retry and Session.refresh_token != "":
+		if Session.access_token != sent_with and Session.access_token != "":
+			# A refresh finished while this request was in flight: just retry with the new token.
+			return await _send(method, path, body, auth)
 		match await refresh_tokens():
 			ApiResponse.REFRESH_OK:
 				res = await _send(method, path, body, auth)
