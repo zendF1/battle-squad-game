@@ -187,3 +187,228 @@ func test_simulate_matches_server_process_move() -> void:
 			energy = r[1]
 			eq(pos, Vector2(float(step["x"]), float(step["y"])), "position after Move to %s" % step["targetX"])
 			eq(energy, int(step["energy"]), "energy after Move to %s" % step["targetX"])
+
+
+## Fake server for the loop tests: processMove, the 150 ms action rate limit, fixed one-way
+## latencies and in-order delivery.
+class FakeNet:
+	var s
+	var up := 0.0
+	var down := 0.0
+	var srv_pos := Vector2.ZERO
+	var srv_energy := 0
+	var last_action := -100.0
+	var to_server: Array = [] # [arrive_at, cmd]
+	var to_client: Array = [] # [arrive_at, pos, energy, seq]
+
+	func send(now: float, cmd: Dictionary) -> void:
+		to_server.append([now + up, cmd])
+
+	func step(now: float) -> void:
+		while not to_server.is_empty() and to_server[0][0] <= now:
+			var m: Array = to_server.pop_front()
+			if m[0] - last_action < 0.15:
+				continue # dropped by the rate limit, no answer
+			last_action = m[0]
+			var r: Array = s.simulate(srv_pos, srv_energy, float(m[1]["targetX"]))
+			srv_pos = r[0]
+			srv_energy = r[1]
+			to_client.append([m[0] + down, srv_pos, srv_energy, int(m[1]["seq"])])
+		while not to_client.is_empty() and to_client[0][0] <= now:
+			var a: Array = to_client.pop_front()
+			s.on_server_moved(a[1], a[2], a[3])
+
+
+## Mimics match_screen._process: hold right until hold_until, send at most every 250 ms.
+## Returns the time MoveSync first settled or lost track after the release (-1 if never).
+func _run_until_resolved(s, net, t_end: float, hold_until: float) -> float:
+	var now := 0.0
+	var dt := 1.0 / 60.0
+	var since_action := 10.0
+	var released := false
+	while now < t_end:
+		since_action += dt
+		if now < hold_until:
+			s.hold(1, dt)
+		elif not released:
+			s.release()
+			released = true
+		var cmd: Dictionary = s.update(now, since_action >= 0.25)
+		if not cmd.is_empty():
+			net.send(now, cmd)
+			since_action = 0.0
+		net.step(now)
+		if released and (s.is_settled() or s.needs_resync()):
+			return now
+		now += dt
+	return -1.0
+
+
+func test_rtt_longer_than_ack_timeout_still_resolves() -> void:
+	# With a 1.2 s round trip every newest command times out before its answer. Answers to
+	# older commands must not reset the re-send count, or Shoot waits for the whole turn.
+	var s = _sync(100, 100)
+	var net := FakeNet.new()
+	net.s = s
+	net.up = 0.6
+	net.down = 0.6
+	net.srv_pos = Vector2(100, 60)
+	net.srv_energy = 100
+	var at := _run_until_resolved(s, net, 15.0, 0.3)
+	check(at >= 0.0 and at <= 4.0, "settled or needs_resync within 4 s (got %.2f)" % at)
+
+
+func test_older_answer_keeps_retry_count() -> void:
+	var s = _sync(100, 100)
+	_send_right_then_left(s) # seq 1 at 0.0, seq 2 at 0.3
+	eq(s.update(1.4, true).get("seq"), 3, "re-send 1 of B")
+	s.on_server_moved(Vector2(130, 60), 85, 1) # only A answered
+	eq(s.update(2.5, true).get("seq"), 4, "re-send 2")
+	eq(s.update(3.6, true), {}, "no third re-send")
+	check(s.needs_resync(), "lost although A was answered in between")
+
+
+func _lose(s) -> void:
+	_silence_until_resync(s) # seq 1..3 for 100 → 120, all unanswered
+	s.mark_resync_requested() # controller sends Reconnect: its snapshot covers seq <= 3
+
+
+func test_snapshot_older_than_a_newer_move_keeps_it_in_the_replay() -> void:
+	var s = _sync(100, 100)
+	_lose(s)
+	s.on_server_moved(Vector2(120, 60), 90, 3) # late answer to the newest re-send unlocks
+	check(s.is_settled(), "unlocked by the late answer")
+	s.walk_px(1, 30)
+	s.release()
+	eq(s.update(3.6, true).get("seq"), 4, "seq 4 sent after the Reconnect")
+	s.apply_snapshot(Vector2(120, 60), 90) # taken before the server saw seq 4
+	eq(s.position, Vector2(150, 60), "seq 4 replayed on top of the snapshot")
+	eq(s.energy, 75, "90 - round(30 * 0.5)")
+	check(not s.is_settled(), "seq 4 still unanswered: Shoot must wait")
+	s.on_server_moved(Vector2(150, 60), 75, 4)
+	check(s.is_settled(), "settled after seq 4's answer")
+
+
+func test_snapshot_after_late_ack_unlock_changes_nothing() -> void:
+	var s = _sync(100, 100)
+	_lose(s)
+	s.on_server_moved(Vector2(120, 60), 90, 3)
+	s.take_changes()
+	s.apply_snapshot(Vector2(120, 60), 90)
+	check(s.is_settled(), "still settled")
+	eq(s.position, Vector2(120, 60), "snapshot position")
+	eq(s.take_changes(), {"position": Vector2(120, 60), "energy": 90}, "re-reported for the rebuilt view")
+
+
+func test_two_outstanding_resyncs_each_cover_their_own_commands() -> void:
+	var s = _sync(100, 100)
+	_lose(s)
+	s.mark_resync_requested() # RESYNC_RETRY: a second Reconnect, still covering seq <= 3
+	s.apply_snapshot(Vector2(120, 60), 90) # answer to the first Reconnect
+	check(s.is_settled(), "unlocked by the first snapshot")
+	s.walk_px(-1, 10)
+	s.release()
+	eq(s.update(7.0, true), {"direction": "left", "targetX": 110.0, "seq": 4}, "seq 4 after both Reconnects")
+	s.apply_snapshot(Vector2(120, 60), 90) # answer to the second Reconnect, taken before seq 4
+	eq(s.position, Vector2(110, 60), "seq 4 kept in the replay")
+	check(not s.is_settled(), "seq 4 still unanswered")
+
+
+func test_unrequested_snapshot_covers_everything_sent() -> void:
+	var s = _sync(100, 100)
+	s.walk_px(1, 20)
+	s.release()
+	s.update(0.0, true)
+	s.apply_snapshot(Vector2(118, 60), 91) # e.g. after a terrain version mismatch
+	check(s.is_settled(), "nothing left in flight")
+	eq(s.position, Vector2(118, 60), "snapshot position")
+
+
+func test_resend_keeps_the_original_direction() -> void:
+	var s = _sync(100, 100)
+	_send_right_then_left(s)
+	eq(s.update(1.5, true), {"direction": "left", "targetX": 120.0, "seq": 3}, "re-send of the left leg")
+
+
+func test_queued_resend_spends_no_retry_until_sent() -> void:
+	var s = _sync(100, 100)
+	s.walk_px(1, 20)
+	s.release()
+	s.update(0.0, true)
+	eq(s.update(1.1, false), {}, "re-send queued, rate limited")
+	s.update(2.2, false)
+	s.update(3.3, false)
+	check(not s.needs_resync(), "only one command ever left: not lost")
+	eq(s.update(3.4, true).get("seq"), 2, "re-send leaves at 3.4")
+	eq(s.update(4.3, true), {}, "silence is timed from 3.4, not from when it was queued")
+	eq(s.update(4.5, true).get("seq"), 3, "second re-send after 1 s of silence")
+
+
+func test_queued_resend_dropped_when_original_answered() -> void:
+	var s = _sync(100, 100)
+	s.walk_px(1, 20)
+	s.release()
+	s.update(0.0, true)
+	s.update(1.1, false) # re-send of seq 1 queued
+	check(s.has_unsent(), "re-send waiting")
+	s.on_server_moved(Vector2(120, 60), 90, 1)
+	check(not s.has_unsent(), "re-send dropped: its original is answered")
+	check(s.is_settled(), "settled")
+	eq(s.update(1.5, true), {}, "nothing sent")
+
+
+func test_answer_older_than_applied_one_is_ignored() -> void:
+	var s = _sync(100, 100)
+	s.walk_px(1, 20)
+	s.release()
+	s.update(0.0, true)
+	s.walk_px(1, 20)
+	s.release()
+	s.update(0.3, true)
+	s.on_server_moved(Vector2(140, 60), 80, 2)
+	s.on_server_moved(Vector2(120, 60), 90, 1)
+	eq(s.position, Vector2(140, 60), "seq 1 after seq 2 ignored")
+	eq(s.energy, 80, "energy from seq 2")
+
+
+func test_answer_without_seq_takes_the_oldest_command() -> void:
+	var s = _sync(100, 100)
+	s.walk_px(1, 20)
+	s.release()
+	s.update(0.0, true)
+	s.walk_px(1, 20)
+	s.release()
+	s.update(0.3, true)
+	s.on_server_moved(Vector2(120, 60), 90, 0)
+	eq(s.position, Vector2(140, 60), "second command replayed on the first's answer")
+	check(not s.is_settled(), "one still in flight")
+	s.on_server_moved(Vector2(140, 60), 80, 0)
+	check(s.is_settled(), "settled")
+
+
+func test_energy_runs_out_mid_segment() -> void:
+	var s = _sync(100, 10)
+	s.walk_px(1, 50)
+	eq(s.position, Vector2(120, 60), "capped at moveEnergy * 2")
+	eq(s.energy, 0, "all energy spent")
+	s.release()
+	eq(s.update(0.0, true).get("targetX"), 120.0, "target is the capped end")
+	s.walk_px(1, 5)
+	eq(s.update(0.3, true), {}, "nothing more to send at energy 0")
+	s.on_server_moved(Vector2(118, 60), 1, 1) # server ended 2 px short with 1 left
+	s.walk_px(1, 5)
+	eq(s.position, Vector2(120, 60), "open walk re-capped by the server's energy 1")
+
+
+func test_reset_forgets_commands_in_flight() -> void:
+	var s = _sync(100, 100)
+	_send_right_then_left(s)
+	s.update(1.5, true) # re-send in flight too
+	s.reset(Vector2(200, 60), 50) # TurnStarted
+	check(s.is_settled(), "nothing in flight after reset")
+	eq(s.position, Vector2(200, 60), "turn start position")
+	eq(s.energy, 50, "turn start energy")
+	eq(s.update(9.0, true), {}, "no re-send of the old turn's commands")
+	s.walk_px(1, 10)
+	s.release()
+	eq(s.update(9.3, true).get("seq"), 4, "seqs keep counting up")
