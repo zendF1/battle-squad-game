@@ -1,0 +1,63 @@
+extends "res://tests/test_case.gd"
+
+const HistoryPager := preload("res://screens/home/history_pager.gd")
+
+
+static func _page(from: int, n: int) -> Array:
+	var out: Array = []
+	for i in n:
+		out.append({"matchId": "m%d" % (from + i), "result": "win"})
+	return out
+
+
+func test_pages_until_short_page() -> void:
+	var p := HistoryPager.new(2)
+	eq(p.begin(), "/player/match-history?page=1&limit=2", "first page")
+	eq(p.begin(), "", "one request at a time")
+	eq(p.finish({"ok": true, "data": _page(0, 2)}), 2, "added")
+	check(p.can_load(), "full page: more")
+	eq(p.begin(), "/player/match-history?page=2&limit=2", "second page")
+	p.finish({"ok": true, "data": _page(2, 1)})
+	check(p.done, "short page ends")
+	eq(p.begin(), "", "nothing after the end")
+	eq(p.rows.size(), 3, "rows")
+
+
+func test_failed_page_is_retried() -> void:
+	var p := HistoryPager.new(20)
+	p.begin()
+	p.finish({"ok": false, "status": 0, "message": "network error"}, "Không kết nối được server")
+	eq(p.error, "Không kết nối được server", "error kept")
+	check(not p.loading and not p.done, "can retry")
+	eq(p.begin(), "/player/match-history?page=1&limit=20", "same page")
+	eq(p.error, "", "error cleared on retry")
+
+
+func test_null_page_and_duplicates() -> void:
+	var p := HistoryPager.new(2)
+	p.begin()
+	p.finish({"ok": true, "data": _page(0, 2)})
+	p.begin()
+	eq(p.finish({"ok": true, "data": [{"matchId": "m1"}, {"matchId": "m9"}]}), 1, "shifted row skipped")
+	p.begin()
+	p.finish({"ok": true, "data": null})
+	check(p.done, "null page is empty")
+	eq(p.rows.size(), 3, "rows")
+	p.reset()
+	eq(p.rows.size(), 0, "reset")
+	eq(p.begin(), "/player/match-history?page=1&limit=2", "from the start")
+
+
+func test_row_text() -> void:
+	var t := HistoryPager.row_text({"matchId": "m", "mode": "pvp_1v1", "mapId": "desert", "result": "loss",
+		"expGained": 40, "coinGained": 1250, "ratingChange": -12, "playedAt": "2026-10-15T08:05:00Z"}, 420)
+	eq(t["result"], "Thua", "result")
+	eq(t["tone"], "loss", "tone")
+	eq(t["mode"], "Đấu 1v1", "mode")
+	eq(t["map"], "desert", "map")
+	eq(t["exp"], "+40 EXP", "exp")
+	eq(t["coin"], "+1.250 xu", "coin")
+	eq(t["rating"], "-12", "rating")
+	eq(t["date"], "15/10 15:05", "local date (UTC+7)")
+	eq(HistoryPager.row_text({"result": "draw", "mode": "custom_x"}, 0)["result"], "Hoà", "draw")
+	eq(HistoryPager.row_text({"result": "win", "mode": "custom_x", "ratingChange": 8}, 0)["mode"], "custom_x", "unknown mode raw")
