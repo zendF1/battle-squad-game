@@ -1,5 +1,8 @@
 extends Node2D
 ## One player, drawn at its feet (server Position is the first solid pixel under the feet).
+## Above the name: the markers of its active status effects (match/status_effects.gd).
+
+const Status := preload("res://match/status_effects.gd")
 
 const BODY := Vector2(28, 40) # server PlayerHeight = 40
 const TEAM_COLORS := {1: Color(0.25, 0.55, 1.0), 2: Color(1.0, 0.35, 0.3)}
@@ -12,6 +15,7 @@ var hp := 0
 var max_hp := 1
 
 var _tween: Tween
+var _status: Label
 
 
 func setup(p: Dictionary, me: bool) -> void:
@@ -25,6 +29,15 @@ func setup(p: Dictionary, me: bool) -> void:
 	name_label.size = Vector2(160, 24)
 	name_label.position = Vector2(-80, -BODY.y - 40)
 	add_child(name_label)
+	_status = Label.new()
+	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_status.size = Vector2(200, 24)
+	_status.position = Vector2(-100, -BODY.y - 66)
+	_status.add_theme_color_override("font_color", Color(0.75, 0.9, 1))
+	_status.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	_status.add_theme_constant_override("outline_size", 4)
+	add_child(_status)
+	set_status(p.get("statusEffects"))
 	set_hp(int(p.get("hp", 0)), int(p.get("maxHp", 1)))
 	if not bool(p.get("isAlive", true)):
 		set_dead()
@@ -35,6 +48,15 @@ func set_hp(value: int, max_value: int = -1) -> void:
 	if max_value > 0:
 		max_hp = max_value
 	queue_redraw()
+
+
+## effects: the player's statusEffects list (null or [] clears the markers).
+func set_status(effects: Variant) -> void:
+	_status.text = Status.marker_text(effects)
+
+
+func status_text() -> String:
+	return _status.text
 
 
 func set_dead() -> void:

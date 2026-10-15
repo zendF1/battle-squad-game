@@ -3,6 +3,8 @@ extends Node2D
 ## replays ShotResolved, and predicts only the local player's walk (MoveSync). Every match
 ## event that arrives during a replay waits until the replay ends, and the turn clock is paused
 ## from the shot until the next timer event, so the HUD never runs ahead of the animation.
+## Items: instant ones (medkit, wind_stopper) go out as UseItem through the same commit path as
+## a shot but leave the turn open; shot items arm the next Shoot (actionMode "item").
 ## See docs/superpowers/specs/2026-10-15-godot-client-roadmap-design.md.
 
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
@@ -16,14 +18,20 @@ const AimInput := preload("res://match/aim/aim_input.gd")
 const MoveSync := preload("res://match/move/move_sync.gd")
 const Hud := preload("res://match/hud.gd")
 const Skills := preload("res://match/skills.gd")
+const Items := preload("res://match/items.gd")
+const Status := preload("res://match/status_effects.gd")
 
 const ACTION_INTERVAL := 0.25 # server drops actions closer than 150 ms
-const MOVE_ACK_GAP := 0.16 # Shoot/EndTurn wait this long after the last answer to a Move
+const MOVE_ACK_GAP := 0.16 # Shoot/EndTurn/UseItem wait this long after the last answer to a Move
 # Both waits are measured with Time.get_ticks_usec() from the moment they start, not by summing
 # frame deltas: a long frame right before an answer is read would count time from before it.
 const OTHER_WALK_SPEED := 90.0
 const OTHER_WALK_MAX_SEC := 1.0 # a bot fires 1.5 s after its Move: finish the walk before that
 const SHOT_ACK_TIMEOUT := 3.0
+const ITEM_ACK_TIMEOUT := 1.5 # input waits this long for ItemUsed after a UseItem
+const TELEPORT_SEC := 0.3
+const WEAPON := "weapon"
+const SKILL := "skill"
 const RESYNC_RETRY := 3.0 # re-ask for MatchStateSync if none arrived
 const TURN_SECONDS := 20
 
@@ -34,14 +42,16 @@ var _current := ""
 var _wind := {"direction": 0, "power": 0.0}
 var _ended := false
 var _deferred: Array = []
-var _awaiting_shot := 0.0 # seconds left for the server to answer a sent Shoot/EndTurn
-var _committing := false # Shoot/EndTurn requested: input locked until the turn moves on
-var _commit_sent := false # ...and sent: no more Moves this turn
+var _awaiting_ack := 0.0 # seconds left for the server to answer a sent Shoot/EndTurn/UseItem
+var _awaiting_item := "" # the instant item a sent UseItem waits for ("" for Shoot/EndTurn)
+var _committing := false # an action requested: input locked until it is answered
+var _commit_sent := false # a Shoot/EndTurn sent: no more Moves this turn
 var _resync_in := 0.0 # seconds before asking for MatchStateSync again
 var _turn_resolved := false # this turn's shot was answered: the server takes no more actions
 var _move_ack_at := -10_000_000 # Time.get_ticks_usec() when the last PlayerMoved for my Moves was handled
 var _disconnected := false
-var _skill_armed := false # my next Shoot uses the skill; local only, back to weapon after a fire
+var _armed := WEAPON # what my next Shoot fires: WEAPON, SKILL or a shot item id; local only
+var _turn_index := -1
 
 var _mask := TerrainMask.new()
 var _moves := MoveSync.new()
@@ -54,7 +64,7 @@ var _shot_player: ShotPlayer
 var _hud: Hud
 
 var _hold_dir := 0
-var _action_at := -10_000_000 # Time.get_ticks_usec() when my last Move/Shoot/EndTurn was sent
+var _action_at := -10_000_000 # Time.get_ticks_usec() when my last Move/Shoot/EndTurn/UseItem was sent
 
 
 func _ready() -> void:
@@ -89,6 +99,8 @@ func _ready() -> void:
 	_hud.end_turn_pressed.connect(_on_end_turn)
 	_hud.weapon_pressed.connect(_on_weapon_pressed)
 	_hud.skill_pressed.connect(_on_skill_pressed)
+	_hud.item_pressed.connect(_on_item_pressed)
+	_aim.fire_column.connect(_on_fire_column)
 	_hud.leave_pressed.connect(_on_leave)
 
 	var snap: Dictionary = Router.match_snapshot
@@ -100,12 +112,13 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if _awaiting_shot > 0.0:
-		_awaiting_shot -= delta
-		if _awaiting_shot <= 0.0:
-			# The server ignored the Shoot/EndTurn: give control back.
+	if _awaiting_ack > 0.0:
+		_awaiting_ack -= delta
+		if _awaiting_ack <= 0.0:
+			# The server ignored the Shoot/EndTurn/UseItem: give control back.
 			_committing = false
 			_commit_sent = false
+			_awaiting_item = ""
 			_refresh_controls()
 	# Once the shot is answered the server takes no Moves until TurnStarted: sending one (e.g.
 	# a walk after SHOT_ACK_TIMEOUT gave control back, then a late ShotResolved) would only
@@ -156,6 +169,7 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 		view.setup(_players[id], id == _me)
 		_views[id] = view
 	_wind = snap.get("wind", _wind)
+	_turn_index = int(snap.get("turnIndex", _turn_index))
 	var energy := int(_players.get(_me, {}).get("moveEnergy", 0))
 	if is_sync and _players.has(_me) and _players[_me].has("position"):
 		# Every MatchStateSync goes through MoveSync. lastMoveSeq (absent on an older server: -1)
@@ -175,8 +189,9 @@ func _set_current(player_id: String, move_energy: int, continuing: bool = false)
 	_hold_dir = 0
 	_resync_in = 0.0
 	if not continuing:
-		_skill_armed = false # every turn starts with the weapon
-		_awaiting_shot = 0.0
+		_armed = WEAPON # every turn starts with the weapon
+		_awaiting_ack = 0.0
+		_awaiting_item = ""
 		_committing = false
 		_commit_sent = false
 		_turn_resolved = false
@@ -203,19 +218,32 @@ func _can_act() -> bool:
 		and not _moves.needs_resync()
 
 
+## Also drops the armed mode back to the weapon when it can no longer be fired: I cannot act,
+## the skill is not charged, or the armed item is no longer in players[me].items.
 func _refresh_controls() -> void:
 	var can := _can_act()
+	var me: Dictionary = _players.get(_me, {})
+	# The server takes no Shoot from a frozen player (only EndTurn and UseItem).
+	var can_shoot := can and not Status.has(me.get("statusEffects"), "freeze")
 	_hud.set_controls_enabled(can)
 	var skill := _my_skill()
-	var energy := int(_players.get(_me, {}).get("skillEnergy", 0))
-	var skill_usable := can and not skill.is_empty() and Skills.is_ready(energy)
-	if not skill_usable:
-		_skill_armed = false
-	_hud.set_actions("" if skill.is_empty() else Skills.button_label(skill, energy), can, skill_usable, _skill_armed)
-	var offsets: Array = skill["offsets"] if _skill_armed else [0.0]
+	var energy := int(me.get("skillEnergy", 0))
+	var skill_usable := can_shoot and not skill.is_empty() and Skills.is_ready(energy)
+	var armed_ok := _armed == WEAPON or (_armed == SKILL and skill_usable)
+	var buttons: Array = []
+	for it in Items.hand(me.get("items")):
+		var usable := can if Items.is_instant(it["id"]) else can_shoot
+		buttons.append({"id": it["id"], "label": Items.button_label(it["id"], it["count"]), "enabled": usable})
+		if it["id"] == _armed and usable and not Items.is_instant(it["id"]):
+			armed_ok = true
+	if not armed_ok:
+		_armed = WEAPON
+	_hud.set_actions("" if skill.is_empty() else Skills.button_label(skill, energy), can, skill_usable, _armed, buttons)
+	var offsets: Array = skill["offsets"] if _armed == SKILL else [0.0]
 	if _aim.preview_offsets != offsets:
 		_aim.preview_offsets = offsets
-	_aim.enabled = can
+	_aim.target_column = Items.needs_target_x(_armed)
+	_aim.enabled = can_shoot
 	if can:
 		_aim.shooter_pos = _views[_me].position
 		_aim.terrain = _mask
@@ -241,6 +269,10 @@ func _apply(event: String, data: Variant) -> void:
 	match event:
 		"TurnStarted":
 			_wind = data.get("wind", _wind)
+			var index := int(data.get("turnIndex", _turn_index + 1))
+			if index > _turn_index and _players.has(_current):
+				_tick_status(_current) # the server ticks the effects at the end of their target's turn
+			_turn_index = maxi(index, _turn_index)
 			var energies: Dictionary = data.get("skillEnergy", {})
 			for id in energies:
 				if _players.has(id):
@@ -252,7 +284,7 @@ func _apply(event: String, data: Variant) -> void:
 		"PlayerMoved":
 			_on_player_moved(data)
 		"ShotResolved":
-			_awaiting_shot = 0.0
+			_awaiting_ack = 0.0
 			var shooter := str(data.get("shooterId", ""))
 			if _players.has(shooter) and data.has("skillEnergy"):
 				_players[shooter]["skillEnergy"] = int(data["skillEnergy"]) # 0 after a skill
@@ -267,9 +299,32 @@ func _apply(event: String, data: Variant) -> void:
 				if not bool(e.get("isAlive", true)):
 					_kill(str(e.get("playerId", "")))
 		"ItemUsed":
-			_wind = data.get("wind", _wind)
+			_on_item_used(data)
 		"MatchEnded":
 			_on_match_ended(data)
+
+
+## ItemUsed carries every player's state (hp, items, statusEffects...) and the wind. For a shot
+## item it comes before ShotResolved and the Shoot stays pending; for my UseItem it is the answer.
+func _on_item_used(d: Dictionary) -> void:
+	_wind = d.get("wind", _wind)
+	var players = d.get("players")
+	if players is Dictionary:
+		for id in players:
+			if not _players.has(id) or not players[id] is Dictionary:
+				continue
+			var p: Dictionary = players[id].duplicate(true)
+			_players[id] = p
+			_views[id].set_hp(int(p.get("hp", 0)), int(p.get("maxHp", -1)))
+			_views[id].set_status(p.get("statusEffects"))
+			if not bool(p.get("isAlive", true)):
+				_views[id].set_dead()
+	_hud.set_wind(int(_wind.get("direction", 0)), float(_wind.get("power", 0.0)))
+	if str(d.get("playerId", "")) == _me and _awaiting_item != "" and str(d.get("itemId", "")) == _awaiting_item:
+		_awaiting_item = ""
+		_awaiting_ack = 0.0
+		_committing = false
+	_refresh_controls()
 
 
 func _on_player_moved(d: Dictionary) -> void:
@@ -335,10 +390,15 @@ func _on_shot_event(e: Dictionary) -> void:
 			var to := _vec(e["to"])
 			_set_pos(id, to)
 			if _views.has(id):
-				_views[id].move_to(to, 0.0)
+				if e.get("from") is Dictionary:
+					_views[id].position = _vec(e["from"])
+				_views[id].move_to(to, TELEPORT_SEC, Tween.TRANS_SINE)
 		"die":
 			_kill(id)
 		"status":
+			if _players.has(id):
+				_players[id]["statusEffects"] = Status.apply(_players[id].get("statusEffects"), str(e.get("effectId", "")), int(e.get("turns", 1)))
+				_views[id].set_status(_players[id]["statusEffects"])
 			var text := Skills.status_label(str(e.get("effectId", "")))
 			if text != "":
 				_popup(id, text, Color(0.7, 0.85, 1))
@@ -376,14 +436,29 @@ func _on_match_ended(d: Dictionary) -> void:
 func _on_fire(angle: float, power: float) -> void:
 	if not _can_act():
 		return
-	var mode := "skill" if _skill_armed else "weapon"
-	_skill_armed = false # back to the weapon after a fire, even if the server drops the Shoot
+	var data := {"angle": angle, "power": power, "actionMode": WEAPON}
+	if _armed == SKILL:
+		data["actionMode"] = SKILL
+	elif Items.is_known(_armed):
+		data = Items.shot_payload(_armed, angle, power)
+	await _fire(data)
+
+
+## air_strike: the release point's x is the drop column.
+func _on_fire_column(target_x: float) -> void:
+	if not _can_act() or not Items.needs_target_x(_armed):
+		return
+	await _fire(Items.shot_payload(_armed, 0.0, 0.0, target_x))
+
+
+func _fire(data: Dictionary) -> void:
+	_armed = WEAPON # back to the weapon after a fire, even if the server drops the Shoot
 	_hud.pause_timer() # the server stops the clock once it takes the shot
-	await _commit_action("Shoot", {"angle": angle, "power": power, "actionMode": mode})
+	await _commit_action("Shoot", data)
 
 
 func _on_weapon_pressed() -> void:
-	_skill_armed = false
+	_armed = WEAPON
 	_refresh_controls()
 
 
@@ -396,12 +471,25 @@ func _on_skill_pressed() -> void:
 		_refresh_controls()
 		return
 	if bool(skill["needs_aim"]):
-		_skill_armed = not _skill_armed
+		_armed = WEAPON if _armed == SKILL else SKILL
 		_refresh_controls()
 		return
-	_skill_armed = false
-	_hud.pause_timer()
-	await _commit_action("Shoot", {"angle": Skills.NO_AIM_ANGLE, "power": Skills.NO_AIM_POWER, "actionMode": "skill"})
+	await _fire({"angle": Skills.NO_AIM_ANGLE, "power": Skills.NO_AIM_POWER, "actionMode": SKILL})
+
+
+## An instant item is used at once (UseItem; the turn goes on). A shot item toggles armed mode
+## (_refresh_controls drops it again if it cannot be fired).
+func _on_item_pressed(item_id: String) -> void:
+	var items = _players.get(_me, {}).get("items")
+	if not _can_act() or not items is Array or not items.has(item_id):
+		_refresh_controls()
+		return
+	if Items.is_instant(item_id):
+		_armed = WEAPON
+		await _commit_action("UseItem", {"itemId": item_id}, item_id)
+		return
+	_armed = WEAPON if _armed == item_id else item_id
+	_refresh_controls()
 
 
 func _on_end_turn() -> void:
@@ -410,7 +498,7 @@ func _on_end_turn() -> void:
 	await _commit_action("EndTurn", {})
 
 
-## Sends Shoot/EndTurn once:
+## Sends Shoot/EndTurn/UseItem once:
 ## - every Move has been answered (MoveSync.is_settled), so the server fires from the position
 ##   on screen; a dropped Move is re-sent first;
 ## - ACTION_INTERVAL has passed since the last action; and
@@ -424,7 +512,9 @@ func _on_end_turn() -> void:
 ## cannot slip in between. The wait is bounded by MoveSync's re-send limit (about 3 s). The
 ## answer timeout starts only once the command is actually sent. If MoveSync loses track of
 ## the server (needs_resync), the pending command is cancelled instead (see _request_resync).
-func _commit_action(event: String, data: Dictionary) -> void:
+## instant_item names the item of a UseItem: it does not end the turn, so Moves may follow once
+## its ItemUsed (or ITEM_ACK_TIMEOUT) unlocks input; Shoot/EndTurn stop Moves for the turn.
+func _commit_action(event: String, data: Dictionary, instant_item: String = "") -> void:
 	_committing = true
 	_hold_dir = 0
 	_moves.release()
@@ -434,10 +524,14 @@ func _commit_action(event: String, data: Dictionary) -> void:
 		await get_tree().process_frame
 	if not _is_my_turn() or not _committing or _turn_resolved:
 		return
-	_commit_sent = true
+	if instant_item == "":
+		_commit_sent = true
+		_awaiting_ack = SHOT_ACK_TIMEOUT
+	else:
+		_awaiting_item = instant_item
+		_awaiting_ack = ITEM_ACK_TIMEOUT
 	GameSocket.send(event, data)
 	_mark_action()
-	_awaiting_shot = SHOT_ACK_TIMEOUT
 
 
 ## The server's position is unknown (Moves unanswered after every re-send). Cancel any
@@ -500,6 +594,11 @@ func _set_hp(id: String, hp: int) -> void:
 		return
 	_players[id]["hp"] = hp
 	_views[id].set_hp(hp)
+
+
+func _tick_status(id: String) -> void:
+	_players[id]["statusEffects"] = Status.tick(_players[id].get("statusEffects"))
+	_views[id].set_status(_players[id]["statusEffects"])
 
 
 func _kill(id: String) -> void:

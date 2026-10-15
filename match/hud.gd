@@ -1,5 +1,5 @@
 extends Control
-## Match HUD: turn, timer, wind, weapon/skill row, move buttons + energy, aim readout, end turn,
+## Match HUD: turn, timer, wind, weapon/skill/item row, move buttons + energy, aim readout, end turn,
 ## result panel.
 ## Layout is containers only, so it adapts to wide phones (stretch aspect "expand").
 
@@ -8,6 +8,7 @@ signal move_released
 signal end_turn_pressed
 signal weapon_pressed
 signal skill_pressed
+signal item_pressed(item_id: String)
 signal leave_pressed
 
 const Ui := preload("res://ui/ui.gd")
@@ -22,6 +23,8 @@ var _right: Button
 var _end_turn: Button
 var _weapon: Button
 var _skill: Button
+var _actions: HBoxContainer
+var _item_buttons: Array[Button] = [] # reused; one per item left in hand
 var _result: Control
 var _result_title: Label
 var _result_detail: Label
@@ -58,17 +61,19 @@ func _ready() -> void:
 
 	rows.add_child(_expand_v(_ignore(Control.new())))
 
-	# Weapon / skill: toggle buttons whose pressed look always shows the controller's mode
-	# (set_actions), whatever a click did to them.
-	var actions: HBoxContainer = _ignore(HBoxContainer.new())
-	actions.add_theme_constant_override("separation", 16)
-	actions.alignment = BoxContainer.ALIGNMENT_END
-	rows.add_child(actions)
-	_weapon = _mode_button("Vũ khí", weapon_pressed)
-	actions.add_child(_weapon)
-	_skill = _mode_button("", skill_pressed)
+	# Weapon / skill / items: toggle buttons whose pressed look always shows the controller's
+	# mode (set_actions), whatever a click did to them.
+	_actions = _ignore(HBoxContainer.new())
+	_actions.add_theme_constant_override("separation", 16)
+	_actions.alignment = BoxContainer.ALIGNMENT_END
+	rows.add_child(_actions)
+	_weapon = _mode_button("Vũ khí")
+	_weapon.pressed.connect(weapon_pressed.emit)
+	_actions.add_child(_weapon)
+	_skill = _mode_button("")
+	_skill.pressed.connect(skill_pressed.emit)
 	_skill.visible = false
-	actions.add_child(_skill)
+	_actions.add_child(_skill)
 
 	var bottom: HBoxContainer = _ignore(HBoxContainer.new())
 	bottom.add_theme_constant_override("separation", 16)
@@ -117,7 +122,11 @@ func pause_timer() -> void:
 	_timer_running = false
 
 
+## No wind (power 0, e.g. while a wind_stopper lasts) reads "Gió: tắt".
 func set_wind(direction: int, power: float) -> void:
+	if power <= 0.0:
+		_wind.text = "Gió: tắt"
+		return
 	var arrow := "→" if direction > 0 else ("←" if direction < 0 else "·")
 	_wind.text = "Gió %s %.1f" % [arrow, power]
 
@@ -138,15 +147,31 @@ func set_controls_enabled(enabled: bool) -> void:
 		_aim.text = ""
 
 
-## The weapon/skill row. skill_label empty hides the skill button (unknown character). The
-## label carries the energy, so it is shown even while both buttons are disabled.
-func set_actions(skill_label: String, weapon_enabled: bool, skill_enabled: bool, armed: bool) -> void:
+## The weapon/skill/item row. skill_label empty hides the skill button (unknown character). The
+## label carries the energy, so it is shown even while every button is disabled. armed is
+## "weapon", "skill" or the armed item id. items: [{"id", "label", "enabled"}], the items left.
+func set_actions(skill_label: String, weapon_enabled: bool, skill_enabled: bool, armed: String, items: Array = []) -> void:
 	_skill.visible = skill_label != ""
 	_skill.text = skill_label
 	_weapon.disabled = not weapon_enabled
 	_skill.disabled = not skill_enabled
-	_weapon.set_pressed_no_signal(not armed)
-	_skill.set_pressed_no_signal(armed)
+	_weapon.set_pressed_no_signal(armed == "weapon")
+	_skill.set_pressed_no_signal(armed == "skill")
+	while _item_buttons.size() < items.size():
+		var b := _mode_button("")
+		b.pressed.connect(func() -> void: item_pressed.emit(str(b.get_meta("item_id", ""))))
+		_actions.add_child(b)
+		_item_buttons.append(b)
+	for i in _item_buttons.size():
+		var b := _item_buttons[i]
+		b.visible = i < items.size()
+		if not b.visible:
+			continue
+		var it: Dictionary = items[i]
+		b.set_meta("item_id", it["id"])
+		b.text = str(it["label"])
+		b.disabled = not bool(it["enabled"])
+		b.set_pressed_no_signal(armed == it["id"])
 
 
 func show_result(title: String, detail: String) -> void:
@@ -163,12 +188,11 @@ func _hold_button(text: String, dir: int) -> Button:
 	return b
 
 
-func _mode_button(text: String, sig: Signal) -> Button:
+func _mode_button(text: String) -> Button:
 	var b := Ui.button(text, 26)
 	b.custom_minimum_size = Vector2(200, 72)
 	b.toggle_mode = true
 	b.focus_mode = FOCUS_NONE
-	b.pressed.connect(sig.emit)
 	return b
 
 
