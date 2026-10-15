@@ -1,7 +1,8 @@
 extends Node2D
 ## Slingshot aiming (demo match_screen.dart): drag anywhere, release to fire. Dragging down-right
 ## shoots up-left. Releasing inside the cancel zone around the shooter cancels. Everything here
-## is local; nothing touches the network until fire.
+## is local; nothing touches the network until fire. The preview draws one arc per entry of
+## preview_offsets (degrees added to the aimed angle), e.g. three for triple_shot.
 
 signal aim_changed(angle: float, power: float)
 signal fire(angle: float, power: float)
@@ -20,20 +21,35 @@ var shooter_pos := Vector2.ZERO
 var terrain
 var wind_dir := 0
 var wind_power := 0.0
+var preview_offsets: Array = [0.0]:
+	set(value):
+		preview_offsets = value
+		_ensure_lines()
+		if _dragging:
+			_update(_pointer)
 
 var _dragging := false
 var _start := Vector2.ZERO
 var _angle := 0.0
 var _power := 0.0
 var _in_cancel := false
-var _line: Line2D
+var _pointer := Vector2.ZERO
+var _lines: Array[Line2D] = [] # reused; grows to the largest preview_offsets seen
 
 
 func _ready() -> void:
-	_line = Line2D.new()
-	_line.width = 4.0
-	_line.default_color = Color(1, 1, 1, 0.55)
-	add_child(_line)
+	_ensure_lines()
+
+
+func _ensure_lines() -> void:
+	if not is_inside_tree():
+		return
+	while _lines.size() < preview_offsets.size():
+		var line := Line2D.new()
+		line.width = 4.0
+		line.default_color = Color(1, 1, 1, 0.55)
+		add_child(line)
+		_lines.append(line)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -53,11 +69,16 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _update(pointer: Vector2) -> void:
+	_pointer = pointer
 	var d := pointer - _start
 	_angle = clampf(rad_to_deg(atan2(d.y, -d.x)), 0.0, 180.0)
 	_power = clampf(d.length() / 2.0, 0.0, 100.0)
 	_in_cancel = pointer.distance_to(shooter_pos + BODY_CENTER) <= CANCEL_RADIUS
-	_line.points = Trajectory.predict(shooter_pos, _angle, _power, wind_dir, wind_power, terrain)
+	for i in _lines.size():
+		if i < preview_offsets.size():
+			_lines[i].points = Trajectory.predict(shooter_pos, _angle + float(preview_offsets[i]), _power, wind_dir, wind_power, terrain)
+		elif not _lines[i].points.is_empty():
+			_lines[i].points = PackedVector2Array()
 	queue_redraw()
 	aim_changed.emit(_angle, _power)
 
@@ -74,8 +95,8 @@ func _release() -> void:
 func _reset() -> void:
 	_dragging = false
 	_in_cancel = false
-	if _line:
-		_line.points = PackedVector2Array()
+	for line in _lines:
+		line.points = PackedVector2Array()
 	queue_redraw()
 
 
