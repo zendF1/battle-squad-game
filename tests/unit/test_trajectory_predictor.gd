@@ -1,0 +1,68 @@
+extends "res://tests/test_case.gd"
+
+const Trajectory := preload("res://match/aim/trajectory_predictor.gd")
+const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
+const FIXTURE := "res://tests/fixtures/terrain_parity.json"
+
+
+func _flat(w: int, h: int, ground_y: int):
+	var m := TerrainMask.new()
+	m.width = w
+	m.height = h
+	m.solid.resize(w * h)
+	m.solid.fill(0)
+	for y in range(ground_y, h):
+		for x in w:
+			m.solid[y * w + x] = TerrainMask.SOLID
+	m.destructible = m.solid.duplicate()
+	return m
+
+
+func test_first_step_matches_server_integration() -> void:
+	# SimulateProjectile: v = power*6 = 60 up; v.y += 200*0.02 → -56; y += -56*0.02 = -1.12
+	var pts := Trajectory.predict(Vector2.ZERO, 90.0, 10.0, 0, 0.0, null, 10)
+	eq(pts[0], Vector2.ZERO, "starts at origin")
+	near(pts[1].y, -1.12, 1e-6, "first step y")
+	near(pts[1].x, 0.0, 1e-6, "first step x")
+
+
+func test_wind_pushes_projectile() -> void:
+	var calm := Trajectory.predict(Vector2.ZERO, 45.0, 50.0, 0, 0.0, null, 60)
+	var windy := Trajectory.predict(Vector2.ZERO, 45.0, 50.0, 1, 2.0, null, 60)
+	check(windy[-1].x > calm[-1].x, "right wind moves the end point right")
+
+
+func test_stops_at_terrain() -> void:
+	var m = _flat(400, 100, 60)
+	var pts := Trajectory.predict(Vector2(100, 59), 45.0, 20.0, 0, 0.0, m, 500)
+	check(m.is_solid(pts[-1].x, pts[-1].y), "last point is inside the ground")
+	check(pts.size() < 500, "stopped before the point limit")
+
+
+func test_thin_wall_inside_one_step_stops_preview() -> void:
+	# 600 px/s moves 12 px per step: 100 → 112 (gravity adds 0.08 px down, so the segment is
+	# 12.0003 px → 4 samples). The server samples x = 103, 106, 109, 112 and hits the 2 px wall
+	# at x = 108..109 on the 109 sample; checking only the step end (112) would fly through it.
+	var m = _flat(400, 100, 90)
+	for y in range(0, 90):
+		m.solid[y * m.width + 108] = TerrainMask.SOLID
+		m.solid[y * m.width + 109] = TerrainMask.SOLID
+	var pts := Trajectory.simulate(100.0, 50.0, 600.0, 0.0, 0.0, m, 50)
+	near(pts[-1].x, 109.0, 1e-3, "stops at the wall")
+	eq(pts.size(), 2, "hit during the first step")
+
+
+func test_matches_server_shots() -> void:
+	var f: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(FIXTURE))
+	var m := TerrainMask.new()
+	m.load_snapshot(f["after"])
+	var hits := 0
+	for s in f["shots"]:
+		if not s["hit"]:
+			continue
+		hits += 1
+		var pts := Trajectory.simulate(float(s["x"]), float(s["y"]), float(s["vx"]), float(s["vy"]),
+			float(s["windForce"]), m, 100000)
+		near(pts[-1].x, float(s["hitX"]), 1e-3, "hit x of shot from %s,%s" % [s["x"], s["y"]])
+		near(pts[-1].y, float(s["hitY"]), 1e-3, "hit y of shot from %s,%s" % [s["x"], s["y"]])
+	check(hits >= 30, "fixture has enough hitting shots (%d)" % hits)
