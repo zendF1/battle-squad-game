@@ -6,7 +6,11 @@ extends Control
 ##   "Mua ở Shop");
 ## - "Kho đồ": the eight battle items with their GET /player/inventory counts;
 ## - "Lịch sử": GET /player/match-history, 20 per page, "Tải thêm" until a short page.
-## Every request runs in the background; failures show inline with "Thử lại".
+## Each sub-tab loads the first time it is shown; characters come from the PlayerState cache
+## shared with the Shop. Every request runs in the background; failures show inline with
+## "Thử lại". A pending stat draft survives a characters reload while that character's server
+## state is unchanged; an allocate with no clear answer (no response, 5xx) reloads the
+## characters and starts the draft over before another "Cộng điểm" is possible.
 
 signal open_shop_characters
 
@@ -20,8 +24,9 @@ const Progress := preload("res://screens/home/progress.gd")
 const StatDraft := preload("res://screens/home/stat_draft.gd")
 const HistoryPager := preload("res://screens/home/history_pager.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
+const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
 
-const RESET_COST := 500 # coin; server game_settings default (no API exposes it)
+const UNCLEAR := "Không rõ kết quả, đã tải lại"
 const SUB_TABS := ["Nhân vật", "Kho đồ", "Lịch sử"]
 
 ## Where dialogs and toasts go (the Home shell); defaults to this tab.
@@ -30,13 +35,23 @@ var overlay: Control
 var _characters: Variant = null # characterId -> GET /player/characters entry, null until loaded
 var _inventory: Variant = null # itemId -> count, null until loaded
 var _drafts := {} # characterId -> StatDraft
+var _characters_version := -1 # PlayerState.characters_version shown
+var _reset_cost := StatDraft.DEFAULT_RESET_COST.duplicate()
 var _selected := LoadoutModel.DEFAULT_CHARACTER
-var _stale := false
+var _inv_stale := false
+var _inv_loading := false
 var _busy := false # an allocate or reset request is running
+## After an allocate that succeeded or got no clear answer: the character whose draft starts
+## over once characters loaded after that point arrive, and the note shown then. Until then
+## "Cộng điểm" stays disabled, so the same points are never sent twice.
+var _reload_id := ""
+var _reload_after := 0 # characters_version to exceed
+var _reload_note := ""
 var _pager := HistoryPager.new(20)
 var _history_started := false
+var _armed := false # loads start once Home has set which tab is shown
 var _sub := 0
-var _gen := {} # "characters" / "inventory" -> latest request number; older answers are dropped
+var _gen := {} # "inventory" -> latest request number; older answers are dropped
 
 # Player card
 var _avatar: PanelContainer
@@ -108,12 +123,12 @@ func _ready() -> void:
 
 	PlayerState.changed.connect(_render_player)
 	PlayerState.assets_dirty.connect(_on_assets_dirty)
+	PlayerState.characters_changed.connect(_on_characters_changed)
 	visibility_changed.connect(_on_visibility_changed)
 	_render_player()
-	_render_characters()
+	_on_characters_changed() # whatever the Shop or an earlier Home already loaded
 	_render_inventory()
-	_load_characters()
-	_load_inventory()
+	_arm.call_deferred()
 
 
 # ── Player card ─────────────────────────────────────────────────────────────
@@ -214,26 +229,42 @@ func _show_sub(index: int) -> void:
 	for i in _pages.size():
 		_pages[i].visible = i == index
 	Ui.select_tab(_sub_tabs, index)
-	if index == 2 and not _history_started:
-		_history_started = true
-		_load_history()
+	_ensure_loaded()
+
+
+## Loads what the shown sub-tab needs and has not got (or got before an asset change).
+func _ensure_loaded() -> void:
+	if _armed and is_visible_in_tree():
+		_load_shown()
+
+
+## Deferred from _ready(): Home hides the tabs it does not show right after adding them.
+func _arm() -> void:
+	_armed = true
+	_ensure_loaded()
+
+
+func _load_shown() -> void:
+	match _sub:
+		0:
+			PlayerState.need_characters()
+		1:
+			if (_inventory == null or _inv_stale) and not _inv_loading:
+				_load_inventory()
+		2:
+			if not _history_started:
+				_history_started = true
+				_load_history()
 
 
 func _on_assets_dirty() -> void:
-	_stale = true
-	if is_visible_in_tree():
-		_reload()
+	if _inventory != null:
+		_inv_stale = true
+	_ensure_loaded()
 
 
 func _on_visibility_changed() -> void:
-	if is_visible_in_tree() and _stale:
-		_reload()
-
-
-func _reload() -> void:
-	_stale = false
-	_load_characters()
-	_load_inventory()
+	_ensure_loaded()
 
 
 # ── Nhân vật ────────────────────────────────────────────────────────────────
@@ -294,7 +325,7 @@ func _build_characters_page() -> Control:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = SIZE_EXPAND_FILL
 	actions.add_child(spacer)
-	_reset = Ui.button("Tẩy điểm (%d xu)" % RESET_COST, 24)
+	_reset = Ui.button("Tẩy điểm (%s)" % StatDraft.cost_text(_reset_cost), 24)
 	_reset.custom_minimum_size = Vector2(260, 68)
 	_reset.pressed.connect(_on_reset)
 	actions.add_child(_reset)
@@ -312,27 +343,33 @@ func _small_button(text_value: String, on_press: Callable) -> Button:
 	return b
 
 
-func _load_characters() -> void:
-	var gen := _next_gen("characters")
-	_char_status.show_loading()
-	var res: Dictionary = await Api.get_json("/player/characters")
-	if not is_inside_tree() or gen != _gen["characters"]:
-		return
-	var data = res.data if res.ok else null
-	if data is Dictionary and data.get("characters") is Array:
-		_characters = {}
-		for c in data["characters"]:
-			if c is Dictionary and str(c.get("characterId", "")) != "":
-				_characters[str(c["characterId"])] = c
-		_drafts.clear()
-		for id in _characters:
-			_drafts[id] = StatDraft.new(_characters[id])
-		if not _characters.has(_selected) and not _characters.is_empty():
-			_selected = _first_owned()
-		_char_status.clear()
+## PlayerState.characters_changed: loading / error state, and a new answer applied.
+func _on_characters_changed() -> void:
+	if PlayerState.characters_error != "":
+		_char_status.show_error(PlayerState.characters_error, PlayerState.load_characters)
+	elif PlayerState.characters_loading:
+		_char_status.show_loading()
 	else:
-		_char_status.show_error(ErrorText.load_failed(res) if not res.ok else "Dữ liệu nhân vật không hợp lệ", _load_characters)
+		_char_status.clear()
+	if PlayerState.characters == null or PlayerState.characters_version == _characters_version:
+		return
+	_characters_version = PlayerState.characters_version
+	_characters = {}
+	for c in PlayerState.characters["characters"]:
+		if c is Dictionary and str(c.get("characterId", "")) != "":
+			_characters[str(c["characterId"])] = c
+	_reset_cost = StatDraft.reset_cost(PlayerState.characters)
+	_reset.text = "Tẩy điểm (%s)" % StatDraft.cost_text(_reset_cost)
+	var drop := ""
+	if _reload_id != "" and _characters_version > _reload_after:
+		drop = _reload_id # its points are (or may be) spent: start that draft over
+	_drafts = StatDraft.rebuild(_drafts, _characters, drop)
+	if not _characters.has(_selected) and not _characters.is_empty():
+		_selected = _first_owned()
 	_render_characters()
+	if drop != "":
+		_reload_id = ""
+		_set_busy(false, _reload_note)
 
 
 func _next_gen(source: String) -> int:
@@ -361,7 +398,7 @@ func _render_characters() -> void:
 		card.focus_mode = FOCUS_NONE
 		card.custom_minimum_size = Vector2(0, 200)
 		card.size_flags_horizontal = SIZE_EXPAND_FILL
-		card.disabled = not owned
+		card.disabled = _busy or not owned
 		Ui.toggle_style(card, Ui.CARD_BG, Ui.CARD_SELECTED)
 		card.pressed.connect(_on_select.bind(id))
 		_cards_row.add_child(card)
@@ -471,19 +508,24 @@ func _on_allocate() -> void:
 	var res: Dictionary = await Api.post_json("/player/character/allocate-stats", draft.payload())
 	if not is_inside_tree():
 		return
+	if IdempotencyKeys.is_definite(res.status) and not res.ok:
+		_set_busy(false, ErrorText.stats(res), true) # refused: nothing was spent
+		return
+	# Spent, or (no answer, 5xx) maybe spent: stay busy until a reload rebuilds the draft.
+	_reload_id = draft.character_id
+	_reload_after = PlayerState.characters_version
+	_reload_note = "" if res.ok else UNCLEAR
+	_set_busy(true, "" if res.ok else "Không rõ kết quả, đang tải lại...")
 	if res.ok:
-		_set_busy(false, "")
 		Ui.toast(overlay, "Đã cộng điểm")
-		_load_characters()
-	else:
-		_set_busy(false, ErrorText.stats(res), true)
+	PlayerState.load_characters()
 
 
 func _on_reset() -> void:
 	var id := _selected
 	var m := Modal.new()
 	m.open(overlay, "Tẩy điểm")
-	m.add_text("Tẩy toàn bộ điểm đã cộng của %s với giá %d xu? Điểm sẽ được hoàn lại để cộng lại." % [_display_name(id), RESET_COST])
+	m.add_text("Tẩy toàn bộ điểm đã cộng của %s với giá %s? Điểm sẽ được hoàn lại để cộng lại." % [_display_name(id), StatDraft.cost_text(_reset_cost)])
 	m.add_button("Huỷ", m.close)
 	m.add_button("Tẩy điểm", _confirm_reset.bind(m, id))
 
@@ -503,7 +545,7 @@ func _confirm_reset(m: Modal, id: String) -> void:
 		PlayerState.assets_changed() # wallet (the fee) and, via assets_dirty, the characters
 		return
 	if is_instance_valid(m):
-		m.set_message(ErrorText.stats(res))
+		m.set_message(ErrorText.stats(res, str(_reset_cost["currency"])))
 		m.set_busy(false)
 
 
@@ -535,10 +577,13 @@ func _build_inventory_page() -> Control:
 
 func _load_inventory() -> void:
 	var gen := _next_gen("inventory")
+	_inv_stale = false
+	_inv_loading = true
 	_inv_status.show_loading()
 	var res: Dictionary = await Api.get_json("/player/inventory")
 	if not is_inside_tree() or gen != _gen["inventory"]:
 		return
+	_inv_loading = false
 	var counts = LoadoutModel.parse_inventory(res.data) if res.ok else null
 	if counts is Dictionary:
 		_inventory = counts

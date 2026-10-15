@@ -3,10 +3,13 @@ extends Control
 ## - "Vật phẩm": item offers (GET /shop/offers) with "Còn N lượt" from GET /shop/purchases;
 ## - "Nhân vật": character_unlock offers per character, "Đã sở hữu" from GET /player/characters;
 ## - "Kim cương": GET /iap/products, "Nạp" → POST /iap/verify with a mock purchase token.
-## "Mua" asks "Xác nhận mua", then POST /shop/purchase {offerId, idempotencyKey}. The key (and
-## the mock token) is reused until a definite answer (core/idempotency_keys.gd), so a retry
-## after a network error or a 5xx can never charge twice. Requests never block the screen; one
-## purchase runs at a time.
+## "Mua" asks "Xác nhận mua", then PlayerState.buy() sends POST /shop/purchase {offerId,
+## idempotencyKey}. The key (and the mock token) is reused until a definite answer
+## (core/idempotency_keys.gd), so a retry after a network error or a 5xx can never charge twice;
+## PlayerState settles it even when Home is freed mid-request. An answer replaying an earlier
+## request shows "Giao dịch trước đã hoàn tất" instead of a new success. Each sub-tab loads its
+## data the first time it is shown; owned characters come from the PlayerState cache shared with
+## "Hồ sơ". Requests never block the screen; one purchase runs at a time.
 
 const Ui := preload("res://ui/ui.gd")
 const Modal := preload("res://ui/modal.gd")
@@ -25,11 +28,11 @@ const GEMS := 2
 const SOURCES := {
 	"offers": "/shop/offers",
 	"purchases": "/shop/purchases",
-	"characters": "/player/characters",
 	"products": "/iap/products",
 }
-## The sources each sub-tab needs before it can show anything useful.
-const NEEDS := [["offers", "purchases"], ["offers", "characters"], ["products"]]
+## The sources each sub-tab needs ("characters": the PlayerState cache).
+const NEEDS := [["offers", "purchases"], ["offers", "purchases", "characters"], ["products"]]
+const REPLAYED := "Giao dịch trước đã hoàn tất"
 
 ## Where dialogs and toasts go (the Home shell); defaults to this tab.
 var overlay: Control
@@ -37,8 +40,9 @@ var overlay: Control
 var _data := {} # source -> parsed data (absent until loaded)
 var _errors := {} # source -> Vietnamese message of the last failed load
 var _gen := {} # source -> number of the latest request; older answers are dropped
-var _busy := "" # offerId or productId being bought
-var _stale := false
+var _loading := {} # source -> true while its request runs
+var _stale := {} # source -> true when the data shown predates an asset change
+var _armed := false # loads start once Home has set which tab is shown
 var _sub := ITEMS
 
 var _sub_tabs: Array[Button]
@@ -81,10 +85,12 @@ func _ready() -> void:
 		_flows.append(flow)
 
 	PlayerState.assets_dirty.connect(_on_assets_dirty)
+	PlayerState.characters_changed.connect(_on_characters_changed)
+	PlayerState.busy_changed.connect(_on_busy_changed)
 	visibility_changed.connect(_on_visibility_changed)
+	_on_characters_changed() # whatever "Hồ sơ" or an earlier Home already loaded
 	show_section(ITEMS)
-	for source in SOURCES:
-		_load(source)
+	_arm.call_deferred()
 
 
 func show_section(index: int) -> void:
@@ -93,6 +99,27 @@ func show_section(index: int) -> void:
 		_pages[i].visible = i == index
 	Ui.select_tab(_sub_tabs, index)
 	_render_status()
+	_ensure_loaded()
+
+
+## Loads what the shown sub-tab needs and has not got (or got before an asset change).
+func _ensure_loaded() -> void:
+	if _armed and is_visible_in_tree():
+		_load_shown()
+
+
+## Deferred from _ready(): Home hides the tabs it does not show right after adding them.
+func _arm() -> void:
+	_armed = true
+	_ensure_loaded()
+
+
+func _load_shown() -> void:
+	for source in NEEDS[_sub]:
+		if source == "characters":
+			PlayerState.need_characters()
+		elif (not _data.has(source) or _stale.has(source)) and not _loading.has(source) and not _errors.has(source):
+			_load(source)
 
 
 # ── Loading ─────────────────────────────────────────────────────────────────
@@ -101,13 +128,18 @@ func _load(source: String) -> void:
 	_gen[source] = int(_gen.get(source, 0)) + 1
 	var gen: int = _gen[source]
 	_errors.erase(source)
+	_stale.erase(source)
+	_loading[source] = true
 	_render_status()
 	var res: Dictionary = await Api.get_json(SOURCES[source])
 	if not is_inside_tree() or gen != _gen[source]:
 		return
+	_loading.erase(source)
 	var parsed = _parse(source, res.data) if res.ok else null
 	if parsed != null:
 		_data[source] = parsed
+		if source == "purchases":
+			PlayerState.note_purchases(parsed)
 	else:
 		_errors[source] = ErrorText.load_failed(res) if not res.ok else "Dữ liệu cửa hàng không hợp lệ"
 	_render()
@@ -119,8 +151,6 @@ static func _parse(source: String, data: Variant) -> Variant:
 			return ShopModel.parse_offers(data)
 		"purchases":
 			return ShopModel.parse_purchases(data)
-		"characters":
-			return LoadoutModel.parse_characters(data)
 		"products":
 			return ShopModel.parse_products(data)
 	return null
@@ -128,33 +158,38 @@ static func _parse(source: String, data: Variant) -> Variant:
 
 func _reload_failed() -> void:
 	for source in NEEDS[_sub]:
-		if _errors.has(source):
+		if source == "characters":
+			if PlayerState.characters_error != "":
+				PlayerState.load_characters()
+		elif _errors.has(source):
 			_load(source)
 
 
 func _on_assets_dirty() -> void:
-	_stale = true
-	if is_visible_in_tree():
-		_reload_assets()
+	for source in ["offers", "purchases"]:
+		if _data.has(source):
+			_stale[source] = true
+	_ensure_loaded()
 
 
 func _on_visibility_changed() -> void:
-	if is_visible_in_tree() and _stale:
-		_reload_assets()
+	_ensure_loaded()
 
 
-func _reload_assets() -> void:
-	_stale = false
-	for source in ["offers", "purchases", "characters"]:
-		_load(source)
+func _on_characters_changed() -> void:
+	var owned = LoadoutModel.parse_characters(PlayerState.characters)
+	if owned != null:
+		_data["characters"] = owned
+	_render()
 
 
 func _render_status() -> void:
 	if _load_status == null:
 		return
 	for source in NEEDS[_sub]:
-		if _errors.has(source):
-			_load_status.show_error(_errors[source], _reload_failed)
+		var error: String = PlayerState.characters_error if source == "characters" else _errors.get(source, "")
+		if error != "":
+			_load_status.show_error(error, _reload_failed)
 			return
 	for source in NEEDS[_sub]:
 		if not _data.has(source):
@@ -183,14 +218,14 @@ func _render_items() -> void:
 		box.add_child(Ui.text(ShopModel.offer_name(o), 26))
 		box.add_child(Ui.text("x%d" % int(o.get("quantity", 1)), 24, Ui.TONES["draw"]))
 		box.add_child(Ui.text(ShopModel.price_text(o), 26))
-		var left := ShopModel.UNLIMITED
-		if _data.has("purchases"):
-			left = ShopModel.remaining(o, _data["purchases"])
-			var note := ShopModel.remaining_text(left)
-			if note != "":
-				box.add_child(Ui.text(note, 20, Ui.TEXT_DIM))
+		var left := ShopModel.remaining(o, _data["purchases"]) if _data.has("purchases") else ShopModel.UNLIMITED
+		# The limit line is always reserved, so every card has the same height and the "Mua"
+		# buttons line up.
+		var note := Ui.text(ShopModel.remaining_text(left), 20, Ui.TEXT_DIM)
+		note.custom_minimum_size.y = 28
+		box.add_child(note)
 		var buy := _action_button("Mua")
-		buy.disabled = _busy != "" or left == 0
+		buy.disabled = PlayerState.busy_id != "" or left == 0
 		buy.pressed.connect(_on_buy.bind(o))
 		box.add_child(buy)
 
@@ -224,7 +259,7 @@ func _render_characters() -> void:
 		for o in g["offers"]:
 			var buy := _action_button(ShopModel.price_text(o))
 			var left := ShopModel.remaining(o, _data["purchases"]) if _data.has("purchases") else ShopModel.UNLIMITED
-			buy.disabled = _busy != "" or left == 0
+			buy.disabled = PlayerState.busy_id != "" or left == 0
 			buy.pressed.connect(_on_buy.bind(o))
 			box.add_child(buy)
 
@@ -245,7 +280,7 @@ func _render_gems() -> void:
 		box.add_child(bonus)
 		box.add_child(Ui.label(ShopModel.product_price(p), 26))
 		var top_up := _action_button("Nạp")
-		top_up.disabled = _busy != ""
+		top_up.disabled = PlayerState.busy_id != ""
 		top_up.pressed.connect(_on_top_up.bind(p))
 		box.add_child(top_up)
 
@@ -275,7 +310,7 @@ static func _empty(message: String) -> Label:
 # ── Buying ──────────────────────────────────────────────────────────────────
 
 func _on_buy(offer: Dictionary) -> void:
-	if _busy != "":
+	if PlayerState.busy_id != "":
 		return
 	var m := Modal.new()
 	m.open(overlay, "Xác nhận mua")
@@ -290,57 +325,47 @@ func _confirm_buy(m: Modal, offer: Dictionary) -> void:
 
 
 func _purchase(offer: Dictionary) -> void:
-	if _busy != "":
+	if PlayerState.busy_id != "":
 		return
-	var offer_id := str(offer.get("offerId", ""))
-	var target := PlayerState.key_target(offer_id)
-	var body := {"offerId": offer_id, "idempotencyKey": PlayerState.purchase_keys.key_for(target)}
-	_set_busy(offer_id)
 	_action_status.show_loading("Đang mua %s..." % ShopModel.offer_name(offer))
-	var res: Dictionary = await Api.post_json("/shop/purchase", body)
-	PlayerState.purchase_keys.settle(target, res.status)
+	var res: Dictionary = await PlayerState.buy(str(offer.get("offerId", "")))
 	if not is_inside_tree():
 		return
-	_set_busy("")
+	if res.code == "BUSY":
+		_action_status.clear()
+		return
 	if res.ok:
 		_action_status.clear()
-		Ui.toast(overlay, "Mua thành công!")
-		PlayerState.assets_changed()
+		Ui.toast(overlay, REPLAYED if res.replay else "Mua thành công!")
 		return
 	var retry := _purchase.bind(offer) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.purchase(res, str(offer.get("priceCurrency", ""))), retry)
 
 
 func _on_top_up(product: Dictionary) -> void:
-	if _busy != "":
+	if PlayerState.busy_id != "":
 		return
-	var product_id := str(product.get("productId", ""))
-	var target := PlayerState.key_target(product_id)
-	var body := {
-		"productId": product_id,
-		"platform": ShopModel.iap_platform(OS.get_name()),
-		"purchaseToken": PlayerState.iap_tokens.key_for(target),
-	}
-	_set_busy(product_id)
 	_action_status.show_loading("Đang nạp %s..." % ShopModel.product_title(product))
-	var res: Dictionary = await Api.post_json("/iap/verify", body)
-	PlayerState.iap_tokens.settle(target, res.status)
+	var res: Dictionary = await PlayerState.top_up(str(product.get("productId", "")), ShopModel.iap_platform(OS.get_name()))
 	if not is_inside_tree():
 		return
-	_set_busy("")
+	if res.code == "BUSY":
+		_action_status.clear()
+		return
 	if res.ok:
 		_action_status.clear()
 		var granted := int(res.data.get("gemGranted", 0)) if res.data is Dictionary else 0
-		Ui.toast(overlay, "Nạp thành công! +%d 💎" % granted if granted > 0 else "Nạp thành công!")
-		PlayerState.refresh()
+		if res.replay:
+			Ui.toast(overlay, REPLAYED)
+		else:
+			Ui.toast(overlay, "Nạp thành công! +%d 💎" % granted if granted > 0 else "Nạp thành công!")
 		return
 	var retry := _on_top_up.bind(product) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.iap(res), retry)
 
 
 ## Deferred: the press that started a purchase must not free its own button mid-signal.
-func _set_busy(id: String) -> void:
-	_busy = id
+func _on_busy_changed() -> void:
 	_render_cards.call_deferred()
 
 

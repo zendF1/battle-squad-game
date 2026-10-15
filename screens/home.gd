@@ -2,7 +2,8 @@ extends Control
 ## Home shell: one top bar with the player (avatar letter, name, "Lv N"), the tabs "Chơi",
 ## "Hồ sơ", "Shop", and the wallet ("💰 1.250", "💎 300") from the shared PlayerState. Each
 ## time Home is shown (first entry, back from Loadout or a match) the profile is refreshed in
-## the background; the bar shows the last known values meanwhile.
+## the background; the bar shows the last known values meanwhile. The cached characters are
+## marked stale too (a match changes their EXP), so the tab showing them reloads them once.
 
 const Ui := preload("res://ui/ui.gd")
 const Fmt := preload("res://core/fmt.gd")
@@ -37,6 +38,7 @@ func _ready() -> void:
 	add_child(root)
 	root.add_child(_build_top_bar())
 
+	PlayerState.characters_stale = true
 	var pages := Control.new()
 	pages.size_flags_vertical = SIZE_EXPAND_FILL
 	root.add_child(pages)
