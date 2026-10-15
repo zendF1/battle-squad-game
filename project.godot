@@ -20,6 +20,7 @@ config/icon="res://icon.svg"
 Config="*res://autoload/config.gd"
 Session="*res://autoload/session.gd"
 Api="*res://autoload/api.gd"
+PlayerState="*res://autoload/player_state.gd"
 GameSocket="*res://autoload/game_socket.gd"
 Router="*res://autoload/router.gd"
 

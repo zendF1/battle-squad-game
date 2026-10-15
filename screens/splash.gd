@@ -26,7 +26,7 @@ func _check_auth() -> void:
 		return
 	var res: Dictionary = await Api.get_json("/player/profile")
 	if res.ok and res.data is Dictionary:
-		Session.set_profile(str(res.data.get("playerId", "")), str(res.data.get("displayName", "")))
+		PlayerState.apply(res.data) # also updates Session's playerId / displayName
 		GameSocket.open()
 		Router.go(Router.HOME)
 	elif res.status == 401:
