@@ -84,6 +84,8 @@ func _show_tab(index: int) -> void:
 
 func _update_conn() -> void:
 	_conn.text = "● Online" if GameSocket.is_open() else "○ Đang kết nối..."
+	# A QuickPlay sent while offline would sit in an outbox that may never flush.
+	_quick_play.disabled = _pending or not GameSocket.is_open()
 
 
 func _on_quick_play() -> void:
@@ -108,7 +110,8 @@ func _on_event(event: String, data: Variant) -> void:
 			_pending = false
 			_timer.stop()
 			GameSocket.hold() # TurnStarted follows immediately; Match releases it
-			Router.match_snapshot = data
+			if data is Dictionary:
+				Router.match_snapshot = data
 			Router.go(Router.MATCH)
 		"RoomError":
 			if _pending:
@@ -125,7 +128,7 @@ func _resolve(message: String) -> void:
 	_pending = false
 	_timer.stop()
 	_status.text = message
-	_quick_play.disabled = false
+	_update_conn()
 
 
 static func _error_message(data: Variant) -> String:
