@@ -11,9 +11,9 @@ config_version=5
 [application]
 
 config/name="battle-squad-game"
+run/main_scene="res://screens/splash.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
-run/main_scene="res://screens/splash.tscn"
 
 [autoload]
 
