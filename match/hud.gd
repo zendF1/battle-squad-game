@@ -14,6 +14,7 @@ signal leave_pressed
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
+const Art := preload("res://ui/art.gd")
 
 const NAVY := Color(0.06, 0.09, 0.22, 0.78)
 const MODE_BG := Color(0.13, 0.2, 0.42, 0.9)
@@ -25,6 +26,7 @@ var _turn_panel: PanelContainer
 var _timer: Label
 var _timer_panel: PanelContainer
 var _wind: Label
+var _wind_arrow: TextureRect
 var _wind_bar: Control
 var _aim: Label
 var _aim_panel: PanelContainer
@@ -70,7 +72,7 @@ func _ready() -> void:
 	var top: HBoxContainer = _ignore(HBoxContainer.new())
 	top.add_theme_constant_override("separation", 16)
 	rows.add_child(top)
-	var leave := LobbyUi.pill_button("✕  Thoát", 24, 60)
+	var leave := LobbyUi.pill_button("Thoát", 24, 60, "close")
 	leave.add_theme_stylebox_override("normal", LobbyUi.box(NAVY, 30, 18, LobbyUi.PANEL_BORDER, 2))
 	leave.custom_minimum_size = Vector2(150, 60)
 	leave.pressed.connect(leave_pressed.emit)
@@ -97,9 +99,15 @@ func _ready() -> void:
 	var wind_col := Ui.vbox(4)
 	wind_col.mouse_filter = MOUSE_FILTER_IGNORE
 	wind_panel.add_child(wind_col)
+	var wind_row := Ui.hbox(8)
+	wind_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	wind_row.mouse_filter = MOUSE_FILTER_IGNORE
+	wind_col.add_child(wind_row)
+	wind_row.add_child(LobbyUi.text("Gió", 24, Color.WHITE, true))
+	_wind_arrow = LobbyUi.icon("arrow_right", 26)
+	wind_row.add_child(_wind_arrow)
 	_wind = LobbyUi.text("", 24, Color.WHITE, true)
-	_wind.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	wind_col.add_child(_wind)
+	wind_row.add_child(_wind)
 	_wind_bar = _ignore(Control.new())
 	_wind_bar.custom_minimum_size = Vector2(200, 14)
 	_wind_bar.draw.connect(_draw_wind_bar)
@@ -114,10 +122,10 @@ func _ready() -> void:
 	_actions.add_theme_constant_override("separation", 14)
 	_actions.alignment = BoxContainer.ALIGNMENT_END
 	rows.add_child(_actions)
-	_weapon = _mode_button("💣 Vũ khí")
+	_weapon = _mode_button("Vũ khí", "weapon")
 	_weapon.pressed.connect(weapon_pressed.emit)
 	_actions.add_child(_weapon)
-	_skill = _mode_button("")
+	_skill = _mode_button("", "skill")
 	_skill.pressed.connect(skill_pressed.emit)
 	_skill.visible = false
 	_actions.add_child(_skill)
@@ -126,9 +134,9 @@ func _ready() -> void:
 	var bottom: HBoxContainer = _ignore(HBoxContainer.new())
 	bottom.add_theme_constant_override("separation", 16)
 	rows.add_child(bottom)
-	_left = _hold_button("◀", -1)
+	_left = _hold_button("arrow_left", -1)
 	bottom.add_child(_left)
-	_right = _hold_button("▶", 1)
+	_right = _hold_button("arrow_right", 1)
 	bottom.add_child(_right)
 	var energy_panel: PanelContainer = _ignore(LobbyUi.panel(12, 18, NAVY))
 	energy_panel.size_flags_vertical = SIZE_SHRINK_CENTER
@@ -154,12 +162,14 @@ func _ready() -> void:
 	_aim.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_aim_panel.add_child(_aim)
 	_end_turn = Button.new()
-	_end_turn.text = "Hết lượt ⏭"
+	_end_turn.text = "Hết lượt"
+	LobbyUi.set_icon(_end_turn, "end_turn", 34)
+	_end_turn.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_end_turn.add_theme_constant_override("h_separation", 10)
 	_end_turn.add_theme_font_size_override("font_size", 30)
 	_end_turn.add_theme_font_override("font", LobbyUi.bold())
 	_end_turn.custom_minimum_size = Vector2(220, 110)
-	LobbyUi.style_button(_end_turn, Color(0.9, 0.42, 0.16), 24, 10, Color(1, 1, 1, 0.5), 3)
-	_end_turn.add_theme_stylebox_override("disabled", LobbyUi.box(Color(0.25, 0.22, 0.3, 0.6), 24, 10, Color(1, 1, 1, 0.12), 3))
+	LobbyUi.texture_button(_end_turn, "button_orange", 10)
 	_end_turn.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.35))
 	_end_turn.pressed.connect(end_turn_pressed.emit)
 	bottom.add_child(_end_turn)
@@ -206,11 +216,12 @@ func set_wind(direction: int, power: float) -> void:
 	_wind_dir = direction
 	_wind_power = power
 	_wind_bar.queue_redraw()
+	_wind_arrow.visible = power > 0.0 and direction != 0
 	if power <= 0.0:
-		_wind.text = "Gió: tắt"
+		_wind.text = "tắt"
 		return
-	var arrow := "→" if direction > 0 else ("←" if direction < 0 else "·")
-	_wind.text = "Gió %s %.1f" % [arrow, power]
+	_wind_arrow.texture = Art.icon("arrow_right" if direction > 0 else "arrow_left")
+	_wind.text = "%.1f" % power
 
 
 func set_energy(value: int) -> void:
@@ -244,7 +255,7 @@ func set_actions(skill_label: String, weapon_enabled: bool, skill_enabled: bool,
 	_weapon.set_pressed_no_signal(armed == "weapon")
 	_skill.set_pressed_no_signal(armed == "skill")
 	while _item_buttons.size() < items.size():
-		var b := _mode_button("")
+		var b := _mode_button("", "unknown")
 		b.pressed.connect(func() -> void: item_pressed.emit(str(b.get_meta("item_id", ""))))
 		_actions.add_child(b)
 		_item_buttons.append(b)
@@ -254,6 +265,8 @@ func set_actions(skill_label: String, weapon_enabled: bool, skill_enabled: bool,
 		if not b.visible:
 			continue
 		var it: Dictionary = items[i]
+		if b.get_meta("item_id", "") != it["id"]:
+			b.icon = Art.item_icon(str(it["id"]))
 		b.set_meta("item_id", it["id"])
 		b.text = str(it["label"])
 		b.disabled = not bool(it["enabled"])
@@ -266,8 +279,8 @@ func show_result(title: String, detail: String) -> void:
 	_result.visible = true
 
 
-func _hold_button(text: String, dir: int) -> Button:
-	var b := LobbyUi.round_button(text, 110, Color(0.2, 0.34, 0.66, 0.9), 40)
+func _hold_button(icon_name: String, dir: int) -> Button:
+	var b := LobbyUi.round_button(icon_name, 110, Color(0.2, 0.34, 0.66, 0.9), 0.42)
 	b.add_theme_stylebox_override("disabled", LobbyUi.box(Color(0.12, 0.15, 0.3, 0.55), 55, 0, Color(1, 1, 1, 0.25), 3))
 	b.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.35))
 	b.button_down.connect(move_pressed.emit.bind(dir))
@@ -275,10 +288,13 @@ func _hold_button(text: String, dir: int) -> Button:
 	return b
 
 
-## A toggle: navy normally, gold with dark text while it is the armed mode.
-func _mode_button(text: String) -> Button:
+## A toggle with an icon: navy normally, gold with dark text while it is the armed mode.
+func _mode_button(text: String, icon_name: String) -> Button:
 	var b := Button.new()
 	b.text = text
+	LobbyUi.set_icon(b, icon_name, 38)
+	b.add_theme_constant_override("h_separation", 8)
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.add_theme_font_size_override("font_size", 26)
 	b.add_theme_font_override("font", LobbyUi.bold())
 	b.custom_minimum_size = Vector2(200, 72)

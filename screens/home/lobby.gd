@@ -16,7 +16,8 @@ signal open_shop(section: int)
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
-const CharacterArt := preload("res://ui/character_art.gd")
+const CharacterView := preload("res://ui/character_view.gd")
+const Art := preload("res://ui/art.gd")
 const WalletPills := preload("res://ui/wallet_pills.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
@@ -47,7 +48,7 @@ var _player_status: Label
 var _conn: Label
 
 # Stage and info card
-var _art: CharacterArt
+var _art: CharacterView
 var _stage_name: Label
 var _stage_level: Label
 var _info_role: Label
@@ -140,6 +141,15 @@ func _build_player_block() -> Control:
 	_avatar_letter.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_avatar_letter.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_avatar.add_child(_avatar_letter)
+	var frame := NinePatchRect.new()
+	frame.texture = Art.texture(Art.ui_path("avatar_frame"))
+	var m: Array = Art.UI_BOXES["avatar_frame"]["margins"]
+	frame.patch_margin_left = m[0]
+	frame.patch_margin_top = m[1]
+	frame.patch_margin_right = m[2]
+	frame.patch_margin_bottom = m[3]
+	frame.mouse_filter = MOUSE_FILTER_IGNORE
+	_avatar.add_child(frame)
 	row.add_child(_avatar)
 	var col := Ui.vbox(6)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -173,7 +183,7 @@ func _render_player() -> void:
 	_name.text = display
 	_avatar_letter.text = display.substr(0, 1).to_upper() if display != "" else "?"
 	var tint: Color = AVATAR_COLORS[absi(hash(display)) % AVATAR_COLORS.size()]
-	_avatar.add_theme_stylebox_override("panel", LobbyUi.box(tint, 20, 0, Color(1, 1, 1, 0.9), 3))
+	_avatar.add_theme_stylebox_override("panel", LobbyUi.box(tint, 20, 0)) # the avatar_frame image draws the rim
 	var loaded := PlayerState.is_loaded()
 	_level_badge.visible = loaded
 	if loaded:
@@ -201,10 +211,10 @@ func _render_conn() -> void:
 
 func _build_shortcuts() -> Control:
 	var col := Ui.vbox(12)
-	col.add_child(LobbyUi.icon_button("👤", "Nhân vật", LobbyUi.ICON_COLORS["blue"], func(): open_profile.emit(ProfileTab.CHARACTERS)))
-	col.add_child(LobbyUi.icon_button("🎒", "Kho đồ", LobbyUi.ICON_COLORS["green"], func(): open_profile.emit(ProfileTab.INVENTORY)))
-	col.add_child(LobbyUi.icon_button("📜", "Lịch sử", LobbyUi.ICON_COLORS["purple"], func(): open_profile.emit(ProfileTab.HISTORY)))
-	col.add_child(LobbyUi.icon_button("🛒", "Shop", LobbyUi.ICON_COLORS["orange"], func(): open_shop.emit(ShopTab.ITEMS)))
+	col.add_child(LobbyUi.icon_button("characters", "Nhân vật", LobbyUi.ICON_COLORS["blue"], func(): open_profile.emit(ProfileTab.CHARACTERS)))
+	col.add_child(LobbyUi.icon_button("inventory", "Kho đồ", LobbyUi.ICON_COLORS["green"], func(): open_profile.emit(ProfileTab.INVENTORY)))
+	col.add_child(LobbyUi.icon_button("history", "Lịch sử", LobbyUi.ICON_COLORS["purple"], func(): open_profile.emit(ProfileTab.HISTORY)))
+	col.add_child(LobbyUi.icon_button("shop", "Shop", LobbyUi.ICON_COLORS["orange"], func(): open_shop.emit(ShopTab.ITEMS)))
 	return col
 
 
@@ -212,8 +222,7 @@ func _build_shortcuts() -> Control:
 ## coming later.
 func _build_chat() -> Control:
 	var b := Button.new()
-	LobbyUi.style_button(b, LobbyUi.PANEL, 18, 0, LobbyUi.PANEL_BORDER, 2)
-	b.add_theme_stylebox_override("hover", LobbyUi.box(Color(LobbyUi.PANEL.lightened(0.08), 0.7), 18, 0, LobbyUi.PANEL_BORDER, 2))
+	LobbyUi.texture_button(b, "panel", 0, true)
 	b.custom_minimum_size = Vector2(490, 172)
 	b.pressed.connect(func(): Ui.toast(self, FakeChat.COMING_SOON))
 	var col := Ui.vbox(2)
@@ -246,9 +255,8 @@ func _build_chat() -> Control:
 	row.add_child(_indent(hint, 12))
 	var send := LobbyUi.panel(0, 14, LobbyUi.ICON_COLORS["blue"])
 	send.custom_minimum_size = Vector2(56, 40)
-	var arrow := LobbyUi.text("➤", 20, Color.WHITE, true)
-	arrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var arrow := LobbyUi.icon("send", 28)
+	arrow.size_flags_horizontal = SIZE_SHRINK_CENTER
 	send.add_child(arrow)
 	row.add_child(send)
 	for c in [col, lines, input, row, hint, send, arrow]:
@@ -293,34 +301,25 @@ func _add_stage() -> void:
 	_stage_level.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	head.add_child(_stage_level)
 
-	_art = CharacterArt.new()
+	_art = CharacterView.new()
 	_art.position = Vector2((STAGE.x - 375) / 2, 142) # 2.5 px per art unit; feet on the pedestal
 	_art.size = Vector2(375, 400)
 	_art.idle = true
 	stage.add_child(_art)
 
 	for side in [-1, 1]:
-		var arrow := LobbyUi.round_button("◀" if side < 0 else "▶", 76, Color(0.05, 0.08, 0.2, 0.7), 32)
+		var arrow := LobbyUi.round_button("arrow_left" if side < 0 else "arrow_right", 76, Color(0.05, 0.08, 0.2, 0.7), 0.5)
 		arrow.position = Vector2(0 if side < 0 else STAGE.x - 76, 230) # beside the head, clear of the weapon
 		arrow.pressed.connect(_cycle.bind(side))
 		stage.add_child(arrow)
 
 
-## Oval layers, bottom to top: [radii, colour, y offset].
-const PEDESTAL := [
-	[Vector2(196, 50), Color(0.06, 0.1, 0.24, 0.9), 10.0],
-	[Vector2(186, 44), Color(0.28, 0.46, 0.8), 4.0],
-	[Vector2(178, 38), Color(0.55, 0.75, 1.0), 0.0],
-	[Vector2(150, 28), Color(0.78, 0.9, 1.0, 0.55), 0.0],
-]
+const PEDESTAL_AT := 528.0 # stage y of the pedestal centre (the character's feet)
 
 
 func _draw_pedestal(c: Control) -> void:
-	for layer in PEDESTAL:
-		var r: Vector2 = layer[0]
-		c.draw_set_transform(Vector2(STAGE.x / 2, 528 + layer[2]), 0.0, Vector2(1.0, r.y / r.x))
-		c.draw_circle(Vector2.ZERO, r.x, layer[1])
-	c.draw_set_transform(Vector2.ZERO)
+	var tex := Art.env("pedestal")
+	c.draw_texture(tex, Vector2(STAGE.x / 2, PEDESTAL_AT) - Art.PEDESTAL_CENTER) # assets/env/pedestal.png
 
 
 func _on_stage_input(event: InputEvent) -> void:
@@ -354,8 +353,7 @@ func _build_info_card() -> Control:
 	card.add_child(col)
 	_info_role = LobbyUi.text("", 28, Color.WHITE, true)
 	col.add_child(_info_role)
-	_info_skill = LobbyUi.text("", 22, Color(0.75, 0.9, 1.0))
-	col.add_child(_info_skill)
+	_info_skill = LobbyUi.icon_text(col, "skill", "", 22, Color(0.75, 0.9, 1.0), false, 26)
 	_info_stats = GridContainer.new()
 	_info_stats.columns = 2
 	_info_stats.add_theme_constant_override("h_separation", 16)
@@ -381,8 +379,8 @@ func _render_character() -> void:
 	_stage_name.text = info["name"]
 	_stage_level.text = level
 	_info_role.text = info["role"]
-	_info_skill.text = "⚡ Kỹ năng: %s" % info["skill"] if info["skill"] != "" else ""
-	_info_skill.visible = info["skill"] != ""
+	_info_skill.text = "Kỹ năng: %s" % info["skill"] if info["skill"] != "" else ""
+	_info_skill.get_parent().visible = info["skill"] != ""
 	Ui.clear(_info_stats)
 	_info_stats.visible = not info["stats"].is_empty()
 	for pair in info["stats"]:
@@ -411,7 +409,7 @@ func _build_mode_card() -> Control:
 	texts.add_child(_mode_name)
 	_mode_text = LobbyUi.text("", 22, Color(0.75, 0.9, 1.0))
 	texts.add_child(_mode_text)
-	var swap := LobbyUi.round_button("⇄", 68, LobbyUi.ICON_COLORS["blue"], 34)
+	var swap := LobbyUi.round_button("swap", 68, LobbyUi.ICON_COLORS["blue"], 0.6)
 	swap.size_flags_vertical = SIZE_SHRINK_CENTER
 	swap.pressed.connect(_next_mode)
 	row.add_child(swap)

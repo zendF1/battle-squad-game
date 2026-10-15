@@ -1,6 +1,9 @@
 extends Sprite2D
-## Draws a TerrainMask: the solid bytes are an L8 image colored by terrain.gdshader. An explosion
-## costs one byte edit pass (TerrainMask.destroy_circle) and one texture upload (refresh).
+## Draws a TerrainMask: the solid bytes are an L8 image coloured by terrain.gdshader with the
+## dirt and grass images (assets/terrain, via ui/art.gd). An explosion costs one byte edit pass
+## (TerrainMask.destroy_circle) and one texture upload (refresh).
+
+const Art := preload("res://ui/art.gd")
 
 var _mask
 var _image: Image
@@ -12,6 +15,9 @@ func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var mat := ShaderMaterial.new()
 	mat.shader = preload("res://match/terrain/terrain.gdshader")
+	mat.set_shader_parameter("dirt_tex", Art.terrain("dirt"))
+	mat.set_shader_parameter("grass_tex", Art.terrain("grass_edge"))
+	mat.set_shader_parameter("tuft_rows", Art.GRASS_TUFT_ROWS)
 	material = mat
 
 

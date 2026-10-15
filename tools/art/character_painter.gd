@@ -1,15 +1,12 @@
-extends Control
-## A character drawn in code (placeholder art until real sprites): a chibi body, head, eyes, a
-## hat and the character's weapon, in its own colours. It fits itself into its rect, feet at the
-## bottom centre, over a soft shadow. `idle` makes it bob gently. Used by the lobby; the Loadout
-## and Profile cards can use it too, and real sprites replace it here in one place.
+extends RefCounted
+## The code-drawn characters (bake source only, not used at runtime): a chibi body, head, eyes,
+## a hat and the character's weapon, in its own colours. tools/bake_art.gd renders every
+## animation frame and the portrait from here into assets/characters/<id>/.
 ##
-## The drawing itself is the static paint(), which draws onto any CanvasItem with a transform,
-## feet at the origin: the match (match/views/character_sprite.gd) draws the same art at body
-## size with a pose (walk, recoil, knocked out).
+## The art is drawn in UNITS: feet at the origin, up is -y, facing +x, about ART_HEIGHT units
+## tall. frame_pose() samples the animations (idle, walk, shoot, hurt, die) the match used to
+## animate in code.
 
-## The art is drawn in UNITS (feet at the origin, up is -y) and scaled to fit the rect.
-const UNITS := Vector2(150, 160)
 const OUTLINE := Color(0.07, 0.07, 0.12)
 const SKIN := Color(1.0, 0.82, 0.66)
 ## Height of the art in units, from the feet to the top of the tallest hat.
@@ -31,45 +28,38 @@ const MUZZLES := {
 	"rookie": Vector2(74, -72), "tanko": Vector2(90, -49), "spark": Vector2(47.5, -134), "flora": Vector2(49.5, -130),
 }
 
-@export var character_id := "rookie":
-	set(value):
-		character_id = value
-		queue_redraw()
-
-## Bob up and down (and redraw every frame while visible).
-@export var idle := false:
-	set(value):
-		idle = value
-		set_process(value)
-		queue_redraw()
-
-var _t := 0.0
-
 static var _boxes := {} # [color, radius, outline] -> StyleBoxFlat, so a redraw allocates nothing
 
 
-func _ready() -> void:
-	mouse_filter = MOUSE_FILTER_IGNORE
-	set_process(idle)
-	resized.connect(queue_redraw)
+## Frame i of n of an animation: {"pose": paint() pose, "rot": radians about the feet,
+## "offset": units the whole body moves (feet included)}. The values are the ones the match
+## animated in code (match/views/character_sprite.gd before the bake).
+static func frame_pose(anim: String, i: int, n: int) -> Dictionary:
+	var f := float(i) / n
+	match anim:
+		"walk": # leg swing, a bob on each step, a forward lean
+			var s := sin(TAU * f)
+			return {"pose": {"legs": s, "bob": absf(s) * 4.0}, "rot": 0.06, "offset": Vector2.ZERO}
+		"shoot": # recoil easing out, muzzle flash in the first frame(s), a lean back
+			var k := 1.0 - f
+			return {"pose": {"bob": 1.2, "recoil": 14.0 * k * k, "flash": clampf((k - 0.55) / 0.45, 0.0, 1.0)},
+				"rot": -0.08 * k, "offset": Vector2.ZERO}
+		"hurt": # knocked back with a wobble, squinting
+			var k := 1.0 - f * 0.9
+			return {"pose": {"bob": 0.0, "hurt": true}, "rot": sin(k * 18.0) * 0.18 * k, "offset": Vector2(-14.0 * k, 0)}
+		"die": # falls on its back; the body width lifts the centre off the ground
+			var k := ease(float(i + 1) / n, 0.4)
+			return {"pose": {"ko": true}, "rot": -PI / 2 * k, "offset": Vector2(0, -24.0 * k)}
+	# idle: breathing (the upper body rises and falls)
+	return {"pose": {"bob": (sin(TAU * f) * 0.5 + 0.5) * 2.5}, "rot": 0.0, "offset": Vector2.ZERO}
 
 
-func _process(delta: float) -> void:
-	if not is_visible_in_tree():
-		return
-	_t += delta
-	queue_redraw()
-
-
-func _draw() -> void:
-	var k := minf(size.x / UNITS.x, size.y / UNITS.y)
-	var feet := Vector2(size.x / 2, size.y - 8 * k)
-	var lift := (sin(_t * 2.4) * 0.5 + 0.5) * 5.0 if idle else 0.0
-	# Shadow: smaller while the body is up.
-	draw_set_transform(feet, 0.0, Vector2(k, k * 0.22))
-	draw_circle(Vector2.ZERO, 46.0 - lift * 1.5, Color(0, 0, 0, 0.35))
-	paint(self, Transform2D(0.0, Vector2(k, k), 0.0, feet + Vector2(0, -lift * k)), character_id)
-	draw_set_transform(Vector2.ZERO)
+## Draws frame i of n of anim with the feet at `feet` (ci's local space), scale px per unit.
+static func paint_frame(ci: CanvasItem, feet: Vector2, scale: float, id: String, anim: String, i: int, n: int) -> void:
+	var fp := frame_pose(anim, i, n)
+	var xform := Transform2D(fp["rot"], Vector2(scale, scale), 0.0, feet + fp["offset"] * scale)
+	paint(ci, xform, id, fp["pose"])
+	ci.draw_set_transform(Vector2.ZERO)
 
 
 ## Known character id, or "rookie" (unknown or missing ids, e.g. a bot without one).
@@ -82,7 +72,7 @@ static func known_id(id: String) -> String:
 ## - bob: units the upper body is lifted (the feet stay put);
 ## - legs: -1..1 leg swing (walking);
 ## - recoil: units the weapon is pushed back; flash: 0..1 muzzle flash;
-## - ko: true draws closed (X) eyes.
+## - ko: true draws closed (X) eyes; hurt: true squints (> <) with a frown.
 ## Leaves ci's draw transform changed: the caller resets it.
 static func paint(ci: CanvasItem, xform: Transform2D, id: String, pose: Dictionary = {}) -> void:
 	id = known_id(id)
@@ -92,7 +82,7 @@ static func paint(ci: CanvasItem, xform: Transform2D, id: String, pose: Dictiona
 	_legs(ci, look, pose.get("legs", 0.0))
 	var upper := xform * Transform2D(0.0, Vector2(0, -bob))
 	ci.draw_set_transform_matrix(upper)
-	_body(ci, look, bool(pose.get("ko", false)))
+	_body(ci, look, bool(pose.get("ko", false)), bool(pose.get("hurt", false)))
 	match id:
 		"tanko":
 			_tanko_hat(ci, look)
@@ -132,7 +122,7 @@ static func _legs(ci: CanvasItem, look: Dictionary, swing: float) -> void:
 
 
 ## Torso, belt, arms, head and eyes (shared); the hat and weapon come after.
-static func _body(ci: CanvasItem, look: Dictionary, ko: bool) -> void:
+static func _body(ci: CanvasItem, look: Dictionary, ko: bool, hurt: bool = false) -> void:
 	var w: float = look["width"]
 	# Torso and belt.
 	_rect(ci, Rect2(-w / 2, -74, w, 48), look["body"], 14)
@@ -149,10 +139,14 @@ static func _body(ci: CanvasItem, look: Dictionary, ko: bool) -> void:
 			ci.draw_line(Vector2(x - 5, -106), Vector2(x + 5, -96), OUTLINE, 3.0)
 			ci.draw_line(Vector2(x - 5, -96), Vector2(x + 5, -106), OUTLINE, 3.0)
 			continue
+		if hurt: # squeezed shut: > <
+			var d := 1.0 if x < 0.0 else -1.0
+			ci.draw_polyline(PackedVector2Array([Vector2(x - 5 * d, -106), Vector2(x + 4 * d, -101), Vector2(x - 5 * d, -96)]), OUTLINE, 3.0, true)
+			continue
 		_circle(ci, Vector2(x, -101), 7.5, Color.WHITE, 2.0)
 		ci.draw_circle(Vector2(x + 2, -100), 4.0, OUTLINE)
 		ci.draw_circle(Vector2(x + 3.5, -102), 1.4, Color.WHITE)
-	if ko:
+	if ko or hurt:
 		ci.draw_arc(Vector2(1, -84), 6.0, deg_to_rad(200), deg_to_rad(340), 10, OUTLINE, 2.5)
 	else:
 		ci.draw_arc(Vector2(1, -90), 6.0, deg_to_rad(20), deg_to_rad(160), 10, OUTLINE, 2.5)

@@ -1,16 +1,25 @@
 extends Node2D
-## A shell in flight (moved by shot_player.gd): a dark bomb with a highlight and a lit fuse,
-## turned along its flight, and a short fading trail of its last positions. Placeholder art.
+## A shell in flight (moved by shot_player.gd): the bomb image (assets/fx/bomb.png, flying
+## towards +x, fuse behind) turned along its flight, a flickering spark (assets/fx/muzzle.png)
+## on the fuse and a short fading trail of its last positions (drawn in code).
+
+const Art := preload("res://ui/art.gd")
 
 const TRAIL := 10 # positions kept for the trail
-const RADIUS := 7.0
+const BOMB_PX := 2.0 # bomb image px per world px
+const SPARK := Vector2(-11, -3) # fuse tip, world px from the bomb centre (flying +x)
 
 var _trail := PackedVector2Array() # global positions, oldest first
 var _dir := Vector2.RIGHT
 var _t := 0.0
+var _bomb: Texture2D
+var _spark: Texture2D
 
 
 func _ready() -> void:
+	texture_filter = TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_bomb = Art.fx("bomb")
+	_spark = Art.fx("muzzle")
 	_trail.append(global_position)
 
 
@@ -34,13 +43,10 @@ func _draw() -> void:
 		var a := _trail[i - 1] - global_position
 		var b := _trail[i] - global_position
 		draw_line(a, b, Color(1.0, 0.85, 0.55, 0.45 * k), 2.0 + 6.0 * k, true)
-	# Bomb: dark ball, rim, highlight; the fuse trails behind the flight.
-	var back := -_dir
-	draw_line(back * RADIUS * 0.8, back * (RADIUS + 5.0), Color(0.5, 0.38, 0.25), 2.5)
-	var spark := back * (RADIUS + 6.0)
-	var flicker := 0.7 + 0.3 * sin(_t * 40.0)
-	draw_circle(spark, 4.5 * flicker, Color(1.0, 0.6, 0.15, 0.6))
-	draw_circle(spark, 2.2, Color(1.0, 0.95, 0.6))
-	draw_circle(Vector2.ZERO, RADIUS + 1.5, Color(0.02, 0.02, 0.05))
-	draw_circle(Vector2.ZERO, RADIUS, Color(0.17, 0.18, 0.24))
-	draw_circle(Vector2(-2.2, -2.4), RADIUS * 0.38, Color(1, 1, 1, 0.55))
+	draw_set_transform(Vector2.ZERO, _dir.angle(), Vector2.ONE)
+	var size := _bomb.get_size() / BOMB_PX
+	draw_texture_rect(_bomb, Rect2(-size / 2, size), false)
+	var flicker := 0.75 + 0.25 * sin(_t * 40.0)
+	var spark := Vector2(14, 14) * flicker
+	draw_texture_rect(_spark, Rect2(SPARK - spark / 2, spark), false)
+	draw_set_transform(Vector2.ZERO)

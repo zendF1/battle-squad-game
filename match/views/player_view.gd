@@ -1,14 +1,17 @@
 extends Node2D
 ## One player, drawn at its feet (server Position is the first solid pixel under the feet): a
-## team ring, the character (character_sprite.gd: its art and animations), the HP bar, the name
+## team ring, the character (scenes/character/character.tscn: its art and animations), the HP bar, the name
 ## and above it the markers of its active status effects (match/status_effects.gd).
 ## Walking is read from the position changes (prediction or tweens), so callers only move it.
 
 const Status := preload("res://match/status_effects.gd")
-const CharacterSprite := preload("res://match/views/character_sprite.gd")
+const CharacterScene := preload("res://scenes/character/character.tscn")
+const Art := preload("res://ui/art.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 
 const BODY := Vector2(28, 40) # server PlayerHeight = 40
+## px per art unit: the art (about 150 units) stands about 52 px tall over the 28x40 body.
+const ART_SCALE := 0.35
 const TEAM_COLORS := {1: Color(0.25, 0.55, 1.0), 2: Color(1.0, 0.35, 0.3)}
 const ALLY := Color(0.3, 0.6, 1.0)
 const ENEMY := Color(1.0, 0.35, 0.3)
@@ -26,7 +29,7 @@ var color := ALLY
 var _tween: Tween
 var _status: Label
 var _name: Label
-var _sprite: CharacterSprite
+var _sprite: Node2D # scenes/character/character.gd
 var _ring: Node2D
 var _hp_known := false
 var _active := false
@@ -52,7 +55,8 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_ring.show_behind_parent = true
 	_ring.draw.connect(_draw_ring)
 	add_child(_ring)
-	_sprite = CharacterSprite.new()
+	_sprite = CharacterScene.instantiate()
+	_sprite.scale = Vector2.ONE * (ART_SCALE / Art.PX_PER_UNIT)
 	_sprite.show_behind_parent = true
 	_sprite.character_id = str(p.get("characterId", ""))
 	add_child(_sprite)

@@ -89,13 +89,14 @@ static func currency_word(currency: String) -> String:
 	return "kim cương" if currency == "gem" else "xu"
 
 
+## The icon name (ui/art.gd ICONS) of a currency: "gem" or "coin".
 static func currency_icon(currency: String) -> String:
-	return "💎" if currency == "gem" else "💰"
+	return "gem" if currency == "gem" else "coin"
 
 
-## "💰 300", "💎 1.000".
+## "300", "1.000": the amount shown next to the currency_icon().
 static func price_text(offer: Dictionary) -> String:
-	return "%s %s" % [currency_icon(str(offer.get("priceCurrency", ""))), Fmt.thousands(int(offer.get("priceAmount", 0)))]
+	return Fmt.thousands(int(offer.get("priceAmount", 0)))
 
 
 ## "Hộp cứu thương x3 với giá 300 xu?"
@@ -115,9 +116,14 @@ static func parse_products(data: Variant) -> Array:
 	return out
 
 
-## "100 💎"
+## "100" (shown with the gem icon).
+static func product_amount(p: Dictionary) -> String:
+	return Fmt.thousands(int(p.get("gemAmount", 0)))
+
+
+## "100 kim cương"
 static func product_title(p: Dictionary) -> String:
-	return "%s 💎" % Fmt.thousands(int(p.get("gemAmount", 0)))
+	return "%s kim cương" % product_amount(p)
 
 
 ## "+50 thưởng", or "" without a bonus.

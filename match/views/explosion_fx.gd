@@ -1,31 +1,40 @@
 extends Node2D
-## An explosion (placeholder art): a shock ring, a layered flash and fireballs, smoke puffs
-## drifting up and a few debris dots thrown out with gravity. Set radius before adding it; it
-## frees itself after LIFE seconds.
+## An explosion: the burst frames (assets/fx/explosion_0..N.png: shock ring, fireballs, flash)
+## scaled to the crater radius, smoke puffs (assets/fx/smoke.png) drifting up and fading, and
+## debris chunks (assets/fx/debris.png, tinted dirt/grass) thrown out with gravity. Set radius
+## before adding it; it frees itself after LIFE seconds. Images via ui/art.gd.
+
+const Art := preload("res://ui/art.gd")
 
 const LIFE := 1.1
 const GRAVITY := 900.0
+const BURST_SEC := 0.5 # the frames play over this time
 
 var radius := 30.0
 
 var _t := 0.0
-var _fire: Array = [] # [offset, size]
-var _smoke: Array = [] # [offset, size, drift]
-var _debris: Array = [] # [velocity, size, color]
+var _smoke: Array = [] # [offset, size, drift, spin]
+var _debris: Array = [] # [velocity, size, color, spin]
+var _frames: Array[Texture2D] = []
+var _smoke_tex: Texture2D
+var _debris_tex: Texture2D
 
 
 func _ready() -> void:
+	texture_filter = TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	for i in Art.EXPLOSION_FRAMES:
+		_frames.append(Art.explosion(i))
+	_smoke_tex = Art.fx("smoke")
+	_debris_tex = Art.fx("debris")
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	for i in 6:
-		_fire.append([Vector2.from_angle(rng.randf() * TAU) * radius * rng.randf_range(0.2, 0.6), rng.randf_range(0.35, 0.6)])
 	for i in 7:
 		var off := Vector2(rng.randf_range(-0.7, 0.7), rng.randf_range(-0.6, 0.1)) * radius
-		_smoke.append([off, rng.randf_range(0.4, 0.7), Vector2(rng.randf_range(-20, 20), rng.randf_range(-70, -35))])
+		_smoke.append([off, rng.randf_range(0.4, 0.7), Vector2(rng.randf_range(-20, 20), rng.randf_range(-70, -35)), rng.randf_range(-1.0, 1.0)])
 	var dirt := [Color(0.42, 0.28, 0.16), Color(0.3, 0.2, 0.12), Color(0.36, 0.6, 0.25)]
 	for i in 12:
 		var a := rng.randf_range(-PI * 0.95, -PI * 0.05) # mostly upward
-		_debris.append([Vector2.from_angle(a) * rng.randf_range(180, 420), rng.randf_range(2.0, 4.0), dirt[i % dirt.size()]])
+		_debris.append([Vector2.from_angle(a) * rng.randf_range(180, 420), rng.randf_range(2.0, 4.0), dirt[i % dirt.size()], rng.randf_range(-12.0, 12.0)])
 
 
 func _process(delta: float) -> void:
@@ -38,33 +47,28 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var t := _t
-	# Smoke (behind the fire), from 0.1 s: grows, drifts up, fades.
+	# Smoke (behind the fire), from 0.08 s: grows, drifts up, fades.
 	if t > 0.08:
 		var s := (t - 0.08) / (LIFE - 0.08)
 		for p in _smoke:
 			var at: Vector2 = p[0] + p[2] * (t - 0.08)
-			var r: float = radius * p[1] * (0.8 + s * 0.9)
-			draw_circle(at, r, Color(0.32, 0.3, 0.32, 0.55 * (1.0 - s)))
-			draw_circle(at + Vector2(-r * 0.25, -r * 0.25), r * 0.6, Color(0.5, 0.48, 0.5, 0.35 * (1.0 - s)))
-	# Shock ring.
-	if t < 0.32:
-		var k := t / 0.32
-		draw_arc(Vector2.ZERO, radius * (0.6 + k * 1.1), 0.0, TAU, 48, Color(1, 0.97, 0.85, 0.8 * (1.0 - k)), 6.0 * (1.0 - k) + 1.5, true)
-	# Fireballs and flash: bigger than the crater, shrinking back as they fade.
-	if t < 0.5:
-		var k := t / 0.5
-		var grow := 0.75 + 0.55 * ease(k, 0.25)
-		var a := 1.0 - k * k
-		draw_circle(Vector2.ZERO, radius * 1.25 * grow, Color(1.0, 0.5, 0.15, 0.35 * a))
-		for p in _fire:
-			draw_circle(p[0] * grow * 1.4, radius * p[1] * 1.3 * grow, Color(1.0, 0.42, 0.1, 0.9 * a))
-		draw_circle(Vector2.ZERO, radius * 0.95 * grow, Color(1.0, 0.68, 0.2, 0.9 * a))
-		draw_circle(Vector2.ZERO, radius * 0.6 * grow, Color(1.0, 0.92, 0.5, 0.95 * a))
-		if t < 0.14:
-			draw_circle(Vector2.ZERO, radius * 0.7, Color(1, 1, 0.92, 1.0 - t / 0.14))
+			var r: float = radius * p[1] * (0.8 + s * 0.9) * 1.25
+			draw_set_transform(at, p[3] * s, Vector2.ONE)
+			draw_texture_rect(_smoke_tex, Rect2(-Vector2(r, r), Vector2(r, r) * 2), false, Color(0.55, 0.52, 0.55, 0.85 * (1.0 - s)))
+		draw_set_transform(Vector2.ZERO)
+	# The burst frames.
+	if t < BURST_SEC and not _frames.is_empty():
+		var i := mini(int(t / BURST_SEC * _frames.size()), _frames.size() - 1)
+		var tex := _frames[i]
+		var k := radius / Art.EXPLOSION_RADIUS
+		var sz := tex.get_size() * k
+		draw_texture_rect(tex, Rect2(-sz / 2, sz), false)
 	# Debris.
 	for d in _debris:
 		var v: Vector2 = d[0]
 		var at := v * t + Vector2(0, 0.5 * GRAVITY * t * t)
 		var a := clampf(1.0 - t / LIFE, 0.0, 1.0)
-		draw_circle(at, d[1], Color(d[2], a))
+		var r: float = d[1] * 1.4
+		draw_set_transform(at, d[3] * t, Vector2.ONE)
+		draw_texture_rect(_debris_tex, Rect2(-Vector2(r, r), Vector2(r, r) * 2), false, Color(d[2], a))
+		draw_set_transform(Vector2.ZERO)

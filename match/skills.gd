@@ -37,11 +37,11 @@ static func is_ready(energy: int) -> bool:
 	return energy >= FULL_ENERGY
 
 
-## "Bắn 3 tia 40/100" while charging, "Bắn 3 tia ⚡" when ready.
+## "Bắn 3 tia 40/100" while charging, "Bắn 3 tia" when ready (the button has the skill icon).
 static func button_label(skill: Dictionary, energy: int) -> String:
 	var skill_name := str(skill.get("name", ""))
 	if is_ready(energy):
-		return "%s ⚡" % skill_name
+		return skill_name
 	return "%s %d/%d" % [skill_name, clampi(energy, 0, FULL_ENERGY), FULL_ENERGY]
 
 

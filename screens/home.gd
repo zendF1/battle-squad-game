@@ -4,7 +4,7 @@ extends Control
 ## header with "← Sảnh", its title and the wallet pills; "← Sảnh", Esc (ui_cancel) and the
 ## Android back button return to the lobby. The pages are built with Home but hidden, and each
 ## loads its data the first time it is shown (the tabs' own lazy loading). The wallet "+"
-## buttons open the Shop on Kim cương (💎) or Vật phẩm (💰).
+## buttons open the Shop on Kim cương (gem) or Vật phẩm (coin).
 ## Each time Home is shown (first entry, back from Loadout or a match) the profile is refreshed in
 ## the background; the last known values show meanwhile. The cached characters are marked stale
 ## too (a match changes their EXP), so whatever shows them reloads them once.
@@ -78,8 +78,8 @@ func _build_page(title: String, content: Control) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 20)
 	header.add_child(row)
-	var back := LobbyUi.pill_button("←  Sảnh", 26, 64)
-	LobbyUi.style_button(back, LobbyUi.PANEL, 32, 22, LobbyUi.PANEL_BORDER, 2)
+	var back := LobbyUi.pill_button("Sảnh", 26, 64, "back")
+	LobbyUi.texture_button(back, "pill", 22, true)
 	back.pressed.connect(_show.bind(LOBBY))
 	row.add_child(back)
 	var t := LobbyUi.text(title, 36, Color.WHITE, true)

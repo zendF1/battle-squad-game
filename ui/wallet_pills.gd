@@ -1,5 +1,6 @@
 extends HBoxContainer
-## The wallet from PlayerState as two dark pills, "💎 300 [+]" and "💰 1.250 [+]", and the
+## The wallet from PlayerState as two dark pills, [gem] 300 [+] and [coin] 1.250 [+] (icons from
+## assets/icons/, the pill assets/ui/pill.png), and the
 ## "Thử lại" button of a failed profile refresh (only while not loading). "—" until the profile
 ## is loaded; stale values stay on screen while a refresh runs. The "+" buttons emit
 ## gem_plus / coin_plus (Home opens the Shop on the matching section).
@@ -9,6 +10,7 @@ signal coin_plus
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Fmt := preload("res://core/fmt.gd")
+const Art := preload("res://ui/art.gd")
 
 var _gem: Label
 var _coin: Label
@@ -23,15 +25,15 @@ func _ready() -> void:
 	_retry.size_flags_vertical = SIZE_SHRINK_CENTER
 	_retry.pressed.connect(PlayerState.refresh)
 	add_child(_retry)
-	_gem = _pill("💎", Color(0.55, 0.36, 0.88), gem_plus)
-	_coin = _pill("💰", Color(0.95, 0.65, 0.15), coin_plus)
+	_gem = _pill("gem", Color(0.55, 0.36, 0.88), gem_plus)
+	_coin = _pill("coin", Color(0.95, 0.65, 0.15), coin_plus)
 	PlayerState.changed.connect(_render)
 	_render()
 
 
-func _pill(icon: String, plus_color: Color, on_plus: Signal) -> Label:
+func _pill(icon_name: String, plus_color: Color, on_plus: Signal) -> Label:
 	var pill := PanelContainer.new()
-	var style := LobbyUi.box(Color(0.02, 0.03, 0.1, 0.6), 28, 4, LobbyUi.PANEL_BORDER, 2)
+	var style := Art.ui_box("pill", 4)
 	style.content_margin_left = 0
 	pill.add_theme_stylebox_override("panel", style)
 	pill.size_flags_vertical = SIZE_SHRINK_CENTER
@@ -42,15 +44,13 @@ func _pill(icon: String, plus_color: Color, on_plus: Signal) -> Label:
 	var pad := Control.new()
 	pad.custom_minimum_size.x = 6
 	row.add_child(pad)
-	var i := LobbyUi.text(icon, 26)
-	i.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(i)
+	row.add_child(LobbyUi.icon(icon_name, 36))
 	var value := LobbyUi.text("—", 26, Color.WHITE, true)
 	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	value.custom_minimum_size.x = 92
 	row.add_child(value)
-	var plus := LobbyUi.round_button("+", 46, plus_color, 28)
+	var plus := LobbyUi.round_button("plus", 46, plus_color, 0.56)
 	plus.pressed.connect(on_plus.emit)
 	row.add_child(plus)
 	return value

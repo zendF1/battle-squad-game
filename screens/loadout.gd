@@ -11,7 +11,8 @@ extends Control
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Backdrop := preload("res://ui/backdrop.gd")
-const CharacterArt := preload("res://ui/character_art.gd")
+const CharacterView := preload("res://ui/character_view.gd")
+const Art := preload("res://ui/art.gd")
 const Items := preload("res://match/items.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
@@ -19,27 +20,18 @@ const QuickPlay := preload("res://screens/quick_play.gd")
 const SETTINGS_PATH := LoadoutModel.SETTINGS_PATH
 
 const MARGIN := 18
-const ITEM_ICONS := {
-	"medkit": "💊", "teleport": "🌀", "power_shot": "💥", "drill_bomb": "🔩",
-	"spider_net": "🕸️", "freeze_bomb": "❄️", "air_strike": "✈️", "wind_stopper": "🍃",
-}
 const CARD := Color(0.08, 0.12, 0.3, 0.72)
 const CARD_PICKED := Color(0.2, 0.38, 0.75, 0.95)
 const NOTE_OWNED := Color(0.45, 0.9, 0.55)
-## Oval layers of the small pedestal, bottom to top: [radii, colour, y offset].
-const PEDESTAL := [
-	[Vector2(130, 30), Color(0.06, 0.1, 0.24, 0.9), 6.0],
-	[Vector2(122, 26), Color(0.28, 0.46, 0.8), 2.0],
-	[Vector2(116, 22), Color(0.55, 0.75, 1.0), 0.0],
-	[Vector2(96, 16), Color(0.78, 0.9, 1.0, 0.55), 0.0],
-]
+## The pedestal image (assets/env/pedestal.png) drawn at this scale under the character.
+const PEDESTAL_SCALE := Vector2(0.66, 0.6)
 
 var _model := LoadoutModel.new()
 var _base: Dictionary = {}
 var _quick_play: QuickPlay
 
 # Character panel
-var _art: CharacterArt
+var _art: CharacterView
 var _char_name: Label
 var _char_level: Label
 var _char_role: Label
@@ -47,11 +39,11 @@ var _char_skill: Label
 var _char_stats: GridContainer
 
 var _slot_buttons: Array[Button] = []
-var _slot_icons: Array[Label] = []
+var _slot_icons: Array[TextureRect] = []
 var _slot_names: Array[Label] = []
 var _item_buttons := {} # itemId -> Button
 var _item_notes := {} # itemId -> Label ("x2" / "Chưa sở hữu")
-var _item_checks := {} # itemId -> Label (✓ while picked)
+var _item_checks := {} # itemId -> TextureRect (the check mark while picked)
 var _count: Label
 var _status: Label
 var _conn: Label
@@ -104,8 +96,8 @@ func _ready() -> void:
 ## "← Sảnh", the title, the connection state and the mode pill.
 func _build_header() -> Control:
 	var row := Ui.hbox(20)
-	_back = LobbyUi.pill_button("←  Sảnh", 26, 64)
-	LobbyUi.style_button(_back, LobbyUi.PANEL, 32, 22, LobbyUi.PANEL_BORDER, 2)
+	_back = LobbyUi.pill_button("Sảnh", 26, 64, "back")
+	LobbyUi.texture_button(_back, "pill", 22, true)
 	_back.pressed.connect(_on_back)
 	row.add_child(_back)
 	var title := LobbyUi.text("Chuẩn bị", 36, Color.WHITE, true)
@@ -124,9 +116,7 @@ func _build_header() -> Control:
 	pill.add_child(inner)
 	var texts := Ui.hbox(14)
 	inner.add_child(texts)
-	var mode_name := LobbyUi.text("⚔  " + str(mode["name"]), 26, LobbyUi.GOLD, true)
-	mode_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	texts.add_child(mode_name)
+	LobbyUi.icon_text(texts, "battle", str(mode["name"]), 26, LobbyUi.GOLD, true, 32)
 	var desc := LobbyUi.text(str(mode["description"]), 20, Color(0.75, 0.9, 1.0))
 	desc.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	texts.add_child(desc)
@@ -150,7 +140,7 @@ func _build_character_panel() -> Control:
 	stage.draw.connect(_draw_pedestal.bind(stage))
 	stage.resized.connect(stage.queue_redraw)
 	col.add_child(stage)
-	_art = CharacterArt.new()
+	_art = CharacterView.new()
 	_art.idle = true
 	_art.anchor_left = 0.5
 	_art.anchor_right = 0.5
@@ -162,7 +152,9 @@ func _build_character_panel() -> Control:
 	_char_name = _centered(col, 36, Color.WHITE, true)
 	_char_level = _centered(col, 24, LobbyUi.GOLD, true)
 	_char_role = _centered(col, 22, Ui.TEXT_DIM)
-	_char_skill = _centered(col, 22, Color(0.75, 0.9, 1.0))
+	var skill_row := CenterContainer.new()
+	col.add_child(skill_row)
+	_char_skill = LobbyUi.icon_text(skill_row, "skill", "", 22, Color(0.75, 0.9, 1.0), false, 26)
 	_char_stats = GridContainer.new()
 	_char_stats.columns = 2
 	_char_stats.add_theme_constant_override("h_separation", 16)
@@ -188,11 +180,8 @@ static func _centered(parent: Control, font_size: int, color: Color, heavy: bool
 
 func _draw_pedestal(c: Control) -> void:
 	var center := Vector2(c.size.x / 2, c.size.y - 22)
-	for layer in PEDESTAL:
-		var r: Vector2 = layer[0]
-		c.draw_set_transform(center + Vector2(0, layer[2]), 0.0, Vector2(1.0, r.y / r.x))
-		c.draw_circle(Vector2.ZERO, r.x, layer[1])
-	c.draw_set_transform(Vector2.ZERO)
+	var tex := Art.env("pedestal")
+	c.draw_texture_rect(tex, Rect2(center - Art.PEDESTAL_CENTER * PEDESTAL_SCALE, tex.get_size() * PEDESTAL_SCALE), false)
 
 
 ## "Mang theo n/3" and the three slots, in the order picked.
@@ -220,8 +209,7 @@ func _build_slots() -> Control:
 		line.alignment = BoxContainer.ALIGNMENT_CENTER
 		line.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		b.add_child(line)
-		var icon := LobbyUi.text("", 36)
-		icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		var icon := LobbyUi.icon("plus", 44)
 		line.add_child(icon)
 		var item_name := LobbyUi.text("", 24, Color.WHITE, true)
 		item_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -254,19 +242,21 @@ func _build_item_grid() -> Control:
 		b.size_flags_horizontal = SIZE_EXPAND_FILL
 		b.size_flags_vertical = SIZE_EXPAND_FILL
 		LobbyUi.style_button(b, CARD, 16, 8, Color(1, 1, 1, 0.12), 2)
-		b.add_theme_stylebox_override("pressed", LobbyUi.box(CARD_PICKED, 16, 8, LobbyUi.GOLD, 3))
-		b.add_theme_stylebox_override("hover_pressed", LobbyUi.box(CARD_PICKED.lightened(0.08), 16, 8, LobbyUi.GOLD, 3))
+		b.add_theme_stylebox_override("pressed", Art.ui_box("panel_selected", 8))
+		b.add_theme_stylebox_override("hover_pressed", Art.ui_box("panel_selected", 8, Color(1.08, 1.08, 1.08)))
 		b.pressed.connect(_on_item.bind(id))
 		var inner := Ui.vbox(0)
 		inner.alignment = BoxContainer.ALIGNMENT_CENTER
 		inner.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		b.add_child(inner)
-		var icon := _centered(inner, 34, Color.WHITE)
-		icon.text = ITEM_ICONS.get(id, "•")
+		var icon := LobbyUi.icon(Art.item_icon(id), 46)
+		icon.size_flags_horizontal = SIZE_SHRINK_CENTER
+		inner.add_child(icon)
 		_centered(inner, 22, Color.WHITE, true).text = Items.label(id)
 		var note := _centered(inner, 19, Ui.TEXT_DIM, true)
-		var check := LobbyUi.text("✓", 26, LobbyUi.GOLD, true)
-		check.position = Vector2(14, 6)
+		var check := LobbyUi.icon("check", 34)
+		check.position = Vector2(10, 8)
+		check.size = Vector2(34, 34)
 		b.add_child(check)
 		for c in [inner, check] + inner.get_children():
 			c.mouse_filter = MOUSE_FILTER_IGNORE
@@ -333,7 +323,8 @@ func _render_character() -> void:
 	_char_name.text = info["name"]
 	_char_level.text = LobbyModel.level_text(info)
 	_char_role.text = info["role"]
-	_char_skill.text = "⚡ Kỹ năng: %s" % info["skill"] if info["skill"] != "" else ""
+	_char_skill.text = "Kỹ năng: %s" % info["skill"] if info["skill"] != "" else ""
+	_char_skill.get_parent().visible = info["skill"] != ""
 	Ui.clear(_char_stats)
 	for pair in info["stats"]:
 		var key := LobbyUi.text(pair[0], 22, Ui.TEXT_DIM)
@@ -351,14 +342,14 @@ func _refresh() -> void:
 	for i in slots.size():
 		var id := slots[i]
 		var filled := id != ""
-		_slot_icons[i].text = ITEM_ICONS.get(id, "•") if filled else "+"
+		_slot_icons[i].texture = Art.item_icon(id) if filled else Art.icon("plus")
 		_slot_names[i].text = Items.label(id) if filled else "Trống"
 		var dim := Color.WHITE if filled else Color(1, 1, 1, 0.45)
 		_slot_icons[i].modulate = dim
 		_slot_names[i].modulate = dim
 		var b := _slot_buttons[i]
 		if filled:
-			LobbyUi.style_button(b, CARD_PICKED, 16, 8, LobbyUi.GOLD, 3)
+			LobbyUi.texture_button(b, "panel_selected", 8, true)
 		else:
 			LobbyUi.style_button(b, Color(0, 0, 0, 0.3), 16, 8, Color(1, 1, 1, 0.22), 2)
 			b.add_theme_stylebox_override("disabled", LobbyUi.box(Color(0, 0, 0, 0.3), 16, 8, Color(1, 1, 1, 0.22), 2))

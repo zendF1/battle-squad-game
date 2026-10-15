@@ -12,6 +12,8 @@ extends Control
 ## "Hồ sơ". Requests never block the screen; one purchase runs at a time.
 
 const Ui := preload("res://ui/ui.gd")
+const LobbyUi := preload("res://ui/lobby_ui.gd")
+const Art := preload("res://ui/art.gd")
 const Modal := preload("res://ui/modal.gd")
 const LoadStatus := preload("res://ui/load_status.gd")
 const Skills := preload("res://match/skills.gd")
@@ -215,9 +217,14 @@ func _render_items() -> void:
 		flow.add_child(_empty("Chưa có vật phẩm nào được bán"))
 	for o in offers:
 		var box := _card(flow, Vector2(300, 0))
-		box.add_child(Ui.text(ShopModel.offer_name(o), 26))
-		box.add_child(Ui.text("x%d" % int(o.get("quantity", 1)), 24, Ui.TONES["draw"]))
-		box.add_child(Ui.text(ShopModel.price_text(o), 26))
+		var head := Ui.hbox(12)
+		box.add_child(head)
+		head.add_child(LobbyUi.icon(Art.item_icon(str(o.get("itemId", ""))), 56))
+		var names := Ui.vbox(0)
+		head.add_child(names)
+		names.add_child(Ui.text(ShopModel.offer_name(o), 26))
+		names.add_child(Ui.text("x%d" % int(o.get("quantity", 1)), 24, Ui.TONES["draw"]))
+		_price(box, o)
 		var left := ShopModel.remaining(o, _data["purchases"]) if _data.has("purchases") else ShopModel.UNLIMITED
 		# The limit line is always reserved, so every card has the same height and the "Mua"
 		# buttons line up.
@@ -242,7 +249,12 @@ func _render_characters() -> void:
 	for g in groups:
 		var id: String = g["characterId"]
 		var box := _card(flow, Vector2(360, 0))
-		box.add_child(Ui.text(g["name"], 30))
+		var head := Ui.hbox(12)
+		box.add_child(head)
+		head.add_child(LobbyUi.icon(Art.portrait(id), 64))
+		var title := Ui.text(g["name"], 30)
+		title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		head.add_child(title)
 		var role := ""
 		for c in LoadoutModel.CHARACTERS:
 			if c["id"] == id:
@@ -258,6 +270,7 @@ func _render_characters() -> void:
 			continue
 		for o in g["offers"]:
 			var buy := _action_button(ShopModel.price_text(o))
+			LobbyUi.set_icon(buy, ShopModel.currency_icon(str(o.get("priceCurrency", ""))), 34)
 			var left := ShopModel.remaining(o, _data["purchases"]) if _data.has("purchases") else ShopModel.UNLIMITED
 			buy.disabled = PlayerState.busy_id != "" or left == 0
 			buy.pressed.connect(_on_buy.bind(o))
@@ -273,7 +286,9 @@ func _render_gems() -> void:
 		flow.add_child(_empty("Chưa có gói kim cương nào"))
 	for p in _data["products"]:
 		var box := _card(flow, Vector2(300, 0))
-		box.add_child(Ui.label(ShopModel.product_title(p), 34))
+		var title_row := CenterContainer.new()
+		box.add_child(title_row)
+		LobbyUi.icon_text(title_row, "gem", ShopModel.product_amount(p), 34, Color.WHITE, false, 44)
 		var bonus := Ui.label(ShopModel.product_bonus(p), 22)
 		bonus.add_theme_color_override("font_color", Ui.TONES["good"])
 		bonus.custom_minimum_size.y = 30 # keeps the cards aligned without a bonus
@@ -283,6 +298,11 @@ func _render_gems() -> void:
 		top_up.disabled = PlayerState.busy_id != ""
 		top_up.pressed.connect(_on_top_up.bind(p))
 		box.add_child(top_up)
+
+
+## The price: the currency icon and the amount.
+func _price(box: Control, offer: Dictionary) -> void:
+	LobbyUi.icon_text(box, ShopModel.currency_icon(str(offer.get("priceCurrency", ""))), ShopModel.price_text(offer), 26, Color.WHITE, false, 34)
 
 
 func _card(flow: HFlowContainer, min_size: Vector2) -> VBoxContainer:
@@ -358,7 +378,7 @@ func _on_top_up(product: Dictionary) -> void:
 		if res.replay:
 			Ui.toast(overlay, REPLAYED)
 		else:
-			Ui.toast(overlay, "Nạp thành công! +%d 💎" % granted if granted > 0 else "Nạp thành công!")
+			Ui.toast(overlay, "Nạp thành công! +%d kim cương" % granted if granted > 0 else "Nạp thành công!")
 		return
 	var retry := _on_top_up.bind(product) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.iap(res), retry)

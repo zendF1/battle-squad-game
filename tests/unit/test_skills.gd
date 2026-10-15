@@ -34,8 +34,8 @@ func test_button_label() -> void:
 	var rookie := Skills.for_character("rookie")
 	eq(Skills.button_label(rookie, 40), "Bắn 3 tia 40/100", "charging")
 	eq(Skills.button_label(rookie, 0), "Bắn 3 tia 0/100", "empty")
-	eq(Skills.button_label(rookie, 100), "Bắn 3 tia ⚡", "ready")
-	eq(Skills.button_label(Skills.for_character("flora"), 100), "Hồi máu ⚡", "heal ready")
+	eq(Skills.button_label(rookie, 100), "Bắn 3 tia", "ready")
+	eq(Skills.button_label(Skills.for_character("flora"), 100), "Hồi máu", "heal ready")
 
 
 func test_status_labels() -> void:

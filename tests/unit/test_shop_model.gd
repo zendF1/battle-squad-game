@@ -41,8 +41,10 @@ func test_remaining_limit() -> void:
 func test_names_prices_confirm() -> void:
 	eq(ShopModel.offer_name(OFFERS[0]), "Hộp cứu thương", "item label")
 	eq(ShopModel.offer_name(OFFERS[2]), "Tanko", "character name")
-	eq(ShopModel.price_text(OFFERS[2]), "💰 5.000", "coin price")
-	eq(ShopModel.price_text(OFFERS[1]), "💎 300", "gem price")
+	eq(ShopModel.price_text(OFFERS[2]), "5.000", "coin price")
+	eq(ShopModel.currency_icon(str(OFFERS[2]["priceCurrency"])), "coin", "coin icon")
+	eq(ShopModel.price_text(OFFERS[1]), "300", "gem price")
+	eq(ShopModel.currency_icon(str(OFFERS[1]["priceCurrency"])), "gem", "gem icon")
 	eq(ShopModel.confirm_text(OFFERS[0]), "Hộp cứu thương x3 với giá 300 xu?", "item confirm")
 	eq(ShopModel.confirm_text(OFFERS[1]), "Flora x1 với giá 300 kim cương?", "gem confirm")
 
@@ -53,11 +55,12 @@ func test_products() -> void:
 		{"productId": "gems_100", "gemAmount": 100, "bonusGemAmount": 0, "priceUsd": 0.99, "isActive": true},
 		{"productId": "old", "gemAmount": 1, "isActive": false}])
 	eq(products.size(), 2, "inactive dropped")
-	eq(ShopModel.product_title(products[0]), "500 💎", "title")
+	eq(ShopModel.product_title(products[0]), "500 kim cương", "title")
+	eq(ShopModel.product_amount(products[0]), "500", "amount")
 	eq(ShopModel.product_bonus(products[0]), "+50 thưởng", "bonus")
 	eq(ShopModel.product_bonus(products[1]), "", "no bonus")
 	eq(ShopModel.product_price(products[0]), "$4.99", "price")
-	eq(ShopModel.product_title({"gemAmount": 1200}), "1.200 💎", "thousands")
+	eq(ShopModel.product_title({"gemAmount": 1200}), "1.200 kim cương", "thousands")
 
 
 func test_iap_platform() -> void:

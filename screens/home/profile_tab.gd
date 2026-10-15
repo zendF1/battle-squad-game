@@ -17,6 +17,8 @@ extends Control
 signal open_shop_characters
 
 const Ui := preload("res://ui/ui.gd")
+const Art := preload("res://ui/art.gd")
+const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Modal := preload("res://ui/modal.gd")
 const LoadStatus := preload("res://ui/load_status.gd")
 const Items := preload("res://match/items.gd")
@@ -480,7 +482,15 @@ func _render_characters() -> void:
 		box.mouse_filter = MOUSE_FILTER_IGNORE
 		card.add_child(box)
 		var dim := Color.WHITE if owned else Ui.TEXT_DIM
-		box.add_child(_ignore(Ui.text(c["name"], 28, dim)))
+		var head := Ui.hbox(10)
+		head.mouse_filter = MOUSE_FILTER_IGNORE
+		box.add_child(head)
+		var face := LobbyUi.icon(Art.portrait(id), 48)
+		face.modulate = Color.WHITE if owned else Color(1, 1, 1, 0.55)
+		head.add_child(face)
+		var title := Ui.text(c["name"], 28, dim)
+		title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		head.add_child(_ignore(title))
 		var skill := Skills.for_character(id)
 		var sub := Ui.text("%s · %s" % [c["role"], skill.get("name", "")], 20, Ui.TEXT_DIM)
 		sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -705,8 +715,11 @@ func _render_inventory() -> void:
 		var n := int(_inventory.get(id, 0)) if _inventory is Dictionary else -1
 		var card := Ui.card(Ui.CARD_BG, 18)
 		card.custom_minimum_size = Vector2(270, 120)
+		var row := Ui.hbox(12)
+		card.add_child(row)
+		row.add_child(LobbyUi.icon(Art.item_icon(id), 64))
 		var box := Ui.vbox(6)
-		card.add_child(box)
+		row.add_child(box)
 		box.add_child(Ui.text(Items.label(id), 26))
 		box.add_child(Ui.text("x%d" % n if n >= 0 else "x—", 26, Ui.TONES["draw"]))
 		if n == 0:
