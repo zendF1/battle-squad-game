@@ -103,7 +103,10 @@ func _process(delta: float) -> void:
 			_committing = false
 			_commit_sent = false
 			_refresh_controls()
-	if not _is_my_turn() or _commit_sent:
+	# Once the shot is answered the server takes no Moves until TurnStarted: sending one (e.g.
+	# a walk after SHOT_ACK_TIMEOUT gave control back, then a late ShotResolved) would only
+	# lose it and send Reconnect in the middle of the replay.
+	if not _is_my_turn() or _commit_sent or _turn_resolved:
 		return
 	if _hold_dir != 0 and _can_act():
 		_moves.hold(_hold_dir, delta)
@@ -127,11 +130,12 @@ func _process(delta: float) -> void:
 # ── Snapshot and turn state ──────────────────────────────────────────────────
 
 ## Rebuilds the match from a snapshot: MatchStarted (is_sync false) or a MatchStateSync. A
-## MatchStateSync that arrives during my turn continues it: MoveSync replays the Moves the
-## snapshot does not show yet on top of it, and a resolved shot keeps input locked.
+## MatchStateSync for the current player continues the turn: during mine MoveSync replays the
+## Moves the snapshot does not show yet on top of it, and a resolved shot keeps input locked
+## and the clock paused.
 func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 	var current := str(snap.get("currentPlayerId", ""))
-	var continuing := is_sync and _current == _me and current == _me
+	var continuing := is_sync and current == _current
 	_shot_player.stop()
 	_deferred.clear()
 	var terrain: Dictionary = snap.get("terrain", {})
@@ -156,12 +160,12 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 		_moves.apply_snapshot(_pos(_me), energy, int(last_seq) if (last_seq is int or last_seq is float) else -1)
 	_hud.set_time(int(snap.get("turnTimeLeft", TURN_SECONDS)))
 	if continuing and _turn_resolved:
-		_hud.pause_timer() # still resolving my shot: the clock restarts with TurnStarted
+		_hud.pause_timer() # this turn's shot is resolving: the server clock waits for TurnStarted
 	_set_current(current, energy, continuing)
 
 
-## continuing: the same turn goes on (a MatchStateSync during my turn), so MoveSync and a sent
-## Shoot/EndTurn are kept; otherwise a new turn starts.
+## continuing: the same turn goes on (a MatchStateSync for the current player), so MoveSync, a
+## sent Shoot/EndTurn and a resolved shot are kept; otherwise a new turn starts.
 func _set_current(player_id: String, move_energy: int, continuing: bool = false) -> void:
 	_current = player_id
 	_hold_dir = 0
@@ -382,10 +386,10 @@ func _commit_action(event: String, data: Dictionary) -> void:
 	_hold_dir = 0
 	_moves.release()
 	_refresh_controls()
-	while _committing and _is_my_turn() and (not _moves.is_settled() \
+	while _committing and _is_my_turn() and not _turn_resolved and (not _moves.is_settled() \
 			or _since(_action_at) < ACTION_INTERVAL or _since(_move_ack_at) < MOVE_ACK_GAP):
 		await get_tree().process_frame
-	if not _is_my_turn() or not _committing:
+	if not _is_my_turn() or not _committing or _turn_resolved:
 		return
 	_commit_sent = true
 	GameSocket.send(event, data)
