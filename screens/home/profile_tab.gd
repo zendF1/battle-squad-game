@@ -2,8 +2,10 @@ extends Control
 ## "Hồ sơ": the player card (avatar letter, name + "Sửa", level, EXP) on the left and three
 ## sub-tabs on the right:
 ## - "Nhân vật": the four characters from GET /player/characters (owned: level, EXP, unspent
-##   points, the six stat bonuses with a pending allocation, "Cộng điểm", "Tẩy điểm"; not owned:
-##   "Mua ở Shop");
+##   points, one row per stat with its allocated points, the pending allocation and the battle
+##   stat it gives — total, "→ new" preview, "(gốc, điểm, trang bị)" breakdown — "Cộng điểm",
+##   "Tẩy điểm"; not owned: base stats and "Mua ở Shop"). The battle stat lines are hidden
+##   when the server sends no `stats`;
 ## - "Kho đồ": the eight battle items with their GET /player/inventory counts;
 ## - "Lịch sử": GET /player/match-history, 20 per page, "Tải thêm" until a short page.
 ## Each sub-tab loads the first time it is shown; characters come from the PlayerState cache
@@ -22,6 +24,7 @@ const Skills := preload("res://match/skills.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const Progress := preload("res://screens/home/progress.gd")
 const StatDraft := preload("res://screens/home/stat_draft.gd")
+const BattleStats := preload("res://screens/home/battle_stats.gd")
 const HistoryPager := preload("res://screens/home/history_pager.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
@@ -38,6 +41,7 @@ var _drafts := {} # characterId -> StatDraft
 var _characters_version := -1 # PlayerState.characters_version shown
 var _reset_cost := StatDraft.DEFAULT_RESET_COST.duplicate()
 var _selected := LoadoutModel.DEFAULT_CHARACTER
+var _picked := false # the player chose _selected (kept across reloads even when not owned)
 var _inv_stale := false
 var _inv_loading := false
 var _busy := false # an allocate or reset request is running
@@ -75,6 +79,17 @@ var _stat_value := {} # stat key -> Label
 var _stat_pending := {} # stat key -> Label
 var _stat_minus := {} # stat key -> Button
 var _stat_plus := {} # stat key -> Button
+var _stat_cells := {} # stat key -> its grid cell (name + points, battle stat)
+var _stat_points := {} # stat key -> the points, pending and − + of the cell
+var _bs_cells := {} # stat key -> the battle stat line (value, preview, breakdown)
+var _bs_value := {} # stat key -> Label
+var _bs_preview := {} # stat key -> Label
+var _bs_detail := {} # stat key -> Label
+var _crit_row: Control
+var _crit_value: Label
+var _crit_detail: Label
+var _owned_actions: Control
+var _buy: Button
 var _allocate: Button
 var _clear_draft: Button
 var _reset: Button
@@ -275,72 +290,117 @@ func _build_characters_page() -> Control:
 	col.add_child(_char_status)
 	_cards_row = Ui.hbox(12)
 	col.add_child(_cards_row)
-	_detail = Ui.card(Ui.CARD_BG, 20)
+	_detail = Ui.card(Ui.CARD_BG, 16)
 	col.add_child(_detail)
-	var d := Ui.vbox(12)
+	var d := Ui.vbox(8)
 	_detail.add_child(d)
+	# Title, points left and the actions on one line, so the stats fit above the fold.
 	var head := Ui.hbox(12)
 	d.add_child(head)
 	_detail_title = Ui.text("", 28)
 	_detail_title.size_flags_horizontal = SIZE_EXPAND_FILL
+	_detail_title.clip_text = true
+	_detail_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	head.add_child(_detail_title)
 	_detail_points = Ui.text("", 24, Ui.TONES["draw"])
 	head.add_child(_detail_points)
+	_owned_actions = Ui.hbox(12)
+	head.add_child(_owned_actions)
+	_allocate = Ui.button("", 24)
+	_allocate.custom_minimum_size = Vector2(220, 60)
+	_allocate.pressed.connect(_on_allocate)
+	_owned_actions.add_child(_allocate)
+	_clear_draft = Ui.button("Bỏ chọn", 24)
+	_clear_draft.custom_minimum_size = Vector2(130, 60)
+	_clear_draft.pressed.connect(_on_clear_draft)
+	_owned_actions.add_child(_clear_draft)
+	_reset = Ui.button("Tẩy điểm (%s)" % StatDraft.cost_text(_reset_cost), 24)
+	_reset.custom_minimum_size = Vector2(220, 60)
+	_reset.pressed.connect(_on_reset)
+	_owned_actions.add_child(_reset)
+	_buy = Ui.button("Mua ở Shop", 24)
+	_buy.custom_minimum_size = Vector2(220, 60)
+	_buy.focus_mode = FOCUS_NONE
+	_buy.pressed.connect(func(): open_shop_characters.emit())
+	head.add_child(_buy)
 
+	# "Chỉ số": per stat, the name with its points (allocated, pending, − +) and below it the
+	# battle stat (total, green "→ new" preview, muted breakdown).
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 28)
-	grid.add_theme_constant_override("v_separation", 10)
+	grid.add_theme_constant_override("v_separation", 6)
 	d.add_child(grid)
-	for s in StatDraft.STATS:
-		var key: String = s["key"]
+	for s in BattleStats.ROWS:
+		var key: String = s["point"]
+		var cell := Ui.vbox(2)
+		cell.size_flags_horizontal = SIZE_EXPAND_FILL
+		grid.add_child(cell)
+		_stat_cells[key] = cell
 		var r := Ui.hbox(10)
-		r.size_flags_horizontal = SIZE_EXPAND_FILL
-		grid.add_child(r)
+		cell.add_child(r)
 		var name_label := Ui.text(s["label"], 24)
 		name_label.size_flags_horizontal = SIZE_EXPAND_FILL
 		r.add_child(name_label)
+		var points := Ui.hbox(10)
+		r.add_child(points)
+		_stat_points[key] = points
 		_stat_value[key] = Ui.label("0", 24)
-		_stat_value[key].custom_minimum_size.x = 56
-		r.add_child(_stat_value[key])
+		_stat_value[key].custom_minimum_size.x = 44
+		points.add_child(_stat_value[key])
 		_stat_pending[key] = Ui.label("", 24)
-		_stat_pending[key].custom_minimum_size.x = 56
+		_stat_pending[key].custom_minimum_size.x = 44
 		_stat_pending[key].add_theme_color_override("font_color", Ui.TONES["good"])
-		r.add_child(_stat_pending[key])
+		points.add_child(_stat_pending[key])
 		_stat_minus[key] = _small_button("−", _on_stat.bind(key, -1))
-		r.add_child(_stat_minus[key])
+		points.add_child(_stat_minus[key])
 		_stat_plus[key] = _small_button("+", _on_stat.bind(key, 1))
-		r.add_child(_stat_plus[key])
+		points.add_child(_stat_plus[key])
+		var bs := _battle_cell()
+		cell.add_child(bs["box"])
+		_bs_cells[key] = bs["box"]
+		_bs_value[key] = bs["value"]
+		_bs_preview[key] = bs["preview"]
+		_bs_detail[key] = bs["detail"]
+	_crit_row = Ui.vbox(2)
+	_crit_row.size_flags_horizontal = SIZE_EXPAND_FILL
+	grid.add_child(_crit_row)
+	_crit_row.add_child(Ui.text(BattleStats.CRIT_LABEL, 24))
+	var crit := _battle_cell()
+	_crit_row.add_child(crit["box"])
+	_crit_value = crit["value"]
+	_crit_detail = crit["detail"]
 
-	var actions := Ui.hbox(16)
-	d.add_child(actions)
-	_allocate = Ui.button("", 24)
-	_allocate.custom_minimum_size = Vector2(260, 68)
-	_allocate.pressed.connect(_on_allocate)
-	actions.add_child(_allocate)
-	_clear_draft = Ui.button("Bỏ chọn", 24)
-	_clear_draft.custom_minimum_size = Vector2(160, 68)
-	_clear_draft.pressed.connect(_on_clear_draft)
-	actions.add_child(_clear_draft)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = SIZE_EXPAND_FILL
-	actions.add_child(spacer)
-	_reset = Ui.button("Tẩy điểm (%s)" % StatDraft.cost_text(_reset_cost), 24)
-	_reset.custom_minimum_size = Vector2(260, 68)
-	_reset.pressed.connect(_on_reset)
-	actions.add_child(_reset)
 	_detail_status = Ui.text("", 22)
 	_detail_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_detail_status.visible = false
 	d.add_child(_detail_status)
 	return Ui.scroll(col)
 
 
 func _small_button(text_value: String, on_press: Callable) -> Button:
 	var b := Ui.button(text_value, 30)
-	b.custom_minimum_size = Vector2(64, 60)
+	b.custom_minimum_size = Vector2(64, 56)
 	b.focus_mode = FOCUS_NONE
 	b.pressed.connect(on_press)
 	return b
+
+
+## A battle stat cell: the value, the green "→ new" preview and the muted breakdown.
+func _battle_cell() -> Dictionary:
+	var box := Ui.hbox(10)
+	box.size_flags_horizontal = SIZE_EXPAND_FILL
+	var value := Ui.text("", 26)
+	value.custom_minimum_size.x = 70
+	box.add_child(value)
+	var preview := Ui.text("", 26, Ui.TONES["good"])
+	box.add_child(preview)
+	var detail := Ui.text("", 20, Ui.TEXT_DIM)
+	detail.size_flags_horizontal = SIZE_EXPAND_FILL
+	detail.clip_text = true
+	detail.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	box.add_child(detail)
+	return {"box": box, "value": value, "preview": preview, "detail": detail}
 
 
 ## PlayerState.characters_changed: loading / error state, and a new answer applied.
@@ -364,7 +424,7 @@ func _on_characters_changed() -> void:
 	if _reload_id != "" and _characters_version > _reload_after:
 		drop = _reload_id # its points are (or may be) spent: start that draft over
 	_drafts = StatDraft.rebuild(_drafts, _characters, drop)
-	if not _characters.has(_selected) and not _characters.is_empty():
+	if not _characters.has(_selected) and not _picked and not _characters.is_empty():
 		_selected = _first_owned()
 	_render_characters()
 	if drop != "":
@@ -396,9 +456,9 @@ func _render_characters() -> void:
 		card.toggle_mode = true
 		card.button_group = group
 		card.focus_mode = FOCUS_NONE
-		card.custom_minimum_size = Vector2(0, 200)
+		card.custom_minimum_size = Vector2(0, 208)
 		card.size_flags_horizontal = SIZE_EXPAND_FILL
-		card.disabled = _busy or not owned
+		card.disabled = _busy
 		Ui.toggle_style(card, Ui.CARD_BG, Ui.CARD_SELECTED)
 		card.pressed.connect(_on_select.bind(id))
 		_cards_row.add_child(card)
@@ -432,8 +492,11 @@ func _render_characters() -> void:
 			box.add_child(_ignore(Ui.bar(p["ratio"], 12)))
 			box.add_child(_ignore(Ui.text("MAX" if p["is_max"] else "EXP %s" % p["text"], 20, Ui.TEXT_DIM)))
 		elif _characters is Dictionary:
+			var line := BattleStats.card_line(BattleStats.base_of(PlayerState.characters, id))
+			if line != "":
+				box.add_child(_ignore(Ui.text(line, 18, Ui.TEXT_DIM)))
 			var buy := Ui.button("Mua ở Shop", 22)
-			buy.custom_minimum_size = Vector2(0, 56)
+			buy.custom_minimum_size = Vector2(0, 48)
 			buy.focus_mode = FOCUS_NONE
 			buy.pressed.connect(func(): open_shop_characters.emit())
 			box.add_child(buy)
@@ -449,7 +512,9 @@ static func _ignore(c: Control) -> Control:
 
 func _on_select(id: String) -> void:
 	_selected = id
+	_picked = true
 	_detail_status.text = ""
+	_detail_status.visible = false
 	_update_detail()
 
 
@@ -471,22 +536,55 @@ func _on_clear_draft() -> void:
 	_update_detail()
 
 
-## The selected character's stat panel; updated in place.
+## The selected character's stat panel; updated in place. An owned character shows its points,
+## pending allocation and battle stats; one not owned shows its base stats and "Mua ở Shop".
 func _update_detail() -> void:
 	var draft: StatDraft = _drafts.get(_selected)
-	_detail.visible = draft != null
-	if draft == null:
+	var owned := draft != null
+	_detail.visible = owned or _characters is Dictionary
+	if not _detail.visible:
 		return
-	var entry: Dictionary = _characters[_selected]
-	_detail_title.text = "%s · Lv.%d" % [_display_name(_selected), Progress.character(entry)["level"]]
-	_detail_points.text = "Còn %d điểm" % draft.remaining()
-	for s in StatDraft.STATS:
-		var key: String = s["key"]
-		_stat_value[key].text = str(draft.current[key])
-		var n := draft.pending(key)
-		_stat_pending[key].text = "+%d" % n if n > 0 else ""
-		_stat_minus[key].disabled = _busy or not draft.can_remove(key)
-		_stat_plus[key].disabled = _busy or not draft.can_add(key)
+	var stats: Dictionary
+	if owned:
+		var entry: Dictionary = _characters[_selected]
+		stats = BattleStats.of(entry)
+		_detail_title.text = "%s · Lv.%d" % [_display_name(_selected), Progress.character(entry)["level"]]
+		_detail_points.text = "Còn %d điểm" % draft.remaining()
+	else:
+		stats = BattleStats.base_of(PlayerState.characters, _selected)
+		_detail_title.text = "%s · Chưa sở hữu" % _display_name(_selected)
+		_detail_points.text = ""
+	var pending := {}
+	for s in BattleStats.ROWS:
+		var key: String = s["point"]
+		_stat_points[key].visible = owned
+		if owned:
+			_stat_value[key].text = str(draft.current[key])
+			var n := draft.pending(key)
+			pending[key] = n
+			_stat_pending[key].text = "+%d" % n if n > 0 else ""
+			_stat_minus[key].disabled = _busy or not draft.can_remove(key)
+			_stat_plus[key].disabled = _busy or not draft.can_add(key)
+	# Without stats (an older server) the table keeps only the points; a character not owned
+	# without base stats shows just its name and "Mua ở Shop".
+	var rows := BattleStats.rows(stats, pending, BattleStats.multipliers(PlayerState.characters))
+	for r in rows:
+		_bs_value[r["point"]].text = r["value"]
+		_bs_preview[r["point"]].text = r["preview"]
+		_bs_detail[r["point"]].text = r["detail"]
+	for key in _bs_cells:
+		_bs_cells[key].visible = not rows.is_empty()
+		_stat_cells[key].visible = owned or not rows.is_empty()
+	var crit := BattleStats.crit(stats)
+	_crit_row.visible = not crit.is_empty()
+	if not crit.is_empty():
+		_crit_value.text = crit["value"]
+		_crit_detail.text = crit["detail"]
+	_owned_actions.visible = owned
+	_buy.visible = not owned
+	_buy.disabled = _busy
+	if not owned:
+		return
 	_allocate.text = "Cộng điểm (%d)" % draft.total_pending()
 	_allocate.disabled = _busy or not draft.can_submit()
 	_clear_draft.disabled = _busy or draft.total_pending() == 0
@@ -552,13 +650,13 @@ func _confirm_reset(m: Modal, id: String) -> void:
 func _set_busy(busy: bool, status: String, is_error: bool = false) -> void:
 	_busy = busy
 	_detail_status.text = status
+	_detail_status.visible = status != ""
 	if is_error:
 		_detail_status.add_theme_color_override("font_color", Ui.TONES["error"])
 	else:
 		_detail_status.remove_theme_color_override("font_color")
 	for id in _card_buttons:
-		var owned: bool = _characters is Dictionary and _characters.has(id)
-		_card_buttons[id].disabled = busy or not owned
+		_card_buttons[id].disabled = busy
 	_update_detail()
 
 
