@@ -14,6 +14,14 @@ config/name="battle-squad-game"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 
+[autoload]
+
+Config="*res://autoload/config.gd"
+Session="*res://autoload/session.gd"
+Api="*res://autoload/api.gd"
+GameSocket="*res://autoload/game_socket.gd"
+Router="*res://autoload/router.gd"
+
 [battle_squad]
 
 api_url="http://localhost:9090"
