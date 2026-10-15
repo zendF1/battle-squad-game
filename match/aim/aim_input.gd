@@ -10,6 +10,7 @@ extends Node2D
 ## still cancels.
 
 signal aim_changed(angle: float, power: float)
+signal column_changed(x: float) # column mode (air_strike): the drop column under the pointer
 signal fire(angle: float, power: float)
 signal fire_column(target_x: float)
 
@@ -108,6 +109,7 @@ func _update_column(pointer: Vector2) -> void:
 		_lines[i].points = Trajectory.predict(Vector2(_column_x, 0.0), Items.TARGET_X_ANGLE, Items.TARGET_X_POWER,
 			wind_dir, wind_power, terrain) if i == 0 else PackedVector2Array()
 	queue_redraw()
+	column_changed.emit(_column_x)
 
 
 func _release() -> void:

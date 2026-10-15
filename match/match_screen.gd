@@ -46,6 +46,7 @@ var _awaiting_ack := 0.0 # seconds left for the server to answer a sent Shoot/En
 var _awaiting_item := "" # the instant item a sent UseItem waits for ("" for Shoot/EndTurn)
 var _committing := false # an action requested: input locked until it is answered
 var _commit_sent := false # a Shoot/EndTurn sent: no more Moves this turn
+var _cmd_sent := false # the pending commit (Shoot/EndTurn/UseItem) has actually been sent
 var _resync_in := 0.0 # seconds before asking for MatchStateSync again
 var _turn_resolved := false # this turn's shot was answered: the server takes no more actions
 var _move_ack_at := -10_000_000 # Time.get_ticks_usec() when the last PlayerMoved for my Moves was handled
@@ -92,6 +93,7 @@ func _ready() -> void:
 	_moves.terrain = _mask
 	_aim.fire.connect(_on_fire)
 	_aim.aim_changed.connect(_hud.set_aim)
+	_aim.column_changed.connect(_hud.set_column)
 	_shot_player.event_due.connect(_on_shot_event)
 	_shot_player.finished.connect(_on_shot_finished)
 	_hud.move_pressed.connect(func(dir: int) -> void: _hold_dir = dir)
@@ -118,6 +120,7 @@ func _process(delta: float) -> void:
 			# The server ignored the Shoot/EndTurn/UseItem: give control back.
 			_committing = false
 			_commit_sent = false
+			_cmd_sent = false
 			_awaiting_item = ""
 			_refresh_controls()
 	# Once the shot is answered the server takes no Moves until TurnStarted: sending one (e.g.
@@ -194,6 +197,7 @@ func _set_current(player_id: String, move_energy: int, continuing: bool = false)
 		_awaiting_item = ""
 		_committing = false
 		_commit_sent = false
+		_cmd_sent = false
 		_turn_resolved = false
 		if _is_my_turn():
 			_moves.reset(_pos(_me), move_energy)
@@ -218,23 +222,31 @@ func _can_act() -> bool:
 		and not _moves.needs_resync()
 
 
-## Also drops the armed mode back to the weapon when it can no longer be fired: I cannot act,
-## the skill is not charged, or the armed item is no longer in players[me].items.
+func _is_frozen() -> bool:
+	return Status.has(_players.get(_me, {}).get("statusEffects"), "freeze")
+
+
+## Also drops the armed mode back to the weapon when it can no longer be fired: not my turn, the
+## turn resolved, I am frozen, the skill is not charged, or the armed item is no longer in
+## players[me].items. A temporary input lock (pending UseItem ack, commit wait, shot animation,
+## resync) keeps the armed mode: the buttons are disabled meanwhile but the choice survives.
 func _refresh_controls() -> void:
 	var can := _can_act()
 	var me: Dictionary = _players.get(_me, {})
 	# The server takes no Shoot from a frozen player (only EndTurn and UseItem).
-	var can_shoot := can and not Status.has(me.get("statusEffects"), "freeze")
+	var frozen := Status.has(me.get("statusEffects"), "freeze")
+	var can_shoot := can and not frozen
+	var may_shoot := _is_my_turn() and not _turn_resolved and not frozen # armed mode may stay
 	_hud.set_controls_enabled(can)
 	var skill := _my_skill()
 	var energy := int(me.get("skillEnergy", 0))
 	var skill_usable := can_shoot and not skill.is_empty() and Skills.is_ready(energy)
-	var armed_ok := _armed == WEAPON or (_armed == SKILL and skill_usable)
+	var armed_ok := _armed == WEAPON or (_armed == SKILL and may_shoot and not skill.is_empty() and Skills.is_ready(energy))
 	var buttons: Array = []
 	for it in Items.hand(me.get("items")):
 		var usable := can if Items.is_instant(it["id"]) else can_shoot
 		buttons.append({"id": it["id"], "label": Items.button_label(it["id"], it["count"]), "enabled": usable})
-		if it["id"] == _armed and usable and not Items.is_instant(it["id"]):
+		if it["id"] == _armed and may_shoot and not Items.is_instant(it["id"]):
 			armed_ok = true
 	if not armed_ok:
 		_armed = WEAPON
@@ -323,6 +335,7 @@ func _on_item_used(d: Dictionary) -> void:
 	if str(d.get("playerId", "")) == _me and _awaiting_item != "" and str(d.get("itemId", "")) == _awaiting_item:
 		_awaiting_item = ""
 		_awaiting_ack = 0.0
+		_cmd_sent = false
 		_committing = false
 	_refresh_controls()
 
@@ -467,7 +480,7 @@ func _on_weapon_pressed() -> void:
 func _on_skill_pressed() -> void:
 	var skill := _my_skill()
 	var charged := Skills.is_ready(int(_players.get(_me, {}).get("skillEnergy", 0)))
-	if not _can_act() or skill.is_empty() or not charged:
+	if not _can_act() or _is_frozen() or skill.is_empty() or not charged:
 		_refresh_controls()
 		return
 	if bool(skill["needs_aim"]):
@@ -485,8 +498,10 @@ func _on_item_pressed(item_id: String) -> void:
 		_refresh_controls()
 		return
 	if Items.is_instant(item_id):
-		_armed = WEAPON
 		await _commit_action("UseItem", {"itemId": item_id}, item_id)
+		return
+	if _is_frozen(): # a shot item cannot be fired while frozen (instant ones can)
+		_refresh_controls()
 		return
 	_armed = WEAPON if _armed == item_id else item_id
 	_refresh_controls()
@@ -530,16 +545,17 @@ func _commit_action(event: String, data: Dictionary, instant_item: String = "") 
 	else:
 		_awaiting_item = instant_item
 		_awaiting_ack = ITEM_ACK_TIMEOUT
+	_cmd_sent = true
 	GameSocket.send(event, data)
 	_mark_action()
 
 
 ## The server's position is unknown (Moves unanswered after every re-send). Cancel any
-## Shoot/EndTurn still waiting, keep input locked (_can_act) and ask for a full MatchStateSync,
+## Shoot/EndTurn/UseItem still waiting to be sent, keep input locked (_can_act) and ask for a full MatchStateSync,
 ## repeating every RESYNC_RETRY seconds. The snapshot's lastMoveSeq tells MoveSync which Moves
 ## it covers (MoveSync.apply_snapshot).
 func _request_resync(delta: float) -> void:
-	if _committing and not _commit_sent:
+	if _committing and not _cmd_sent:
 		_committing = false # the waiting _commit_action returns without sending
 	_resync_in -= delta
 	if _resync_in > 0.0:

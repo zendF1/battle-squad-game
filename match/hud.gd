@@ -139,6 +139,10 @@ func set_aim(angle: float, power: float) -> void:
 	_aim.text = "%d°  lực %d" % [roundi(angle), roundi(power)]
 
 
+func set_column(x: float) -> void:
+	_aim.text = "Không kích x=%d" % roundi(x)
+
+
 func set_controls_enabled(enabled: bool) -> void:
 	_left.disabled = not enabled
 	_right.disabled = not enabled

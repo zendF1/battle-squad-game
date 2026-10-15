@@ -17,6 +17,7 @@ var _character_buttons := {} # characterId -> Button
 var _item_buttons := {} # itemId -> Button
 var _count: Label
 var _status: Label
+var _conn: Label
 var _back: Button
 var _play: Button
 
@@ -56,6 +57,8 @@ func _ready() -> void:
 		grid.add_child(b)
 		_item_buttons[id] = b
 
+	_conn = Ui.label("", 24)
+	col.add_child(_conn)
 	_status = Ui.label("", 24)
 	col.add_child(_status)
 	var row := HBoxContainer.new()
@@ -130,7 +133,8 @@ func _refresh() -> void:
 		b.set_pressed_no_signal(picked)
 		b.disabled = locked or (_model.is_full() and not picked)
 	_count.text = "Vật phẩm  %d/%d" % [_model.items.size(), Items.MAX_LOADOUT]
-	_status.text = _quick_play.status if GameSocket.is_open() or locked else "Đang kết nối..."
+	_conn.text = "● Online" if GameSocket.is_open() else "○ Đang kết nối..."
+	_status.text = _quick_play.status
 	_play.disabled = not _quick_play.can_request()
 	_back.disabled = locked
 

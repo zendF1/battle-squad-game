@@ -23,7 +23,7 @@ func _ready() -> void:
 	_timer.one_shot = true
 	_timer.timeout.connect(_on_slow)
 	add_child(_timer)
-	GameSocket.connected.connect(changed.emit)
+	GameSocket.connected.connect(_on_connected)
 	GameSocket.disconnected.connect(_on_disconnected)
 	GameSocket.event_received.connect(_on_event)
 
@@ -65,6 +65,13 @@ func _on_event(event: String, data: Variant) -> void:
 			# message), MATCH_START_FAILED (after a RoomUpdated from the join), a server error.
 			if pending:
 				_resolve("Không vào được trận: %s" % error_message(data))
+
+
+## Back online: a resolution message from before the disconnect is stale.
+func _on_connected() -> void:
+	if not pending:
+		status = ""
+	changed.emit()
 
 
 func _on_disconnected() -> void:
