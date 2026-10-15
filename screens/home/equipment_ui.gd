@@ -121,8 +121,11 @@ static func delta_row(item: Dictionary, worn: Dictionary, font_size: int = 19) -
 
 ## The popup of an owned piece for `character_id` (the character on the Nhân vật stage, or the
 ## lobby's): icon, name, slot, required level, who wears it, its stats with the change against
-## what the character wears in that slot, and the actions.
-static func open_piece(overlay: Control, piece: Dictionary, character_id: String) -> Modal:
+## what the character wears in that slot, and the actions. The actions stay locked while the
+## owned pieces reload (PlayerState.equipment_ready()); Mặc / Chuyển cho also while the can-wear
+## check lacks the catalog or the characters. Once the data changed and settled the popup is
+## rebuilt from the fresh piece (keeping `note`, the last message), so its buttons always match.
+static func open_piece(overlay: Control, piece: Dictionary, character_id: String, note: String = "") -> Modal:
 	var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
 	var who := EquipmentModel.wearer(piece)
 	var char_name := EquipmentModel.character_name(character_id)
@@ -188,21 +191,57 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 
 	var piece_id := str(piece.get("equipmentId", ""))
 	var piece_name := EquipmentModel.display_name(item)
+	var ready := PlayerState.equipment_ready()
+	var actions: Array = []
 	if who == character_id:
-		m.add_button("Tháo", _act.bind(m, overlay, "unequip", piece_id, character_id, "Đã tháo %s" % piece_name))
+		actions.append(m.add_button("Tháo", _act.bind(m, overlay, "unequip", piece_id, character_id, "Đã tháo %s" % piece_name)))
 	elif who == "":
 		var wear := m.add_button("Mặc cho %s" % char_name, _act.bind(m, overlay, "equip", piece_id, character_id, "%s đã mặc %s" % [char_name, piece_name]))
-		if not check["ok"]:
+		actions.append(wear)
+		if not check["ok"] or not PlayerState.can_wear_known():
 			m.lock_button(wear)
 	else:
-		var move := m.add_button("Chuyển cho %s" % char_name, _act.bind(m, overlay, "move", piece_id, character_id, "Đã chuyển %s cho %s" % [piece_name, char_name]))
-		if not check["ok"]:
+		var move := m.add_button("Chuyển cho %s" % char_name, _act.bind(m, overlay, "move", piece_id, character_id,
+			"Đã chuyển %s cho %s" % [piece_name, char_name], EquipmentModel.character_name(who)))
+		actions.append(move)
+		if not check["ok"] or not PlayerState.can_wear_known():
 			m.lock_button(move)
-		m.add_button("Tháo", _act.bind(m, overlay, "unequip", piece_id, who, "Đã tháo %s" % piece_name))
+		actions.append(m.add_button("Tháo", _act.bind(m, overlay, "unequip", piece_id, who, "Đã tháo %s" % piece_name)))
 	m.add_button("Đóng", m.close)
 	for b in m.buttons():
 		(b as Button).custom_minimum_size.x = 250
+	if not ready:
+		for b in actions:
+			m.lock_button(b)
+		m.set_message(note if note != "" else "Đang cập nhật trang bị...")
+	elif note != "":
+		m.set_message(note)
+
+	# Rebuild once the data changed and settled (an action here, a reload, a purchase elsewhere).
+	var built := _data_version()
+	var rebuild := func() -> void:
+		if not is_instance_valid(m) or m.is_queued_for_deletion() or m.get_meta("acting", false):
+			return
+		if not PlayerState.equipment_ready() or _data_version() == built:
+			return
+		var keep := m.message.text if m.message.visible and m.message.text != "Đang cập nhật trang bị..." else ""
+		m.close()
+		var fresh := EquipmentModel.find_piece(PlayerState.equipment, piece_id)
+		if not fresh.is_empty() and is_instance_valid(overlay) and overlay.is_inside_tree():
+			open_piece(overlay, fresh, character_id, keep)
+	PlayerState.equipment_changed.connect(rebuild)
+	PlayerState.characters_changed.connect(rebuild)
+	m.tree_exiting.connect(func() -> void:
+		PlayerState.equipment_changed.disconnect(rebuild)
+		PlayerState.characters_changed.disconnect(rebuild))
 	return m
+
+
+## What the popup's buttons depend on: the owned pieces, the characters, the catalog, a running
+## action.
+static func _data_version() -> Array:
+	return [PlayerState.equipment_version, PlayerState.characters_version, PlayerState.catalog != null,
+		PlayerState.equipment_ready()]
 
 
 static func _delta_label(d: Dictionary) -> Label:
@@ -211,12 +250,14 @@ static func _delta_label(d: Dictionary) -> Label:
 	return LobbyUi.text("(%s)" % d["text"], 20, GOOD if d["tone"] == "good" else LOSS, true)
 
 
-static func _act(m: Modal, overlay: Control, action: String, piece_id: String, character_id: String, done: String) -> void:
-	if PlayerState.equip_busy != "":
-		m.set_message("Đang xử lý trang bị khác, hãy đợi")
+## from_name: who wore the piece before a move (for the half-done message).
+static func _act(m: Modal, overlay: Control, action: String, piece_id: String, character_id: String, done: String, from_name: String = "") -> void:
+	if not PlayerState.equipment_ready():
+		m.set_message("Đang cập nhật trang bị, hãy đợi")
 		return
 	m.set_message("")
 	m.set_busy(true)
+	m.set_meta("acting", true)
 	var res: Dictionary
 	match action:
 		"equip":
@@ -225,13 +266,26 @@ static func _act(m: Modal, overlay: Control, action: String, piece_id: String, c
 			res = await PlayerState.move_equipment(piece_id, character_id)
 		_:
 			res = await PlayerState.unequip(piece_id)
+	var toast_ok := is_instance_valid(overlay) and overlay.is_inside_tree()
 	if res.ok:
 		if is_instance_valid(m):
 			m.close()
-		if is_instance_valid(overlay) and overlay.is_inside_tree():
+		if toast_ok:
 			Ui.toast(overlay, done)
+		return
+	if res.get("unequipped", false):
+		# Taken off the first character, not put on the second: the popup's buttons are stale.
+		if is_instance_valid(m):
+			m.close()
+		if toast_ok:
+			Ui.toast(overlay, "Đã tháo khỏi %s nhưng chưa mặc được cho %s: %s" % [from_name, EquipmentModel.character_name(character_id), ErrorText.equip(res)], 4.0)
 		return
 	if not is_instance_valid(m):
 		return
+	m.set_meta("acting", false)
 	m.set_message(ErrorText.equip(res) if res.code != "BUSY" else "Đang xử lý trang bị khác, hãy đợi")
 	m.set_busy(false)
+	# The reload PlayerState started rebuilds the popup (with this message) when it lands.
+	for b in m.buttons():
+		if b.text != "Đóng" and not PlayerState.equipment_ready():
+			(b as Button).disabled = true

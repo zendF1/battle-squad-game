@@ -73,6 +73,7 @@ var _list_all: Button
 var _list_status: LoadStatus
 var _list: VBoxContainer
 var _stats: StatsPanel
+var _arrows: Array[Button] = []
 
 
 func _ready() -> void:
@@ -280,6 +281,7 @@ func _build_stage() -> void:
 		arrow.position = Vector2(0 if side < 0 else STAGE.x - 72, 250)
 		arrow.pressed.connect(_cycle.bind(side))
 		stage.add_child(arrow)
+		_arrows.append(arrow)
 
 
 func _on_stage_input(event: InputEvent) -> void:
@@ -293,7 +295,10 @@ func _on_stage_input(event: InputEvent) -> void:
 				_cycle(-1 if dx > 0 else 1)
 
 
+## Not while an allocate / reset runs: its status note belongs to this character.
 func _cycle(delta: int) -> void:
+	if _stats.is_busy():
+		return
 	_character = LobbyModel.cycle_character(_character, delta)
 	selected.emit(_character)
 	_render()
@@ -353,6 +358,9 @@ func _build_right() -> void:
 	_stats = StatsPanel.new()
 	_stats.overlay = overlay
 	_stats.open_shop_characters.connect(func(): open_shop.emit(ShopTab.CHARACTERS))
+	_stats.busy_changed.connect(func(busy: bool):
+		for a in _arrows:
+			a.disabled = busy)
 	var stats_scroll := Ui.scroll(_stats)
 	stats_scroll.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	pages.add_child(stats_scroll)

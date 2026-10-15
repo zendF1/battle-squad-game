@@ -55,3 +55,8 @@ func test_equipment_messages() -> void:
 	eq(ErrorText.equip(_err(409, "EQUIP_NOT_EQUIPPED")), "Trang bị chưa được mặc", "not worn")
 	eq(ErrorText.equip(_err(500, "X", "m")), "Thao tác thất bại: m", "other")
 	eq(ErrorText.equip(_err(0, "NETWORK_ERROR")), ErrorText.OFFLINE, "offline")
+	eq(ErrorText.equip(_err(409, "EQUIP_SLOT_OCCUPIED")), "Ô này đã có trang bị, hãy tháo ra trước", "slot occupied")
+	eq(ErrorText.equip(_err(409, "EQUIP_MODIFIED")), "Trang bị vừa được thay đổi, hãy thử lại", "modified")
+	eq(ErrorText.equip(_err(409, "EQUIP_EQUIPPED")), "Trang bị đang được mặc, hãy tháo ra trước", "equipped")
+	for code in ["EQUIP_LOCKED", "EQUIP_MAX_UPGRADE", "EQUIP_NO_STONES", "EQUIP_INSUFFICIENT_STONES", "EQUIP_INSUFFICIENT_MATERIALS", "EQUIP_GEM_SLOT_INVALID", "EQUIP_GEM_NOT_OWNED"]:
+		check(not ErrorText.equip(_err(400, code)).begins_with("Thao tác thất bại"), code + " mapped")

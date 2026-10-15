@@ -63,6 +63,7 @@ var _pages: Array[Control] = []
 var _flows: Array[HFlowContainer] = []
 var _slot := "" # the Trang bị slot filter, "" = all
 var _chips: Array[Button]
+var _equipment_dirty := false # equipment changed while Trang bị was not shown
 
 
 func _ready() -> void:
@@ -109,15 +110,27 @@ func _ready() -> void:
 	PlayerState.assets_dirty.connect(_on_assets_dirty)
 	PlayerState.characters_changed.connect(_on_characters_changed)
 	PlayerState.busy_changed.connect(_on_busy_changed)
-	PlayerState.equipment_changed.connect(_on_busy_changed)
+	PlayerState.equipment_changed.connect(_on_equipment_changed)
 	visibility_changed.connect(_on_visibility_changed)
 	_on_characters_changed() # whatever "Hồ sơ" or an earlier Home already loaded
 	show_section(ITEMS)
 	_arm.call_deferred()
 
 
+## Only the Trang bị cards (and the load line) depend on the equipment; rendered when shown.
+func _on_equipment_changed() -> void:
+	if is_visible_in_tree() and _sub == EQUIPMENT:
+		_render_status.call_deferred()
+		_render_equipment.call_deferred()
+	else:
+		_equipment_dirty = true
+
+
 func show_section(index: int) -> void:
 	_sub = index
+	if index == EQUIPMENT and _equipment_dirty:
+		_equipment_dirty = false
+		_render_equipment()
 	for i in _pages.size():
 		_pages[i].visible = i == index
 	Ui.select_tab(_sub_tabs, index)
@@ -200,6 +213,8 @@ func _on_assets_dirty() -> void:
 
 
 func _on_visibility_changed() -> void:
+	if is_visible_in_tree() and _sub == EQUIPMENT and _equipment_dirty:
+		_render_equipment()
 	_ensure_loaded()
 
 
@@ -277,6 +292,7 @@ func _on_slot(slot: String) -> void:
 
 
 func _render_equipment() -> void:
+	_equipment_dirty = false
 	var flow := _flows[EQUIPMENT]
 	Ui.clear(flow)
 	EquipmentUi.select_chip(_chips, _slot)

@@ -37,6 +37,16 @@ const EQUIP := {
 	"EQUIP_NOT_OWNED": "Bạn không sở hữu trang bị này",
 	"EQUIP_NOT_FOUND": "Không tìm thấy trang bị",
 	"CHARACTER_NOT_FOUND": "Bạn chưa sở hữu nhân vật này",
+	"EQUIP_SLOT_OCCUPIED": "Ô này đã có trang bị, hãy tháo ra trước",
+	"EQUIP_MODIFIED": "Trang bị vừa được thay đổi, hãy thử lại",
+	"EQUIP_EQUIPPED": "Trang bị đang được mặc, hãy tháo ra trước",
+	"EQUIP_LOCKED": "Trang bị đang bị khoá",
+	"EQUIP_MAX_UPGRADE": "Trang bị đã cường hoá tối đa",
+	"EQUIP_NO_STONES": "Chưa chọn đá cường hoá",
+	"EQUIP_INSUFFICIENT_STONES": "Không đủ đá cường hoá",
+	"EQUIP_INSUFFICIENT_MATERIALS": "Không đủ nguyên liệu",
+	"EQUIP_GEM_SLOT_INVALID": "Ô ngọc không hợp lệ",
+	"EQUIP_GEM_NOT_OWNED": "Bạn không sở hữu viên ngọc này",
 }
 
 

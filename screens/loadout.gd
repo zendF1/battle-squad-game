@@ -194,7 +194,7 @@ func _build_gear_row() -> Control:
 		frame.stretch_mode = TextureRect.STRETCH_SCALE
 		frame.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		frame.custom_minimum_size = Vector2(52, 60)
-		frame.mouse_filter = MOUSE_FILTER_IGNORE
+		frame.mouse_filter = MOUSE_FILTER_PASS # shows the tooltip
 		frame.tooltip_text = EquipmentModel.slot_name(slot)
 		row.add_child(frame)
 		var icon := LobbyUi.icon(Art.equipment_slot_icon(slot), 34)

@@ -9,6 +9,7 @@ extends VBoxContainer
 ## reloads the characters and starts the draft over before another "Cộng điểm" is possible.
 
 signal open_shop_characters
+signal busy_changed(busy: bool) # an allocate / reset started or ended (the page locks ◀ ▶)
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -381,7 +382,10 @@ func _confirm_reset(m: Modal, id: String) -> void:
 
 
 func _set_busy(busy: bool, status: String, is_error: bool = false) -> void:
+	var flipped := busy != _busy
 	_busy = busy
+	if flipped:
+		busy_changed.emit(busy)
 	_detail_status.text = status
 	_detail_status.visible = status != ""
 	if is_error:

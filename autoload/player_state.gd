@@ -240,6 +240,17 @@ func _pay(path: String, keys: IdempotencyKeys, id: String, id_field: String, aft
 				equipment_dirty()
 			_:
 				refresh()
+	elif not IdempotencyKeys.is_definite(res.status):
+		# No clear answer (network, 5xx): it may have gone through. The key is kept for the retry;
+		# show whatever the server has now.
+		match after:
+			AFTER_ASSETS:
+				assets_changed()
+			AFTER_EQUIPMENT:
+				refresh()
+				equipment_dirty()
+			_:
+				refresh()
 	busy_changed.emit()
 	return out
 
@@ -322,31 +333,55 @@ func retry_equipment() -> void:
 ## POST /player/equipment/equip {equipmentId, characterId}. The server takes off the piece the
 ## character wore in that slot. {ok: false, code: "BUSY"} while another action runs.
 func equip(equipment_id: String, character_id: String) -> Dictionary:
-	return await _equip_steps(equipment_id, [["/player/equipment/equip", {"equipmentId": equipment_id, "characterId": character_id}]])
+	return await _equip_steps(equipment_id, [["/player/equipment/equip", {"equipmentId": equipment_id, "characterId": character_id}, []]])
 
 
 ## POST /player/equipment/unequip {equipmentId}.
 func unequip(equipment_id: String) -> Dictionary:
-	return await _equip_steps(equipment_id, [["/player/equipment/unequip", {"equipmentId": equipment_id}]])
+	return await _equip_steps(equipment_id, [["/player/equipment/unequip", {"equipmentId": equipment_id}, []]])
 
 
 ## A piece another character wears goes to `character_id`: unequip, then equip (the server
-## refuses to equip a worn piece). Stops at the first failure.
+## refuses to equip a worn piece). Stops at the first failure; an unequip answered
+## EQUIP_NOT_EQUIPPED counts as done (someone took it off meanwhile). When the equip fails after
+## the unequip went through, the answer has "unequipped": true (the piece is now worn by nobody).
 func move_equipment(equipment_id: String, character_id: String) -> Dictionary:
-	return await _equip_steps(equipment_id, [["/player/equipment/unequip", {"equipmentId": equipment_id}],
-		["/player/equipment/equip", {"equipmentId": equipment_id, "characterId": character_id}]])
+	return await _equip_steps(equipment_id, [["/player/equipment/unequip", {"equipmentId": equipment_id}, ["EQUIP_NOT_EQUIPPED"]],
+		["/player/equipment/equip", {"equipmentId": equipment_id, "characterId": character_id}, []]])
 
 
+## The owned pieces are loaded and no load or action is running: buttons built from them are
+## current.
+func equipment_ready() -> bool:
+	return equipment != null and not equipment_stale and not _equipment_gate.running and equip_busy == ""
+
+
+## The can-wear check has what it needs (catalog and characters loaded).
+func can_wear_known() -> bool:
+	return catalog != null and characters != null
+
+
+## steps: [path, body, codes that count as done]. Adds "unequipped": true when a later step
+## failed after a first one went through.
 func _equip_steps(equipment_id: String, steps: Array) -> Dictionary:
-	if equip_busy != "" or equipment_id == "":
+	if equipment_id == "":
+		return {"ok": false, "status": -1, "code": "NO_EQUIPMENT", "message": "thiếu mã trang bị", "data": null}
+	if equip_busy != "":
 		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null}
 	equip_busy = equipment_id
 	equipment_changed.emit()
 	var res := {}
+	var done := 0
 	for step in steps:
 		res = await Api.post_json(step[0], step[1])
-		if not res.ok:
+		var allowed: Array = step[2] if step.size() > 2 else []
+		if not res.ok and not allowed.has(str(res.get("code", ""))):
 			break
+		res = res.duplicate()
+		res["ok"] = true
+		done += 1
+	res = res.duplicate()
+	res["unequipped"] = not res.ok and done > 0
 	equip_busy = ""
 	# Even a refusal may come from a stale view (or a move failed halfway): show the truth.
 	equipment_dirty()
