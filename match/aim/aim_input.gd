@@ -3,11 +3,18 @@ extends Node2D
 ## shoots up-left. Releasing inside the cancel zone around the shooter cancels. Everything here
 ## is local; nothing touches the network until fire. The preview draws one arc per entry of
 ## preview_offsets (degrees added to the aimed angle), e.g. three for triple_shot.
+##
+## target_column (air_strike): no slingshot; while pressed, a vertical target line follows the
+## pointer and the preview is the drop from the top of the map at that x (the server fires it at
+## Items.TARGET_X_ANGLE / TARGET_X_POWER from y 0). Release emits fire_column(x); the cancel zone
+## still cancels.
 
 signal aim_changed(angle: float, power: float)
 signal fire(angle: float, power: float)
+signal fire_column(target_x: float)
 
 const Trajectory := preload("res://match/aim/trajectory_predictor.gd")
+const Items := preload("res://match/items.gd")
 const CANCEL_RADIUS := 60.0
 const MIN_POWER := 5.0
 const BODY_CENTER := Vector2(0, -20)
@@ -28,12 +35,19 @@ var preview_offsets: Array = [0.0]:
 		if _dragging:
 			_update(_pointer)
 
+var target_column := false:
+	set(value):
+		if value != target_column:
+			_reset() # a drag started in the other mode does not carry over
+		target_column = value
+
 var _dragging := false
 var _start := Vector2.ZERO
 var _angle := 0.0
 var _power := 0.0
 var _in_cancel := false
 var _pointer := Vector2.ZERO
+var _column_x := 0.0
 var _lines: Array[Line2D] = [] # reused; grows to the largest preview_offsets seen
 
 
@@ -70,10 +84,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _update(pointer: Vector2) -> void:
 	_pointer = pointer
+	_in_cancel = pointer.distance_to(shooter_pos + BODY_CENTER) <= CANCEL_RADIUS
+	if target_column:
+		_update_column(pointer)
+		return
 	var d := pointer - _start
 	_angle = clampf(rad_to_deg(atan2(d.y, -d.x)), 0.0, 180.0)
 	_power = clampf(d.length() / 2.0, 0.0, 100.0)
-	_in_cancel = pointer.distance_to(shooter_pos + BODY_CENTER) <= CANCEL_RADIUS
 	for i in _lines.size():
 		if i < preview_offsets.size():
 			_lines[i].points = Trajectory.predict(shooter_pos, _angle + float(preview_offsets[i]), _power, wind_dir, wind_power, terrain)
@@ -83,7 +100,24 @@ func _update(pointer: Vector2) -> void:
 	aim_changed.emit(_angle, _power)
 
 
+func _update_column(pointer: Vector2) -> void:
+	_column_x = pointer.x
+	if terrain != null:
+		_column_x = clampf(_column_x, 0.0, float(terrain.width)) # the server clamps it the same way
+	for i in _lines.size():
+		_lines[i].points = Trajectory.predict(Vector2(_column_x, 0.0), Items.TARGET_X_ANGLE, Items.TARGET_X_POWER,
+			wind_dir, wind_power, terrain) if i == 0 else PackedVector2Array()
+	queue_redraw()
+
+
 func _release() -> void:
+	if target_column:
+		var x := _column_x
+		var cancel := _in_cancel
+		_reset()
+		if not cancel:
+			fire_column.emit(x)
+		return
 	var shoot := _power >= MIN_POWER and not _in_cancel
 	var angle := _angle
 	var power := _power
@@ -108,3 +142,6 @@ func _draw() -> void:
 	draw_arc(c, CANCEL_RADIUS, 0.0, TAU, 48, color, 3.0)
 	draw_line(c + Vector2(-14, -14), c + Vector2(14, 14), color, 3.0)
 	draw_line(c + Vector2(-14, 14), c + Vector2(14, -14), color, 3.0)
+	if target_column and not _in_cancel:
+		var bottom := float(terrain.height) if terrain != null else 2000.0
+		draw_line(Vector2(_column_x, 0.0), Vector2(_column_x, bottom), Color(1, 0.85, 0.2, 0.8), 3.0)
