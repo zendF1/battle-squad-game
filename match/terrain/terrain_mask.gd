@@ -94,3 +94,68 @@ func destroy_circle(cx: float, cy: float, radius: float) -> void:
 				var i := row + x
 				if destructible[i] != 0:
 					solid[i] = 0
+
+
+## Terrain.GetLandingY: first solid pixel at or below start_y in column x; height if none.
+func get_landing_y(x: float, start_y: float) -> float:
+	var ix := roundi(x)
+	if ix < 0 or ix >= width:
+		return float(height)
+	var iy := maxi(roundi(start_y), 0)
+	while iy < height:
+		if solid[iy * width + ix] != 0:
+			return float(iy)
+		iy += 1
+	return float(height)
+
+
+## Terrain.WalkTo: walks column by column toward target_x along the surface; stops at walls
+## taller than MAX_CLIMB_PER_STEP or where the body does not fit. Returns the end position.
+func walk_to(start_x: float, start_y: float, target_x: float) -> Vector2:
+	var cur_x := roundi(start_x)
+	var cur_y := roundi(start_y)
+	var end_x := roundi(target_x)
+	if cur_x == end_x:
+		return Vector2(start_x, start_y)
+	var dir := 1 if end_x > cur_x else -1
+	while cur_x != end_x:
+		var next_x := cur_x + dir
+		if next_x < 0 or next_x >= width:
+			break
+		var next_y := _step_surface(next_x, cur_y, MAX_CLIMB_PER_STEP)
+		if next_y < 0:
+			break
+		cur_x = next_x
+		cur_y = next_y
+	return Vector2(cur_x, cur_y)
+
+
+## Terrain.hasHeadroom: the PLAYER_HEIGHT pixels above surface_y in column x are free.
+func _has_headroom(x: int, surface_y: int) -> bool:
+	var y := maxi(surface_y - PLAYER_HEIGHT, 0)
+	while y < surface_y and y < height:
+		if solid[y * width + x] != 0:
+			return false
+		y += 1
+	return true
+
+
+## Terrain.stepSurface: surface Y after stepping into column x from cur_y, or -1 when blocked.
+func _step_surface(x: int, cur_y: int, max_climb: int) -> int:
+	var feet := cur_y - 1
+	if feet >= height:
+		return height
+	if feet < 0 or solid[feet * width + x] == 0:
+		# Flat or downhill: cross at the current height, then drop to the first solid pixel.
+		if not _has_headroom(x, cur_y):
+			return -1
+		return int(get_landing_y(x, feet))
+	# Uphill: climb to the top of the solid run, up to max_climb pixels.
+	var y := feet
+	while y > 0 and solid[(y - 1) * width + x] != 0:
+		y -= 1
+		if cur_y - y > max_climb:
+			return -1
+	if cur_y - y > max_climb or not _has_headroom(x, y):
+		return -1
+	return y

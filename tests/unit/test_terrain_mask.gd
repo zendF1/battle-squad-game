@@ -61,3 +61,25 @@ func test_destroy_circle_matches_server() -> void:
 	eq(_diff_count(m.solid, TerrainMask.decode_rle(f["after"]["solid"], n)), 0, "solid pixels differing from server")
 	eq(_diff_count(m.destructible, TerrainMask.decode_rle(f["after"]["destructible"], n)), 0, "destructible pixels differing")
 	eq(m.version, int(f["after"]["version"]), "version after ops")
+
+
+func _after_mask(f: Dictionary):
+	var m := TerrainMask.new()
+	m.load_snapshot(f["after"])
+	return m
+
+
+func test_get_landing_y_matches_server() -> void:
+	var f := _fixture()
+	var m = _after_mask(f)
+	for c in f["landings"]:
+		eq(m.get_landing_y(float(c["x"]), float(c["startY"])), float(c["y"]),
+			"landing at x=%s startY=%s" % [c["x"], c["startY"]])
+
+
+func test_walk_to_matches_server() -> void:
+	var f := _fixture()
+	var m = _after_mask(f)
+	for c in f["walks"]:
+		eq(m.walk_to(float(c["startX"]), float(c["startY"]), float(c["targetX"])), Vector2(float(c["x"]), float(c["y"])),
+			"walk %s,%s -> %s" % [c["startX"], c["startY"], c["targetX"]])
