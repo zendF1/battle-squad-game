@@ -8,7 +8,7 @@ const Ui := preload("res://ui/ui.gd")
 const Items := preload("res://match/items.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const QuickPlay := preload("res://screens/quick_play.gd")
-const SETTINGS_PATH := "user://loadout.cfg"
+const SETTINGS_PATH := LoadoutModel.SETTINGS_PATH
 
 var _model := LoadoutModel.new()
 var _base: Dictionary = {}
@@ -31,7 +31,7 @@ func _ready() -> void:
 
 	var col := Ui.center_column(self)
 	col.add_theme_constant_override("separation", 14)
-	var mode := "Đấu với máy" if _base.has("bot") else "Chơi nhanh (Luyện tập)"
+	var mode := "Đấu với máy" if _base.has("bot") else "Luyện tập"
 	col.add_child(Ui.label("Chuẩn bị  ·  %s" % mode, 32))
 
 	col.add_child(Ui.label("Nhân vật", 24))

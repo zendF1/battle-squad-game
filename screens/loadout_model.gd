@@ -3,11 +3,13 @@ extends RefCounted
 ## player owns (GET /player/characters, GET /player/inventory). Ownership is advisory: a
 ## character or item not owned can still be picked, the server decides (QuickPlay answers
 ## RoomError LOADOUT_INVALID). When a request failed, ownership is unknown (null) and nothing is
-## marked. The last choice is remembered in a ConfigFile (a convenience only).
+## marked. The last choice is remembered in a ConfigFile (a convenience only), shared with the
+## lobby, which picks the character there too.
 
 const Items := preload("res://match/items.gd")
 const Skills := preload("res://match/skills.gd")
 
+const SETTINGS_PATH := "user://loadout.cfg"
 const DEFAULT_CHARACTER := "rookie" # always owned
 const NOT_OWNED := "Chưa sở hữu"
 
@@ -110,8 +112,10 @@ static func parse_inventory(data: Variant) -> Variant:
 	return counts
 
 
+## Saves the choice, keeping the rest of the file (the lobby's mode).
 func remember(path: String) -> void:
 	var cfg := ConfigFile.new()
+	cfg.load(path) # a missing file starts empty
 	cfg.set_value("loadout", "character_id", character_id)
 	cfg.set_value("loadout", "items", items.duplicate())
 	cfg.save(path)

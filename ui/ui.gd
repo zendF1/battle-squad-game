@@ -40,8 +40,10 @@ const TONES := {
 	"good": Color(0.45, 0.9, 0.55),
 	"error": Color(1.0, 0.45, 0.45),
 }
-const CARD_BG := Color(0.16, 0.18, 0.23)
-const CARD_SELECTED := Color(0.22, 0.3, 0.42)
+# Translucent navy, so the Home backdrop shows through the cards.
+const CARD_BG := Color(0.09, 0.11, 0.24, 0.82)
+const CARD_SELECTED := Color(0.2, 0.32, 0.6, 0.92)
+const TAB_BG := Color(0.07, 0.09, 0.2, 0.8)
 const ACCENT := Color(0.24, 0.45, 0.75)
 
 
@@ -126,7 +128,7 @@ static func tab_row(names: Array, font_size: int, on_select: Callable, min_heigh
 		b.focus_mode = Control.FOCUS_NONE
 		b.custom_minimum_size = Vector2(0, min_height)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		toggle_style(b, Color(0.17, 0.19, 0.24), ACCENT, 10)
+		toggle_style(b, TAB_BG, ACCENT, 10)
 		b.pressed.connect(on_select.bind(i))
 		out.append(b)
 	select_tab(out, 0)

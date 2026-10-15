@@ -31,8 +31,11 @@ const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
 
 const UNCLEAR := "Không rõ kết quả, đã tải lại"
 const SUB_TABS := ["Nhân vật", "Kho đồ", "Lịch sử"]
+const CHARACTERS := 0
+const INVENTORY := 1
+const HISTORY := 2
 
-## Where dialogs and toasts go (the Home shell); defaults to this tab.
+## Where dialogs and toasts go (Home); defaults to this tab.
 var overlay: Control
 
 var _characters: Variant = null # characterId -> GET /player/characters entry, null until loaded
@@ -238,6 +241,11 @@ func _save_name(m: Modal, input: LineEdit) -> void:
 
 
 # ── Sub-tabs ────────────────────────────────────────────────────────────────
+
+## Shows a sub-tab (CHARACTERS, INVENTORY, HISTORY); it loads once this tab is visible.
+func show_section(index: int) -> void:
+	_show_sub(index)
+
 
 func _show_sub(index: int) -> void:
 	_sub = index

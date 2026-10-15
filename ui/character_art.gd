@@ -1,0 +1,183 @@
+extends Control
+## A character drawn in code (placeholder art until real sprites): a chibi body, head, eyes, a
+## hat and the character's weapon, in its own colours. It fits itself into its rect, feet at the
+## bottom centre, over a soft shadow. `idle` makes it bob gently. Used by the lobby; the Loadout
+## and Profile cards can use it too, and real sprites replace it here in one place.
+
+## The art is drawn in UNITS (feet at the origin, up is -y) and scaled to fit the rect.
+const UNITS := Vector2(150, 160)
+const OUTLINE := Color(0.07, 0.07, 0.12)
+const SKIN := Color(1.0, 0.82, 0.66)
+
+## Per character: body, trim (belt, shoes, hat details), hat, weapon colours, body width.
+const LOOKS := {
+	"rookie": {"body": Color(0.25, 0.55, 1.0), "trim": Color(0.16, 0.25, 0.5), "hat": Color(0.36, 0.62, 0.3),
+		"weapon": Color(0.55, 0.6, 0.68), "glow": Color(1.0, 0.75, 0.3), "width": 44.0},
+	"tanko": {"body": Color(0.42, 0.5, 0.3), "trim": Color(0.27, 0.3, 0.2), "hat": Color(0.55, 0.57, 0.6),
+		"weapon": Color(0.3, 0.32, 0.36), "glow": Color(1.0, 0.5, 0.2), "width": 58.0},
+	"spark": {"body": Color(0.56, 0.36, 0.9), "trim": Color(0.3, 0.18, 0.55), "hat": Color(1.0, 0.85, 0.25),
+		"weapon": Color(0.72, 0.74, 0.8), "glow": Color(0.55, 0.95, 1.0), "width": 40.0},
+	"flora": {"body": Color(0.3, 0.75, 0.5), "trim": Color(0.16, 0.45, 0.3), "hat": Color(1.0, 0.5, 0.7),
+		"weapon": Color(0.6, 0.42, 0.25), "glow": Color(1.0, 0.92, 0.4), "width": 42.0},
+}
+
+@export var character_id := "rookie":
+	set(value):
+		character_id = value
+		queue_redraw()
+
+## Bob up and down (and redraw every frame while visible).
+@export var idle := false:
+	set(value):
+		idle = value
+		set_process(value)
+		queue_redraw()
+
+var _t := 0.0
+var _boxes := {} # [color, radius, outline] -> StyleBoxFlat, so a redraw allocates nothing
+
+
+func _ready() -> void:
+	mouse_filter = MOUSE_FILTER_IGNORE
+	set_process(idle)
+	resized.connect(queue_redraw)
+
+
+func _process(delta: float) -> void:
+	if not is_visible_in_tree():
+		return
+	_t += delta
+	queue_redraw()
+
+
+func _draw() -> void:
+	var look: Dictionary = LOOKS.get(character_id, LOOKS["rookie"])
+	var k := minf(size.x / UNITS.x, size.y / UNITS.y)
+	var feet := Vector2(size.x / 2, size.y - 8 * k)
+	var lift := (sin(_t * 2.4) * 0.5 + 0.5) * 5.0 if idle else 0.0
+	# Shadow: smaller while the body is up.
+	draw_set_transform(feet, 0.0, Vector2(k, k * 0.22))
+	draw_circle(Vector2.ZERO, 46.0 - lift * 1.5, Color(0, 0, 0, 0.35))
+	draw_set_transform(feet + Vector2(0, -lift * k), 0.0, Vector2(k, k))
+	_body(look)
+	match character_id:
+		"tanko":
+			_tanko()
+		"spark":
+			_spark(look)
+		"flora":
+			_flora(look)
+		_:
+			_rookie(look)
+	draw_set_transform(Vector2.ZERO)
+
+
+## Legs, torso, belt, arms, head and eyes (shared); the hat and weapon come after.
+func _body(look: Dictionary) -> void:
+	var w: float = look["width"]
+	# Legs and shoes.
+	for x in [-w * 0.3, w * 0.3]:
+		_rect(Rect2(x - 7, -30, 14, 24), look["trim"].darkened(0.2), 5)
+		_rect(Rect2(x - 10, -10, 20, 10), Color(0.18, 0.14, 0.12), 5)
+	# Torso and belt.
+	_rect(Rect2(-w / 2, -74, w, 48), look["body"], 14)
+	_rect(Rect2(-w / 2 + 2, -40, w - 4, 7), look["trim"], 3, 0.0)
+	_rect(Rect2(-5, -42, 10, 11), look["glow"], 3, 2.0)
+	# Arms.
+	_rect(Rect2(-w / 2 - 11, -70, 13, 32), look["body"].darkened(0.1), 6)
+	_rect(Rect2(w / 2 - 2, -70, 13, 32), look["body"].darkened(0.1), 6)
+	_circle(Vector2(-w / 2 - 4.5, -38), 6.5, SKIN)
+	# Head.
+	_circle(Vector2(0, -102), 30, SKIN)
+	for x in [-11.0, 11.0]:
+		_circle(Vector2(x, -101), 7.5, Color.WHITE, 2.0)
+		draw_circle(Vector2(x + 2, -100), 4.0, OUTLINE)
+		draw_circle(Vector2(x + 3.5, -102), 1.4, Color.WHITE)
+	draw_arc(Vector2(1, -90), 6.0, deg_to_rad(20), deg_to_rad(160), 10, OUTLINE, 2.5)
+	draw_circle(Vector2(-19, -91), 4.0, Color(1, 0.5, 0.5, 0.45))
+	draw_circle(Vector2(21, -91), 4.0, Color(1, 0.5, 0.5, 0.45))
+
+
+## A cap and a short bazooka on the shoulder.
+func _rookie(look: Dictionary) -> void:
+	_polygon([Vector2(-31, -110), Vector2(-26, -128), Vector2(-8, -137), Vector2(14, -136), Vector2(29, -122), Vector2(31, -110)], look["hat"])
+	_rect(Rect2(10, -114, 34, 7), look["hat"].darkened(0.2), 3)
+	draw_circle(Vector2(0, -128), 4.0, look["glow"])
+	# Bazooka over the right shoulder, pointing forward.
+	_rect(Rect2(6, -80, 62, 16), look["weapon"], 7)
+	_rect(Rect2(60, -82, 12, 20), look["weapon"].darkened(0.25), 4)
+	_rect(Rect2(28, -68, 8, 14), look["weapon"].darkened(0.3), 3)
+	_circle(Vector2(33, -52), 6.5, SKIN)
+
+
+## A helmet and a heavy two-handed cannon.
+func _tanko() -> void:
+	var look: Dictionary = LOOKS["tanko"]
+	_polygon([Vector2(-32, -112), Vector2(-30, -130), Vector2(-15, -144), Vector2(15, -144), Vector2(30, -130), Vector2(32, -112)], look["hat"])
+	_rect(Rect2(-35, -118, 70, 8), look["hat"].darkened(0.25), 3)
+	_rect(Rect2(-4, -143, 8, 24), look["hat"].lightened(0.2), 3, 0.0)
+	# Cannon held low across the body.
+	_rect(Rect2(-6, -62, 88, 26), look["weapon"], 9)
+	_rect(Rect2(72, -66, 16, 34), look["weapon"].darkened(0.3), 5)
+	_rect(Rect2(10, -58, 30, 6), look["glow"], 2, 0.0)
+	_rect(Rect2(4, -38, 14, 12), look["weapon"].darkened(0.2), 3)
+	_circle(Vector2(36, -36), 7.0, SKIN)
+
+
+## Spiky hair and a lightning rod.
+func _spark(look: Dictionary) -> void:
+	var hair: Color = look["hat"]
+	_polygon([Vector2(-31, -104), Vector2(-38, -126), Vector2(-20, -122), Vector2(-16, -146), Vector2(-2, -128),
+		Vector2(8, -150), Vector2(14, -126), Vector2(34, -136), Vector2(28, -116), Vector2(33, -104), Vector2(20, -118),
+		Vector2(0, -114), Vector2(-20, -118)], hair)
+	# Rod in the right hand with a glowing orb.
+	_rect(Rect2(44, -128, 7, 104), look["weapon"], 3)
+	draw_circle(Vector2(47.5, -134), 17.0, Color(look["glow"], 0.25))
+	_circle(Vector2(47.5, -134), 10.0, look["glow"])
+	_polygon([Vector2(50, -146), Vector2(41, -133), Vector2(48, -133), Vector2(44, -122), Vector2(55, -137), Vector2(48, -137)], Color(1, 1, 0.6), 1.5)
+	_circle(Vector2(47.5, -40), 6.5, SKIN)
+
+
+## A flower on the head and a wooden staff with a bud.
+func _flora(look: Dictionary) -> void:
+	var leaf: Color = look["body"].darkened(0.15)
+	_polygon([Vector2(-31, -106), Vector2(-28, -124), Vector2(-12, -134), Vector2(10, -134), Vector2(28, -124), Vector2(31, -106), Vector2(18, -120), Vector2(-18, -120)], leaf)
+	var c := Vector2(-18, -128)
+	for i in 5:
+		_circle(c + Vector2.from_angle(TAU * i / 5.0) * 9.0, 7.0, look["hat"], 2.0)
+	_circle(c, 5.0, look["glow"], 2.0)
+	# Staff.
+	_rect(Rect2(46, -120, 7, 116), look["weapon"], 3)
+	_polygon([Vector2(49.5, -146), Vector2(62, -128), Vector2(49.5, -116), Vector2(37, -128)], Color(0.45, 0.85, 0.4))
+	_circle(Vector2(49.5, -128), 6.0, look["hat"], 2.0)
+	_circle(Vector2(49.5, -40), 6.5, SKIN)
+
+
+func _rect(r: Rect2, color: Color, radius: float, outline: float = 3.0) -> void:
+	var key := [color, radius, outline]
+	var box: StyleBoxFlat = _boxes.get(key)
+	if box == null:
+		box = StyleBoxFlat.new()
+		box.bg_color = color
+		box.set_corner_radius_all(int(radius))
+		box.anti_aliasing = true
+		if outline > 0.0:
+			box.border_color = OUTLINE
+			box.set_border_width_all(int(outline))
+			box.set_expand_margin_all(outline / 2)
+		_boxes[key] = box
+	draw_style_box(box, r)
+
+
+func _circle(center: Vector2, radius: float, color: Color, outline: float = 3.0) -> void:
+	if outline > 0.0:
+		draw_circle(center, radius + outline / 2, OUTLINE)
+	draw_circle(center, radius - outline / 2, color)
+
+
+func _polygon(points: Array, color: Color, outline: float = 3.0) -> void:
+	var packed := PackedVector2Array(points)
+	draw_colored_polygon(packed, color)
+	if outline > 0.0:
+		packed.append(packed[0])
+		draw_polyline(packed, OUTLINE, outline, true)
