@@ -132,7 +132,7 @@ func test_silence_after_resends_needs_resync_not_rollback() -> void:
 	check(not s.is_settled(), "Shoot must not go out")
 	eq(s.position, Vector2(120, 60), "no rollback to the last confirmed 100")
 	eq(s.update(9.0, true), {}, "nothing is sent while waiting for a resync")
-	s.reset(Vector2(120, 60), 90) # MatchStateSync
+	s.apply_snapshot(Vector2(120, 60), 90, 3) # MatchStateSync, lastMoveSeq 3
 	check(not s.needs_resync(), "resynced")
 	check(s.is_settled(), "Shoot may go out after the snapshot")
 
@@ -269,8 +269,7 @@ func test_older_answer_keeps_retry_count() -> void:
 
 
 func _lose(s) -> void:
-	_silence_until_resync(s) # seq 1..3 for 100 → 120, all unanswered
-	s.mark_resync_requested() # controller sends Reconnect: its snapshot covers seq <= 3
+	_silence_until_resync(s) # seq 1..3 for 100 → 120, all unanswered; the controller sends Reconnect
 
 
 func test_snapshot_older_than_a_newer_move_keeps_it_in_the_replay() -> void:
@@ -281,7 +280,7 @@ func test_snapshot_older_than_a_newer_move_keeps_it_in_the_replay() -> void:
 	s.walk_px(1, 30)
 	s.release()
 	eq(s.update(3.6, true).get("seq"), 4, "seq 4 sent after the Reconnect")
-	s.apply_snapshot(Vector2(120, 60), 90) # taken before the server saw seq 4
+	s.apply_snapshot(Vector2(120, 60), 90, 3) # taken before the server saw seq 4
 	eq(s.position, Vector2(150, 60), "seq 4 replayed on top of the snapshot")
 	eq(s.energy, 75, "90 - round(30 * 0.5)")
 	check(not s.is_settled(), "seq 4 still unanswered: Shoot must wait")
@@ -294,7 +293,7 @@ func test_snapshot_after_late_ack_unlock_changes_nothing() -> void:
 	_lose(s)
 	s.on_server_moved(Vector2(120, 60), 90, 3)
 	s.take_changes()
-	s.apply_snapshot(Vector2(120, 60), 90)
+	s.apply_snapshot(Vector2(120, 60), 90, 3)
 	check(s.is_settled(), "still settled")
 	eq(s.position, Vector2(120, 60), "snapshot position")
 	eq(s.take_changes(), {"position": Vector2(120, 60), "energy": 90}, "re-reported for the rebuilt view")
@@ -302,26 +301,74 @@ func test_snapshot_after_late_ack_unlock_changes_nothing() -> void:
 
 func test_two_outstanding_resyncs_each_cover_their_own_commands() -> void:
 	var s = _sync(100, 100)
-	_lose(s)
-	s.mark_resync_requested() # RESYNC_RETRY: a second Reconnect, still covering seq <= 3
-	s.apply_snapshot(Vector2(120, 60), 90) # answer to the first Reconnect
+	_lose(s) # and a second Reconnect after RESYNC_RETRY
+	s.apply_snapshot(Vector2(120, 60), 90, 3) # answer to the first Reconnect
 	check(s.is_settled(), "unlocked by the first snapshot")
 	s.walk_px(-1, 10)
 	s.release()
 	eq(s.update(7.0, true), {"direction": "left", "targetX": 110.0, "seq": 4}, "seq 4 after both Reconnects")
-	s.apply_snapshot(Vector2(120, 60), 90) # answer to the second Reconnect, taken before seq 4
+	s.apply_snapshot(Vector2(120, 60), 90, 3) # answer to the second Reconnect, taken before seq 4
 	eq(s.position, Vector2(110, 60), "seq 4 kept in the replay")
 	check(not s.is_settled(), "seq 4 still unanswered")
 
 
-func test_unrequested_snapshot_covers_everything_sent() -> void:
+func test_snapshot_drops_covered_commands_and_replays_newer_ones() -> void:
+	var s = _sync(100, 100)
+	_send_right_then_left(s) # seq 1 → 130, seq 2 → 120
+	s.apply_snapshot(Vector2(130, 60), 85, 1) # the server had taken seq 1 only
+	eq(s.position, Vector2(120, 60), "seq 2 replayed on the snapshot")
+	eq(s.energy, 80, "85 - round(10 * 0.5)")
+	check(not s.is_settled(), "seq 2 still unanswered")
+	s.on_server_moved(Vector2(130, 60), 85, 1) # a late answer to a covered command
+	eq(s.position, Vector2(120, 60), "ignored: no jump")
+	s.on_server_moved(Vector2(120, 60), 80, 2)
+	check(s.is_settled(), "settled by seq 2's answer")
+
+
+func test_snapshot_covering_the_newest_command_settles() -> void:
 	var s = _sync(100, 100)
 	s.walk_px(1, 20)
 	s.release()
 	s.update(0.0, true)
-	s.apply_snapshot(Vector2(118, 60), 91) # e.g. after a terrain version mismatch
+	s.apply_snapshot(Vector2(118, 60), 91, 1) # e.g. after a terrain version mismatch
 	check(s.is_settled(), "nothing left in flight")
 	eq(s.position, Vector2(118, 60), "snapshot position")
+
+
+func test_snapshot_counts_a_dropped_move() -> void:
+	# The server took seq 1 but dropped it (rate limit): no PlayerMoved will ever answer it.
+	var s = _sync(100, 100)
+	s.walk_px(1, 20)
+	s.release()
+	s.update(0.0, true)
+	s.update(1.1, false) # its re-send is queued
+	s.apply_snapshot(Vector2(100, 60), 100, 1)
+	check(s.is_settled(), "dropped Move left the replay, and so did its queued re-send")
+	eq(s.position, Vector2(100, 60), "server position: the Move did nothing")
+	eq(s.energy, 100, "nothing charged")
+	eq(s.update(1.5, true), {}, "nothing re-sent")
+
+
+func test_snapshot_without_last_move_seq_keeps_commands_in_flight() -> void:
+	# An older server sends no lastMoveSeq: the snapshot may or may not include seq 1.
+	var s = _sync(100, 100)
+	s.walk_px(1, 20)
+	s.release()
+	s.update(0.0, true)
+	s.apply_snapshot(Vector2(100, 60), 100)
+	check(not s.is_settled(), "seq 1 still needs its answer: Shoot waits")
+	eq(s.position, Vector2(120, 60), "seq 1 replayed on the snapshot")
+	s.on_server_moved(Vector2(120, 60), 90, 1)
+	check(s.is_settled(), "settled by the answer")
+
+
+func test_snapshot_without_last_move_seq_keeps_the_lost_state() -> void:
+	var s = _sync(100, 100)
+	_lose(s)
+	s.apply_snapshot(Vector2(120, 60), 90)
+	check(s.needs_resync(), "still unknown which Moves the snapshot shows")
+	s.on_server_moved(Vector2(120, 60), 90, 3)
+	check(s.is_settled(), "a late answer still ends it")
 
 
 func test_resend_keeps_the_original_direction() -> void:

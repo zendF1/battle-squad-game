@@ -20,8 +20,10 @@ extends RefCounted
 ## older command does not prove the newer ones arrived. Silence after MAX_RETRIES re-sends does
 ## not prove the server rejected the move: it may have applied it and the answer is late.
 ## MoveSync then stops sending, keeps the prediction on screen and reports needs_resync(); the
-## caller must not shoot, must send Reconnect (calling mark_resync_requested()) and must pass
-## the MatchStateSync to apply_snapshot(), unless the answer to the newest command arrives first.
+## caller must not shoot and must send Reconnect. A late answer to the newest command ends it too.
+##
+## Every MatchStateSync must go through apply_snapshot(), also one that answers a Reconnect sent
+## for another reason (a terrain mismatch): its lastMoveSeq says which commands it already shows.
 
 const SPEED := 90.0 # px/s while a move button is held
 const PX_PER_ENERGY := 2.0 # server processMove: maxDist = moveEnergy * 2
@@ -43,9 +45,6 @@ var _in_flight: Array = []
 # Not sent yet: [{"target_x": float, "dir": int, "resend_of": int}]. resend_of is the in-flight
 # seq a re-send repeats (0 for a new segment).
 var _queued: Array = []
-# Last seq sent when each outstanding Reconnect went out, oldest first. The server answers
-# Reconnects in order, so the next MatchStateSync covers the commands up to the front entry.
-var _resync_marks: Array[int] = []
 var _base_pos := Vector2.ZERO # predicted state after the in-flight and queued commands
 var _base_energy := 0
 var _seg_dir := 0 # open segment: direction and requested distance from _base_pos
@@ -57,9 +56,6 @@ var _lost := false # re-sends exhausted: the server state is unknown until resyn
 
 
 ## Starts from an authoritative state (turn start) and forgets all pending commands.
-## Outstanding resync marks are kept: a MatchStateSync still on its way answers a Reconnect
-## sent earlier, and its mark (a seq below anything sent from now on) keeps the new commands
-## in the replay.
 func reset(pos: Vector2, move_energy: int) -> void:
 	_server_pos = pos
 	_server_energy = move_energy
@@ -75,24 +71,26 @@ func reset(pos: Vector2, move_energy: int) -> void:
 	_rebase()
 
 
-## Call when a Reconnect is sent: records which commands its MatchStateSync will cover.
-func mark_resync_requested() -> void:
-	_resync_marks.append(_next_seq - 1)
-
-
-## Applies a MatchStateSync during the turn. The snapshot covers the commands up to the seq
-## recorded when its Reconnect went out (everything sent so far if none was recorded). Those
-## are dropped; commands sent after the Reconnect are still ahead of the snapshot on the
-## server, so they stay in flight and are replayed on top of it.
-func apply_snapshot(pos: Vector2, move_energy: int) -> void:
-	var covered := _next_seq - 1
-	if not _resync_marks.is_empty():
-		covered = _resync_marks.pop_front()
+## Applies a MatchStateSync. last_move_seq is its lastMoveSeq: the seq of the last Move the
+## server took from this player this turn, applied or dropped (0 if none). The snapshot already
+## shows every command up to it, so they leave the replay. Later commands had not reached the
+## server when it was taken (one connection, handled in order): they stay in flight and are
+## replayed on top of it, and their answers follow it.
+##
+## last_move_seq < 0 means the server did not send the field (a server older than it). The
+## snapshot is then taken to cover only what is already answered (_acked_seq): every command in
+## flight stays in the replay and still needs its answer. The safe direction: the replay may show
+## a command the snapshot already includes until that answer arrives, but Shoot is never sent
+## before it. Re-sends and the lost state carry on as before; a MoveSync that lost track then
+## recovers only through a late answer or the next reset().
+func apply_snapshot(pos: Vector2, move_energy: int, last_move_seq: int = -1) -> void:
 	_server_pos = pos
 	_server_energy = move_energy
-	_acked_seq = maxi(_acked_seq, covered)
-	_answered(covered)
-	_lost = false # anything still in flight was sent after the Reconnect: the server has it next
+	if last_move_seq >= 0:
+		_acked_seq = maxi(_acked_seq, last_move_seq)
+	_answered(_acked_seq)
+	if last_move_seq >= 0:
+		_lost = false # state known: anything still in flight reaches the server after the snapshot
 	_reported_pos = Vector2.INF
 	_reported_energy = -1
 	_rebase()

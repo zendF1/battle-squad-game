@@ -127,8 +127,8 @@ func _process(delta: float) -> void:
 # ── Snapshot and turn state ──────────────────────────────────────────────────
 
 ## Rebuilds the match from a snapshot: MatchStarted (is_sync false) or a MatchStateSync. A
-## MatchStateSync that arrives during my turn continues it: MoveSync replays the Moves sent
-## after its Reconnect on top of it, and a resolved shot keeps input locked.
+## MatchStateSync that arrives during my turn continues it: MoveSync replays the Moves the
+## snapshot does not show yet on top of it, and a resolved shot keeps input locked.
 func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 	var current := str(snap.get("currentPlayerId", ""))
 	var continuing := is_sync and _current == _me and current == _me
@@ -150,8 +150,10 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 	_wind = snap.get("wind", _wind)
 	var energy := int(_players.get(_me, {}).get("moveEnergy", 0))
 	if is_sync and _players.has(_me) and _players[_me].has("position"):
-		# Every MatchStateSync answers one Reconnect (each was marked), even outside my turn.
-		_moves.apply_snapshot(_pos(_me), energy)
+		# Every MatchStateSync goes through MoveSync. lastMoveSeq (absent on an older server: -1)
+		# says which of my Moves the snapshot already shows.
+		var last_seq = snap.get("lastMoveSeq")
+		_moves.apply_snapshot(_pos(_me), energy, int(last_seq) if (last_seq is int or last_seq is float) else -1)
 	_hud.set_time(int(snap.get("turnTimeLeft", TURN_SECONDS)))
 	if continuing and _turn_resolved:
 		_hud.pause_timer() # still resolving my shot: the clock restarts with TurnStarted
@@ -294,7 +296,6 @@ func _on_shot_event(e: Dictionary) -> void:
 			if server_version != _mask.version:
 				_mask.version = server_version
 				GameSocket.send("Reconnect", {}) # terrain drifted: ask for MatchStateSync
-				_moves.mark_resync_requested()
 		"damage":
 			_set_hp(id, int(e.get("hp", 0)))
 			var crit := bool(e.get("critical", false))
@@ -394,8 +395,8 @@ func _commit_action(event: String, data: Dictionary) -> void:
 
 ## The server's position is unknown (Moves unanswered after every re-send). Cancel any
 ## Shoot/EndTurn still waiting, keep input locked (_can_act) and ask for a full MatchStateSync,
-## repeating every RESYNC_RETRY seconds. Each Reconnect is marked in MoveSync, so the snapshot
-## answering it (MoveSync.apply_snapshot) covers only the Moves sent before it.
+## repeating every RESYNC_RETRY seconds. The snapshot's lastMoveSeq tells MoveSync which Moves
+## it covers (MoveSync.apply_snapshot).
 func _request_resync(delta: float) -> void:
 	if _committing and not _commit_sent:
 		_committing = false # the waiting _commit_action returns without sending
@@ -403,7 +404,6 @@ func _request_resync(delta: float) -> void:
 	if _resync_in > 0.0:
 		return
 	GameSocket.send("Reconnect", {})
-	_moves.mark_resync_requested()
 	_resync_in = RESYNC_RETRY
 	_refresh_controls()
 
