@@ -23,6 +23,7 @@ func test_iap_and_stats_messages() -> void:
 	eq(ErrorText.iap(_err(503, "IAP_STORE_NOT_CONFIGURED")), "Chưa nạp được lúc này, hãy thử lại sau", "store")
 	eq(ErrorText.iap(_err(409, "WHATEVER", "m")), "Nạp thất bại: m", "other")
 	eq(ErrorText.stats(_err(400, "CHARACTER_INSUFFICIENT_BALANCE")), "Không đủ xu để tẩy điểm", "reset fee")
+	eq(ErrorText.stats(_err(400, "CHARACTER_INSUFFICIENT_BALANCE"), "gem"), "Không đủ kim cương để tẩy điểm", "gem reset fee")
 	eq(ErrorText.stats(_err(400, "CHARACTER_NO_STATS_TO_RESET")), "Chưa có điểm nào để tẩy", "nothing to reset")
 	eq(ErrorText.stats(_err(400, "CHARACTER_INSUFFICIENT_STAT_POINTS")), "Không đủ điểm tiềm năng", "points")
 	eq(ErrorText.stats(_err(400, "BAD_REQUEST", "Invalid parameters")), "Thao tác thất bại: Invalid parameters", "other")

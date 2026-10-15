@@ -13,6 +13,12 @@ const STATS := [
 	{"key": "terrainDamage", "field": "bonusTerrainDmg", "label": "Phá địa hình"},
 ]
 
+const ShopModel := preload("res://screens/home/shop_model.gd")
+const Fmt := preload("res://core/fmt.gd")
+
+## The reset-stats fee when GET /player/characters has no resetStatsCost (the server seed).
+const DEFAULT_RESET_COST := {"currency": "coin", "amount": 500}
+
 var character_id := ""
 var stat_points := 0
 var current := {} # key -> allocated bonus
@@ -74,6 +80,30 @@ func can_submit() -> bool:
 	return character_id != "" and total_pending() > 0 and total_pending() <= stat_points
 
 
+## Whether a GET /player/characters entry has the state this draft was built from (same
+## statPoints and bonuses), so its pending points are still valid.
+func matches(c: Dictionary) -> bool:
+	if str(c.get("characterId", "")) != character_id or maxi(int(c.get("statPoints", 0)), 0) != stat_points:
+		return false
+	for s in STATS:
+		if int(c.get(s["field"], 0)) != current[s["key"]]:
+			return false
+	return true
+
+
+## Drafts for freshly loaded characters (characterId -> entry): a character whose server state
+## did not change keeps its draft (and pending points); the others, and `drop_id`, start empty.
+static func rebuild(old: Dictionary, characters: Dictionary, drop_id: String = "") -> Dictionary:
+	var out := {}
+	for id in characters:
+		var draft = old.get(id)
+		if draft != null and id != drop_id and draft.matches(characters[id]):
+			out[id] = draft
+		else:
+			out[id] = new(characters[id])
+	return out
+
+
 ## The allocate-stats body: every stat, 0 when untouched.
 func payload() -> Dictionary:
 	var out := {"characterId": character_id}
@@ -88,3 +118,17 @@ func has_allocated() -> bool:
 		if current[key] > 0:
 			return true
 	return false
+
+
+## The reset fee {currency, amount} from the GET /player/characters data (resetStatsCost), or
+## DEFAULT_RESET_COST when it is absent or malformed.
+static func reset_cost(data: Variant) -> Dictionary:
+	var c = data.get("resetStatsCost") if data is Dictionary else null
+	if c is Dictionary and str(c.get("currency", "")) in ["coin", "gem"] and (c.get("amount") is float or c.get("amount") is int) and int(c["amount"]) >= 0:
+		return {"currency": str(c["currency"]), "amount": int(c["amount"])}
+	return DEFAULT_RESET_COST.duplicate()
+
+
+## "500 xu", "50 kim cương".
+static func cost_text(cost: Dictionary) -> String:
+	return "%s %s" % [Fmt.thousands(int(cost.get("amount", 0))), ShopModel.currency_word(str(cost.get("currency", "")))]

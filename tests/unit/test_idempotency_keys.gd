@@ -40,3 +40,16 @@ func test_prefix_and_persistence() -> void:
 	reopened.settle("p1/gems_100", 200)
 	check(not IdempotencyKeys.new("mock_", TMP).has_key("p1/gems_100"), "drop is saved")
 	DirAccess.remove_absolute(TMP)
+
+
+func test_replay_detection() -> void:
+	var now := Time.get_unix_time_from_datetime_string("2026-10-15T10:00:00")
+	var known := {"pu1": true}
+	check(not IdempotencyKeys.is_replay(false, "pu1", known, "2026-10-14T10:00:00Z", now), "a fresh key is never a replay")
+	check(IdempotencyKeys.is_replay(true, "pu1", known, "2026-10-15T10:00:05Z", now), "id already listed by /shop/purchases")
+	check(IdempotencyKeys.is_replay(true, "pu9", known, "2026-10-15T09:30:00Z", now), "created well before the request")
+	check(IdempotencyKeys.is_replay(true, "pu9", known, "2026-10-15T16:30:00+07:00", now), "zone offset honoured (09:30Z)")
+	check(not IdempotencyKeys.is_replay(true, "pu9", known, "2026-10-15T09:59:00Z", now), "within the clock slack: new")
+	check(not IdempotencyKeys.is_replay(true, "pu9", known, "2026-10-15T10:00:01.5Z", now), "created after the start: new")
+	check(not IdempotencyKeys.is_replay(true, "pu9", known, "", now), "no createdAt, unknown id: new")
+	check(not IdempotencyKeys.is_replay(true, "", {}, "garbage", now), "nothing to go on: new")

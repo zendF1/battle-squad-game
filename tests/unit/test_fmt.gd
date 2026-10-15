@@ -24,3 +24,10 @@ func test_short_date() -> void:
 	eq(Fmt.short_date("2026-10-15T08:05:00-0230", 0), "15/10 10:35", "negative offset")
 	eq(Fmt.short_date("2026-10-15T08:05:00", 60), "15/10 09:05", "no zone is UTC")
 	eq(Fmt.short_date("yesterday", 0), "", "garbage")
+
+
+func test_unix_time() -> void:
+	eq(Fmt.unix_time("1970-01-01T00:01:00Z"), 60, "epoch + 1 min")
+	eq(Fmt.unix_time("2026-10-15T15:05:00+07:00"), Fmt.unix_time("2026-10-15T08:05:00Z"), "offset")
+	eq(Fmt.unix_time("2026-10-15T08:05:00.123456789Z"), Fmt.unix_time("2026-10-15T08:05:00Z"), "nanoseconds (Go time.Time)")
+	eq(Fmt.unix_time("nope"), -1, "garbage")

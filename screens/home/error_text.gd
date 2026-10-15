@@ -23,7 +23,6 @@ const STATS := {
 	"CHARACTER_NO_STATS_ALLOCATED": "Chưa chọn điểm nào để cộng",
 	"CHARACTER_INSUFFICIENT_STAT_POINTS": "Không đủ điểm tiềm năng",
 	"CHARACTER_NO_STATS_TO_RESET": "Chưa có điểm nào để tẩy",
-	"CHARACTER_INSUFFICIENT_BALANCE": "Không đủ xu để tẩy điểm",
 }
 
 
@@ -47,10 +46,12 @@ static func iap(res: Dictionary) -> String:
 	return IAP.get(str(res.get("code", "")), "Nạp thất bại: %s" % res.get("message", ""))
 
 
-## POST /player/character/allocate-stats or reset-stats failure.
-static func stats(res: Dictionary) -> String:
+## POST /player/character/allocate-stats or reset-stats failure. currency is the reset fee's.
+static func stats(res: Dictionary, currency: String = "coin") -> String:
 	if int(res.get("status", 0)) == 0:
 		return OFFLINE
+	if str(res.get("code", "")) == "CHARACTER_INSUFFICIENT_BALANCE":
+		return "Không đủ %s để tẩy điểm" % ("kim cương" if currency == "gem" else "xu")
 	return STATS.get(str(res.get("code", "")), "Thao tác thất bại: %s" % res.get("message", ""))
 
 

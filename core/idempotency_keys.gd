@@ -9,6 +9,10 @@ extends RefCounted
 ## Home scene rebuilt still reuses them.
 
 const Uuid := preload("res://core/uuid.gd")
+const Fmt := preload("res://core/fmt.gd")
+
+## Clock slack (seconds) between this device and the server when comparing createdAt.
+const CLOCK_SLACK_SEC := 120
 
 var _prefix: String
 var _path: String
@@ -50,6 +54,20 @@ func settle(id: String, status: int) -> bool:
 	_keys.erase(id)
 	_save()
 	return true
+
+
+## Whether a 2xx answer is the server replaying an earlier request rather than a new one.
+## Only a carried-over key (one already stored before this request: an earlier attempt got no
+## definite answer) can be replayed. It is a replay when the returned id (purchaseId /
+## transactionId) is one this client already knew (GET /shop/purchases, an earlier answer), or
+## when its createdAt is clearly older than the request start.
+static func is_replay(carried: bool, id: String, known: Dictionary, created_at: String, started_unix: int) -> bool:
+	if not carried:
+		return false
+	if id != "" and known.has(id):
+		return true
+	var created := Fmt.unix_time(created_at)
+	return created >= 0 and created < started_unix - CLOCK_SLACK_SEC
 
 
 func _save() -> void:
