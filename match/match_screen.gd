@@ -17,6 +17,7 @@ const MoveSync := preload("res://match/move/move_sync.gd")
 const Hud := preload("res://match/hud.gd")
 
 const ACTION_INTERVAL := 0.25 # server drops actions closer than 150 ms
+const MOVE_ACK_GAP := 0.16 # Shoot/EndTurn wait this long after the last answer to a Move
 const OTHER_WALK_SPEED := 90.0
 const SHOT_ACK_TIMEOUT := 3.0
 const RESYNC_RETRY := 3.0 # re-ask for MatchStateSync if none arrived
@@ -33,6 +34,9 @@ var _awaiting_shot := 0.0 # seconds left for the server to answer a sent Shoot/E
 var _committing := false # Shoot/EndTurn requested: input locked until the turn moves on
 var _commit_sent := false # ...and sent: no more Moves this turn
 var _resync_in := 0.0 # seconds before asking for MatchStateSync again
+var _turn_resolved := false # this turn's shot was answered: the server takes no more actions
+var _since_move_ack := 10.0 # seconds since the last PlayerMoved for my Moves
+var _disconnected := false
 
 var _mask := TerrainMask.new()
 var _moves := MoveSync.new()
@@ -80,13 +84,17 @@ func _ready() -> void:
 	_hud.end_turn_pressed.connect(_on_end_turn)
 	_hud.leave_pressed.connect(_on_leave)
 
-	_load_snapshot(Router.match_snapshot)
+	var snap: Dictionary = Router.match_snapshot
+	Router.match_snapshot = {} # consumed: a later Match scene must not start from it
+	_load_snapshot(snap, false)
 	GameSocket.event_received.connect(_on_event)
+	GameSocket.disconnected.connect(_on_disconnected)
 	GameSocket.release()
 
 
 func _process(delta: float) -> void:
 	_since_action += delta
+	_since_move_ack += delta
 	if _awaiting_shot > 0.0:
 		_awaiting_shot -= delta
 		if _awaiting_shot <= 0.0:
@@ -117,7 +125,12 @@ func _process(delta: float) -> void:
 
 # ── Snapshot and turn state ──────────────────────────────────────────────────
 
-func _load_snapshot(snap: Dictionary) -> void:
+## Rebuilds the match from a snapshot: MatchStarted (is_sync false) or a MatchStateSync. A
+## MatchStateSync that arrives during my turn continues it: MoveSync replays the Moves sent
+## after its Reconnect on top of it, and a resolved shot keeps input locked.
+func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
+	var current := str(snap.get("currentPlayerId", ""))
+	var continuing := is_sync and _current == _me and current == _me
 	_shot_player.stop()
 	_deferred.clear()
 	var terrain: Dictionary = snap.get("terrain", {})
@@ -127,26 +140,42 @@ func _load_snapshot(snap: Dictionary) -> void:
 	for view in _views.values():
 		view.queue_free()
 	_views.clear()
-	_players = snap.get("players", {})
+	_players = snap.get("players", {}).duplicate(true)
 	for id in _players:
 		var view := PlayerView.new()
 		_players_layer.add_child(view)
 		view.setup(_players[id], id == _me)
 		_views[id] = view
 	_wind = snap.get("wind", _wind)
+	var energy := int(_players.get(_me, {}).get("moveEnergy", 0))
+	if is_sync and _players.has(_me) and _players[_me].has("position"):
+		# Every MatchStateSync answers one Reconnect (each was marked), even outside my turn.
+		_moves.apply_snapshot(_pos(_me), energy)
 	_hud.set_time(int(snap.get("turnTimeLeft", TURN_SECONDS)))
-	_set_current(str(snap.get("currentPlayerId", "")), int(_players.get(_me, {}).get("moveEnergy", 0)))
+	if continuing and _turn_resolved:
+		_hud.pause_timer() # still resolving my shot: the clock restarts with TurnStarted
+	_set_current(current, energy, continuing)
 
 
-func _set_current(player_id: String, move_energy: int) -> void:
+## continuing: the same turn goes on (a MatchStateSync during my turn), so MoveSync and a sent
+## Shoot/EndTurn are kept; otherwise a new turn starts.
+func _set_current(player_id: String, move_energy: int, continuing: bool = false) -> void:
 	_current = player_id
 	_hold_dir = 0
-	_awaiting_shot = 0.0
-	_committing = false
-	_commit_sent = false
 	_resync_in = 0.0
-	if _is_my_turn():
-		_moves.reset(_pos(_me), move_energy)
+	if not continuing:
+		_awaiting_shot = 0.0
+		_committing = false
+		_commit_sent = false
+		_turn_resolved = false
+		if _is_my_turn():
+			_moves.reset(_pos(_me), move_energy)
+	if _views.has(_me) and _players[_me].has("position"):
+		# Leaving my turn with Moves unanswered or unsent (or with my last PlayerMoved in the
+		# same frame) leaves the view on the prediction: walk it to the server's position.
+		var view = _views[_me]
+		var to := _pos(_me)
+		view.move_to(to, 0.0 if _is_my_turn() else view.position.distance_to(to) / OTHER_WALK_SPEED)
 	_hud.set_turn(_is_my_turn(), str(_players.get(player_id, {}).get("displayName", "")))
 	_hud.set_wind(int(_wind.get("direction", 0)), float(_wind.get("power", 0.0)))
 	_hud.set_energy(move_energy if _is_my_turn() else 0)
@@ -158,7 +187,8 @@ func _is_my_turn() -> bool:
 
 
 func _can_act() -> bool:
-	return _is_my_turn() and not _shot_player.is_playing() and not _committing and not _moves.needs_resync()
+	return _is_my_turn() and not _shot_player.is_playing() and not _committing and not _turn_resolved \
+		and not _moves.needs_resync()
 
 
 func _refresh_controls() -> void:
@@ -178,7 +208,7 @@ func _refresh_controls() -> void:
 
 func _on_event(event: String, data: Variant) -> void:
 	if event == "MatchStateSync":
-		_load_snapshot(data)
+		_load_snapshot(data, true)
 		return
 	if _shot_player.is_playing():
 		_deferred.append([event, data])
@@ -202,6 +232,7 @@ func _apply(event: String, data: Variant) -> void:
 			_on_player_moved(data)
 		"ShotResolved":
 			_awaiting_shot = 0.0
+			_turn_resolved = true # the server takes no more actions until TurnStarted
 			_hud.pause_timer() # resumed by the next TurnTimerTick / TurnStarted
 			_shot_player.play(ShotTimeline.new(data))
 			_refresh_controls()
@@ -227,7 +258,12 @@ func _on_player_moved(d: Dictionary) -> void:
 	if id == _me and _is_my_turn():
 		# Rebase: server state plus our unacknowledged commands. _process shows the result;
 		# when the prediction was right (the normal case) nothing visibly changes.
+		var was_lost := _moves.needs_resync()
 		_moves.on_server_moved(pos, energy, int(d.get("seq", 0)))
+		_since_move_ack = 0.0
+		if was_lost and not _moves.needs_resync():
+			_resync_in = 0.0
+			_refresh_controls() # the newest Move's late answer unlocks input
 		return
 	var view = _views[id]
 	view.move_to(pos, view.position.distance_to(pos) / OTHER_WALK_SPEED)
@@ -249,13 +285,16 @@ func _on_shot_event(e: Dictionary) -> void:
 			if server_version != _mask.version:
 				_mask.version = server_version
 				GameSocket.send("Reconnect", {}) # terrain drifted: ask for MatchStateSync
+				_moves.mark_resync_requested()
 		"damage":
 			_set_hp(id, int(e.get("hp", 0)))
 			var crit := bool(e.get("critical", false))
 			_popup(id, "-%d" % int(e.get("amount", 0)), Color(1, 0.85, 0.2) if crit else Color(1, 0.3, 0.3))
 		"heal":
 			_set_hp(id, int(e.get("hp", 0)))
-			_popup(id, "+%d" % int(e.get("amount", 0)), Color(0.4, 1, 0.5))
+			var amount := int(e.get("amount", 0))
+			if amount > 0:
+				_popup(id, "+%d" % amount, Color(0.4, 1, 0.5))
 		"fall":
 			var to := _vec(e["to"])
 			_set_pos(id, to)
@@ -286,7 +325,10 @@ func _on_match_ended(d: Dictionary) -> void:
 		_hud.show_result("Trận bị huỷ", str(d.get("message", "")))
 		return
 	var my_team := int(_players.get(_me, {}).get("teamId", -1))
-	var title := "Chiến thắng!" if int(d.get("winningTeam", 0)) == my_team else "Thất bại"
+	var winning_team := int(d.get("winningTeam", 0)) # 0: no team left alive
+	var title := "Hoà"
+	if winning_team != 0:
+		title = "Chiến thắng!" if winning_team == my_team else "Thất bại"
 	# The server sends "rewards": null when granting them failed; never show that as +0.
 	var rewards = d.get("rewards")
 	var reward = rewards.get(_me) if rewards is Dictionary else null
@@ -313,19 +355,24 @@ func _on_end_turn() -> void:
 
 ## Sends Shoot/EndTurn once:
 ## - every Move has been answered (MoveSync.is_settled), so the server fires from the position
-##   on screen; a dropped Move is re-sent first; and
-## - ACTION_INTERVAL has passed since the last action.
-## Both are re-checked every frame (process_frame fires before _process), so a Move re-send
-## cannot slip in between and make the server drop the Shoot under its 150 ms rate limit. The
-## wait is bounded by MoveSync's re-send limit (about 3 s). The answer timeout starts only once
-## the command is actually sent. If MoveSync loses track of the server (needs_resync), the
-## pending command is cancelled instead (see _request_resync).
+##   on screen; a dropped Move is re-sent first;
+## - ACTION_INTERVAL has passed since the last action; and
+## - MOVE_ACK_GAP has passed since the last PlayerMoved for my Moves arrived. Spacing sends
+##   alone does not survive jitter: a Move delayed on the way can reach the server less than
+##   150 ms before the Shoot, which is then dropped. The server processed that Move before it
+##   sent the answer, so a Shoot sent >= 160 ms after the answer arrives reaches the server
+##   >= 160 ms after it processed the Move, whatever the latency in either direction.
+## All are re-checked every frame (process_frame fires before _process), so a Move re-send
+## cannot slip in between. The wait is bounded by MoveSync's re-send limit (about 3 s). The
+## answer timeout starts only once the command is actually sent. If MoveSync loses track of
+## the server (needs_resync), the pending command is cancelled instead (see _request_resync).
 func _commit_action(event: String, data: Dictionary) -> void:
 	_committing = true
 	_hold_dir = 0
 	_moves.release()
 	_refresh_controls()
-	while _committing and _is_my_turn() and (not _moves.is_settled() or _since_action < ACTION_INTERVAL):
+	while _committing and _is_my_turn() and (not _moves.is_settled() or _since_action < ACTION_INTERVAL \
+			or _since_move_ack < MOVE_ACK_GAP):
 		await get_tree().process_frame
 	if not _is_my_turn() or not _committing:
 		return
@@ -337,7 +384,8 @@ func _commit_action(event: String, data: Dictionary) -> void:
 
 ## The server's position is unknown (Moves unanswered after every re-send). Cancel any
 ## Shoot/EndTurn still waiting, keep input locked (_can_act) and ask for a full MatchStateSync,
-## repeating every RESYNC_RETRY seconds. The snapshot resets MoveSync via _set_current.
+## repeating every RESYNC_RETRY seconds. Each Reconnect is marked in MoveSync, so the snapshot
+## answering it (MoveSync.apply_snapshot) covers only the Moves sent before it.
 func _request_resync(delta: float) -> void:
 	if _committing and not _commit_sent:
 		_committing = false # the waiting _commit_action returns without sending
@@ -345,6 +393,7 @@ func _request_resync(delta: float) -> void:
 	if _resync_in > 0.0:
 		return
 	GameSocket.send("Reconnect", {})
+	_moves.mark_resync_requested()
 	_resync_in = RESYNC_RETRY
 	_refresh_controls()
 
@@ -354,8 +403,19 @@ func _mark_action() -> void:
 
 
 func _on_leave() -> void:
-	GameSocket.send("Leave", {})
+	if not _disconnected: # a new connection is not in this room; Leave would only be rejected
+		GameSocket.send("Leave", {})
 	Router.go(Router.HOME)
+
+
+## The server treats a lost connection as Leave, so the match cannot be resumed (M2).
+func _on_disconnected() -> void:
+	_disconnected = true
+	if _ended:
+		return # the result is already on screen
+	_ended = true
+	_refresh_controls()
+	_hud.show_result("Mất kết nối với trận đấu", "Về sảnh để bắt đầu trận mới")
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
