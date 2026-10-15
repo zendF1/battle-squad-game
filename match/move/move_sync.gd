@@ -86,6 +86,10 @@ func reset(pos: Vector2, move_energy: int) -> void:
 func apply_snapshot(pos: Vector2, move_energy: int, last_move_seq: int = -1) -> void:
 	_server_pos = pos
 	_server_energy = move_energy
+	if last_move_seq > _next_seq - 1:
+		# Numbered by an earlier MoveSync (client restarted mid-turn). The server keeps the last
+		# seq it took, so none of this instance's commands reached it before the snapshot.
+		last_move_seq = 0
 	if last_move_seq >= 0:
 		_acked_seq = maxi(_acked_seq, last_move_seq)
 	_answered(_acked_seq)

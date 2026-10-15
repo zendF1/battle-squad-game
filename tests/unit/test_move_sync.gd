@@ -335,6 +335,19 @@ func test_snapshot_covering_the_newest_command_settles() -> void:
 	eq(s.position, Vector2(118, 60), "snapshot position")
 
 
+func test_snapshot_seq_from_an_earlier_client_covers_nothing() -> void:
+	# A restarted client numbers from 1 again while the server still holds seq 8 from before.
+	var s = _sync(100, 100)
+	s.walk_px(1, 20)
+	s.release()
+	s.update(0.0, true) # seq 1, not yet taken by the server
+	s.apply_snapshot(Vector2(100, 60), 100, 8)
+	check(not s.is_settled(), "seq 1 still in flight")
+	s.on_server_moved(Vector2(120, 60), 90, 1)
+	check(s.is_settled(), "its answer is not ignored")
+	eq(s.position, Vector2(120, 60), "server position")
+
+
 func test_snapshot_counts_a_dropped_move() -> void:
 	# The server took seq 1 but dropped it (rate limit): no PlayerMoved will ever answer it.
 	var s = _sync(100, 100)
