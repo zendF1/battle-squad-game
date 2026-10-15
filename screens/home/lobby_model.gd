@@ -36,6 +36,14 @@ static func mode_base(index: int) -> Dictionary:
 	return MODES[clampi(index, 0, MODES.size() - 1)]["base"].duplicate()
 
 
+## The mode whose QuickPlay base is `base` (the Loadout gets only the base); 0 when none matches.
+static func mode_of_base(base: Dictionary) -> int:
+	for i in MODES.size():
+		if MODES[i]["base"] == base:
+			return i
+	return 0
+
+
 ## The character `delta` steps from `id` in LoadoutModel.CHARACTERS order, wrapping around; an
 ## unknown id counts as the first.
 static func cycle_character(id: String, delta: int) -> String:

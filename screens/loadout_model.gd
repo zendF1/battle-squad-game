@@ -1,13 +1,12 @@
 extends RefCounted
-## Loadout choice for Quick Play: one character and up to Items.MAX_LOADOUT items, plus what the
-## player owns (GET /player/characters, GET /player/inventory). Ownership is advisory: a
-## character or item not owned can still be picked, the server decides (QuickPlay answers
-## RoomError LOADOUT_INVALID). When a request failed, ownership is unknown (null) and nothing is
-## marked. The last choice is remembered in a ConfigFile (a convenience only), shared with the
-## lobby, which picks the character there too.
+## Loadout choice for Quick Play: one character (picked in the lobby, which saves it here) and
+## up to Items.MAX_LOADOUT items (picked on the Loadout screen), plus how many of each item the
+## player owns (GET /player/inventory). Ownership is advisory: an item not owned can still be
+## picked, the server decides (QuickPlay answers RoomError LOADOUT_INVALID). When the request
+## failed, ownership is unknown (null) and nothing is marked. The last choice is remembered in a
+## ConfigFile (a convenience only), shared with the lobby (its mode).
 
 const Items := preload("res://match/items.gd")
-const Skills := preload("res://match/skills.gd")
 
 const SETTINGS_PATH := "user://loadout.cfg"
 const DEFAULT_CHARACTER := "rookie" # always owned
@@ -23,7 +22,6 @@ const CHARACTERS := [
 
 var character_id := DEFAULT_CHARACTER
 var items: Array[String] = [] # in the order picked
-var owned_characters: Variant = null # Array of characterIds, or null: unknown
 var item_counts: Variant = null # {itemId: quantity}, or null: unknown
 
 
@@ -62,23 +60,12 @@ func payload(base: Dictionary) -> Dictionary:
 	return out
 
 
-## "Cân bằng · Kỹ năng: Bắn 3 tia".
-static func character_detail(id: String) -> String:
-	var role := ""
-	for c in CHARACTERS:
-		if c["id"] == id:
-			role = c["role"]
-	var skill := Skills.for_character(id)
-	if skill.is_empty():
-		return role
-	return "%s\nKỹ năng: %s" % [role, skill["name"]]
-
-
-## "" when owned or unknown, NOT_OWNED otherwise.
-func character_note(id: String) -> String:
-	if id == DEFAULT_CHARACTER or not owned_characters is Array or owned_characters.has(id):
-		return ""
-	return NOT_OWNED
+## The Items.MAX_LOADOUT slots, in the order picked: the item id, or "" for an empty slot.
+func slots() -> Array[String]:
+	var out: Array[String] = []
+	for i in Items.MAX_LOADOUT:
+		out.append(items[i] if i < items.size() else "")
+	return out
 
 
 ## "x5" when owned, NOT_OWNED when not, "" when unknown.
@@ -89,7 +76,8 @@ func item_note(id: String) -> String:
 	return "x%d" % n if n > 0 else NOT_OWNED
 
 
-## GET /player/characters data {"characters": [{characterId, ...}]} → ids, or null if malformed.
+## GET /player/characters data {"characters": [{characterId, ...}]} → ids, or null if malformed
+## (the Shop marks owned characters with it).
 static func parse_characters(data: Variant) -> Variant:
 	if not data is Dictionary or not data.get("characters") is Array:
 		return null

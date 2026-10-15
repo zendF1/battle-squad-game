@@ -1,10 +1,11 @@
 extends Control
 ## The Home lobby (a Gunny-style mobile lobby). Corners: the player (avatar letter, name, EXP
 ## bar, "Lv.N"; tap opens Hồ sơ) top-left, the wallet pills top-right, the connection state
-## top-centre, round shortcuts (Hồ sơ, Kho đồ, Lịch sử, Shop) down the right, the selected
-## character's info card on the left, the "Nhân vật / Kho đồ / Shop" bar bottom-left and the mode
-## card with "BẮT ĐẦU" bottom-right. Centre stage: the selected character drawn big on a
-## pedestal; ◀ ▶ or a swipe cycles the four characters. The character is the Loadout's (saved
+## top-centre, one round shortcut per page down the right (Nhân vật, Kho đồ, Lịch sử, Shop), the
+## selected character's info card (role, skill, stats; its name and level are on the stage) on
+## the left, a placeholder chat box bottom-left and the mode card with "BẮT ĐẦU" bottom-right.
+## Centre stage: the selected character's name and level over it, drawn big on a pedestal;
+## ◀ ▶ or a swipe cycles the four characters. The character is the Loadout's (saved
 ## in the same settings file, so the Loadout opens with it) and the mode is remembered there
 ## too. "BẮT ĐẦU" puts the mode's QuickPlay base in Router.quick_play_base and opens the
 ## Loadout. Character levels and stats come from the PlayerState characters cache, loaded when
@@ -22,8 +23,10 @@ const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const Progress := preload("res://screens/home/progress.gd")
 const ProfileTab := preload("res://screens/home/profile_tab.gd")
 const ShopTab := preload("res://screens/home/shop_tab.gd")
+const FakeChat := preload("res://screens/home/fake_chat.gd")
 
 const MARGIN := 18
+const STAGE := Vector2(560, 590)
 const SWIPE := 70.0 # px of horizontal drag that switches the character
 const AVATAR_COLORS := [Color(0.9, 0.4, 0.35), Color(0.3, 0.6, 0.95), Color(0.35, 0.75, 0.45), Color(0.65, 0.45, 0.9), Color(0.95, 0.6, 0.2)]
 
@@ -47,8 +50,6 @@ var _conn: Label
 var _art: CharacterArt
 var _stage_name: Label
 var _stage_level: Label
-var _info_name: Label
-var _info_level: Label
 var _info_role: Label
 var _info_skill: Label
 var _info_stats: GridContainer
@@ -74,7 +75,7 @@ func _ready() -> void:
 	_pin(wallet, 1, 0, -MARGIN, MARGIN)
 	_pin(_build_shortcuts(), 1, 0, -MARGIN - 6, 112)
 	_pin(_build_info_card(), 0, 0, MARGIN, 150)
-	_pin(_build_nav_bar(), 0, 1, MARGIN, -MARGIN)
+	_pin(_build_chat(), 0, 1, MARGIN, -MARGIN)
 	_pin(_build_mode_card(), 1, 1, -MARGIN, -MARGIN)
 
 	PlayerState.changed.connect(_render_player)
@@ -196,38 +197,72 @@ func _render_conn() -> void:
 		_conn.add_theme_color_override("font_color", Ui.TONES["draw"])
 
 
-# ── Shortcuts and nav bar ───────────────────────────────────────────────────
+# ── Shortcuts and chat ──────────────────────────────────────────────────────
 
 func _build_shortcuts() -> Control:
 	var col := Ui.vbox(12)
-	col.add_child(LobbyUi.icon_button("👤", "Hồ sơ", LobbyUi.ICON_COLORS["blue"], func(): open_profile.emit(ProfileTab.CHARACTERS)))
+	col.add_child(LobbyUi.icon_button("👤", "Nhân vật", LobbyUi.ICON_COLORS["blue"], func(): open_profile.emit(ProfileTab.CHARACTERS)))
 	col.add_child(LobbyUi.icon_button("🎒", "Kho đồ", LobbyUi.ICON_COLORS["green"], func(): open_profile.emit(ProfileTab.INVENTORY)))
 	col.add_child(LobbyUi.icon_button("📜", "Lịch sử", LobbyUi.ICON_COLORS["purple"], func(): open_profile.emit(ProfileTab.HISTORY)))
 	col.add_child(LobbyUi.icon_button("🛒", "Shop", LobbyUi.ICON_COLORS["orange"], func(): open_shop.emit(ShopTab.ITEMS)))
 	return col
 
 
-func _build_nav_bar() -> Control:
-	var bar := LobbyUi.panel(6, 34)
-	var row := Ui.hbox(4)
-	bar.add_child(row)
-	var entries := [
-		["👤  Nhân vật", func(): open_profile.emit(ProfileTab.CHARACTERS)],
-		["🎒  Kho đồ", func(): open_profile.emit(ProfileTab.INVENTORY)],
-		["🛒  Shop", func(): open_shop.emit(ShopTab.ITEMS)],
-	]
-	for i in entries.size():
-		if i > 0:
-			var sep := ColorRect.new()
-			sep.color = Color(1, 1, 1, 0.15)
-			sep.custom_minimum_size = Vector2(2, 34)
-			sep.size_flags_vertical = SIZE_SHRINK_CENTER
-			row.add_child(sep)
-		var b := LobbyUi.pill_button(entries[i][0], 24, 60)
-		b.custom_minimum_size.x = 170
-		b.pressed.connect(entries[i][1])
-		row.add_child(b)
-	return bar
+## The chat placeholder: the fake recent lines and an input-looking row; a tap says chat is
+## coming later.
+func _build_chat() -> Control:
+	var b := Button.new()
+	LobbyUi.style_button(b, LobbyUi.PANEL, 18, 0, LobbyUi.PANEL_BORDER, 2)
+	b.add_theme_stylebox_override("hover", LobbyUi.box(Color(LobbyUi.PANEL.lightened(0.08), 0.7), 18, 0, LobbyUi.PANEL_BORDER, 2))
+	b.custom_minimum_size = Vector2(490, 172)
+	b.pressed.connect(func(): Ui.toast(self, FakeChat.COMING_SOON))
+	var col := Ui.vbox(2)
+	col.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	col.offset_left = 14
+	col.offset_top = 10
+	col.offset_right = -14
+	col.offset_bottom = -10
+	b.add_child(col)
+	var lines := RichTextLabel.new()
+	lines.bbcode_enabled = true
+	lines.scroll_active = false
+	lines.autowrap_mode = TextServer.AUTOWRAP_OFF
+	lines.clip_contents = true
+	lines.size_flags_vertical = SIZE_EXPAND_FILL
+	lines.add_theme_font_size_override("normal_font_size", 18)
+	lines.add_theme_constant_override("line_separation", 0)
+	lines.add_theme_constant_override("outline_size", 4)
+	lines.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.08, 0.85))
+	lines.text = "\n".join(FakeChat.LINES.map(FakeChat.bbcode))
+	col.add_child(lines)
+	var input := LobbyUi.panel(0, 14, Color(0, 0, 0, 0.35))
+	input.custom_minimum_size.y = 40
+	col.add_child(input)
+	var row := Ui.hbox(8)
+	input.add_child(row)
+	var hint := LobbyUi.text(FakeChat.PLACEHOLDER, 19, Ui.TEXT_DIM)
+	hint.size_flags_horizontal = SIZE_EXPAND_FILL
+	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(_indent(hint, 12))
+	var send := LobbyUi.panel(0, 14, LobbyUi.ICON_COLORS["blue"])
+	send.custom_minimum_size = Vector2(56, 40)
+	var arrow := LobbyUi.text("➤", 20, Color.WHITE, true)
+	arrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	send.add_child(arrow)
+	row.add_child(send)
+	for c in [col, lines, input, row, hint, send, arrow]:
+		c.mouse_filter = MOUSE_FILTER_IGNORE
+	return b
+
+
+static func _indent(c: Control, left: int) -> MarginContainer:
+	var m := MarginContainer.new()
+	m.add_theme_constant_override("margin_left", left)
+	m.size_flags_horizontal = SIZE_EXPAND_FILL
+	m.mouse_filter = MOUSE_FILTER_IGNORE
+	m.add_child(c)
+	return m
 
 
 # ── Stage ───────────────────────────────────────────────────────────────────
@@ -236,7 +271,7 @@ func _build_nav_bar() -> Control:
 ## the bottom centre so it stays between the side columns on any width.
 func _add_stage() -> void:
 	var stage := Control.new()
-	stage.custom_minimum_size = Vector2(640, 590)
+	stage.custom_minimum_size = STAGE
 	stage.mouse_filter = MOUSE_FILTER_STOP
 	stage.gui_input.connect(_on_stage_input)
 	_pin(stage, 0.5, 1, 0, -110)
@@ -248,7 +283,7 @@ func _add_stage() -> void:
 
 	var head := Ui.vbox(0)
 	head.mouse_filter = MOUSE_FILTER_IGNORE
-	head.position = Vector2(120, 40)
+	head.position = Vector2((STAGE.x - 400) / 2, 40)
 	head.custom_minimum_size = Vector2(400, 0)
 	stage.add_child(head)
 	_stage_name = LobbyUi.text("", 44, Color.WHITE, true)
@@ -259,14 +294,14 @@ func _add_stage() -> void:
 	head.add_child(_stage_level)
 
 	_art = CharacterArt.new()
-	_art.position = Vector2(132, 142) # 2.5 px per art unit; feet on the pedestal
+	_art.position = Vector2((STAGE.x - 375) / 2, 142) # 2.5 px per art unit; feet on the pedestal
 	_art.size = Vector2(375, 400)
 	_art.idle = true
 	stage.add_child(_art)
 
 	for side in [-1, 1]:
 		var arrow := LobbyUi.round_button("◀" if side < 0 else "▶", 76, Color(0.05, 0.08, 0.2, 0.7), 32)
-		arrow.position = Vector2(14 if side < 0 else 640 - 14 - 76, 290)
+		arrow.position = Vector2(0 if side < 0 else STAGE.x - 76, 230) # beside the head, clear of the weapon
 		arrow.pressed.connect(_cycle.bind(side))
 		stage.add_child(arrow)
 
@@ -283,7 +318,7 @@ const PEDESTAL := [
 func _draw_pedestal(c: Control) -> void:
 	for layer in PEDESTAL:
 		var r: Vector2 = layer[0]
-		c.draw_set_transform(Vector2(320, 528 + layer[2]), 0.0, Vector2(1.0, r.y / r.x))
+		c.draw_set_transform(Vector2(STAGE.x / 2, 528 + layer[2]), 0.0, Vector2(1.0, r.y / r.x))
 		c.draw_circle(Vector2.ZERO, r.x, layer[1])
 	c.draw_set_transform(Vector2.ZERO)
 
@@ -317,15 +352,7 @@ func _build_info_card() -> Control:
 	card.custom_minimum_size.x = 360
 	var col := Ui.vbox(8)
 	card.add_child(col)
-	var head := Ui.hbox(10)
-	col.add_child(head)
-	_info_name = LobbyUi.text("", 32, Color.WHITE, true)
-	_info_name.size_flags_horizontal = SIZE_EXPAND_FILL
-	head.add_child(_info_name)
-	_info_level = LobbyUi.text("", 22, LobbyUi.GOLD, true)
-	_info_level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	head.add_child(_info_level)
-	_info_role = LobbyUi.text("", 22, Ui.TEXT_DIM)
+	_info_role = LobbyUi.text("", 28, Color.WHITE, true)
 	col.add_child(_info_role)
 	_info_skill = LobbyUi.text("", 22, Color(0.75, 0.9, 1.0))
 	col.add_child(_info_skill)
@@ -353,8 +380,6 @@ func _render_character() -> void:
 	_art.modulate = Color(0.72, 0.72, 0.8) if info["owned"] == false else Color.WHITE
 	_stage_name.text = info["name"]
 	_stage_level.text = level
-	_info_name.text = info["name"]
-	_info_level.text = level
 	_info_role.text = info["role"]
 	_info_skill.text = "⚡ Kỹ năng: %s" % info["skill"] if info["skill"] != "" else ""
 	_info_skill.visible = info["skill"] != ""

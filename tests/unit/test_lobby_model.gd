@@ -22,6 +22,9 @@ func test_modes_and_their_quick_play_base() -> void:
 	eq(LobbyModel.next_mode(1), 0, "wraps")
 	eq(LobbyModel.mode_index("bot"), 1, "by id")
 	eq(LobbyModel.mode_index("ranked"), 0, "unknown id is the first")
+	eq(LobbyModel.mode_of_base({"bot": "ai"}), 1, "base of vs bot")
+	eq(LobbyModel.mode_of_base({}), 0, "base of practice")
+	eq(LobbyModel.mode_of_base({"bot": "other"}), 0, "unknown base is the first")
 
 
 func test_cycle_characters_wraps() -> void:

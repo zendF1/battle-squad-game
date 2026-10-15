@@ -26,35 +26,37 @@ func test_at_most_three_items() -> void:
 	check(not m.toggle_item("mystery"), "unknown item refused")
 
 
-func test_ownership_unknown_marks_nothing() -> void:
+func test_slots_follow_the_pick_order() -> void:
 	var m := LoadoutModel.new()
-	eq(m.character_note("tanko"), "", "character unknown")
+	eq(m.slots(), ["", "", ""] as Array[String], "three empty slots")
+	m.toggle_item("freeze_bomb")
+	m.toggle_item("medkit")
+	eq(m.slots(), ["freeze_bomb", "medkit", ""] as Array[String], "filled in order")
+	m.toggle_item("air_strike")
+	m.toggle_item("freeze_bomb") # tapping a slot drops its item; the rest move up
+	eq(m.slots(), ["medkit", "air_strike", ""] as Array[String], "dropped from the first slot")
+
+
+func test_item_ownership_unknown_marks_nothing() -> void:
+	var m := LoadoutModel.new()
 	eq(m.item_note("medkit"), "", "item unknown")
 
 
-func test_ownership_notes() -> void:
+func test_item_ownership_notes() -> void:
 	var m := LoadoutModel.new()
-	m.owned_characters = LoadoutModel.parse_characters({"characters": [{"characterId": "tanko", "level": 1}]})
 	m.item_counts = LoadoutModel.parse_inventory([
 		{"itemId": "medkit", "quantity": 3}, {"itemId": "medkit", "quantity": 2}, {"itemId": "teleport", "quantity": 0}])
-	eq(m.character_note("rookie"), "", "rookie always owned")
-	eq(m.character_note("tanko"), "", "owned")
-	eq(m.character_note("flora"), "Chưa sở hữu", "not owned")
 	eq(m.item_note("medkit"), "x5", "rows summed")
 	eq(m.item_note("teleport"), "Chưa sở hữu", "zero")
 	eq(m.item_note("air_strike"), "Chưa sở hữu", "absent")
 
 
 func test_parse_rejects_malformed() -> void:
+	eq(LoadoutModel.parse_characters({"characters": [{"characterId": "tanko"}, {"level": 1}]}), ["tanko"], "owned ids")
 	eq(LoadoutModel.parse_characters(null), null, "null characters")
 	eq(LoadoutModel.parse_characters([]), null, "array is not the envelope")
 	eq(LoadoutModel.parse_inventory({}), null, "dict is not the list")
 	eq(LoadoutModel.parse_inventory([]), {}, "empty inventory")
-
-
-func test_character_detail() -> void:
-	eq(LoadoutModel.character_detail("rookie"), "Cân bằng\nKỹ năng: Bắn 3 tia", "rookie")
-	eq(LoadoutModel.character_detail("flora"), "Hỗ trợ\nKỹ năng: Hồi máu", "flora")
 
 
 func test_remember_and_restore() -> void:
