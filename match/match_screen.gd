@@ -1,0 +1,397 @@
+extends Node2D
+## Match against the server. The server is authoritative: this screen renders its snapshot,
+## replays ShotResolved, and predicts only the local player's walk (MoveSync). Every match
+## event that arrives during a replay waits until the replay ends, and the turn clock is paused
+## from the shot until the next timer event, so the HUD never runs ahead of the animation.
+## See docs/superpowers/specs/2026-10-15-godot-client-roadmap-design.md.
+
+const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
+const TerrainView := preload("res://match/terrain/terrain_view.gd")
+const PlayerView := preload("res://match/views/player_view.gd")
+const ExplosionFx := preload("res://match/views/explosion_fx.gd")
+const DamagePopup := preload("res://match/views/damage_popup.gd")
+const ShotTimeline := preload("res://match/shot/shot_timeline.gd")
+const ShotPlayer := preload("res://match/shot/shot_player.gd")
+const AimInput := preload("res://match/aim/aim_input.gd")
+const MoveSync := preload("res://match/move/move_sync.gd")
+const Hud := preload("res://match/hud.gd")
+
+const ACTION_INTERVAL := 0.25 # server drops actions closer than 150 ms
+const OTHER_WALK_SPEED := 90.0
+const SHOT_ACK_TIMEOUT := 3.0
+const RESYNC_RETRY := 3.0 # re-ask for MatchStateSync if none arrived
+const TURN_SECONDS := 20
+
+var _me := ""
+var _players := {} # playerId -> server BattlePlayerState
+var _views := {} # playerId -> PlayerView
+var _current := ""
+var _wind := {"direction": 0, "power": 0.0}
+var _ended := false
+var _deferred: Array = []
+var _awaiting_shot := 0.0 # seconds left for the server to answer a sent Shoot/EndTurn
+var _committing := false # Shoot/EndTurn requested: input locked until the turn moves on
+var _commit_sent := false # ...and sent: no more Moves this turn
+var _resync_in := 0.0 # seconds before asking for MatchStateSync again
+
+var _mask := TerrainMask.new()
+var _moves := MoveSync.new()
+var _sky: ColorRect
+var _terrain_view: TerrainView
+var _players_layer: Node2D
+var _fx_layer: Node2D
+var _aim: AimInput
+var _shot_player: ShotPlayer
+var _hud: Hud
+
+var _hold_dir := 0
+var _since_action := 1.0
+
+
+func _ready() -> void:
+	_me = Session.player_id
+	_sky = ColorRect.new()
+	_sky.color = Color(0.53, 0.75, 0.92)
+	_sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_sky)
+	_terrain_view = TerrainView.new()
+	add_child(_terrain_view)
+	_players_layer = Node2D.new()
+	add_child(_players_layer)
+	_fx_layer = Node2D.new()
+	add_child(_fx_layer)
+	_aim = AimInput.new()
+	add_child(_aim)
+	_shot_player = ShotPlayer.new()
+	_shot_player.layer = _fx_layer
+	add_child(_shot_player)
+	var ui := CanvasLayer.new()
+	add_child(ui)
+	_hud = Hud.new()
+	ui.add_child(_hud)
+
+	_moves.terrain = _mask
+	_aim.fire.connect(_on_fire)
+	_aim.aim_changed.connect(_hud.set_aim)
+	_shot_player.event_due.connect(_on_shot_event)
+	_shot_player.finished.connect(_on_shot_finished)
+	_hud.move_pressed.connect(func(dir: int) -> void: _hold_dir = dir)
+	_hud.move_released.connect(func() -> void: _hold_dir = 0)
+	_hud.end_turn_pressed.connect(_on_end_turn)
+	_hud.leave_pressed.connect(_on_leave)
+
+	_load_snapshot(Router.match_snapshot)
+	GameSocket.event_received.connect(_on_event)
+	GameSocket.release()
+
+
+func _process(delta: float) -> void:
+	_since_action += delta
+	if _awaiting_shot > 0.0:
+		_awaiting_shot -= delta
+		if _awaiting_shot <= 0.0:
+			# The server ignored the Shoot/EndTurn: give control back.
+			_committing = false
+			_commit_sent = false
+			_refresh_controls()
+	if not _is_my_turn() or _commit_sent:
+		return
+	if _hold_dir != 0 and _can_act():
+		_moves.hold(_hold_dir, delta)
+	# Runs while a Shoot/EndTurn waits too, so the rest of the walk (and a re-send of an
+	# unanswered Move) still goes out before it; _commit_action waits for them.
+	var cmd := _moves.update(Time.get_ticks_msec() / 1000.0, _since_action >= ACTION_INTERVAL)
+	if not cmd.is_empty():
+		GameSocket.send("Move", cmd)
+		_mark_action()
+	if _moves.needs_resync():
+		_request_resync(delta)
+	if not _shot_player.is_playing():
+		var changes := _moves.take_changes()
+		if changes.has("position"):
+			_views[_me].position = changes["position"]
+			_aim.shooter_pos = changes["position"]
+		if changes.has("energy"): # may change alone, e.g. when dropped Moves were not charged
+			_hud.set_energy(changes["energy"])
+
+
+# ── Snapshot and turn state ──────────────────────────────────────────────────
+
+func _load_snapshot(snap: Dictionary) -> void:
+	_shot_player.stop()
+	_deferred.clear()
+	var terrain: Dictionary = snap.get("terrain", {})
+	if not terrain.is_empty() and _mask.load_snapshot(terrain):
+		_terrain_view.show_mask(_mask)
+		_sky.size = Vector2(_mask.width, _mask.height)
+	for view in _views.values():
+		view.queue_free()
+	_views.clear()
+	_players = snap.get("players", {})
+	for id in _players:
+		var view := PlayerView.new()
+		_players_layer.add_child(view)
+		view.setup(_players[id], id == _me)
+		_views[id] = view
+	_wind = snap.get("wind", _wind)
+	_hud.set_time(int(snap.get("turnTimeLeft", TURN_SECONDS)))
+	_set_current(str(snap.get("currentPlayerId", "")), int(_players.get(_me, {}).get("moveEnergy", 0)))
+
+
+func _set_current(player_id: String, move_energy: int) -> void:
+	_current = player_id
+	_hold_dir = 0
+	_awaiting_shot = 0.0
+	_committing = false
+	_commit_sent = false
+	_resync_in = 0.0
+	if _is_my_turn():
+		_moves.reset(_pos(_me), move_energy)
+	_hud.set_turn(_is_my_turn(), str(_players.get(player_id, {}).get("displayName", "")))
+	_hud.set_wind(int(_wind.get("direction", 0)), float(_wind.get("power", 0.0)))
+	_hud.set_energy(move_energy if _is_my_turn() else 0)
+	_refresh_controls()
+
+
+func _is_my_turn() -> bool:
+	return not _ended and _current == _me and bool(_players.get(_me, {}).get("isAlive", false))
+
+
+func _can_act() -> bool:
+	return _is_my_turn() and not _shot_player.is_playing() and not _committing and not _moves.needs_resync()
+
+
+func _refresh_controls() -> void:
+	var can := _can_act()
+	_hud.set_controls_enabled(can)
+	_aim.enabled = can
+	if can:
+		_aim.shooter_pos = _views[_me].position
+		_aim.terrain = _mask
+		_aim.wind_dir = int(_wind.get("direction", 0))
+		_aim.wind_power = float(_wind.get("power", 0.0))
+	else:
+		_hold_dir = 0
+
+
+# ── Server events ────────────────────────────────────────────────────────────
+
+func _on_event(event: String, data: Variant) -> void:
+	if event == "MatchStateSync":
+		_load_snapshot(data)
+		return
+	if _shot_player.is_playing():
+		_deferred.append([event, data])
+		return
+	_apply(event, data)
+
+
+func _apply(event: String, data: Variant) -> void:
+	match event:
+		"TurnStarted":
+			_wind = data.get("wind", _wind)
+			var energies: Dictionary = data.get("skillEnergy", {})
+			for id in energies:
+				if _players.has(id):
+					_players[id]["skillEnergy"] = energies[id]
+			_hud.set_time(TURN_SECONDS)
+			_set_current(str(data.get("currentPlayerId", "")), int(data.get("moveEnergy", 0)))
+		"TurnTimerTick":
+			_hud.set_time(int(data.get("timeLeft", 0)))
+		"PlayerMoved":
+			_on_player_moved(data)
+		"ShotResolved":
+			_awaiting_shot = 0.0
+			_hud.pause_timer() # resumed by the next TurnTimerTick / TurnStarted
+			_shot_player.play(ShotTimeline.new(data))
+			_refresh_controls()
+		"PlayerDamaged": # lava at turn start (shot damage comes in ShotResolved)
+			for e in data:
+				_set_hp(str(e.get("playerId", "")), int(e.get("hp", 0)))
+				if not bool(e.get("isAlive", true)):
+					_kill(str(e.get("playerId", "")))
+		"ItemUsed":
+			_wind = data.get("wind", _wind)
+		"MatchEnded":
+			_on_match_ended(data)
+
+
+func _on_player_moved(d: Dictionary) -> void:
+	var id := str(d.get("playerId", ""))
+	if not _players.has(id):
+		return
+	var pos := Vector2(float(d["position"]["x"]), float(d["position"]["y"]))
+	var energy := int(d.get("moveEnergy", 0))
+	_players[id]["position"] = {"x": pos.x, "y": pos.y}
+	_players[id]["moveEnergy"] = energy
+	if id == _me and _is_my_turn():
+		# Rebase: server state plus our unacknowledged commands. _process shows the result;
+		# when the prediction was right (the normal case) nothing visibly changes.
+		_moves.on_server_moved(pos, energy, int(d.get("seq", 0)))
+		return
+	var view = _views[id]
+	view.move_to(pos, view.position.distance_to(pos) / OTHER_WALK_SPEED)
+
+
+func _on_shot_event(e: Dictionary) -> void:
+	var id := str(e.get("playerId", ""))
+	match str(e.get("type", "")):
+		"explode":
+			var p := _vec(e["position"])
+			var radius := float(e.get("radius", 0.0))
+			_mask.destroy_circle(p.x, p.y, radius)
+			_terrain_view.refresh()
+			var fx := ExplosionFx.new()
+			fx.radius = radius
+			fx.position = p
+			_fx_layer.add_child(fx)
+			var server_version := int(e.get("terrainVersion", _mask.version))
+			if server_version != _mask.version:
+				_mask.version = server_version
+				GameSocket.send("Reconnect", {}) # terrain drifted: ask for MatchStateSync
+		"damage":
+			_set_hp(id, int(e.get("hp", 0)))
+			var crit := bool(e.get("critical", false))
+			_popup(id, "-%d" % int(e.get("amount", 0)), Color(1, 0.85, 0.2) if crit else Color(1, 0.3, 0.3))
+		"heal":
+			_set_hp(id, int(e.get("hp", 0)))
+			_popup(id, "+%d" % int(e.get("amount", 0)), Color(0.4, 1, 0.5))
+		"fall":
+			var to := _vec(e["to"])
+			_set_pos(id, to)
+			if _views.has(id):
+				_views[id].move_to(to, float(e.get("duration", 0.0)), Tween.TRANS_QUAD, Tween.EASE_IN)
+		"teleport":
+			var to := _vec(e["to"])
+			_set_pos(id, to)
+			if _views.has(id):
+				_views[id].move_to(to, 0.0)
+		"die":
+			_kill(id)
+		"status":
+			_popup(id, str(e.get("effectId", "")), Color(0.7, 0.85, 1))
+
+
+func _on_shot_finished() -> void:
+	while not _deferred.is_empty() and not _shot_player.is_playing():
+		var item: Array = _deferred.pop_front()
+		_apply(item[0], item[1])
+	_refresh_controls()
+
+
+func _on_match_ended(d: Dictionary) -> void:
+	_ended = true
+	_refresh_controls()
+	if str(d.get("result", "")) == "no_contest":
+		_hud.show_result("Trận bị huỷ", str(d.get("message", "")))
+		return
+	var my_team := int(_players.get(_me, {}).get("teamId", -1))
+	var title := "Chiến thắng!" if int(d.get("winningTeam", 0)) == my_team else "Thất bại"
+	# The server sends "rewards": null when granting them failed; never show that as +0.
+	var rewards = d.get("rewards")
+	var reward = rewards.get(_me) if rewards is Dictionary else null
+	var detail := "Chưa lấy được phần thưởng của trận này"
+	if reward is Dictionary:
+		detail = "+%d EXP   +%d xu" % [int(reward.get("expGained", 0)), int(reward.get("coinGained", 0))]
+	_hud.show_result(title, detail)
+
+
+# ── Local actions ────────────────────────────────────────────────────────────
+
+func _on_fire(angle: float, power: float) -> void:
+	if not _can_act():
+		return
+	_hud.pause_timer() # the server stops the clock once it takes the shot
+	await _commit_action("Shoot", {"angle": angle, "power": power, "actionMode": "weapon"})
+
+
+func _on_end_turn() -> void:
+	if not _can_act():
+		return
+	await _commit_action("EndTurn", {})
+
+
+## Sends Shoot/EndTurn once:
+## - every Move has been answered (MoveSync.is_settled), so the server fires from the position
+##   on screen; a dropped Move is re-sent first; and
+## - ACTION_INTERVAL has passed since the last action.
+## Both are re-checked every frame (process_frame fires before _process), so a Move re-send
+## cannot slip in between and make the server drop the Shoot under its 150 ms rate limit. The
+## wait is bounded by MoveSync's re-send limit (about 3 s). The answer timeout starts only once
+## the command is actually sent. If MoveSync loses track of the server (needs_resync), the
+## pending command is cancelled instead (see _request_resync).
+func _commit_action(event: String, data: Dictionary) -> void:
+	_committing = true
+	_hold_dir = 0
+	_moves.release()
+	_refresh_controls()
+	while _committing and _is_my_turn() and (not _moves.is_settled() or _since_action < ACTION_INTERVAL):
+		await get_tree().process_frame
+	if not _is_my_turn() or not _committing:
+		return
+	_commit_sent = true
+	GameSocket.send(event, data)
+	_mark_action()
+	_awaiting_shot = SHOT_ACK_TIMEOUT
+
+
+## The server's position is unknown (Moves unanswered after every re-send). Cancel any
+## Shoot/EndTurn still waiting, keep input locked (_can_act) and ask for a full MatchStateSync,
+## repeating every RESYNC_RETRY seconds. The snapshot resets MoveSync via _set_current.
+func _request_resync(delta: float) -> void:
+	if _committing and not _commit_sent:
+		_committing = false # the waiting _commit_action returns without sending
+	_resync_in -= delta
+	if _resync_in > 0.0:
+		return
+	GameSocket.send("Reconnect", {})
+	_resync_in = RESYNC_RETRY
+	_refresh_controls()
+
+
+func _mark_action() -> void:
+	_since_action = 0.0
+
+
+func _on_leave() -> void:
+	GameSocket.send("Leave", {})
+	Router.go(Router.HOME)
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+func _pos(id: String) -> Vector2:
+	return _vec(_players[id]["position"])
+
+
+func _set_pos(id: String, p: Vector2) -> void:
+	if _players.has(id):
+		_players[id]["position"] = {"x": p.x, "y": p.y}
+
+
+func _set_hp(id: String, hp: int) -> void:
+	if not _players.has(id):
+		return
+	_players[id]["hp"] = hp
+	_views[id].set_hp(hp)
+
+
+func _kill(id: String) -> void:
+	if not _players.has(id):
+		return
+	_players[id]["isAlive"] = false
+	_views[id].set_dead()
+
+
+func _popup(id: String, text: String, color: Color) -> void:
+	if not _views.has(id):
+		return
+	var label := DamagePopup.new()
+	label.text = text
+	label.add_theme_color_override("font_color", color)
+	label.position = _views[id].position + Vector2(0, -80)
+	_fx_layer.add_child(label)
+
+
+static func _vec(d: Dictionary) -> Vector2:
+	return Vector2(float(d["x"]), float(d["y"]))
