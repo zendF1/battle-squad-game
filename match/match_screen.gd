@@ -15,6 +15,7 @@ const ShotPlayer := preload("res://match/shot/shot_player.gd")
 const AimInput := preload("res://match/aim/aim_input.gd")
 const MoveSync := preload("res://match/move/move_sync.gd")
 const Hud := preload("res://match/hud.gd")
+const Skills := preload("res://match/skills.gd")
 
 const ACTION_INTERVAL := 0.25 # server drops actions closer than 150 ms
 const MOVE_ACK_GAP := 0.16 # Shoot/EndTurn wait this long after the last answer to a Move
@@ -40,6 +41,7 @@ var _resync_in := 0.0 # seconds before asking for MatchStateSync again
 var _turn_resolved := false # this turn's shot was answered: the server takes no more actions
 var _move_ack_at := -10_000_000 # Time.get_ticks_usec() when the last PlayerMoved for my Moves was handled
 var _disconnected := false
+var _skill_armed := false # my next Shoot uses the skill; local only, back to weapon after a fire
 
 var _mask := TerrainMask.new()
 var _moves := MoveSync.new()
@@ -85,6 +87,8 @@ func _ready() -> void:
 	_hud.move_pressed.connect(func(dir: int) -> void: _hold_dir = dir)
 	_hud.move_released.connect(func() -> void: _hold_dir = 0)
 	_hud.end_turn_pressed.connect(_on_end_turn)
+	_hud.weapon_pressed.connect(_on_weapon_pressed)
+	_hud.skill_pressed.connect(_on_skill_pressed)
 	_hud.leave_pressed.connect(_on_leave)
 
 	var snap: Dictionary = Router.match_snapshot
@@ -171,6 +175,7 @@ func _set_current(player_id: String, move_energy: int, continuing: bool = false)
 	_hold_dir = 0
 	_resync_in = 0.0
 	if not continuing:
+		_skill_armed = false # every turn starts with the weapon
 		_awaiting_shot = 0.0
 		_committing = false
 		_commit_sent = false
@@ -201,6 +206,15 @@ func _can_act() -> bool:
 func _refresh_controls() -> void:
 	var can := _can_act()
 	_hud.set_controls_enabled(can)
+	var skill := _my_skill()
+	var energy := int(_players.get(_me, {}).get("skillEnergy", 0))
+	var skill_usable := can and not skill.is_empty() and Skills.is_ready(energy)
+	if not skill_usable:
+		_skill_armed = false
+	_hud.set_actions("" if skill.is_empty() else Skills.button_label(skill, energy), can, skill_usable, _skill_armed)
+	var offsets: Array = skill["offsets"] if _skill_armed else [0.0]
+	if _aim.preview_offsets != offsets:
+		_aim.preview_offsets = offsets
 	_aim.enabled = can
 	if can:
 		_aim.shooter_pos = _views[_me].position
@@ -239,9 +253,12 @@ func _apply(event: String, data: Variant) -> void:
 			_on_player_moved(data)
 		"ShotResolved":
 			_awaiting_shot = 0.0
+			var shooter := str(data.get("shooterId", ""))
+			if _players.has(shooter) and data.has("skillEnergy"):
+				_players[shooter]["skillEnergy"] = int(data["skillEnergy"]) # 0 after a skill
 			_turn_resolved = true # the server takes no more actions until TurnStarted
 			_hud.pause_timer() # resumed by the next TurnTimerTick / TurnStarted
-			_snap_to_server(str(data.get("shooterId", "")))
+			_snap_to_server(shooter)
 			_shot_player.play(ShotTimeline.new(data))
 			_refresh_controls()
 		"PlayerDamaged": # lava at turn start (shot damage comes in ShotResolved)
@@ -322,7 +339,9 @@ func _on_shot_event(e: Dictionary) -> void:
 		"die":
 			_kill(id)
 		"status":
-			_popup(id, str(e.get("effectId", "")), Color(0.7, 0.85, 1))
+			var text := Skills.status_label(str(e.get("effectId", "")))
+			if text != "":
+				_popup(id, text, Color(0.7, 0.85, 1))
 
 
 func _on_shot_finished() -> void:
@@ -357,8 +376,32 @@ func _on_match_ended(d: Dictionary) -> void:
 func _on_fire(angle: float, power: float) -> void:
 	if not _can_act():
 		return
+	var mode := "skill" if _skill_armed else "weapon"
+	_skill_armed = false # back to the weapon after a fire, even if the server drops the Shoot
 	_hud.pause_timer() # the server stops the clock once it takes the shot
-	await _commit_action("Shoot", {"angle": angle, "power": power, "actionMode": "weapon"})
+	await _commit_action("Shoot", {"angle": angle, "power": power, "actionMode": mode})
+
+
+func _on_weapon_pressed() -> void:
+	_skill_armed = false
+	_refresh_controls()
+
+
+## An aimed skill toggles skill mode; one without aim (healing_bloom) is used at once, through
+## the same commit path as a shot.
+func _on_skill_pressed() -> void:
+	var skill := _my_skill()
+	var charged := Skills.is_ready(int(_players.get(_me, {}).get("skillEnergy", 0)))
+	if not _can_act() or skill.is_empty() or not charged:
+		_refresh_controls()
+		return
+	if bool(skill["needs_aim"]):
+		_skill_armed = not _skill_armed
+		_refresh_controls()
+		return
+	_skill_armed = false
+	_hud.pause_timer()
+	await _commit_action("Shoot", {"angle": Skills.NO_AIM_ANGLE, "power": Skills.NO_AIM_POWER, "actionMode": "skill"})
 
 
 func _on_end_turn() -> void:
@@ -438,6 +481,10 @@ func _on_disconnected() -> void:
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
+func _my_skill() -> Dictionary:
+	return Skills.for_character(str(_players.get(_me, {}).get("characterId", "")))
+
 
 func _pos(id: String) -> Vector2:
 	return _vec(_players[id]["position"])

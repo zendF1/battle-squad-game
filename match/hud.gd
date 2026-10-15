@@ -1,10 +1,13 @@
 extends Control
-## Match HUD: turn, timer, wind, move buttons + energy, aim readout, end turn, result panel.
+## Match HUD: turn, timer, wind, weapon/skill row, move buttons + energy, aim readout, end turn,
+## result panel.
 ## Layout is containers only, so it adapts to wide phones (stretch aspect "expand").
 
 signal move_pressed(dir: int)
 signal move_released
 signal end_turn_pressed
+signal weapon_pressed
+signal skill_pressed
 signal leave_pressed
 
 const Ui := preload("res://ui/ui.gd")
@@ -17,6 +20,8 @@ var _energy: ProgressBar
 var _left: Button
 var _right: Button
 var _end_turn: Button
+var _weapon: Button
+var _skill: Button
 var _result: Control
 var _result_title: Label
 var _result_detail: Label
@@ -52,6 +57,18 @@ func _ready() -> void:
 	top.add_child(_wind)
 
 	rows.add_child(_expand_v(_ignore(Control.new())))
+
+	# Weapon / skill: toggle buttons whose pressed look always shows the controller's mode
+	# (set_actions), whatever a click did to them.
+	var actions: HBoxContainer = _ignore(HBoxContainer.new())
+	actions.add_theme_constant_override("separation", 16)
+	actions.alignment = BoxContainer.ALIGNMENT_END
+	rows.add_child(actions)
+	_weapon = _mode_button("Vũ khí", weapon_pressed)
+	actions.add_child(_weapon)
+	_skill = _mode_button("", skill_pressed)
+	_skill.visible = false
+	actions.add_child(_skill)
 
 	var bottom: HBoxContainer = _ignore(HBoxContainer.new())
 	bottom.add_theme_constant_override("separation", 16)
@@ -121,6 +138,17 @@ func set_controls_enabled(enabled: bool) -> void:
 		_aim.text = ""
 
 
+## The weapon/skill row. skill_label empty hides the skill button (unknown character). The
+## label carries the energy, so it is shown even while both buttons are disabled.
+func set_actions(skill_label: String, weapon_enabled: bool, skill_enabled: bool, armed: bool) -> void:
+	_skill.visible = skill_label != ""
+	_skill.text = skill_label
+	_weapon.disabled = not weapon_enabled
+	_skill.disabled = not skill_enabled
+	_weapon.set_pressed_no_signal(not armed)
+	_skill.set_pressed_no_signal(armed)
+
+
 func show_result(title: String, detail: String) -> void:
 	_result_title.text = title
 	_result_detail.text = detail
@@ -132,6 +160,15 @@ func _hold_button(text: String, dir: int) -> Button:
 	b.custom_minimum_size = Vector2(120, 110)
 	b.button_down.connect(move_pressed.emit.bind(dir))
 	b.button_up.connect(move_released.emit)
+	return b
+
+
+func _mode_button(text: String, sig: Signal) -> Button:
+	var b := Ui.button(text, 26)
+	b.custom_minimum_size = Vector2(200, 72)
+	b.toggle_mode = true
+	b.focus_mode = FOCUS_NONE
+	b.pressed.connect(sig.emit)
 	return b
 
 
