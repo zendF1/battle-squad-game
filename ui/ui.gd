@@ -158,9 +158,13 @@ static func clear(node: Node) -> void:
 		child.queue_free()
 
 
-## A short message near the top of `host` that fades out.
+## A short message near the top of `host` that fades out; it replaces the one still showing.
 static func toast(host: Control, message: String, seconds: float = 2.0) -> void:
+	for c in host.get_children():
+		if c.has_meta("toast"):
+			c.queue_free()
 	var p := card(Color(0.1, 0.12, 0.16, 0.95), 18)
+	p.set_meta("toast", true)
 	p.add_child(label(message, 26))
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.set_anchors_preset(Control.PRESET_CENTER_TOP)

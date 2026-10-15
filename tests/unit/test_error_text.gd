@@ -38,3 +38,20 @@ func test_rename_messages_and_rule() -> void:
 	eq(ErrorText.name_problem("   "), "Tên không được để trống", "blank")
 	eq(ErrorText.name_problem("  Nguyễn Văn Anh Hùng  "), "", "19 runes after trim")
 	eq(ErrorText.name_problem("Nguyễn Văn Anh Hùng Mạnh"), "Tên tối đa 20 ký tự", "too long")
+
+
+func test_equipment_messages() -> void:
+	eq(ErrorText.equipment_buy(_err(400, "SHOP_INSUFFICIENT_BALANCE"), "coin"), "Không đủ xu", "coin")
+	eq(ErrorText.equipment_buy(_err(400, "SHOP_INSUFFICIENT_BALANCE"), "gem"), "Không đủ kim cương", "gem")
+	eq(ErrorText.equipment_buy(_err(404, "EQUIP_NOT_FOUND")), "Trang bị này không còn bán", "not sold")
+	eq(ErrorText.equipment_buy(_err(409, "IDEMPOTENCY_KEY_REUSED")), "Giao dịch bị trùng, hãy thử lại", "key reused")
+	eq(ErrorText.equipment_buy(_err(500, "X", "boom")), "Mua thất bại: boom", "other")
+	eq(ErrorText.equipment_buy(_err(0, "NETWORK_ERROR")), ErrorText.OFFLINE, "offline")
+	eq(ErrorText.equip(_err(400, "EQUIP_LEVEL_REQUIRED")), "Nhân vật chưa đủ cấp để mặc", "level")
+	eq(ErrorText.equip(_err(409, "EQUIP_ALREADY_EQUIPPED")), "Trang bị đang được nhân vật khác mặc", "worn")
+	eq(ErrorText.equip(_err(400, "EQUIP_WRONG_CHARACTER")), "Trang bị không dành cho nhân vật này", "wrong character")
+	eq(ErrorText.equip(_err(404, "CHARACTER_NOT_FOUND")), "Bạn chưa sở hữu nhân vật này", "character")
+	eq(ErrorText.equip(_err(403, "EQUIP_NOT_OWNED")), "Bạn không sở hữu trang bị này", "not owned")
+	eq(ErrorText.equip(_err(409, "EQUIP_NOT_EQUIPPED")), "Trang bị chưa được mặc", "not worn")
+	eq(ErrorText.equip(_err(500, "X", "m")), "Thao tác thất bại: m", "other")
+	eq(ErrorText.equip(_err(0, "NETWORK_ERROR")), ErrorText.OFFLINE, "offline")

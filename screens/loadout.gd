@@ -17,6 +17,7 @@ const Items := preload("res://match/items.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const QuickPlay := preload("res://screens/quick_play.gd")
+const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const SETTINGS_PATH := LoadoutModel.SETTINGS_PATH
 
 const MARGIN := 18
@@ -37,6 +38,8 @@ var _char_level: Label
 var _char_role: Label
 var _char_skill: Label
 var _char_stats: GridContainer
+var _gear_frames := {} # slot -> TextureRect (the small hexagon)
+var _gear_icons := {} # slot -> TextureRect
 
 var _slot_buttons: Array[Button] = []
 var _slot_icons: Array[TextureRect] = []
@@ -85,8 +88,11 @@ func _ready() -> void:
 	right.add_child(_build_footer())
 
 	PlayerState.characters_changed.connect(_render_character)
+	PlayerState.equipment_changed.connect(_render_gear)
 	PlayerState.need_characters()
+	PlayerState.need_equipment()
 	_render_character()
+	_render_gear()
 	_refresh()
 	_fetch_inventory()
 
@@ -164,11 +170,58 @@ func _build_character_panel() -> Control:
 		stats_box.add_theme_constant_override("margin_" + side, 12 if side == "top" else 8)
 	stats_box.add_child(_char_stats)
 	col.add_child(stats_box)
+	col.add_child(_build_gear_row())
 	var filler := Control.new()
 	filler.size_flags_vertical = SIZE_EXPAND_FILL
 	col.add_child(filler)
 	_centered(col, 20, Ui.TEXT_DIM).text = "Đổi nhân vật ở Sảnh"
 	return card
+
+
+## The worn gear: one small hexagon per slot (EquipmentModel.SLOTS order), read-only.
+func _build_gear_row() -> Control:
+	var col := Ui.vbox(4)
+	var tag := LobbyUi.text("Trang bị", 20, Ui.TEXT_DIM, true)
+	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(tag)
+	var row := Ui.hbox(4)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_child(row)
+	for slot in EquipmentModel.SLOTS:
+		var frame := TextureRect.new()
+		frame.texture = Art.equipment_frame("hex_empty")
+		frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		frame.stretch_mode = TextureRect.STRETCH_SCALE
+		frame.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		frame.custom_minimum_size = Vector2(52, 60)
+		frame.mouse_filter = MOUSE_FILTER_IGNORE
+		frame.tooltip_text = EquipmentModel.slot_name(slot)
+		row.add_child(frame)
+		var icon := LobbyUi.icon(Art.equipment_slot_icon(slot), 34)
+		icon.position = Vector2(9, 13)
+		icon.size = Vector2(34, 34)
+		frame.add_child(icon)
+		_gear_frames[slot] = frame
+		_gear_icons[slot] = icon
+	return col
+
+
+func _render_gear() -> void:
+	var worn := EquipmentModel.worn(PlayerState.equipment, _model.character_id)
+	for slot in EquipmentModel.SLOTS:
+		var piece: Dictionary = worn.get(slot, {})
+		var icon: TextureRect = _gear_icons[slot]
+		if piece.is_empty():
+			_gear_frames[slot].texture = Art.equipment_frame("hex_empty")
+			icon.texture = Art.equipment_slot_icon(slot)
+			icon.modulate = Color(0.75, 0.85, 1.0, 0.3)
+			_gear_frames[slot].tooltip_text = EquipmentModel.slot_name(slot)
+		else:
+			var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
+			_gear_frames[slot].texture = Art.equipment_frame("hex_filled")
+			icon.texture = Art.equipment_icon(slot, EquipmentModel.tier(item))
+			icon.modulate = Color.WHITE
+			_gear_frames[slot].tooltip_text = "%s %s" % [EquipmentModel.display_name(item), EquipmentModel.level_text(piece)]
 
 
 static func _centered(parent: Control, font_size: int, color: Color, heavy: bool = false) -> Label:

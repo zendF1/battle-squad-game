@@ -1,7 +1,8 @@
 extends Control
 ## The Home lobby (a Gunny-style mobile lobby). Corners: the player (avatar letter, name, EXP
-## bar, "Lv.N"; tap opens Hồ sơ) top-left, the wallet pills top-right, the connection state
-## top-centre, one round shortcut per page down the right (Nhân vật, Kho đồ, Lịch sử, Shop), the
+## bar, "Lv.N"; tap opens the Nhân vật page) top-left, the wallet pills top-right, the connection
+## state top-centre, one round shortcut per page down the right (Nhân vật, Kho đồ → Túi đồ,
+## Lịch sử → Hồ sơ, Shop), the
 ## selected character's info card (role, skill, stats; its name and level are on the stage) on
 ## the left, a placeholder chat box bottom-left and the mode card with "BẮT ĐẦU" bottom-right.
 ## Centre stage: the selected character's name and level over it, drawn big on a pedestal;
@@ -11,8 +12,10 @@ extends Control
 ## Loadout. Character levels and stats come from the PlayerState characters cache, loaded when
 ## the lobby is shown; until then the card shows name, role and skill only.
 
-signal open_profile(section: int)
+signal open_profile
 signal open_shop(section: int)
+signal open_bag
+signal open_character
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -22,7 +25,6 @@ const WalletPills := preload("res://ui/wallet_pills.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const Progress := preload("res://screens/home/progress.gd")
-const ProfileTab := preload("res://screens/home/profile_tab.gd")
 const ShopTab := preload("res://screens/home/shop_tab.gd")
 const FakeChat := preload("res://screens/home/fake_chat.gd")
 
@@ -127,7 +129,7 @@ func _build_player_block() -> Control:
 	b.add_theme_stylebox_override("hover", LobbyUi.box(Color(1, 1, 1, 0.06), 20, 6))
 	b.add_theme_stylebox_override("pressed", LobbyUi.box(Color(1, 1, 1, 0.12), 20, 6))
 	b.custom_minimum_size = Vector2(380, 104)
-	b.pressed.connect(func(): open_profile.emit(ProfileTab.CHARACTERS))
+	b.pressed.connect(func(): open_character.emit())
 	var row := Ui.hbox(14)
 	row.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	row.offset_left = 6
@@ -211,9 +213,9 @@ func _render_conn() -> void:
 
 func _build_shortcuts() -> Control:
 	var col := Ui.vbox(12)
-	col.add_child(LobbyUi.icon_button("characters", "Nhân vật", LobbyUi.ICON_COLORS["blue"], func(): open_profile.emit(ProfileTab.CHARACTERS)))
-	col.add_child(LobbyUi.icon_button("inventory", "Kho đồ", LobbyUi.ICON_COLORS["green"], func(): open_profile.emit(ProfileTab.INVENTORY)))
-	col.add_child(LobbyUi.icon_button("history", "Lịch sử", LobbyUi.ICON_COLORS["purple"], func(): open_profile.emit(ProfileTab.HISTORY)))
+	col.add_child(LobbyUi.icon_button("characters", "Nhân vật", LobbyUi.ICON_COLORS["blue"], func(): open_character.emit()))
+	col.add_child(LobbyUi.icon_button("inventory", "Kho đồ", LobbyUi.ICON_COLORS["green"], func(): open_bag.emit()))
+	col.add_child(LobbyUi.icon_button("history", "Lịch sử", LobbyUi.ICON_COLORS["purple"], func(): open_profile.emit()))
 	col.add_child(LobbyUi.icon_button("shop", "Shop", LobbyUi.ICON_COLORS["orange"], func(): open_shop.emit(ShopTab.ITEMS)))
 	return col
 
@@ -342,6 +344,13 @@ func _cycle(delta: int) -> void:
 ## The id of the character on the stage.
 func character_id() -> String:
 	return _model.character_id
+
+
+## Puts `id` on the stage and remembers it (the Nhân vật page's ◀ ▶).
+func select_character(id: String) -> void:
+	_model.select_character(id)
+	_model.remember(settings_path)
+	_render_character()
 
 
 # ── Info card ───────────────────────────────────────────────────────────────

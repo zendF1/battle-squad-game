@@ -12,15 +12,29 @@ extends Node
 ## POST /iap/verify with the stored idempotency key, settle it, and refresh the assets.
 ## Screens that change the player's assets call assets_changed(): the wallet refreshes, the
 ## characters cache goes stale and `assets_dirty` tells the tabs to reload what they show.
+##
+## Equipment: the catalog (GET /equipment/catalog, loaded once per session; a failed load is
+## retried by the next need_equipment()) and the owned pieces (GET /player/equipment, coalesced
+## like the characters; stale after a buy, an equip / unequip and when Home is shown again after
+## a match). buy_equipment() runs POST /shop/equipment/buy {itemId, idempotencyKey} like buy();
+## equip() / unequip() / move_equipment() run one action at a time (equip_busy) and reload the
+## pieces and the characters (their stats include the equipment) whatever the answer.
 
 signal changed # profile, loading or error changed
 signal assets_dirty # inventory, characters or purchases changed on the server
 signal characters_changed # characters, characters_loading or characters_error changed
 signal busy_changed # a purchase or top-up started or ended
+signal equipment_changed # catalog, owned equipment, their loading / errors, or equip_busy changed
 
 const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
 const Coalescer := preload("res://core/coalescer.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
+const EquipmentModel := preload("res://screens/home/equipment_model.gd")
+
+## What a payment refreshes once it succeeded.
+const AFTER_WALLET := 0 # the wallet only (a top-up)
+const AFTER_ASSETS := 1 # wallet, characters, inventory (assets_changed)
+const AFTER_EQUIPMENT := 2 # wallet and the owned equipment
 
 var profile: Dictionary = {} # last GET /player/profile data; {} until loaded
 var loading := false
@@ -29,6 +43,8 @@ var error := "" # last refresh failure (Vietnamese), "" after a success
 ## POST /shop/purchase idempotencyKey and POST /iap/verify mock purchaseToken, per player+target.
 var purchase_keys := IdempotencyKeys.new("", "user://purchase_keys.cfg")
 var iap_tokens := IdempotencyKeys.new("mock_", "user://iap_tokens.cfg")
+## POST /shop/equipment/buy idempotencyKey, per player+item.
+var equipment_keys := IdempotencyKeys.new("", "user://equipment_keys.cfg")
 
 ## Last GET /player/characters data ({characters, resetStatsCost}); null until loaded.
 var characters: Variant = null
@@ -41,6 +57,21 @@ var _characters_player := "" # whose characters these are
 ## The offerId / productId being bought, "" when none: one purchase or top-up at a time.
 var busy_id := ""
 
+## EquipmentModel.parse_catalog() of GET /equipment/catalog; null until loaded.
+var catalog: Variant = null
+var catalog_loading := false
+var catalog_error := "" # Vietnamese; "" after a success
+## The owned pieces (GET /player/equipment, newest first); null until loaded.
+var equipment: Variant = null
+var equipment_loading := false
+var equipment_error := "" # Vietnamese; "" after a success
+var equipment_stale := true # loaded before the last change (or never)
+var equipment_version := 0 # bumped each time a GET /player/equipment answer is applied
+var _equipment_player := ""
+## The equipmentId of the equip / unequip running, "" when none.
+var equip_busy := ""
+
+var _equipment_gate := Coalescer.new()
 var _profile_gate := Coalescer.new()
 var _characters_gate := Coalescer.new()
 var _known_ids := {} # purchaseIds / transactionIds this client has seen (replay detection)
@@ -162,18 +193,25 @@ func note_purchases(purchases: Array) -> void:
 ## when the server answered an earlier request with the same key (nothing new was bought).
 ## {ok: false, code: "BUSY"} while another purchase or top-up runs.
 func buy(offer_id: String) -> Dictionary:
-	return await _pay("/shop/purchase", purchase_keys, offer_id, "purchaseId", true,
+	return await _pay("/shop/purchase", purchase_keys, offer_id, "purchaseId", AFTER_ASSETS,
 		func(key: String) -> Dictionary: return {"offerId": offer_id, "idempotencyKey": key})
 
 
 ## POST /iap/verify {productId, platform, purchaseToken} with a mock token, like buy().
 func top_up(product_id: String, platform: String) -> Dictionary:
-	return await _pay("/iap/verify", iap_tokens, product_id, "transactionId", false,
+	return await _pay("/iap/verify", iap_tokens, product_id, "transactionId", AFTER_WALLET,
 		func(key: String) -> Dictionary: return {"productId": product_id, "platform": platform, "purchaseToken": key})
 
 
-## assets: the purchase changes inventory / characters (else only the wallet is refreshed).
-func _pay(path: String, keys: IdempotencyKeys, id: String, id_field: String, assets: bool, make_body: Callable) -> Dictionary:
+## POST /shop/equipment/buy {itemId, idempotencyKey}, like buy(); the answer's equipmentId is
+## a replay when this client already listed that piece.
+func buy_equipment(item_id: String) -> Dictionary:
+	return await _pay("/shop/equipment/buy", equipment_keys, item_id, "equipmentId", AFTER_EQUIPMENT,
+		func(key: String) -> Dictionary: return {"itemId": item_id, "idempotencyKey": key})
+
+
+## after: AFTER_WALLET, AFTER_ASSETS or AFTER_EQUIPMENT (what to refresh on success).
+func _pay(path: String, keys: IdempotencyKeys, id: String, id_field: String, after: int, make_body: Callable) -> Dictionary:
 	if busy_id != "":
 		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null, "replay": false}
 	var target := key_target(id)
@@ -194,10 +232,14 @@ func _pay(path: String, keys: IdempotencyKeys, id: String, id_field: String, ass
 		out["replay"] = IdempotencyKeys.is_replay(carried, result_id, known, str(data.get("createdAt", "")), started)
 		if result_id != "":
 			_known_ids[result_id] = true
-		if assets:
-			assets_changed()
-		else:
-			refresh()
+		match after:
+			AFTER_ASSETS:
+				assets_changed()
+			AFTER_EQUIPMENT:
+				refresh()
+				equipment_dirty()
+			_:
+				refresh()
 	busy_changed.emit()
 	return out
 
@@ -205,3 +247,110 @@ func _pay(path: String, keys: IdempotencyKeys, id: String, id_field: String, ass
 ## Per-player key target ids, so another account on this device never sends them.
 func key_target(id: String) -> String:
 	return "%s/%s" % [Session.player_id, id]
+
+
+# ── Equipment ───────────────────────────────────────────────────────────────
+
+## Loads the catalog unless it is loaded or loading, and the owned pieces unless a fresh copy is
+## cached or already on its way.
+func need_equipment() -> void:
+	if catalog == null and not catalog_loading:
+		load_catalog()
+	if _equipment_player != Session.player_id:
+		equipment = null # another account signed in on this device
+	if not _equipment_gate.running and (equipment == null or equipment_stale):
+		load_equipment()
+
+
+func load_catalog() -> void:
+	if catalog_loading:
+		return
+	catalog_loading = true
+	catalog_error = ""
+	equipment_changed.emit()
+	var res: Dictionary = await Api.get_json("/equipment/catalog")
+	catalog_loading = false
+	var parsed = EquipmentModel.parse_catalog(res.data) if res.ok else null
+	if parsed != null:
+		catalog = parsed
+	else:
+		catalog_error = ErrorText.load_failed(res) if not res.ok else "Dữ liệu trang bị không hợp lệ"
+	equipment_changed.emit()
+
+
+func load_equipment() -> void:
+	if not _equipment_gate.ask():
+		return
+	equipment_loading = true
+	equipment_error = ""
+	equipment_changed.emit()
+	while true:
+		var t := _equipment_gate.ticket()
+		var player := Session.player_id
+		var res: Dictionary = await Api.get_json("/player/equipment")
+		if not _equipment_gate.finish(t):
+			continue
+		var parsed = EquipmentModel.parse_owned(res.data) if res.ok else null
+		if parsed is Array:
+			equipment = parsed
+			equipment_stale = false
+			equipment_version += 1
+			_equipment_player = player
+			for p in parsed:
+				_known_ids[str(p["equipmentId"])] = true
+		else:
+			equipment_error = ErrorText.load_failed(res) if not res.ok else "Dữ liệu trang bị không hợp lệ"
+		break
+	equipment_loading = false
+	equipment_changed.emit()
+
+
+## The owned pieces changed on the server: reload them (again, when a load is in flight).
+func equipment_dirty() -> void:
+	equipment_stale = true
+	load_equipment()
+
+
+## Retries whatever equipment load failed.
+func retry_equipment() -> void:
+	if catalog_error != "":
+		load_catalog()
+	if equipment_error != "":
+		load_equipment()
+
+
+## POST /player/equipment/equip {equipmentId, characterId}. The server takes off the piece the
+## character wore in that slot. {ok: false, code: "BUSY"} while another action runs.
+func equip(equipment_id: String, character_id: String) -> Dictionary:
+	return await _equip_steps(equipment_id, [["/player/equipment/equip", {"equipmentId": equipment_id, "characterId": character_id}]])
+
+
+## POST /player/equipment/unequip {equipmentId}.
+func unequip(equipment_id: String) -> Dictionary:
+	return await _equip_steps(equipment_id, [["/player/equipment/unequip", {"equipmentId": equipment_id}]])
+
+
+## A piece another character wears goes to `character_id`: unequip, then equip (the server
+## refuses to equip a worn piece). Stops at the first failure.
+func move_equipment(equipment_id: String, character_id: String) -> Dictionary:
+	return await _equip_steps(equipment_id, [["/player/equipment/unequip", {"equipmentId": equipment_id}],
+		["/player/equipment/equip", {"equipmentId": equipment_id, "characterId": character_id}]])
+
+
+func _equip_steps(equipment_id: String, steps: Array) -> Dictionary:
+	if equip_busy != "" or equipment_id == "":
+		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null}
+	equip_busy = equipment_id
+	equipment_changed.emit()
+	var res := {}
+	for step in steps:
+		res = await Api.post_json(step[0], step[1])
+		if not res.ok:
+			break
+	equip_busy = ""
+	# Even a refusal may come from a stale view (or a move failed halfway): show the truth.
+	equipment_dirty()
+	characters_stale = true
+	load_characters()
+	equipment_changed.emit()
+	return res

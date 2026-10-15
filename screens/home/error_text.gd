@@ -24,6 +24,20 @@ const STATS := {
 	"CHARACTER_INSUFFICIENT_STAT_POINTS": "Không đủ điểm tiềm năng",
 	"CHARACTER_NO_STATS_TO_RESET": "Chưa có điểm nào để tẩy",
 }
+const EQUIP_BUY := {
+	"EQUIP_NOT_FOUND": "Trang bị này không còn bán",
+	"BAD_REQUEST": "Yêu cầu mua không hợp lệ",
+	"IDEMPOTENCY_KEY_REUSED": "Giao dịch bị trùng, hãy thử lại",
+}
+const EQUIP := {
+	"EQUIP_ALREADY_EQUIPPED": "Trang bị đang được nhân vật khác mặc",
+	"EQUIP_NOT_EQUIPPED": "Trang bị chưa được mặc",
+	"EQUIP_LEVEL_REQUIRED": "Nhân vật chưa đủ cấp để mặc",
+	"EQUIP_WRONG_CHARACTER": "Trang bị không dành cho nhân vật này",
+	"EQUIP_NOT_OWNED": "Bạn không sở hữu trang bị này",
+	"EQUIP_NOT_FOUND": "Không tìm thấy trang bị",
+	"CHARACTER_NOT_FOUND": "Bạn chưa sở hữu nhân vật này",
+}
 
 
 ## POST /shop/purchase failure. currency is the offer's priceCurrency ("coin" | "gem").
@@ -37,6 +51,23 @@ static func purchase(res: Dictionary, currency: String = "") -> String:
 			"gem": return "Không đủ kim cương"
 		return "Không đủ xu/kim cương"
 	return PURCHASE.get(code, "Mua thất bại: %s" % res.get("message", ""))
+
+
+## POST /shop/equipment/buy failure. currency is what the item costs ("coin" | "gem").
+static func equipment_buy(res: Dictionary, currency: String = "") -> String:
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	var code := str(res.get("code", ""))
+	if code == "SHOP_INSUFFICIENT_BALANCE":
+		return purchase(res, currency)
+	return EQUIP_BUY.get(code, "Mua thất bại: %s" % res.get("message", ""))
+
+
+## POST /player/equipment/equip or unequip failure.
+static func equip(res: Dictionary) -> String:
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	return EQUIP.get(str(res.get("code", "")), "Thao tác thất bại: %s" % res.get("message", ""))
 
 
 ## POST /iap/verify failure.

@@ -1,6 +1,10 @@
 extends Control
-## "Shop": three sub-tabs.
+## "Shop": four sub-tabs.
 ## - "Vật phẩm": item offers (GET /shop/offers) with "Còn N lượt" from GET /shop/purchases;
+## - "Trang bị": the equipment the catalog sells (PlayerState.catalog, normal items with a
+##   price), filtered by slot: icon, name, "Lv N", stats, price, "Đã có N"; "Mua" asks "Mua
+##   <tên> với giá <giá>?", then PlayerState.buy_equipment() sends POST /shop/equipment/buy
+##   {itemId, idempotencyKey} with the same key rules as the purchases below;
 ## - "Nhân vật": character_unlock offers per character, "Đã sở hữu" from GET /player/characters;
 ## - "Kim cương": GET /iap/products, "Nạp" → POST /iap/verify with a mock purchase token.
 ## "Mua" asks "Xác nhận mua", then PlayerState.buy() sends POST /shop/purchase {offerId,
@@ -22,18 +26,23 @@ const LoadoutModel := preload("res://screens/loadout_model.gd")
 const ShopModel := preload("res://screens/home/shop_model.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
+const Fmt := preload("res://core/fmt.gd")
 
-const SUB_TABS := ["Vật phẩm", "Nhân vật", "Kim cương"]
+const EquipmentModel := preload("res://screens/home/equipment_model.gd")
+const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
+
+const SUB_TABS := ["Vật phẩm", "Trang bị", "Nhân vật", "Kim cương"]
 const ITEMS := 0
-const CHARACTERS := 1
-const GEMS := 2
+const EQUIPMENT := 1
+const CHARACTERS := 2
+const GEMS := 3
 const SOURCES := {
 	"offers": "/shop/offers",
 	"purchases": "/shop/purchases",
 	"products": "/iap/products",
 }
-## The sources each sub-tab needs ("characters": the PlayerState cache).
-const NEEDS := [["offers", "purchases"], ["offers", "purchases", "characters"], ["products"]]
+## The sources each sub-tab needs ("characters", "equipment": the PlayerState caches).
+const NEEDS := [["offers", "purchases"], ["equipment"], ["offers", "purchases", "characters"], ["products"]]
 const REPLAYED := "Giao dịch trước đã hoàn tất"
 
 ## Where dialogs and toasts go (the Home shell); defaults to this tab.
@@ -52,6 +61,8 @@ var _load_status: LoadStatus
 var _action_status: LoadStatus
 var _pages: Array[Control] = []
 var _flows: Array[HFlowContainer] = []
+var _slot := "" # the Trang bị slot filter, "" = all
+var _chips: Array[Button]
 
 
 func _ready() -> void:
@@ -80,7 +91,16 @@ func _ready() -> void:
 		var flow := HFlowContainer.new()
 		flow.add_theme_constant_override("h_separation", 14)
 		flow.add_theme_constant_override("v_separation", 14)
-		var page := Ui.scroll(flow)
+		var page: Control = Ui.scroll(flow)
+		if i == EQUIPMENT:
+			var box := Ui.vbox(12)
+			var chips := Ui.hbox(8)
+			box.add_child(chips)
+			_chips = EquipmentUi.slot_chips(_on_slot)
+			for c in _chips:
+				chips.add_child(c)
+			box.add_child(page)
+			page = box
 		page.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		pages.add_child(page)
 		_pages.append(page)
@@ -89,6 +109,7 @@ func _ready() -> void:
 	PlayerState.assets_dirty.connect(_on_assets_dirty)
 	PlayerState.characters_changed.connect(_on_characters_changed)
 	PlayerState.busy_changed.connect(_on_busy_changed)
+	PlayerState.equipment_changed.connect(_on_busy_changed)
 	visibility_changed.connect(_on_visibility_changed)
 	_on_characters_changed() # whatever "Hồ sơ" or an earlier Home already loaded
 	show_section(ITEMS)
@@ -120,6 +141,8 @@ func _load_shown() -> void:
 	for source in NEEDS[_sub]:
 		if source == "characters":
 			PlayerState.need_characters()
+		elif source == "equipment":
+			PlayerState.need_equipment()
 		elif (not _data.has(source) or _stale.has(source)) and not _loading.has(source) and not _errors.has(source):
 			_load(source)
 
@@ -163,6 +186,8 @@ func _reload_failed() -> void:
 		if source == "characters":
 			if PlayerState.characters_error != "":
 				PlayerState.load_characters()
+		elif source == "equipment":
+			PlayerState.retry_equipment()
 		elif _errors.has(source):
 			_load(source)
 
@@ -189,21 +214,30 @@ func _render_status() -> void:
 	if _load_status == null:
 		return
 	for source in NEEDS[_sub]:
-		var error: String = PlayerState.characters_error if source == "characters" else _errors.get(source, "")
+		var error: String = _source_error(source)
 		if error != "":
 			_load_status.show_error(error, _reload_failed)
 			return
 	for source in NEEDS[_sub]:
-		if not _data.has(source):
+		var missing := PlayerState.catalog == null or PlayerState.equipment == null if source == "equipment" else not _data.has(source)
+		if missing:
 			_load_status.show_loading()
 			return
 	_load_status.clear()
 
 
+func _source_error(source: String) -> String:
+	match source:
+		"characters":
+			return PlayerState.characters_error
+		"equipment":
+			return PlayerState.catalog_error if PlayerState.catalog_error != "" else PlayerState.equipment_error
+	return _errors.get(source, "")
+
+
 # ── Cards ───────────────────────────────────────────────────────────────────
 
 func _render() -> void:
-	_render_status()
 	_render_cards()
 
 
@@ -234,6 +268,50 @@ func _render_items() -> void:
 		var buy := _action_button("Mua")
 		buy.disabled = PlayerState.busy_id != "" or left == 0
 		buy.pressed.connect(_on_buy.bind(o))
+		box.add_child(buy)
+
+
+func _on_slot(slot: String) -> void:
+	_slot = slot
+	_render_equipment()
+
+
+func _render_equipment() -> void:
+	var flow := _flows[EQUIPMENT]
+	Ui.clear(flow)
+	EquipmentUi.select_chip(_chips, _slot)
+	if PlayerState.catalog == null:
+		return
+	var items := EquipmentModel.shop_items(PlayerState.catalog, _slot)
+	if items.is_empty():
+		flow.add_child(_empty("Chưa có trang bị nào được bán"))
+	for it in items:
+		var box := _card(flow, Vector2(290, 0))
+		var head := Ui.hbox(12)
+		box.add_child(head)
+		head.add_child(EquipmentUi.item_icon(it, {}, 76))
+		var names := Ui.vbox(2)
+		names.size_flags_horizontal = SIZE_EXPAND_FILL
+		head.add_child(names)
+		var title := Ui.text(EquipmentModel.display_name(it), 25)
+		title.clip_text = true
+		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		names.add_child(title)
+		names.add_child(Ui.text(EquipmentModel.slot_name(str(it.get("slot", ""))), 20, Ui.TEXT_DIM))
+		names.add_child(Ui.text(EquipmentModel.required_text(it), 20, EquipmentUi.LEVEL))
+		# Two stat lines are reserved, so the cards line up.
+		var stats := Ui.vbox(0)
+		stats.custom_minimum_size.y = 56
+		box.add_child(stats)
+		EquipmentUi.add_stat_lines(stats, it, 20)
+		var p := EquipmentModel.price(it)
+		LobbyUi.icon_text(box, ShopModel.currency_icon(p["currency"]), Fmt.thousands(p["amount"]), 26, Color.WHITE, false, 34)
+		var note := Ui.text(EquipmentModel.owned_text(EquipmentModel.owned_count(PlayerState.equipment, str(it["itemId"]))), 20, Ui.TONES["good"])
+		note.custom_minimum_size.y = 28
+		box.add_child(note)
+		var buy := _action_button("Mua")
+		buy.disabled = PlayerState.busy_id != ""
+		buy.pressed.connect(_on_buy_equipment.bind(it))
 		box.add_child(buy)
 
 
@@ -362,6 +440,36 @@ func _purchase(offer: Dictionary) -> void:
 	_action_status.show_error(ErrorText.purchase(res, str(offer.get("priceCurrency", ""))), retry)
 
 
+func _on_buy_equipment(item: Dictionary) -> void:
+	if PlayerState.busy_id != "":
+		return
+	var m := Modal.new()
+	m.open(overlay, "Xác nhận mua")
+	m.add_text(EquipmentModel.confirm_text(item))
+	m.add_button("Huỷ", m.close)
+	m.add_button("Mua", func():
+		m.close()
+		_purchase_equipment(item))
+
+
+func _purchase_equipment(item: Dictionary) -> void:
+	if PlayerState.busy_id != "":
+		return
+	_action_status.show_loading("Đang mua %s..." % EquipmentModel.display_name(item))
+	var res: Dictionary = await PlayerState.buy_equipment(str(item.get("itemId", "")))
+	if not is_inside_tree():
+		return
+	if res.code == "BUSY":
+		_action_status.clear()
+		return
+	if res.ok:
+		_action_status.clear()
+		Ui.toast(overlay, REPLAYED if res.replay else "Mua thành công!")
+		return
+	var retry := _purchase_equipment.bind(item) if not IdempotencyKeys.is_definite(res.status) else Callable()
+	_action_status.show_error(ErrorText.equipment_buy(res, EquipmentModel.price(item)["currency"]), retry)
+
+
 func _on_top_up(product: Dictionary) -> void:
 	if PlayerState.busy_id != "":
 		return
@@ -390,6 +498,8 @@ func _on_busy_changed() -> void:
 
 
 func _render_cards() -> void:
+	_render_status()
 	_render_items()
+	_render_equipment()
 	_render_characters()
 	_render_gems()

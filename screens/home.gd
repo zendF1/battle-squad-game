@@ -1,13 +1,16 @@
 extends Control
-## Home: the lobby (screens/home/lobby.gd) and two full-screen pages opened from it, "Hồ sơ"
-## (Nhân vật / Kho đồ / Lịch sử) and "Shop" (Vật phẩm / Nhân vật / Kim cương). A page has a
+## Home: the lobby (screens/home/lobby.gd) and the full-screen pages opened from it: "Nhân vật"
+## (gear slots, character, Trang bị / Chỉ số), "Túi đồ" (Trang bị / Vật phẩm), "Hồ sơ" (player
+## card, Lịch sử) and "Shop" (Vật phẩm / Trang bị / Nhân vật / Kim cương). A page has a
 ## header with "← Sảnh", its title and the wallet pills; "← Sảnh", Esc (ui_cancel) and the
 ## Android back button return to the lobby. The pages are built with Home but hidden, and each
 ## loads its data the first time it is shown (the tabs' own lazy loading). The wallet "+"
 ## buttons open the Shop on Kim cương (gem) or Vật phẩm (coin).
 ## Each time Home is shown (first entry, back from Loadout or a match) the profile is refreshed in
-## the background; the last known values show meanwhile. The cached characters are marked stale
-## too (a match changes their EXP), so whatever shows them reloads them once.
+## the background; the last known values show meanwhile. The cached characters and the owned
+## equipment are marked stale too (a match changes their EXP), so whatever shows them reloads
+## them once. The Nhân vật page and Túi đồ act on the lobby's character; ◀ ▶ on the Nhân vật page
+## change it in the lobby too.
 
 const Backdrop := preload("res://ui/backdrop.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -16,15 +19,21 @@ const WalletPills := preload("res://ui/wallet_pills.gd")
 const Lobby := preload("res://screens/home/lobby.gd")
 const ProfileTab := preload("res://screens/home/profile_tab.gd")
 const ShopTab := preload("res://screens/home/shop_tab.gd")
+const BagPage := preload("res://screens/home/bag_page.gd")
+const CharacterPage := preload("res://screens/home/character_page.gd")
 
 const LOBBY := 0
 const PROFILE := 1
 const SHOP := 2
+const BAG := 3
+const CHARACTER := 4
 
 var _lobby: Lobby
 var _profile: ProfileTab
 var _shop: ShopTab
-var _pages := {} # PROFILE / SHOP -> the page (header + tab)
+var _bag: BagPage
+var _character: CharacterPage
+var _pages := {} # PROFILE / SHOP / BAG / CHARACTER -> the page (header + content)
 var _shown := LOBBY
 
 
@@ -35,18 +44,30 @@ func _ready() -> void:
 	add_child(bg)
 
 	PlayerState.characters_stale = true
+	PlayerState.equipment_stale = true
 	_lobby = Lobby.new()
 	_lobby.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(_lobby)
 	_lobby.open_profile.connect(open_profile)
 	_lobby.open_shop.connect(open_shop)
+	_lobby.open_bag.connect(open_bag)
+	_lobby.open_character.connect(open_character)
 	_connect_wallet(_lobby.wallet)
 
 	_profile = ProfileTab.new()
 	_profile.overlay = self
-	_profile.open_shop_characters.connect(open_shop.bind(ShopTab.CHARACTERS))
 	_shop = ShopTab.new()
 	_shop.overlay = self
+	_bag = BagPage.new()
+	_bag.overlay = self
+	_bag.lobby_character = _lobby.character_id
+	_bag.open_shop.connect(open_shop)
+	_character = CharacterPage.new()
+	_character.overlay = self
+	_character.selected.connect(_lobby.select_character)
+	_character.open_shop.connect(open_shop)
+	_pages[CHARACTER] = _build_page("Nhân vật", _character)
+	_pages[BAG] = _build_page("Túi đồ", _bag)
 	_pages[PROFILE] = _build_page("Hồ sơ", _profile)
 	_pages[SHOP] = _build_page("Shop", _shop)
 	_show(LOBBY)
@@ -99,9 +120,20 @@ func _connect_wallet(wallet: WalletPills) -> void:
 	wallet.coin_plus.connect(open_shop.bind(ShopTab.ITEMS))
 
 
-func open_profile(section: int) -> void:
-	_profile.show_section(section) # before showing: only that sub-tab loads
+func open_profile() -> void:
 	_show(PROFILE)
+
+
+## The Nhân vật page on the lobby's character (section: CharacterPage.GEAR or STATS).
+func open_character(section: int = CharacterPage.GEAR) -> void:
+	_character.show_character(_lobby.character_id())
+	_character.show_section(section)
+	_show(CHARACTER)
+
+
+func open_bag(section: int = BagPage.EQUIPMENT) -> void:
+	_bag.show_section(section) # before showing: only that sub-tab loads
+	_show(BAG)
 
 
 func open_shop(section: int) -> void:
@@ -109,7 +141,7 @@ func open_shop(section: int) -> void:
 	_show(SHOP)
 
 
-## Which screen shows: LOBBY, PROFILE or SHOP. Android back quits only from the lobby.
+## Which screen shows: LOBBY or a page (PROFILE, SHOP, BAG, CHARACTER). Android back quits only from the lobby.
 func _show(which: int) -> void:
 	_shown = which
 	for key in _pages:

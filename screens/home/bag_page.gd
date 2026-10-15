@@ -1,0 +1,280 @@
+extends Control
+## "Túi đồ": everything the player owns, in two tabs.
+## - "Trang bị": the owned pieces (PlayerState.equipment + the catalog) as a grid of cards (icon
+##   with "+N", name, slot and required level, "Đang mặc · Tanko"), worn ones first then by
+##   required level; slot filter chips on top. A tap opens the piece popup (equipment_ui.gd) for
+##   the character chosen in the lobby: Mặc cho / Chuyển cho <nhân vật>, Tháo, Đóng.
+## - "Vật phẩm": the eight battle items with their GET /player/inventory counts.
+## Each tab loads the first time it is shown; failures show inline with "Thử lại".
+
+signal open_shop(section: int)
+
+const Ui := preload("res://ui/ui.gd")
+const LobbyUi := preload("res://ui/lobby_ui.gd")
+const Art := preload("res://ui/art.gd")
+const LoadStatus := preload("res://ui/load_status.gd")
+const Items := preload("res://match/items.gd")
+const LoadoutModel := preload("res://screens/loadout_model.gd")
+const EquipmentModel := preload("res://screens/home/equipment_model.gd")
+const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
+const ShopTab := preload("res://screens/home/shop_tab.gd")
+const ErrorText := preload("res://screens/home/error_text.gd")
+
+const SUB_TABS := ["Trang bị", "Vật phẩm"]
+const EQUIPMENT := 0
+const ITEMS := 1
+const CARD := Vector2(232, 236)
+
+## Where dialogs and toasts go (Home); defaults to this page.
+var overlay: Control
+## Returns the characterId chosen in the lobby (the one "Mặc cho" dresses); Home sets it.
+var lobby_character: Callable
+
+var _sub := EQUIPMENT
+var _slot := "" # "" = every slot
+var _armed := false
+var _inventory: Variant = null # itemId -> count, null until loaded
+var _inv_stale := false
+var _inv_loading := false
+var _inv_gen := 0
+
+var _sub_tabs: Array[Button]
+var _pages: Array[Control] = []
+var _chips: Array[Button]
+var _gear_status: LoadStatus
+var _gear_flow: HFlowContainer
+var _gear_hint: Label
+var _inv_status: LoadStatus
+var _inv_flow: HFlowContainer
+
+
+func _ready() -> void:
+	if overlay == null:
+		overlay = self
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 16)
+	add_child(margin)
+	var col := Ui.vbox(12)
+	margin.add_child(col)
+	var tabs := Ui.hbox(8)
+	col.add_child(tabs)
+	_sub_tabs = Ui.tab_row(SUB_TABS, 24, show_section)
+	for b in _sub_tabs:
+		tabs.add_child(b)
+	var pages := Control.new()
+	pages.size_flags_vertical = SIZE_EXPAND_FILL
+	col.add_child(pages)
+	for builder in [_build_gear_page, _build_items_page]:
+		var page: Control = builder.call()
+		page.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		pages.add_child(page)
+		_pages.append(page)
+
+	PlayerState.equipment_changed.connect(_on_equipment_changed)
+	PlayerState.characters_changed.connect(_on_equipment_changed)
+	PlayerState.assets_dirty.connect(_on_assets_dirty)
+	visibility_changed.connect(_ensure_loaded)
+	show_section(EQUIPMENT)
+	_render_gear()
+	_render_inventory()
+	_arm.call_deferred()
+
+
+func _who() -> String:
+	return str(lobby_character.call()) if lobby_character.is_valid() else LoadoutModel.DEFAULT_CHARACTER
+
+
+func show_section(index: int) -> void:
+	_sub = index
+	for i in _pages.size():
+		_pages[i].visible = i == index
+	Ui.select_tab(_sub_tabs, index)
+	_ensure_loaded()
+
+
+func _arm() -> void:
+	_armed = true
+	_ensure_loaded()
+
+
+func _ensure_loaded() -> void:
+	if not (_armed and is_visible_in_tree()):
+		return
+	if _sub == EQUIPMENT:
+		PlayerState.need_equipment()
+		PlayerState.need_characters() # the can-wear check
+		_render_gear() # the lobby character may have changed
+	elif (_inventory == null or _inv_stale) and not _inv_loading:
+		_load_inventory()
+
+
+func _on_assets_dirty() -> void:
+	if _inventory != null:
+		_inv_stale = true
+	_ensure_loaded()
+
+
+## Deferred: a press inside the grid must not free its own card mid-signal.
+func _on_equipment_changed() -> void:
+	if is_inside_tree():
+		_render_gear.call_deferred()
+
+
+# ── Trang bị ────────────────────────────────────────────────────────────────
+
+func _build_gear_page() -> Control:
+	var col := Ui.vbox(12)
+	var chips := Ui.hbox(8)
+	col.add_child(chips)
+	_chips = EquipmentUi.slot_chips(_on_slot)
+	for c in _chips:
+		chips.add_child(c)
+	_gear_hint = LobbyUi.text("", 20, Ui.TEXT_DIM)
+	_gear_hint.size_flags_horizontal = SIZE_EXPAND_FILL
+	_gear_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_gear_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	chips.add_child(_gear_hint)
+	_gear_status = LoadStatus.new()
+	col.add_child(_gear_status)
+	_gear_flow = HFlowContainer.new()
+	_gear_flow.add_theme_constant_override("h_separation", 14)
+	_gear_flow.add_theme_constant_override("v_separation", 14)
+	var scroll := Ui.scroll(_gear_flow)
+	col.add_child(scroll)
+	return col
+
+
+func _on_slot(slot: String) -> void:
+	_slot = slot
+	_render_gear()
+
+
+func _render_gear() -> void:
+	if _gear_flow == null:
+		return
+	var error := PlayerState.catalog_error if PlayerState.catalog_error != "" else PlayerState.equipment_error
+	if error != "":
+		_gear_status.show_error(error, PlayerState.retry_equipment)
+	elif PlayerState.equipment == null or PlayerState.catalog == null:
+		_gear_status.show_loading()
+	else:
+		_gear_status.clear()
+	EquipmentUi.select_chip(_chips, _slot)
+	var who := _who()
+	_gear_hint.text = "Chạm để mặc cho %s" % EquipmentModel.character_name(who)
+	Ui.clear(_gear_flow)
+	if PlayerState.equipment == null:
+		return
+	var pieces := EquipmentModel.filter_slot(EquipmentModel.sort_bag(PlayerState.equipment, PlayerState.catalog), _slot)
+	if pieces.is_empty():
+		var empty := Ui.vbox(12)
+		empty.add_child(LobbyUi.text("Chưa có trang bị nào" if _slot == "" else "Chưa có %s nào" % EquipmentModel.slot_name(_slot).to_lower(), 24, Ui.TEXT_DIM))
+		var shop := Ui.button("Mua ở Shop", 22)
+		shop.custom_minimum_size = Vector2(240, 60)
+		shop.focus_mode = FOCUS_NONE
+		shop.size_flags_horizontal = SIZE_SHRINK_BEGIN
+		shop.pressed.connect(func(): open_shop.emit(ShopTab.EQUIPMENT))
+		empty.add_child(shop)
+		_gear_flow.add_child(empty)
+		return
+	for p in pieces:
+		_gear_flow.add_child(_gear_card(p, who))
+
+
+func _gear_card(piece: Dictionary, who: String) -> Control:
+	var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
+	var worn_by := EquipmentModel.wearer(piece)
+	var b := Button.new()
+	b.custom_minimum_size = CARD
+	b.focus_mode = FOCUS_NONE
+	LobbyUi.style_button(b, Ui.CARD_BG, 16, 8, Color(1, 1, 1, 0.1), 2)
+	if worn_by != "":
+		LobbyUi.style_button(b, Color(0.1, 0.2, 0.36, 0.9), 16, 8, Color(0.35, 0.8, 0.45, 0.8), 2)
+	b.pressed.connect(func(): EquipmentUi.open_piece(overlay, piece, _who()))
+	var col := Ui.vbox(4)
+	col.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	col.offset_left = 12
+	col.offset_right = -12
+	col.offset_top = 12
+	col.offset_bottom = -10
+	col.mouse_filter = MOUSE_FILTER_IGNORE
+	b.add_child(col)
+	var icon := EquipmentUi.item_icon(item, piece, 96)
+	icon.size_flags_horizontal = SIZE_SHRINK_CENTER
+	col.add_child(icon)
+	var gap := Control.new()
+	gap.custom_minimum_size.y = 6
+	gap.mouse_filter = MOUSE_FILTER_IGNORE
+	col.add_child(gap)
+	var title := LobbyUi.text(EquipmentModel.display_name(item), 24, Color.WHITE, true)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.clip_text = true
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title.mouse_filter = MOUSE_FILTER_IGNORE
+	col.add_child(title)
+	var sub := LobbyUi.text("%s · %s" % [EquipmentModel.slot_name(str(item.get("slot", ""))), EquipmentModel.required_text(item)], 19, Color(0.8, 0.88, 1.0))
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.mouse_filter = MOUSE_FILTER_IGNORE
+	col.add_child(sub)
+	var note: Control
+	if worn_by != "":
+		note = EquipmentUi.tag(EquipmentModel.worn_text(piece), Color(0.2, 0.55, 0.3, 0.95))
+	else:
+		var check := EquipmentModel.can_wear(item, who, PlayerState.characters)
+		note = EquipmentUi.tag(check["reason"], Color(0.6, 0.2, 0.2, 0.9)) if not check["ok"] else Control.new()
+	note.size_flags_horizontal = SIZE_SHRINK_CENTER
+	note.mouse_filter = MOUSE_FILTER_IGNORE
+	col.add_child(note)
+	return b
+
+
+# ── Vật phẩm ────────────────────────────────────────────────────────────────
+
+func _build_items_page() -> Control:
+	var col := Ui.vbox(14)
+	_inv_status = LoadStatus.new()
+	col.add_child(_inv_status)
+	_inv_flow = HFlowContainer.new()
+	_inv_flow.add_theme_constant_override("h_separation", 12)
+	_inv_flow.add_theme_constant_override("v_separation", 12)
+	col.add_child(_inv_flow)
+	return Ui.scroll(col)
+
+
+func _load_inventory() -> void:
+	_inv_gen += 1
+	var gen := _inv_gen
+	_inv_stale = false
+	_inv_loading = true
+	_inv_status.show_loading()
+	var res: Dictionary = await Api.get_json("/player/inventory")
+	if not is_inside_tree() or gen != _inv_gen:
+		return
+	_inv_loading = false
+	var counts = LoadoutModel.parse_inventory(res.data) if res.ok else null
+	if counts is Dictionary:
+		_inventory = counts
+		_inv_status.clear()
+	else:
+		_inv_status.show_error(ErrorText.load_failed(res) if not res.ok else "Dữ liệu kho đồ không hợp lệ", _load_inventory)
+	_render_inventory()
+
+
+func _render_inventory() -> void:
+	Ui.clear(_inv_flow)
+	for id in Items.ORDER:
+		var n := int(_inventory.get(id, 0)) if _inventory is Dictionary else -1
+		var card := Ui.card(Ui.CARD_BG, 18)
+		card.custom_minimum_size = Vector2(270, 120)
+		var row := Ui.hbox(12)
+		card.add_child(row)
+		row.add_child(LobbyUi.icon(Art.item_icon(id), 64))
+		var box := Ui.vbox(6)
+		row.add_child(box)
+		box.add_child(Ui.text(Items.label(id), 26))
+		box.add_child(Ui.text("x%d" % n if n >= 0 else "x—", 26, Ui.TONES["draw"]))
+		if n == 0:
+			card.modulate = Color(1, 1, 1, 0.4)
+		_inv_flow.add_child(card)

@@ -5,7 +5,7 @@ extends SceneTree
 ##
 ##   $GODOT --path . -s tools/bake_art.gd [-- <group> ...]
 ##
-## Groups: characters, env, terrain, fx, icons, ui (default: all). It overwrites the PNGs (and the
+## Groups: characters, env, terrain, fx, icons, ui, equipment (default: all). It overwrites the PNGs (and the
 ## characters' SpriteFrames .tres), prints every file it wrote and quits. Then import them once
 ## (editor, or `$GODOT --headless --path . --import`) so the .import files exist. An existing
 ## .import file is never touched, so import settings changed in the editor survive a re-bake.
@@ -20,8 +20,9 @@ const FxPainter := preload("res://tools/art/fx_painter.gd")
 const TerrainPainter := preload("res://tools/art/terrain_painter.gd")
 const IconPainter := preload("res://tools/art/icon_painter.gd")
 const UiPainter := preload("res://tools/art/ui_painter.gd")
+const EquipmentPainter := preload("res://tools/art/equipment_painter.gd")
 
-const GROUPS := ["characters", "env", "terrain", "fx", "icons", "ui"]
+const GROUPS := ["characters", "env", "terrain", "fx", "icons", "ui", "equipment"]
 ## Shown much smaller than drawn (icons on buttons, effects, clouds): mipmapped. The characters
 ## are not: plain linear filtering keeps the small match bodies sharper.
 const MIPMAPPED := ["fx", "icons", "env/cloud"]
@@ -197,3 +198,13 @@ func _bake_ui() -> void:
 	for box_name in Art.UI_BOXES:
 		var size: Vector2i = UiPainter.BOXES[box_name][0] if UiPainter.BOXES.has(box_name) else Vector2i(96, 96)
 		_save(await _render(size, func(ci: CanvasItem) -> void: UiPainter.paint(ci, box_name, Vector2(size))), Art.ui_path(box_name))
+
+
+func _bake_equipment() -> void:
+	for slot in Art.EQUIP_SLOTS:
+		for tier in Art.EQUIP_TIERS:
+			_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint(ci, slot, tier)), Art.equipment_icon_path(slot, tier))
+		_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint_slot(ci, slot)), Art.equipment_slot_path(slot))
+	for frame in Art.EQUIP_FRAMES:
+		_save(await _render(Art.EQUIP_FRAME_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint_frame(ci, frame)), Art.equipment_frame_path(frame))
+	_save(await _render(EquipmentPainter.BADGE_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint_badge(ci)), Art.EQUIP_BADGE)

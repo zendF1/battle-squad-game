@@ -40,6 +40,19 @@ const ICONS := [
 ]
 const UNKNOWN_ICON := "unknown"
 
+# ── Equipment (icons/equipment/) ────────────────────────────────────────────
+
+## One icon per slot × tier (128x128), a white silhouette per slot for an empty slot (tinted in
+## the UI), the hexagon slot frames (132x152) and the "+N" badge 9-patch.
+const EQUIP_SLOTS := ["weapon", "armor", "helmet", "pants", "boots", "gloves"]
+const EQUIP_TIERS := ["iron", "steel", "mithril", "dragon", "silver", "gold", "titan", "diamond"]
+const EQUIP_ICON_SIZE := Vector2i(128, 128)
+const EQUIP_FRAMES := ["hex_empty", "hex_filled", "hex_selected"]
+const EQUIP_FRAME_SIZE := Vector2i(132, 152)
+const EQUIP_BADGE := ROOT + "icons/equipment/badge.png"
+## badge.png texture margins [left, top, right, bottom].
+const EQUIP_BADGE_MARGINS := [15, 15, 15, 15]
+
 # ── Environment, terrain, effects ───────────────────────────────────────────
 
 const ENV := {
@@ -118,6 +131,18 @@ static func icon_path(icon_name: String) -> String:
 	return ROOT + "icons/%s.png" % icon_name
 
 
+static func equipment_icon_path(slot: String, tier: String) -> String:
+	return ROOT + "icons/equipment/%s_%s.png" % [slot, tier]
+
+
+static func equipment_slot_path(slot: String) -> String:
+	return ROOT + "icons/equipment/slot_%s.png" % slot
+
+
+static func equipment_frame_path(frame: String) -> String:
+	return ROOT + "icons/equipment/%s.png" % frame
+
+
 static func explosion_path(i: int) -> String:
 	return ROOT + "fx/explosion_%d.png" % i
 
@@ -144,6 +169,13 @@ static func all_paths() -> Array[String]:
 		out.append(explosion_path(i))
 	for box_name in UI_BOXES:
 		out.append(ui_path(box_name))
+	for slot in EQUIP_SLOTS:
+		out.append(equipment_slot_path(slot))
+		for tier in EQUIP_TIERS:
+			out.append(equipment_icon_path(slot, tier))
+	for frame in EQUIP_FRAMES:
+		out.append(equipment_frame_path(frame))
+	out.append(EQUIP_BADGE)
 	return out
 
 
@@ -182,6 +214,36 @@ static func icon(icon_name: String) -> Texture2D:
 ## The icon of an item id (the icon has the item's name), or the "unknown" icon.
 static func item_icon(item_id: String) -> Texture2D:
 	return icon(item_id if ICONS.has(item_id) else UNKNOWN_ICON)
+
+
+## The icon of an equipment item by slot and tier (EquipmentModel.tier()); an unknown tier draws
+## as iron, an unknown slot as the "unknown" icon.
+static func equipment_icon(slot: String, tier: String) -> Texture2D:
+	if not EQUIP_SLOTS.has(slot):
+		return icon(UNKNOWN_ICON)
+	return texture(equipment_icon_path(slot, tier if EQUIP_TIERS.has(tier) else EQUIP_TIERS[0]))
+
+
+## The white silhouette of an empty slot (tint it).
+static func equipment_slot_icon(slot: String) -> Texture2D:
+	return texture(equipment_slot_path(slot)) if EQUIP_SLOTS.has(slot) else icon(UNKNOWN_ICON)
+
+
+## A hexagon slot frame: "hex_empty", "hex_filled" or "hex_selected".
+static func equipment_frame(frame: String) -> Texture2D:
+	return texture(equipment_frame_path(frame if EQUIP_FRAMES.has(frame) else EQUIP_FRAMES[0]))
+
+
+## The "+N" badge background as a StyleBoxTexture (content_margin: padding around the text).
+static func equipment_badge_box(content_margin: int = 6) -> StyleBoxTexture:
+	var box := StyleBoxTexture.new()
+	box.texture = texture(EQUIP_BADGE)
+	for side in 4:
+		box.set_texture_margin(side, EQUIP_BADGE_MARGINS[side])
+		box.set_content_margin(side, content_margin)
+	box.content_margin_left = content_margin + 4
+	box.content_margin_right = content_margin + 4
+	return box
 
 
 static func portrait(id: String) -> Texture2D:

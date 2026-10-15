@@ -5,7 +5,7 @@ code (`tools/art/*.gd`) and baked by `tools/bake_art.gd`. `ui/art.gd` is the one
 ids to these paths; a missing file never crashes (a character falls back to rookie, an icon to
 `icons/unknown.png`, anything else to a small grey square, with a warning).
 
-Total about 2.3 MB of PNG.
+Total about 2.5 MB of PNG.
 
 ## Replacing art
 
@@ -32,7 +32,7 @@ $GODOT --path . -s tools/bake_art.gd                 # everything
 $GODOT --path . -s tools/bake_art.gd -- icons ui     # only some groups
 ```
 
-Groups: `characters`, `env`, `terrain`, `fx`, `icons`, `ui`. It overwrites the PNGs (and the
+Groups: `characters`, `env`, `terrain`, `fx`, `icons`, `ui`, `equipment`. It overwrites the PNGs (and the
 characters' `.tres`), prints each file with its size and quits. Then let the editor import them
 (or run `$GODOT --headless --path . --import` while no editor is open). Baking overwrites
 replaced art too: only re-bake the groups you have not replaced.
@@ -106,6 +106,15 @@ The terrain mask stays the source of truth: the shader only decides colours per 
 | `check` | Prep: a picked item |
 | `medkit`, `teleport`, `power_shot`, `drill_bomb`, `spider_net`, `freeze_bomb`, `air_strike`, `wind_stopper` | item cards (Prep, Profile inventory, Shop) and match item buttons; the file name is the item id |
 | `unknown` | fallback for a missing icon or an unknown item |
+
+### icons/equipment/ (`tools/art/equipment_painter.gd`, paths in `ui/art.gd` EQUIP_*)
+
+| File | Size | Notes | Used by |
+|---|---|---|---|
+| `<slot>_<tier>.png` | 128x128 (1.5–3 KB) | one per slot × tier, transparent, dark outline. Slots `weapon`, `armor`, `helmet`, `pants`, `boots`, `gloves`; tiers `iron` (Sắt, grey), `steel` (Thép, blue steel), `mithril` (teal), `dragon` (Rồng, red + gold) for shop items, `silver` (Bạc), `gold` (Vàng), `titan`, `diamond` (Kim cương) for crafted ones. A normal item's tier comes from its name / id (`screens/home/equipment_model.gd` `tier()`); an unknown tier draws as iron | Shop → Trang bị, Túi đồ, Nhân vật slots and list, piece popup, Prep gear row |
+| `slot_<slot>.png` | 128x128 (1 KB) | the slot's shape in plain white; the UI tints it faint blue for an empty slot | Nhân vật slots, Prep gear row |
+| `hex_empty.png`, `hex_filled.png`, `hex_selected.png` | 132x152 (7 KB) | pointy-top hexagon (radius 70) centred: empty (dark, faint rim), filled (blue, light rim), selected (gold rim + glow); stretched to the slot size | Nhân vật slots (shown at 0.85), piece popup, Prep gear row |
+| `badge.png` | 52x32 | the "+N" pill (dark, gold rim); 9-patch, texture margins 15 all (`EQUIP_BADGE_MARGINS`) | upgrade level on every equipment icon |
 
 ### ui/ (9-patches, `StyleBoxTexture` via `ui/art.gd` `ui_box()`)
 

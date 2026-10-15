@@ -62,10 +62,21 @@ func set_message(value: String) -> void:
 	message.visible = value != ""
 
 
-## Disables or enables every button (while the request runs).
+## Disables every button while a request runs; afterwards each is enabled again unless it was
+## locked (lock_button(): an action that is not possible).
 func set_busy(busy: bool) -> void:
 	for b in _buttons.get_children():
-		(b as Button).disabled = busy
+		(b as Button).disabled = busy or b.get_meta("locked", false)
+
+
+## Keeps a button disabled, also after set_busy(false).
+func lock_button(b: Button) -> void:
+	b.set_meta("locked", true)
+	b.disabled = true
+
+
+func buttons() -> Array:
+	return _buttons.get_children()
 
 
 func close() -> void:

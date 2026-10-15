@@ -50,3 +50,19 @@ func test_fallbacks() -> void:
 	eq(Art.icon_path("gem"), "res://assets/icons/gem.png", "icon path")
 	check(Art.item_icon("nope") != null, "unknown item gets a texture")
 	check(Art.texture("res://assets/nope.png") == Art.placeholder(), "missing file gets the placeholder")
+
+
+func test_equipment_art_covers_the_model() -> void:
+	var M := preload("res://screens/home/equipment_model.gd")
+	for slot in M.SLOTS:
+		check(Art.EQUIP_SLOTS.has(slot), "slot %s has art" % slot)
+	for tier in M.NORMAL_TIERS + M.CRAFTED_TIERS:
+		check(Art.EQUIP_TIERS.has(tier), "tier %s has art" % tier)
+	eq(Art.equipment_icon_path("boots", "gold"), "res://assets/icons/equipment/boots_gold.png", "icon path")
+	eq(Art.equipment_slot_path("weapon"), "res://assets/icons/equipment/slot_weapon.png", "slot path")
+	check(Art.all_paths().has(Art.EQUIP_BADGE), "badge listed")
+	var img := Image.load_from_file(ProjectSettings.globalize_path(Art.equipment_icon_path("weapon", "iron")))
+	check(img != null and img.get_size() == Art.EQUIP_ICON_SIZE, "icon size")
+	img = Image.load_from_file(ProjectSettings.globalize_path(Art.equipment_frame_path("hex_empty")))
+	check(img != null and img.get_size() == Art.EQUIP_FRAME_SIZE, "frame size")
+	check(Art.equipment_icon("ring", "iron") != null, "unknown slot gets a texture")
