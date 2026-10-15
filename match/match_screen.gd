@@ -18,6 +18,8 @@ const Hud := preload("res://match/hud.gd")
 
 const ACTION_INTERVAL := 0.25 # server drops actions closer than 150 ms
 const MOVE_ACK_GAP := 0.16 # Shoot/EndTurn wait this long after the last answer to a Move
+# Both waits are measured with Time.get_ticks_usec() from the moment they start, not by summing
+# frame deltas: a long frame right before an answer is read would count time from before it.
 const OTHER_WALK_SPEED := 90.0
 const OTHER_WALK_MAX_SEC := 1.0 # a bot fires 1.5 s after its Move: finish the walk before that
 const SHOT_ACK_TIMEOUT := 3.0
@@ -36,7 +38,7 @@ var _committing := false # Shoot/EndTurn requested: input locked until the turn 
 var _commit_sent := false # ...and sent: no more Moves this turn
 var _resync_in := 0.0 # seconds before asking for MatchStateSync again
 var _turn_resolved := false # this turn's shot was answered: the server takes no more actions
-var _since_move_ack := 10.0 # seconds since the last PlayerMoved for my Moves
+var _move_ack_at := -10_000_000 # Time.get_ticks_usec() when the last PlayerMoved for my Moves was handled
 var _disconnected := false
 
 var _mask := TerrainMask.new()
@@ -50,7 +52,7 @@ var _shot_player: ShotPlayer
 var _hud: Hud
 
 var _hold_dir := 0
-var _since_action := 1.0
+var _action_at := -10_000_000 # Time.get_ticks_usec() when my last Move/Shoot/EndTurn was sent
 
 
 func _ready() -> void:
@@ -94,8 +96,6 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	_since_action += delta
-	_since_move_ack += delta
 	if _awaiting_shot > 0.0:
 		_awaiting_shot -= delta
 		if _awaiting_shot <= 0.0:
@@ -109,7 +109,7 @@ func _process(delta: float) -> void:
 		_moves.hold(_hold_dir, delta)
 	# Runs while a Shoot/EndTurn waits too, so the rest of the walk (and a re-send of an
 	# unanswered Move) still goes out before it; _commit_action waits for them.
-	var cmd := _moves.update(Time.get_ticks_msec() / 1000.0, _since_action >= ACTION_INTERVAL)
+	var cmd := _moves.update(Time.get_ticks_msec() / 1000.0, _since(_action_at) >= ACTION_INTERVAL)
 	if not cmd.is_empty():
 		GameSocket.send("Move", cmd)
 		_mark_action()
@@ -262,7 +262,7 @@ func _on_player_moved(d: Dictionary) -> void:
 		# when the prediction was right (the normal case) nothing visibly changes.
 		var was_lost := _moves.needs_resync()
 		_moves.on_server_moved(pos, energy, int(d.get("seq", 0)))
-		_since_move_ack = 0.0
+		_move_ack_at = Time.get_ticks_usec()
 		if was_lost and not _moves.needs_resync():
 			_resync_in = 0.0
 			_refresh_controls() # the newest Move's late answer unlocks input
@@ -366,11 +366,12 @@ func _on_end_turn() -> void:
 ## - every Move has been answered (MoveSync.is_settled), so the server fires from the position
 ##   on screen; a dropped Move is re-sent first;
 ## - ACTION_INTERVAL has passed since the last action; and
-## - MOVE_ACK_GAP has passed since the last PlayerMoved for my Moves arrived. Spacing sends
+## - MOVE_ACK_GAP has passed since the last PlayerMoved for my Moves was handled. Spacing sends
 ##   alone does not survive jitter: a Move delayed on the way can reach the server less than
 ##   150 ms before the Shoot, which is then dropped. The server processed that Move before it
-##   sent the answer, so a Shoot sent >= 160 ms after the answer arrives reaches the server
-##   >= 160 ms after it processed the Move, whatever the latency in either direction.
+##   sent the answer, and the answer is handled after it arrives, so a Shoot sent >= 160 ms
+##   (wall clock) after that reaches the server >= 160 ms after it processed the Move, whatever
+##   the latency in either direction or the length of the frame that read the answer.
 ## All are re-checked every frame (process_frame fires before _process), so a Move re-send
 ## cannot slip in between. The wait is bounded by MoveSync's re-send limit (about 3 s). The
 ## answer timeout starts only once the command is actually sent. If MoveSync loses track of
@@ -380,8 +381,8 @@ func _commit_action(event: String, data: Dictionary) -> void:
 	_hold_dir = 0
 	_moves.release()
 	_refresh_controls()
-	while _committing and _is_my_turn() and (not _moves.is_settled() or _since_action < ACTION_INTERVAL \
-			or _since_move_ack < MOVE_ACK_GAP):
+	while _committing and _is_my_turn() and (not _moves.is_settled() \
+			or _since(_action_at) < ACTION_INTERVAL or _since(_move_ack_at) < MOVE_ACK_GAP):
 		await get_tree().process_frame
 	if not _is_my_turn() or not _committing:
 		return
@@ -408,7 +409,12 @@ func _request_resync(delta: float) -> void:
 
 
 func _mark_action() -> void:
-	_since_action = 0.0
+	_action_at = Time.get_ticks_usec()
+
+
+## Seconds since a Time.get_ticks_usec() stamp.
+static func _since(usec: int) -> float:
+	return (Time.get_ticks_usec() - usec) / 1_000_000.0
 
 
 func _on_leave() -> void:
