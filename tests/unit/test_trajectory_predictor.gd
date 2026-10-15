@@ -57,8 +57,18 @@ func test_matches_server_shots() -> void:
 	var m := TerrainMask.new()
 	m.load_snapshot(f["after"])
 	var hits := 0
+	var misses := 0
 	for s in f["shots"]:
 		if not s["hit"]:
+			# No terrain hit: the flight ends by leaving the map or timing out, so no point
+			# inside the map bounds after the origin may be solid (hits end on a solid point).
+			misses += 1
+			var flight := Trajectory.simulate(float(s["x"]), float(s["y"]), float(s["vx"]), float(s["vy"]),
+				float(s["windForce"]), m, 100000)
+			for i in range(1, flight.size()): # the origin stands on the ground, so skip it
+				var p := flight[i]
+				if p.y < m.height and p.x >= 0 and p.x < m.width:
+					check(not m.is_solid(p.x, p.y), "miss from %s,%s crossed terrain at %s" % [s["x"], s["y"], p])
 			continue
 		hits += 1
 		var pts := Trajectory.simulate(float(s["x"]), float(s["y"]), float(s["vx"]), float(s["vy"]),
@@ -66,3 +76,4 @@ func test_matches_server_shots() -> void:
 		near(pts[-1].x, float(s["hitX"]), 1e-3, "hit x of shot from %s,%s" % [s["x"], s["y"]])
 		near(pts[-1].y, float(s["hitY"]), 1e-3, "hit y of shot from %s,%s" % [s["x"], s["y"]])
 	check(hits >= 30, "fixture has enough hitting shots (%d)" % hits)
+	check(misses >= 10, "fixture has enough missing shots (%d)" % misses)

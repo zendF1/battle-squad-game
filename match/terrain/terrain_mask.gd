@@ -22,10 +22,12 @@ var destructible := PackedByteArray()
 func load_snapshot(snap: Dictionary) -> bool:
 	var w := int(snap.get("width", 0))
 	var h := int(snap.get("height", 0))
+	if w <= 0 or h <= 0:
+		return false
 	var n := w * h
 	var s := decode_rle(str(snap.get("solid", "")), n)
 	var d := decode_rle(str(snap.get("destructible", "")), n)
-	if n <= 0 or s.size() != n or d.size() != n:
+	if s.size() != n or d.size() != n:
 		return false
 	width = w
 	height = h

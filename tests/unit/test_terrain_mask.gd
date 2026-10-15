@@ -39,6 +39,24 @@ func test_load_snapshot_rejects_wrong_size() -> void:
 	check(not ok, "3 pixels for a 4x2 map must be rejected")
 
 
+func test_decode_rle_rejects_mask_longer_than_size() -> void:
+	# air 2, solid 5 covers 7 pixels but only 6 are allowed
+	var bytes := TerrainMask.decode_rle(Marshalls.raw_to_base64(PackedByteArray([2, 5])), 6)
+	eq(bytes.size(), 0, "overflowing mask is rejected")
+	var m := TerrainMask.new()
+	var enc := Marshalls.raw_to_base64(PackedByteArray([2, 5]))
+	check(not m.load_snapshot({"width": 3, "height": 2, "version": 0, "solid": enc, "destructible": enc}),
+		"7 pixels for a 3x2 map must be rejected")
+
+
+func test_load_snapshot_rejects_non_positive_size() -> void:
+	var enc := Marshalls.raw_to_base64(PackedByteArray([2]))
+	for size in [[-2, 3], [3, -2], [0, 4], [4, 0], [-2, -3]]:
+		var m := TerrainMask.new()
+		check(not m.load_snapshot({"width": size[0], "height": size[1], "version": 0, "solid": enc, "destructible": enc}),
+			"%dx%d must be rejected" % [size[0], size[1]])
+
+
 func test_is_solid_bounds() -> void:
 	var m := TerrainMask.new()
 	m.load_snapshot({"width": 2, "height": 2, "version": 0,

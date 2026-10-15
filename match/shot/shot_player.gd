@@ -51,10 +51,11 @@ func _process(delta: float) -> void:
 			_views[i] = null
 		else:
 			view.position = _timeline.sample(i, _t)
-	for event in _timeline.pop_due(_t):
+	var timeline = _timeline
+	for event in timeline.pop_due(_t):
 		event_due.emit(event)
-		if _timeline == null:
-			return
+		if _timeline != timeline:
+			return # a handler stopped or replaced the replay
 	if _t >= _timeline.duration:
 		stop()
 		finished.emit()
