@@ -19,6 +19,7 @@ const Hud := preload("res://match/hud.gd")
 const ACTION_INTERVAL := 0.25 # server drops actions closer than 150 ms
 const MOVE_ACK_GAP := 0.16 # Shoot/EndTurn wait this long after the last answer to a Move
 const OTHER_WALK_SPEED := 90.0
+const OTHER_WALK_MAX_SEC := 1.0 # a bot fires 1.5 s after its Move: finish the walk before that
 const SHOT_ACK_TIMEOUT := 3.0
 const RESYNC_RETRY := 3.0 # re-ask for MatchStateSync if none arrived
 const TURN_SECONDS := 20
@@ -234,6 +235,7 @@ func _apply(event: String, data: Variant) -> void:
 			_awaiting_shot = 0.0
 			_turn_resolved = true # the server takes no more actions until TurnStarted
 			_hud.pause_timer() # resumed by the next TurnTimerTick / TurnStarted
+			_snap_to_server(str(data.get("shooterId", "")))
 			_shot_player.play(ShotTimeline.new(data))
 			_refresh_controls()
 		"PlayerDamaged": # lava at turn start (shot damage comes in ShotResolved)
@@ -266,7 +268,14 @@ func _on_player_moved(d: Dictionary) -> void:
 			_refresh_controls() # the newest Move's late answer unlocks input
 		return
 	var view = _views[id]
-	view.move_to(pos, view.position.distance_to(pos) / OTHER_WALK_SPEED)
+	view.move_to(pos, minf(view.position.distance_to(pos) / OTHER_WALK_SPEED, OTHER_WALK_MAX_SEC))
+
+
+## The shell leaves from the server's position: stop a walk still under way and put the
+## shooter there before the replay starts.
+func _snap_to_server(id: String) -> void:
+	if _views.has(id) and _players.has(id) and _players[id].has("position"):
+		_views[id].move_to(_pos(id), 0.0)
 
 
 func _on_shot_event(e: Dictionary) -> void:

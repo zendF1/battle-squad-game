@@ -1,6 +1,7 @@
 extends Control
 ## Home shell with the demo's five tabs (app_router.dart HomeShell). M1 implements
-## Play → Quick Play; the other tabs arrive in M3/M4.
+## Play → Quick Play (idle practice target) and Play vs bot (QuickPlay {"bot": "ai"});
+## the other tabs arrive in M3/M4.
 ##
 ## A Quick Play request stays pending until it is resolved. The server handles a client's
 ## messages in order and always answers QuickPlay with MatchStarted or RoomError, so a late
@@ -15,6 +16,7 @@ const SLOW_NOTICE_SEC := 10.0
 var _pages: Array[Control] = []
 var _conn: Label
 var _quick_play: Button
+var _vs_bot: Button
 var _status: Label
 var _timer: Timer
 var _pending := false
@@ -71,8 +73,12 @@ func _build_play_page(page: Control) -> void:
 	var col := Ui.center_column(page)
 	_quick_play = Ui.button("Chơi nhanh (Luyện tập)", 34)
 	_quick_play.custom_minimum_size = Vector2(560, 110)
-	_quick_play.pressed.connect(_on_quick_play)
+	_quick_play.pressed.connect(_on_quick_play.bind({}))
 	col.add_child(_quick_play)
+	_vs_bot = Ui.button("Đấu với máy", 34)
+	_vs_bot.custom_minimum_size = Vector2(560, 110)
+	_vs_bot.pressed.connect(_on_quick_play.bind({"bot": "ai"}))
+	col.add_child(_vs_bot)
 	_status = Ui.label("", 24)
 	col.add_child(_status)
 
@@ -85,17 +91,22 @@ func _show_tab(index: int) -> void:
 func _update_conn() -> void:
 	_conn.text = "● Online" if GameSocket.is_open() else "○ Đang kết nối..."
 	# A QuickPlay sent while offline would sit in an outbox that may never flush.
-	_quick_play.disabled = _pending or not GameSocket.is_open()
+	var disabled := _pending or not GameSocket.is_open()
+	_quick_play.disabled = disabled
+	_vs_bot.disabled = disabled
 
 
-func _on_quick_play() -> void:
+## payload {} plays the idle practice target, {"bot": "ai"} a bot that moves and shoots.
+## Both buttons share one pending request.
+func _on_quick_play(payload: Dictionary) -> void:
 	if _pending:
 		return
 	_pending = true
 	_quick_play.disabled = true
+	_vs_bot.disabled = true
 	_status.text = "Đang tạo trận..."
 	_timer.start(SLOW_NOTICE_SEC)
-	GameSocket.send("QuickPlay", {})
+	GameSocket.send("QuickPlay", payload)
 
 
 func _on_slow() -> void:
