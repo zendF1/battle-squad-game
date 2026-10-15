@@ -11,7 +11,8 @@ const RESULTS := {
 	"loss": {"text": "Thua", "tone": "loss"},
 	"draw": {"text": "Hoà", "tone": "draw"},
 }
-const MODES := {"pvp_1v1": "Đấu 1v1", "ranked_2v2": "Xếp hạng 2v2"}
+const MODES := {"pvp_1v1": "Đấu 1v1", "pvp_2v2": "Đấu 2v2", "ranked_2v2": "Xếp hạng 2v2"}
+const MAPS := {"grassland_valley": "Thung lũng cỏ"} # unknown ids are shown as they are
 
 var limit: int
 var rows: Array = []
@@ -81,7 +82,7 @@ static func row_text(e: Dictionary, bias_minutes: int) -> Dictionary:
 		"result": r["text"],
 		"tone": r["tone"],
 		"mode": MODES.get(mode, mode),
-		"map": str(e.get("mapId", "")),
+		"map": MAPS.get(str(e.get("mapId", "")), str(e.get("mapId", ""))),
 		"exp": "+%d EXP" % int(e.get("expGained", 0)),
 		"coin": "+%s xu" % Fmt.thousands(int(e.get("coinGained", 0))),
 		"rating": Fmt.signed(int(e.get("ratingChange", 0))),

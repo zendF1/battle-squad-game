@@ -61,3 +61,10 @@ func test_row_text() -> void:
 	eq(t["date"], "15/10 15:05", "local date (UTC+7)")
 	eq(HistoryPager.row_text({"result": "draw", "mode": "custom_x"}, 0)["result"], "Hoà", "draw")
 	eq(HistoryPager.row_text({"result": "win", "mode": "custom_x", "ratingChange": 8}, 0)["mode"], "custom_x", "unknown mode raw")
+
+
+func test_mode_and_map_labels() -> void:
+	var t := HistoryPager.row_text({"mode": "pvp_2v2", "mapId": "grassland_valley", "result": "win"}, 0)
+	eq(t["mode"], "Đấu 2v2", "pvp_2v2")
+	eq(t["map"], "Thung lũng cỏ", "grassland_valley")
+	eq(HistoryPager.row_text({"mapId": "lava_pit"}, 0)["map"], "lava_pit", "unknown map raw")
