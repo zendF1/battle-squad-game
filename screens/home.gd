@@ -1,78 +1,122 @@
 extends Control
-## Home shell with the demo's five tabs (app_router.dart HomeShell). M1 implements
-## Play → Quick Play (idle practice target) and Play vs bot (QuickPlay {"bot": "ai"}); both open
-## the Loadout screen, which sends the request (screens/quick_play.gd). The other tabs arrive
-## in M3/M4.
+## Home shell: one top bar with the player (avatar letter, name, "Lv N"), the tabs "Chơi",
+## "Hồ sơ", "Shop", and the wallet ("💰 1.250", "💎 300") from the shared PlayerState. Each
+## time Home is shown (first entry, back from Loadout or a match) the profile is refreshed in
+## the background; the bar shows the last known values meanwhile.
 
 const Ui := preload("res://ui/ui.gd")
-const TABS := ["Chơi", "Hồ sơ", "Cửa hàng", "Nhiệm vụ", "Xếp hạng"]
+const Fmt := preload("res://core/fmt.gd")
+const PlayTab := preload("res://screens/home/play_tab.gd")
+const ProfileTab := preload("res://screens/home/profile_tab.gd")
+const ShopTab := preload("res://screens/home/shop_tab.gd")
+
+const TABS := ["Chơi", "Hồ sơ", "Shop"]
+const PLAY := 0
+const PROFILE := 1
+const SHOP := 2
 
 var _pages: Array[Control] = []
-var _conn: Label
+var _tab_buttons: Array[Button]
+var _avatar_letter: Label
+var _name: Label
+var _level: Label
+var _coin: Label
+var _gem: Label
+var _retry: Button
+var _profile: ProfileTab
+var _shop: ShopTab
 
 
 func _ready() -> void:
-	var root := VBoxContainer.new()
+	var bg := ColorRect.new()
+	bg.color = Color(0.09, 0.1, 0.13)
+	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	add_child(bg)
+	var root := Ui.vbox(0)
 	root.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(root)
-
-	var header := HBoxContainer.new()
-	root.add_child(header)
-	var title := Ui.label("Battle Squad  ·  %s" % Session.display_name, 28)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	title.size_flags_horizontal = SIZE_EXPAND_FILL
-	header.add_child(title)
-	_conn = Ui.label("", 22)
-	header.add_child(_conn)
+	root.add_child(_build_top_bar())
 
 	var pages := Control.new()
 	pages.size_flags_vertical = SIZE_EXPAND_FILL
 	root.add_child(pages)
-	for i in TABS.size():
-		var page := Control.new()
+	var play := PlayTab.new()
+	_profile = ProfileTab.new()
+	_profile.overlay = self
+	_profile.open_shop_characters.connect(_open_shop_characters)
+	_shop = ShopTab.new()
+	_shop.overlay = self
+	for page: Control in [play, _profile, _shop]:
 		page.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		page.visible = i == 0
 		pages.add_child(page)
 		_pages.append(page)
-	_build_play_page(_pages[0])
-	for i in range(1, TABS.size()):
-		Ui.center_column(_pages[i]).add_child(Ui.label("%s — sắp có" % TABS[i], 32))
+	_show_tab(PLAY)
 
-	var tabs := HBoxContainer.new()
-	root.add_child(tabs)
-	for i in TABS.size():
-		var b := Ui.button(TABS[i], 26)
-		b.size_flags_horizontal = SIZE_EXPAND_FILL
-		b.custom_minimum_size.y = 90
-		b.pressed.connect(_show_tab.bind(i))
+	PlayerState.changed.connect(_render_wallet)
+	_render_wallet()
+	PlayerState.refresh()
+
+
+func _build_top_bar() -> Control:
+	var bar := Ui.card(Color(0.13, 0.15, 0.2), 10)
+	var row := Ui.hbox(14)
+	bar.add_child(row)
+	var avatar := Ui.circle("?", 60)
+	_avatar_letter = avatar.get_child(0)
+	row.add_child(avatar)
+	var who := Ui.vbox(0)
+	who.custom_minimum_size.x = 220
+	row.add_child(who)
+	_name = Ui.text("", 24)
+	_name.clip_text = true
+	_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	who.add_child(_name)
+	_level = Ui.text("", 20, Ui.TEXT_DIM)
+	who.add_child(_level)
+
+	var tabs := Ui.hbox(8)
+	tabs.size_flags_horizontal = SIZE_EXPAND_FILL
+	row.add_child(tabs)
+	_tab_buttons = Ui.tab_row(TABS, 26, _show_tab, 68)
+	for b in _tab_buttons:
 		tabs.add_child(b)
 
-	GameSocket.connected.connect(_update_conn)
-	GameSocket.disconnected.connect(_update_conn)
-	_update_conn()
-
-
-func _build_play_page(page: Control) -> void:
-	var col := Ui.center_column(page)
-	var quick_play := Ui.button("Chơi nhanh (Luyện tập)", 34)
-	quick_play.custom_minimum_size = Vector2(560, 110)
-	quick_play.pressed.connect(_open_loadout.bind({}))
-	col.add_child(quick_play)
-	var vs_bot := Ui.button("Đấu với máy", 34)
-	vs_bot.custom_minimum_size = Vector2(560, 110)
-	vs_bot.pressed.connect(_open_loadout.bind({"bot": "ai"}))
-	col.add_child(vs_bot)
+	_coin = Ui.text("", 26)
+	_coin.custom_minimum_size.x = 150
+	row.add_child(_coin)
+	_gem = Ui.text("", 26)
+	_gem.custom_minimum_size.x = 130
+	row.add_child(_gem)
+	_retry = Ui.button("Thử lại", 20)
+	_retry.custom_minimum_size = Vector2(120, 56)
+	_retry.focus_mode = FOCUS_NONE
+	_retry.pressed.connect(PlayerState.refresh)
+	row.add_child(_retry)
+	return bar
 
 
 func _show_tab(index: int) -> void:
 	for i in _pages.size():
 		_pages[i].visible = i == index
+	Ui.select_tab(_tab_buttons, index)
 
 
-func _update_conn() -> void:
-	_conn.text = "● Online" if GameSocket.is_open() else "○ Đang kết nối..."
+func _open_shop_characters() -> void:
+	_show_tab(SHOP)
+	_shop.show_section(ShopTab.CHARACTERS)
 
 
-func _open_loadout(base: Dictionary) -> void:
-	Router.quick_play_base = base
-	Router.go(Router.LOADOUT)
+func _render_wallet() -> void:
+	var display := PlayerState.display_name()
+	_name.text = display
+	_avatar_letter.text = display.substr(0, 1).to_upper() if display != "" else "?"
+	if PlayerState.is_loaded():
+		_level.text = "Lv %d" % PlayerState.level()
+		_coin.text = "💰 %s" % Fmt.thousands(PlayerState.coin())
+		_gem.text = "💎 %s" % Fmt.thousands(PlayerState.gem())
+	else:
+		_level.text = "Đang tải..." if PlayerState.loading else PlayerState.error
+		_coin.text = "💰 —"
+		_gem.text = "💎 —"
+	# Stale values stay on screen; a failed refresh only adds the retry.
+	_retry.visible = PlayerState.error != "" and not PlayerState.loading
