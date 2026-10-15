@@ -3,11 +3,17 @@ extends Control
 ## hat and the character's weapon, in its own colours. It fits itself into its rect, feet at the
 ## bottom centre, over a soft shadow. `idle` makes it bob gently. Used by the lobby; the Loadout
 ## and Profile cards can use it too, and real sprites replace it here in one place.
+##
+## The drawing itself is the static paint(), which draws onto any CanvasItem with a transform,
+## feet at the origin: the match (match/views/character_sprite.gd) draws the same art at body
+## size with a pose (walk, recoil, knocked out).
 
 ## The art is drawn in UNITS (feet at the origin, up is -y) and scaled to fit the rect.
 const UNITS := Vector2(150, 160)
 const OUTLINE := Color(0.07, 0.07, 0.12)
 const SKIN := Color(1.0, 0.82, 0.66)
+## Height of the art in units, from the feet to the top of the tallest hat.
+const ART_HEIGHT := 150.0
 
 ## Per character: body, trim (belt, shoes, hat details), hat, weapon colours, body width.
 const LOOKS := {
@@ -19,6 +25,10 @@ const LOOKS := {
 		"weapon": Color(0.72, 0.74, 0.8), "glow": Color(0.55, 0.95, 1.0), "width": 40.0},
 	"flora": {"body": Color(0.3, 0.75, 0.5), "trim": Color(0.16, 0.45, 0.3), "hat": Color(1.0, 0.5, 0.7),
 		"weapon": Color(0.6, 0.42, 0.25), "glow": Color(1.0, 0.92, 0.4), "width": 42.0},
+}
+## Where each weapon fires from (units): the shoot flash is drawn here.
+const MUZZLES := {
+	"rookie": Vector2(74, -72), "tanko": Vector2(90, -49), "spark": Vector2(47.5, -134), "flora": Vector2(49.5, -130),
 }
 
 @export var character_id := "rookie":
@@ -34,7 +44,8 @@ const LOOKS := {
 		queue_redraw()
 
 var _t := 0.0
-var _boxes := {} # [color, radius, outline] -> StyleBoxFlat, so a redraw allocates nothing
+
+static var _boxes := {} # [color, radius, outline] -> StyleBoxFlat, so a redraw allocates nothing
 
 
 func _ready() -> void:
@@ -51,109 +62,170 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	var look: Dictionary = LOOKS.get(character_id, LOOKS["rookie"])
 	var k := minf(size.x / UNITS.x, size.y / UNITS.y)
 	var feet := Vector2(size.x / 2, size.y - 8 * k)
 	var lift := (sin(_t * 2.4) * 0.5 + 0.5) * 5.0 if idle else 0.0
 	# Shadow: smaller while the body is up.
 	draw_set_transform(feet, 0.0, Vector2(k, k * 0.22))
 	draw_circle(Vector2.ZERO, 46.0 - lift * 1.5, Color(0, 0, 0, 0.35))
-	draw_set_transform(feet + Vector2(0, -lift * k), 0.0, Vector2(k, k))
-	_body(look)
-	match character_id:
-		"tanko":
-			_tanko()
-		"spark":
-			_spark(look)
-		"flora":
-			_flora(look)
-		_:
-			_rookie(look)
+	paint(self, Transform2D(0.0, Vector2(k, k), 0.0, feet + Vector2(0, -lift * k)), character_id)
 	draw_set_transform(Vector2.ZERO)
 
 
-## Legs, torso, belt, arms, head and eyes (shared); the hat and weapon come after.
-func _body(look: Dictionary) -> void:
+## Known character id, or "rookie" (unknown or missing ids, e.g. a bot without one).
+static func known_id(id: String) -> String:
+	return id if LOOKS.has(id) else "rookie"
+
+
+## Draws the character onto ci with xform (units → ci's local space; feet at the origin, facing
+## +x). pose (all optional):
+## - bob: units the upper body is lifted (the feet stay put);
+## - legs: -1..1 leg swing (walking);
+## - recoil: units the weapon is pushed back; flash: 0..1 muzzle flash;
+## - ko: true draws closed (X) eyes.
+## Leaves ci's draw transform changed: the caller resets it.
+static func paint(ci: CanvasItem, xform: Transform2D, id: String, pose: Dictionary = {}) -> void:
+	id = known_id(id)
+	var look: Dictionary = LOOKS[id]
+	var bob: float = pose.get("bob", 0.0)
+	ci.draw_set_transform_matrix(xform)
+	_legs(ci, look, pose.get("legs", 0.0))
+	var upper := xform * Transform2D(0.0, Vector2(0, -bob))
+	ci.draw_set_transform_matrix(upper)
+	_body(ci, look, bool(pose.get("ko", false)))
+	match id:
+		"tanko":
+			_tanko_hat(ci, look)
+		"spark":
+			_spark_hat(ci, look)
+		"flora":
+			_flora_hat(ci, look)
+		_:
+			_rookie_hat(ci, look)
+	var recoil: float = pose.get("recoil", 0.0)
+	ci.draw_set_transform_matrix(upper * Transform2D(0.0, Vector2(-recoil, 0)))
+	match id:
+		"tanko":
+			_tanko_weapon(ci, look)
+		"spark":
+			_spark_weapon(ci, look)
+		"flora":
+			_flora_weapon(ci, look)
+		_:
+			_rookie_weapon(ci, look)
+	var flash: float = pose.get("flash", 0.0)
+	if flash > 0.0:
+		var at: Vector2 = MUZZLES[id]
+		ci.draw_circle(at, 24.0 * flash, Color(look["glow"], 0.4 * flash))
+		ci.draw_circle(at, 13.0 * flash, Color(1.0, 0.95, 0.6, 0.9 * flash))
+
+
+## Legs and shoes; swing moves them apart (one forward and raised, one back).
+static func _legs(ci: CanvasItem, look: Dictionary, swing: float) -> void:
 	var w: float = look["width"]
-	# Legs and shoes.
-	for x in [-w * 0.3, w * 0.3]:
-		_rect(Rect2(x - 7, -30, 14, 24), look["trim"].darkened(0.2), 5)
-		_rect(Rect2(x - 10, -10, 20, 10), Color(0.18, 0.14, 0.12), 5)
+	for side in [-1.0, 1.0]:
+		var s: float = swing * side
+		var x: float = w * 0.3 * side + s * 7.0
+		var up: float = maxf(s, 0.0) * 6.0
+		_rect(ci, Rect2(x - 7, -30 - up, 14, 24), look["trim"].darkened(0.2), 5)
+		_rect(ci, Rect2(x - 10, -10 - up, 20, 10), Color(0.18, 0.14, 0.12), 5)
+
+
+## Torso, belt, arms, head and eyes (shared); the hat and weapon come after.
+static func _body(ci: CanvasItem, look: Dictionary, ko: bool) -> void:
+	var w: float = look["width"]
 	# Torso and belt.
-	_rect(Rect2(-w / 2, -74, w, 48), look["body"], 14)
-	_rect(Rect2(-w / 2 + 2, -40, w - 4, 7), look["trim"], 3, 0.0)
-	_rect(Rect2(-5, -42, 10, 11), look["glow"], 3, 2.0)
+	_rect(ci, Rect2(-w / 2, -74, w, 48), look["body"], 14)
+	_rect(ci, Rect2(-w / 2 + 2, -40, w - 4, 7), look["trim"], 3, 0.0)
+	_rect(ci, Rect2(-5, -42, 10, 11), look["glow"], 3, 2.0)
 	# Arms.
-	_rect(Rect2(-w / 2 - 11, -70, 13, 32), look["body"].darkened(0.1), 6)
-	_rect(Rect2(w / 2 - 2, -70, 13, 32), look["body"].darkened(0.1), 6)
-	_circle(Vector2(-w / 2 - 4.5, -38), 6.5, SKIN)
+	_rect(ci, Rect2(-w / 2 - 11, -70, 13, 32), look["body"].darkened(0.1), 6)
+	_rect(ci, Rect2(w / 2 - 2, -70, 13, 32), look["body"].darkened(0.1), 6)
+	_circle(ci, Vector2(-w / 2 - 4.5, -38), 6.5, SKIN)
 	# Head.
-	_circle(Vector2(0, -102), 30, SKIN)
+	_circle(ci, Vector2(0, -102), 30, SKIN)
 	for x in [-11.0, 11.0]:
-		_circle(Vector2(x, -101), 7.5, Color.WHITE, 2.0)
-		draw_circle(Vector2(x + 2, -100), 4.0, OUTLINE)
-		draw_circle(Vector2(x + 3.5, -102), 1.4, Color.WHITE)
-	draw_arc(Vector2(1, -90), 6.0, deg_to_rad(20), deg_to_rad(160), 10, OUTLINE, 2.5)
-	draw_circle(Vector2(-19, -91), 4.0, Color(1, 0.5, 0.5, 0.45))
-	draw_circle(Vector2(21, -91), 4.0, Color(1, 0.5, 0.5, 0.45))
+		if ko:
+			ci.draw_line(Vector2(x - 5, -106), Vector2(x + 5, -96), OUTLINE, 3.0)
+			ci.draw_line(Vector2(x - 5, -96), Vector2(x + 5, -106), OUTLINE, 3.0)
+			continue
+		_circle(ci, Vector2(x, -101), 7.5, Color.WHITE, 2.0)
+		ci.draw_circle(Vector2(x + 2, -100), 4.0, OUTLINE)
+		ci.draw_circle(Vector2(x + 3.5, -102), 1.4, Color.WHITE)
+	if ko:
+		ci.draw_arc(Vector2(1, -84), 6.0, deg_to_rad(200), deg_to_rad(340), 10, OUTLINE, 2.5)
+	else:
+		ci.draw_arc(Vector2(1, -90), 6.0, deg_to_rad(20), deg_to_rad(160), 10, OUTLINE, 2.5)
+	ci.draw_circle(Vector2(-19, -91), 4.0, Color(1, 0.5, 0.5, 0.45))
+	ci.draw_circle(Vector2(21, -91), 4.0, Color(1, 0.5, 0.5, 0.45))
 
 
-## A cap and a short bazooka on the shoulder.
-func _rookie(look: Dictionary) -> void:
-	_polygon([Vector2(-31, -110), Vector2(-26, -128), Vector2(-8, -137), Vector2(14, -136), Vector2(29, -122), Vector2(31, -110)], look["hat"])
-	_rect(Rect2(10, -114, 34, 7), look["hat"].darkened(0.2), 3)
-	draw_circle(Vector2(0, -128), 4.0, look["glow"])
-	# Bazooka over the right shoulder, pointing forward.
-	_rect(Rect2(6, -80, 62, 16), look["weapon"], 7)
-	_rect(Rect2(60, -82, 12, 20), look["weapon"].darkened(0.25), 4)
-	_rect(Rect2(28, -68, 8, 14), look["weapon"].darkened(0.3), 3)
-	_circle(Vector2(33, -52), 6.5, SKIN)
+## A cap.
+static func _rookie_hat(ci: CanvasItem, look: Dictionary) -> void:
+	_polygon(ci, [Vector2(-31, -110), Vector2(-26, -128), Vector2(-8, -137), Vector2(14, -136), Vector2(29, -122), Vector2(31, -110)], look["hat"])
+	_rect(ci, Rect2(10, -114, 34, 7), look["hat"].darkened(0.2), 3)
+	ci.draw_circle(Vector2(0, -128), 4.0, look["glow"])
 
 
-## A helmet and a heavy two-handed cannon.
-func _tanko() -> void:
-	var look: Dictionary = LOOKS["tanko"]
-	_polygon([Vector2(-32, -112), Vector2(-30, -130), Vector2(-15, -144), Vector2(15, -144), Vector2(30, -130), Vector2(32, -112)], look["hat"])
-	_rect(Rect2(-35, -118, 70, 8), look["hat"].darkened(0.25), 3)
-	_rect(Rect2(-4, -143, 8, 24), look["hat"].lightened(0.2), 3, 0.0)
-	# Cannon held low across the body.
-	_rect(Rect2(-6, -62, 88, 26), look["weapon"], 9)
-	_rect(Rect2(72, -66, 16, 34), look["weapon"].darkened(0.3), 5)
-	_rect(Rect2(10, -58, 30, 6), look["glow"], 2, 0.0)
-	_rect(Rect2(4, -38, 14, 12), look["weapon"].darkened(0.2), 3)
-	_circle(Vector2(36, -36), 7.0, SKIN)
+## A short bazooka over the right shoulder, pointing forward.
+static func _rookie_weapon(ci: CanvasItem, look: Dictionary) -> void:
+	_rect(ci, Rect2(6, -80, 62, 16), look["weapon"], 7)
+	_rect(ci, Rect2(60, -82, 12, 20), look["weapon"].darkened(0.25), 4)
+	_rect(ci, Rect2(28, -68, 8, 14), look["weapon"].darkened(0.3), 3)
+	_circle(ci, Vector2(33, -52), 6.5, SKIN)
 
 
-## Spiky hair and a lightning rod.
-func _spark(look: Dictionary) -> void:
-	var hair: Color = look["hat"]
-	_polygon([Vector2(-31, -104), Vector2(-38, -126), Vector2(-20, -122), Vector2(-16, -146), Vector2(-2, -128),
+## A helmet.
+static func _tanko_hat(ci: CanvasItem, look: Dictionary) -> void:
+	_polygon(ci, [Vector2(-32, -112), Vector2(-30, -130), Vector2(-15, -144), Vector2(15, -144), Vector2(30, -130), Vector2(32, -112)], look["hat"])
+	_rect(ci, Rect2(-35, -118, 70, 8), look["hat"].darkened(0.25), 3)
+	_rect(ci, Rect2(-4, -143, 8, 24), look["hat"].lightened(0.2), 3, 0.0)
+
+
+## A heavy two-handed cannon held low across the body.
+static func _tanko_weapon(ci: CanvasItem, look: Dictionary) -> void:
+	_rect(ci, Rect2(-6, -62, 88, 26), look["weapon"], 9)
+	_rect(ci, Rect2(72, -66, 16, 34), look["weapon"].darkened(0.3), 5)
+	_rect(ci, Rect2(10, -58, 30, 6), look["glow"], 2, 0.0)
+	_rect(ci, Rect2(4, -38, 14, 12), look["weapon"].darkened(0.2), 3)
+	_circle(ci, Vector2(36, -36), 7.0, SKIN)
+
+
+## Spiky hair.
+static func _spark_hat(ci: CanvasItem, look: Dictionary) -> void:
+	_polygon(ci, [Vector2(-31, -104), Vector2(-38, -126), Vector2(-20, -122), Vector2(-16, -146), Vector2(-2, -128),
 		Vector2(8, -150), Vector2(14, -126), Vector2(34, -136), Vector2(28, -116), Vector2(33, -104), Vector2(20, -118),
-		Vector2(0, -114), Vector2(-20, -118)], hair)
-	# Rod in the right hand with a glowing orb.
-	_rect(Rect2(44, -128, 7, 104), look["weapon"], 3)
-	draw_circle(Vector2(47.5, -134), 17.0, Color(look["glow"], 0.25))
-	_circle(Vector2(47.5, -134), 10.0, look["glow"])
-	_polygon([Vector2(50, -146), Vector2(41, -133), Vector2(48, -133), Vector2(44, -122), Vector2(55, -137), Vector2(48, -137)], Color(1, 1, 0.6), 1.5)
-	_circle(Vector2(47.5, -40), 6.5, SKIN)
+		Vector2(0, -114), Vector2(-20, -118)], look["hat"])
 
 
-## A flower on the head and a wooden staff with a bud.
-func _flora(look: Dictionary) -> void:
+## A lightning rod in the right hand with a glowing orb.
+static func _spark_weapon(ci: CanvasItem, look: Dictionary) -> void:
+	_rect(ci, Rect2(44, -128, 7, 104), look["weapon"], 3)
+	ci.draw_circle(Vector2(47.5, -134), 17.0, Color(look["glow"], 0.25))
+	_circle(ci, Vector2(47.5, -134), 10.0, look["glow"])
+	_polygon(ci, [Vector2(50, -146), Vector2(41, -133), Vector2(48, -133), Vector2(44, -122), Vector2(55, -137), Vector2(48, -137)], Color(1, 1, 0.6), 1.5)
+	_circle(ci, Vector2(47.5, -40), 6.5, SKIN)
+
+
+## Leafy hair with a flower.
+static func _flora_hat(ci: CanvasItem, look: Dictionary) -> void:
 	var leaf: Color = look["body"].darkened(0.15)
-	_polygon([Vector2(-31, -106), Vector2(-28, -124), Vector2(-12, -134), Vector2(10, -134), Vector2(28, -124), Vector2(31, -106), Vector2(18, -120), Vector2(-18, -120)], leaf)
+	_polygon(ci, [Vector2(-31, -106), Vector2(-28, -124), Vector2(-12, -134), Vector2(10, -134), Vector2(28, -124), Vector2(31, -106), Vector2(18, -120), Vector2(-18, -120)], leaf)
 	var c := Vector2(-18, -128)
 	for i in 5:
-		_circle(c + Vector2.from_angle(TAU * i / 5.0) * 9.0, 7.0, look["hat"], 2.0)
-	_circle(c, 5.0, look["glow"], 2.0)
-	# Staff.
-	_rect(Rect2(46, -120, 7, 116), look["weapon"], 3)
-	_polygon([Vector2(49.5, -146), Vector2(62, -128), Vector2(49.5, -116), Vector2(37, -128)], Color(0.45, 0.85, 0.4))
-	_circle(Vector2(49.5, -128), 6.0, look["hat"], 2.0)
-	_circle(Vector2(49.5, -40), 6.5, SKIN)
+		_circle(ci, c + Vector2.from_angle(TAU * i / 5.0) * 9.0, 7.0, look["hat"], 2.0)
+	_circle(ci, c, 5.0, look["glow"], 2.0)
 
 
-func _rect(r: Rect2, color: Color, radius: float, outline: float = 3.0) -> void:
+## A wooden staff with a bud.
+static func _flora_weapon(ci: CanvasItem, look: Dictionary) -> void:
+	_rect(ci, Rect2(46, -120, 7, 116), look["weapon"], 3)
+	_polygon(ci, [Vector2(49.5, -146), Vector2(62, -128), Vector2(49.5, -116), Vector2(37, -128)], Color(0.45, 0.85, 0.4))
+	_circle(ci, Vector2(49.5, -128), 6.0, look["hat"], 2.0)
+	_circle(ci, Vector2(49.5, -40), 6.5, SKIN)
+
+
+static func _rect(ci: CanvasItem, r: Rect2, color: Color, radius: float, outline: float = 3.0) -> void:
 	var key := [color, radius, outline]
 	var box: StyleBoxFlat = _boxes.get(key)
 	if box == null:
@@ -166,18 +238,18 @@ func _rect(r: Rect2, color: Color, radius: float, outline: float = 3.0) -> void:
 			box.set_border_width_all(int(outline))
 			box.set_expand_margin_all(outline / 2)
 		_boxes[key] = box
-	draw_style_box(box, r)
+	ci.draw_style_box(box, r)
 
 
-func _circle(center: Vector2, radius: float, color: Color, outline: float = 3.0) -> void:
+static func _circle(ci: CanvasItem, center: Vector2, radius: float, color: Color, outline: float = 3.0) -> void:
 	if outline > 0.0:
-		draw_circle(center, radius + outline / 2, OUTLINE)
-	draw_circle(center, radius - outline / 2, color)
+		ci.draw_circle(center, radius + outline / 2, OUTLINE)
+	ci.draw_circle(center, radius - outline / 2, color)
 
 
-func _polygon(points: Array, color: Color, outline: float = 3.0) -> void:
+static func _polygon(ci: CanvasItem, points: Array, color: Color, outline: float = 3.0) -> void:
 	var packed := PackedVector2Array(points)
-	draw_colored_polygon(packed, color)
+	ci.draw_colored_polygon(packed, color)
 	if outline > 0.0:
 		packed.append(packed[0])
-		draw_polyline(packed, OUTLINE, outline, true)
+		ci.draw_polyline(packed, OUTLINE, outline, true)

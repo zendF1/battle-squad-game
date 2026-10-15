@@ -12,6 +12,7 @@ const TerrainView := preload("res://match/terrain/terrain_view.gd")
 const PlayerView := preload("res://match/views/player_view.gd")
 const ExplosionFx := preload("res://match/views/explosion_fx.gd")
 const DamagePopup := preload("res://match/views/damage_popup.gd")
+const SkyView := preload("res://match/views/sky_view.gd")
 const ShotTimeline := preload("res://match/shot/shot_timeline.gd")
 const ShotPlayer := preload("res://match/shot/shot_player.gd")
 const AimInput := preload("res://match/aim/aim_input.gd")
@@ -56,7 +57,7 @@ var _turn_index := -1
 
 var _mask := TerrainMask.new()
 var _moves := MoveSync.new()
-var _sky: ColorRect
+var _sky: SkyView
 var _terrain_view: TerrainView
 var _players_layer: Node2D
 var _fx_layer: Node2D
@@ -70,9 +71,8 @@ var _action_at := -10_000_000 # Time.get_ticks_usec() when my last Move/Shoot/En
 
 func _ready() -> void:
 	_me = Session.player_id
-	_sky = ColorRect.new()
-	_sky.color = Color(0.53, 0.75, 0.92)
-	_sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sky = SkyView.new()
+	_sky.size = get_viewport_rect().size
 	add_child(_sky)
 	_terrain_view = TerrainView.new()
 	add_child(_terrain_view)
@@ -93,6 +93,7 @@ func _ready() -> void:
 	_moves.terrain = _mask
 	_aim.fire.connect(_on_fire)
 	_aim.aim_changed.connect(_hud.set_aim)
+	_aim.aim_changed.connect(_face_aim)
 	_aim.column_changed.connect(_hud.set_column)
 	_shot_player.event_due.connect(_on_shot_event)
 	_shot_player.finished.connect(_on_shot_finished)
@@ -166,10 +167,12 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 		view.queue_free()
 	_views.clear()
 	_players = snap.get("players", {}).duplicate(true)
+	var my_team := int(_players.get(_me, {}).get("teamId", -1))
 	for id in _players:
 		var view := PlayerView.new()
 		_players_layer.add_child(view)
-		view.setup(_players[id], id == _me)
+		view.setup(_players[id], id == _me, my_team)
+		view.face(1.0 if view.position.x < _mask.width / 2.0 else -1.0) # towards the middle
 		_views[id] = view
 	_wind = snap.get("wind", _wind)
 	_turn_index = int(snap.get("turnIndex", _turn_index))
@@ -209,6 +212,9 @@ func _set_current(player_id: String, move_energy: int, continuing: bool = false)
 		view.move_to(to, 0.0 if _is_my_turn() else view.position.distance_to(to) / OTHER_WALK_SPEED)
 	_hud.set_turn(_is_my_turn(), str(_players.get(player_id, {}).get("displayName", "")))
 	_hud.set_wind(int(_wind.get("direction", 0)), float(_wind.get("power", 0.0)))
+	_show_wind()
+	for id in _views:
+		_views[id].set_active(id == player_id and not _ended)
 	_hud.set_energy(move_energy if _is_my_turn() else 0)
 	_refresh_controls()
 
@@ -303,7 +309,9 @@ func _apply(event: String, data: Variant) -> void:
 			_turn_resolved = true # the server takes no more actions until TurnStarted
 			_hud.pause_timer() # resumed by the next TurnTimerTick / TurnStarted
 			_snap_to_server(shooter)
-			_shot_player.play(ShotTimeline.new(data))
+			var timeline := ShotTimeline.new(data)
+			_show_shooting(shooter, timeline)
+			_shot_player.play(timeline)
 			_refresh_controls()
 		"PlayerDamaged": # lava at turn start (shot damage comes in ShotResolved)
 			for e in data:
@@ -332,6 +340,7 @@ func _on_item_used(d: Dictionary) -> void:
 			if not bool(p.get("isAlive", true)):
 				_views[id].set_dead()
 	_hud.set_wind(int(_wind.get("direction", 0)), float(_wind.get("power", 0.0)))
+	_show_wind()
 	if str(d.get("playerId", "")) == _me and _awaiting_item != "" and str(d.get("itemId", "")) == _awaiting_item:
 		_awaiting_item = ""
 		_awaiting_ack = 0.0
@@ -426,6 +435,8 @@ func _on_shot_finished() -> void:
 
 func _on_match_ended(d: Dictionary) -> void:
 	_ended = true
+	for view in _views.values():
+		view.set_active(false)
 	_refresh_controls()
 	if str(d.get("result", "")) == "no_contest":
 		_hud.show_result("Trận bị huỷ", str(d.get("message", "")))
@@ -630,8 +641,31 @@ func _popup(id: String, text: String, color: Color) -> void:
 	var label := DamagePopup.new()
 	label.text = text
 	label.add_theme_color_override("font_color", color)
-	label.position = _views[id].position + Vector2(0, -80)
+	label.position = _views[id].position + Vector2(0, -140)
 	_fx_layer.add_child(label)
+
+
+# ── Visual only (no game state) ──────────────────────────────────────────────
+
+## My character turns to the side I aim at.
+func _face_aim(angle: float, _power: float) -> void:
+	if _views.has(_me):
+		_views[_me].face_angle(angle)
+
+
+## The shooter turns towards where its first projectile leaves and plays its shoot animation.
+func _show_shooting(shooter: String, timeline) -> void:
+	if not _views.has(shooter) or timeline.projectiles.is_empty():
+		return
+	var d: Vector2 = timeline.sample(0, 0.05) - timeline.sample(0, 0.0)
+	if absf(d.x) > 0.5:
+		_views[shooter].face(d.x)
+	_views[shooter].shoot()
+
+
+func _show_wind() -> void:
+	_sky.wind_dir = int(_wind.get("direction", 0))
+	_sky.wind_power = float(_wind.get("power", 0.0))
 
 
 static func _vec(d: Dictionary) -> Vector2:
