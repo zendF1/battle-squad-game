@@ -77,3 +77,32 @@ func test_matches_server_shots() -> void:
 		near(pts[-1].y, float(s["hitY"]), 1e-3, "hit y of shot from %s,%s" % [s["x"], s["y"]])
 	check(hits >= 30, "fixture has enough hitting shots (%d)" % hits)
 	check(misses >= 10, "fixture has enough missing shots (%d)" % misses)
+
+
+## shotOriginAt (shooting.go): every fixture shot's origin from its shooter's feet, including the
+## lowered ones (a low ceiling, feet inside the ground).
+func test_shot_origin_matches_server() -> void:
+	var f: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(FIXTURE))
+	var m := TerrainMask.new()
+	m.load_snapshot(f["after"])
+	var lowered := 0
+	for s in f["shots"]:
+		var feet := Vector2(float(s["feetX"]), float(s["feetY"]))
+		var o := Trajectory.shot_origin(feet, m)
+		near(o.x, float(s["x"]), 1e-6, "origin x from feet %s" % feet)
+		near(o.y, float(s["y"]), 1e-6, "origin y from feet %s" % feet)
+		if float(s["y"]) != feet.y - Trajectory.SHOT_LIFT:
+			lowered += 1
+	check(lowered >= 1, "fixture has lowered origins (%d)" % lowered)
+	var ceiling = _flat(50, 100, 90)
+	for x in 50:
+		ceiling.solid[70 * 50 + x] = TerrainMask.SOLID
+	eq(Trajectory.shot_origin(Vector2(10, 90), ceiling), Vector2(10, 71), "under a ceiling 20 px up: the pixel below it")
+	eq(Trajectory.shot_origin(Vector2(10, 95), ceiling), Vector2(10, 95), "feet inside the ground: the feet")
+	eq(Trajectory.shot_origin(Vector2(-5, 10), ceiling), Vector2(-5, -10), "off the map is free")
+
+
+func test_shot_origin_is_the_body_centre() -> void:
+	eq(Trajectory.shot_origin(Vector2(100, 200)), Vector2(100, 180), "feet - (0, 20)")
+	var text := FileAccess.get_file_as_string("res://match/aim/aim_input.gd")
+	check(text.contains("Trajectory.predict(Trajectory.shot_origin(shooter_pos, terrain)"), "the preview starts at the body centre")

@@ -1,7 +1,8 @@
 extends Node2D
 ## Slingshot aiming (demo match_screen.dart): drag anywhere, release to fire. Dragging down-right
 ## shoots up-left. Releasing inside the cancel zone around the shooter cancels. Everything here
-## is local; nothing touches the network until fire. The preview draws one arc per entry of
+## is local; nothing touches the network until fire. The preview starts where the server fires
+## from: the body centre (Trajectory.shot_origin()), where the cancel ring is drawn too. The preview draws one arc per entry of
 ## preview_offsets (degrees added to the aimed angle), e.g. three for triple_shot.
 ##
 ## target_column (air_strike): no slingshot; while pressed, a vertical target line follows the
@@ -19,7 +20,7 @@ const Trajectory := preload("res://match/aim/trajectory_predictor.gd")
 const Items := preload("res://match/items.gd")
 const CANCEL_RADIUS := 60.0
 const MIN_POWER := 5.0
-const BODY_CENTER := Vector2(0, -20)
+const BODY_CENTER := Trajectory.SHOT_ORIGIN # the cancel ring and the shot start (body centre)
 
 var enabled := false:
 	set(value):
@@ -95,7 +96,7 @@ func _update(pointer: Vector2) -> void:
 	_power = clampf(d.length() / 2.0, 0.0, 100.0)
 	for i in _lines.size():
 		if i < preview_offsets.size():
-			_lines[i].points = Trajectory.predict(shooter_pos, _angle + float(preview_offsets[i]), _power, wind_dir, wind_power, terrain)
+			_lines[i].points = Trajectory.predict(Trajectory.shot_origin(shooter_pos, terrain), _angle + float(preview_offsets[i]), _power, wind_dir, wind_power, terrain)
 		elif not _lines[i].points.is_empty():
 			_lines[i].points = PackedVector2Array()
 	queue_redraw()

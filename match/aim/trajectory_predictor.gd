@@ -15,6 +15,24 @@ const GRAVITY := 200.0
 const WIND_SCALE := 30.0
 const MAX_FLIGHT := 6.0
 const SAMPLE_PX := 4.0 # checkSegmentCollisions sub-step
+## The server fires every shot from the shooter's body centre (shotOriginAt, shooting.go): its
+## position (the feet) lifted by SHOT_LIFT px (PlayerHeight / 2). Air strikes start at
+## (targetX, 0) instead.
+const SHOT_LIFT := 20
+const SHOT_ORIGIN := Vector2(0, -SHOT_LIFT)
+
+
+## Where the server starts a shot fired by a player standing at `feet`: feet - (0, SHOT_LIFT);
+## under a low ceiling the highest free pixel above the feet (feet.y - 1, - 2, ... scanned up,
+## stopping before the first solid one), the feet themselves when feet.y - 1 is solid. Off the
+## map in x or above its top counts as free (TerrainMask.is_solid). terrain null: no ceiling.
+static func shot_origin(feet: Vector2, terrain = null) -> Vector2:
+	var lift := 0
+	for k in range(1, SHOT_LIFT + 1):
+		if terrain != null and terrain.is_solid(feet.x, feet.y - k):
+			break
+		lift = k
+	return Vector2(feet.x, feet.y - lift)
 
 
 static func predict(origin: Vector2, angle_deg: float, power: float, wind_dir: int, wind_power: float, terrain, max_points: int = 90) -> PackedVector2Array:
