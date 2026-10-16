@@ -3,6 +3,8 @@ extends Node2D
 ## replays ShotResolved, and predicts only the local player's walk (MoveSync). Every match
 ## event that arrives during a replay waits until the replay ends, and the turn clock is paused
 ## from the shot until the next timer event, so the HUD never runs ahead of the animation.
+## PlayerAiming (another player, the bots for now, aims before its shot) swings that player's gun
+## onto the aim (PlayerView.aim_sweep); its ShotResolved fires it, a turn change puts it away.
 ## Items: instant ones (medkit, wind_stopper) go out as UseItem through the same commit path as
 ## a shot but leave the turn open; shot items arm the next Shoot (actionMode "item").
 ## See docs/superpowers/specs/2026-10-15-godot-client-roadmap-design.md.
@@ -36,6 +38,7 @@ const WEAPON := "weapon"
 const SKILL := "skill"
 const RESYNC_RETRY := 3.0 # re-ask for MatchStateSync if none arrived
 const TURN_SECONDS := 20
+const MIN_AIM_SEC := 0.15 # a PlayerAiming with less left (held back by a replay) is not shown
 
 var _me := ""
 var _players := {} # playerId -> server BattlePlayerState
@@ -280,6 +283,9 @@ func _on_event(event: String, data: Variant) -> void:
 	if event == "MatchStateSync":
 		_load_snapshot(data, true)
 		return
+	if event == "PlayerAiming" and data is Dictionary:
+		data = data.duplicate()
+		data["receivedAt"] = Time.get_ticks_usec() # a replay may hold it back: show only what is left
 	if _shot_player.is_playing():
 		_deferred.append([event, data])
 		return
@@ -306,6 +312,8 @@ func _apply(event: String, data: Variant) -> void:
 			_hud.set_time(int(data.get("timeLeft", 0)))
 		"PlayerMoved":
 			_on_player_moved(data)
+		"PlayerAiming":
+			_on_player_aiming(data)
 		"ShotResolved":
 			_awaiting_ack = 0.0
 			var shooter := str(data.get("shooterId", ""))
@@ -331,6 +339,24 @@ func _apply(event: String, data: Variant) -> void:
 			_on_item_used(data)
 		"MatchEnded":
 			_on_match_ended(data)
+
+
+## Another player aims (the server sends it for bots): its gun swings onto the angle the shot will
+## be fired with over durationMs, less the time a replay held the event back. Only for the
+## current, living player before its shot; mine is aimed by my own drag.
+func _on_player_aiming(d: Variant) -> void:
+	if not d is Dictionary:
+		return
+	var id := str(d.get("playerId", ""))
+	if id == _me or id != _current or _ended or _turn_resolved or not _views.has(id) \
+			or not bool(_players.get(id, {}).get("isAlive", false)):
+		return
+	var left := float(d.get("durationMs", 0)) / 1000.0
+	if d.has("receivedAt"):
+		left -= _since(int(d["receivedAt"]))
+	if left < MIN_AIM_SEC:
+		return # ShotResolved draws the gun fast, as without PlayerAiming
+	_views[id].aim_sweep(float(d.get("angle", 90.0)), left)
 
 
 ## ItemUsed carries every player's state (hp, items, statusEffects...) and the wind. For a shot
@@ -451,6 +477,7 @@ func _on_match_ended(d: Dictionary) -> void:
 	_ended = true
 	for view in _views.values():
 		view.set_active(false)
+		view.clear_aim()
 	_refresh_controls()
 	if str(d.get("result", "")) == "no_contest":
 		_hud.show_result("Trận bị huỷ", str(d.get("message", "")))
@@ -689,7 +716,10 @@ func _clear_my_aim() -> void:
 ## lead-in, so the shell appears as the gun is out. A shot that does not start at the shooter
 ## (air strike from the sky) only plays the body's recoil, the gun stays away.
 func _show_shooting(shooter: String, timeline) -> float:
-	if not _views.has(shooter) or timeline.projectiles.is_empty():
+	if not _views.has(shooter):
+		return 0.0
+	if timeline.projectiles.is_empty():
+		_views[shooter].clear_aim() # nothing leaves the gun (e.g. a healing skill): put it away
 		return 0.0
 	var view = _views[shooter]
 	var start: Vector2 = timeline.sample(0, 0.0)

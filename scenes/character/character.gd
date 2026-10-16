@@ -18,7 +18,7 @@ extends Node2D
 ## behind the body and the muzzle flash, so the gun follows every animation. aim() turns it to
 ## an aim angle (within the arm's reach) until clear_aim(); muzzle_position() is where shots
 ## start (visual only). hands_free shows no gun (the bare hand stays); weapon() still tells the
-## gun set.
+## gun set. aim_range() is the reach (the ready pose's, when aimed from it).
 ##
 ## holster (the match, match/views/player_view.gd): the gun is out only to shoot
 ## (scenes/character/gun_draw.gd): holstered in idle and walk (no gun, no hand over its grip: the
@@ -292,6 +292,17 @@ func gun_state() -> String:
 static func aim_elevation(angle: float, facing_dir: int) -> float:
 	var up := angle if facing_dir > 0 else 180.0 - angle
 	return clampf(wrapf(up, -180.0, 180.0), AIM_DOWN, AIM_UP)
+
+
+## How far the gun turns while aiming, in degrees above level towards the facing side: (down, up).
+## The arm's reach (AIM_DOWN..AIM_UP), within the drawn ready pose's aim_down..aim_up when the
+## gun is aimed from it (holster on and a side view with one: Rookie).
+func aim_range() -> Vector2:
+	var r := Vector2(AIM_DOWN, AIM_UP)
+	if holster and _full == null and not _look.get("ready", {}).get("anims", []).is_empty():
+		var a: Vector2 = Art.ready_pose(character_id).get("aim", r)
+		r = Vector2(maxf(r.x, a.x), minf(r.y, a.y))
+	return r
 
 
 ## Back to the animation's own hold; with holster on, the gun is put away.

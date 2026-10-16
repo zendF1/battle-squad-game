@@ -6,8 +6,10 @@ extends Node2D
 ## Walking is read from the position changes (prediction or tweens), so callers only move it.
 ## The gun is holstered except to shoot (scenes/character/character.gd holster): aim() /
 ## draw_gun() draw it, shoot() fires it (returning the wait while it is drawn), clear_aim() puts
-## it away.
+## it away. aim_sweep() shows a remote player aiming (server PlayerAiming): the gun drawn and
+## swung onto the aim over its duration (match/aim/aim_sweep.gd), held there until the shot.
 
+const AimSweep := preload("res://match/aim/aim_sweep.gd")
 const Status := preload("res://match/status_effects.gd")
 const CharacterScene := preload("res://scenes/character/character.tscn")
 const Art := preload("res://ui/art.gd")
@@ -44,6 +46,7 @@ var _last_x := 0.0
 var _walk_left := 0.0
 var _t := 0.0
 var _art_top := ART_TOP
+var _sweep := {} # aim_sweep(): {t, duration, angle, wobble}; {} when none
 
 
 ## my_team: the local player's team; allies are blue, enemies red. -1 colours by team id.
@@ -101,6 +104,9 @@ func _process(delta: float) -> void:
 	else:
 		_walk_left = maxf(0.0, _walk_left - delta)
 	_sprite.set_walking(_walk_left > 0.0 and not _dead)
+	if not _sweep.is_empty():
+		_sweep["t"] = float(_sweep["t"]) + delta
+		_apply_sweep()
 	if _active:
 		queue_redraw() # the turn arrow bobs
 
@@ -129,6 +135,7 @@ func set_dead() -> void:
 		return
 	_dead = true
 	_active = false
+	_sweep = {}
 	_sprite.die()
 	_name.modulate.a = 0.5
 	_status.modulate.a = 0.5
@@ -152,8 +159,35 @@ func facing() -> int:
 
 
 ## Points the gun at an aim angle (degrees, 0 right, 90 up), within the arm's reach; draws it.
+## Ends an aim_sweep().
 func aim(angle: float) -> void:
+	_sweep = {}
 	_sprite.aim(angle)
+
+
+## A remote player aims at angle (degrees, the Shoot convention) for duration seconds before its
+## shot: faces that side, draws the gun at level and swings it onto the aim within the pose's
+## reach, then holds it there until aim(), shoot(), clear_aim() or death. While still walking
+## (a move just before) it faces and draws once the walk is over.
+func aim_sweep(angle: float, duration: float) -> void:
+	if _dead:
+		return
+	_sweep = {"t": 0.0, "duration": maxf(0.0, duration), "angle": angle, "wobble": randf()}
+	_apply_sweep()
+
+
+func is_sweeping() -> bool:
+	return not _sweep.is_empty()
+
+
+func _apply_sweep() -> void:
+	if _walk_left > 0.0:
+		return # the walk faces the body; the gun comes out once it stops
+	var angle := float(_sweep["angle"])
+	face_angle(angle)
+	var reach: Vector2 = _sprite.aim_range()
+	_sprite.aim(AimSweep.angle_at(float(_sweep["t"]), float(_sweep["duration"]), angle, _sprite.facing,
+		float(_sweep["wobble"]), reach.x, reach.y))
 
 
 ## Draws the gun at level (a drag started, no angle yet).
@@ -161,8 +195,9 @@ func draw_gun() -> void:
 	_sprite.draw_gun()
 
 
-## Puts the gun away.
+## Puts the gun away (and ends an aim_sweep()).
 func clear_aim() -> void:
+	_sweep = {}
 	_sprite.clear_aim()
 
 
@@ -189,6 +224,7 @@ func weapon() -> Dictionary:
 ## Recoil and muzzle flash (a shot leaves): at once with the gun out, else once it is drawn
 ## (fast); returns the seconds until then. with_gun false: a shot not from the gun (air strike).
 func shoot(with_gun: bool = true) -> float:
+	_sweep = {}
 	return _sprite.shoot(with_gun)
 
 
