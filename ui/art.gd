@@ -45,6 +45,10 @@ const FULL_ANIMS := ROOT + "characters/lobby_full_anims.json"
 const SIDE_VIEW := "side"
 ## side.json `motion` names scenes/character/character.gd plays on top of the frames.
 const SIDE_MOTIONS := ["", "breathe", "recoil", "knockback", "fall"]
+## An optional side.json animation: drawn frames of the gun draw (holstered → ready to shoot),
+## shown by the draw's progress in the match (scenes/character/gun_draw.gd); its gun anchors (same
+## name in gun_anchors.json, optional) place the gun on them. Without it the draw is a code transition.
+const DRAW_ANIM := "draw"
 
 # ── Guns (assets/weapons/) ──────────────────────────────────────────────────
 
@@ -432,7 +436,8 @@ static func character_frames(id: String) -> SpriteFrames:
 ## (character px per texture px: the character node is PX_PER_UNIT px per art unit), height (the
 ## figure, texture px), extent {back, front, top} (texture px from the pivot), motions {anim:
 ## SIDE_MOTIONS name}, anchors {anim: [gun anchor...]} (texture px), hand (Texture2D drawn over
-## the gun's grip, null: HAND), hand_scale}. Order: side view → baked frames → rookie's → empty.
+## the gun's grip, null: HAND), hand_scale, draw_frames (frames has DRAW_ANIM), gun_draw (side.json
+## "gunDraw": gun_draw.gd TIMINGS overrides)}. Order: side view → baked frames → rookie's → empty.
 static func character_look(id: String) -> Dictionary:
 	id = known_character(id)
 	if _looks.has(id):
@@ -471,7 +476,7 @@ static func _baked(frames: SpriteFrames, anchors: Dictionary) -> Dictionary:
 	var h := 150.0 * PX_PER_UNIT
 	return {"side": false, "frames": frames, "size": Vector2(FRAME_SIZE), "pivot": FRAME_PIVOT, "scale": 1.0, "height": h,
 		"extent": {"back": 40.0 * PX_PER_UNIT, "front": 40.0 * PX_PER_UNIT, "top": h}, "motions": {}, "anchors": anchors,
-		"hand": null, "hand_scale": 1.0}
+		"hand": null, "hand_scale": 1.0, "draw_frames": false, "gun_draw": {}}
 
 
 ## A character's side view (see character_look()), {} when it has none or it is broken.
@@ -513,6 +518,23 @@ static func parse_side(dir: String) -> Dictionary:
 			frames.add_frame(anim, tex)
 		var motion := str(spec.get("motion", ""))
 		motions[anim] = motion if SIDE_MOTIONS.has(motion) else ""
+	# Optional drawn "draw" frames (holstered → ready to shoot), played by the draw's progress
+	# instead of the code transition (scenes/character/gun_draw.gd); a broken set is skipped.
+	var draw_spec = data["anims"].get(DRAW_ANIM)
+	if draw_spec is Dictionary and draw_spec.get("frames") is Array and not (draw_spec["frames"] as Array).is_empty():
+		var texs: Array[Texture2D] = []
+		for stem in draw_spec["frames"]:
+			var tex := _png_texture(dir + str(stem) + ".png")
+			if tex == null:
+				texs.clear()
+				break
+			texs.append(tex)
+		if not texs.is_empty():
+			frames.add_animation(DRAW_ANIM)
+			frames.set_animation_loop(DRAW_ANIM, false)
+			for tex in texs:
+				frames.add_frame(DRAW_ANIM, tex)
+			motions[DRAW_ANIM] = ""
 	var scale := PX_PER_UNIT / ppu
 	var ext = data.get("extent", {})
 	var height := float(data.get("height", 0.0))
@@ -522,7 +544,8 @@ static func parse_side(dir: String) -> Dictionary:
 	out.merge({"side": true, "frames": frames, "size": _vec2(data.get("size", [])), "pivot": _vec2(data["pivot"]), "scale": scale,
 		"height": height, "extent": {"back": float(ext.get("back", height * 0.3)), "front": float(ext.get("front", height * 0.3)),
 		"top": float(ext.get("top", height))}, "motions": motions, "anchors": _parse_anchors(dir + "gun_anchors.json"),
-		"hand": hand, "hand_scale": scale if hand != null else 1.0})
+		"hand": hand, "hand_scale": scale if hand != null else 1.0, "draw_frames": frames.has_animation(DRAW_ANIM),
+		"gun_draw": data.get("gunDraw", {}) if data.get("gunDraw") is Dictionary else {}})
 	return out
 
 

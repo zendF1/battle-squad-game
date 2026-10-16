@@ -104,6 +104,44 @@ prints the shifts, the pivot and where the soles touch per walk frame (to tune `
 foot should move back by walk speed / fps per frame). Without a `side/` folder the character keeps
 its baked frames; `tools/bake_art.gd` bakes only those (and every portrait).
 
+**The gun in the match is holstered except to shoot** (`scenes/character/gun_draw.gd`, shown by
+`scenes/character/character.gd` with `holster` on; every character). Idle and walk show no gun and
+no `hand.png` over its grip, only the character's own drawn arms. A drag-to-aim draws it (holstered
+→ drawing → aiming), the release fires it (firing: the usual recoil and muzzle flash) and it goes
+away (holstering → holstered); a cancel holsters at once, walking with it out holsters first, and a
+drag during holstering reverses from where it is. Remote and bot shots draw it fast first and their
+shell appears as it is out (the replay waits that long). While the gun is out the body holds the
+idle frame (no walk swing). Air strikes keep it holstered. The timings and the pose are one table,
+`gun_draw.gd` `TIMINGS` (any side view may override keys in its `side.json` `"gunDraw": {...}`):
+
+| Key | Default | |
+|---|---|---|
+| `drawSec` | 0.22 | drag start → the gun is out |
+| `fastDrawSec` | 0.12 | a shot that leaves with the gun away (remote / bot shots) |
+| `holsterSec` | 0.2 | put away (the reverse of the draw) |
+| `fireHoldSec` | 0.4 | firing → holstering starts (the recoil is 0.33 s) |
+| `carryAngle` | 75 | degrees the barrel points down in the low carry the draw starts from |
+| `carryScale` | 0.55 | the gun's size in the low carry |
+| `carryOffset` | [-0.05, 0.08] | the low carry from the grip: back / down, of the figure height |
+| `fadeIn` | 0.35 | part of the draw the gun fades in over |
+| `leanDeg` | 3 | the ready stance leans forward round the feet |
+| `crouch` | 0.015 | and squats (scale y) |
+| `squash` | 0.03 | a squash-and-stretch bump through the middle of the draw |
+
+Without drawn frames the draw is that code transition (eased out: the gun turns up from the low
+carry to the aim, grows and fades in; the body leans and squats into the ready stance).
+
+**Drawn draw frames (optional, a side view)**: add `side/draw_0.png .. draw_N.png` (same canvas and
+pivot as the other frames) and list them in `side.json` `anims`: `"draw": {"frames": ["draw_0", ...]}`
+(no `fps`: they are shown by the draw's progress, so holstering plays them backwards and a reverse
+never jumps). Frame 0 is the holstered stance (the idle pose), the last frame the ready-to-shoot
+stance, which is also held while aiming (instead of the idle frame) and has no code lean. Give them
+gun anchors in `gun_anchors.json` `"draw": [...]` (one per frame, as the other animations: `grip`,
+`angle`, `front`, `flash` 0) to have the gun follow the drawn hand (from the hip or the back, `front`
+false while it is behind the body; the aim angle blends in towards the last frame); without anchors
+the gun does the code transition on top of the drawn body. A broken set (a missing PNG) is skipped
+with a warning and the code transition plays.
+
 ### characters/ (baked frames, scene: `scenes/character/character.tscn`)
 
 The frames draw the character with its hands free (the front arm reaches forward, the hand at the gun's

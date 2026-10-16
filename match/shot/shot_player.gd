@@ -3,7 +3,9 @@ extends Node
 ## timeline event when its time comes. Driven by frame delta, so it is smooth at any FPS.
 ## `muzzle` (layer coordinates, set before play()) makes the projectiles that leave near it start
 ## drawn at the gun's muzzle and blend into the server path over SPAWN_BLEND seconds (visual
-## only: the path and its events are unchanged).
+## only: the path and its events are unchanged). play(timeline, lead_in) holds the whole replay
+## (projectiles hidden, no events) for lead_in seconds first, e.g. while the shooter draws its
+## gun: everything shifts together, the timeline's order is unchanged.
 
 signal event_due(event: Dictionary)
 signal finished
@@ -28,10 +30,10 @@ func is_playing() -> bool:
 	return _timeline != null
 
 
-func play(timeline) -> void:
+func play(timeline, lead_in: float = 0.0) -> void:
 	stop()
 	_timeline = timeline
-	_t = 0.0
+	_t = -maxf(0.0, lead_in)
 	_spawn_offsets.clear()
 	for i in timeline.projectiles.size():
 		var offset := Vector2.ZERO
@@ -46,6 +48,7 @@ func play(timeline) -> void:
 		view.skill = bool(style.get("skill", false))
 		view.item = str(style.get("item", ""))
 		view.position = timeline.sample(i, 0.0) + _spawn_offsets[i]
+		view.visible = _t >= 0.0
 		layer.add_child(view)
 		_views.append(view)
 	muzzle = null
@@ -72,10 +75,13 @@ func _process(delta: float) -> void:
 	if _timeline == null:
 		return
 	_t += delta
+	if _t < 0.0:
+		return # the lead-in: the shooter is still drawing
 	for i in _views.size():
 		var view = _views[i]
 		if view == null:
 			continue
+		view.visible = true
 		if _t >= _timeline.projectile_end(i):
 			view.queue_free()
 			_views[i] = null

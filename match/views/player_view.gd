@@ -4,6 +4,9 @@ extends Node2D
 ## gun of the weapon it brought (weaponItemId → EquipmentModel.gun()), the HP bar, the name
 ## and above it the markers of its active status effects (match/status_effects.gd).
 ## Walking is read from the position changes (prediction or tweens), so callers only move it.
+## The gun is holstered except to shoot (scenes/character/character.gd holster): aim() /
+## draw_gun() draw it, shoot() fires it (returning the wait while it is drawn), clear_aim() puts
+## it away.
 
 const Status := preload("res://match/status_effects.gd")
 const CharacterScene := preload("res://scenes/character/character.tscn")
@@ -62,6 +65,7 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_sprite = CharacterScene.instantiate()
 	_sprite.scale = Vector2.ONE * (ART_SCALE / Art.PX_PER_UNIT)
 	_sprite.show_behind_parent = true
+	_sprite.holster = true # the gun is out only to shoot
 	_sprite.character_id = str(p.get("characterId", ""))
 	var gun := EquipmentModel.player_gun(p, PlayerState.catalog)
 	_sprite.set_weapon(gun["kind"], gun["tier"])
@@ -147,13 +151,24 @@ func facing() -> int:
 	return _sprite.facing
 
 
-## Points the gun at an aim angle (degrees, 0 right, 90 up), within the arm's reach.
+## Points the gun at an aim angle (degrees, 0 right, 90 up), within the arm's reach; draws it.
 func aim(angle: float) -> void:
 	_sprite.aim(angle)
 
 
+## Draws the gun at level (a drag started, no angle yet).
+func draw_gun() -> void:
+	_sprite.draw_gun()
+
+
+## Puts the gun away.
 func clear_aim() -> void:
 	_sprite.clear_aim()
+
+
+## The gun draw state: holstered, drawing, aiming, firing, holstering.
+func gun_state() -> String:
+	return _sprite.gun_state()
 
 
 ## The gun's muzzle, global coordinates (visual only: the server's shot origin is unchanged).
@@ -161,14 +176,20 @@ func muzzle_position() -> Vector2:
 	return _sprite.muzzle_position()
 
 
+## Where the muzzle is when the shot leaves (the gun out at the aim), global; call after shoot().
+func fire_muzzle_position() -> Vector2:
+	return _sprite.fire_muzzle_position()
+
+
 ## {kind, tier} of the gun held.
 func weapon() -> Dictionary:
 	return _sprite.weapon()
 
 
-## Recoil and muzzle flash (a shot leaves).
-func shoot() -> void:
-	_sprite.shoot()
+## Recoil and muzzle flash (a shot leaves): at once with the gun out, else once it is drawn
+## (fast); returns the seconds until then. with_gun false: a shot not from the gun (air strike).
+func shoot(with_gun: bool = true) -> float:
+	return _sprite.shoot(with_gun)
 
 
 ## The current player gets a bobbing arrow above the name.

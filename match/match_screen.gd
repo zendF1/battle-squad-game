@@ -121,6 +121,7 @@ func _process(delta: float) -> void:
 		_awaiting_ack -= delta
 		if _awaiting_ack <= 0.0:
 			# The server ignored the Shoot/EndTurn/UseItem: give control back.
+			_clear_my_aim() # a gun still out for an unanswered Shoot goes away
 			_committing = false
 			_commit_sent = false
 			_cmd_sent = false
@@ -299,7 +300,7 @@ func _apply(event: String, data: Variant) -> void:
 					_players[id]["skillEnergy"] = energies[id]
 			_hud.set_time(TURN_SECONDS)
 			for view in _views.values():
-				view.clear_aim() # guns back to the animation's hold
+				view.clear_aim() # guns put away
 			_set_current(str(data.get("currentPlayerId", "")), int(data.get("moveEnergy", 0)))
 		"TurnTimerTick":
 			_hud.set_time(int(data.get("timeLeft", 0)))
@@ -314,12 +315,12 @@ func _apply(event: String, data: Variant) -> void:
 			_hud.pause_timer() # resumed by the next TurnTimerTick / TurnStarted
 			_snap_to_server(shooter)
 			var timeline := ShotTimeline.new(data)
-			_show_shooting(shooter, timeline)
+			var lead_in := _show_shooting(shooter, timeline)
 			# The shot looks like the shooter's gun (visuals only): the kind and tier of the weapon
 			# it brought (weaponItemId), its character's basic gun when none (bots).
 			_shot_player.style = ShotLook.style_for(_players.get(shooter, {}), str(data.get("actionMode", "")),
 				str(data.get("itemId", "")), PlayerState.catalog)
-			_shot_player.play(timeline)
+			_shot_player.play(timeline, lead_in)
 			_refresh_controls()
 		"PlayerDamaged": # lava at turn start (shot damage comes in ShotResolved)
 			for e in data:
@@ -472,6 +473,7 @@ func _on_match_ended(d: Dictionary) -> void:
 
 func _on_fire(angle: float, power: float) -> void:
 	if not _can_act():
+		_clear_my_aim()
 		return
 	var data := {"angle": angle, "power": power, "actionMode": WEAPON}
 	if _armed == SKILL:
@@ -491,7 +493,9 @@ func _on_fire_column(target_x: float) -> void:
 func _fire(data: Dictionary) -> void:
 	_armed = WEAPON # back to the weapon after a fire, even if the server drops the Shoot
 	_hud.pause_timer() # the server stops the clock once it takes the shot
-	await _commit_action("Shoot", data)
+	var sent: bool = await _commit_action("Shoot", data)
+	if not sent and not _turn_resolved:
+		_clear_my_aim() # never sent: the gun goes away
 
 
 func _on_weapon_pressed() -> void:
@@ -553,7 +557,8 @@ func _on_end_turn() -> void:
 ## the server (needs_resync), the pending command is cancelled instead (see _request_resync).
 ## instant_item names the item of a UseItem: it does not end the turn, so Moves may follow once
 ## its ItemUsed (or ITEM_ACK_TIMEOUT) unlocks input; Shoot/EndTurn stop Moves for the turn.
-func _commit_action(event: String, data: Dictionary, instant_item: String = "") -> void:
+## Returns whether the command was sent.
+func _commit_action(event: String, data: Dictionary, instant_item: String = "") -> bool:
 	_committing = true
 	_hold_dir = 0
 	_moves.release()
@@ -562,7 +567,7 @@ func _commit_action(event: String, data: Dictionary, instant_item: String = "") 
 			or _since(_action_at) < ACTION_INTERVAL or _since(_move_ack_at) < MOVE_ACK_GAP):
 		await get_tree().process_frame
 	if not _is_my_turn() or not _committing or _turn_resolved:
-		return
+		return false
 	if instant_item == "":
 		_commit_sent = true
 		_awaiting_ack = SHOT_ACK_TIMEOUT
@@ -572,6 +577,7 @@ func _commit_action(event: String, data: Dictionary, instant_item: String = "") 
 	_cmd_sent = true
 	GameSocket.send(event, data)
 	_mark_action()
+	return true
 
 
 ## The server's position is unknown (Moves unanswered after every re-send). Cancel any
@@ -660,11 +666,16 @@ func _popup(id: String, text: String, color: Color) -> void:
 
 # ── Visual only (no game state) ──────────────────────────────────────────────
 
-## My character turns to the side I aim at and points its gun there.
-func _face_aim(angle: float, _power: float) -> void:
-	if _views.has(_me):
-		_views[_me].face_angle(angle)
-		_views[_me].aim(angle)
+## My character draws its gun when a drag starts (power 0: no direction yet, so no turn), then
+## turns to the side I aim at and points the gun there.
+func _face_aim(angle: float, power: float) -> void:
+	if not _views.has(_me):
+		return
+	if power <= 0.0:
+		_views[_me].draw_gun()
+		return
+	_views[_me].face_angle(angle)
+	_views[_me].aim(angle)
 
 
 func _clear_my_aim() -> void:
@@ -673,11 +684,13 @@ func _clear_my_aim() -> void:
 
 
 ## The shooter turns towards where its first projectile leaves, points its gun along it and
-## plays its shoot animation; the projectiles are drawn leaving from the muzzle (ShotPlayer).
-## A shot that does not start at the shooter (air strike from the sky) only plays the animation.
-func _show_shooting(shooter: String, timeline) -> void:
+## fires it; the projectiles are drawn leaving from the muzzle (ShotPlayer). A holstered gun
+## (remote and bot shots, never aimed here) is drawn fast first: returns that wait, the replay's
+## lead-in, so the shell appears as the gun is out. A shot that does not start at the shooter
+## (air strike from the sky) only plays the body's recoil, the gun stays away.
+func _show_shooting(shooter: String, timeline) -> float:
 	if not _views.has(shooter) or timeline.projectiles.is_empty():
-		return
+		return 0.0
 	var view = _views[shooter]
 	var start: Vector2 = timeline.sample(0, 0.0)
 	var d: Vector2 = timeline.sample(0, 0.05) - start
@@ -687,9 +700,12 @@ func _show_shooting(shooter: String, timeline) -> void:
 			view.face(d.x)
 		if d.length() > 0.01:
 			view.aim(rad_to_deg(atan2(-d.y, d.x)))
-	view.shoot()
-	if near:
-		_shot_player.muzzle = _fx_layer.to_local(view.muzzle_position()) # the recoiled gun's
+	if not near:
+		view.shoot(false)
+		return 0.0
+	var lead_in: float = view.shoot()
+	_shot_player.muzzle = _fx_layer.to_local(view.fire_muzzle_position()) # the recoiled gun's, once out
+	return lead_in
 
 
 func _show_wind() -> void:
