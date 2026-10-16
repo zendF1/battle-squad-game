@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://btfjpsm1swydq"
-path="res://.godot/imported/explosion_2.png-b12a1a7bb5f588f752d76234170aa886.ctex"
+path="res://.godot/imported/impact_2.png-b4424fc49015cd77cd62aa3a36ba10b8.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://assets/fx/rookie/impact_2.png"
-dest_files=["res://.godot/imported/explosion_2.png-b12a1a7bb5f588f752d76234170aa886.ctex"]
+dest_files=["res://.godot/imported/impact_2.png-b4424fc49015cd77cd62aa3a36ba10b8.ctex"]
 
 [params]
 

@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://gjd0iata7une"
-path="res://.godot/imported/bomb.png-64b8cc3f8a0130998347320d272947e2.ctex"
+path="res://.godot/imported/projectile.png-319083d1d3334c9b516271a9bffdeeec.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://assets/fx/rookie/projectile.png"
-dest_files=["res://.godot/imported/bomb.png-64b8cc3f8a0130998347320d272947e2.ctex"]
+dest_files=["res://.godot/imported/projectile.png-319083d1d3334c9b516271a9bffdeeec.ctex"]
 
 [params]
 
