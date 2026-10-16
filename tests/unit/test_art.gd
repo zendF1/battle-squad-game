@@ -254,7 +254,7 @@ func test_side_view_frames_share_one_pivot() -> void:
 			check(absf(float(h) - pivot.x) <= 0.12 * float(look["height"]), "%s hips near the pivot (%.1f vs %.1f)" % [id, h, pivot.x])
 		var walk: Array = data["anims"]["walk"]["frames"]
 		check(walk.size() >= 4 and bool(data["anims"]["walk"]["loop"]), "%s walk loops over its frames" % id)
-		check(look["hand"] != null, "%s hand.png" % id)
+		check(look["hand"] != null or not data.has("hand"), "%s hand.png" % id)
 
 
 ## The rect of the pixels at least half opaque.
@@ -313,3 +313,120 @@ func test_side_view_faces_left_round_the_feet() -> void:
 	eq(flip.position, Vector2.ZERO, "no jump: the feet stay on the origin")
 	check(right.x > 0.0, "facing right the muzzle is in front")
 	holder.free()
+
+
+## Every character has a ready pose scene (scenes/character/poses/<id>_ready.tscn) laid out like
+## Rookie's: one GunSocket (grouped) with a Preview of the character's iron gun, its grip on the
+## socket's origin, Body locked, HandFront / HandBack, the aim range on the root. Tanko, Spark and
+## Flora's Body follows the art (pose_body.gd): the baked idle frame until a side view's ready
+## frame is imported, the socket on that frame's hand.
+func test_ready_pose_scenes() -> void:
+	var PoseBody := load("res://scenes/character/poses/pose_body.gd")
+	for id in Art.CHARACTERS:
+		var path := "res://scenes/character/poses/%s_ready.tscn" % id
+		check(ResourceLoader.exists(path), path)
+		if not ResourceLoader.exists(path):
+			continue
+		var root: Node = load(path).instantiate()
+		check(root is Node2D and root.get_meta("_edit_lock_", false), "%s root a locked Node2D" % id)
+		near(float(root.get_meta("aim_down", 0.0)), -30.0, 1e-6, "%s aim_down" % id)
+		near(float(root.get_meta("aim_up", 0.0)), 60.0, 1e-6, "%s aim_up" % id)
+		var sockets := root.get_children().filter(func(n): return str(n.name).begins_with("GunSocket"))
+		eq(sockets.size(), 1, "%s one GunSocket" % id)
+		var sock := root.get_node_or_null("GunSocket") as Node2D
+		check(sock != null and sock.get_meta("_edit_group_", false), "%s GunSocket grouped" % id)
+		var preview := root.get_node_or_null("GunSocket/Preview") as Sprite2D
+		var kind := str(Art.CHARACTER_GUNS[id])
+		check(preview != null and preview.texture != null and preview.texture.resource_path == Art.gun_path(kind, "iron"), "%s Preview is its iron %s" % [id, kind])
+		if preview != null:
+			near(preview.offset.distance_to(-Art.gun(kind, "iron")["grip"]), 0.0, 0.01, "%s the grip on the socket's origin" % id)
+			near(preview.scale.x, float(Art.gun(kind, "iron")["scale"]), 1e-4, "%s gun at the match scale" % id)
+			check(not preview.centered, "%s Preview not centred" % id)
+		var body := root.get_node_or_null("Body") as Sprite2D
+		check(body != null and body.get_meta("_edit_lock_", false), "%s Body locked" % id)
+		check(root.get_node_or_null("HandFront") is Sprite2D and root.get_node_or_null("HandBack") is Sprite2D, "%s hand sprites" % id)
+		if id != "rookie" and body != null:
+			eq(body.get_script(), PoseBody, "%s Body follows the art" % id)
+			eq(str(body.get("character_id")), id, "%s Body's character" % id)
+			var src: Dictionary = PoseBody.source(id)
+			if not Art.has_side_view(id):
+				eq(src["path"], Art.frame_path(id, "idle", 0), "%s stand-in body: the baked idle frame" % id)
+				eq(src["pivot"], Art.FRAME_PIVOT, "%s stand-in pivot" % id)
+				eq(body.offset, -Art.FRAME_PIVOT, "%s the feet on the origin" % id)
+				var grip: Vector2 = Art.gun_anchor(id, "idle", 0)["grip"] - Art.FRAME_PIVOT
+				if sock != null:
+					check(sock.position.distance_to(grip) < 0.01, "%s socket in the idle frame's hand (%s)" % [id, sock.position])
+				check(Art.ready_pose(id).is_empty(), "%s no ready pose before its side view" % id)
+		root.free()
+		# The config the importer fills it from names this scene.
+		var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://art_source/characters/%s/side_run/import.json" % id))
+		check(cfg is Dictionary and str(cfg.get("poses", {}).get("ready", {}).get("scene", "")) == path, "%s import.json names %s" % [id, path])
+		if cfg is Dictionary:
+			eq(str(cfg.get("out", "")), Art.side_dir(id), "%s import.json writes its side view" % id)
+	var rookie: Dictionary = PoseBody.source("rookie")
+	eq(rookie["path"], Art.side_dir("rookie") + "ready_0.png", "an imported ready frame is the body")
+	near(float(rookie["scale"]), float(Art.side_view("rookie")["scale"]), 1e-4, "at the side view's scale")
+	eq(rookie["hands"].size(), 2, "with its hands")
+	eq(PoseBody.source("nope"), {}, "unknown id")
+	# After an import (here: Rookie's art in Tanko's scene) the body is the ready frame where the
+	# match draws it and the empty hand sprites get the cut-out hands where they were drawn (Rookie's
+	# own scene has them at the same place).
+	var scene: Node = load("res://scenes/character/poses/tanko_ready.tscn").instantiate()
+	var body: Sprite2D = scene.get_node("Body")
+	body.character_id = "rookie"
+	body.sync()
+	var mine: Node = load("res://scenes/character/poses/rookie_ready.tscn").instantiate()
+	for prop in ["texture", "offset", "centered"]:
+		eq(body.get(prop), mine.get_node("Body").get(prop), "synced body %s" % prop)
+	check(body.scale.is_equal_approx(mine.get_node("Body").scale), "synced body scale")
+	for hname in ["HandFront", "HandBack"]:
+		var h: Sprite2D = scene.get_node(hname)
+		var want: Sprite2D = mine.get_node(hname)
+		eq(h.texture, want.texture, "%s picture" % hname)
+		check(h.position.distance_to(want.position) < 0.02 and h.scale.is_equal_approx(want.scale), "%s at %s (Rookie's %s)" % [hname, h.position, want.position])
+	var moved: Sprite2D = scene.get_node("HandFront")
+	moved.position = Vector2(1, 2)
+	body.sync()
+	eq(moved.position, Vector2(1, 2), "a hand with a picture is left where it was put")
+	scene.free()
+	mine.free()
+
+
+## tools/import_frames.gd -- <character_id> | <config.json>: which configs, the frame pattern and
+## the anims for the frames and poses there.
+func test_import_frames_arguments() -> void:
+	var I := load("res://tools/import_frames.gd")
+	var cfg_of := func(id: String) -> String: return "res://art_source/characters/%s/side_run/import.json" % id
+	for id in Art.CHARACTERS:
+		eq(I.configs_for([id]), {"configs": [cfg_of.call(id)], "unknown": []}, "-- " + id)
+	eq(I.configs_for(["tanko", "flora"])["configs"], [cfg_of.call("tanko"), cfg_of.call("flora")], "two ids")
+	var all: Array = I.configs_for([])["configs"]
+	for id in Art.CHARACTERS:
+		check(all.has(cfg_of.call(id)), "no argument: every character (%s)" % id)
+	eq(I.configs_for(["res://x/import.json"]), {"configs": ["res://x/import.json"], "unknown": []}, "a config path")
+	eq(I.configs_for(["nope"]), {"configs": [], "unknown": ["nope"]}, "unknown id")
+	eq(I.configs_for(["../rookie"])["unknown"], ["../rookie"], "not a folder name")
+	var frames: Array = I.frame_files("frame_*.png", "res://art_source/characters/rookie/side_run/")
+	eq(frames, ["frame_1.png", "frame_2.png", "frame_3.png", "frame_4.png", "frame_5.png", "frame_6.png", "frame_7.png", "frame_8.png"], "pattern")
+	eq(I.frame_files(["b.png", "a.png"], "res://"), ["b.png", "a.png"], "a list stays as listed")
+	var tmp := OS.get_temp_dir().path_join("bsq_frames_%d/" % Time.get_ticks_usec())
+	DirAccess.make_dir_recursive_absolute(tmp)
+	for f in ["frame_10.png", "frame_2.png", "frame_1.png", "other.png"]:
+		FileAccess.open(tmp + f, FileAccess.WRITE).close()
+	eq(I.frame_files("frame_*.png", tmp), ["frame_1.png", "frame_2.png", "frame_10.png"], "natural order")
+	for f in DirAccess.get_files_at(tmp):
+		DirAccess.remove_absolute(tmp + f)
+	DirAccess.remove_absolute(tmp)
+	# Anims: Rookie's as written; fewer frames / no ready picture drop what cannot be shown.
+	var rookie = JSON.parse_string(FileAccess.get_file_as_string(cfg_of.call("rookie")))
+	var full: Dictionary = I.resolve_anims(rookie["anims"], 8, ["ready"])
+	eq(full.keys(), rookie["anims"].keys(), "Rookie: every anim, same order")
+	eq(full["walk"]["frames"], rookie["anims"]["walk"]["frames"], "Rookie: the walk as listed")
+	var short: Dictionary = I.resolve_anims(rookie["anims"], 6, [])
+	eq(short["walk"]["frames"].map(func(i): return int(i)), [0, 1, 2, 3, 4, 5], "past the last frame dropped")
+	check(not short.has("draw") and not short.has("fire"), "no ready picture: no draw / fire")
+	check(short.has("shoot") and short.has("die"), "the idle reuses stay")
+	var tanko = JSON.parse_string(FileAccess.get_file_as_string(cfg_of.call("tanko")))
+	eq(str(tanko["frames"]), "frame_*.png", "the template takes every frame_N.png")
+	eq(I.resolve_anims(tanko["anims"], 5, ["ready"])["walk"]["frames"], [0, 1, 2, 3, 4], "walk: all the frames")
+	eq(I.resolve_anims(tanko["anims"], 5, ["ready"]).keys(), rookie["anims"].keys(), "the template's anims are Rookie's")

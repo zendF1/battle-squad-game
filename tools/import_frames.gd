@@ -4,12 +4,22 @@ extends SceneTree
 ## (any size, transparent background, facing right). Reproducible: everything it does is in the
 ## config. Runs headless (only Image is used):
 ##
-##   $GODOT --headless --path . -s tools/import_frames.gd [-- <config.json> ...]
+##   $GODOT --headless --path . -s tools/import_frames.gd -- <character_id> ...
+##   $GODOT --headless --path . -s tools/import_frames.gd -- <config.json> ...
 ##
-## (default: every art_source/characters/*/side*/import.json). It writes the config's `out`
-## folder (assets/characters/<id>/side/): <anim>_<i>.png, hand.png, side.json and
-## gun_anchors.json (formats in assets/README.md, read by ui/art.gd side_view()). A new PNG gets
-## an .import without mipmaps; an existing .import is never touched. Let the editor import them.
+## A character id imports its art_source/characters/<id>/side*/import.json (the run frames and
+## the ready pose: one config); no argument imports every one (configs_for()). A config whose
+## source frames are not there yet is skipped (a drop-in folder waiting for its pictures); a pose
+## whose picture is missing is left out with the animations that show it (and `gunDraw`), so the
+## run frames alone already make a side view. It writes the config's `out` folder
+## (assets/characters/<id>/side/), PNG and JSON only (never a scene: the pose scenes are placed by
+## hand): <anim>_<i>.png, hand.png, side.json and gun_anchors.json (formats in assets/README.md,
+## read by ui/art.gd side_view()). A new PNG gets an .import without mipmaps; an existing .import
+## is never touched. Let the editor import them.
+##
+## `frames` lists the source files in cycle order, or is a pattern ("frame_*.png": every match,
+## natural order: frame_1, frame_2 .. frame_10). An anim's `frames` "all" is every source frame;
+## a source index past the last frame is dropped (a template written for more frames).
 ##
 ## Per source frame:
 ##   1. clean: alpha below `alphaCut` is cleared; only the big connected pieces stay (8-connected,
@@ -42,7 +52,7 @@ extends SceneTree
 ## `patch`), scaled by `scale` (source px per pose px) with its lowest row on the soles' row and
 ## `alignX` [pose x, source x] lined up, and resampled once into the shared canvas. side.json gets
 ## `readyPose` {anims, hands {name: {stem, center}}, scene} and gun_anchors.json the pose's
-## fallback `gun` seat; the gun itself is placed by hand in the pose's scene (never written here).
+## fallback `gun` seat (the draw anchors' grip: `gun.grip`, else the pose figure's middle); the gun itself is placed by hand in the pose's scene (never written here).
 
 const CutSheet := preload("res://tools/cut_sheet.gd")
 const SRC := "res://art_source/characters/"
@@ -52,21 +62,85 @@ var _bytes := 0
 
 
 func _initialize() -> void:
-	var configs: Array = Array(OS.get_cmdline_user_args()).filter(func(a): return str(a).ends_with(".json"))
-	if configs.is_empty():
-		configs = _find_configs()
-	for c in configs:
+	var found := configs_for(OS.get_cmdline_user_args())
+	for id in found["unknown"]:
+		push_error("import_frames: no art_source/characters/%s/side*/import.json (an id: rookie, tanko, spark, flora; or a config path)" % id)
+	for c in found["configs"]:
 		_import(str(c))
 	print("import_frames: wrote %d files, %.1f KB" % [_written, _bytes / 1024.0])
-	quit()
+	quit(1 if not found["unknown"].is_empty() else 0)
 
 
-func _find_configs() -> Array:
+## The configs the command line names: {configs (paths), unknown (ids without one)}. An argument
+## ending in .json is a config path; any other is a character id (its side*/import.json); none:
+## every character's.
+static func configs_for(args: Array) -> Dictionary:
+	var configs: Array = []
+	var unknown: Array = []
+	for a in args:
+		var arg := str(a).strip_edges()
+		if arg == "":
+			continue
+		if arg.ends_with(".json"):
+			configs.append(arg)
+			continue
+		var own := find_configs(arg.to_lower())
+		if own.is_empty():
+			unknown.append(arg)
+		configs.append_array(own)
+	if args.filter(func(a): return str(a).strip_edges() != "").is_empty():
+		for id in DirAccess.get_directories_at(SRC):
+			configs.append_array(find_configs(id))
+	return {"configs": configs, "unknown": unknown}
+
+
+## A character's configs: art_source/characters/<id>/side*/import.json.
+static func find_configs(id: String) -> Array:
 	var out: Array = []
-	for id in DirAccess.get_directories_at(SRC):
-		for sub in DirAccess.get_directories_at(SRC + id):
-			if sub.begins_with("side") and FileAccess.file_exists(SRC + "%s/%s/import.json" % [id, sub]):
-				out.append(SRC + "%s/%s/import.json" % [id, sub])
+	if id.is_empty() or not id.is_valid_filename() or not DirAccess.dir_exists_absolute(SRC + id):
+		return out
+	var subs := DirAccess.get_directories_at(SRC + id)
+	subs.sort()
+	for sub in subs:
+		if sub.begins_with("side") and FileAccess.file_exists(SRC + "%s/%s/import.json" % [id, sub]):
+			out.append(SRC + "%s/%s/import.json" % [id, sub])
+	return out
+
+
+## The source frame files of a config's `frames` (a list, or a pattern such as "frame_*.png":
+## the matching files of dir in natural order).
+static func frame_files(frames: Variant, dir: String) -> Array:
+	if frames is Array:
+		return frames.map(func(f): return str(f))
+	var out: Array = []
+	for f in DirAccess.get_files_at(dir):
+		if f.match(str(frames)):
+			out.append(f)
+	out.sort_custom(func(a, b): return a.naturalnocasecmp_to(b) < 0)
+	return out
+
+
+## cfg.anims for n source frames and the poses that loaded: "all" is every frame, indices past
+## the last frame and missing poses are dropped, then an anim with no frame left and one reusing
+## a dropped anim. Same order as cfg.anims.
+static func resolve_anims(anims: Dictionary, n: int, poses: Array) -> Dictionary:
+	var out := {}
+	for anim in anims:
+		var spec: Dictionary = anims[anim].duplicate(true)
+		var fs = spec.get("frames")
+		if str(fs) == "all":
+			fs = range(n)
+		if fs is Array:
+			fs = fs.filter(func(i): return poses.has(i) if i is String else int(i) >= 0 and int(i) < n)
+			if fs.is_empty():
+				continue
+		elif not out.has(str(fs)) and str(fs) != "idle":
+			continue
+		spec["frames"] = fs
+		out[anim] = spec
+	for anim in out.keys(): # "idle" reused before it is listed, or dropped
+		if not out[anim]["frames"] is Array and not out.has(str(out[anim]["frames"])):
+			out.erase(anim)
 	return out
 
 
@@ -77,10 +151,14 @@ func _import(cfg_path: String) -> void:
 		return
 	var dir := cfg_path.get_base_dir() + "/"
 	var out_dir := str(cfg["out"])
+	var files := frame_files(cfg.get("frames", []), dir)
+	if files.filter(func(f): return FileAccess.file_exists(dir + str(f))).is_empty():
+		print("%s: no source frames yet (%s in %s), skipped" % [cfg_path, str(cfg.get("frames", [])), dir])
+		return
 	print("%s → %s" % [cfg_path, out_dir])
 	# 1–2. Clean and measure every source frame.
 	var frames: Array = [] # {image, top, bottom, profile, hip}
-	for f in cfg["frames"]:
+	for f in files:
 		var img := Image.load_from_file(ProjectSettings.globalize_path(dir + str(f)))
 		if img == null or img.is_empty():
 			push_error("import_frames: cannot read " + dir + str(f))
@@ -109,8 +187,11 @@ func _import(cfg_path: String) -> void:
 	var pivot := Vector2(hips[hips.size() / 2], float(ref["bottom"]) + 1.0)
 	# Poses (single drawn frames, e.g. the ready-to-shoot pose): cleaned at their own size and
 	# placed in the frames' source space by their scale and alignment.
-	var poses := {} # name -> {image, sp, t, rect (source px of the frames), cfg}
+	var poses := {} # name -> {image, sp, t, rect (source px of the frames), cfg, center}
 	for pname in cfg.get("poses", {}):
+		if not FileAccess.file_exists(dir + str(cfg["poses"][pname]["src"])):
+			print("  pose %s: no %s yet, left out (and the animations showing it)" % [pname, dir + str(cfg["poses"][pname]["src"])])
+			continue
 		var pose := _load_pose(dir, cfg, str(pname), cfg["poses"][pname], ref)
 		if pose.is_empty():
 			return
@@ -138,7 +219,10 @@ func _import(cfg_path: String) -> void:
 		str(frames.map(func(fr): return fr["offset"])), pivot, pivot_out.snapped(Vector2(0.01, 0.01)), out_size, src_size, s])
 	# 6. Scale each used frame once (a pose: straight from its own size, one resample).
 	var outs := {} # source index or pose name -> Image
-	var anims: Dictionary = cfg["anims"]
+	var anims := resolve_anims(cfg["anims"], frames.size(), poses.keys())
+	if not anims.has("idle"):
+		push_error("import_frames: %s has no idle frame" % cfg_path)
+		return
 	for anim in anims:
 		var fs = anims[anim]["frames"]
 		if fs is Array:
@@ -184,7 +268,7 @@ func _import(cfg_path: String) -> void:
 	var idle_src: int = int(anims["idle"]["frames"][0])
 	var pose_hold := func(pname: String) -> Dictionary:
 		var seat: Dictionary = poses[pname]["cfg"].get("gun", {})
-		var grip: Vector2 = to_out.call(_pose_to_src(poses[pname], _v(seat.get("grip", [0, 0]))))
+		var grip: Vector2 = to_out.call(_pose_to_src(poses[pname], _v(seat["grip"]) if seat.has("grip") else poses[pname]["center"]))
 		return {"grip": [snappedf(grip.x, 0.01), snappedf(grip.y, 0.01)], "angle": float(seat.get("angle", 0.0)), "front": true, "flash": 0.0}
 	for anim in anims:
 		var spec: Dictionary = anims[anim]
@@ -224,9 +308,9 @@ func _import(cfg_path: String) -> void:
 	}
 	var hand: Dictionary = cfg.get("hand", {})
 	if not hand.is_empty():
-		_save(_cut_hand(frames[int(hand["frame"])]["image"], _v(hand["center"]), float(hand["radius"]), float(hand.get("feather", 2.0)), s), out_dir + "hand.png")
+		_save(_cut_hand(frames[mini(int(hand["frame"]), frames.size() - 1)]["image"], _v(hand["center"]), float(hand["radius"]), float(hand.get("feather", 2.0)), s), out_dir + "hand.png")
 		side["hand"] = "hand.png"
-	if cfg.has("gunDraw"):
+	if cfg.has("gunDraw") and (not cfg.has("poses") or not poses.is_empty()): # the ready pose's timings
 		side["gunDraw"] = {}
 		for key in cfg["gunDraw"]:
 			if not str(key).begins_with("_"):
@@ -488,7 +572,7 @@ func _load_pose(dir: String, cfg: Dictionary, pname: String, pc: Dictionary, ref
 	var sp := float(pc["scale"])
 	var ax: Array = pc.get("alignX", [rect.get_center().x, ref["hip"]])
 	var t := Vector2(float(ax[1]) - float(ax[0]) * sp, float(ref["bottom"]) + 1.0 - float(rect.end.y) * sp)
-	var pose := {"image": img, "sp": sp, "t": t, "cfg": pc, "ws": ws, "hands": hands}
+	var pose := {"image": img, "sp": sp, "t": t, "cfg": pc, "ws": ws, "hands": hands, "center": rect.get_center()}
 	var a := _pose_to_src(pose, Vector2(rect.position))
 	var b := _pose_to_src(pose, Vector2(rect.end))
 	pose["rect"] = Rect2i(Vector2i(floori(a.x), floori(a.y)), Vector2i(ceili(b.x) - floori(a.x), ceili(b.y) - floori(a.y)))
@@ -809,6 +893,9 @@ static func _v(a: Variant) -> Vector2:
 
 
 func _save(img: Image, path: String) -> void:
+	if not path.ends_with(".png"):
+		push_error("import_frames: refusing to write " + path)
+		return
 	var abs_path := ProjectSettings.globalize_path(path)
 	DirAccess.make_dir_recursive_absolute(abs_path.get_base_dir())
 	if not FileAccess.file_exists(abs_path + ".import"):
@@ -826,6 +913,9 @@ func _save(img: Image, path: String) -> void:
 
 
 func _write_text(path: String, text: String) -> void:
+	if not path.ends_with(".json"): # PNG and JSON only: never a (hand-placed) scene
+		push_error("import_frames: refusing to write " + path)
+		return
 	var abs_path := ProjectSettings.globalize_path(path)
 	DirAccess.make_dir_recursive_absolute(abs_path.get_base_dir())
 	var f := FileAccess.open(abs_path, FileAccess.WRITE)

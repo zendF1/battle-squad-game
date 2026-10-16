@@ -338,9 +338,12 @@ func _update_gun() -> void:
 	var out := not holster or _gun_draw.armed()
 	_gun_node.visible = out
 	var anim := str(_sprite.animation)
-	var ready_hands := out and not hands_free and _is_ready_anim(anim) and _ready_hands.get_child_count() > 0
+	# On the ready pose its own hands hold the gun (cut out and drawn over it, or left in the body
+	# when the pose has none cut out): no grip hand.
+	var in_pose := out and not hands_free and _is_ready_anim(anim)
+	var ready_hands := in_pose and _ready_hands.get_child_count() > 0
 	_ready_hands.visible = ready_hands
-	_hand.visible = not ready_hands
+	_hand.visible = not in_pose
 	if not out:
 		_flash.visible = false
 		return

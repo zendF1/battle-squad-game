@@ -38,6 +38,34 @@ Total about 3.8 MB of PNG (the full-body pictures about 0.45 MB of it).
 - Import settings: icons, effects and clouds are imported with mipmaps (they are shown smaller
   than drawn); the rest without. Re-baking never touches an existing `.import` file.
 
+## Thêm ảnh góc ngang cho nhân vật
+
+Ảnh trong trận của Tanko, Spark, Flora (Rookie đã có). Mỗi nhân vật `<id>` = `tanko`, `spark`, `flora`
+đã có sẵn thư mục chờ ảnh và cảnh dáng ngắm; không cần sửa code hay JSON.
+
+1. **Bỏ ảnh vào** `art_source/characters/<id>/`:
+   - `side_run/frame_1.png`, `frame_2.png` … `frame_N.png`: một vòng chạy, nhìn sang phải, nền trong
+     suốt, chân chạm đất ở mọi frame (`frame_1` là dáng đứng thẳng nhất: dùng làm dáng đứng yên).
+   - `side_ready/ready_v1.png`: dáng sẵn sàng bắn (quỳ / ngắm), nhìn sang phải, tay không cầm súng
+     (nền ô caro vẽ sẵn cũng được, tool tự xoá).
+2. **Chạy** (trong thư mục `battle-squad-game`, editor mở cũng được):
+   ```
+   /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_frames.gd -- <id>
+   ```
+   Nó ghi `assets/characters/<id>/side/` (PNG + `side.json`, `gun_anchors.json`), không bao giờ ghi
+   đè cảnh `.tscn`. Chưa có `ready_v1.png` thì chỉ nhập ảnh chạy (súng rút kiểu cũ, chưa có dáng ngắm).
+3. Quay lại editor, đợi nó import xong các PNG.
+4. **Mở** `scenes/character/poses/<id>_ready.tscn`: `Body` tự đổi sang dáng ngắm mới (trước khi có ảnh
+   nó là frame đứng cũ, chỉ để xem).
+5. **Kéo `GunSocket`** (bấm vào khẩu súng) vào tay; xoay / co giãn nếu cần. Gốc của socket (chỗ
+   báng súng) để trong nắm tay: súng xoay quanh điểm đó khi ngắm.
+6. **`Ctrl+S`**, rồi **`F5`** vào trận để xem: nhân vật tự dùng ảnh góc ngang (có `side.json` là dùng).
+
+`art_source/characters/<id>/side_run/import.json` là cấu hình chép từ Rookie (chiều cao 60 px trong
+trận, cách xoá viền, `poses.ready.scale` = cỡ dáng ngắm so với ảnh chạy, …). Nếu dáng ngắm lệch cỡ /
+lệch chỗ so với dáng đứng thì chỉnh `scale` / thêm `alignX`; muốn vẽ tay đè lên súng như Rookie thì
+thêm `hands` (xem cấu hình của Rookie, mục "Rookie's ready pose" bên dưới), rồi chạy lại lệnh ở bước 2.
+
 ## Re-baking the placeholder art
 
 Run windowed (a headless run has no renderer), from the project folder:
@@ -98,10 +126,15 @@ centre per source frame, source px), `carry` (source px from the pivot), `follow
 `swingDeg`}, `hand` {`frame`, `center`, `radius`, `feather`}. Then
 
 ```
-$GODOT --headless --path . -s tools/import_frames.gd [-- res://art_source/characters/<id>/side_<name>/import.json]
+$GODOT --headless --path . -s tools/import_frames.gd -- <id>          # one character (its side*/import.json)
+$GODOT --headless --path . -s tools/import_frames.gd -- <config.json> # one config
+$GODOT --headless --path . -s tools/import_frames.gd                  # every character
 ```
 
-and let the editor import the PNGs. Per frame it clears alpha below `alphaCut`, keeps only the big
+and let the editor import the PNGs. `frames` may be a pattern (`"frame_*.png"`: every match in natural
+order) and an anim's `frames` `"all"` (every source frame); the Tanko / Spark / Flora templates use both.
+A config whose source frames are not there yet is skipped; a pose whose picture is missing is left out
+with the animations showing it and `gunDraw`. It writes PNG and JSON only. Per frame it clears alpha below `alphaCut`, keeps only the big
 connected pieces (the stray pixels near the canvas edges go), turns the white halo round the black
 outline into a soft dark edge, finds the soles (lowest row: the ground contact) and the torso's
 column profile; every frame is shifted so its soles sit on frame 0's row and its torso best matches
@@ -167,8 +200,11 @@ the shot or at once on a cancel) and `"readyPose"` {`anims`, `hands`, `scene`}.
 | `rookie/side/ready_hand_back.png` | 22x16 | the back hand, drawn over the gun |
 
 **Placing the gun in the ready pose (editor)**: each character with a ready pose has its own pose
-scene, `scenes/character/poses/<id>_ready.tscn` (side.json `readyPose.scene`; today
-`rookie_ready.tscn`). It is the character's `Flip` space at the match's scale (the root is the feet;
+scene, `scenes/character/poses/<id>_ready.tscn` (side.json `readyPose.scene`; all four exist:
+Tanko's, Spark's and Flora's are used once their side view with a ready pose is imported, their
+`Body` (`pose_body.gd`, editor only) shows the imported ready frame by itself, or the baked idle frame
+until then; their `Hand*` sprites get the cut-out hands, if the config cuts any, the first time the
+scene is opened after the import). It is the character's `Flip` space at the match's scale (the root is the feet;
 `Body` = the ready frame, locked). One `GunSocket` (Node2D): its `Preview` child is the character's
 own gun (Rookie: the iron bazooka) with its grip (weapons.json `grip`) on the socket's origin. Select
 `GunSocket` (click the gun: the socket is grouped, so the click picks the socket) and move / rotate /

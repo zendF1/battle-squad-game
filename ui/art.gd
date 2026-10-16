@@ -781,7 +781,10 @@ static func _parse_anchors(path: String) -> Dictionary:
 ## pose. Placed by hand in the character's pose scene (side.json readyPose.scene:
 ## scenes/character/poses/<id>_ready.tscn; assets/README.md): one GunSocket (Node2D, its Preview
 ## child the character's gun), Hand* (Sprite2D) and the root's metadata aim_down / aim_up.
-## Without the scene (or a node): the gun anchors' grip, level, and the hands where they were drawn.
+## Without the scene (or a node, or a Hand* with no picture): the gun anchors' grip, level, and the
+## hands where they were drawn. Every character has its scene (Tanko, Spark, Flora before their
+## side view: its Body shows the baked idle frame, scenes/character/poses/pose_body.gd); it is used
+## once the character's side.json has a readyPose (tools/import_frames.gd -- <id>).
 static func ready_pose(id: String) -> Dictionary:
 	id = known_character(id)
 	if _ready_poses.has(id):
@@ -815,12 +818,11 @@ static func ready_pose(id: String) -> Dictionary:
 				if preview != null: # a Preview moved inside its socket counts too
 					var gs := float(gun(str(CHARACTER_GUNS.get(id, DEFAULT_GUN_KIND)), GUN_BASIC)["scale"])
 					socket = socket * preview.transform * Transform2D(0.0, Vector2(gs, gs), 0.0, Vector2.ZERO).affine_inverse()
-			for h in hands:
+			for h in hands: # a Hand* sprite with no picture yet is not placed: the drawn place
 				var node := root.get_node_or_null(str(h["name"])) as Sprite2D
-				if node != null:
+				if node != null and node.texture != null:
 					h["transform"] = node.transform
-					if node.texture != null:
-						h["texture"] = node.texture
+					h["texture"] = node.texture
 		elif root == null:
 			push_warning("art: %s is not a scene, the ready pose uses its defaults" % path)
 		if root != null:

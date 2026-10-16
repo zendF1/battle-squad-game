@@ -1,0 +1,168 @@
+{
+	"_doc": "tools/import_frames.gd: Flora's in-match side view, a template copied from Rookie's (art_source/characters/rookie/side_run/import.json): the run cycle frame_1.png .. frame_N.png here (any size, transparent background, facing right) and the ready pose ../side_ready/ready_v1.png. Run: $GODOT --headless --path . -s tools/import_frames.gd -- flora. Rookie's numbers tuned for his pictures: retune height, poses.ready.scale and add alignX / hands / gun / hand (see Rookie's config) when this character's pictures need them. See assets/README.md.",
+	"id": "flora",
+	"out": "res://assets/characters/flora/side/",
+	"frames": "frame_*.png",
+	"alphaCut": 128,
+	"keepPieces": 0.02,
+	"defringe": {
+		"band": 2,
+		"outline": [
+			24,
+			22,
+			30
+		],
+		"maxChroma": 56
+	},
+	"stabilise": {
+		"rows": [
+			0.0,
+			0.62
+		],
+		"search": 40
+	},
+	"hipRows": [
+		0.74,
+		0.8
+	],
+	"height": 60,
+	"oversample": 2,
+	"worldPxPerUnit": 0.35,
+	"pad": 3,
+	"anims": {
+		"idle": {
+			"frames": [
+				0
+			],
+			"fps": 1,
+			"loop": true,
+			"motion": "breathe"
+		},
+		"walk": {
+			"frames": "all",
+			"fps": 20,
+			"loop": true,
+			"swing": true
+		},
+		"shoot": {
+			"frames": "idle",
+			"count": 3,
+			"fps": 9,
+			"loop": false,
+			"motion": "recoil",
+			"angle": [
+				-14,
+				-6,
+				-1
+			],
+			"flash": [
+				1,
+				0.35,
+				0
+			]
+		},
+		"hurt": {
+			"frames": "idle",
+			"count": 3,
+			"fps": 7,
+			"loop": false,
+			"motion": "knockback",
+			"angle": [
+				5,
+				-4,
+				1
+			]
+		},
+		"die": {
+			"frames": "idle",
+			"count": 4,
+			"fps": 8,
+			"loop": false,
+			"motion": "fall",
+			"front": false,
+			"angle": [
+				0,
+				25,
+				65,
+				90
+			]
+		},
+		"draw": {
+			"_doc": "the ready pose, shown at once while the gun is out (gunDraw: no transition)",
+			"frames": [
+				"ready"
+			],
+			"stem": "ready",
+			"fps": 1,
+			"loop": false
+		},
+		"fire": {
+			"_doc": "the shot from the ready pose: its frame with the recoil",
+			"frames": "draw",
+			"count": 3,
+			"fps": 9,
+			"loop": false,
+			"motion": "recoil",
+			"angle": [
+				-10,
+				-4,
+				-1
+			],
+			"flash": [
+				1,
+				0.35,
+				0
+			]
+		}
+	},
+	"gun": {
+		"_doc": "angle per frame is added to the hold (+ = muzzle down). The gun is holstered in idle / walk in the match; carry: where it would be held (px from the feet pivot, source px). fists (optional, Rookie's config): the near fist per source frame, to sway the gun with the arm.",
+		"carry": [
+			50,
+			-160
+		],
+		"follow": 0.35,
+		"swingDeg": 4
+	},
+	"gunDraw": {
+		"_doc": "gun_draw.gd TIMINGS overrides: the ready pose switches in and out at once",
+		"drawSec": 0,
+		"fastDrawSec": 0,
+		"holsterSec": 0,
+		"fadeIn": 0
+	},
+	"poses": {
+		"ready": {
+			"_doc": "pose px: kneeling / ready to shoot, facing right, empty hands (the gun is placed by hand in `scene`). background: a checkerboard drawn into the pixels is removed. scale: source px per pose px (Rookie's 0.285 for a 2048 px pose next to 1280x720 run frames: the face as wide as in the run frames). Without alignX the pose's middle sits on the hips; without hands the hands stay in the body (under the gun); without gun the fallback seat is the pose's middle.",
+			"src": "../side_ready/ready_v1.png",
+			"workScale": 0.5,
+			"background": {
+				"minLum": 200,
+				"maxChroma": 24,
+				"tones": [
+					[
+						230,
+						244
+					],
+					[
+						248,
+						255
+					]
+				],
+				"holeMin": 100,
+				"holeTones": 0.15
+			},
+			"defringe": {
+				"band": 2,
+				"outline": [
+					24,
+					22,
+					30
+				],
+				"maxChroma": 56
+			},
+			"scale": 0.285,
+			"scene": "res://scenes/character/poses/flora_ready.tscn"
+		}
+	}
+}
