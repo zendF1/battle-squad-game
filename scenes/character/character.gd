@@ -14,8 +14,15 @@ extends Node2D
 ## start (visual only). hands_free (the lobby stage) shows no gun: the free pose (both arms
 ## hanging, ui/art.gd free_frames()) idles instead; weapon() still tells the gun set.
 ## Used by the lobby and Prep (ui/character_view.gd) and the match (match/views/player_view.gd).
+##
+## lobby_rig (the screens outside the match, ui/character_view.gd): a character with a lobby
+## rig (ui/art.gd rig(): assets/characters/<id>/lobby/rig.json + parts/, the front view) is drawn
+## by scenes/character/rig.gd instead of the frames: the same API, the gun held by the rig's
+## gripping hand (between its back and front parts), the free pose's idle_free in hands_free; it
+## only idles (walk, shoot, hurt, die keep its pose). The match keeps the side-view frames.
 
 const Art := preload("res://ui/art.gd")
+const Rig := preload("res://scenes/character/rig.gd")
 
 const HURT_FLASH_SEC := 0.45
 const HURT_TINT := Color(1, 0.35, 0.35)
@@ -40,6 +47,12 @@ const FLASH_TINT := Color(1.0, 0.92, 0.65)
 		hands_free = value
 		if is_node_ready():
 			_apply_frames()
+## Draw the character's lobby (front-view) rig when it has one, else the frames.
+@export var lobby_rig := false:
+	set(value):
+		lobby_rig = value
+		if is_node_ready():
+			_apply_frames()
 ## 1 faces right, -1 left.
 var facing := 1:
 	set(value):
@@ -57,6 +70,8 @@ var _gun := {} # Art.gun() of the gun shown
 var _aiming := false
 var _aim_up := 0.0 # degrees above level towards the facing side, clamped
 var _free_pose := false # the free pose's frames are shown (hands_free)
+var _rig: Rig # the cutout rig, null on the frames
+var _rig_id := ""
 
 @onready var _flip: Node2D = $Flip
 @onready var _sprite: AnimatedSprite2D = $Flip/Sprite
@@ -84,9 +99,18 @@ func _process(delta: float) -> void:
 	_sprite.self_modulate = tint
 	_gun_sprite.self_modulate = tint
 	_hand.self_modulate = tint
+	if _rig != null:
+		_rig.set_tint(tint)
+		_flash.visible = _rig.flash > 0.0 and not hands_free
+		_flash.modulate = Color(FLASH_TINT, clampf(_rig.flash, 0.0, 1.0))
 
 
 func _apply_frames() -> void:
+	var data := Art.rig(character_id) if lobby_rig else {}
+	if not data.is_empty():
+		_apply_rig(data)
+		return
+	_drop_rig()
 	var anim := _sprite.animation
 	var free := Art.free_frames(character_id) if hands_free else null
 	_free_pose = free != null
@@ -101,6 +125,58 @@ func _apply_frames() -> void:
 	_gun_node.visible = not _free_pose
 	_gun_sprite.visible = not hands_free
 	_apply_gun()
+
+
+## The rig of `data` (Art.rig()) instead of the frames: Flip holds Sprite (hidden), the rig (the
+## parts under the gun), Gun, the rig's front (the parts over it).
+func _apply_rig(data: Dictionary) -> void:
+	var anim := animation()
+	if _rig == null or _rig_id != character_id:
+		_drop_rig()
+		_rig = Rig.new()
+		_rig.name = "Rig"
+		_rig.setup(data)
+		_rig_id = character_id
+		_flip.add_child(_rig)
+		_flip.move_child(_rig, _gun_node.get_index())
+		_flip.add_child(_rig.front)
+		_flip.move_child(_rig.front, _gun_node.get_index() + 1)
+		_rig.attach_gun(_gun_node)
+		_rig.finished.connect(_on_rig_finished)
+	_sprite.visible = false
+	_sprite.stop()
+	_hand.visible = false
+	_free_pose = hands_free
+	_rig.set_hands_free(hands_free)
+	if _dead:
+		_rig.play("die")
+		_rig.to_end()
+	elif _rig.has_animation(anim):
+		_rig.play(anim)
+	else:
+		_rig.play(_base())
+	_gun_node.visible = not hands_free
+	_gun_sprite.visible = not hands_free
+	_apply_gun()
+
+
+func _drop_rig() -> void:
+	if _rig == null:
+		return
+	_rig.front.queue_free()
+	_rig.queue_free()
+	_flip.remove_child(_rig.front)
+	_flip.remove_child(_rig)
+	_rig = null
+	_rig_id = ""
+	_sprite.visible = true
+	_hand.visible = true
+	_gun_node.transform = Transform2D.IDENTITY
+
+
+## The cutout rig drawing the character (null: the frames).
+func rig() -> Node2D:
+	return _rig
 
 
 ## The gun held: kind (Art.GUN_KINDS) and tier (Art.GUN_TIERS; a missing one falls back to the
@@ -168,9 +244,12 @@ func muzzle_position() -> Vector2:
 	return _gun_node.global_transform * _flash.position
 
 
-## Places the gun at the current frame's anchor.
+## Places the gun at the current frame's anchor (the rig: turns the gun arm to the aim).
 func _update_gun() -> void:
 	if not is_node_ready() or _gun.is_empty():
+		return
+	if _rig != null:
+		_rig.set_aim(_aim_up if _aiming and not _dead else 0.0)
 		return
 	var a := Art.gun_anchor(character_id, str(_sprite.animation), _sprite.frame)
 	_gun_node.position = a["grip"] - Art.FRAME_PIVOT
@@ -188,12 +267,14 @@ func _update_gun() -> void:
 
 ## Plays an animation by name (idle, walk, shoot, hurt, die).
 func play(anim: String) -> void:
-	if _sprite.sprite_frames.has_animation(anim):
+	if _rig != null:
+		_rig.play(anim)
+	elif _sprite.sprite_frames.has_animation(anim):
 		_sprite.play(anim)
 
 
 func animation() -> String:
-	return _sprite.animation
+	return _rig.animation() if _rig != null else str(_sprite.animation)
 
 
 ## dir > 0 faces right, < 0 left, 0 keeps the facing.
@@ -207,7 +288,7 @@ func set_walking(on: bool) -> void:
 	if on == _walking:
 		return
 	_walking = on
-	if _sprite.animation in ["idle", "walk"]:
+	if animation() in ["idle", "walk"]:
 		play(_base())
 
 
@@ -252,5 +333,10 @@ func _base() -> String:
 
 
 func _on_animation_finished() -> void:
-	if _sprite.animation != "die":
+	if _rig == null and _sprite.animation != "die":
+		play(_base())
+
+
+func _on_rig_finished(anim: String) -> void:
+	if anim != "die" and not _dead:
 		play(_base())

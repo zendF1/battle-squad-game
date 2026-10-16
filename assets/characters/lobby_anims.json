@@ -1,0 +1,19 @@
+{
+	"_doc": "Lobby (front-view) rig animations shared by every character (scenes/character/rig.gd, assets/README.md). Per animation: length (s), loop, tracks: bone -> {t: key times, rot: degrees added to the rest rotation (+ clockwise), x / y: part px added to the rest position (in the parent's space), sx / sy: scale}; '_flash' -> {t, v}: the muzzle flash 0..1. A character's rig.json may add or override an animation by name. Keep the motion small: the parts are drawn 1:1, and every rotation or sub-pixel move resamples them.",
+	"idle": {"length": 2.4, "loop": true, "tracks": {
+		"torso": {"t": [0, 1.2, 2.4], "y": [0, -2.5, 0]},
+		"head": {"t": [0, 1.3, 2.4], "y": [0, -3, 0], "rot": [0, 1, 0]},
+		"arm_gun_upper": {"t": [0, 1.2, 2.4], "rot": [0, -1, 0]},
+		"arm_back_upper": {"t": [0, 1.2, 2.4], "rot": [0, 1.5, 0]},
+		"backpack": {"t": [0, 1.2, 2.4], "y": [0, -1.5, 0]}
+	}},
+	"idle_free": {"length": 2.4, "loop": true, "tracks": {
+		"torso": {"t": [0, 1.2, 2.4], "y": [0, -2.5, 0]},
+		"head": {"t": [0, 1.3, 2.4], "y": [0, -3, 0], "rot": [0, 1, 0]},
+		"arm_free_upper": {"t": [0, 1.2, 2.4], "rot": [0, -1.5, 0]},
+		"arm_free_fore": {"t": [0, 1.3, 2.4], "rot": [0, -1.5, 0]},
+		"arm_back_upper": {"t": [0, 1.2, 2.4], "rot": [0, 1.5, 0]},
+		"arm_back_fore": {"t": [0, 1.3, 2.4], "rot": [0, 1.5, 0]},
+		"backpack": {"t": [0, 1.2, 2.4], "y": [0, -1.5, 0]}
+	}}
+}

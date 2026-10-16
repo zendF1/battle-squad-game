@@ -5,7 +5,7 @@ code (`tools/art/*.gd`) and baked by `tools/bake_art.gd`. `ui/art.gd` is the one
 ids to these paths; a missing file never crashes (a character falls back to rookie, an icon to
 `icons/unknown.png`, anything else to a small grey square, with a warning).
 
-Total about 3.6 MB of PNG.
+Total about 4.1 MB of PNG (the lobby rigs about 0.5 MB of it).
 
 ## Replacing art
 
@@ -13,7 +13,10 @@ Total about 3.6 MB of PNG.
   The editor re-imports it; nothing else changes. A different size works for icons, effects,
   clouds and backgrounds (they are drawn to a fixed on-screen size), but keep character frames on
   the shared canvas below.
-- **Characters**: either overwrite the frame PNGs, or open
+- **Characters (lobby)**: the screens outside the match draw the front-view rig in
+  `characters/<id>/lobby/` (below): re-cut it from a new parts sheet with `tools/cut_sheet.gd` or
+  overwrite its part PNGs.
+- **Characters (match)**: either overwrite the frame PNGs, or open
   `characters/<id>/<id>.tres` (SpriteFrames) in the editor and change frames, counts, speed or
   loop flags. The animation names must stay `idle`, `walk`, `shoot`, `hurt`, `die`. If you change
   the canvas size or pivot, update `FRAME_SIZE` / `FRAME_PIVOT` / `PX_PER_UNIT` in `ui/art.gd`
@@ -69,9 +72,60 @@ equipped weapon.
 `<id>` is `rookie`, `tanko`, `spark`, `flora` (about 13–24 KB per frame). **Every frame**: canvas
 512x400, transparent, **feet at pixel (256, 360)** (bottom centre, the same pixel in every frame),
 facing right, drawn at 1.6 px per art unit (the character is about 150 units = 240 px tall).
-The game flips it for facing left. Used by the lobby stage and the Prep panel
-(`ui/character_view.gd`, about 2.5 and 1.5 px per unit) and the match (`match/views/player_view.gd`,
+The game flips it for facing left. The fallback of the lobby stage and the Prep panel
+(`ui/character_view.gd`, about 2.5 and 1.5 px per unit; they draw the lobby rig below) and the match (`match/views/player_view.gd`,
 0.35 px per unit, about 52 px tall, feet on the server position).
+
+### characters/<id>/lobby/ (the lobby rig: `scenes/character/rig.gd`, loaded by `ui/art.gd` `rig()`)
+
+Outside the match (lobby stage, Prep, Nhân vật: `ui/character_view.gd` turns `lobby_rig` on) a
+character is a **front-view cutout rig** built from its AI-made parts sheet
+(`art_source/characters/<id>/<id>_parts_v2.png`, 2400x1792, white background). The match keeps the
+side-view frames above. A character without `lobby/rig.json` (or with a part missing) falls back
+to the frames.
+
+| File | Notes |
+|---|---|
+| `<id>/lobby/parts/<part>.png` | one picture per body part, transparent, cut by `tools/cut_sheet.gd` (about 5–25 KB each, 11–12 per character, about 0.5 MB in all) |
+| `<id>/lobby/rig.json` | the bones (below) |
+| `lobby_anims.json` | the animations every lobby rig plays (below) |
+
+Parts: `head`, `torso`, `hips` (belt and the top of the legs), `thigh_back` / `thigh_front`,
+`shin_back` / `shin_front` (with the boots), `arm_back_upper` / `arm_back_fore` (relaxed hand),
+`arm_gun_upper` / `arm_gun_fore` (the gripping fist that holds the gun), optionally
+`arm_free_upper` / `arm_free_fore` (a second relaxed arm; otherwise the back arm's pictures are used
+mirrored) and accessories (`backpack`). "back" is the arm / leg on the far side (drawn behind),
+"front" the near one; the character faces +x (the game mirrors it for facing left).
+
+**rig.json**: `scale` (part px → character px; 0.64 draws the parts 1:1 on the 1600x900 lobby
+stage, which shows a character at 1.5625 character px per px), `bones` (one per line):
+`name`, `parent` (the root has none; its origin is the feet), `part` (picture name, none for
+the root), `pivot` [x, y] (the joint, px in this part's picture), `at` [x, y] (where the joint
+sits on the parent's picture, px; for the root's children: px from the feet), `rot` (rest
+rotation, degrees, + clockwise, around the pivot), `z` (draw order, low first), `flip` (mirror
+the picture), `shade` (0..1 darkening, e.g. 0.85 for the far arm), `set` (`gun`: shown only
+while holding the gun, `free`: only with the hands free). `gun`: `bone` (the gripping hand),
+`at` (the grip point on its picture), `angle` (degrees: the gun's angle to that picture, so the
+held gun is level at rest), `z` (drawn between the parts below and above this number). The
+equipped gun (`weapons/`) is drawn at that grip, between the back and front parts.
+
+**lobby_anims.json**: per animation `length` (s), `loop`, `tracks`: bone → `t` (key times) and
+`rot` (degrees added to the rest rotation), `x` / `y` (px added to the rest position), `sx` / `sy`
+(scale), one value per key; `_flash` → `t`, `v` (muzzle flash 0..1). `idle` (holding the gun:
+Prep, Nhân vật) and `idle_free` (hands free: the lobby stage) breathe, bob the head and sway the
+arms slightly. A rig.json may add or override an animation in its own `anims`. Keep motion small:
+the parts are drawn 1:1, every rotation and sub-pixel move resamples them. The same format can
+carry a side-view rig later (with walk / shoot / hurt / die).
+
+**Swapping in a better sheet**: put it in `art_source/characters/<id>/`, edit
+`art_source/characters/<id>/parts.json` (`sheet`, then per part its `rect` [x, y, w, h] in sheet px
+— loose is fine —, a `seed` point on the part, `clip` (a convex polygon to split joined pieces,
+with `feather` px of soft edge) and `holes` (enclosed whites to clear, e.g. a fist's hole), and
+`scale` so the character comes out about 375 px tall), then run
+`$GODOT --headless --path . -s tools/cut_sheet.gd -- <id>` and let the editor import the PNGs.
+If the parts keep their layout, rig.json still fits; otherwise move the `pivot` / `at` points
+(px in the new pictures). Or drop new PNGs with the same names into `<id>/lobby/parts/` and fix
+the pivots. A part not imported yet is read straight from its PNG.
 
 ### weapons/ (the held guns: `scenes/character/character.gd` Flip/Gun, paths in `ui/art.gd`)
 

@@ -1,0 +1,22 @@
+{
+	"parts": "parts",
+	"scale": 0.64,
+	"bones": [
+		{"name": "root"},
+		{"name": "backpack", "parent": "torso", "part": "backpack", "at": [4.5, 33.3], "pivot": [25.2, 51.8], "z": 0, "shade": 0.9},
+		{"name": "arm_back_upper", "parent": "torso", "part": "arm_back_upper", "at": [10.1, 29.1], "pivot": [38.6, 12.6], "z": 1, "rot": -8, "shade": 0.85},
+		{"name": "arm_back_fore", "parent": "arm_back_upper", "part": "arm_back_fore", "at": [13.4, 50.4], "pivot": [19.9, 10.4], "z": 2, "shade": 0.85},
+		{"name": "shin_back", "parent": "thigh_back", "part": "shin_back", "at": [15.7, 55.4], "pivot": [30.0, 6.2], "z": 3},
+		{"name": "thigh_back", "parent": "hips", "part": "thigh_back", "at": [24.1, 50.1], "pivot": [24.1, 9.2], "z": 4},
+		{"name": "shin_front", "parent": "thigh_front", "part": "shin_front", "at": [29.4, 56.0], "pivot": [2.0, 7.3], "z": 5},
+		{"name": "thigh_front", "parent": "hips", "part": "thigh_front", "at": [71.7, 44.5], "pivot": [26.6, 9.2], "z": 6},
+		{"name": "hips", "parent": "root", "part": "hips", "at": [0.0, -143.9], "pivot": [63.3, 27.7], "z": 7},
+		{"name": "torso", "parent": "hips", "part": "torso", "at": [63.3, 4.8], "pivot": [40.9, 103.3], "z": 8},
+		{"name": "head", "parent": "torso", "part": "head", "at": [42.3, -0.3], "pivot": [60.8, 104.7], "z": 9},
+		{"name": "arm_free_upper", "parent": "torso", "part": "arm_free_upper", "at": [78.7, 29.1], "pivot": [14.0, 16.5], "z": 10, "flip": true, "rot": 26, "set": "free"},
+		{"name": "arm_free_fore", "parent": "arm_free_upper", "part": "arm_free_fore", "at": [46.2, 54.3], "pivot": [16.5, 15.7], "z": 11, "rot": -4, "set": "free"},
+		{"name": "arm_gun_upper", "parent": "torso", "part": "arm_gun_upper", "at": [78.7, 29.1], "pivot": [13.2, 17.1], "z": 13, "rot": 55, "set": "gun"},
+		{"name": "arm_gun_fore", "parent": "arm_gun_upper", "part": "arm_gun_fore", "at": [42.6, 54.9], "pivot": [9.0, 22.4], "z": 14, "rot": -55, "set": "gun"}
+	],
+	"gun": {"bone": "arm_gun_fore", "at": [78.4, 26.6], "angle": 0, "z": 12}
+}

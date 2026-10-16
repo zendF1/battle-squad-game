@@ -6,7 +6,8 @@ extends Control
 ## owned pieces reload after an equip / unequip / move, and a character not owned (or with no
 ## weapon) holds its basic gun. hands_free: no gun in hand (the lobby stage shows the gun on its
 ## own under the pedestal), the free pose instead. Used by the lobby stage, the Nhân vật page and
-## the Prep panel.
+## the Prep panel: the character's lobby (front-view) rig when it has one (scenes/character
+## lobby_rig), drawn 1:1 on the 375x400 stage.
 
 const Art := preload("res://ui/art.gd")
 const CharacterScene := preload("res://scenes/character/character.tscn")
@@ -46,6 +47,7 @@ func _ready() -> void:
 	_character = CharacterScene.instantiate()
 	_character.character_id = character_id
 	_character.hands_free = hands_free
+	_character.lobby_rig = true
 	add_child(_character)
 	set_process(idle)
 	resized.connect(_layout)

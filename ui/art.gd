@@ -34,6 +34,15 @@ const PORTRAIT_SIZE := Vector2i(128, 128)
 const SHADOW := ROOT + "characters/shadow.png"
 ## The hand drawn over the gun's grip (centred on the grip), shared by every character.
 const HAND := ROOT + "characters/hand.png"
+## The screens outside the match (lobby stage, Prep, Nhân vật) draw a character with
+## <id>/lobby/rig.json as its front-view cutout rig (scenes/character/rig.gd): part pictures in
+## <id>/lobby/parts/<part>.png on bones, animated by the shared LOBBY_ANIMS (a rig.json may add
+## or override one). rig() falls back to {} (the frames above) when the rig or a part is missing.
+## The match keeps the side-view frames.
+const RIG_VIEW := "lobby"
+const LOBBY_ANIMS := ROOT + "characters/lobby_anims.json"
+## The animations a lobby rig needs (idle: holding the gun; idle_free: hands free).
+const RIG_ANIM_NAMES := ["idle", "idle_free"]
 
 # ── Guns (assets/weapons/) ──────────────────────────────────────────────────
 
@@ -159,6 +168,7 @@ static var _anchors := {} # character id -> {anim: [anchor...]}
 static var _placeholder: Texture2D
 static var _empty_frames: SpriteFrames
 static var _free_frames := {} # character id -> SpriteFrames
+static var _rigs := {} # character id -> rig() data ({} = no rig)
 
 
 ## The id, or DEFAULT_CHARACTER for an unknown or missing one (e.g. a bot without one).
@@ -176,6 +186,14 @@ static func frames_path(id: String) -> String:
 
 static func portrait_path(id: String) -> String:
 	return ROOT + "characters/%s/portrait.png" % id
+
+
+static func rig_path(id: String) -> String:
+	return ROOT + "characters/%s/%s/rig.json" % [id, RIG_VIEW]
+
+
+static func rig_part_path(id: String, part: String) -> String:
+	return ROOT + "characters/%s/%s/parts/%s.png" % [id, RIG_VIEW, part]
 
 
 static func gun_path(kind: String, tier: String) -> String:
@@ -224,7 +242,7 @@ static func ui_path(box_name: String) -> String:
 
 ## Every file this script names (the test checks they all exist).
 static func all_paths() -> Array[String]:
-	var out: Array[String] = [SHADOW, HAND, GUNS_DATA]
+	var out: Array[String] = [SHADOW, HAND, GUNS_DATA, LOBBY_ANIMS]
 	for id in CHARACTERS:
 		out.append(frames_path(id))
 		out.append(portrait_path(id))
@@ -234,6 +252,7 @@ static func all_paths() -> Array[String]:
 				out.append(frame_path(id, anim, i))
 		for i in int(ANIMS["idle"]["frames"]):
 			out.append(frame_path(id, FREE_POSE, i))
+		out.append_array(rig_paths(id))
 	for icon_name in ICONS:
 		out.append(icon_path(icon_name))
 	for d in [ENV, TERRAIN, FX]:
@@ -426,6 +445,105 @@ static func free_frames(id: String) -> SpriteFrames:
 	if f != null:
 		_free_frames[id] = f # a missing frame is looked up again next time (imported meanwhile)
 	return f
+
+
+# ── Cutout rigs ─────────────────────────────────────────────────────────────
+
+## rig.json and every part picture it names ([] without a rig.json).
+static func rig_paths(id: String) -> Array[String]:
+	var out: Array[String] = []
+	var path := rig_path(id)
+	if not FileAccess.file_exists(path):
+		return out
+	out.append(path)
+	var data := _load_json(path)
+	var parts := {}
+	for b in data.get("bones", []):
+		if b is Dictionary and b.has("part"):
+			parts[str(b["part"])] = true
+	for part in parts:
+		out.append(rig_part_path(id, part))
+	return out
+
+
+## A character's lobby rig: {scale (part px → character px), bones: [{name, parent, part, at, pivot
+## (Vector2 part px), rot, z, flip, shade, set}], gun: {bone, at, angle, z}, textures: {part:
+## Texture2D}, anims: {name: spec}}, or {} when it has no rig.json, the file is broken or a part
+## picture is missing (the character then uses its frames). A part not imported yet is read
+## straight from its PNG.
+static func rig(id: String) -> Dictionary:
+	id = known_character(id)
+	if _rigs.has(id):
+		return _rigs[id]
+	var out := _parse_rig(id)
+	_rigs[id] = out
+	return out
+
+
+static func _parse_rig(id: String) -> Dictionary:
+	var path := rig_path(id)
+	if not FileAccess.file_exists(path):
+		return {}
+	var data := _load_json(path)
+	if not data.get("bones") is Array or not data.get("gun") is Dictionary or float(data.get("scale", 0.0)) <= 0.0:
+		push_warning("art: %s is not a rig, using the frames" % path)
+		return {}
+	var names := {}
+	for b in data["bones"]:
+		if b is Dictionary and b.has("name"):
+			names[str(b["name"])] = true
+	var bones: Array = []
+	var textures := {}
+	for b in data["bones"]:
+		if not b is Dictionary or not b.has("name") or (b.has("parent") and not names.has(str(b["parent"]))):
+			push_warning("art: %s has a bad bone %s, using the frames" % [path, str(b)])
+			return {}
+		var e := {"name": str(b["name"]), "parent": str(b.get("parent", "")), "at": _vec2(b.get("at", [])),
+			"pivot": _vec2(b.get("pivot", [])), "rot": float(b.get("rot", 0.0)), "z": int(b.get("z", 0)),
+			"flip": bool(b.get("flip", false)), "shade": float(b.get("shade", 1.0)), "set": str(b.get("set", ""))}
+		if b.has("part"):
+			var part := str(b["part"])
+			if not textures.has(part):
+				var t := _rig_texture(rig_part_path(id, part))
+				if t == null:
+					return {}
+				textures[part] = t
+			e["part"] = part
+		bones.append(e)
+	var g: Dictionary = data["gun"]
+	if not names.has(str(g.get("bone", ""))):
+		push_warning("art: %s gun bone missing, using the frames" % path)
+		return {}
+	var anims: Dictionary = _load_json(LOBBY_ANIMS).duplicate()
+	anims.erase("_doc")
+	if data.get("anims") is Dictionary:
+		anims.merge(data["anims"], true)
+	for anim in RIG_ANIM_NAMES:
+		if not anims.get(anim) is Dictionary:
+			push_warning("art: rig animation %s missing, using the frames" % anim)
+			return {}
+	return {"scale": float(data["scale"]), "bones": bones, "textures": textures, "anims": anims,
+		"gun": {"bone": str(g["bone"]), "at": _vec2(g.get("at", [])), "angle": float(g.get("angle", 0.0)), "z": int(g.get("z", 0))}}
+
+
+## A part picture: the imported texture, else the PNG itself, else null.
+static func _rig_texture(path: String) -> Texture2D:
+	var cached: Texture2D = _textures.get(path)
+	if cached != null:
+		return cached
+	if ResourceLoader.exists(path):
+		var t = load(path)
+		if t is Texture2D:
+			_textures[path] = t
+			return t
+	if FileAccess.file_exists(path):
+		var img := Image.load_from_file(ProjectSettings.globalize_path(path))
+		if img != null and not img.is_empty():
+			var t := ImageTexture.create_from_image(img)
+			_textures[path] = t
+			return t
+	_warn(path)
+	return null
 
 
 # ── Guns ────────────────────────────────────────────────────────────────────
