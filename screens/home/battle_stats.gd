@@ -3,7 +3,10 @@ extends RefCounted
 ## (`stats` per owned character: totals plus `base` / `fromPoints` / `fromEquipment`;
 ## `baseStats` for every character; `statMultipliers` per point) as display rows, and the
 ## preview of a pending stat draft. Data from an older server without these fields parses as
-## {} and the table stays hidden.
+## {} and the table stays hidden. Equipment adds stat points (`equipmentPoints`) converted with
+## the same statMultipliers; `fromEquipment` is the converted part.
+
+const Fmt := preload("res://core/fmt.gd")
 
 ## key: the stats field; point: the StatDraft / statMultipliers key whose points raise it;
 ## unit: "" a plain number, "+" a flat bonus, "%" a percent bonus.
@@ -59,14 +62,14 @@ static func multipliers(data: Variant) -> Dictionary:
 	return out
 
 
-## 200 → "200"; damage 10 → "+10"; skill power 15 → "+15%".
+## 1200 → "1.200"; damage 10 → "+10"; skill power 15 → "+15%".
 static func format(value: int, unit: String) -> String:
 	match unit:
 		"+":
-			return "%+d" % value
+			return ("+" if value >= 0 else "-") + Fmt.thousands(absi(value))
 		"%":
 			return "%+d%%" % value
-	return str(value)
+	return Fmt.thousands(value)
 
 
 ## 2.25 → "2.3%", 3.0 → "3%".
@@ -84,8 +87,9 @@ static func preview_value(total: int, points: int, per_point: int) -> int:
 
 ## Display rows in ROWS order: {key, point, label, value, preview, detail}. preview is
 ## "→ <new value>" while `pending` (point key -> points) has points for that stat and `mult` is
-## known, else "". detail is "(gốc X, điểm +Y, trang bị +Z)" without the zero parts, and ""
-## when neither points nor equipment add to it; damage starts with the weapon damage instead.
+## known, else "". detail is "(gốc X, điểm +Y, trang bị +Z từ N điểm)" without the zero parts
+## (N: the equipment points, when the server sends equipmentPoints), and "" when neither points
+## nor equipment add to it; damage starts with the weapon damage instead.
 static func rows(stats: Dictionary, pending: Dictionary = {}, mult: Dictionary = {}) -> Array:
 	var out := []
 	if stats.is_empty():
@@ -93,6 +97,7 @@ static func rows(stats: Dictionary, pending: Dictionary = {}, mult: Dictionary =
 	var base = stats.get("base")
 	var fp = stats.get("fromPoints")
 	var fe = stats.get("fromEquipment")
+	var ep = stats.get("equipmentPoints")
 	for r in ROWS:
 		var key: String = r["key"]
 		var unit: String = r["unit"]
@@ -111,7 +116,10 @@ static func rows(stats: Dictionary, pending: Dictionary = {}, mult: Dictionary =
 		if from_points != 0:
 			parts.append("điểm " + format(from_points, "+" if unit == "" else unit))
 		if from_equip != 0:
-			parts.append("trang bị " + format(from_equip, "+" if unit == "" else unit))
+			var part := "trang bị " + format(from_equip, "+" if unit == "" else unit)
+			if ep is Dictionary and _is_num(ep.get(r["point"])) and int(ep[r["point"]]) != 0:
+				part += " từ %s điểm" % Fmt.thousands(int(ep[r["point"]]))
+			parts.append(part)
 		out.append({"key": key, "point": r["point"], "label": r["label"], "value": format(total, unit), "preview": preview,
 			"detail": "(%s)" % ", ".join(parts) if not parts.is_empty() else ""})
 	return out
@@ -137,4 +145,4 @@ static func card_line(stats: Dictionary) -> String:
 	var dmg := int(stats["damageBonus"])
 	if _is_num(stats.get("weaponDamage")):
 		dmg += int(stats["weaponDamage"])
-	return "Máu %d · Sát thương %d" % [int(stats["maxHp"]), dmg]
+	return "Máu %s · Sát thương %s" % [Fmt.thousands(int(stats["maxHp"])), Fmt.thousands(dmg)]

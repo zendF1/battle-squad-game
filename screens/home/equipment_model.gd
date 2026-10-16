@@ -10,6 +10,11 @@ extends RefCounted
 ## upgradeLevel, isEquipped, equippedOn? (characterId), ...}. Stats shown are the item's base
 ## stats; the upgrade bonus (×(1+0.02×level) and milestones) is applied by the server and only
 ## shown as the "+N" badge.
+##
+## Item stats are stat points, like the points a character allocates: each becomes battle stats
+## through the GET /player/characters statMultipliers (hp → Máu, damage → Sát thương, defense →
+## Phòng thủ, mobility → Di chuyển), so lines read "Máu +20 điểm (+1.000)". Crit is a percent
+## with no multiplier. Without the multipliers (characters not loaded yet) lines show points only.
 
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
@@ -38,13 +43,14 @@ const TYPE_WORDS := {
 ## The gun each character fires (its weapons' icon); generic and crafted weapons are blasters ("").
 const WEAPON_KINDS := {"rookie": "bazooka", "tanko": "cannon", "spark": "rifle", "flora": "launcher"}
 const KIND_OF_TYPE := {"bazooka": "bazooka", "cannon": "cannon", "shock rifle": "rifle", "seed launcher": "launcher"}
-## key: the catalog field; unit "%" for the crit chance.
+## key: the catalog field; point: the statMultipliers / stats.equipmentPoints key ("" for crit);
+## unit "%" for the crit chance; total: the stats.fromEquipment field.
 const STATS := [
-	{"key": "statHp", "label": "Máu", "unit": ""},
-	{"key": "statDamage", "label": "Sát thương", "unit": ""},
-	{"key": "statDefense", "label": "Phòng thủ", "unit": ""},
-	{"key": "statCrit", "label": "Chí mạng", "unit": "%"},
-	{"key": "statMoveEnergy", "label": "Di chuyển", "unit": ""},
+	{"key": "statHp", "label": "Máu", "unit": "", "point": "hp", "total": "maxHp"},
+	{"key": "statDamage", "label": "Sát thương", "unit": "", "point": "damage", "total": "damageBonus"},
+	{"key": "statDefense", "label": "Phòng thủ", "unit": "", "point": "defense", "total": "defense"},
+	{"key": "statCrit", "label": "Chí mạng", "unit": "%", "point": "", "total": "critChance"},
+	{"key": "statMoveEnergy", "label": "Di chuyển", "unit": "", "point": "mobility", "total": "moveEnergy"},
 ]
 const MINUS := "−"
 
@@ -187,25 +193,50 @@ static func _format(value: float, unit: String, signed: bool) -> String:
 	return prefix + str(int(absf(value)) if signed else int(value))
 
 
-## The item's non-zero stats: [{key, label, value, text: "+8" / "+2%"}].
-static func stat_lines(item: Dictionary) -> Array:
+## 1000 → "+1.000", -55 → "−55".
+static func _signed(n: int) -> String:
+	return ("+" if n >= 0 else MINUS) + Fmt.thousands(absi(n))
+
+
+## What `points` of a stat are in battle (points × its multiplier), or null when the stat has no
+## multiplier (crit) or `mult` (BattleStats.multipliers) does not know it.
+static func converted(points: float, point: String, mult: Dictionary) -> Variant:
+	if point == "" or not mult.has(point):
+		return null
+	return int(points) * int(mult[point])
+
+
+## "+20 điểm (+1.000)", "+20 điểm" without the multiplier, "+2%" for crit.
+static func points_text(points: float, s: Dictionary, mult: Dictionary) -> String:
+	if s["unit"] == "%":
+		return _format(points, "%", true)
+	var t := "%s điểm" % _signed(int(points))
+	var c = converted(points, s["point"], mult)
+	return t if c == null else "%s (%s)" % [t, _signed(c)]
+
+
+## The item's non-zero stats: [{key, label, value (points), battle (points × multiplier, or
+## null), text: "+20 điểm (+1.000)" / "+20 điểm" / "+2%"}]. `mult`: BattleStats.multipliers.
+static func stat_lines(item: Dictionary, mult: Dictionary = {}) -> Array:
 	var out: Array = []
 	for s in STATS:
 		var v := _num(item, s["key"])
 		if v != 0.0:
-			out.append({"key": s["key"], "label": s["label"], "value": v, "text": _format(v, s["unit"], true)})
+			out.append({"key": s["key"], "label": s["label"], "value": v, "battle": converted(v, s["point"], mult),
+				"text": points_text(v, s, mult)})
 	return out
 
 
-## "Máu +30 · Phòng thủ +3"
-static func stat_summary(item: Dictionary) -> String:
-	return " · ".join(stat_lines(item).map(func(l): return "%s %s" % [l["label"], l["text"]]))
+## "Máu +30 điểm (+1.500) · Phòng thủ +3 điểm (+15)"
+static func stat_summary(item: Dictionary, mult: Dictionary = {}) -> String:
+	return " · ".join(stat_lines(item, mult).map(func(l): return "%s %s" % [l["label"], l["text"]]))
 
 
 ## Per-stat change from wearing `candidate` instead of `worn` ({} = the slot is empty), the
-## stats either of them has: [{key, label, delta, text: "+5" / "−3" / "0", tone: "good" |
-## "loss" | ""}].
-static func compare(candidate: Dictionary, worn: Dictionary) -> Array:
+## stats either of them has: [{key, label, delta (points), text, tone: "good" | "loss" | ""}].
+## text is the battle change with the points, "+850 (+17 điểm)" / "−1.000 (−20 điểm)"; "+17
+## điểm" without the multiplier; "+2%" for crit; "0" when equal.
+static func compare(candidate: Dictionary, worn: Dictionary, mult: Dictionary = {}) -> Array:
 	var out: Array = []
 	for s in STATS:
 		var a := _num(candidate, s["key"])
@@ -213,7 +244,15 @@ static func compare(candidate: Dictionary, worn: Dictionary) -> Array:
 		if a == 0.0 and b == 0.0:
 			continue
 		var d := a - b
-		var text := "0" if d == 0.0 else _format(d, s["unit"], true)
+		var text := "0"
+		if d != 0.0:
+			var c = converted(d, s["point"], mult)
+			if s["unit"] == "%":
+				text = _format(d, "%", true)
+			elif c == null:
+				text = "%s điểm" % _signed(int(d))
+			else:
+				text = "%s (%s điểm)" % [_signed(c), _signed(int(d))]
 		out.append({"key": s["key"], "label": s["label"], "delta": d, "text": text,
 			"tone": "good" if d > 0.0 else ("loss" if d < 0.0 else "")})
 	return out
@@ -341,18 +380,28 @@ static func worn_text(piece: Dictionary) -> String:
 	return "Đang mặc · %s" % character_name(who) if who != "" else ""
 
 
-## The equipment part of a character's battle stats (GET /player/characters stats.fromEquipment)
-## as short lines: ["Máu +38", "Sát thương +6", "Chí mạng +2.3%"], zeros left out.
+## The equipment part of a character's battle stats (GET /player/characters stats) as short
+## lines, zeros left out: the points (stats.equipmentPoints) with what they add in battle
+## (stats.fromEquipment), ["Máu +80 điểm (+4.000)", "Sát thương +10 điểm (+50)", "Chí mạng
+## +2%"]; only the battle value ("Máu +4.000") from a server without equipmentPoints.
 static func bonus_lines(stats: Variant) -> Array:
 	var fe = stats.get("fromEquipment") if stats is Dictionary else null
 	var out: Array = []
 	if not fe is Dictionary:
 		return out
-	for pair in [["maxHp", "Máu", ""], ["damageBonus", "Sát thương", ""], ["defense", "Phòng thủ", ""],
-			["critChance", "Chí mạng", "%"], ["moveEnergy", "Di chuyển", ""]]:
-		var v = fe.get(pair[0])
-		if (v is int or v is float) and float(v) != 0.0:
-			out.append("%s %s" % [pair[1], _format(float(v), pair[2], true)])
+	var ep = stats.get("equipmentPoints")
+	for s in STATS:
+		var v = fe.get(s["total"])
+		var battle := float(v) if v is int or v is float else 0.0
+		var p = ep.get(s["point"] if s["point"] != "" else "crit") if ep is Dictionary else null
+		if s["unit"] == "%":
+			if battle != 0.0:
+				out.append("%s %s" % [s["label"], _format(battle, "%", true)])
+		elif p is int or p is float:
+			if float(p) != 0.0:
+				out.append("%s %s điểm (%s)" % [s["label"], _signed(int(p)), _signed(int(battle))])
+		elif battle != 0.0:
+			out.append("%s %s" % [s["label"], _signed(int(battle))])
 	return out
 
 

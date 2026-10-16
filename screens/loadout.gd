@@ -18,6 +18,7 @@ const LoadoutModel := preload("res://screens/loadout_model.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const QuickPlay := preload("res://screens/quick_play.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
+const BattleStats := preload("res://screens/home/battle_stats.gd")
 const SETTINGS_PATH := LoadoutModel.SETTINGS_PATH
 
 const MARGIN := 18
@@ -89,6 +90,7 @@ func _ready() -> void:
 
 	PlayerState.characters_changed.connect(_render_character)
 	PlayerState.equipment_changed.connect(_render_gear)
+	PlayerState.characters_changed.connect(_render_gear) # the stat multipliers of the tooltips
 	PlayerState.need_characters()
 	PlayerState.need_equipment()
 	_render_character()
@@ -221,7 +223,10 @@ func _render_gear() -> void:
 			_gear_frames[slot].texture = Art.equipment_frame("hex_filled")
 			icon.texture = Art.equipment_icon(slot, EquipmentModel.tier(item), EquipmentModel.weapon_kind(item))
 			icon.modulate = Color.WHITE
-			_gear_frames[slot].tooltip_text = "%s %s" % [EquipmentModel.display_name(item), EquipmentModel.level_text(piece)]
+			# "Bazooka Sắt +3" over "Sát thương +8 điểm (+40)" (points only until the characters load).
+			var tip := "%s %s" % [EquipmentModel.display_name(item), EquipmentModel.level_text(piece)]
+			var stats := EquipmentModel.stat_summary(item, BattleStats.multipliers(PlayerState.characters))
+			_gear_frames[slot].tooltip_text = tip + ("\n" + stats if stats != "" else "")
 
 
 static func _centered(parent: Control, font_size: int, color: Color, heavy: bool = false) -> Label:

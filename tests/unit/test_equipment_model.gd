@@ -27,6 +27,8 @@ const CATALOG := {
 	"upgradeRates": [{"fromLevel": 0, "toLevel": 1}],
 }
 
+const MULT := {"hp": 50, "damage": 5, "mobility": 3, "defense": 5, "skillPower": 5, "terrainDamage": 3}
+
 const CHARS := {"characters": [
 	{"characterId": "rookie", "level": 15},
 	{"characterId": "tanko", "level": 40},
@@ -112,24 +114,32 @@ func test_display_names_and_tiers() -> void:
 
 func test_stat_lines() -> void:
 	var c = M.parse_catalog(CATALOG)
-	var lines := M.stat_lines(M.item_of(c, "normal_weapon_lv30"))
-	eq(lines.map(func(l): return [l["label"], l["text"]]), [["Sát thương", "+25"], ["Chí mạng", "+2%"]], "non-zero stats")
-	eq(M.stat_summary(M.item_of(c, "normal_armor_lv40")), "Máu +150 · Phòng thủ +15", "summary")
+	var lines := M.stat_lines(M.item_of(c, "normal_weapon_lv30"), MULT)
+	eq(lines.map(func(l): return [l["label"], l["text"]]), [["Sát thương", "+25 điểm (+125)"], ["Chí mạng", "+2%"]], "non-zero stats")
+	eq(lines.map(func(l): return [l["value"], l["battle"]]), [[25.0, 125], [2.0, null]], "points and battle values; crit has no multiplier")
+	# Iron Cap: +20 HP points = 20 × 50 HP.
+	eq(M.stat_summary(M.item_of(c, "normal_helmet_lv10"), MULT), "Máu +20 điểm (+1.000) · Phòng thủ +2 điểm (+10)", "points and converted")
+	eq(M.stat_summary(M.item_of(c, "normal_boots_lv20"), MULT), "Máu +20 điểm (+1.000) · Phòng thủ +2 điểm (+10) · Di chuyển +10 điểm (+30)", "move energy × mobility")
+	eq(M.stat_summary(M.item_of(c, "normal_armor_lv40")), "Máu +150 điểm · Phòng thủ +15 điểm", "points only before the multipliers load")
 	eq(M.stat_lines({}), [], "none")
-	eq(M.stat_lines({"statCrit": 2.5})[0]["text"], "+2.5%", "fractional crit")
+	eq(M.stat_lines({"statCrit": 2.5}, MULT)[0]["text"], "+2.5%", "fractional crit")
 
 
 func test_compare() -> void:
 	var c = M.parse_catalog(CATALOG)
 	var iron := M.item_of(c, "normal_weapon_lv10")
 	var mithril := M.item_of(c, "normal_weapon_lv30")
-	var up := M.compare(mithril, iron)
-	eq(up.map(func(d): return [d["label"], d["text"], d["tone"]]), [["Sát thương", "+17", "good"], ["Chí mạng", "+2%", "good"]], "upgrade")
-	var down := M.compare(iron, mithril)
-	eq(down.map(func(d): return [d["text"], d["tone"]]), [["−17", "loss"], ["−2%", "loss"]], "downgrade")
-	var empty := M.compare(iron, {})
-	eq(empty.map(func(d): return d["text"]), ["+8"], "empty slot")
-	eq(M.compare(iron, iron).map(func(d): return [d["text"], d["tone"]]), [["0", ""]], "same piece")
+	var up := M.compare(mithril, iron, MULT)
+	eq(up.map(func(d): return [d["label"], d["text"], d["tone"]]), [["Sát thương", "+85 (+17 điểm)", "good"], ["Chí mạng", "+2%", "good"]], "upgrade")
+	eq(up[0]["delta"], 17.0, "delta in points")
+	var down := M.compare(iron, mithril, MULT)
+	eq(down.map(func(d): return [d["text"], d["tone"]]), [["−85 (−17 điểm)", "loss"], ["−2%", "loss"]], "downgrade")
+	var armor := M.compare({}, M.item_of(c, "normal_armor_lv40"), MULT)
+	eq(armor.map(func(d): return d["text"]), ["−7.500 (−150 điểm)", "−75 (−15 điểm)"], "thousands separator")
+	var empty := M.compare(iron, {}, MULT)
+	eq(empty.map(func(d): return d["text"]), ["+40 (+8 điểm)"], "empty slot")
+	eq(M.compare(mithril, iron).map(func(d): return d["text"]), ["+17 điểm", "+2%"], "points only before the multipliers load")
+	eq(M.compare(iron, iron, MULT).map(func(d): return [d["text"], d["tone"]]), [["0", ""]], "same piece")
 
 
 func test_wearer_and_worn() -> void:
@@ -205,7 +215,10 @@ func test_item_of_piece_fallback() -> void:
 
 
 func test_bonus_lines() -> void:
-	var stats := {"fromEquipment": {"maxHp": 38, "defense": 6, "damageBonus": 6, "moveEnergy": 0, "critChance": 2.25}}
-	eq(M.bonus_lines(stats), ["Máu +38", "Sát thương +6", "Phòng thủ +6", "Chí mạng +2.3%"], "lines")
+	var stats := {"fromEquipment": {"maxHp": 4000, "defense": 40, "damageBonus": 50, "moveEnergy": 0, "critChance": 2.25},
+		"equipmentPoints": {"hp": 80, "damage": 10, "defense": 8, "mobility": 0, "crit": 2.25}}
+	eq(M.bonus_lines(stats), ["Máu +80 điểm (+4.000)", "Sát thương +10 điểm (+50)", "Phòng thủ +8 điểm (+40)", "Chí mạng +2.3%"], "points and battle values")
+	stats.erase("equipmentPoints")
+	eq(M.bonus_lines(stats), ["Máu +4.000", "Sát thương +50", "Phòng thủ +40", "Chí mạng +2.3%"], "older server: battle values only")
 	eq(M.bonus_lines({"fromEquipment": {"maxHp": 0}}), [], "nothing worn")
 	eq(M.bonus_lines(null), [], "no stats")

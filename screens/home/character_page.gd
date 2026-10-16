@@ -445,7 +445,7 @@ func _row(piece: Dictionary, worn: Dictionary) -> Control:
 	right.mouse_filter = MOUSE_FILTER_IGNORE
 	row.add_child(right)
 	if mine:
-		var stats := LobbyUi.text(EquipmentModel.stat_summary(item), 19, Color.WHITE)
+		var stats := LobbyUi.text(EquipmentModel.stat_summary(item, EquipmentUi.multipliers()), 19, Color.WHITE)
 		stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		stats.mouse_filter = MOUSE_FILTER_IGNORE

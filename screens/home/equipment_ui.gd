@@ -10,6 +10,7 @@ const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Art := preload("res://ui/art.gd")
 const Modal := preload("res://ui/modal.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
+const BattleStats := preload("res://screens/home/battle_stats.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 
 const GOOD := Color(0.45, 0.9, 0.55)
@@ -86,9 +87,15 @@ static func select_chip(chips: Array[Button], slot: String) -> void:
 	Ui.select_tab(chips, 0 if slot == "" else EquipmentModel.SLOTS.find(slot) + 1)
 
 
-## Stat lines of an item, one Label each ("Máu +30"), added to parent.
+## The per-point stat values (GET /player/characters statMultipliers), {} until the characters
+## load: item stats are points, shown with what they add in battle once these are known.
+static func multipliers() -> Dictionary:
+	return BattleStats.multipliers(PlayerState.characters)
+
+
+## Stat lines of an item, one Label each ("Máu" "+30 điểm (+1.500)"), added to parent.
 static func add_stat_lines(parent: Control, item: Dictionary, font_size: int = 20) -> void:
-	for l in EquipmentModel.stat_lines(item):
+	for l in EquipmentModel.stat_lines(item, multipliers()):
 		var row := Ui.hbox(8)
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var k := LobbyUi.text(l["label"], font_size, Color(0.8, 0.88, 1.0))
@@ -101,14 +108,14 @@ static func add_stat_lines(parent: Control, item: Dictionary, font_size: int = 2
 		parent.add_child(row)
 
 
-## Delta lines ("Sát thương +17" green, "Máu −20" red) of wearing `item` instead of `worn`,
-## in one wrapping row; returns the row (empty when nothing changes).
+## Delta lines ("Sát thương +85 (+17 điểm)" green, "Máu −1.000 (−20 điểm)" red) of wearing
+## `item` instead of `worn`, in one wrapping row; returns the row (empty when nothing changes).
 static func delta_row(item: Dictionary, worn: Dictionary, font_size: int = 19) -> HFlowContainer:
 	var flow := HFlowContainer.new()
 	flow.add_theme_constant_override("h_separation", 12)
 	flow.add_theme_constant_override("v_separation", 0)
 	flow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for d in EquipmentModel.compare(item, worn):
+	for d in EquipmentModel.compare(item, worn, multipliers()):
 		if d["tone"] == "":
 			continue
 		var l := LobbyUi.text("%s %s" % [d["label"], d["text"]], font_size, GOOD if d["tone"] == "good" else LOSS, true)
@@ -167,9 +174,11 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 	stats.add_theme_constant_override("v_separation", 2)
 	info.add_child(stats)
 	var deltas := {}
-	for d in EquipmentModel.compare(item, worn_item if worn_other else {}):
+	var mult := multipliers()
+	for d in EquipmentModel.compare(item, worn_item if worn_other else {}, mult):
 		deltas[d["key"]] = d
-	for l in EquipmentModel.stat_lines(item):
+	var lines := EquipmentModel.stat_lines(item, mult)
+	for l in lines:
 		var k := LobbyUi.text(l["label"], 22, Color(0.8, 0.88, 1.0))
 		k.custom_minimum_size.x = 150
 		stats.add_child(k)
@@ -180,7 +189,7 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 		# Stats only the worn piece has are lost.
 		for key in deltas:
 			var d: Dictionary = deltas[key]
-			if EquipmentModel.stat_lines(item).any(func(l): return l["key"] == key):
+			if lines.any(func(l): return l["key"] == key):
 				continue
 			stats.add_child(LobbyUi.text(d["label"], 22, Color(0.8, 0.88, 1.0)))
 			stats.add_child(LobbyUi.text("—", 22, Ui.TEXT_DIM))
@@ -247,7 +256,7 @@ static func _data_version() -> Array:
 static func _delta_label(d: Dictionary) -> Label:
 	if d.is_empty() or d["tone"] == "":
 		return LobbyUi.text("", 20)
-	return LobbyUi.text("(%s)" % d["text"], 20, GOOD if d["tone"] == "good" else LOSS, true)
+	return LobbyUi.text(d["text"], 20, GOOD if d["tone"] == "good" else LOSS, true)
 
 
 ## from_name: who wore the piece before a move (for the half-done message).
