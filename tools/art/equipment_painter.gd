@@ -5,7 +5,8 @@ extends RefCounted
 ## transparent canvas (bright shapes with a dark rounded outline, like tools/art/icon_painter.gd),
 ## a white silhouette per slot for empty slots (tinted in the UI), the hexagon slot frames
 ## (empty, filled, selected) and the dark "+N" badge. tools/bake_art.gd saves them under
-## assets/icons/equipment/ (paths in ui/art.gd).
+## assets/icons/equipment/ (paths in ui/art.gd). The weapon icons are superseded by the imported guns
+## (tools/import_guns.gd): bake_art.gd skips them while assets/weapons/weapons.json has a "source".
 
 const Art := preload("res://ui/art.gd")
 

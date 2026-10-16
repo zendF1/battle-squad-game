@@ -3,7 +3,8 @@ extends RefCounted
 ## per kind × tier, facing right, drawn in art units (the characters' 1.6 px per unit) with the
 ## grip (where the hand holds it) at GRIP_PX of a SIZE canvas. tools/bake_art.gd saves them as
 ## assets/weapons/<kind>/<tier>.png and writes their grip and muzzle points to
-## assets/weapons/weapons.json (paths in ui/art.gd).
+## assets/weapons/weapons.json (paths in ui/art.gd). Superseded by the imported art
+## (tools/import_guns.gd, art_source/weapons/): bake_art.gd skips the guns while weapons.json has a "source".
 ##
 ## Kind = silhouette: bazooka (Rookie), cannon (Tanko), shock_rifle (Spark), seed_launcher
 ## (Flora), blaster (generic and crafted weapons). Tier = look: `basic` in the character's own

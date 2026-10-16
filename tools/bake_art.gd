@@ -8,7 +8,8 @@ extends SceneTree
 ## Groups: characters, weapons, env, terrain, fx, icons, ui, equipment (default: all). It
 ## overwrites the PNGs (and the characters' SpriteFrames .tres and gun_anchors.json, the guns'
 ## weapons.json), prints every file it wrote and quits. A character with a side view
-## (assets/characters/<id>/side/, tools/import_frames.gd) gets only its portrait, no frames. Then import them once
+## (assets/characters/<id>/side/, tools/import_frames.gd) gets only its portrait, no frames; the
+## guns and the weapon icons are not baked while they are imported art (tools/import_guns.gd). Then import them once
 ## (editor, or `$GODOT --headless --path . --import`) so the .import files exist. An existing
 ## .import file is never touched, so import settings changed in the editor survive a re-bake.
 ##
@@ -187,8 +188,12 @@ func _write_text(path: String, text: String) -> void:
 	print("  %s  %.1f KB" % [path, text.length() / 1024.0])
 
 
-## Every gun sprite (Art.GUN_TIERS) and weapons.json with their grip and muzzle points.
+## Every gun sprite (Art.GUN_TIERS) and weapons.json with their grip and muzzle points. Skipped
+## while the guns are imported art (weapons.json has a "source": tools/import_guns.gd).
 func _bake_weapons() -> void:
+	if _guns_imported():
+		print("  weapons: imported art (%s, tools/import_guns.gd): not baked" % Art.guns_data()["source"])
+		return
 	var k := Art.PX_PER_UNIT
 	var guns := {}
 	for kind in Art.GUN_KINDS:
@@ -274,12 +279,24 @@ func _bake_ui() -> void:
 		_save(await _render(size, func(ci: CanvasItem) -> void: UiPainter.paint(ci, box_name, Vector2(size))), Art.ui_path(box_name))
 
 
+## The guns are imported art (tools/import_guns.gd writes weapons.json with a "source"): the
+## weapons group and the weapon equipment icons (weapon_<tier>, weapon_<kind>_<tier>) are not baked.
+func _guns_imported() -> bool:
+	return Art.guns_data().has("source")
+
+
+## The weapon icons are skipped while the guns are imported art (they are cut from it).
 func _bake_equipment() -> void:
+	var guns_imported := _guns_imported()
+	if guns_imported:
+		print("  weapon icons: imported art (tools/import_guns.gd): not baked")
 	for slot in Art.EQUIP_SLOTS:
 		for tier in Art.EQUIP_TIERS:
+			if slot == "weapon" and guns_imported:
+				continue
 			_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint(ci, slot, tier)), Art.equipment_icon_path(slot, tier))
 		_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint_slot(ci, slot)), Art.equipment_slot_path(slot))
-	for kind in Art.EQUIP_WEAPON_KINDS:
+	for kind in Art.EQUIP_WEAPON_KINDS if not guns_imported else []:
 		for tier in Art.EQUIP_KIND_TIERS:
 			_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint(ci, "weapon", tier, kind)), Art.equipment_weapon_path(kind, tier))
 	for frame in Art.EQUIP_FRAMES:

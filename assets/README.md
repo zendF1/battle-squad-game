@@ -26,9 +26,12 @@ Total about 3.8 MB of PNG (the full-body pictures about 0.45 MB of it).
   and the sprite `offset` in `scenes/character/character.tscn` (= -pivot). The frames draw no
   gun: replace a frame **and its entry in `characters/<id>/gun_anchors.json`** together (where
   the hand holds the gun in that frame), and keep one entry per frame.
-- **Guns**: overwrite `weapons/<kind>/<tier>.png` and, when the grip or muzzle moved, its entry
-  in `weapons/weapons.json`. Any canvas size works (the grip pivot places it); draw it at
-  `pxPerUnit` px per art unit (1.6, like the frames) or change `pxPerUnit` (it scales every gun).
+- **Guns**: imported from a hand-made sheet (`art_source/weapons/guns_v1.png`) by
+  `tools/import_guns.gd` (config `art_source/weapons/guns_v1.json`, below): edit the config or the
+  sheet and re-run it. It writes `weapons/<kind>/<tier>.png`, `weapons/weapons.json` and the weapon
+  equipment icons. A hand-replaced gun works too: overwrite the PNG and, when the grip or muzzle
+  moved, its entry in `weapons/weapons.json`. Any canvas size works (the grip pivot places it);
+  `pxPerUnit` (texture px per art unit, every gun) sets the drawn size.
 - **9-patches** (`ui/`): keep the corners inside the texture margins listed below
   (`ui/art.gd` `UI_BOXES`), or change the margins there.
 - Import settings: icons, effects and clouds are imported with mipmaps (they are shown smaller
@@ -47,7 +50,10 @@ Groups: `characters`, `weapons`, `env`, `terrain`, `fx`, `icons`, `ui`, `equipme
 PNGs (and the characters' `.tres` and `gun_anchors.json`, the guns' `weapons.json`), prints each file with
 its size and quits. Then let the editor import them
 (or run `$GODOT --headless --path . --import` while no editor is open). Baking overwrites
-replaced art too: only re-bake the groups you have not replaced.
+replaced art too: only re-bake the groups you have not replaced. Exception: while
+`weapons/weapons.json` has a `"source"` (the guns are imported art, `tools/import_guns.gd`), the
+`weapons` group and the weapon icons of `equipment` (`weapon_<tier>`, `weapon_<kind>_<tier>`) are
+skipped.
 
 ## Files
 
@@ -216,8 +222,19 @@ weapons/
 
 | File | Size | Notes |
 |---|---|---|
-| `<kind>/<tier>.png` | 224x128 (2–13 KB, 29 files) | side view facing right, transparent, drawn at 1.6 px per art unit like the frames; the grip (the hand) at (96, 88). Kind = silhouette, tier = look: `basic` in the character's own gun colours (no weapon equipped), iron/steel/mithril/dragon and silver/gold/titan/diamond in the equipment icons' palettes; mithril, dragon, gold, titan, diamond glow |
-| `weapons.json` | 4 KB | `{"pxPerUnit": 1.6, "guns": {kind: {tier: {"size": [w, h], "grip": [x, y], "muzzle": [x, y]}}}}`, px in the image. `grip` is the pivot (placed on the frame's anchor), `muzzle` is where the flash and the shots start (visual only) |
+| `<kind>/<tier>.png` | bazooka 82x37, cannon 80x45, shock_rifle 75x39, seed_launcher 69x45, blaster 68x36 (4–6 KB, 29 files) | side view facing right, transparent, cut from `art_source/weapons/guns_v1.png` by `tools/import_guns.gd`; one canvas per kind with every tier's grip on the same px. Baked at 2 texture px per match world px (like Rookie's side frames): the iron gun is 38 (bazooka), 37 (cannon), 34 (shock rifle), 32 (seed launcher), 31 (blaster) world px long next to a ~60 px character, its pistol grip about the size of `rookie/side/hand.png`. Kind = silhouette (sheet row), tier = look (sheet column: iron, steel, mithril, dragon); `basic` = iron desaturated (the character's starter gun); the blaster is the shock-rifle row, its crafted tiers palette swaps of the mithril one (silver cool grey-white, gold warm gold, titan dark gunmetal purple, diamond icy white-cyan with sparkles) |
+| `weapons.json` | 4 KB | `{"source": "art_source/weapons/guns_v1.json", "pxPerUnit": 0.7, "guns": {kind: {tier: {"size": [w, h], "grip": [x, y], "muzzle": [x, y]}}}}`, px in the image. `pxPerUnit` = texture px per art unit (the gun is drawn at 1.6 / pxPerUnit character px per texture px: 0.7 = 2 texture px per match world px). `grip` is the pivot (placed on the frame's anchor: the fist's centre on the pistol grip / rear handle), `muzzle` is where the flash starts (the barrel opening, the rocket / barrel tip, the dragon's mouth; visual only). `source` marks imported art (`tools/bake_art.gd` then skips the guns) |
+
+**Importing the gun sheet** (`$GODOT --headless --path . -s tools/import_guns.gd`, ~20 s): per cell of
+`guns_v1.json` (`rect`, `grip`, `muzzle`, `keep`, sheet px) the white background is flood-filled from the
+cell border, enclosed pure-white areas of `holeMinArea`+ px are holes too (the trigger guard's inside, a
+dragon's open mouth) except the ones under `keep` (the rocket's stripes, a screen's line); the edge is
+un-blended from white (no halo). Each tier gets its `recolour` at sheet resolution (`basic`: HSV
+multipliers; the crafted blasters: ramp rules mapping a hue range onto a palette by luminance, keeping the
+shading and the outline), the kind's tiers go on one grip-aligned canvas and are scaled once (Lanczos, the
+kind's iron gun `length` world px × `texPxPerWorldPx`). The icons: the same canvas turned `tiltDeg` (muzzle
+up), each file group fitted into 128 − 2 × `margin`. New PNGs get an `.import` (mipmaps for icons); an
+existing one is kept.
 
 Which gun: `screens/home/equipment_model.gd` `gun()` maps a weapon item to {kind, tier}
 (`rookie_weapon_lv30` → bazooka/mithril, `crafted_weapon_gold` → blaster/gold, `normal_weapon_lv10` →
@@ -326,8 +343,8 @@ tint and mark on top. Particles stay within 120 per impact and 48 per projectile
 | File | Size | Notes | Used by |
 |---|---|---|---|
 | `<slot>_<tier>.png` | 128x128 (1.5–3 KB) | one per slot × tier, transparent, dark outline. Slots `weapon`, `armor`, `helmet`, `pants`, `boots`, `gloves`; tiers `iron` (Sắt, grey), `steel` (Thép, blue steel), `mithril` (teal), `dragon` (Rồng, red + gold) for shop items, `silver` (Bạc), `gold` (Vàng), `titan`, `diamond` (Kim cương) for crafted ones. A normal item's tier comes from its name / id (`screens/home/equipment_model.gd` `tier()`); an unknown tier draws as iron | Shop → Trang bị, Túi đồ, Nhân vật slots and list, piece popup, Prep gear row |
-| `weapon_<tier>.png` | 128x128 | weapons are guns: the generic blaster pistol per tier (retired generic weapons, crafted Silver/Gold/Titan/Diamond Blaster); also the empty weapon slot's shape | as above |
-| `weapon_<kind>_<iron\|steel\|mithril\|dragon>.png` | 128x128 (2–4 KB) | each character's gun in the shop tiers: `bazooka` (Rookie), `cannon` (Tanko, đại pháo), `rifle` (Spark, súng điện), `launcher` (Flora, súng hạt). The kind comes from the item's `characterId` (`equipment_model.gd` `weapon_kind()`); a missing or not yet imported file falls back to `weapon_<tier>.png` | as above |
+| `weapon_<tier>.png` | 128x128 (10–15 KB) | cut from the blaster guns (`tools/import_guns.gd`, tilted 14°, muzzle up); weapons are guns: the generic blaster per tier (retired generic weapons, crafted Silver/Gold/Titan/Diamond Blaster); also the empty weapon slot's shape | as above |
+| `weapon_<kind>_<iron\|steel\|mithril\|dragon>.png` | 128x128 (10–15 KB) | cut from that kind's held guns (`tools/import_guns.gd`, as above); each character's gun in the shop tiers: `bazooka` (Rookie), `cannon` (Tanko, đại pháo), `rifle` (Spark, súng điện), `launcher` (Flora, súng hạt). The kind comes from the item's `characterId` (`equipment_model.gd` `weapon_kind()`); a missing or not yet imported file falls back to `weapon_<tier>.png` | as above |
 | `slot_<slot>.png` | 128x128 (1 KB) | the slot's shape in plain white; the UI tints it faint blue for an empty slot | Nhân vật slots, Prep gear row |
 | `hex_empty.png`, `hex_filled.png`, `hex_selected.png` | 132x152 (7 KB) | pointy-top hexagon (radius 70) centred: empty (dark, faint rim), filled (blue, light rim), selected (gold rim + glow); stretched to the slot size | Nhân vật slots (shown at 0.85), piece popup, Prep gear row |
 | `badge.png` | 52x32 | the "+N" pill (dark, gold rim); 9-patch, texture margins 15 all (`EQUIP_BADGE_MARGINS`) | upgrade level on every equipment icon |

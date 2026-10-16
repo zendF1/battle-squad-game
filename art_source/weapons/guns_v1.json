@@ -1,0 +1,89 @@
+{
+	"_doc": "tools/import_guns.gd reads this: cuts guns_v1.png (4 rows = kinds, 4 columns = tiers iron, steel, mithril, dragon; side view, muzzle right, white background) into assets/weapons/<kind>/<tier>.png + weapons.json and the weapon equipment icons. Points are sheet px. See the tool's header and assets/README.md.",
+	"sheet": "guns_v1.png",
+	"tolerance": 0.1,
+	"holeTolerance": 0.04,
+	"holeMinArea": 40,
+	"texPxPerWorldPx": 2.0,
+	"worldPxPerUnit": 0.35,
+	"pad": 2,
+	"cells": {
+		"seed_launcher/iron": {"rect": [105, 34, 555, 362], "grip": [210, 265], "muzzle": [618, 175]},
+		"seed_launcher/steel": {"rect": [775, 34, 559, 362], "grip": [890, 275], "muzzle": [1295, 175]},
+		"seed_launcher/mithril": {"rect": [1438, 34, 540, 362], "grip": [1535, 265], "muzzle": [1935, 180]},
+		"seed_launcher/dragon": {"rect": [2082, 34, 517, 362], "grip": [2165, 270], "muzzle": [2540, 200]},
+		"bazooka/iron": {"rect": [60, 448, 643, 300], "grip": [245, 660], "muzzle": [680, 562], "keep": [[603, 544], [566, 553]]},
+		"bazooka/steel": {"rect": [745, 448, 642, 300], "grip": [930, 660], "muzzle": [1365, 562], "keep": [[1288, 539], [1252, 556]]},
+		"bazooka/mithril": {"rect": [1411, 448, 607, 300], "grip": [1605, 660], "muzzle": [2000, 562]},
+		"bazooka/dragon": {"rect": [2054, 448, 624, 300], "grip": [2255, 660], "muzzle": [2658, 562]},
+		"cannon/iron": {"rect": [77, 798, 600, 340], "grip": [255, 1055], "muzzle": [628, 950]},
+		"cannon/steel": {"rect": [770, 798, 581, 340], "grip": [940, 1050], "muzzle": [1295, 950]},
+		"cannon/mithril": {"rect": [1419, 798, 574, 340], "grip": [1585, 1055], "muzzle": [1945, 950]},
+		"cannon/dragon": {"rect": [2072, 798, 608, 340], "grip": [2240, 1055], "muzzle": [2610, 970]},
+		"shock_rifle/iron": {"rect": [80, 1189, 605, 330], "grip": [270, 1430], "muzzle": [666, 1308]},
+		"shock_rifle/steel": {"rect": [766, 1189, 586, 330], "grip": [955, 1430], "muzzle": [1332, 1310], "keep": [[1016, 1290], [1078, 1308]]},
+		"shock_rifle/mithril": {"rect": [1417, 1189, 586, 330], "grip": [1610, 1430], "muzzle": [1960, 1320], "keep": [[1712, 1305], [1637, 1308]]},
+		"shock_rifle/dragon": {"rect": [2073, 1189, 616, 330], "grip": [2255, 1430], "muzzle": [2635, 1340]}
+	},
+	"guns": {
+		"bazooka": {"length": 38, "tiers": {
+			"basic": {"cell": "bazooka/iron", "recolour": "basic"},
+			"iron": {"cell": "bazooka/iron"}, "steel": {"cell": "bazooka/steel"},
+			"mithril": {"cell": "bazooka/mithril"}, "dragon": {"cell": "bazooka/dragon"}}},
+		"cannon": {"length": 37, "tiers": {
+			"basic": {"cell": "cannon/iron", "recolour": "basic"},
+			"iron": {"cell": "cannon/iron"}, "steel": {"cell": "cannon/steel"},
+			"mithril": {"cell": "cannon/mithril"}, "dragon": {"cell": "cannon/dragon"}}},
+		"shock_rifle": {"length": 34, "tiers": {
+			"basic": {"cell": "shock_rifle/iron", "recolour": "basic"},
+			"iron": {"cell": "shock_rifle/iron"}, "steel": {"cell": "shock_rifle/steel"},
+			"mithril": {"cell": "shock_rifle/mithril"}, "dragon": {"cell": "shock_rifle/dragon"}}},
+		"seed_launcher": {"length": 32, "tiers": {
+			"basic": {"cell": "seed_launcher/iron", "recolour": "basic"},
+			"iron": {"cell": "seed_launcher/iron"}, "steel": {"cell": "seed_launcher/steel"},
+			"mithril": {"cell": "seed_launcher/mithril"}, "dragon": {"cell": "seed_launcher/dragon"}}},
+		"blaster": {"length": 31, "tiers": {
+			"basic": {"cell": "shock_rifle/iron", "recolour": "basic"},
+			"iron": {"cell": "shock_rifle/iron"}, "steel": {"cell": "shock_rifle/steel"},
+			"mithril": {"cell": "shock_rifle/mithril"}, "dragon": {"cell": "shock_rifle/dragon"},
+			"silver": {"cell": "shock_rifle/mithril", "recolour": "silver"},
+			"gold": {"cell": "shock_rifle/mithril", "recolour": "gold"},
+			"titan": {"cell": "shock_rifle/mithril", "recolour": "titan"},
+			"diamond": {"cell": "shock_rifle/mithril", "recolour": "diamond"}}}
+	},
+	"recolours": {
+		"basic": {"saturation": 0.55, "value": 0.94},
+		"silver": {"rules": [
+			{"hue": [165, 250], "minSat": 0.2, "ramp": ["#262c38", "#6c7787", "#b4bfcc", "#e9eff6", "#ffffff"]},
+			{"hue": [20, 130], "minSat": 0.12, "ramp": ["#28406e", "#4d77b8", "#8db4e6", "#d4e6ff"]},
+			{"hue": [250, 300], "minSat": 0.15, "ramp": ["#1d3350", "#3f7fb3", "#8ad0f0", "#e6f8ff"]}
+		]},
+		"gold": {"rules": [
+			{"hue": [165, 250], "minSat": 0.2, "ramp": ["#4a2a06", "#a8700f", "#e2a826", "#f8d65a", "#fff4c4"]},
+			{"hue": [20, 130], "minSat": 0.12, "ramp": ["#5a1208", "#a32716", "#dc4a2a", "#ff9a6a"]},
+			{"hue": [250, 300], "minSat": 0.15, "ramp": ["#4a1408", "#b8401a", "#ff9a3a", "#fff0c0"]}
+		]},
+		"titan": {"rules": [
+			{"hue": [165, 250], "minSat": 0.2, "ramp": ["#120e1c", "#2c2440", "#4c4266", "#7a6e98", "#b7aed0"]},
+			{"hue": [20, 130], "minSat": 0.12, "ramp": ["#0f3b48", "#1f7f96", "#47c4dc", "#b4f2ff"]},
+			{"hue": [250, 300], "minSat": 0.15, "ramp": ["#0c2a34", "#1c6c84", "#3fd0e8", "#d0fbff"]}
+		]},
+		"diamond": {"rules": [
+			{"hue": [165, 250], "minSat": 0.2, "ramp": ["#0e4a78", "#1fa0e0", "#6fdcff", "#c4f6ff", "#ffffff"]},
+			{"hue": [20, 130], "minSat": 0.12, "ramp": ["#5a7fa0", "#a8c8e4", "#e4f2ff", "#ffffff"]},
+			{"hue": [250, 300], "minSat": 0.15, "ramp": ["#2a5a8a", "#5aa8e0", "#b8ecff", "#ffffff"]}
+		], "sparkles": [[0.84, 0.11, 0.11], [0.16, 0.14, 0.08], [0.57, 0.62, 0.07]]}
+	},
+	"icons": {
+		"size": 128,
+		"margin": 6,
+		"tiltDeg": -14,
+		"files": {
+			"weapon_bazooka_<tier>": {"gun": "bazooka", "tiers": ["iron", "steel", "mithril", "dragon"]},
+			"weapon_cannon_<tier>": {"gun": "cannon", "tiers": ["iron", "steel", "mithril", "dragon"]},
+			"weapon_rifle_<tier>": {"gun": "shock_rifle", "tiers": ["iron", "steel", "mithril", "dragon"]},
+			"weapon_launcher_<tier>": {"gun": "seed_launcher", "tiers": ["iron", "steel", "mithril", "dragon"]},
+			"weapon_<tier>": {"gun": "blaster", "tiers": ["iron", "steel", "mithril", "dragon", "silver", "gold", "titan", "diamond"]}
+		}
+	}
+}

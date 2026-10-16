@@ -1,6 +1,8 @@
 extends "res://tests/test_case.gd"
 
 const Art := preload("res://ui/art.gd")
+## match/views/player_view.gd ART_SCALE: world px per character px (1.6 px per art unit).
+const MATCH_ART_SCALE := 0.35
 
 
 func test_every_art_path_exists() -> void:
@@ -83,7 +85,9 @@ func test_equipment_art_covers_the_model() -> void:
 
 func test_gun_sprites_match_their_metadata() -> void:
 	var data := Art.guns_data()
-	eq(float(data.get("pxPerUnit", 0.0)), Art.PX_PER_UNIT, "guns drawn at the characters' px per unit")
+	var ppu := float(data.get("pxPerUnit", 0.0))
+	check(ppu > 0.0, "guns have a px per unit")
+	check(FileAccess.file_exists("res://" + str(data.get("source", ""))), "guns imported from art_source/weapons (tools/import_guns.gd)")
 	for kind in Art.GUN_KINDS:
 		check(Art.GUN_TIERS[kind].has(Art.GUN_BASIC), "%s has a basic gun" % kind)
 		for tier in Art.GUN_TIERS[kind]:
@@ -102,11 +106,33 @@ func test_gun_sprites_match_their_metadata() -> void:
 			check(r.has_point(meta["grip"]) and r.has_point(meta["muzzle"]), "%s %s grip / muzzle inside the image" % [kind, tier])
 			check(meta["muzzle"].x > meta["grip"].x, "%s %s muzzle in front of the grip (facing right)" % [kind, tier])
 			check(img.get_pixelv(Vector2i(meta["grip"])).a > 0.5, "%s %s grip on the gun" % [kind, tier])
+			# In the match a texture px is MATCH_ART_SCALE / pxPerUnit world px: the held gun about
+			# 30–42 world px long next to a ~60 px tall character.
+			var long := img.get_used_rect().size.x * MATCH_ART_SCALE / ppu
+			check(long >= 30.0 and long <= 44.0, "%s %s %.1f world px long in the match" % [kind, tier, long])
 	for tier in Art.GUN_NORMAL_TIERS + Art.GUN_CRAFTED_TIERS:
 		check(Art.GUN_TIERS["blaster"].has(tier), "blaster in %s" % tier)
 	for kind in Art.CHARACTER_GUNS.values():
 		check(Art.GUN_KINDS.has(kind), "character gun %s exists" % kind)
 	eq(Art.gun_path("shock_rifle", "dragon"), "res://assets/weapons/shock_rifle/dragon.png", "gun path")
+
+
+## Every weapon icon (each character's gun in the shop tiers, the blaster in every tier) is a
+## full-size picture with a gun on it (tools/import_guns.gd cuts them from the gun art).
+func test_weapon_icons_present() -> void:
+	var paths: Array[String] = []
+	for kind in Art.EQUIP_WEAPON_KINDS:
+		for tier in Art.EQUIP_KIND_TIERS:
+			paths.append(Art.equipment_weapon_path(kind, tier))
+	for tier in Art.EQUIP_TIERS:
+		paths.append(Art.equipment_icon_path("weapon", tier))
+	for path in paths:
+		var img := Image.load_from_file(ProjectSettings.globalize_path(path))
+		if img == null:
+			check(false, "%s loads" % path)
+			continue
+		eq(img.get_size(), Art.EQUIP_ICON_SIZE, "%s size" % path)
+		check(img.get_used_rect().size.x >= Art.EQUIP_ICON_SIZE.x * 0.8, "%s: the gun fills the icon's width" % path)
 
 
 func test_gun_fallbacks() -> void:
@@ -122,7 +148,7 @@ func test_gun_fallbacks() -> void:
 	eq([g["kind"], g["tier"]], ["bazooka", "basic"], "unknown kind → Rookie's basic bazooka")
 	g = Art.gun("blaster", "diamond")
 	eq([g["kind"], g["tier"]], ["blaster", "diamond"], "crafted blaster")
-	eq(g["scale"], 1.0, "drawn 1:1 on the frames")
+	eq(g["scale"], Art.PX_PER_UNIT / float(Art.guns_data()["pxPerUnit"]), "texture px → character px from weapons.json pxPerUnit")
 
 
 func test_gun_anchors_cover_every_frame() -> void:
