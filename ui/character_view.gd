@@ -7,7 +7,10 @@ extends Control
 ## weapon) holds its basic gun. hands_free: no gun in hand (the lobby stage shows the gun on its
 ## own under the pedestal), the free pose instead. Used by the lobby stage, the Nhân vật page and
 ## the Prep panel: the character's lobby (front-view) rig when it has one (scenes/character
-## lobby_rig), drawn 1:1 on the 375x400 stage.
+## lobby_rig), drawn 1:1 on the 375x400 stage; before it the character's skinned full-body
+## picture (scenes/character/full_body.gd), which has no gun in hand (holds_gun() false: the
+## screens put the gun beside it, screens/home/pedestal_gun.gd) and breathes in place instead
+## of hopping. Order: full.png → lobby rig → frames.
 
 const Art := preload("res://ui/art.gd")
 const CharacterScene := preload("res://scenes/character/character.tscn")
@@ -74,11 +77,17 @@ func character() -> Node2D:
 	return _character
 
 
+## A gun is drawn in the character's hand (false on the full-body picture and hands free).
+func holds_gun() -> bool:
+	return _character != null and _character.holds_gun()
+
+
 func _layout() -> void:
 	if _character == null:
 		return
 	var k := minf(size.x / UNITS.x, size.y / UNITS.y)
-	var lift := (sin(_t * 2.4) * 0.5 + 0.5) * HOP if idle else 0.0
+	var hop := HOP if _character.full() == null else 0.0 # the full-body picture breathes, feet planted
+	var lift := (sin(_t * 2.4) * 0.5 + 0.5) * hop if idle else 0.0
 	var feet := Vector2(size.x / 2, size.y - 8 * k)
 	_character.scale = Vector2.ONE * (k / Art.PX_PER_UNIT)
 	_character.position = feet - Vector2(0, lift * k)

@@ -20,9 +20,14 @@ extends Node2D
 ## by scenes/character/rig.gd instead of the frames: the same API, the gun held by the rig's
 ## gripping hand (between its back and front parts), the free pose's idle_free in hands_free; it
 ## only idles (walk, shoot, hurt, die keep its pose). The match keeps the side-view frames.
+## Before the rig, lobby_rig prefers the character's full-body picture (ui/art.gd lobby_full():
+## assets/characters/<id>/lobby/full.png skinned on its skeleton, scenes/character/full_body.gd)
+## while lobby_full is on: one coherent drawing with no gun in hand (holds_gun() false; the
+## screens show the gun beside it), idling. Order: full.png → lobby rig → frames.
 
 const Art := preload("res://ui/art.gd")
 const Rig := preload("res://scenes/character/rig.gd")
+const FullBody := preload("res://scenes/character/full_body.gd")
 
 const HURT_FLASH_SEC := 0.45
 const HURT_TINT := Color(1, 0.35, 0.35)
@@ -53,6 +58,12 @@ const FLASH_TINT := Color(1.0, 0.92, 0.65)
 		lobby_rig = value
 		if is_node_ready():
 			_apply_frames()
+## With lobby_rig: the full-body picture first when the character has one (off: the rig).
+@export var lobby_full := true:
+	set(value):
+		lobby_full = value
+		if is_node_ready():
+			_apply_frames()
 ## 1 faces right, -1 left.
 var facing := 1:
 	set(value):
@@ -72,6 +83,8 @@ var _aim_up := 0.0 # degrees above level towards the facing side, clamped
 var _free_pose := false # the free pose's frames are shown (hands_free)
 var _rig: Rig # the cutout rig, null on the frames
 var _rig_id := ""
+var _full: FullBody # the skinned full-body picture, null otherwise
+var _full_id := ""
 
 @onready var _flip: Node2D = $Flip
 @onready var _sprite: AnimatedSprite2D = $Flip/Sprite
@@ -103,9 +116,16 @@ func _process(delta: float) -> void:
 		_rig.set_tint(tint)
 		_flash.visible = _rig.flash > 0.0 and not hands_free
 		_flash.modulate = Color(FLASH_TINT, clampf(_rig.flash, 0.0, 1.0))
+	if _full != null:
+		_full.set_tint(tint)
 
 
 func _apply_frames() -> void:
+	var full := Art.lobby_full(character_id) if lobby_rig and lobby_full else {}
+	if not full.is_empty():
+		_apply_full(full)
+		return
+	_drop_full()
 	var data := Art.rig(character_id) if lobby_rig else {}
 	if not data.is_empty():
 		_apply_rig(data)
@@ -158,6 +178,47 @@ func _apply_rig(data: Dictionary) -> void:
 	_gun_node.visible = not hands_free
 	_gun_sprite.visible = not hands_free
 	_apply_gun()
+
+
+## The full-body picture of `data` (Art.lobby_full()) instead of the frames and the gun.
+func _apply_full(data: Dictionary) -> void:
+	_drop_rig()
+	if _full == null or _full_id != character_id:
+		_drop_full()
+		_full = FullBody.new()
+		_full.name = "Full"
+		_full.setup(data)
+		_full_id = character_id
+		_flip.add_child(_full)
+		_flip.move_child(_full, _sprite.get_index() + 1)
+	_sprite.visible = false
+	_sprite.stop()
+	_gun_node.visible = false
+	_flash.visible = false
+	_free_pose = true
+	_full.play(_base())
+	_apply_gun()
+
+
+func _drop_full() -> void:
+	if _full == null:
+		return
+	_flip.remove_child(_full)
+	_full.queue_free()
+	_full = null
+	_full_id = ""
+	_sprite.visible = true
+	_gun_node.visible = true
+
+
+## The skinned full-body picture drawing the character (null: the rig or the frames).
+func full() -> Node2D:
+	return _full
+
+
+## A gun is drawn in the character's hand (false: hands free or the full-body picture).
+func holds_gun() -> bool:
+	return _gun_node.visible and _gun_sprite.visible
 
 
 func _drop_rig() -> void:
@@ -246,7 +307,7 @@ func muzzle_position() -> Vector2:
 
 ## Places the gun at the current frame's anchor (the rig: turns the gun arm to the aim).
 func _update_gun() -> void:
-	if not is_node_ready() or _gun.is_empty():
+	if not is_node_ready() or _gun.is_empty() or _full != null:
 		return
 	if _rig != null:
 		_rig.set_aim(_aim_up if _aiming and not _dead else 0.0)
@@ -267,13 +328,17 @@ func _update_gun() -> void:
 
 ## Plays an animation by name (idle, walk, shoot, hurt, die).
 func play(anim: String) -> void:
-	if _rig != null:
+	if _full != null:
+		_full.play(anim)
+	elif _rig != null:
 		_rig.play(anim)
 	elif _sprite.sprite_frames.has_animation(anim):
 		_sprite.play(anim)
 
 
 func animation() -> String:
+	if _full != null:
+		return _full.animation()
 	return _rig.animation() if _rig != null else str(_sprite.animation)
 
 

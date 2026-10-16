@@ -318,8 +318,8 @@ func _add_stage() -> void:
 	stage.add_child(_art)
 
 	_gun_stand = PedestalGun.new()
-	_gun_stand.size = GUN_STAND.size
-	_gun_stand.position = GUN_STAND.position
+	_gun_stand.size = PedestalGun.STAGE_RECT.size
+	_gun_stand.position = PedestalGun.STAGE_RECT.position
 	stage.add_child(_gun_stand)
 
 	for side in [-1, 1]:
@@ -330,10 +330,6 @@ func _add_stage() -> void:
 
 
 const PEDESTAL_AT := 528.0 # stage y of the pedestal centre (the character's feet)
-## The gun's rect in the stage: on the pedestal left of the character's legs, its foot on the top
-## face (stage y 545), the muzzle up-left under the arms (clear of every character's body and of
-## the ◀ arrow above); the label under it on the pedestal's front rim, below the feet.
-const GUN_STAND := Rect2(80, 433, 125, 150)
 
 
 func _draw_pedestal(c: Control) -> void:

@@ -1,0 +1,49 @@
+{
+	"_doc": "tools/cut_sheet.gd lineup mode: one full-body picture per character for the screens outside the match (assets/characters/<id>/lobby/full.png + full.json, skinned on a skeleton by scenes/character/full_body.gd). rect / seed / holes / joints in sheet px; scale = full.png px per sheet px (about 375 px tall at most, drawn 1:1 on the lobby stage); holes = the enclosed white gaps between an arm and the body; joints = where the bones turn (l / r = the left / right of the picture); anims = this character's tracks merged over assets/characters/lobby_full_anims.json. Run: $GODOT --headless --path . -s tools/cut_sheet.gd -- lineup [<id> ...]",
+	"sheet": "lineup_v1.png",
+	"tolerance": 0.1,
+	"pad": 10,
+	"drawScale": 0.64,
+	"figures": {
+		"rookie": {"rect": [0, 130, 312, 530], "seed": [170, 400], "scale": 0.75, "holes": [],
+			"joints": {"hips": [150, 450], "chest": [152, 380], "neck": [160, 312], "crown": [160, 165],
+				"l_shoulder": [118, 333], "l_elbow": [62, 346], "l_wrist": [60, 318], "l_hand": [58, 270],
+				"r_shoulder": [238, 325], "r_elbow": [281, 377], "r_wrist": [222, 415], "r_hand": [205, 420],
+				"l_hip": [120, 470], "l_knee": [109, 540], "l_ankle": [94, 577], "l_toe": [75, 612],
+				"r_hip": [185, 470], "r_knee": [206, 540], "r_ankle": [237, 577], "r_toe": [255, 612]},
+			"anims": {"idle": {"tracks": {
+				"hand_l": {"t": [0, 0.45, 0.9, 1.35, 1.8, 2.4, 3.0], "rot": [0, -5, 3, -5, 3, 0, 0]},
+				"arm_l_fore": {"t": [0, 0.45, 0.9, 1.35, 1.8, 2.4, 3.0], "rot": [0, -1.5, 1, -1.5, 1, 0, 0]}
+			}}}},
+		"flora": {"rect": [258, 135, 282, 540], "seed": [410, 450], "scale": 0.745, "holes": [[456, 375], [370, 311]],
+			"joints": {"hips": [393, 425], "chest": [395, 355], "neck": [400, 303], "crown": [395, 160],
+				"l_shoulder": [353, 333], "l_elbow": [323, 380], "l_wrist": [312, 345], "l_hand": [300, 308],
+				"r_shoulder": [457, 327], "r_elbow": [497, 373], "r_wrist": [455, 418], "r_hand": [440, 422],
+				"l_hip": [360, 447], "l_knee": [347, 520], "l_ankle": [347, 593], "l_toe": [330, 625],
+				"r_hip": [427, 447], "r_knee": [453, 523], "r_ankle": [467, 593], "r_toe": [482, 625]},
+			"anims": {"idle": {"tracks": {
+				"arm_l_upper": {"t": [0, 1.8, 2.05, 2.4, 3.0], "rot": [0, 0, 2.5, 0, 0]},
+				"arm_l_fore": {"t": [0, 1.8, 2.05, 2.4, 3.0], "rot": [0, 0, -4, 0.5, 0]}
+			}}}},
+		"spark": {"rect": [500, 95, 282, 570], "seed": [640, 450], "scale": 0.705, "holes": [[568, 394]],
+			"joints": {"hips": [645, 440], "chest": [645, 369], "neck": [645, 303], "crown": [640, 140],
+				"l_shoulder": [569, 328], "l_elbow": [528, 390], "l_wrist": [562, 417], "l_hand": [590, 431],
+				"r_shoulder": [676, 328], "r_elbow": [734, 338], "r_wrist": [731, 297], "r_hand": [731, 240],
+				"l_hip": [603, 472], "l_knee": [590, 548], "l_ankle": [579, 603], "l_toe": [565, 630],
+				"r_hip": [679, 472], "r_knee": [693, 548], "r_ankle": [700, 603], "r_toe": [715, 630]},
+			"anims": {"idle": {"tracks": {
+				"hand_r": {"t": [0, 0.3, 0.6, 0.9, 1.2, 3.0], "rot": [0, 4, -3, 4, 0, 0]}
+			}}}},
+		"tanko": {"rect": [720, 150, 304, 500], "seed": [870, 450], "scale": 0.75, "holes": [[802, 400]],
+			"joints": {"hips": [873, 462], "chest": [873, 389], "neck": [878, 325], "crown": [875, 175],
+				"l_shoulder": [789, 343], "l_elbow": [751, 405], "l_wrist": [789, 436], "l_hand": [801, 449],
+				"r_shoulder": [964, 343], "r_elbow": [995, 405], "r_wrist": [957, 436], "r_hand": [942, 449],
+				"l_hip": [832, 492], "l_knee": [814, 536], "l_ankle": [807, 592], "l_toe": [790, 612],
+				"r_hip": [920, 492], "r_knee": [939, 536], "r_ankle": [945, 592], "r_toe": [960, 612]},
+			"anims": {"idle": {"tracks": {
+				"chest": {"t": [0, 1.5, 3.0], "y": [0, -2, 0], "sx": [1, 1.022, 1], "sy": [1, 1.015, 1]},
+				"arm_l_upper": {"t": [0, 1.5, 3.0], "y": [0, -1, 0], "rot": [0, 1, 0]},
+				"arm_r_upper": {"t": [0, 1.5, 3.0], "y": [0, -1, 0], "rot": [0, -1, 0]}
+			}}}}
+	}
+}

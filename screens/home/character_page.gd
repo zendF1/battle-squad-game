@@ -20,6 +20,7 @@ const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Art := preload("res://ui/art.gd")
 const CharacterView := preload("res://ui/character_view.gd")
+const PedestalGun := preload("res://screens/home/pedestal_gun.gd")
 const LoadStatus := preload("res://ui/load_status.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
@@ -64,6 +65,7 @@ var _slot_names := {} # slot -> Label
 var _slot_badges := {} # slot -> PanelContainer
 var _bonus: Label
 var _art: CharacterView
+var _gun_stand: PedestalGun
 var _stage_name: Label
 var _stage_level: Label
 var _sub_tabs: Array[Button]
@@ -276,6 +278,10 @@ func _build_stage() -> void:
 	_art.size = Vector2(375, 400)
 	_art.idle = true
 	stage.add_child(_art)
+	_gun_stand = PedestalGun.new() # the full-body picture holds no gun: it rests beside it
+	_gun_stand.size = PedestalGun.STAGE_RECT.size
+	_gun_stand.position = PedestalGun.STAGE_RECT.position
+	stage.add_child(_gun_stand)
 	for side in [-1, 1]:
 		var arrow := LobbyUi.round_button("arrow_left" if side < 0 else "arrow_right", 72, Color(0.05, 0.08, 0.2, 0.7), 0.5)
 		arrow.position = Vector2(0 if side < 0 else STAGE.x - 72, 250)
@@ -310,6 +316,11 @@ func _render_stage() -> void:
 	_art.modulate = Color(0.72, 0.72, 0.8) if info["owned"] == false else Color.WHITE
 	_stage_name.text = info["name"]
 	_stage_level.text = LobbyModel.level_text(info)
+	var g := EquipmentModel.worn_gun(PlayerState.equipment, PlayerState.catalog, _character)
+	var label := EquipmentModel.worn_gun_label(PlayerState.equipment, PlayerState.catalog, _character)
+	_gun_stand.set_gun(g["kind"], g["tier"], label["name"], label["level"])
+	_gun_stand.modulate = _art.modulate
+	_gun_stand.visible = not _art.holds_gun()
 
 
 # ── Right panel ─────────────────────────────────────────────────────────────

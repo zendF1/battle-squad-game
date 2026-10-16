@@ -81,6 +81,7 @@ func test_character_uses_the_rig_with_feet_on_the_origin() -> void:
 		var c: Node2D = preload("res://scenes/character/character.tscn").instantiate()
 		c.character_id = id
 		c.lobby_rig = true
+		c.lobby_full = false # the rig is the full-body picture's fallback
 		var holder := Node.new()
 		holder.add_child(c)
 		c._ready()

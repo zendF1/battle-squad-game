@@ -5,7 +5,7 @@ code (`tools/art/*.gd`) and baked by `tools/bake_art.gd`. `ui/art.gd` is the one
 ids to these paths; a missing file never crashes (a character falls back to rookie, an icon to
 `icons/unknown.png`, anything else to a small grey square, with a warning).
 
-Total about 4.1 MB of PNG (the lobby rigs about 0.5 MB of it).
+Total about 4.6 MB of PNG (the lobby rigs about 0.5 MB of it, the full-body pictures about 0.45 MB).
 
 ## Replacing art
 
@@ -13,9 +13,11 @@ Total about 4.1 MB of PNG (the lobby rigs about 0.5 MB of it).
   The editor re-imports it; nothing else changes. A different size works for icons, effects,
   clouds and backgrounds (they are drawn to a fixed on-screen size), but keep character frames on
   the shared canvas below.
-- **Characters (lobby)**: the screens outside the match draw the front-view rig in
-  `characters/<id>/lobby/` (below): re-cut it from a new parts sheet with `tools/cut_sheet.gd` or
-  overwrite its part PNGs.
+- **Characters (lobby)**: the screens outside the match draw, in this order of preference,
+  (1) the skinned full-body picture `characters/<id>/lobby/full.png` + `full.json`, (2) the
+  front-view cutout rig `characters/<id>/lobby/rig.json` + `parts/` (kept as a fallback, unused
+  while full.png exists), (3) the baked side-view frames. Re-cut the full-body pictures from a new
+  lineup image with `tools/cut_sheet.gd -- lineup` (below).
 - **Characters (match)**: either overwrite the frame PNGs, or open
   `characters/<id>/<id>.tres` (SpriteFrames) in the editor and change frames, counts, speed or
   loop flags. The animation names must stay `idle`, `walk`, `shoot`, `hurt`, `die`. If you change
@@ -76,9 +78,43 @@ The game flips it for facing left. The fallback of the lobby stage and the Prep 
 (`ui/character_view.gd`, about 2.5 and 1.5 px per unit; they draw the lobby rig below) and the match (`match/views/player_view.gd`,
 0.35 px per unit, about 52 px tall, feet on the server position).
 
+### characters/<id>/lobby/full.* (the full-body picture: `scenes/character/full_body.gd`, loaded by `ui/art.gd` `lobby_full()`)
+
+Outside the match (lobby stage, Prep, Nhân vật: `ui/character_view.gd` turns `lobby_rig` on,
+`scenes/character/character.gd` `lobby_full` is on by default) a character is **one coherent
+full-body drawing** cut from `art_source/characters/lineup_v1.png` (1024x765, the four characters
+side by side on white), skinned on a skeleton: a Polygon2D mesh over the picture weighted to
+Bone2Ds under a Skeleton2D. It has no gun hand, so no gun is drawn on it: the worn gun rests on
+the pedestal beside it (`screens/home/pedestal_gun.gd`, on the lobby, the Nhân vật page and Prep
+scaled to its stage). It only idles (breathing, a head nod and tilt, a slight arm sway, plus one
+per-character flourish: Rookie waves the raised hand, Spark wiggles the V-sign, Flora nudges her
+fist, Tanko breathes heavier with his shoulders); feet stay planted. The match is unchanged.
+Missing or broken full.json / full.png → the rig below, then the frames.
+
+| File | Size | Notes |
+|---|---|---|
+| `<id>/lobby/full.png` | 190–224 x 363–392 (110–120 KB) | transparent, the figure 346–375 px tall, drawn 1:1 on the lobby stage (scale 0.64 × the stage's 1.5625) |
+| `<id>/lobby/full.json` | 33–36 KB | generated: `size`, `pivot` (the feet: the middle of the boots' outer edges, the soles' bottom, px in full.png), `height`, `scale` (full.png px → character px), `bones` (`name`, `parent`, `at` the joint, `tip` the end of its segment, `strength`; px in full.png), `anims` (this character's tracks), `mesh` (`vertices` px = uv, `triangles` 3 indices each), `weights` (per vertex: bone index, weight, …; at most 4, summing to 1) |
+| `lobby_full_anims.json` | 1 KB | the idle every full-body picture plays (format of `lobby_anims.json` below; bones `root`, `hips`, `chest`, `head`, `arm_l_upper` / `arm_l_fore` / `hand_l`, `arm_r_*`, `leg_l_thigh` / `leg_l_shin` / `foot_l`, `leg_r_*`; l / r = the picture's left / right); a full.json's `anims` replace or add tracks by bone |
+
+**Re-cutting / a better picture**: put the new lineup (or one picture per character) in
+`art_source/characters/`, edit `art_source/characters/lineup_parts.json` (`sheet`; per figure its
+`rect` / `seed` / `holes` like a parts sheet below, `scale` so the figure comes out at most about
+375 px tall, the `joints` in sheet px: `hips`, `chest`, `neck`, `crown`, `l_` / `r_` `shoulder`,
+`elbow`, `wrist`, `hand`, `hip`, `knee`, `ankle`, `toe`, and its `anims` flourish), then run
+`$GODOT --headless --path . -s tools/cut_sheet.gd -- lineup [<id> ...]` and let the editor import
+the PNGs. It writes full.png and full.json (mesh and weights by `tools/full_mesh.gd`: outline
+points every 5 px round the figure grown 2 px plus an inner grid, Delaunay-triangulated, kept
+inside the figure so the gaps between an arm and the body stay out of the mesh, every visible
+pixel covered; weights by the distance through the figure's own pixels, so a raised hand next to
+the head does not drag the head). Keep the motion small: an arm drawn over the body has no body
+pixels under it, so a large arm move stretches the body with it.
+
 ### characters/<id>/lobby/ (the lobby rig: `scenes/character/rig.gd`, loaded by `ui/art.gd` `rig()`)
 
-Outside the match (lobby stage, Prep, Nhân vật: `ui/character_view.gd` turns `lobby_rig` on) a
+Fallback only (the full-body picture above is preferred).
+
+Without a full-body picture (or with `lobby_full` off), outside the match a
 character is a **front-view cutout rig** built from its AI-made parts sheet
 (`art_source/characters/<id>/<id>_parts_v2.png`, 2400x1792, white background). The match keeps the
 side-view frames above. A character without `lobby/rig.json` (or with a part missing) falls back
@@ -148,8 +184,9 @@ Which gun: `screens/home/equipment_model.gd` `gun()` maps a weapon item to {kind
 (`rookie_weapon_lv30` → bazooka/mithril, `crafted_weapon_gold` → blaster/gold, `normal_weapon_lv10` →
 blaster/iron, no weapon → the character's kind/basic). A missing tier falls back to the kind's `basic`, a
 missing kind to `bazooka/basic` (`ui/art.gd` `gun()`). Lobby, Prep and the Nhân vật page show the weapon the
-character wears (`ui/character_view.gd`); the lobby stage instead shows the character with its hands free
-and the worn gun resting on the pedestal at its left, lying diagonally with the muzzle up-left, its name and
+character wears: with the full-body pictures (no gun hand) the worn gun rests on the pedestal at the
+character's left on all three (Prep: scaled to its small stage, without the label; with the rig fallback
+Prep and Nhân vật show it in hand, `ui/character_view.gd`), lying diagonally with the muzzle up-left, its name and
 "+N" under it (`screens/home/pedestal_gun.gd`, a soft glow in the tier's colour); the match shows the one each player brought (`weaponItemId`), and its
 shots look like that gun (`fx/` below).
 The JSON files are read with `FileAccess` (an export that filters resources must keep `*.json`).

@@ -17,7 +17,7 @@ extends SceneTree
 ## rect), "clip" [[x, y], ...] a convex polygon in sheet px the part is cut to (to split joined
 ## pieces, e.g. the hips from the legs) with "feather" px of soft edge along the cut, "holes"
 ## [[x, y], ...] sheet points of enclosed white areas to clear (a fist's hole the gun's grip
-## shows through).
+## shows through), "pad" px of transparent border kept round it (default 2).
 ##
 ## Per part: the white background is flood-filled from the rect's border (near-white pixels,
 ## `tolerance`), so enclosed whites (eyes, teeth, highlights) stay; only the piece under the
@@ -27,7 +27,23 @@ extends SceneTree
 ## premultiplied colour, once, from the full-resolution cut) and the PNG. A new PNG gets an
 ## .import without mipmaps (the parts are drawn at their own size); an existing .import is never
 ## touched.
+##
+## Lineup mode (`-- lineup [<id> ...]`, also run by default): art_source/characters/
+## lineup_parts.json cuts one coherent full-body picture per character out of a lineup image
+## (all the characters side by side on white) into assets/characters/<id>/lobby/full.png +
+## full.json (the screens outside the match draw it, skinned on a skeleton, instead of the rig:
+## scenes/character/full_body.gd, assets/README.md). lineup_parts.json: {"sheet", "tolerance",
+## "pad" (transparent px kept round the figure), "drawScale" (full.png px → character px, 0.64 =
+## 1:1 on the lobby stage), "figures": {id: a part as above (rect, seed, holes, clip, feather) +
+## "scale" (full.png px per sheet px), "joints" {name: [x, y] sheet px, see SKELETON},
+## optional "strength" {bone: k} and "anims" (merged over the shared
+## assets/characters/lobby_full_anims.json)}}. full.json: {size, pivot (the feet: the middle of
+## the boots' outer edges, the soles' bottom; px in full.png), height (feet to the top of the
+## head, px), scale (= drawScale), bones [{name, parent, at (the joint), tip (the end of its
+## segment), strength}] in full.png px, anims, mesh {vertices (px in full.png = uv), triangles
+## (3 indices each)}, weights (per vertex: bone index, weight, ...)} (tools/full_mesh.gd).
 
+const FullMesh := preload("res://tools/full_mesh.gd")
 const SRC := "res://art_source/characters/"
 const OUT := "res://assets/characters/"
 const PAD := 2
@@ -40,13 +56,22 @@ var _bytes := 0
 
 func _initialize() -> void:
 	var ids: Array = Array(OS.get_cmdline_user_args())
+	if ids.has("lineup"): # only the lineup (figure ids after it pick some)
+		_cut_lineup(SRC + "lineup_parts.json")
+		_done()
+		return
 	if ids.is_empty():
 		ids = Array(DirAccess.get_directories_at(SRC))
+		_cut_lineup(SRC + "lineup_parts.json")
 	for id in ids:
 		for f in DirAccess.get_files_at(SRC + str(id)):
 			if f.ends_with("parts.json"):
 				_cut_character(str(id), SRC + str(id) + "/" + f)
-	print("cut_sheet: wrote %d parts, %.1f KB" % [_written, _bytes / 1024.0])
+	_done()
+
+
+func _done() -> void:
+	print("cut_sheet: wrote %d pictures, %.1f KB" % [_written, _bytes / 1024.0])
 	quit()
 
 
@@ -71,6 +96,143 @@ func _cut_character(id: String, spec_path: String) -> void:
 			push_error("cut_sheet: %s/%s is empty" % [id, part_name])
 			continue
 		_save(cut["image"], OUT + "%s/%s/parts/%s.png" % [id, rig_name, part_name], cut["origin"])
+
+
+func _cut_lineup(spec_path: String) -> void:
+	var spec = JSON.parse_string(FileAccess.get_file_as_string(spec_path))
+	if not spec is Dictionary:
+		push_error("cut_sheet: %s missing or not a JSON object" % spec_path)
+		return
+	var sheet := Image.load_from_file(ProjectSettings.globalize_path(SRC + str(spec["sheet"])))
+	if sheet == null:
+		push_error("cut_sheet: cannot read " + str(spec["sheet"]))
+		return
+	sheet.convert(Image.FORMAT_RGBA8)
+	var tol := float(spec.get("tolerance", 0.1))
+	print("lineup: %s %dx%d" % [spec["sheet"], sheet.get_width(), sheet.get_height()])
+	var figures: Dictionary = spec["figures"]
+	var only: Array = Array(OS.get_cmdline_user_args()).filter(func(a): return figures.has(a))
+	for id in figures:
+		if not only.is_empty() and not only.has(id):
+			continue
+		var p: Dictionary = figures[id].duplicate()
+		p["pad"] = int(spec.get("pad", PAD))
+		var cut := cut_part(sheet, p, tol, float(p.get("scale", 1.0)))
+		if cut.is_empty():
+			push_error("cut_sheet: lineup figure %s is empty" % id)
+			continue
+		var img: Image = cut["image"]
+		var out := OUT + "%s/lobby/full" % id
+		_save(img, out + ".png", cut["origin"])
+		var feet := feet_of(img)
+		# Sheet px → full.png px.
+		var k := Vector2(img.get_size()) / Vector2(cut["box"])
+		var origin: Vector2 = Vector2(cut["origin"])
+		var joints := {"feet": feet["pivot"]}
+		for j in p.get("joints", {}):
+			var q: Array = p["joints"][j]
+			joints[j] = ((Vector2(float(q[0]), float(q[1])) - origin) * k).round()
+		var bones: Array = []
+		for b in SKELETON:
+			if not joints.has(b[2]) or not joints.has(b[3]):
+				push_error("cut_sheet: %s needs the joints %s and %s" % [id, b[2], b[3]])
+				return
+			var strength := float(p.get("strength", {}).get(b[0], STRENGTH.get(b[0], 1.0)))
+			bones.append({"name": b[0], "parent": b[1], "at": joints[b[2]], "tip": joints[b[3]], "strength": strength})
+		var t0 := Time.get_ticks_msec()
+		var mesh := FullMesh.build(img)
+		var weights := FullMesh.weights(img, mesh["vertices"], bones)
+		print("  mesh: %d vertices, %d triangles, %d uncovered px, %.1f s" % [mesh["vertices"].size(), mesh["triangles"].size() / 3, mesh["gaps"], (Time.get_ticks_msec() - t0) / 1000.0])
+		_write_full_json(out + ".json", img, feet, bones, mesh, weights, float(spec.get("drawScale", 0.64)),
+			"art_source/characters/" + str(spec["sheet"]), p.get("anims", {}))
+
+
+## The skeleton every lineup figure gets: [bone, parent, joint it turns at, joint its segment
+## ends at] (joints: lineup_parts.json `joints`, sheet px; `feet` is the pivot). l / r: the
+## arm or leg on the left / right of the picture.
+const SKELETON := [
+	["root", "", "feet", "hips"],
+	["hips", "root", "hips", "chest"],
+	["chest", "hips", "chest", "neck"],
+	["head", "chest", "neck", "crown"],
+	["arm_l_upper", "chest", "l_shoulder", "l_elbow"],
+	["arm_l_fore", "arm_l_upper", "l_elbow", "l_wrist"],
+	["hand_l", "arm_l_fore", "l_wrist", "l_hand"],
+	["arm_r_upper", "chest", "r_shoulder", "r_elbow"],
+	["arm_r_fore", "arm_r_upper", "r_elbow", "r_wrist"],
+	["hand_r", "arm_r_fore", "r_wrist", "r_hand"],
+	["leg_l_thigh", "hips", "l_hip", "l_knee"],
+	["leg_l_shin", "leg_l_thigh", "l_knee", "l_ankle"],
+	["foot_l", "leg_l_shin", "l_ankle", "l_toe"],
+	["leg_r_thigh", "hips", "r_hip", "r_knee"],
+	["leg_r_shin", "leg_r_thigh", "r_knee", "r_ankle"],
+	["foot_r", "leg_r_shin", "r_ankle", "r_toe"],
+]
+## How strongly a bone holds the vertices near it (the head and the chest move as one piece;
+## the root holds none). lineup_parts.json `strength` overrides per figure.
+const STRENGTH := {"root": 0.0, "hips": 1.5, "chest": 2.0, "head": 4.0}
+
+
+func _write_full_json(path: String, img: Image, feet: Dictionary, bones: Array, mesh: Dictionary, weights: Array,
+		draw_scale: float, source: String, anims: Dictionary) -> void:
+	var v: Array = []
+	for p in mesh["vertices"]:
+		v.append([snappedf(p.x, 0.1), snappedf(p.y, 0.1)])
+	var wt: Array = []
+	for row in weights:
+		var flat: Array = []
+		for c in row:
+			flat.append(c[0])
+			flat.append(snappedf(c[1], 0.001))
+		wt.append(flat)
+	var bone_lines: Array = []
+	for b in bones:
+		bone_lines.append("\t\t" + JSON.stringify({"name": b["name"], "parent": b["parent"], "at": [b["at"].x, b["at"].y],
+			"tip": [b["tip"].x, b["tip"].y], "strength": b["strength"]}))
+	var lines: Array = [
+		"{",
+		'\t"_doc": "Generated by tools/cut_sheet.gd (lineup mode) from art_source/characters/lineup_parts.json: edit that and re-cut. Drawn by scenes/character/full_body.gd, see assets/README.md.",',
+		'\t"source": %s,' % JSON.stringify(source),
+		'\t"size": [%d, %d],' % [img.get_width(), img.get_height()],
+		'\t"pivot": [%d, %d],' % [feet["pivot"].x, feet["pivot"].y],
+		'\t"height": %d,' % feet["height"],
+		'\t"scale": %s,' % JSON.stringify(draw_scale),
+		'\t"bones": [\n%s\n\t],' % ",\n".join(bone_lines),
+		'\t"anims": %s,' % JSON.stringify(anims),
+		'\t"mesh": {"vertices": %s,\n\t\t"triangles": %s},' % [JSON.stringify(v), JSON.stringify(Array(mesh["triangles"]))],
+		'\t"weights": %s' % JSON.stringify(wt),
+		"}",
+	]
+	var f := FileAccess.open(ProjectSettings.globalize_path(path), FileAccess.WRITE)
+	f.store_string("\n".join(lines) + "\n")
+	f.close()
+	print("  %s  pivot %s, height %d px, %.1f KB" % [path, feet["pivot"], feet["height"], FileAccess.get_file_as_bytes(ProjectSettings.globalize_path(path)).size() / 1024.0])
+
+
+## The feet of a full-body picture: {pivot (Vector2: x the middle of the outer edges of the
+## lowest tenth (the boots), y the bottom of the soles), height (px from the soles to the top)},
+## from the pixels at least half opaque.
+static func feet_of(img: Image) -> Dictionary:
+	var top := -1
+	var bottom := -1
+	for y in img.get_height():
+		for x in img.get_width():
+			if img.get_pixel(x, y).a >= 0.5:
+				if top < 0:
+					top = y
+				bottom = y
+				break
+	if top < 0:
+		return {"pivot": Vector2.ZERO, "height": 0}
+	var band := maxi(1, int((bottom - top) * 0.1))
+	var x0 := img.get_width()
+	var x1 := -1
+	for y in range(bottom - band, bottom + 1):
+		for x in img.get_width():
+			if img.get_pixel(x, y).a >= 0.5:
+				x0 = mini(x0, x)
+				x1 = maxi(x1, x)
+	return {"pivot": Vector2(round((x0 + x1 + 1) / 2.0), bottom + 1), "height": bottom + 1 - top}
 
 
 ## One part (see the header): {image (straight-alpha RGBA), origin (sheet px of the image's
@@ -173,12 +335,13 @@ static func cut_part(sheet: Image, p: Dictionary, tol: float, scale: float) -> D
 	if x1 < 0:
 		return {}
 	var full := Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, out)
-	var box := Rect2i(x0 - PAD, y0 - PAD, x1 - x0 + 1 + 2 * PAD, y1 - y0 + 1 + 2 * PAD)
+	var pad := int(p.get("pad", PAD))
+	var box := Rect2i(x0 - pad, y0 - pad, x1 - x0 + 1 + 2 * pad, y1 - y0 + 1 + 2 * pad)
 	var trimmed := Image.create(box.size.x, box.size.y, false, Image.FORMAT_RGBA8)
 	trimmed.blit_rect(full, box.intersection(Rect2i(0, 0, w, h)), (box.intersection(Rect2i(0, 0, w, h)).position - box.position))
 	if not is_equal_approx(scale, 1.0):
 		trimmed.resize(maxi(1, int(round(box.size.x * scale))), maxi(1, int(round(box.size.y * scale))), Image.INTERPOLATE_LANCZOS)
-	return {"image": _unpremultiply(trimmed), "origin": rect.position + box.position}
+	return {"image": _unpremultiply(trimmed), "origin": rect.position + box.position, "box": box.size}
 
 
 static func _flood(stack: PackedInt32Array, bg: PackedByteArray, dist: PackedFloat32Array, tol: float, w: int, h: int) -> void:

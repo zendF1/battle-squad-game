@@ -114,20 +114,22 @@ func _build_player(anims: Dictionary) -> void:
 	_player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 	var lib := AnimationLibrary.new()
 	for anim_name in anims:
-		lib.add_animation(anim_name, _build_animation(anims[anim_name]))
+		lib.add_animation(anim_name, build_animation(anims[anim_name], _bones, self))
 	_player.add_animation_library("", lib)
 	_player.animation_finished.connect(_on_finished)
 
 
-func _build_animation(spec: Dictionary) -> Animation:
+## An Animation of a lobby_anims.json spec moving `bones` (name -> Node2D with the metas
+## rest_pos / rest_rot; paths from `root`, plus `root`'s flash). Also used by full_body.gd.
+static func build_animation(spec: Dictionary, bones: Dictionary, root: Node) -> Animation:
 	var a := Animation.new()
 	a.length = maxf(0.05, float(spec.get("length", 1.0)))
 	a.loop_mode = Animation.LOOP_LINEAR if bool(spec.get("loop", false)) else Animation.LOOP_NONE
 	var tracks: Dictionary = spec.get("tracks", {})
-	for bone_name in _bones:
-		var n: Node2D = _bones[bone_name]
+	for bone_name in bones:
+		var n: Node2D = bones[bone_name]
 		var tr: Dictionary = tracks.get(bone_name, {})
-		var path := _path_of(n)
+		var path := path_of(n, root)
 		var times: Array = tr.get("t", [0.0])
 		var rest_pos: Vector2 = n.get_meta("rest_pos")
 		var rest_rot: float = n.get_meta("rest_rot")
@@ -154,10 +156,10 @@ func _build_animation(spec: Dictionary) -> Animation:
 	return a
 
 
-## The node's path from this node (built by hand: the rig may not be in the tree yet).
-func _path_of(n: Node) -> String:
+## The node's path from root (built by hand: the rig may not be in the tree yet).
+static func path_of(n: Node, root: Node) -> String:
 	var names: Array[String] = []
-	while n != null and n != self:
+	while n != null and n != root:
 		names.push_front(str(n.name))
 		n = n.get_parent()
 	return "/".join(names)

@@ -1,6 +1,7 @@
 extends Control
-## The lobby stage's gun: the weapon the stage character wears (its basic gun when none), resting
-## on the pedestal beside the character, leaning with the muzzle up-left, floating a little over
+## The stage's gun: the weapon the stage character wears (its basic gun when none), resting
+## on the pedestal beside the character (the lobby, and the Nhân vật page and Prep while the
+## character is its full-body picture, which holds no gun), leaning with the muzzle up-left, floating a little over
 ## its shadow with a soft glow in its tier's colour (stronger and twinkling for the high tiers,
 ## match/views/shot_look.gd TIERS), its name and "+N" under it. The lobby calls set_gun() on
 ## equip / unequip and when the character changes.
@@ -17,6 +18,19 @@ const TILT := 0.6 # radians, the gun mirrored (muzzle left): lying diagonally, t
 const LABEL_GAP := 12.0
 const FLOAT := 3.0 # px up and down
 const SPARKLES := 3 # twinkles around a high-tier gun (rank >= 3)
+## Its rect on the 560x590 stage of the lobby and the Nhân vật page (character feet at (280,
+## 522), the pedestal's centre at y 528): left of the legs, its foot on the pedestal's top face
+## (y 545), the muzzle up-left under the arms, clear of the ◀ arrow; the label on the pedestal's
+## front rim. FEET: the character's feet there (to place it on a smaller stage, scaled).
+const STAGE_RECT := Rect2(62, 433, 125, 150)
+const FEET := Vector2(280, 522)
+
+## The name and "+N" line under the gun (off on Prep's small stage: its gear row names the weapon).
+var show_label := true:
+	set(value):
+		show_label = value
+		if _name != null:
+			_name.get_parent().visible = value
 
 static var _used := {} # texture -> the drawn part of the image (Rect2)
 
@@ -46,6 +60,7 @@ func _ready() -> void:
 	row.add_child(_name)
 	_level = LobbyUi.text("", 18, LobbyUi.GOLD, true)
 	row.add_child(_level)
+	row.visible = show_label
 
 
 ## Shows the gun kind × tier (ui/art.gd gun(), with its fallbacks), named `title`, "+N" level

@@ -12,6 +12,7 @@ const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Backdrop := preload("res://ui/backdrop.gd")
 const CharacterView := preload("res://ui/character_view.gd")
+const PedestalGun := preload("res://screens/home/pedestal_gun.gd")
 const Art := preload("res://ui/art.gd")
 const Items := preload("res://match/items.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
@@ -34,6 +35,7 @@ var _quick_play: QuickPlay
 
 # Character panel
 var _art: CharacterView
+var _gun_stand: PedestalGun
 var _char_name: Label
 var _char_level: Label
 var _char_role: Label
@@ -157,6 +159,12 @@ func _build_character_panel() -> Control:
 	_art.offset_top = 0
 	_art.offset_bottom = 246 # feet on the pedestal
 	stage.add_child(_art)
+	_gun_stand = PedestalGun.new() # beside the full-body picture (it holds no gun), as on the lobby
+	_gun_stand.scale = Vector2.ONE * GUN_STAND_SCALE
+	_gun_stand.show_label = false
+	_gun_stand.size = PedestalGun.STAGE_RECT.size
+	stage.add_child(_gun_stand)
+	stage.resized.connect(_place_gun_stand.bind(stage))
 	_char_name = _centered(col, 36, Color.WHITE, true)
 	_char_level = _centered(col, 24, LobbyUi.GOLD, true)
 	_char_role = _centered(col, 22, Ui.TEXT_DIM)
@@ -209,6 +217,7 @@ func _build_gear_row() -> Control:
 
 
 func _render_gear() -> void:
+	_render_gun()
 	var worn := EquipmentModel.worn(PlayerState.equipment, _model.character_id)
 	for slot in EquipmentModel.SLOTS:
 		var piece: Dictionary = worn.get(slot, {})
@@ -234,6 +243,29 @@ static func _centered(parent: Control, font_size: int, color: Color, heavy: bool
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	parent.add_child(l)
 	return l
+
+
+## The lobby's gun stand scaled to this stage's character (224 px wide at 1.49 px per unit
+## against the lobby's 375 at 2.5), at the same place relative to the feet.
+const GUN_STAND_SCALE := 0.6
+const ART_FEET_Y := 234.0 # the CharacterView's feet in the stage (246 - 8 units)
+
+
+func _place_gun_stand(stage: Control) -> void:
+	var feet := Vector2(stage.size.x / 2, ART_FEET_Y)
+	_gun_stand.position = feet + (PedestalGun.STAGE_RECT.position - PedestalGun.FEET) * GUN_STAND_SCALE
+
+
+## The worn weapon's gun beside the character, shown while the character holds none.
+func _render_gun() -> void:
+	if _gun_stand == null:
+		return
+	var id := _model.character_id
+	var g := EquipmentModel.worn_gun(PlayerState.equipment, PlayerState.catalog, id)
+	var label := EquipmentModel.worn_gun_label(PlayerState.equipment, PlayerState.catalog, id)
+	_gun_stand.set_gun(g["kind"], g["tier"], label["name"], label["level"])
+	_gun_stand.modulate = _art.modulate
+	_gun_stand.visible = not _art.holds_gun()
 
 
 func _draw_pedestal(c: Control) -> void:
@@ -378,6 +410,7 @@ func _render_character() -> void:
 	var info := LobbyModel.character_info(_model.character_id, PlayerState.characters)
 	_art.character_id = _model.character_id
 	_art.modulate = Color(0.72, 0.72, 0.8) if info["owned"] == false else Color.WHITE
+	_render_gun()
 	_char_name.text = info["name"]
 	_char_level.text = LobbyModel.level_text(info)
 	_char_role.text = info["role"]
