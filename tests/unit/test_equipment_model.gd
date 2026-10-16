@@ -2,30 +2,34 @@ extends "res://tests/test_case.gd"
 
 const M := preload("res://screens/home/equipment_model.gd")
 
+## Design levels: normal 10/20/30/40, crafted 75 for diamond. Weapons are per character; the
+## generic Iron/Mithril Sword are retired (inactive) but owned pieces still need them.
 const CATALOG := {
 	"items": [
-		{"itemId": "normal_weapon_lv10", "name": "Iron Sword", "slot": "weapon", "category": "normal", "requiredLevel": 1, "gemSlots": 1,
-			"statHp": 0, "statDamage": 8, "statDefense": 0, "statCrit": 0, "statMoveEnergy": 0, "priceCoin": 500, "priceGem": 0, "isActive": true},
-		{"itemId": "normal_weapon_lv30", "name": "Mithril Sword", "slot": "weapon", "category": "normal", "requiredLevel": 7, "gemSlots": 1,
-			"statHp": 0, "statDamage": 25, "statDefense": 0, "statCrit": 2, "statMoveEnergy": 0, "priceCoin": 4000, "priceGem": 0, "isActive": true},
-		{"itemId": "normal_armor_lv40", "name": "Dragon Vest", "slot": "armor", "category": "normal", "requiredLevel": 10, "gemSlots": 1,
+		{"itemId": "normal_weapon_lv10", "name": "Iron Sword", "slot": "weapon", "category": "normal", "requiredLevel": 10, "gemSlots": 1,
+			"statHp": 0, "statDamage": 8, "statDefense": 0, "statCrit": 0, "statMoveEnergy": 0, "priceCoin": 500, "priceGem": 0, "isActive": false},
+		{"itemId": "normal_weapon_lv30", "name": "Mithril Sword", "slot": "weapon", "category": "normal", "requiredLevel": 30, "gemSlots": 1,
+			"statHp": 0, "statDamage": 25, "statDefense": 0, "statCrit": 2, "statMoveEnergy": 0, "priceCoin": 4000, "priceGem": 0, "isActive": false},
+		{"itemId": "normal_armor_lv40", "name": "Dragon Vest", "slot": "armor", "category": "normal", "requiredLevel": 40, "gemSlots": 1,
 			"statHp": 150, "statDamage": 0, "statDefense": 15, "statCrit": 0, "statMoveEnergy": 0, "priceCoin": 8000, "priceGem": 0, "isActive": true},
-		{"itemId": "normal_helmet_lv10", "name": "Iron Cap", "slot": "helmet", "category": "normal", "requiredLevel": 1, "gemSlots": 1,
+		{"itemId": "normal_helmet_lv10", "name": "Iron Cap", "slot": "helmet", "category": "normal", "requiredLevel": 10, "gemSlots": 1,
 			"statHp": 20, "statDamage": 0, "statDefense": 2, "statCrit": 0, "statMoveEnergy": 0, "priceCoin": 0, "priceGem": 30, "isActive": true},
-		{"itemId": "normal_boots_lv20", "name": "Steel Boots", "slot": "boots", "category": "normal", "requiredLevel": 4, "gemSlots": 1,
+		{"itemId": "normal_boots_lv20", "name": "Steel Boots", "slot": "boots", "category": "normal", "requiredLevel": 20, "gemSlots": 1,
 			"statHp": 20, "statDamage": 0, "statDefense": 2, "statCrit": 0, "statMoveEnergy": 10, "priceCoin": 800, "priceGem": 0, "isActive": false},
-		{"itemId": "crafted_gloves_diamond", "name": "Diamond Gloves", "slot": "gloves", "category": "crafted", "tier": "diamond", "requiredLevel": 10,
+		{"itemId": "crafted_gloves_diamond", "name": "Diamond Gloves", "slot": "gloves", "category": "crafted", "tier": "diamond", "requiredLevel": 75,
 			"statHp": 0, "statDamage": 24, "statDefense": 0, "statCrit": 16, "statMoveEnergy": 0, "priceCoin": 0, "priceGem": 0, "isActive": true},
-		{"itemId": "tanko_hammer", "name": "Tanko Hammer", "slot": "weapon", "category": "normal", "requiredLevel": 1, "characterId": "tanko",
-			"statDamage": 10, "priceCoin": 100, "isActive": true},
+		{"itemId": "tanko_weapon_lv10", "name": "Tanko Cannon", "slot": "weapon", "category": "normal", "requiredLevel": 10, "characterId": "tanko",
+			"statDamage": 8, "priceCoin": 500, "isActive": true},
+		{"itemId": "rookie_weapon_lv20", "name": "Rookie Sword", "slot": "weapon", "category": "normal", "requiredLevel": 20, "characterId": "rookie",
+			"statDamage": 15, "statCrit": 1, "priceCoin": 1500, "isActive": true},
 		"junk",
 	],
 	"upgradeRates": [{"fromLevel": 0, "toLevel": 1}],
 }
 
 const CHARS := {"characters": [
-	{"characterId": "rookie", "level": 5},
-	{"characterId": "tanko", "level": 10},
+	{"characterId": "rookie", "level": 15},
+	{"characterId": "tanko", "level": 40},
 ]}
 
 
@@ -42,7 +46,8 @@ static func _owned() -> Array:
 func test_parse_catalog() -> void:
 	var c = M.parse_catalog(CATALOG)
 	check(c is Dictionary, "parsed")
-	eq(c["order"].size(), 7, "junk dropped")
+	eq(c["order"].size(), 8, "junk dropped")
+	eq(M.item_of(c, "normal_weapon_lv10")["isActive"], false, "inactive kept for owned pieces")
 	eq(c["upgradeRates"].size(), 1, "rates kept")
 	eq(c["setBonuses"], [], "missing list is empty")
 	eq(M.parse_catalog({"items": "x"}), null, "malformed")
@@ -79,9 +84,15 @@ func test_display_names_and_tiers() -> void:
 	eq(M.display_name({"name": "Titan Vest"}), "Áo giáp Titan", "titan")
 	eq(M.display_name({"name": "Diamond Sword"}), "Kiếm Kim cương", "diamond")
 	eq(M.display_name({"name": "Tanko Hammer"}), "Tanko Hammer", "fallback to the server name")
+	eq(M.display_name({"name": "Rookie Sword"}), "Kiếm Rookie", "rookie weapon")
+	eq(M.display_name({"name": "Tanko Cannon"}), "Pháo Tanko", "tanko weapon")
+	eq(M.display_name({"name": "Spark Staff"}), "Gậy Spark", "spark weapon")
+	eq(M.display_name({"name": "Flora Slingshot"}), "Ná Flora", "flora weapon")
+	eq(M.display_name({"name": "Nobody Sword"}), "Nobody Sword", "unknown character: server name")
 	eq(M.display_name({"itemId": "x", "slot": "boots", "category": "crafted", "tier": "gold"}), "Giày Vàng", "no name: slot + tier")
 	eq(M.tier({"itemId": "normal_weapon_lv10", "name": "Iron Sword"}), "iron", "tier from the name")
 	eq(M.tier({"itemId": "normal_weapon_lv40", "name": "Kiếm"}), "dragon", "tier from the id suffix")
+	eq(M.tier({"itemId": "rookie_weapon_lv20", "name": "Rookie Sword"}), "steel", "character weapon tier from the id suffix")
 	eq(M.tier({"itemId": "crafted_x", "tier": "Titan"}), "titan", "tier field")
 	eq(M.tier({"itemId": "q", "category": "crafted"}), "silver", "crafted default")
 	eq(M.tier({"itemId": "q"}), "iron", "normal default")
@@ -132,19 +143,20 @@ func test_wearer_and_worn() -> void:
 
 func test_can_wear() -> void:
 	var c = M.parse_catalog(CATALOG)
-	eq(M.can_wear(M.item_of(c, "normal_weapon_lv30"), "rookie", CHARS), {"ok": false, "reason": "Cần Lv 7"}, "level")
-	eq(M.can_wear(M.item_of(c, "normal_weapon_lv30"), "tanko", CHARS)["ok"], true, "level ok")
-	eq(M.can_wear(M.item_of(c, "tanko_hammer"), "rookie", CHARS), {"ok": false, "reason": "Chỉ cho Tanko"}, "restricted")
-	eq(M.can_wear(M.item_of(c, "tanko_hammer"), "tanko", CHARS)["ok"], true, "restricted ok")
+	eq(M.can_wear(M.item_of(c, "normal_weapon_lv30"), "rookie", CHARS), {"ok": false, "reason": "Cần Lv 30"}, "level")
+	eq(M.can_wear(M.item_of(c, "normal_weapon_lv30"), "tanko", CHARS)["ok"], true, "level ok (retired generic weapon still wearable)")
+	eq(M.can_wear(M.item_of(c, "tanko_weapon_lv10"), "rookie", CHARS), {"ok": false, "reason": "Chỉ cho Tanko"}, "restricted")
+	eq(M.can_wear(M.item_of(c, "tanko_weapon_lv10"), "tanko", CHARS)["ok"], true, "restricted ok")
+	eq(M.can_wear(M.item_of(c, "rookie_weapon_lv20"), "rookie", CHARS), {"ok": false, "reason": "Cần Lv 20"}, "own weapon, level")
 	eq(M.can_wear(M.item_of(c, "normal_weapon_lv10"), "flora", CHARS), {"ok": false, "reason": "Chưa sở hữu nhân vật"}, "not owned")
 	eq(M.can_wear(M.item_of(c, "normal_weapon_lv30"), "rookie", null)["ok"], true, "unknown: server decides")
-	eq(M.required_text(M.item_of(c, "normal_armor_lv40")), "Lv 10", "required text")
+	eq(M.required_text(M.item_of(c, "normal_armor_lv40")), "Lv 40", "required text")
 
 
 func test_sort_bag() -> void:
 	var c = M.parse_catalog(CATALOG)
 	var ids := M.sort_bag(_owned(), c).map(func(p): return p["equipmentId"])
-	# Worn first (Dragon Vest Lv10 armor, then Mithril Sword Lv7), then by level, slot, upgrade.
+	# Worn first (Dragon Vest Lv40 armor, then Mithril Sword Lv30), then by level, slot, upgrade.
 	eq(ids, ["e2", "e3", "e4", "e5", "e1"], "bag order")
 	eq(M.sort_bag(null, c), [], "not loaded")
 
@@ -161,9 +173,12 @@ func test_sort_for_character() -> void:
 
 func test_shop_items_and_price() -> void:
 	var c = M.parse_catalog(CATALOG)
-	var all := M.shop_items(c).map(func(i): return i["itemId"])
-	eq(all, ["normal_helmet_lv10", "normal_armor_lv40", "normal_weapon_lv10", "tanko_hammer", "normal_weapon_lv30"], "normal, active, priced, slot order then level")
-	eq(M.shop_items(c, "weapon").size(), 3, "slot filter")
+	var ids := func(items: Array) -> Array: return items.map(func(i): return i["itemId"])
+	eq(ids.call(M.shop_items(c)), ["normal_helmet_lv10", "normal_armor_lv40"], "shared: normal, active, priced, slot order")
+	eq(ids.call(M.shop_items(c, "", "rookie")), ["normal_helmet_lv10", "normal_armor_lv40", "rookie_weapon_lv20"], "shared + rookie's weapons")
+	eq(ids.call(M.shop_items(c, "", "tanko")), ["normal_helmet_lv10", "normal_armor_lv40", "tanko_weapon_lv10"], "shared + tanko's weapons")
+	eq(ids.call(M.shop_items(c, "weapon", "rookie")), ["rookie_weapon_lv20"], "slot filter: no retired, no other character's")
+	eq(M.shop_items(c, "weapon", "flora"), [], "no weapon for flora in this catalog")
 	eq(M.shop_items(null), [], "no catalog")
 	eq(M.price(M.item_of(c, "normal_weapon_lv10")), {"currency": "coin", "amount": 500}, "coin price")
 	eq(M.price(M.item_of(c, "normal_helmet_lv10")), {"currency": "gem", "amount": 30}, "gem when coin is 0")

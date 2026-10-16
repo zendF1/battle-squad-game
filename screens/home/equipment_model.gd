@@ -27,10 +27,12 @@ const TIER_WORDS := {
 	"iron": "Sắt", "steel": "Thép", "mithril": "Mithril", "dragon": "Rồng",
 	"silver": "Bạc", "gold": "Vàng", "titan": "Titan", "diamond": "Kim cương",
 }
-## Normal item ids keep the old lvN suffix (not the required level): the shop tier.
+## Normal item ids end in lvN, the required level (10/20/30/40): the shop tier. Weapons are per
+## character (<character>_weapon_lvN, "Rookie Sword"); the other slots are shared.
 const ID_SUFFIX_TIERS := {"lv10": "iron", "lv20": "steel", "lv30": "mithril", "lv40": "dragon"}
 const TYPE_WORDS := {
 	"sword": "Kiếm", "vest": "Áo giáp", "cap": "Mũ", "pants": "Quần", "boots": "Giày", "gloves": "Găng",
+	"cannon": "Pháo", "staff": "Gậy", "slingshot": "Ná",
 }
 ## key: the catalog field; unit "%" for the crit chance.
 const STATS := [
@@ -128,13 +130,18 @@ static func tier(item: Dictionary) -> String:
 	return "silver" if str(item.get("category", "")) == "crafted" else "iron"
 
 
-## "Kiếm Sắt", "Áo giáp Rồng", "Găng Kim cương" from "<Tier> <Type>"; the server name
-## otherwise, or the slot name + tier word when it has none.
+## "Kiếm Sắt", "Áo giáp Rồng", "Găng Kim cương" from "<Tier> <Type>"; "Kiếm Rookie", "Pháo
+## Tanko" from "<Character> <Type>"; the server name otherwise, or the slot name + tier word
+## when it has none.
 static func display_name(item: Dictionary) -> String:
 	var name := str(item.get("name", "")).strip_edges()
 	var words := name.to_lower().split(" ", false)
 	if words.size() == 2 and TIER_WORDS.has(words[0]) and TYPE_WORDS.has(words[1]):
 		return "%s %s" % [TYPE_WORDS[words[1]], TIER_WORDS[words[0]]]
+	if words.size() == 2 and TYPE_WORDS.has(words[1]):
+		for c in LoadoutModel.CHARACTERS:
+			if str(c["name"]).to_lower() == words[0]:
+				return "%s %s" % [TYPE_WORDS[words[1]], c["name"]]
 	if name != "":
 		return name
 	var slot := str(item.get("slot", ""))
@@ -290,7 +297,7 @@ static func character_entry(characters: Variant, id: String) -> Variant:
 
 
 ## Whether `character_id` can wear the item: {ok, reason}. reason (Vietnamese) when not:
-## "Chưa sở hữu nhân vật", "Chỉ cho Tanko", "Cần Lv 7". Unknown characters data (not loaded)
+## "Chưa sở hữu nhân vật", "Chỉ cho Tanko", "Cần Lv 20". Unknown characters data (not loaded)
 ## is ok: the server decides.
 static func can_wear(item: Dictionary, character_id: String, characters: Variant) -> Dictionary:
 	var only = item.get("characterId")
@@ -307,7 +314,7 @@ static func can_wear(item: Dictionary, character_id: String, characters: Variant
 	return {"ok": true, "reason": ""}
 
 
-## "Lv 7"
+## "Lv 20"
 static func required_text(item: Dictionary) -> String:
 	return "Lv %d" % maxi(int(item.get("requiredLevel", 1)), 1)
 
@@ -335,9 +342,10 @@ static func bonus_lines(stats: Variant) -> Array:
 
 # ── Shop ────────────────────────────────────────────────────────────────────
 
-## Items the shop sells: active normal items with a price, of one slot ("" = all), in slot
-## order then by required level.
-static func shop_items(catalog: Variant, slot: String = "") -> Array:
+## Items the shop sells to `character_id`: active normal items with a price that are shared
+## (no characterId) or that character's own (its weapons; other characters' are left out), of
+## one slot ("" = all), in slot order then by required level.
+static func shop_items(catalog: Variant, slot: String = "", character_id: String = "") -> Array:
 	if not catalog is Dictionary:
 		return []
 	var rows: Array = []
@@ -347,6 +355,9 @@ static func shop_items(catalog: Variant, slot: String = "") -> Array:
 		if it.get("isActive", true) == false or str(it.get("category", "normal")) != "normal":
 			continue
 		if price(it)["amount"] <= 0:
+			continue
+		var only = it.get("characterId")
+		if only != null and str(only) != "" and str(only) != character_id:
 			continue
 		if slot != "" and str(it.get("slot", "")) != slot:
 			continue

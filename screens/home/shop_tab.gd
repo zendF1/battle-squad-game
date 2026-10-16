@@ -1,8 +1,9 @@
 extends Control
 ## "Shop": five sub-tabs.
 ## - "Vật phẩm": item offers (GET /shop/offers) with "Còn N lượt" from GET /shop/purchases;
-## - "Trang bị": the equipment the catalog sells (PlayerState.catalog, normal items with a
-##   price), filtered by slot: icon, name, "Lv N", stats, price, "Đã có N"; "Mua" asks "Mua
+## - "Trang bị": the equipment the catalog sells (PlayerState.catalog, active normal items with a
+##   price): the gear shared by every character plus the weapons of the lobby's character only
+##   ("Vũ khí của Rookie"), filtered by slot: icon, name, "Lv N", stats, price, "Đã có N"; "Mua" asks "Mua
 ##   <tên> với giá <giá>?", then PlayerState.buy_equipment() sends POST /shop/equipment/buy
 ##   {itemId, idempotencyKey} with the same key rules as the purchases below;
 ## - "Nhân vật": character_unlock offers per character, "Đã sở hữu" from GET /player/characters;
@@ -52,6 +53,8 @@ const REPLAYED := "Giao dịch trước đã hoàn tất"
 
 ## Where dialogs and toasts go (the Home shell); defaults to this tab.
 var overlay: Control
+## The lobby's character (Home sets it): Trang bị sells its weapons.
+var lobby_character: Callable
 
 var _data := {} # source -> parsed data (absent until loaded)
 var _errors := {} # source -> Vietnamese message of the last failed load
@@ -69,6 +72,8 @@ var _flows: Array[HFlowContainer] = []
 var _slot := "" # the Trang bị slot filter, "" = all
 var _chips: Array[Button]
 var _equipment_dirty := false # equipment changed while Trang bị was not shown
+var _weapons_label: Label # "Vũ khí của Rookie"
+var _equipment_character := "" # whose weapons the Trang bị cards show
 
 
 func _ready() -> void:
@@ -105,6 +110,12 @@ func _ready() -> void:
 			_chips = EquipmentUi.slot_chips(_on_slot)
 			for c in _chips:
 				chips.add_child(c)
+			var spacer := Control.new()
+			spacer.size_flags_horizontal = SIZE_EXPAND_FILL
+			chips.add_child(spacer)
+			_weapons_label = Ui.text("", 22, Ui.TEXT_DIM)
+			_weapons_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			chips.add_child(_weapons_label)
 			box.add_child(page)
 			page = box
 		page.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
@@ -139,7 +150,7 @@ func _on_wallet_changed() -> void:
 
 func show_section(index: int) -> void:
 	_sub = index
-	if index == EQUIPMENT and _equipment_dirty:
+	if index == EQUIPMENT and (_equipment_dirty or _shop_character() != _equipment_character):
 		_equipment_dirty = false
 		_render_equipment()
 	for i in _pages.size():
@@ -224,7 +235,7 @@ func _on_assets_dirty() -> void:
 
 
 func _on_visibility_changed() -> void:
-	if is_visible_in_tree() and _sub == EQUIPMENT and _equipment_dirty:
+	if is_visible_in_tree() and _sub == EQUIPMENT and (_equipment_dirty or _shop_character() != _equipment_character):
 		_render_equipment()
 	_ensure_loaded()
 
@@ -302,14 +313,22 @@ func _on_slot(slot: String) -> void:
 	_render_equipment()
 
 
+## The lobby's character (Rookie when Home did not set it).
+func _shop_character() -> String:
+	return str(lobby_character.call()) if lobby_character.is_valid() else LoadoutModel.DEFAULT_CHARACTER
+
+
 func _render_equipment() -> void:
 	_equipment_dirty = false
+	_equipment_character = _shop_character()
+	if _weapons_label != null:
+		_weapons_label.text = "Vũ khí của %s" % EquipmentModel.character_name(_equipment_character)
 	var flow := _flows[EQUIPMENT]
 	Ui.clear(flow)
 	EquipmentUi.select_chip(_chips, _slot)
 	if PlayerState.catalog == null:
 		return
-	var items := EquipmentModel.shop_items(PlayerState.catalog, _slot)
+	var items := EquipmentModel.shop_items(PlayerState.catalog, _slot, _equipment_character)
 	if items.is_empty():
 		flow.add_child(_empty("Chưa có trang bị nào được bán"))
 	for it in items:

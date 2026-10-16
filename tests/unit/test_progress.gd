@@ -20,6 +20,18 @@ func test_character_curve_progress() -> void:
 	near(p["ratio"], 0.5, 0.0001, "ratio")
 	p = Progress.character({"level": 9, "exp": 4600})
 	eq(p["text"], "600 / 1200", "L9 is 4000..5200")
+	eq(Progress.character({"level": 10, "exp": 5300})["text"], "100 / 1225", "L10 is 5200..6425")
+	eq(Progress.character({"level": 40, "exp": 52825, "nextLevelExp": 54800, "isMaxLevel": false})["text"], "0 / 1975", "L40")
+
+
+func test_character_threshold_default_table() -> void:
+	eq(Progress.character_threshold(1), 0, "L1")
+	eq(Progress.character_threshold(10), 5200, "L10")
+	eq(Progress.character_threshold(11), 6425, "L11")
+	eq(Progress.character_threshold(20), 18575, "L20")
+	eq(Progress.character_threshold(40), 52825, "L40")
+	eq(Progress.character_threshold(75), 136825, "L75")
+	eq(Progress.character_threshold(80), 151325, "L80")
 
 
 func test_character_next_level_exp_overrides_curve() -> void:
@@ -32,5 +44,8 @@ func test_character_max_level() -> void:
 	check(p["is_max"], "max")
 	eq(p["text"], "MAX", "text")
 	eq(p["ratio"], 1.0, "full bar")
-	check(Progress.character({"level": 12, "exp": 0})["is_max"], "past the curve is max")
+	check(not Progress.character({"level": 12, "exp": 7000, "isMaxLevel": false})["is_max"], "level 10 is no longer the cap")
+	eq(Progress.character({"level": 12, "exp": 7000})["level"], 12, "level not clamped")
+	check(Progress.character({"level": 80, "exp": 151325})["is_max"], "end of the default table is max")
+	check(not Progress.character({"level": 80, "exp": 151325, "isMaxLevel": false})["is_max"], "server flag wins (longer table)")
 	check(Progress.character({"level": 4, "exp": 800, "isMaxLevel": true})["is_max"], "server flag wins")

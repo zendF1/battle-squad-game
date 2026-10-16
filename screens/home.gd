@@ -9,8 +9,8 @@ extends Control
 ## Each time Home is shown (first entry, back from Loadout or a match) the profile is refreshed in
 ## the background; the last known values show meanwhile. The cached characters and the owned
 ## equipment are marked stale too (a match changes their EXP), so whatever shows them reloads
-## them once. The Nhân vật page and Túi đồ act on the lobby's character; ◀ ▶ on the Nhân vật page
-## change it in the lobby too.
+## them once. The Nhân vật page, Túi đồ and the Shop's Trang bị (its weapons) act on the lobby's
+## character; ◀ ▶ on the Nhân vật page change it in the lobby too.
 
 const Backdrop := preload("res://ui/backdrop.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -58,6 +58,7 @@ func _ready() -> void:
 	_profile.overlay = self
 	_shop = ShopTab.new()
 	_shop.overlay = self
+	_shop.lobby_character = _lobby.character_id
 	_bag = BagPage.new()
 	_bag.overlay = self
 	_bag.lobby_character = _lobby.character_id
