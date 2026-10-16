@@ -1,6 +1,18 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scenes/character/character.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/characters/rookie/side/idle_0.png" id="2"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_preview"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 1.0
+}]
 
 [node name="Character" type="Node2D"]
 script = ExtResource("1")
@@ -12,8 +24,11 @@ texture_filter = 2
 
 [node name="Sprite" type="AnimatedSprite2D" parent="Flip"]
 texture_filter = 2
+scale = Vector2(2.285714, 2.285714)
+sprite_frames = SubResource("SpriteFrames_preview")
+animation = &"idle"
 centered = false
-offset = Vector2(-256, -360)
+offset = Vector2(-41.49, -125.94)
 
 [node name="Gun" type="Node2D" parent="Flip"]
 
@@ -27,3 +42,6 @@ texture_filter = 2
 [node name="Flash" type="Sprite2D" parent="Flip/Gun"]
 visible = false
 texture_filter = 2
+
+[node name="ReadyHands" type="Node2D" parent="Flip"]
+visible = false

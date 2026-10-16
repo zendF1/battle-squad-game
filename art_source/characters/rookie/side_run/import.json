@@ -1,30 +1,289 @@
 {
-	"_doc": "tools/import_frames.gd: Rookie's in-match side view from the AI-made run cycle (frame_1..8.png, 1280x720, facing right). Source px unless noted. See assets/README.md.",
+	"_doc": "tools/import_frames.gd: Rookie's in-match side view from the AI-made run cycle (frame_1..8.png, 1280x720, facing right) and the ready-to-shoot pose (poses.ready: ../side_ready/ready_v1.png). Source px unless noted. See assets/README.md.",
 	"id": "rookie",
 	"out": "res://assets/characters/rookie/side/",
-	"frames": ["frame_1.png", "frame_2.png", "frame_3.png", "frame_4.png", "frame_5.png", "frame_6.png", "frame_7.png", "frame_8.png"],
+	"frames": [
+		"frame_1.png",
+		"frame_2.png",
+		"frame_3.png",
+		"frame_4.png",
+		"frame_5.png",
+		"frame_6.png",
+		"frame_7.png",
+		"frame_8.png"
+	],
 	"alphaCut": 128,
 	"keepPieces": 0.02,
-	"defringe": {"band": 2, "outline": [24, 22, 30], "maxChroma": 56},
-	"stabilise": {"rows": [0.0, 0.62], "search": 40},
-	"hipRows": [0.74, 0.8],
+	"defringe": {
+		"band": 2,
+		"outline": [
+			24,
+			22,
+			30
+		],
+		"maxChroma": 56
+	},
+	"stabilise": {
+		"rows": [
+			0.0,
+			0.62
+		],
+		"search": 40
+	},
+	"hipRows": [
+		0.74,
+		0.8
+	],
 	"height": 60,
 	"oversample": 2,
 	"worldPxPerUnit": 0.35,
 	"pad": 3,
 	"anims": {
-		"idle": {"frames": [0], "fps": 1, "loop": true, "motion": "breathe"},
-		"walk": {"frames": [0, 1, 2, 3, 4, 5, 6, 7], "fps": 20, "loop": true, "swing": true},
-		"shoot": {"frames": "idle", "count": 3, "fps": 9, "loop": false, "motion": "recoil", "angle": [-14, -6, -1], "flash": [1, 0.35, 0]},
-		"hurt": {"frames": "idle", "count": 3, "fps": 7, "loop": false, "motion": "knockback", "angle": [5, -4, 1]},
-		"die": {"frames": "idle", "count": 4, "fps": 8, "loop": false, "motion": "fall", "front": false, "angle": [0, 25, 65, 90]}
+		"idle": {
+			"frames": [
+				0
+			],
+			"fps": 1,
+			"loop": true,
+			"motion": "breathe"
+		},
+		"walk": {
+			"frames": [
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7
+			],
+			"fps": 20,
+			"loop": true,
+			"swing": true
+		},
+		"shoot": {
+			"frames": "idle",
+			"count": 3,
+			"fps": 9,
+			"loop": false,
+			"motion": "recoil",
+			"angle": [
+				-14,
+				-6,
+				-1
+			],
+			"flash": [
+				1,
+				0.35,
+				0
+			]
+		},
+		"hurt": {
+			"frames": "idle",
+			"count": 3,
+			"fps": 7,
+			"loop": false,
+			"motion": "knockback",
+			"angle": [
+				5,
+				-4,
+				1
+			]
+		},
+		"die": {
+			"frames": "idle",
+			"count": 4,
+			"fps": 8,
+			"loop": false,
+			"motion": "fall",
+			"front": false,
+			"angle": [
+				0,
+				25,
+				65,
+				90
+			]
+		},
+		"draw": {
+			"_doc": "the ready pose, shown at once while the gun is out (gunDraw: no transition)",
+			"frames": [
+				"ready"
+			],
+			"stem": "ready",
+			"fps": 1,
+			"loop": false
+		},
+		"fire": {
+			"_doc": "the shot from the ready pose: its frame with the recoil",
+			"frames": "draw",
+			"count": 3,
+			"fps": 9,
+			"loop": false,
+			"motion": "recoil",
+			"angle": [
+				-10,
+				-4,
+				-1
+			],
+			"flash": [
+				1,
+				0.35,
+				0
+			]
+		}
 	},
 	"gun": {
 		"_doc": "angle per frame is added to the hold (+ = muzzle down; die: the gun ends lying level with the fallen body). fists: the near (camera-side) arm's fist centre per source frame; the grip follows it by `follow` from `carry` (px from the feet pivot, source px), so the gun sways with the arm but stays carried. swingDeg: muzzle tilt at the ends of the swing (forward = up).",
-		"fists": [[531, 458], [506, 448], [476, 440], [473, 451], [525, 465], [601, 434], [639, 404], [622, 433]],
-		"carry": [50, -160],
+		"fists": [
+			[
+				531,
+				458
+			],
+			[
+				506,
+				448
+			],
+			[
+				476,
+				440
+			],
+			[
+				473,
+				451
+			],
+			[
+				525,
+				465
+			],
+			[
+				601,
+				434
+			],
+			[
+				639,
+				404
+			],
+			[
+				622,
+				433
+			]
+		],
+		"carry": [
+			50,
+			-160
+		],
 		"follow": 0.35,
 		"swingDeg": 4
 	},
-	"hand": {"_doc": "the fist drawn over the gun's grip, cut from this frame (circle, soft edge)", "frame": 3, "center": [737, 371], "radius": 25, "feather": 3}
+	"hand": {
+		"_doc": "the fist drawn over the gun's grip, cut from this frame (circle, soft edge)",
+		"frame": 3,
+		"center": [
+			737,
+			371
+		],
+		"radius": 25,
+		"feather": 3
+	},
+	"gunDraw": {
+		"_doc": "gun_draw.gd TIMINGS overrides: the ready pose switches in and out at once",
+		"drawSec": 0,
+		"fastDrawSec": 0,
+		"holsterSec": 0,
+		"fadeIn": 0
+	},
+	"poses": {
+		"ready": {
+			"_doc": "pose px (2048x2048): kneeling, facing right, empty hands. The background is a checkerboard drawn into the pixels with an 'AI' watermark: removed by `background`. scale: source px per pose px (the cap and the face as wide as in the run frames); alignX: the belt buckle on the idle frame's; the knee / boot on the soles' row. The gun is placed by hand in `scene` (one socket per gun kind).",
+			"src": "../side_ready/ready_v1.png",
+			"workScale": 0.5,
+			"background": {
+				"minLum": 200,
+				"maxChroma": 24,
+				"tones": [
+					[
+						230,
+						244
+					],
+					[
+						248,
+						255
+					]
+				],
+				"holeMin": 100,
+				"holeTones": 0.15
+			},
+			"defringe": {
+				"band": 2,
+				"outline": [
+					24,
+					22,
+					30
+				],
+				"maxChroma": 56
+			},
+			"scale": 0.285,
+			"alignX": [
+				815,
+				625
+			],
+			"gun": {
+				"_doc": "the fallback seat (no scene): the gun's grip in the front fist's hole (pose px), level",
+				"grip": [
+					1620,
+					930
+				],
+				"angle": 0
+			},
+			"hands": {
+				"_doc": "the hands drawn over the gun, cut out of the pose (pose px regions) into their own PNGs; the scene places them. patch: what the back hand covered (the front arm it rests on) is filled from a clear column of that arm, along its top edge",
+				"HandFront": {
+					"stem": "ready_hand_front",
+					"regions": [
+						[
+							1495,
+							805,
+							1755,
+							1045
+						]
+					],
+					"dilate": 16,
+					"feather": 1,
+					"skinMinR": 110
+				},
+				"HandBack": {
+					"stem": "ready_hand_back",
+					"regions": [
+						[
+							1095,
+							780,
+							1395,
+							985
+						]
+					],
+					"dilate": 16,
+					"feather": 1,
+					"patch": {
+						"src": [
+							1395,
+							1430
+						],
+						"edge": [
+							[
+								1400,
+								885
+							],
+							[
+								1500,
+								870
+							]
+						]
+					},
+					"skinMinR": 110
+				}
+			},
+			"scene": "res://scenes/character/poses/rookie_ready.tscn"
+		}
+	}
 }

@@ -47,8 +47,10 @@ func test_sprite_frames_have_every_animation() -> void:
 
 
 func test_character_scene_puts_the_feet_on_the_origin() -> void:
+	# The scene previews Rookie's side idle in the editor (the code sets the look at runtime).
 	var text := FileAccess.get_file_as_string("res://scenes/character/character.tscn")
-	check(text.contains("offset = Vector2(%d, %d)" % [-int(Art.FRAME_PIVOT.x), -int(Art.FRAME_PIVOT.y)]), "sprite offset is -FRAME_PIVOT")
+	var pivot: Vector2 = Art.side_view("rookie")["pivot"]
+	check(text.contains("offset = Vector2(%.2f, %.2f)" % [-pivot.x, -pivot.y]), "sprite offset is -the side view's pivot")
 	check(text.contains("centered = false"), "sprite not centred")
 
 

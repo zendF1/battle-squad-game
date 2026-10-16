@@ -124,11 +124,12 @@ func test_ready_pose() -> void:
 	check(C.ready_pose(0.5, t)["scale"].y < out["scale"].y, "the squash bump in the middle")
 
 
-## The character with holster on (the match): no gun until aimed, walk holsters first, a shot
-## from a holstered gun leaves from the drawn gun's muzzle.
+## The character with holster on (the match) and the code draw (a look without a drawn ready
+## pose: Tanko's baked frames): no gun until aimed, walk holsters first, a shot from a holstered
+## gun leaves from the drawn gun's muzzle.
 func test_character_holster() -> void:
 	var c: Node2D = CharacterScene.instantiate()
-	c.character_id = "rookie"
+	c.character_id = "tanko"
 	c.holster = true
 	var holder := Node2D.new() # not in the tree: _ready by hand, _process driven below
 	holder.add_child(c)
@@ -153,7 +154,7 @@ func test_character_holster() -> void:
 	near(gun.scale.x, 1.0, 1e-6, "full size once out (from %f)" % start_scale)
 	check(start_scale < 1.0, "smaller in the low carry")
 	c.aim(40.0)
-	var anchor: Dictionary = Art_gun_anchor("idle")
+	var anchor: Dictionary = preload("res://ui/art.gd").gun_anchor("tanko", "idle", 0)
 	near(rad_to_deg(gun.rotation), float(anchor["angle"]) - 40.0, 0.01, "turned to the aim")
 	c.set_walking(true)
 	eq(c.gun_state(), "holstering", "walking with the gun out puts it away first")
@@ -184,10 +185,6 @@ func test_character_holster() -> void:
 	eq(c.gun_state(), "holstered", "dead: no gun")
 	check(not gun.visible, "no gun on the body")
 	holder.free()
-
-
-func Art_gun_anchor(anim: String) -> Dictionary:
-	return preload("res://ui/art.gd").gun_anchor("rookie", anim, 0)
 
 
 ## Out of the match (holster off) the gun is always in hand, as before.
@@ -239,6 +236,8 @@ func test_drawn_draw_frames() -> void:
 	for anim in data["anims"]:
 		data["anims"][anim]["frames"] = ["idle_0"] if anim != "walk" else ["walk_0", "walk_3", "walk_0", "walk_3"]
 	data["anims"]["draw"] = {"frames": ["idle_0", "walk_3", "walk_0"]}
+	data["anims"].erase("fire")
+	data.erase("overGun")
 	data["gunDraw"] = {"drawSec": 0.3}
 	var fa := FileAccess.open(dir + "side.json", FileAccess.WRITE)
 	fa.store_string(JSON.stringify(data))
@@ -289,3 +288,135 @@ func test_drawn_draw_frames() -> void:
 		for f in DirAccess.get_files_at(d):
 			DirAccess.remove_absolute(d + f)
 		DirAccess.remove_absolute(d)
+
+
+## Rookie's drawn ready pose: side.json draw = ready_0 (the kneeling pose), fire = it with the
+## recoil, gunDraw all 0 s; its gun is placed in scenes/character/poses/rookie_ready.tscn.
+func test_rookie_ready_pose_assets() -> void:
+	var Art := preload("res://ui/art.gd")
+	var dir := Art.side_dir("rookie")
+	check(FileAccess.file_exists(dir + "ready_0.png"), "ready_0.png")
+	check(FileAccess.file_exists(dir + "ready_hand_front.png") and FileAccess.file_exists(dir + "ready_hand_back.png"), "the hand PNGs")
+	check(ResourceLoader.exists("res://scenes/character/poses/rookie_ready.tscn"), "the pose scene")
+	var look := Art.side_view("rookie")
+	check(bool(look["draw_frames"]) and bool(look["fire_frames"]), "draw and fire frames")
+	eq(look["frames"].get_frame_count("draw"), 1, "one ready frame")
+	eq(look["frames"].get_frame_count("fire"), 3, "three fire frames")
+	eq(look["motions"]["fire"], "recoil", "the fire recoils")
+	eq(look["ready"]["anims"], ["draw", "fire"], "the ready pose's anims")
+	for key in ["drawSec", "fastDrawSec", "holsterSec"]:
+		near(float(look["gun_draw"].get(key, -1.0)), 0.0, 1e-9, "gunDraw %s 0" % key)
+	for anim in ["draw", "fire"]:
+		eq(look["anchors"].get(anim, []).size(), look["frames"].get_frame_count(anim), "%s anchors per frame" % anim)
+	# The scene: a socket per gun kind (its Preview the kind's gun, grip on the socket's origin),
+	# the two hands, the aim range.
+	var rp := Art.ready_pose("rookie")
+	for kind in Art.GUN_KINDS:
+		check(rp["sockets"].has(kind), "a socket for %s" % kind)
+	eq(rp["hands"].size(), 2, "two hands")
+	for h in rp["hands"]:
+		check(h["texture"] != null, "%s has its picture" % h["name"])
+	check(rp["aim"].x < 0.0 and rp["aim"].y > 30.0, "an aim range (%s)" % rp["aim"])
+	var root: Node = load("res://scenes/character/poses/rookie_ready.tscn").instantiate()
+	for kind in Art.GUN_KINDS:
+		var sock := root.get_node_or_null("GunSocket_" + kind)
+		var preview := root.get_node_or_null("GunSocket_%s/Preview" % kind) as Sprite2D
+		check(sock != null and preview != null, "GunSocket_%s/Preview" % kind)
+		if preview != null:
+			near(preview.offset.distance_to(-Art.gun(kind, "iron")["grip"]), 0.0, 0.01, "%s: the grip on the socket's origin" % kind)
+	check(root.get_node_or_null("HandFront") is Sprite2D and root.get_node_or_null("HandBack") is Sprite2D, "the hand sprites")
+	root.free()
+	# Same ground and body place as idle: the soles' row on the pivot row, the belt over the pivot.
+	var idle := Image.load_from_file(ProjectSettings.globalize_path(dir + "idle_0.png"))
+	var ready := Image.load_from_file(ProjectSettings.globalize_path(dir + "ready_0.png"))
+	var pivot: Vector2 = look["pivot"]
+	eq(ready.get_size(), idle.get_size(), "one canvas")
+	near(float(_sole_row(ready)), float(_sole_row(idle)), 1.0, "on the idle's ground")
+	near(float(_sole_row(ready)) + 1.0, pivot.y, 1.0, "soles on the pivot row")
+	# The grip (the front fist) is ahead of the body and at chest height.
+	var grip: Vector2 = look["anchors"]["draw"][0]["grip"]
+	check(grip.x > pivot.x + 30.0 and grip.y < pivot.y - 40.0, "the grip in the front fist (%s)" % grip)
+
+
+## In the match Rookie switches to the ready pose at once, fires from it and is back to idle
+## (gun away) after the shot or a cancel.
+func test_rookie_ready_switches_at_once() -> void:
+	var c: Node2D = CharacterScene.instantiate()
+	c.character_id = "rookie"
+	c.holster = true
+	var holder := Node2D.new()
+	holder.add_child(c)
+	c._ready()
+	var gun: Node2D = c.get_node("Flip/Gun")
+	var over: Node2D = c.get_node("Flip/ReadyHands")
+	var hand: Sprite2D = c.get_node("Flip/Gun/Hand")
+	var dt := 1.0 / 60.0
+	eq(c.animation(), "idle", "idle")
+	check(not gun.visible and not over.visible, "no gun, no hands over it")
+	c.draw_gun()
+	eq(c.gun_state(), "aiming", "drawn at once: no drawing state")
+	eq(c.animation(), "draw", "the ready frame")
+	check(gun.visible and is_equal_approx(gun.modulate.a, 1.0) and is_equal_approx(gun.scale.x, 1.0), "the gun out at full size")
+	check(over.visible and over.get_child_count() == 2 and not hand.visible, "the ready hands over the gun, not the grip hand")
+	var rp := preload("res://ui/art.gd").ready_pose("rookie")
+	var sock: Transform2D = rp["sockets"][c.weapon()["kind"]]
+	check(gun.position.distance_to(sock.origin) < 0.01, "the gun on its socket")
+	check(over.get_index() > gun.get_index(), "the hands drawn on top")
+	var seat_angle: float = rad_to_deg(gun.rotation)
+	c.aim(30.0)
+	near(rad_to_deg(gun.rotation), seat_angle - 30.0, 0.01, "turned with the aim round the grip")
+	var at_grip := gun.position
+	c.aim(85.0)
+	near(rad_to_deg(gun.rotation), seat_angle - rp["aim"].y, 0.01, "the turn is limited to the scene's aim_up")
+	eq(gun.position, at_grip, "the pivot stays in the fist")
+	c.aim(-80.0)
+	near(rad_to_deg(gun.rotation), seat_angle - rp["aim"].x, 0.01, "and aim_down")
+	c.aim(30.0)
+	var predicted: Vector2 = c.fire_muzzle_position()
+	near(c.shoot(), 0.0, 1e-9, "fires at once")
+	eq(c.gun_state(), "firing", "firing")
+	eq(c.animation(), "fire", "the recoil on the ready frame")
+	check(c.get_node("Flip/Gun/Flash").visible, "muzzle flash")
+	check(c.muzzle_position().distance_to(predicted) < 0.5, "leaves where predicted")
+	for i in 20:
+		c._process(dt)
+	eq(c.gun_state(), "firing", "held after the recoil")
+	for i in 10:
+		c._process(dt)
+	eq(c.gun_state(), "holstered", "away after fireHoldSec")
+	eq(c.animation(), "idle", "back to idle at once")
+	check(not gun.visible and not over.visible, "gun and ready hands gone")
+	# A drag cancelled: back to idle at once.
+	c.draw_gun()
+	c.clear_aim()
+	eq(c.gun_state(), "holstered", "cancel: put away at once")
+	eq(c.animation(), "idle", "cancel: idle at once")
+	check(not gun.visible, "cancel: no gun")
+	# A remote / bot shot: no lead-in, fires from the ready pose and goes back.
+	c.aim(20.0)
+	c.clear_aim()
+	near(c.shoot(), 0.0, 1e-9, "a remote shot leaves at once")
+	eq(c.animation(), "fire", "from the ready pose")
+	for i in 30:
+		c._process(dt)
+	eq(c.animation(), "idle", "then idle")
+	# Every gun kind: the muzzle ahead of the fist, the grip in it.
+	var Art := preload("res://ui/art.gd")
+	for kind in Art.GUN_KINDS:
+		c.set_weapon(kind, "iron")
+		c.draw_gun()
+		c.aim(0.0)
+		var m: Vector2 = c.muzzle_position()
+		check(m.x > gun.global_position.x + 10.0, "%s: the muzzle ahead of the grip" % kind)
+		check(absf(rad_to_deg(gun.global_rotation)) < 10.0 and m.y < gun.global_position.y, "%s: level at 0 degrees, the barrel over the grip" % kind)
+		c.clear_aim()
+	holder.free()
+
+
+## The lowest row with a mostly opaque pixel (the soles).
+func _sole_row(img: Image) -> int:
+	for y in range(img.get_height() - 1, -1, -1):
+		for x in img.get_width():
+			if img.get_pixel(x, y).a > 0.5:
+				return y
+	return -1

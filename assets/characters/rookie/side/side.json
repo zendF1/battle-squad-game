@@ -1,17 +1,17 @@
 {
 	"size": [
-		84,
+		112,
 		130
 	],
 	"pivot": [
-		41.57,
+		41.49,
 		125.94
 	],
 	"pxPerUnit": 0.7,
 	"height": 120.07,
 	"extent": {
-		"back": 40.57,
-		"front": 39.43,
+		"back": 40.49,
+		"front": 40.51,
 		"top": 124.94
 	},
 	"anims": {
@@ -68,7 +68,54 @@
 			"fps": 8.0,
 			"loop": false,
 			"motion": "fall"
+		},
+		"draw": {
+			"frames": [
+				"ready_0"
+			],
+			"fps": 1.0,
+			"loop": false,
+			"motion": ""
+		},
+		"fire": {
+			"frames": [
+				"ready_0",
+				"ready_0",
+				"ready_0"
+			],
+			"fps": 9.0,
+			"loop": false,
+			"motion": "recoil"
 		}
 	},
-	"hand": "hand.png"
+	"hand": "hand.png",
+	"gunDraw": {
+		"drawSec": 0.0,
+		"fastDrawSec": 0.0,
+		"holsterSec": 0.0,
+		"fadeIn": 0.0
+	},
+	"readyPose": {
+		"anims": [
+			"draw",
+			"fire"
+		],
+		"hands": {
+			"HandFront": {
+				"stem": "ready_hand_front",
+				"center": [
+					100.5,
+					62.0
+				]
+			},
+			"HandBack": {
+				"stem": "ready_hand_back",
+				"center": [
+					77.0,
+					59.0
+				]
+			}
+		},
+		"scene": "res://scenes/character/poses/rookie_ready.tscn"
+	}
 }

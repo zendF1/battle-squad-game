@@ -27,6 +27,12 @@ extends Node2D
 ## or the side view's drawn "draw" frames when it has them), out while aiming (idle frame, no walk
 ## swing), shoot() fires it (at once, or once drawn fast: it returns the wait) and it goes away
 ## fireHoldSec later; clear_aim() holsters it and walking holsters it first. Off: always out.
+## A side view with a drawn ready pose (Rookie: side.json "draw" = the ready frame, "fire" = it
+## with the recoil, "gunDraw" all 0 s) switches to it and back at once. Its gun is placed by hand
+## in the pose's scene (ui/art.gd ready_pose(): scenes/character/poses/rookie_ready.tscn, one
+## GunSocket_<kind> per gun kind): the gun sits on its kind's socket and turns with the aim round
+## the socket's origin (the grip), within the scene's aim_down..aim_up; the pose's hands are drawn
+## over it (Flip/ReadyHands, the scene's Hand* sprites) instead of the grip hand.
 ## Used by the lobby and Prep (ui/character_view.gd) and the match
 ## (match/views/player_view.gd).
 ##
@@ -105,6 +111,7 @@ var _gun_draw := GunDraw.new() # the gun draw (holster on)
 @onready var _gun_sprite: Sprite2D = $Flip/Gun/Sprite
 @onready var _hand: Sprite2D = $Flip/Gun/Hand
 @onready var _flash: Sprite2D = $Flip/Gun/Flash
+@onready var _ready_hands: Node2D = $Flip/ReadyHands
 
 
 func _ready() -> void:
@@ -124,10 +131,10 @@ func _process(delta: float) -> void:
 		var ev := _gun_draw.update(delta)
 		match ev:
 			"fire":
-				play("shoot")
+				play(_shoot_anim())
 			"holstered":
 				_aiming = false
-				if animation() in BASE_ANIMS:
+				if animation() in BASE_ANIMS or animation() == Art.FIRE_ANIM:
 					play(_base())
 		if _sprite.animation == Art.DRAW_ANIM:
 			_sprite.frame = _draw_frame()
@@ -139,6 +146,7 @@ func _process(delta: float) -> void:
 	_sprite.self_modulate = tint
 	_gun_sprite.self_modulate = tint
 	_hand.self_modulate = tint
+	_ready_hands.modulate = tint
 	if _full != null:
 		_full.set_tint(tint)
 
@@ -158,6 +166,7 @@ func _apply_frames() -> void:
 	_sprite.scale = Vector2.ONE * float(_look["scale"])
 	_hand.texture = _look["hand"] if _look["hand"] != null else Art.texture(Art.HAND)
 	_hand.scale = Vector2.ONE * float(_look["hand_scale"])
+	_build_ready_hands()
 	if _sprite.sprite_frames.has_animation(anim) and not (holster and anim in BASE_ANIMS):
 		_sprite.play(anim)
 	else:
@@ -183,6 +192,7 @@ func _apply_full(data: Dictionary) -> void:
 	_sprite.stop()
 	_flip.transform = Transform2D(0.0, Vector2(facing, 1.0), 0.0, Vector2.ZERO)
 	_gun_node.visible = false
+	_ready_hands.visible = false
 	_flash.visible = false
 	_full.play(_base())
 	_apply_gun()
@@ -290,6 +300,8 @@ func clear_aim() -> void:
 		_gun_draw.holster()
 		if not _gun_draw.armed():
 			_aiming = false
+			if animation() in BASE_ANIMS or animation() == Art.FIRE_ANIM: # put away at once
+				play(_base())
 		_update_gun()
 		return
 	if not _aiming:
@@ -314,9 +326,9 @@ func muzzle_position() -> Vector2:
 func fire_muzzle_position() -> Vector2:
 	if _gun.is_empty() or _full != null:
 		return global_position
-	var pose := _gun_pose("shoot", 0, 1.0)
-	var gun_xf := Transform2D(float(pose["rot"]), Vector2.ONE * float(pose["scale"]), 0.0, pose["pos"])
-	return global_transform * _flip_transform("shoot", 0.0, 1.0) * gun_xf * _flash.position
+	var anim := _shoot_anim()
+	var pose := _gun_pose(anim, 0, 1.0)
+	return global_transform * _flip_transform(anim, 0.0, 1.0) * pose["xf"] * _flash.position
 
 
 ## Places the gun at the current frame's anchor (and the draw's pose, holster on).
@@ -325,18 +337,21 @@ func _update_gun() -> void:
 		return
 	var out := not holster or _gun_draw.armed()
 	_gun_node.visible = out
+	var anim := str(_sprite.animation)
+	var ready_hands := out and not hands_free and _is_ready_anim(anim) and _ready_hands.get_child_count() > 0
+	_ready_hands.visible = ready_hands
+	_hand.visible = not ready_hands
 	if not out:
 		_flash.visible = false
 		return
-	var anim := str(_sprite.animation)
 	var pose := _gun_pose(anim, _sprite.frame, _gun_draw.shown() if holster else 1.0)
-	_gun_node.position = pose["pos"]
-	_gun_node.rotation = pose["rot"]
-	_gun_node.scale = Vector2.ONE * float(pose["scale"])
+	_gun_node.transform = pose["xf"]
 	_gun_node.modulate.a = _gun_draw.alpha() if holster else 1.0
 	var at := _flip.get_child_count() - 1 if bool(pose["front"]) else 0
 	if _gun_node.get_index() != at:
 		_flip.move_child(_gun_node, at)
+	if ready_hands and _ready_hands.get_index() < _gun_node.get_index():
+		_flip.move_child(_ready_hands, _gun_node.get_index())
 	var flash: float = pose["flash"]
 	_flash.visible = flash > 0.0 and not hands_free
 	_flash.modulate = Color(FLASH_TINT, clampf(flash, 0.0, 1.0))
@@ -348,9 +363,18 @@ func _update_gun() -> void:
 ## their own anchors those anchors place it and only the aim blends in.
 func _gun_pose(anim: String, frame: int, k: float) -> Dictionary:
 	var a := Art.gun_anchor(character_id, anim, frame)
-	var pos: Vector2 = (a["grip"] - _look.get("pivot", Art.FRAME_PIVOT)) * float(_look.get("scale", 1.0))
+	var grip: Vector2 = a["grip"]
 	var deg: float = a["angle"]
 	var up := _aim_up if _aiming and not _dead else 0.0
+	if _is_ready_anim(anim):
+		# The ready pose: the gun on its kind's socket (placed in the pose's scene), turned by the
+		# aim (and the frame's kick: the anchor angle) round the socket's origin.
+		var rp := Art.ready_pose(character_id)
+		var sock: Transform2D = rp["sockets"].get(str(_gun.get("kind", "")), rp["sockets"].get(Art.DEFAULT_GUN_KIND, Transform2D.IDENTITY))
+		up = clampf(up, rp["aim"].x, rp["aim"].y)
+		var turn := Transform2D(deg_to_rad(deg - up), sock.origin)
+		return {"xf": turn * Transform2D(sock.x, sock.y, Vector2.ZERO), "front": true, "flash": float(a["flash"])}
+	var pos: Vector2 = (grip - _look.get("pivot", Art.FRAME_PIVOT)) * float(_look.get("scale", 1.0))
 	var sc := 1.0
 	if holster and k < 1.0:
 		if anim == Art.DRAW_ANIM and _look.get("anchors", {}).has(Art.DRAW_ANIM):
@@ -363,7 +387,7 @@ func _gun_pose(anim: String, frame: int, k: float) -> Dictionary:
 			sc = lerpf(float(t["carryScale"]), 1.0, k)
 	else:
 		deg -= up
-	return {"pos": pos, "rot": deg_to_rad(deg), "scale": sc, "front": bool(a["front"]), "flash": float(a["flash"])}
+	return {"xf": Transform2D(deg_to_rad(deg), Vector2(sc, sc), 0.0, pos), "front": bool(a["front"]), "flash": float(a["flash"])}
 
 
 ## The frame of the drawn "draw" animation for the draw's progress.
@@ -515,7 +539,7 @@ func shoot(with_gun: bool = true) -> float:
 		return 0.0
 	var wait := _gun_draw.fire()
 	if wait <= 0.0:
-		play("shoot")
+		play(_shoot_anim())
 	elif animation() in BASE_ANIMS:
 		play(_base())
 	_update_gun()
@@ -548,6 +572,37 @@ func is_dead() -> bool:
 ## The ground shadow (the lobby shrinks it while the character hops).
 func shadow() -> Sprite2D:
 	return _shadow
+
+
+## anim is the drawn ready pose's (its gun on the pose scene's sockets, its hands over the gun).
+func _is_ready_anim(anim: String) -> bool:
+	return _full == null and not _look.is_empty() and anim in _look.get("ready", {}).get("anims", [])
+
+
+## The ready pose's hands (Art.ready_pose()) as sprites under Flip/ReadyHands.
+func _build_ready_hands() -> void:
+	for c in _ready_hands.get_children():
+		_ready_hands.remove_child(c)
+		c.queue_free()
+	if _look.get("ready", {}).is_empty():
+		return
+	for h in Art.ready_pose(character_id)["hands"]:
+		if h["texture"] == null:
+			continue
+		var sp := Sprite2D.new()
+		sp.name = str(h["name"])
+		sp.texture = h["texture"]
+		sp.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		sp.transform = h["transform"]
+		_ready_hands.add_child(sp)
+
+
+## The shot's animation: the drawn "fire" frames (the ready pose's recoil) with holster on and a
+## side view that has them, else shoot.
+func _shoot_anim() -> String:
+	if holster and _full == null and bool(_look.get("fire_frames", false)):
+		return Art.FIRE_ANIM
+	return "shoot"
 
 
 func _base() -> String:

@@ -23,7 +23,8 @@ Total about 3.8 MB of PNG (the full-body pictures about 0.45 MB of it).
   `characters/<id>/<id>.tres` (SpriteFrames) in the editor and change frames, counts, speed or
   loop flags. The animation names must stay `idle`, `walk`, `shoot`, `hurt`, `die`. If you change
   the canvas size or pivot, update `FRAME_SIZE` / `FRAME_PIVOT` / `PX_PER_UNIT` in `ui/art.gd`
-  and the sprite `offset` in `scenes/character/character.tscn` (= -pivot). The frames draw no
+  (the code sets the sprite's offset to -pivot; `scenes/character/character.tscn` only previews
+  Rookie's side idle in the editor, its own SpriteFrames, replaced at runtime). The frames draw no
   gun: replace a frame **and its entry in `characters/<id>/gun_anchors.json`** together (where
   the hand holds the gun in that frame), and keep one entry per frame.
 - **Guns**: imported from a hand-made sheet (`art_source/weapons/guns_v1.png`) by
@@ -67,8 +68,8 @@ with them and the gun stays the right way up.
 
 | File | Size | Notes |
 |---|---|---|
-| `rookie/side/walk_0..7.png` | 84x130 (15–17 KB each) | the run cycle, loops at **20 fps** (the planted foot moves back about 4.5 world px a frame, so at the 90 px/s walk the feet barely slide) |
-| `rookie/side/idle_0.png` | 84x130 | walk frame 0 (the most upright one); idle breathes in code (a ~1.5 % vertical stretch over 2.4 s) |
+| `rookie/side/walk_0..7.png` | 112x130 (15–17 KB each) | the run cycle, loops at **20 fps** (the planted foot moves back about 4.5 world px a frame, so at the 90 px/s walk the feet barely slide) |
+| `rookie/side/idle_0.png` | 112x130 | walk frame 0 (the most upright one); idle breathes in code (a ~1.5 % vertical stretch over 2.4 s) |
 | `rookie/side/hand.png` | 13x13 | the fist drawn over the gun's grip (cut from source frame 4 by the importer, same style as the frames) |
 | `rookie/side/side.json` | 1 KB | `size`, `pivot` (the feet, texture px: the same in every frame), `pxPerUnit` (0.7 = 2 texture px per world px at the match's 0.35 px per unit), `height` (figure px), `extent` {`back`, `front`, `top`} px from the pivot, `hand`, `anims` {name: {`frames` (PNG names, without .png, in this folder), `fps`, `loop`, `motion`}} for `idle`, `walk`, `shoot`, `hurt`, `die` |
 | `rookie/side/gun_anchors.json` | 2 KB | the baked format (below), px in these frames: the grip follows the near fist in the walk (damped, so the gun is carried at the hip and sways a little), tilted ±4° with the swing |
@@ -147,6 +148,37 @@ gun anchors in `gun_anchors.json` `"draw": [...]` (one per frame, as the other a
 false while it is behind the body; the aim angle blends in towards the last frame); without anchors
 the gun does the code transition on top of the drawn body. A broken set (a missing PNG) is skipped
 with a warning and the code transition plays.
+
+**Rookie's ready pose (a drawn ready-to-shoot frame, placed by hand)**: `side/ready_0.png` is the
+kneeling pose cut from `art_source/characters/rookie/side_ready/ready_v1.png` (`import.json`
+`poses.ready`: the checkerboard and the "AI" watermark drawn into its pixels are removed by a flood
+fill from the border plus the enclosed checkerboard pieces; scaled so the cap and the face are as
+wide as in the run frames, the belt buckle over the idle frame's, the knee and the boot on the same
+ground). Its hands are cut out into `ready_hand_front.png` (the fist) and `ready_hand_back.png` (the
+hand resting on the arm; the arm under it is filled in), drawn over the gun. In `side.json`:
+`"draw": ["ready_0"]`, `"fire"` (it with the recoil, played for the shot instead of `shoot`),
+`"gunDraw"` all 0 s (idle ↔ ready switch at once, no transition; back to idle `fireHoldSec` after
+the shot or at once on a cancel) and `"readyPose"` {`anims`, `hands`, `scene`}.
+
+| File | Size | Notes |
+|---|---|---|
+| `rookie/side/ready_0.png` | 112x130 | the ready pose, no hands (same canvas / pivot as the run frames) |
+| `rookie/side/ready_hand_front.png` | 19x20 | the front fist, drawn over the gun's grip |
+| `rookie/side/ready_hand_back.png` | 22x16 | the back hand, drawn over the gun |
+
+**Placing the gun in the ready pose (editor)**: open `scenes/character/poses/rookie_ready.tscn`. It
+is the character's `Flip` space at the match's scale (the root is the feet; `Body` = `ready_0.png`,
+locked). Per gun kind there is a `GunSocket_<kind>` (Node2D; only bazooka is visible, toggle the eye
+to see another): its `Preview` child is that kind's iron gun with its grip (weapons.json `grip`) on
+the socket's origin. Select a `GunSocket_<kind>` (click the gun: the socket is grouped, so the click
+picks the socket) and move / rotate / scale it until the gun sits in the hands, `Ctrl+S`, `F5`: the
+match draws that kind's gun with the socket's transform and turns it with the aim round the socket's
+origin (keep the origin in the fist). `HandFront` / `HandBack` (Sprite2D, drawn over the guns) can be
+moved the same way (they are the hands drawn over the gun for every kind). The root's metadata
+`aim_down` / `aim_up` (Inspector → Metadata, degrees) limit how far the gun turns on this pose. No
+JSON to edit; `tools/import_frames.gd` never writes the scene. Without the scene (or a node) the gun
+sits at `gun_anchors.json` `"ready".grip` (the fist's centre), level, and the hands where they were
+drawn.
 
 ### characters/ (baked frames, scene: `scenes/character/character.tscn`)
 

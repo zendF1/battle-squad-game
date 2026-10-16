@@ -35,6 +35,14 @@ extends SceneTree
 ## (`gun.carry`, source px from the pivot) and, in an anim with `swing`, tilts by up to
 ## `swingDeg` with the arm (forward = muzzle up); shoot /
 ## hurt angles and the shoot flash per frame from the anim; `front` false behind the body.
+## A frame name may be a pose's (`poses`: a single drawn frame such as the ready pose; the anim's
+## `stem` names its PNG), and `frames` may name another anim to reuse its PNG. A pose is cleaned at
+## `workScale` (its `background` drawn into the pixels removed first: remove_background()), its
+## `hands` cut out into their own tight PNGs (hand_mask(); the body keeps what was under them,
+## `patch`), scaled by `scale` (source px per pose px) with its lowest row on the soles' row and
+## `alignX` [pose x, source x] lined up, and resampled once into the shared canvas. side.json gets
+## `readyPose` {anims, hands {name: {stem, center}}, scene} and gun_anchors.json the pose's
+## fallback `gun` seat; the gun itself is placed by hand in the pose's scene (never written here).
 
 const CutSheet := preload("res://tools/cut_sheet.gd")
 const SRC := "res://art_source/characters/"
@@ -99,12 +107,22 @@ func _import(cfg_path: String) -> void:
 		hips.append(float(fr["hip"]) + fr["offset"].x)
 	hips.sort()
 	var pivot := Vector2(hips[hips.size() / 2], float(ref["bottom"]) + 1.0)
-	# 5. One canvas round every shifted frame.
+	# Poses (single drawn frames, e.g. the ready-to-shoot pose): cleaned at their own size and
+	# placed in the frames' source space by their scale and alignment.
+	var poses := {} # name -> {image, sp, t, rect (source px of the frames), cfg}
+	for pname in cfg.get("poses", {}):
+		var pose := _load_pose(dir, cfg, str(pname), cfg["poses"][pname], ref)
+		if pose.is_empty():
+			return
+		poses[str(pname)] = pose
+	# 5. One canvas round every shifted frame (and every pose).
 	var union := Rect2i()
 	for fr in frames:
 		var r: Rect2i = fr["rect"]
 		r.position += fr["offset"]
 		union = r if union.size == Vector2i.ZERO else union.merge(r)
+	for pname in poses:
+		union = union.merge(poses[pname]["rect"])
 	var fig_h := float(ref["bottom"]) + 1.0 - float(ref["top"])
 	var oversample := float(cfg.get("oversample", 2.0))
 	var s := float(cfg["height"]) * oversample / fig_h
@@ -118,17 +136,26 @@ func _import(cfg_path: String) -> void:
 	var pivot_out: Vector2 = to_out.call(pivot)
 	print("  stabilised: offsets %s; pivot %s source → %s px; canvas %s (from %s source px, ×%.4f)" % [
 		str(frames.map(func(fr): return fr["offset"])), pivot, pivot_out.snapped(Vector2(0.01, 0.01)), out_size, src_size, s])
-	# 6. Scale each used frame once.
-	var outs := {} # source index -> Image
+	# 6. Scale each used frame once (a pose: straight from its own size, one resample).
+	var outs := {} # source index or pose name -> Image
 	var anims: Dictionary = cfg["anims"]
 	for anim in anims:
 		var fs = anims[anim]["frames"]
 		if fs is Array:
 			for i in fs:
-				if not outs.has(int(i)):
+				if i is String:
+					if not poses.has(i):
+						push_error("import_frames: %s uses the unknown pose %s" % [anim, i])
+						return
+					if not outs.has(i):
+						outs[i] = _scaled_pose(poses[i]["image"], poses[i], origin, src_size, out_size)
+				elif not outs.has(int(i)):
 					outs[int(i)] = _scaled(frames[int(i)], origin, src_size, out_size)
+	# The extent is the run / idle figure's (poses are not counted: the motions use it).
 	var used := Rect2i()
 	for i in outs:
+		if i is String:
+			continue
 		var r: Rect2i = outs[i].get_used_rect()
 		used = r if used.size == Vector2i.ZERO else used.merge(r)
 	# Gun anchors: the grip follows the near fist from the carry point, tilting with the swing.
@@ -155,21 +182,28 @@ func _import(cfg_path: String) -> void:
 	var side_anims := {}
 	var anchors := {}
 	var idle_src: int = int(anims["idle"]["frames"][0])
+	var pose_hold := func(pname: String) -> Dictionary:
+		var seat: Dictionary = poses[pname]["cfg"].get("gun", {})
+		var grip: Vector2 = to_out.call(_pose_to_src(poses[pname], _v(seat.get("grip", [0, 0]))))
+		return {"grip": [snappedf(grip.x, 0.01), snappedf(grip.y, 0.01)], "angle": float(seat.get("angle", 0.0)), "front": true, "flash": 0.0}
 	for anim in anims:
 		var spec: Dictionary = anims[anim]
 		var stems: Array = []
 		var holds: Array = []
 		if spec["frames"] is Array:
 			for j in spec["frames"].size():
-				var si := int(spec["frames"][j])
-				var stem := "%s_%d" % [anim, j]
-				_save(outs[si], out_dir + stem + ".png")
+				var fi = spec["frames"][j]
+				var stem := "%s_%d" % [str(spec.get("stem", anim)), j]
+				_save(outs[fi if fi is String else int(fi)], out_dir + stem + ".png")
 				stems.append(stem)
-				holds.append(hold.call(si, bool(spec.get("swing", false))))
-		else: # reuse idle's PNGs
+				holds.append(pose_hold.call(fi) if fi is String else hold.call(int(fi), bool(spec.get("swing", false))))
+		else: # reuse the PNG of idle (or of the named anim)
+			var from := str(spec["frames"])
+			var reuse: Array = side_anims[from]["frames"] if side_anims.has(from) else ["idle_0"]
+			var first = anims.get(from, {}).get("frames", [idle_src])[0] if anims.has(from) else idle_src
 			for j in int(spec.get("count", 1)):
-				stems.append("idle_0")
-				holds.append(hold.call(idle_src, false))
+				stems.append(reuse[0])
+				holds.append(pose_hold.call(first) if first is String else hold.call(int(first), false))
 		for j in holds.size():
 			var a: Dictionary = holds[j]
 			if spec.has("angle"):
@@ -192,8 +226,39 @@ func _import(cfg_path: String) -> void:
 	if not hand.is_empty():
 		_save(_cut_hand(frames[int(hand["frame"])]["image"], _v(hand["center"]), float(hand["radius"]), float(hand.get("feather", 2.0)), s), out_dir + "hand.png")
 		side["hand"] = "hand.png"
+	if cfg.has("gunDraw"):
+		side["gunDraw"] = {}
+		for key in cfg["gunDraw"]:
+			if not str(key).begins_with("_"):
+				side["gunDraw"][key] = cfg["gunDraw"][key]
+	var anchors_out := {"frameSize": side["size"], "pivot": side["pivot"], "anims": anchors}
+	# A pose's hands (tight PNGs + where they sit, frame px), the scene its gun is placed in (one
+	# socket per gun kind, edited in the editor: ui/art.gd ready_pose()) and its fallback seat.
+	for pname in poses:
+		var pc: Dictionary = poses[pname]["cfg"]
+		var pose_anims: Array = []
+		for anim in anims:
+			var fs = anims[anim]["frames"]
+			var first = fs[0] if fs is Array else anims.get(str(fs), {}).get("frames", [null])[0]
+			if str(first) == pname and first is String:
+				pose_anims.append(anim)
+		var info := {"anims": pose_anims, "hands": {}}
+		if pc.has("scene"):
+			info["scene"] = str(pc["scene"])
+		for hname in poses[pname]["hands"]:
+			var stem := str(pc["hands"][hname].get("stem", "%s_%s" % [pname, str(hname).to_snake_case()]))
+			var full := _scaled_pose(poses[pname]["hands"][hname], poses[pname], origin, src_size, out_size)
+			var r := full.get_used_rect().grow(1).intersection(Rect2i(Vector2i.ZERO, full.get_size()))
+			_save(full.get_region(r), out_dir + stem + ".png")
+			var c := Vector2(r.position) + Vector2(r.size) * 0.5
+			info["hands"][hname] = {"stem": stem, "center": [snappedf(c.x, 0.01), snappedf(c.y, 0.01)]}
+		side["readyPose"] = info
+		if pc.has("gun"):
+			var seat: Dictionary = pose_hold.call(pname)
+			seat["anims"] = pose_anims
+			anchors_out[pname] = seat
 	_write_text(out_dir + "side.json", JSON.stringify(side, "\t", false) + "\n")
-	_write_text(out_dir + "gun_anchors.json", JSON.stringify({"frameSize": side["size"], "pivot": side["pivot"], "anims": anchors}, "\t", false) + "\n")
+	_write_text(out_dir + "gun_anchors.json", JSON.stringify(anchors_out, "\t", false) + "\n")
 	_report_feet(anims, outs, pivot_out, oversample)
 
 
@@ -374,6 +439,326 @@ static func _clear_faint(img: Image) -> void:
 			data[o + 2] = 0
 			data[o + 3] = 0
 	img.set_data(img.get_width(), img.get_height(), false, Image.FORMAT_RGBA8, data)
+
+
+## A pose (cfg.poses[name]): its source image cleaned (the background first when it is drawn into
+## the pixels, then like a frame) and placed in the frames' source space: sp source px per pose
+## px, the pose's lowest row on the frames' sole row (both stand on the same ground) and its
+## `alignX` [pose x, source x] column on that source column (e.g. the belt buckle on the idle
+## frame's: the body does not jump on a switch). {} on an error.
+func _load_pose(dir: String, cfg: Dictionary, pname: String, pc: Dictionary, ref: Dictionary) -> Dictionary:
+	var path := dir + str(pc["src"])
+	var img := Image.load_from_file(ProjectSettings.globalize_path(path))
+	if img == null or img.is_empty():
+		push_error("import_frames: cannot read " + path)
+		return {}
+	img.convert(Image.FORMAT_RGBA8)
+	var ws := float(pc.get("workScale", 1.0)) # cleaned at this size (pose px stay the source's)
+	if ws != 1.0:
+		img.resize(int(round(img.get_width() * ws)), int(round(img.get_height() * ws)), Image.INTERPOLATE_LANCZOS)
+	var bg := 0
+	if pc.has("background"):
+		bg = remove_background(img, pc["background"])
+	var pcfg := cfg.duplicate(true)
+	for key in ["alphaCut", "keepPieces", "defringe"]:
+		if pc.has(key):
+			pcfg[key] = pc[key]
+	var removed := clean(img, pcfg)
+	var wrect := img.get_used_rect() # the whole figure, hands included
+	# The hands drawn over the gun: cut out as their own pictures; the body keeps what was under
+	# them (the arm a hand rests on, `patch`).
+	var hands := {}
+	for hname in pc.get("hands", {}):
+		if str(hname).begins_with("_"):
+			continue
+		var hc: Dictionary = pc["hands"][hname]
+		var m := hand_mask(img, hc, ws)
+		hands[hname] = masked(img, m, false)
+		for i in m.size(): # the body loses all of the hand (its soft edge too: no ghost outline)
+			if m[i] > 0.0:
+				m[i] = 1.0
+		var body := masked(img, m, true)
+		if hc.has("patch"):
+			patch_under(body, m, hc["patch"], ws)
+		img = body
+	if wrect.size == Vector2i.ZERO:
+		push_error("import_frames: pose %s is empty after cleaning" % pname)
+		return {}
+	var rect := Rect2(Vector2(wrect.position) / ws, Vector2(wrect.size) / ws)
+	var sp := float(pc["scale"])
+	var ax: Array = pc.get("alignX", [rect.get_center().x, ref["hip"]])
+	var t := Vector2(float(ax[1]) - float(ax[0]) * sp, float(ref["bottom"]) + 1.0 - float(rect.end.y) * sp)
+	var pose := {"image": img, "sp": sp, "t": t, "cfg": pc, "ws": ws, "hands": hands}
+	var a := _pose_to_src(pose, Vector2(rect.position))
+	var b := _pose_to_src(pose, Vector2(rect.end))
+	pose["rect"] = Rect2i(Vector2i(floori(a.x), floori(a.y)), Vector2i(ceili(b.x) - floori(a.x), ceili(b.y) - floori(a.y)))
+	print("  pose %s %dx%d (×%.2f): background %d px, removed %d stray px, figure %s pose px → source %s (×%.4f)" % [
+		pname, img.get_width(), img.get_height(), ws, bg, removed, rect, pose["rect"], sp])
+	return pose
+
+
+static func _pose_to_src(pose: Dictionary, p: Vector2) -> Vector2:
+	return pose["t"] + p * float(pose["sp"])
+
+
+## A pose image cut to the frames' canvas (the source rect origin..origin+src_size, mapped back to
+## pose px) and scaled once to out_size.
+static func _scaled_pose(img: Image, pose: Dictionary, origin: Vector2i, src_size: Vector2i, out_size: Vector2i) -> Image:
+	var sp := float(pose["sp"]) / float(pose.get("ws", 1.0)) # source px per work px
+	var p0: Vector2 = (Vector2(origin) - pose["t"]) / float(pose["sp"]) * float(pose.get("ws", 1.0))
+	var size := Vector2i(int(round(src_size.x / sp)), int(round(src_size.y / sp)))
+	var canvas := Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
+	var from := Rect2i(Vector2i(int(round(p0.x)), int(round(p0.y))), size)
+	var clip := from.intersection(Rect2i(Vector2i.ZERO, img.get_size()))
+	canvas.blit_rect(img, clip, clip.position - from.position)
+	canvas.premultiply_alpha()
+	canvas.resize(out_size.x, out_size.y, Image.INTERPOLATE_LANCZOS)
+	var out := CutSheet._unpremultiply(canvas)
+	_clear_faint(out)
+	return out
+
+
+## A background drawn into the pixels (a fake transparency checkerboard, a watermark on it)
+## cleared in place: the light, grey pixels (lum ≥ `minLum`, chroma ≤ `maxChroma`) connected to
+## the image border (4-connected) and, enclosed by the figure (between an arm and the body, the
+## legs), every other such piece of at least `holeMin` px that is the checkerboard: at least
+## `holeTones` of it in each of its two `tones` [[lo, hi], [lo, hi]] (lum) and nearly all of it in
+## one of them, so eye whites and highlights stay. Returns how many pixels it cleared.
+static func remove_background(img: Image, bg: Dictionary) -> int:
+	var w := img.get_width()
+	var h := img.get_height()
+	var n := w * h
+	var px := img.get_data()
+	var min_lum := float(bg.get("minLum", 200))
+	var max_chroma := int(bg.get("maxChroma", 24))
+	var like := PackedByteArray()
+	like.resize(n)
+	var lum := PackedByteArray()
+	lum.resize(n)
+	for i in n:
+		var o := i * 4
+		var r := px[o]
+		var g := px[o + 1]
+		var b := px[o + 2]
+		var l := (r + g + b) / 3.0
+		lum[i] = int(l)
+		if l >= min_lum and maxi(r, maxi(g, b)) - mini(r, mini(g, b)) <= max_chroma:
+			like[i] = 1
+	# Label the background-like pieces; the ones touching the border are the background.
+	var label := PackedInt32Array()
+	label.resize(n)
+	var stack := PackedInt32Array()
+	stack.resize(n)
+	var tones: Array = bg.get("tones", [[230, 244], [248, 255]])
+	var t0a := int(tones[0][0])
+	var t0b := int(tones[0][1])
+	var t1a := int(tones[1][0])
+	var t1b := int(tones[1][1])
+	var hole_min := int(bg.get("holeMin", 400))
+	var hole_tones := float(bg.get("holeTones", 0.15))
+	var clear := PackedByteArray([0])
+	var next_id := 1
+	for s in n:
+		if like[s] == 0 or label[s] != 0:
+			continue
+		var id := next_id
+		next_id += 1
+		var size := 0
+		var c0 := 0
+		var c1 := 0
+		var border := false
+		var top := 0
+		stack[0] = s
+		top = 1
+		label[s] = id
+		while top > 0:
+			top -= 1
+			var i: int = stack[top]
+			size += 1
+			var l := lum[i]
+			if l >= t0a and l <= t0b:
+				c0 += 1
+			elif l >= t1a and l <= t1b:
+				c1 += 1
+			var x := i % w
+			var y := i / w
+			if x == 0 or y == 0 or x == w - 1 or y == h - 1:
+				border = true
+			if x > 0 and like[i - 1] == 1 and label[i - 1] == 0:
+				label[i - 1] = id
+				stack[top] = i - 1
+				top += 1
+			if x < w - 1 and like[i + 1] == 1 and label[i + 1] == 0:
+				label[i + 1] = id
+				stack[top] = i + 1
+				top += 1
+			if y > 0 and like[i - w] == 1 and label[i - w] == 0:
+				label[i - w] = id
+				stack[top] = i - w
+				top += 1
+			if y < h - 1 and like[i + w] == 1 and label[i + w] == 0:
+				label[i + w] = id
+				stack[top] = i + w
+				top += 1
+		var sz := float(size)
+		var hole := sz >= hole_min and c0 / sz >= hole_tones and c1 / sz >= hole_tones and (c0 + c1) / sz >= 0.9
+		clear.append(1 if border or hole else 0)
+		if hole and not border:
+			print("    enclosed checkerboard piece: %d px" % size)
+	var cleared := 0
+	for i in n:
+		if label[i] != 0 and clear[label[i]] == 1:
+			px[i * 4 + 3] = 0
+			cleared += 1
+	img.set_data(w, h, false, Image.FORMAT_RGBA8, px)
+	return cleared
+
+
+## A hand of a pose (drawn over the gun it holds) as a soft mask (0..1 per pixel of src): in each
+## of `regions` [[x0, y0, x1, y1], ...] (pose px) the skin (warm, light: r > g > b, r ≥
+## `skinMinR`, r - b ≥ `skinMinRB`), the dark lines within `dilate` px of it (its outline and
+## creases) and what that encloses, the edge feathered over `feather` px. src is at ws × the pose
+## px of the config.
+static func hand_mask(src: Image, hc: Dictionary, ws: float = 1.0) -> PackedFloat32Array:
+	var w := src.get_width()
+	var h := src.get_height()
+	var px := src.get_data()
+	var keep := PackedFloat32Array()
+	keep.resize(w * h)
+	var min_r := int(hc.get("skinMinR", 150))
+	var min_rb := int(hc.get("skinMinRB", 40))
+	var dil := maxi(1, int(round(float(hc.get("dilate", 16)) * ws)))
+	var dark := int(hc.get("darkMax", 110))
+	var regions: Array = []
+	for reg in hc.get("regions", []):
+		regions.append([clampi(int(reg[0] * ws), 0, w), clampi(int(reg[1] * ws), 0, h), clampi(int(ceil(reg[2] * ws)), 0, w), clampi(int(ceil(reg[3] * ws)), 0, h)])
+	for reg in regions:
+		var x0: int = reg[0]
+		var y0: int = reg[1]
+		var rw: int = reg[2] - x0
+		var rh: int = reg[3] - y0
+		var m := PackedByteArray() # 1 skin, 2 dark near skin
+		m.resize(rw * rh)
+		var dist := PackedInt32Array()
+		dist.resize(rw * rh)
+		dist.fill(1 << 20)
+		var front := PackedInt32Array()
+		for y in rh:
+			for x in rw:
+				var o := ((y0 + y) * w + x0 + x) * 4
+				var r := px[o]
+				var g := px[o + 1]
+				var b := px[o + 2]
+				if px[o + 3] > 0 and r >= min_r and r > g and g > b and r - b >= min_rb:
+					m[y * rw + x] = 1
+					dist[y * rw + x] = 0
+					front.append(y * rw + x)
+		# Grow over dark pixels (4-steps) up to dil px.
+		for d in range(1, dil + 1):
+			var next := PackedInt32Array()
+			for i in front:
+				var x := i % rw
+				var y := i / rw
+				for j in [i - 1 if x > 0 else -1, i + 1 if x < rw - 1 else -1, i - rw if y > 0 else -1, i + rw if y < rh - 1 else -1]:
+					if j < 0 or dist[j] <= d:
+						continue
+					var o: int = ((y0 + j / rw) * w + x0 + j % rw) * 4
+					if px[o + 3] > 0 and (px[o] + px[o + 1] + px[o + 2]) / 3 <= dark:
+						dist[j] = d
+						m[j] = 2
+						next.append(j)
+			front = next
+		# Enclosed: not reachable from the region's edge without crossing the hand.
+		var outside := PackedByteArray()
+		outside.resize(rw * rh)
+		var st := PackedInt32Array()
+		for y in rh:
+			for x in rw:
+				if (x == 0 or y == 0 or x == rw - 1 or y == rh - 1) and m[y * rw + x] == 0:
+					outside[y * rw + x] = 1
+					st.append(y * rw + x)
+		while not st.is_empty():
+			var i: int = st[st.size() - 1]
+			st.resize(st.size() - 1)
+			var x := i % rw
+			var y := i / rw
+			for j in [i - 1 if x > 0 else -1, i + 1 if x < rw - 1 else -1, i - rw if y > 0 else -1, i + rw if y < rh - 1 else -1]:
+				if j >= 0 and outside[j] == 0 and m[j] == 0:
+					outside[j] = 1
+					st.append(j)
+		for i in rw * rh:
+			if m[i] != 0 or outside[i] == 0:
+				keep[(y0 + i / rw) * w + x0 + i % rw] = 1.0
+	# Feather: the kept share of a (2f+1)² box (only round the regions).
+	var f := int(hc.get("feather", 1))
+	if f <= 0:
+		return keep
+	var soft := PackedFloat32Array()
+	soft.resize(w * h)
+	for reg in regions:
+		for y in range(maxi(0, reg[1] - f), mini(h, reg[3] + f)):
+			for x in range(maxi(0, reg[0] - f), mini(w, reg[2] + f)):
+				var sum := 0.0
+				var cnt := 0.0
+				for dy in range(-f, f + 1):
+					for dx in range(-f, f + 1):
+						var xx := x + dx
+						var yy := y + dy
+						if xx >= 0 and yy >= 0 and xx < w and yy < h:
+							sum += keep[yy * w + xx]
+							cnt += 1.0
+				soft[y * w + x] = maxf(soft[y * w + x], sum / cnt)
+	return soft
+
+
+## A copy of img with alpha × mask (invert: × (1 - mask)).
+static func masked(img: Image, mask: PackedFloat32Array, invert: bool) -> Image:
+	var out: Image = img.duplicate()
+	var px := out.get_data()
+	for i in mask.size():
+		var k := 1.0 - mask[i] if invert else mask[i]
+		if k < 1.0:
+			px[i * 4 + 3] = int(round(px[i * 4 + 3] * k))
+	out.set_data(out.get_width(), out.get_height(), false, Image.FORMAT_RGBA8, px)
+	return out
+
+
+## Fills what a hand covered (mask) with what lies under it, here the arm it rests on: each pixel
+## takes the pixel of a clear column `patch.src` [x0, x1] (pose px, cycled) shifted along the
+## arm's top edge `patch.edge` [[x, y], [x, y]] (a line, pose px); above the arm that is the
+## background (cleared). Only where the hand was (the rest of img is unchanged).
+static func patch_under(img: Image, mask: PackedFloat32Array, patch: Dictionary, ws: float) -> void:
+	var w := img.get_width()
+	var h := img.get_height()
+	var px := img.get_data()
+	var src := img.get_data()
+	var sx0 := int(float(patch["src"][0]) * ws)
+	var sx1 := maxi(sx0 + 1, int(float(patch["src"][1]) * ws))
+	var e0 := _v(patch["edge"][0]) * ws
+	var e1 := _v(patch["edge"][1]) * ws
+	var slope := (e1.y - e0.y) / maxf(1.0, e1.x - e0.x)
+	for i in mask.size():
+		var k := mask[i]
+		if k <= 0.0:
+			continue
+		var x := i % w
+		var y := i / w
+		var xs := sx0 + posmod(x, sx1 - sx0)
+		var ys := y + int(round(slope * (xs - x)))
+		var o := i * 4
+		var c := Color(0, 0, 0, 0)
+		if ys >= 0 and ys < h:
+			var so := (ys * w + xs) * 4
+			c = Color8(src[so], src[so + 1], src[so + 2], src[so + 3])
+		var a := px[o + 3] / 255.0 # what is left of the body here
+		var oa := c.a * k + a * (1.0 - c.a * k)
+		if oa <= 0.0:
+			px[o + 3] = 0
+			continue
+		for ch in 3:
+			px[o + ch] = int(round((c[ch] * c.a * k + px[o + ch] / 255.0 * a * (1.0 - c.a * k)) / oa * 255.0))
+		px[o + 3] = int(round(oa * 255.0))
+	img.set_data(w, h, false, Image.FORMAT_RGBA8, px)
 
 
 ## A round cut (radius px, soft edge) of the cleaned frame centred on `center`, scaled by s.
