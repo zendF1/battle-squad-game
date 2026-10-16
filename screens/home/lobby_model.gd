@@ -8,6 +8,7 @@ const LoadoutModel := preload("res://screens/loadout_model.gd")
 const Skills := preload("res://match/skills.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
 const Progress := preload("res://screens/home/progress.gd")
+const Fmt := preload("res://core/fmt.gd")
 
 const SECTION := "lobby"
 const MODE_KEY := "mode"
@@ -87,7 +88,7 @@ static func level_text(info: Dictionary) -> String:
 	return "Lv.%d" % info["level"] if info["owned"] else LoadoutModel.NOT_OWNED
 
 
-## A BattleStats stats object → [["Máu", "138"], ["Sát thương", "66"], ["Phòng thủ", "56"]]
+## A BattleStats stats object → [["Máu", "1.540"], ["Sát thương", "510"], ["Phòng thủ", "56"]]
 ## (damage is the weapon damage plus the bonus); [] for {}.
 static func stat_pairs(stats: Dictionary) -> Array:
 	if stats.is_empty():
@@ -96,7 +97,8 @@ static func stat_pairs(stats: Dictionary) -> Array:
 	var weapon = stats.get("weaponDamage")
 	if weapon is int or weapon is float:
 		dmg += int(weapon)
-	return [["Máu", str(int(stats["maxHp"]))], ["Sát thương", str(dmg)], ["Phòng thủ", str(int(stats["defense"]))]]
+	return [["Máu", Fmt.thousands(int(stats["maxHp"]))], ["Sát thương", Fmt.thousands(dmg)],
+		["Phòng thủ", Fmt.thousands(int(stats["defense"]))]]
 
 
 ## The remembered mode index (0 without a file or for an unknown id).

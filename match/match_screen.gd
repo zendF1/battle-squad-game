@@ -403,12 +403,12 @@ func _on_shot_event(e: Dictionary) -> void:
 		"damage":
 			_set_hp(id, int(e.get("hp", 0)))
 			var crit := bool(e.get("critical", false))
-			_popup(id, "-%d" % int(e.get("amount", 0)), Color(1, 0.85, 0.2) if crit else Color(1, 0.3, 0.3))
+			_popup(id, DamagePopup.damage_text(int(e.get("amount", 0))), Color(1, 0.85, 0.2) if crit else Color(1, 0.3, 0.3))
 		"heal":
 			_set_hp(id, int(e.get("hp", 0)))
 			var amount := int(e.get("amount", 0))
 			if amount > 0:
-				_popup(id, "+%d" % amount, Color(0.4, 1, 0.5))
+				_popup(id, DamagePopup.heal_text(amount), Color(0.4, 1, 0.5))
 		"fall":
 			var to := _vec(e["to"])
 			_set_pos(id, to)

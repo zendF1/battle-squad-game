@@ -110,9 +110,9 @@ static func rows(stats: Dictionary, pending: Dictionary = {}, mult: Dictionary =
 		var from_points := int(fp.get(key, 0)) if fp is Dictionary and _is_num(fp.get(key)) else 0
 		var from_equip := int(fe.get(key, 0)) if fe is Dictionary and _is_num(fe.get(key)) else 0
 		if key == "damageBonus" and _is_num(stats.get("weaponDamage")):
-			parts.append("vũ khí %d" % int(stats["weaponDamage"]))
+			parts.append("vũ khí " + Fmt.thousands(int(stats["weaponDamage"])))
 		elif unit == "" and (from_points != 0 or from_equip != 0) and base is Dictionary and _is_num(base.get(key)):
-			parts.append("gốc %d" % int(base[key]))
+			parts.append("gốc " + Fmt.thousands(int(base[key])))
 		if from_points != 0:
 			parts.append("điểm " + format(from_points, "+" if unit == "" else unit))
 		if from_equip != 0:
@@ -137,7 +137,7 @@ static func crit(stats: Dictionary) -> Dictionary:
 	return {"label": CRIT_LABEL, "value": format_chance(float(c)), "detail": detail}
 
 
-## A short line for a character card, "Máu 90 · Sát thương 55" (weapon damage + damage
+## A short line for a character card, "Máu 1.350 · Sát thương 440" (weapon damage + damage
 ## bonus); "" without stats.
 static func card_line(stats: Dictionary) -> String:
 	if stats.is_empty():

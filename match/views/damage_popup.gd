@@ -3,6 +3,17 @@ extends Label
 ## Bold with a dark outline; it pops in, rises and fades.
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
+const Fmt := preload("res://core/fmt.gd")
+
+
+## A hit: 1250 → "-1.250".
+static func damage_text(amount: int) -> String:
+	return "-" + Fmt.thousands(absi(amount))
+
+
+## A heal: 450 → "+450", 1250 → "+1.250".
+static func heal_text(amount: int) -> String:
+	return "+" + Fmt.thousands(absi(amount))
 
 
 func _ready() -> void:

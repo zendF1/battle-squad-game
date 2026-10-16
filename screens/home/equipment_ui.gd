@@ -93,7 +93,7 @@ static func multipliers() -> Dictionary:
 	return BattleStats.multipliers(PlayerState.characters)
 
 
-## Stat lines of an item, one Label each ("Máu" "+30 điểm (+1.500)"), added to parent.
+## Stat lines of an item, one Label each ("Máu" "+30 điểm (+60)"), added to parent.
 static func add_stat_lines(parent: Control, item: Dictionary, font_size: int = 20) -> void:
 	for l in EquipmentModel.stat_lines(item, multipliers()):
 		var row := Ui.hbox(8)
@@ -108,7 +108,7 @@ static func add_stat_lines(parent: Control, item: Dictionary, font_size: int = 2
 		parent.add_child(row)
 
 
-## Delta lines ("Sát thương +85 (+17 điểm)" green, "Máu −1.000 (−20 điểm)" red) of wearing
+## Delta lines ("Sát thương +85 (+17 điểm)" green, "Máu −40 (−20 điểm)" red) of wearing
 ## `item` instead of `worn`, in one wrapping row; returns the row (empty when nothing changes).
 static func delta_row(item: Dictionary, worn: Dictionary, font_size: int = 19) -> HFlowContainer:
 	var flow := HFlowContainer.new()

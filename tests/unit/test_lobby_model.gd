@@ -4,10 +4,10 @@ const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const TMP := "user://test_lobby.cfg"
 
-const STATS := {"maxHp": 138, "defense": 56, "damageBonus": 6, "moveEnergy": 102, "skillPowerBonus": 0,
-	"terrainDamageBonus": 0, "weaponDamage": 60}
-const BASE_TANKO := {"maxHp": 130, "defense": 80, "damageBonus": 0, "moveEnergy": 100, "skillPowerBonus": 0,
-	"terrainDamageBonus": 0, "weaponDamage": 75}
+const STATS := {"maxHp": 1540, "defense": 56, "damageBonus": 30, "moveEnergy": 102, "skillPowerBonus": 0,
+	"terrainDamageBonus": 0, "weaponDamage": 480}
+const BASE_TANKO := {"maxHp": 1950, "defense": 80, "damageBonus": 0, "moveEnergy": 100, "skillPowerBonus": 0,
+	"terrainDamageBonus": 0, "weaponDamage": 600}
 
 
 func test_modes_and_their_quick_play_base() -> void:
@@ -51,11 +51,14 @@ func test_info_owned_and_not_owned() -> void:
 	var info := LobbyModel.character_info("rookie", data)
 	eq(info["owned"], true, "owned")
 	eq(LobbyModel.level_text(info), "Lv.3", "level")
-	eq(info["stats"], [["Máu", "138"], ["Sát thương", "66"], ["Phòng thủ", "56"]], "battle stats, damage = weapon + bonus")
+	eq(info["stats"], [["Máu", "1.540"], ["Sát thương", "510"], ["Phòng thủ", "56"]], "battle stats, damage = weapon + bonus")
 	var tanko := LobbyModel.character_info("tanko", data)
 	eq(tanko["owned"], false, "not owned")
 	eq(LobbyModel.level_text(tanko), "Chưa sở hữu", "not owned line")
-	eq(tanko["stats"], [["Máu", "130"], ["Sát thương", "75"], ["Phòng thủ", "80"]], "base stats")
+	eq(tanko["stats"], [["Máu", "1.950"], ["Sát thương", "600"], ["Phòng thủ", "80"]], "base stats")
+	var geared := STATS.duplicate()
+	geared.merge({"maxHp": 8068, "damageBonus": 1890}, true)
+	eq(LobbyModel.stat_pairs(geared), [["Máu", "8.068"], ["Sát thương", "2.370"], ["Phòng thủ", "56"]], "thousands separator")
 	var old := LobbyModel.character_info("rookie", {"characters": [{"characterId": "rookie", "level": 2}]})
 	eq(old["stats"], [], "an older server without stats")
 	eq(LobbyModel.level_text(old), "Lv.2", "level still shown")

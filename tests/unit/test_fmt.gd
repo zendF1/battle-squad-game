@@ -1,6 +1,7 @@
 extends "res://tests/test_case.gd"
 
 const Fmt := preload("res://core/fmt.gd")
+const DamagePopup := preload("res://match/views/damage_popup.gd")
 
 
 func test_thousands() -> void:
@@ -9,6 +10,13 @@ func test_thousands() -> void:
 	eq(Fmt.thousands(1250), "1.250", "1250")
 	eq(Fmt.thousands(1234567), "1.234.567", "millions")
 	eq(Fmt.thousands(-5000), "-5.000", "negative")
+
+
+func test_damage_popup_text() -> void:
+	eq(DamagePopup.damage_text(443), "-443", "direct hit")
+	eq(DamagePopup.damage_text(1500), "-1.500", "geared hit, thousands separator")
+	eq(DamagePopup.heal_text(450), "+450", "medkit")
+	eq(DamagePopup.heal_text(1250), "+1.250", "big heal")
 
 
 func test_signed() -> void:
