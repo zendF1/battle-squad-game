@@ -41,11 +41,13 @@ replaced art too: only re-bake the groups you have not replaced.
 
 ### characters/ (scene: `scenes/character/character.tscn`)
 
+Every character holds its gun: Rookie a bazooka, Tanko a heavy cannon, Spark a shock rifle, Flora a seed launcher.
+
 | File | Size | Notes |
 |---|---|---|
 | `<id>/idle_0..3.png` | 512x400 each | loops, 2.5 fps; upper body breathing |
 | `<id>/walk_0..5.png` | 512x400 each | loops, 9 fps; leg swing, bob, forward lean |
-| `<id>/shoot_0..2.png` | 512x400 each | once, 9 fps; recoil, muzzle flash in frame 0 |
+| `<id>/shoot_0..2.png` | 512x400 each | once, 9 fps; recoil, muzzle flash in frame 0 at the gun's tip (`character_painter.gd` MUZZLES) |
 | `<id>/hurt_0..2.png` | 512x400 each | once, 7 fps; knocked back, wobble, squint (the red flash is code) |
 | `<id>/die_0..3.png` | 512x400 each | once, 8 fps, holds the last frame; falls on its back (the grey tint is code) |
 | `<id>/<id>.tres` | – | SpriteFrames of the five animations |
@@ -112,6 +114,8 @@ The terrain mask stays the source of truth: the shader only decides colours per 
 | File | Size | Notes | Used by |
 |---|---|---|---|
 | `<slot>_<tier>.png` | 128x128 (1.5–3 KB) | one per slot × tier, transparent, dark outline. Slots `weapon`, `armor`, `helmet`, `pants`, `boots`, `gloves`; tiers `iron` (Sắt, grey), `steel` (Thép, blue steel), `mithril` (teal), `dragon` (Rồng, red + gold) for shop items, `silver` (Bạc), `gold` (Vàng), `titan`, `diamond` (Kim cương) for crafted ones. A normal item's tier comes from its name / id (`screens/home/equipment_model.gd` `tier()`); an unknown tier draws as iron | Shop → Trang bị, Túi đồ, Nhân vật slots and list, piece popup, Prep gear row |
+| `weapon_<tier>.png` | 128x128 | weapons are guns: the generic blaster pistol per tier (retired generic weapons, crafted Silver/Gold/Titan/Diamond Blaster); also the empty weapon slot's shape | as above |
+| `weapon_<kind>_<iron\|steel\|mithril\|dragon>.png` | 128x128 (2–4 KB) | each character's gun in the shop tiers: `bazooka` (Rookie), `cannon` (Tanko, đại pháo), `rifle` (Spark, súng điện), `launcher` (Flora, súng hạt). The kind comes from the item's `characterId` (`equipment_model.gd` `weapon_kind()`); a missing or not yet imported file falls back to `weapon_<tier>.png` | as above |
 | `slot_<slot>.png` | 128x128 (1 KB) | the slot's shape in plain white; the UI tints it faint blue for an empty slot | Nhân vật slots, Prep gear row |
 | `hex_empty.png`, `hex_filled.png`, `hex_selected.png` | 132x152 (7 KB) | pointy-top hexagon (radius 70) centred: empty (dark, faint rim), filled (blue, light rim), selected (gold rim + glow); stretched to the slot size | Nhân vật slots (shown at 0.85), piece popup, Prep gear row |
 | `badge.png` | 52x32 | the "+N" pill (dark, gold rim); 9-patch, texture margins 15 all (`EQUIP_BADGE_MARGINS`) | upgrade level on every equipment icon |

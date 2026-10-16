@@ -1,6 +1,7 @@
 extends RefCounted
 ## The code-drawn characters (bake source only, not used at runtime): a chibi body, head, eyes,
-## a hat and the character's weapon, in its own colours. tools/bake_art.gd renders every
+## a hat and the character's gun (Rookie bazooka, Tanko cannon, Spark shock rifle, Flora seed
+## launcher), in its own colours. tools/bake_art.gd renders every
 ## animation frame and the portrait from here into assets/characters/<id>/.
 ##
 ## The art is drawn in UNITS: feet at the origin, up is -y, facing +x, about ART_HEIGHT units
@@ -25,7 +26,7 @@ const LOOKS := {
 }
 ## Where each weapon fires from (units): the shoot flash is drawn here.
 const MUZZLES := {
-	"rookie": Vector2(74, -72), "tanko": Vector2(90, -49), "spark": Vector2(47.5, -134), "flora": Vector2(49.5, -130),
+	"rookie": Vector2(74, -72), "tanko": Vector2(90, -49), "spark": Vector2(86, -59), "flora": Vector2(84, -61),
 }
 
 static var _boxes := {} # [color, radius, outline] -> StyleBoxFlat, so a redraw allocates nothing
@@ -192,13 +193,18 @@ static func _spark_hat(ci: CanvasItem, look: Dictionary) -> void:
 		Vector2(0, -114), Vector2(-20, -118)], look["hat"])
 
 
-## A lightning rod in the right hand with a glowing orb.
+## A shock rifle held at the chest: stock, body, barrel with glowing coils, an energy tank.
 static func _spark_weapon(ci: CanvasItem, look: Dictionary) -> void:
-	_rect(ci, Rect2(44, -128, 7, 104), look["weapon"], 3)
-	ci.draw_circle(Vector2(47.5, -134), 17.0, Color(look["glow"], 0.25))
-	_circle(ci, Vector2(47.5, -134), 10.0, look["glow"])
-	_polygon(ci, [Vector2(50, -146), Vector2(41, -133), Vector2(48, -133), Vector2(44, -122), Vector2(55, -137), Vector2(48, -137)], Color(1, 1, 0.6), 1.5)
-	_circle(ci, Vector2(47.5, -40), 6.5, SKIN)
+	var metal: Color = look["weapon"]
+	_polygon(ci, [Vector2(-4, -64), Vector2(14, -66), Vector2(14, -52), Vector2(-2, -46)], look["trim"])
+	_rect(ci, Rect2(10, -68, 52, 16), metal, 6)
+	_rect(ci, Rect2(58, -63, 26, 8), metal.darkened(0.3), 3)
+	for x in [64.0, 71.0, 78.0]:
+		_rect(ci, Rect2(x, -66, 4, 14), look["glow"], 2, 2.0)
+	_rect(ci, Rect2(22, -80, 26, 12), look["glow"], 5)
+	_polygon(ci, [Vector2(37, -79), Vector2(31, -73), Vector2(35, -73), Vector2(32, -69), Vector2(40, -75), Vector2(36, -75)], Color(1, 1, 0.6), 1.5)
+	_rect(ci, Rect2(26, -54, 8, 12), metal.darkened(0.3), 3)
+	_circle(ci, Vector2(31, -46), 6.5, SKIN)
 
 
 ## Leafy hair with a flower.
@@ -211,12 +217,18 @@ static func _flora_hat(ci: CanvasItem, look: Dictionary) -> void:
 	_circle(ci, c, 5.0, look["glow"], 2.0)
 
 
-## A wooden staff with a bud.
+## A seed launcher: a wide wooden tube with a flared bell, a round hopper with a seed on top.
 static func _flora_weapon(ci: CanvasItem, look: Dictionary) -> void:
-	_rect(ci, Rect2(46, -120, 7, 116), look["weapon"], 3)
-	_polygon(ci, [Vector2(49.5, -146), Vector2(62, -128), Vector2(49.5, -116), Vector2(37, -128)], Color(0.45, 0.85, 0.4))
-	_circle(ci, Vector2(49.5, -128), 6.0, look["hat"], 2.0)
-	_circle(ci, Vector2(49.5, -40), 6.5, SKIN)
+	var wood: Color = look["weapon"]
+	var seed_c := Color(0.45, 0.85, 0.4)
+	_rect(ci, Rect2(4, -71, 66, 20), wood, 9)
+	_polygon(ci, [Vector2(66, -72), Vector2(84, -78), Vector2(84, -44), Vector2(66, -50)], wood.darkened(0.25))
+	_rect(ci, Rect2(44, -73, 6, 24), seed_c.darkened(0.3), 2)
+	_circle(ci, Vector2(28, -78), 11.0, wood.darkened(0.15))
+	_circle(ci, Vector2(28, -80), 6.5, seed_c, 2.0)
+	_polygon(ci, [Vector2(6, -70), Vector2(-6, -86), Vector2(14, -78)], seed_c, 2.0)
+	_rect(ci, Rect2(28, -54, 8, 12), wood.darkened(0.3), 3)
+	_circle(ci, Vector2(33, -46), 6.5, SKIN)
 
 
 static func _rect(ci: CanvasItem, r: Rect2, color: Color, radius: float, outline: float = 3.0) -> void:

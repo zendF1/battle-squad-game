@@ -219,7 +219,7 @@ func _render_gear() -> void:
 		else:
 			var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
 			_gear_frames[slot].texture = Art.equipment_frame("hex_filled")
-			icon.texture = Art.equipment_icon(slot, EquipmentModel.tier(item))
+			icon.texture = Art.equipment_icon(slot, EquipmentModel.tier(item), EquipmentModel.weapon_kind(item))
 			icon.modulate = Color.WHITE
 			_gear_frames[slot].tooltip_text = "%s %s" % [EquipmentModel.display_name(item), EquipmentModel.level_text(piece)]
 

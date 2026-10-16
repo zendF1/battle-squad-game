@@ -1,5 +1,7 @@
 extends RefCounted
 ## Code-drawn equipment art (bake source only): one icon per slot × tier on a 128x128
+## (weapons are guns: a blaster per tier, plus each character's gun - bazooka, cannon, shock rifle,
+## seed launcher - in the normal tiers)
 ## transparent canvas (bright shapes with a dark rounded outline, like tools/art/icon_painter.gd),
 ## a white silhouette per slot for empty slots (tinted in the UI), the hexagon slot frames
 ## (empty, filled, selected) and the dark "+N" badge. tools/bake_art.gd saves them under
@@ -31,11 +33,15 @@ const HEX_RADIUS := 70.0
 const BADGE_SIZE := Vector2i(52, 32)
 
 
-## An item icon: slot (weapon, armor, helmet, pants, boots, gloves) in a tier's colours.
-static func paint(ci: CanvasItem, slot: String, tier: String) -> void:
+## An item icon: slot (weapon, armor, helmet, pants, boots, gloves) in a tier's colours; a
+## weapon's kind ("" blaster, bazooka, cannon, rifle, launcher) picks the gun.
+static func paint(ci: CanvasItem, slot: String, tier: String, kind: String = "") -> void:
 	var t: Array = TIERS.get(tier, TIERS["iron"])
 	var pal := {"main": t[0], "light": t[1], "dark": t[2], "trim": t[3], "outline": OUTLINE, "tier": tier}
-	_slot(ci, slot, pal)
+	if slot == "weapon":
+		_gun(ci, kind, pal)
+	else:
+		_slot(ci, slot, pal)
 	_extras(ci, slot, pal)
 
 
@@ -49,7 +55,7 @@ static func paint_slot(ci: CanvasItem, slot: String) -> void:
 
 static func _slot(ci: CanvasItem, slot: String, pal: Dictionary) -> void:
 	match slot:
-		"weapon": _sword(ci, pal)
+		"weapon": _gun(ci, "", pal)
 		"armor": _vest(ci, pal)
 		"helmet": _cap(ci, pal)
 		"pants": _pants(ci, pal)
@@ -119,20 +125,87 @@ static func _sparkle(ci: CanvasItem, c: Vector2, r: float, color: Color = Color(
 
 # ── Slots ───────────────────────────────────────────────────────────────────
 
-## A sword pointing up-right: blade (light left half, main right half), guard, grip, pommel.
-static func _sword(ci: CanvasItem, pal: Dictionary) -> void:
-	ci.draw_set_transform(Vector2(64, 66), PI / 4, Vector2.ONE)
-	var blade := [Vector2(-10, 22), Vector2(-10, -40), Vector2(0, -56), Vector2(10, -40), Vector2(10, 22)]
-	_poly(ci, blade, pal["main"], pal)
-	_fill(ci, [Vector2(-10, 22), Vector2(-10, -40), Vector2(0, -56), Vector2(0, 22)], pal["light"])
-	ci.draw_line(Vector2(0, -50), Vector2(0, 18), pal["dark"], 2.5, true)
-	_stroke(ci, [Vector2(0, 38), Vector2(0, 52)], LEATHER if pal["tier"] != "" else pal["dark"], 11.0, pal)
-	_rrect(ci, Rect2(-27, 20, 54, 12), 5, pal["trim"] if pal["tier"] != "iron" else pal["dark"], pal)
-	_disc(ci, Vector2(0, 58), 7, pal["trim"] if pal["tier"] != "iron" else pal["dark"], pal)
-	if pal["tier"] == "dragon":
-		for s in [-1.0, 1.0]:
-			_poly(ci, [Vector2(s * 26, 20), Vector2(s * 38, 8), Vector2(s * 30, 30)], GOLD, pal, 4.0)
+## A gun pointing right and a little up, drawn about the canvas centre: "" a blaster pistol,
+## "bazooka", "cannon", "rifle" (shock rifle) or "launcher" (seed launcher).
+static func _gun(ci: CanvasItem, kind: String, pal: Dictionary) -> void:
+	# The long guns are drawn a little smaller so the outline stays inside the canvas.
+	ci.draw_set_transform(Vector2(64, 66), -0.26, Vector2.ONE * (1.0 if kind == "" else 0.9))
+	match kind:
+		"bazooka": _bazooka(ci, pal)
+		"cannon": _cannon(ci, pal)
+		"rifle": _rifle(ci, pal)
+		"launcher": _launcher(ci, pal)
+		_: _blaster(ci, pal)
 	ci.draw_set_transform(Vector2.ZERO)
+
+
+## The metal colour of small parts: the tier trim, the dark tone on Sắt (its trim is leather).
+static func _metal(pal: Dictionary) -> Color:
+	return pal["trim"] if pal["tier"] != "iron" else pal["dark"]
+
+
+## A chunky blaster pistol: body, barrel, muzzle ring, angled grip, energy cell.
+static func _blaster(ci: CanvasItem, pal: Dictionary) -> void:
+	_poly(ci, [Vector2(-22, 0), Vector2(-6, 0), Vector2(-2, 34), Vector2(-24, 34)], LEATHER if pal["tier"] != "" else pal["dark"], pal)
+	_rrect(ci, Rect2(28, -15, 26, 14), 4, pal["dark"], pal)
+	_disc(ci, Vector2(54, -8), 9, _metal(pal), pal)
+	_rrect(ci, Rect2(-40, -24, 74, 28), 10, pal["main"], pal)
+	_fill(ci, _round_rect(Rect2(-36, -21, 66, 9), 4), Color(pal["light"], 0.75))
+	_rrect(ci, Rect2(-28, -6, 30, 7), 3, _metal(pal), pal, 3.0)
+	ci.draw_arc(Vector2(-6, 8), 9, 0.2, PI - 0.2, 10, pal["outline"] if pal["outline"].a > 0 else pal["dark"], 4.0, true)
+
+
+## A shoulder bazooka: long tube, flared muzzle, rear cone, sight and grip.
+static func _bazooka(ci: CanvasItem, pal: Dictionary) -> void:
+	_rrect(ci, Rect2(-14, 6, 12, 26), 4, LEATHER, pal)
+	_poly(ci, [Vector2(-56, -18), Vector2(-46, -12), Vector2(-46, 10), Vector2(-56, 16)], pal["dark"], pal)
+	_rrect(ci, Rect2(-46, -14, 92, 26), 12, pal["main"], pal)
+	_fill(ci, _round_rect(Rect2(-42, -11, 84, 8), 4), Color(pal["light"], 0.75))
+	_poly(ci, [Vector2(40, -14), Vector2(58, -22), Vector2(58, 20), Vector2(40, 12)], pal["dark"], pal)
+	for x in [-24.0, 18.0]:
+		_rrect(ci, Rect2(x, -16, 8, 30), 3, _metal(pal), pal, 3.0)
+	_rrect(ci, Rect2(-8, -28, 18, 12), 3, pal["dark"], pal, 3.0)
+
+
+## A heavy cannon: thick barrel with bands, muzzle ring, round breech, a wheel under it.
+static func _cannon(ci: CanvasItem, pal: Dictionary) -> void:
+	_disc(ci, Vector2(-18, 26), 14, LEATHER, pal)
+	ci.draw_circle(Vector2(-18, 26), 5, _metal(pal), true, -1.0, true)
+	_disc(ci, Vector2(-40, -4), 22, pal["dark"], pal)
+	_poly(ci, [Vector2(-40, -26), Vector2(44, -20), Vector2(44, 14), Vector2(-40, 18)], pal["main"], pal)
+	_fill(ci, [Vector2(-38, -22), Vector2(42, -17), Vector2(42, -9), Vector2(-38, -12)], Color(pal["light"], 0.7))
+	_rrect(ci, Rect2(40, -28, 18, 50), 7, _metal(pal), pal)
+	ci.draw_circle(Vector2(52, -3), 8, pal["outline"] if pal["outline"].a > 0 else pal["dark"], true, -1.0, true)
+	for x in [-14.0, 14.0]:
+		_rrect(ci, Rect2(x, -25, 8, 42), 3, _metal(pal), pal, 3.0)
+	ci.draw_circle(Vector2(-56, -4), 6, _metal(pal), true, -1.0, true)
+
+
+## A shock rifle: stock, long body, barrel with glowing coils, an energy tank with a bolt.
+static func _rifle(ci: CanvasItem, pal: Dictionary) -> void:
+	var glow: Color = Color(0.55, 0.95, 1.0) if pal["tier"] != "" else pal["light"]
+	_poly(ci, [Vector2(-60, -6), Vector2(-30, -10), Vector2(-30, 10), Vector2(-58, 20)], LEATHER if pal["tier"] != "" else pal["dark"], pal)
+	_rrect(ci, Rect2(-14, 4, 11, 24), 4, pal["dark"], pal)
+	_rrect(ci, Rect2(28, -9, 32, 10), 4, pal["dark"], pal)
+	_rrect(ci, Rect2(-34, -16, 64, 22), 8, pal["main"], pal)
+	_fill(ci, _round_rect(Rect2(-30, -13, 56, 7), 3), Color(pal["light"], 0.75))
+	for x in [34.0, 43.0, 52.0]:
+		_rrect(ci, Rect2(x, -13, 5, 18), 2, glow, pal, 2.5)
+	_rrect(ci, Rect2(-18, -32, 30, 14), 6, glow, pal, 3.0)
+	_fill(ci, [Vector2(-1, -31), Vector2(-8, -24), Vector2(-3, -24), Vector2(-7, -18), Vector2(2, -26), Vector2(-3, -26)], Color(1, 1, 0.6) if pal["tier"] != "" else pal["dark"])
+
+
+## A seed launcher: wide tube with a bell muzzle, a round hopper holding a seed, a leaf.
+static func _launcher(ci: CanvasItem, pal: Dictionary) -> void:
+	var seed_c: Color = Color(0.45, 0.8, 0.35) if pal["tier"] != "" else pal["light"]
+	_rrect(ci, Rect2(-20, 8, 12, 24), 4, LEATHER if pal["tier"] != "" else pal["dark"], pal)
+	_rrect(ci, Rect2(-50, -10, 88, 24), 11, pal["main"], pal)
+	_fill(ci, _round_rect(Rect2(-46, -7, 80, 7), 3), Color(pal["light"], 0.75))
+	_poly(ci, [Vector2(34, -10), Vector2(56, -20), Vector2(56, 22), Vector2(34, 14)], _metal(pal), pal)
+	_disc(ci, Vector2(-10, -22), 16, pal["dark"], pal)
+	_disc(ci, Vector2(-10, -24), 9, seed_c, pal, 3.0)
+	_poly(ci, [Vector2(-48, -10), Vector2(-62, -30), Vector2(-40, -22)], seed_c, pal, 3.0)
+	_rrect(ci, Rect2(4, -12, 7, 28), 3, _metal(pal), pal, 3.0)
 
 
 ## A vest: shoulders, V neck, centre seam, belt, light left side.

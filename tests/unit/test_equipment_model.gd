@@ -3,12 +3,12 @@ extends "res://tests/test_case.gd"
 const M := preload("res://screens/home/equipment_model.gd")
 
 ## Design levels: normal 10/20/30/40, crafted 75 for diamond. Weapons are per character; the
-## generic Iron/Mithril Sword are retired (inactive) but owned pieces still need them.
+## generic Iron/Mithril Blaster are retired (inactive) but owned pieces still need them.
 const CATALOG := {
 	"items": [
-		{"itemId": "normal_weapon_lv10", "name": "Iron Sword", "slot": "weapon", "category": "normal", "requiredLevel": 10, "gemSlots": 1,
+		{"itemId": "normal_weapon_lv10", "name": "Iron Blaster", "slot": "weapon", "category": "normal", "requiredLevel": 10, "gemSlots": 1,
 			"statHp": 0, "statDamage": 8, "statDefense": 0, "statCrit": 0, "statMoveEnergy": 0, "priceCoin": 500, "priceGem": 0, "isActive": false},
-		{"itemId": "normal_weapon_lv30", "name": "Mithril Sword", "slot": "weapon", "category": "normal", "requiredLevel": 30, "gemSlots": 1,
+		{"itemId": "normal_weapon_lv30", "name": "Mithril Blaster", "slot": "weapon", "category": "normal", "requiredLevel": 30, "gemSlots": 1,
 			"statHp": 0, "statDamage": 25, "statDefense": 0, "statCrit": 2, "statMoveEnergy": 0, "priceCoin": 4000, "priceGem": 0, "isActive": false},
 		{"itemId": "normal_armor_lv40", "name": "Dragon Vest", "slot": "armor", "category": "normal", "requiredLevel": 40, "gemSlots": 1,
 			"statHp": 150, "statDamage": 0, "statDefense": 15, "statCrit": 0, "statMoveEnergy": 0, "priceCoin": 8000, "priceGem": 0, "isActive": true},
@@ -18,9 +18,9 @@ const CATALOG := {
 			"statHp": 20, "statDamage": 0, "statDefense": 2, "statCrit": 0, "statMoveEnergy": 10, "priceCoin": 800, "priceGem": 0, "isActive": false},
 		{"itemId": "crafted_gloves_diamond", "name": "Diamond Gloves", "slot": "gloves", "category": "crafted", "tier": "diamond", "requiredLevel": 75,
 			"statHp": 0, "statDamage": 24, "statDefense": 0, "statCrit": 16, "statMoveEnergy": 0, "priceCoin": 0, "priceGem": 0, "isActive": true},
-		{"itemId": "tanko_weapon_lv10", "name": "Tanko Cannon", "slot": "weapon", "category": "normal", "requiredLevel": 10, "characterId": "tanko",
+		{"itemId": "tanko_weapon_lv10", "name": "Iron Cannon", "slot": "weapon", "category": "normal", "requiredLevel": 10, "characterId": "tanko",
 			"statDamage": 8, "priceCoin": 500, "isActive": true},
-		{"itemId": "rookie_weapon_lv20", "name": "Rookie Sword", "slot": "weapon", "category": "normal", "requiredLevel": 20, "characterId": "rookie",
+		{"itemId": "rookie_weapon_lv20", "name": "Steel Bazooka", "slot": "weapon", "category": "normal", "requiredLevel": 20, "characterId": "rookie",
 			"statDamage": 15, "statCrit": 1, "priceCoin": 1500, "isActive": true},
 		"junk",
 	],
@@ -84,15 +84,25 @@ func test_display_names_and_tiers() -> void:
 	eq(M.display_name({"name": "Titan Vest"}), "Áo giáp Titan", "titan")
 	eq(M.display_name({"name": "Diamond Sword"}), "Kiếm Kim cương", "diamond")
 	eq(M.display_name({"name": "Tanko Hammer"}), "Tanko Hammer", "fallback to the server name")
-	eq(M.display_name({"name": "Rookie Sword"}), "Kiếm Rookie", "rookie weapon")
-	eq(M.display_name({"name": "Tanko Cannon"}), "Pháo Tanko", "tanko weapon")
-	eq(M.display_name({"name": "Spark Staff"}), "Gậy Spark", "spark weapon")
-	eq(M.display_name({"name": "Flora Slingshot"}), "Ná Flora", "flora weapon")
-	eq(M.display_name({"name": "Nobody Sword"}), "Nobody Sword", "unknown character: server name")
+	eq(M.display_name({"name": "Diamond Blaster"}), "Súng Kim cương", "crafted blaster")
+	eq(M.display_name({"name": "Iron Bazooka"}), "Bazooka Sắt", "rookie gun")
+	eq(M.display_name({"name": "Dragon Cannon"}), "Đại pháo Rồng", "tanko gun")
+	eq(M.display_name({"name": "Steel Shock Rifle"}), "Súng điện Thép", "spark gun")
+	eq(M.display_name({"name": "Mithril Seed Launcher"}), "Súng hạt Mithril", "flora gun")
+	eq(M.display_name({"name": "Iron Blaster"}), "Súng Sắt", "generic blaster")
+	eq(M.display_name({"name": "Iron Laser Cannon"}), "Iron Laser Cannon", "unknown type: server name")
+	eq(M.display_name({"name": "Rookie Sword"}), "Rookie Sword", "old per-character name: server name")
 	eq(M.display_name({"itemId": "x", "slot": "boots", "category": "crafted", "tier": "gold"}), "Giày Vàng", "no name: slot + tier")
 	eq(M.tier({"itemId": "normal_weapon_lv10", "name": "Iron Sword"}), "iron", "tier from the name")
 	eq(M.tier({"itemId": "normal_weapon_lv40", "name": "Kiếm"}), "dragon", "tier from the id suffix")
 	eq(M.tier({"itemId": "rookie_weapon_lv20", "name": "Rookie Sword"}), "steel", "character weapon tier from the id suffix")
+	eq(M.tier({"itemId": "spark_weapon_lv40", "name": "Dragon Shock Rifle"}), "dragon", "gun tier from the name")
+	eq(M.weapon_kind({"slot": "weapon", "characterId": "rookie", "name": "x"}), "bazooka", "rookie: bazooka")
+	eq(M.weapon_kind({"slot": "weapon", "characterId": "tanko"}), "cannon", "tanko: cannon")
+	eq(M.weapon_kind({"slot": "weapon", "characterId": "spark"}), "rifle", "spark: rifle")
+	eq(M.weapon_kind({"slot": "weapon", "name": "Gold Seed Launcher"}), "launcher", "kind from the name")
+	eq(M.weapon_kind({"slot": "weapon", "name": "Iron Blaster"}), "", "blaster")
+	eq(M.weapon_kind({"slot": "armor", "characterId": "rookie"}), "", "not a weapon")
 	eq(M.tier({"itemId": "crafted_x", "tier": "Titan"}), "titan", "tier field")
 	eq(M.tier({"itemId": "q", "category": "crafted"}), "silver", "crafted default")
 	eq(M.tier({"itemId": "q"}), "iron", "normal default")
@@ -156,7 +166,7 @@ func test_can_wear() -> void:
 func test_sort_bag() -> void:
 	var c = M.parse_catalog(CATALOG)
 	var ids := M.sort_bag(_owned(), c).map(func(p): return p["equipmentId"])
-	# Worn first (Dragon Vest Lv40 armor, then Mithril Sword Lv30), then by level, slot, upgrade.
+	# Worn first (Dragon Vest Lv40 armor, then Mithril Blaster Lv30), then by level, slot, upgrade.
 	eq(ids, ["e2", "e3", "e4", "e5", "e1"], "bag order")
 	eq(M.sort_bag(null, c), [], "not loaded")
 
@@ -183,6 +193,7 @@ func test_shop_items_and_price() -> void:
 	eq(M.price(M.item_of(c, "normal_weapon_lv10")), {"currency": "coin", "amount": 500}, "coin price")
 	eq(M.price(M.item_of(c, "normal_helmet_lv10")), {"currency": "gem", "amount": 30}, "gem when coin is 0")
 	eq(M.confirm_text(M.item_of(c, "normal_armor_lv40")), "Mua Áo giáp Rồng với giá 8.000 xu?", "confirm")
+	eq(M.confirm_text(M.item_of(c, "rookie_weapon_lv20")), "Mua Bazooka Thép với giá 1.500 xu?", "confirm gun")
 	eq(M.confirm_text(M.item_of(c, "normal_helmet_lv10")), "Mua Mũ Sắt với giá 30 kim cương?", "confirm gem")
 
 

@@ -205,6 +205,9 @@ func _bake_equipment() -> void:
 		for tier in Art.EQUIP_TIERS:
 			_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint(ci, slot, tier)), Art.equipment_icon_path(slot, tier))
 		_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint_slot(ci, slot)), Art.equipment_slot_path(slot))
+	for kind in Art.EQUIP_WEAPON_KINDS:
+		for tier in Art.EQUIP_KIND_TIERS:
+			_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint(ci, "weapon", tier, kind)), Art.equipment_weapon_path(kind, tier))
 	for frame in Art.EQUIP_FRAMES:
 		_save(await _render(Art.EQUIP_FRAME_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint_frame(ci, frame)), Art.equipment_frame_path(frame))
 	_save(await _render(EquipmentPainter.BADGE_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint_badge(ci)), Art.EQUIP_BADGE)

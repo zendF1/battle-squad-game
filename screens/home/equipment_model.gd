@@ -27,13 +27,17 @@ const TIER_WORDS := {
 	"iron": "Sắt", "steel": "Thép", "mithril": "Mithril", "dragon": "Rồng",
 	"silver": "Bạc", "gold": "Vàng", "titan": "Titan", "diamond": "Kim cương",
 }
-## Normal item ids end in lvN, the required level (10/20/30/40): the shop tier. Weapons are per
-## character (<character>_weapon_lvN, "Rookie Sword"); the other slots are shared.
+## Normal item ids end in lvN, the required level (10/20/30/40): the shop tier. Weapons are guns,
+## per character (<character>_weapon_lvN, "Iron Bazooka"); the other slots are shared.
 const ID_SUFFIX_TIERS := {"lv10": "iron", "lv20": "steel", "lv30": "mithril", "lv40": "dragon"}
+## The type part of "<Tier> <Type>" server names (one or two words).
 const TYPE_WORDS := {
 	"sword": "Kiếm", "vest": "Áo giáp", "cap": "Mũ", "pants": "Quần", "boots": "Giày", "gloves": "Găng",
-	"cannon": "Pháo", "staff": "Gậy", "slingshot": "Ná",
+	"bazooka": "Bazooka", "cannon": "Đại pháo", "shock rifle": "Súng điện", "seed launcher": "Súng hạt", "blaster": "Súng",
 }
+## The gun each character fires (its weapons' icon); generic and crafted weapons are blasters ("").
+const WEAPON_KINDS := {"rookie": "bazooka", "tanko": "cannon", "spark": "rifle", "flora": "launcher"}
+const KIND_OF_TYPE := {"bazooka": "bazooka", "cannon": "cannon", "shock rifle": "rifle", "seed launcher": "launcher"}
 ## key: the catalog field; unit "%" for the crit chance.
 const STATS := [
 	{"key": "statHp", "label": "Máu", "unit": ""},
@@ -130,24 +134,36 @@ static func tier(item: Dictionary) -> String:
 	return "silver" if str(item.get("category", "")) == "crafted" else "iron"
 
 
-## "Kiếm Sắt", "Áo giáp Rồng", "Găng Kim cương" from "<Tier> <Type>"; "Kiếm Rookie", "Pháo
-## Tanko" from "<Character> <Type>"; the server name otherwise, or the slot name + tier word
+## "Bazooka Sắt", "Đại pháo Rồng", "Súng điện Thép", "Súng hạt Mithril", "Súng Kim cương",
+## "Áo giáp Rồng" from "<Tier> <Type>"; the server name otherwise, or the slot name + tier word
 ## when it has none.
 static func display_name(item: Dictionary) -> String:
 	var name := str(item.get("name", "")).strip_edges()
 	var words := name.to_lower().split(" ", false)
-	if words.size() == 2 and TIER_WORDS.has(words[0]) and TYPE_WORDS.has(words[1]):
-		return "%s %s" % [TYPE_WORDS[words[1]], TIER_WORDS[words[0]]]
-	if words.size() == 2 and TYPE_WORDS.has(words[1]):
-		for c in LoadoutModel.CHARACTERS:
-			if str(c["name"]).to_lower() == words[0]:
-				return "%s %s" % [TYPE_WORDS[words[1]], c["name"]]
+	if words.size() >= 2 and TIER_WORDS.has(words[0]):
+		var type := " ".join(words.slice(1))
+		if TYPE_WORDS.has(type):
+			return "%s %s" % [TYPE_WORDS[type], TIER_WORDS[words[0]]]
 	if name != "":
 		return name
 	var slot := str(item.get("slot", ""))
 	if slot == "":
 		return str(item.get("itemId", ""))
 	return "%s %s" % [slot_name(slot), TIER_WORDS.get(tier(item), "")]
+
+
+## The gun of a weapon for its icon: "bazooka", "cannon", "rifle", "launcher" (by characterId,
+## else by the name's type), "" for a blaster or a non-weapon.
+static func weapon_kind(item: Dictionary) -> String:
+	if str(item.get("slot", "")) != "weapon":
+		return ""
+	var only = item.get("characterId")
+	if only != null and WEAPON_KINDS.has(str(only)):
+		return WEAPON_KINDS[str(only)]
+	var words := str(item.get("name", "")).to_lower().split(" ", false)
+	if words.size() >= 2:
+		return str(KIND_OF_TYPE.get(" ".join(words.slice(1)), ""))
+	return ""
 
 
 ## "+3" (the upgrade badge; "+0" for a new piece).
@@ -378,7 +394,7 @@ static func price(item: Dictionary) -> Dictionary:
 	return {"currency": "gem", "amount": int(_num(item, "priceGem"))}
 
 
-## "Mua Kiếm Sắt với giá 500 xu?"
+## "Mua Bazooka Sắt với giá 500 xu?"
 static func confirm_text(item: Dictionary) -> String:
 	var p := price(item)
 	return "Mua %s với giá %s %s?" % [display_name(item), Fmt.thousands(p["amount"]), "kim cương" if p["currency"] == "gem" else "xu"]

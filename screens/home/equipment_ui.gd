@@ -24,7 +24,7 @@ static func item_icon(item: Dictionary, piece: Dictionary = {}, px: int = 72) ->
 	var box := Control.new()
 	box.custom_minimum_size = Vector2(px, px)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var icon := LobbyUi.icon(Art.equipment_icon(str(item.get("slot", "")), EquipmentModel.tier(item)), px)
+	var icon := LobbyUi.icon(Art.equipment_icon(str(item.get("slot", "")), EquipmentModel.tier(item), EquipmentModel.weapon_kind(item)), px)
 	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	box.add_child(icon)
 	if not piece.is_empty():

@@ -215,7 +215,7 @@ func _render_slots() -> void:
 		var icon: TextureRect = _slot_icons[slot]
 		if filled:
 			var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
-			icon.texture = Art.equipment_icon(slot, EquipmentModel.tier(item))
+			icon.texture = Art.equipment_icon(slot, EquipmentModel.tier(item), EquipmentModel.weapon_kind(item))
 			icon.modulate = Color.WHITE
 			icon.position = Vector2((HEX.x - 80) / 2, 20)
 			icon.size = Vector2(80, 80)

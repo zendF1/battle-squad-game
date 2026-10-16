@@ -40,8 +40,9 @@ Problems to fix first:
   2/5/8/10 remap (only slots whose four rows all still hold it), extends `character_levels` to
   level 80 (L2–L10 unchanged; `expRequired(L) = 5200 + 1200n + 25n(n+1)/2`, n = L − 10:
   L20 18 575, L40 52 825, L75 136 825, L80 151 325) when it is still the untouched 10-level
-  default, and makes weapons per character: 16 items `<character>_weapon_lv10..lv40` ("Rookie
-  Sword", "Tanko Cannon", "Spark Staff", "Flora Slingshot"; generic weapon stats/prices), the 4
+  default, and makes weapons per character: 16 items `<character>_weapon_lv10..lv40` (generic
+  weapon stats/prices; named as guns by 020: Iron..Dragon Bazooka / Cannon / Shock Rifle / Seed
+  Launcher), the 4
   generic `normal_weapon_lvN` become inactive (owned pieces still work). Armor/helmet/pants/
   boots/gloves stay shared.
 - S2 `GET /equipment/catalog` → `{items:[EquipmentItemConfig…], upgradeRates, setBonuses,
@@ -67,8 +68,10 @@ Problems to fix first:
   cards (icon, name, Lv yêu cầu, stats, price), "Mua" → confirm → buy; toast + refresh wallet
   and owned gear. Owned count shown ("Đã có 2"). Sells the shared gear plus the weapons of the
   lobby's character only ("Vũ khí của Rookie"; `EquipmentModel.shop_items(catalog, slot,
-  character)`); weapon names "Kiếm Rookie", "Pháo Tanko", "Gậy Spark", "Ná Flora" (icons shared
-  per slot/tier). EXP bars follow the 80-level default table (`Progress.character_threshold`);
+  character)`); weapons are guns (server migration 020): "Bazooka Sắt" (Rookie), "Đại pháo Rồng" (Tanko),
+  "Súng điện Thép" (Spark), "Súng hạt Mithril" (Flora), generic/crafted "Súng <tier>"
+  (blaster); each character's gun has its own icon per shop tier (`weapon_<kind>_<tier>.png`),
+  and the characters hold their gun in the baked frames. EXP bars follow the 80-level default table (`Progress.character_threshold`);
   the server's `isMaxLevel` decides MAX.
 - C4 **Túi đồ** page (replaces Hồ sơ → Kho đồ; lobby "Kho đồ" opens it): tabs **Trang bị**
   (grid: icon, +N, "Đang mặc · Tanko" badge, slot filter, sort by level) and **Vật phẩm**

@@ -46,6 +46,10 @@ const UNKNOWN_ICON := "unknown"
 ## the UI), the hexagon slot frames (132x152) and the "+N" badge 9-patch.
 const EQUIP_SLOTS := ["weapon", "armor", "helmet", "pants", "boots", "gloves"]
 const EQUIP_TIERS := ["iron", "steel", "mithril", "dragon", "silver", "gold", "titan", "diamond"]
+## Weapons are guns: weapon_<tier>.png is the generic blaster (generic and crafted weapons); each
+## character's gun has its own icons in the normal tiers, weapon_<kind>_<tier>.png.
+const EQUIP_WEAPON_KINDS := ["bazooka", "cannon", "rifle", "launcher"]
+const EQUIP_KIND_TIERS := ["iron", "steel", "mithril", "dragon"]
 const EQUIP_ICON_SIZE := Vector2i(128, 128)
 const EQUIP_FRAMES := ["hex_empty", "hex_filled", "hex_selected"]
 const EQUIP_FRAME_SIZE := Vector2i(132, 152)
@@ -135,6 +139,10 @@ static func equipment_icon_path(slot: String, tier: String) -> String:
 	return ROOT + "icons/equipment/%s_%s.png" % [slot, tier]
 
 
+static func equipment_weapon_path(kind: String, tier: String) -> String:
+	return ROOT + "icons/equipment/weapon_%s_%s.png" % [kind, tier]
+
+
 static func equipment_slot_path(slot: String) -> String:
 	return ROOT + "icons/equipment/slot_%s.png" % slot
 
@@ -173,6 +181,9 @@ static func all_paths() -> Array[String]:
 		out.append(equipment_slot_path(slot))
 		for tier in EQUIP_TIERS:
 			out.append(equipment_icon_path(slot, tier))
+	for kind in EQUIP_WEAPON_KINDS:
+		for tier in EQUIP_KIND_TIERS:
+			out.append(equipment_weapon_path(kind, tier))
 	for frame in EQUIP_FRAMES:
 		out.append(equipment_frame_path(frame))
 	out.append(EQUIP_BADGE)
@@ -217,11 +228,20 @@ static func item_icon(item_id: String) -> Texture2D:
 
 
 ## The icon of an equipment item by slot and tier (EquipmentModel.tier()); an unknown tier draws
-## as iron, an unknown slot as the "unknown" icon.
-static func equipment_icon(slot: String, tier: String) -> Texture2D:
+## as iron, an unknown slot as the "unknown" icon. A weapon with a gun kind
+## (EquipmentModel.weapon_kind()) in a normal tier gets that gun's icon, the blaster otherwise
+## (also while the gun's file is missing or not imported yet).
+static func equipment_icon(slot: String, tier: String, kind: String = "") -> Texture2D:
 	if not EQUIP_SLOTS.has(slot):
 		return icon(UNKNOWN_ICON)
-	return texture(equipment_icon_path(slot, tier if EQUIP_TIERS.has(tier) else EQUIP_TIERS[0]))
+	tier = tier if EQUIP_TIERS.has(tier) else EQUIP_TIERS[0]
+	if slot == "weapon" and EQUIP_WEAPON_KINDS.has(kind) and EQUIP_KIND_TIERS.has(tier):
+		var path := equipment_weapon_path(kind, tier)
+		if ResourceLoader.exists(path):
+			var t := texture(path)
+			if t != placeholder():
+				return t
+	return texture(equipment_icon_path(slot, tier))
 
 
 ## The white silhouette of an empty slot (tint it).

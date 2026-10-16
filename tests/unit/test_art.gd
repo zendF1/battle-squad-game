@@ -66,3 +66,9 @@ func test_equipment_art_covers_the_model() -> void:
 	img = Image.load_from_file(ProjectSettings.globalize_path(Art.equipment_frame_path("hex_empty")))
 	check(img != null and img.get_size() == Art.EQUIP_FRAME_SIZE, "frame size")
 	check(Art.equipment_icon("ring", "iron") != null, "unknown slot gets a texture")
+	eq(Art.equipment_weapon_path("cannon", "dragon"), "res://assets/icons/equipment/weapon_cannon_dragon.png", "gun icon path")
+	for kind in M.WEAPON_KINDS.values():
+		check(Art.EQUIP_WEAPON_KINDS.has(kind), "gun %s has art" % kind)
+		img = Image.load_from_file(ProjectSettings.globalize_path(Art.equipment_weapon_path(kind, "iron")))
+		check(img != null and img.get_size() == Art.EQUIP_ICON_SIZE, "%s icon size" % kind)
+	check(Art.equipment_icon("weapon", "gold", "bazooka") != null, "a gun in a crafted tier gets the blaster")
