@@ -308,22 +308,21 @@ func test_rookie_ready_pose_assets() -> void:
 		near(float(look["gun_draw"].get(key, -1.0)), 0.0, 1e-9, "gunDraw %s 0" % key)
 	for anim in ["draw", "fire"]:
 		eq(look["anchors"].get(anim, []).size(), look["frames"].get_frame_count(anim), "%s anchors per frame" % anim)
-	# The scene: a socket per gun kind (its Preview the kind's gun, grip on the socket's origin),
-	# the two hands, the aim range.
+	# The scene: one socket (its Preview Rookie's bazooka, grip on the socket's origin), the two
+	# hands, the aim range.
 	var rp := Art.ready_pose("rookie")
-	for kind in Art.GUN_KINDS:
-		check(rp["sockets"].has(kind), "a socket for %s" % kind)
+	check(rp["socket"] is Transform2D, "a socket")
 	eq(rp["hands"].size(), 2, "two hands")
 	for h in rp["hands"]:
 		check(h["texture"] != null, "%s has its picture" % h["name"])
 	check(rp["aim"].x < 0.0 and rp["aim"].y > 30.0, "an aim range (%s)" % rp["aim"])
 	var root: Node = load("res://scenes/character/poses/rookie_ready.tscn").instantiate()
+	var preview := root.get_node_or_null("GunSocket/Preview") as Sprite2D
+	check(preview != null, "GunSocket/Preview")
+	if preview != null:
+		near(preview.offset.distance_to(-Art.gun("bazooka", "iron")["grip"]), 0.0, 0.01, "the grip on the socket's origin")
 	for kind in Art.GUN_KINDS:
-		var sock := root.get_node_or_null("GunSocket_" + kind)
-		var preview := root.get_node_or_null("GunSocket_%s/Preview" % kind) as Sprite2D
-		check(sock != null and preview != null, "GunSocket_%s/Preview" % kind)
-		if preview != null:
-			near(preview.offset.distance_to(-Art.gun(kind, "iron")["grip"]), 0.0, 0.01, "%s: the grip on the socket's origin" % kind)
+		check(root.get_node_or_null("GunSocket_" + kind) == null, "no per-kind socket (%s)" % kind)
 	check(root.get_node_or_null("HandFront") is Sprite2D and root.get_node_or_null("HandBack") is Sprite2D, "the hand sprites")
 	root.free()
 	# Same ground and body place as idle: the soles' row on the pivot row, the belt over the pivot.
@@ -359,7 +358,7 @@ func test_rookie_ready_switches_at_once() -> void:
 	check(gun.visible and is_equal_approx(gun.modulate.a, 1.0) and is_equal_approx(gun.scale.x, 1.0), "the gun out at full size")
 	check(over.visible and over.get_child_count() == 2 and not hand.visible, "the ready hands over the gun, not the grip hand")
 	var rp := preload("res://ui/art.gd").ready_pose("rookie")
-	var sock: Transform2D = rp["sockets"][c.weapon()["kind"]]
+	var sock: Transform2D = rp["socket"]
 	check(gun.position.distance_to(sock.origin) < 0.01, "the gun on its socket")
 	check(over.get_index() > gun.get_index(), "the hands drawn on top")
 	var seat_angle: float = rad_to_deg(gun.rotation)
@@ -400,12 +399,13 @@ func test_rookie_ready_switches_at_once() -> void:
 	for i in 30:
 		c._process(dt)
 	eq(c.animation(), "idle", "then idle")
-	# Every gun kind: the muzzle ahead of the fist, the grip in it.
-	var Art := preload("res://ui/art.gd")
-	for kind in Art.GUN_KINDS:
-		c.set_weapon(kind, "iron")
+	# Any gun held (Rookie's bazooka in each tier, a blaster) sits on the one socket.
+	for kt in [["bazooka", "basic"], ["bazooka", "iron"], ["bazooka", "dragon"], ["blaster", "gold"]]:
+		var kind: String = kt[0]
+		c.set_weapon(kind, kt[1])
 		c.draw_gun()
 		c.aim(0.0)
+		check(gun.position.distance_to(sock.origin) < 0.01, "%s %s on the socket" % kt)
 		var m: Vector2 = c.muzzle_position()
 		check(m.x > gun.global_position.x + 10.0, "%s: the muzzle ahead of the grip" % kind)
 		check(absf(rad_to_deg(gun.global_rotation)) < 10.0 and m.y < gun.global_position.y, "%s: level at 0 degrees, the barrel over the grip" % kind)

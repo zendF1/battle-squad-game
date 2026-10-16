@@ -166,19 +166,19 @@ the shot or at once on a cancel) and `"readyPose"` {`anims`, `hands`, `scene`}.
 | `rookie/side/ready_hand_front.png` | 19x20 | the front fist, drawn over the gun's grip |
 | `rookie/side/ready_hand_back.png` | 22x16 | the back hand, drawn over the gun |
 
-**Placing the gun in the ready pose (editor)**: open `scenes/character/poses/rookie_ready.tscn`. It
-is the character's `Flip` space at the match's scale (the root is the feet; `Body` = `ready_0.png`,
-locked). Per gun kind there is a `GunSocket_<kind>` (Node2D; only bazooka is visible, toggle the eye
-to see another): its `Preview` child is that kind's iron gun with its grip (weapons.json `grip`) on
-the socket's origin. Select a `GunSocket_<kind>` (click the gun: the socket is grouped, so the click
-picks the socket) and move / rotate / scale it until the gun sits in the hands, `Ctrl+S`, `F5`: the
-match draws that kind's gun with the socket's transform and turns it with the aim round the socket's
-origin (keep the origin in the fist). `HandFront` / `HandBack` (Sprite2D, drawn over the guns) can be
-moved the same way (they are the hands drawn over the gun for every kind). The root's metadata
-`aim_down` / `aim_up` (Inspector → Metadata, degrees) limit how far the gun turns on this pose. No
-JSON to edit; `tools/import_frames.gd` never writes the scene. Without the scene (or a node) the gun
-sits at `gun_anchors.json` `"ready".grip` (the fist's centre), level, and the hands where they were
-drawn.
+**Placing the gun in the ready pose (editor)**: each character with a ready pose has its own pose
+scene, `scenes/character/poses/<id>_ready.tscn` (side.json `readyPose.scene`; today
+`rookie_ready.tscn`). It is the character's `Flip` space at the match's scale (the root is the feet;
+`Body` = the ready frame, locked). One `GunSocket` (Node2D): its `Preview` child is the character's
+own gun (Rookie: the iron bazooka) with its grip (weapons.json `grip`) on the socket's origin. Select
+`GunSocket` (click the gun: the socket is grouped, so the click picks the socket) and move / rotate /
+scale it until the gun sits in the hands, `Ctrl+S`, `F5`: in the match whatever gun the character
+holds (its kind in any tier, or a generic / crafted blaster) sits on that socket and turns with the
+aim round the socket's origin (keep the origin in the fist). `HandFront` / `HandBack` (Sprite2D,
+drawn over the gun) can be moved the same way. The root's metadata `aim_down` / `aim_up` (Inspector →
+Metadata, degrees) limit how far the gun turns on this pose. No JSON to edit;
+`tools/import_frames.gd` never writes the scene. Without the scene (or a node) the gun sits at
+`gun_anchors.json` `"ready".grip` (the fist's centre), level, and the hands where they were drawn.
 
 ### characters/ (baked frames, scene: `scenes/character/character.tscn`)
 

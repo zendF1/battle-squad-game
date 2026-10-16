@@ -1,13 +1,9 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Texture2D" path="res://assets/characters/rookie/side/ready_0.png" id="body"]
 [ext_resource type="Texture2D" path="res://assets/characters/rookie/side/ready_hand_front.png" id="hand_front"]
 [ext_resource type="Texture2D" path="res://assets/characters/rookie/side/ready_hand_back.png" id="hand_back"]
 [ext_resource type="Texture2D" path="res://assets/weapons/bazooka/iron.png" id="gun_bazooka"]
-[ext_resource type="Texture2D" path="res://assets/weapons/cannon/iron.png" id="gun_cannon"]
-[ext_resource type="Texture2D" path="res://assets/weapons/shock_rifle/iron.png" id="gun_shock_rifle"]
-[ext_resource type="Texture2D" path="res://assets/weapons/seed_launcher/iron.png" id="gun_seed_launcher"]
-[ext_resource type="Texture2D" path="res://assets/weapons/blaster/iron.png" id="gun_blaster"]
 
 [node name="RookieReady" type="Node2D"]
 metadata/_edit_lock_ = true
@@ -22,64 +18,16 @@ centered = false
 offset = Vector2(-41.49, -125.94)
 metadata/_edit_lock_ = true
 
-[node name="GunSocket_bazooka" type="Node2D" parent="."]
+[node name="GunSocket" type="Node2D" parent="."]
 position = Vector2(135.63, -145.55)
 metadata/_edit_group_ = true
 
-[node name="Preview" type="Sprite2D" parent="GunSocket_bazooka"]
+[node name="Preview" type="Sprite2D" parent="GunSocket"]
 texture_filter = 2
 scale = Vector2(2.285714, 2.285714)
 texture = ExtResource("gun_bazooka")
 centered = false
 offset = Vector2(-25.00, -26.00)
-
-[node name="GunSocket_cannon" type="Node2D" parent="."]
-visible = false
-position = Vector2(135.63, -145.55)
-metadata/_edit_group_ = true
-
-[node name="Preview" type="Sprite2D" parent="GunSocket_cannon"]
-texture_filter = 2
-scale = Vector2(2.285714, 2.285714)
-texture = ExtResource("gun_cannon")
-centered = false
-offset = Vector2(-23.10, -33.60)
-
-[node name="GunSocket_shock_rifle" type="Node2D" parent="."]
-visible = false
-position = Vector2(135.63, -145.55)
-metadata/_edit_group_ = true
-
-[node name="Preview" type="Sprite2D" parent="GunSocket_shock_rifle"]
-texture_filter = 2
-scale = Vector2(2.285714, 2.285714)
-texture = ExtResource("gun_shock_rifle")
-centered = false
-offset = Vector2(-23.20, -28.40)
-
-[node name="GunSocket_seed_launcher" type="Node2D" parent="."]
-visible = false
-position = Vector2(135.63, -145.55)
-metadata/_edit_group_ = true
-
-[node name="Preview" type="Sprite2D" parent="GunSocket_seed_launcher"]
-texture_filter = 2
-scale = Vector2(2.285714, 2.285714)
-texture = ExtResource("gun_seed_launcher")
-centered = false
-offset = Vector2(-14.10, -28.90)
-
-[node name="GunSocket_blaster" type="Node2D" parent="."]
-visible = false
-position = Vector2(135.63, -145.55)
-metadata/_edit_group_ = true
-
-[node name="Preview" type="Sprite2D" parent="GunSocket_blaster"]
-texture_filter = 2
-scale = Vector2(2.285714, 2.285714)
-texture = ExtResource("gun_blaster")
-centered = false
-offset = Vector2(-21.00, -26.00)
 
 [node name="HandFront" type="Sprite2D" parent="."]
 texture_filter = 2

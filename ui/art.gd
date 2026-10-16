@@ -774,14 +774,14 @@ static func _parse_anchors(path: String) -> Dictionary:
 
 ## How a character's drawn ready pose holds the gun (look["ready"], side.json "readyPose"), in the
 ## character's Flip coordinates (the feet at 0, facing right; scenes/character/character.gd):
-## {anims (the ready pose's animations), sockets {gun kind: Transform2D: where the gun's grip sits
-## and its turn / size: the gun sprite is drawn at the gun's scale with its grip on the socket},
-## hands [{name, texture, transform}] (drawn over the gun), aim (Vector2 [down, up] degrees: the
-## gun's turn range there)}; {} when the character has no ready pose.
-## Placed by hand in the pose's scene (side.json readyPose.scene, e.g.
-## scenes/character/poses/rookie_ready.tscn; assets/README.md): GunSocket_<kind> (Node2D, its
-## Preview child the gun), Hand* (Sprite2D) and the root's metadata aim_down / aim_up. Without the scene
-## (or a node): the gun anchors' grip, level, and the hands where they were drawn.
+## {anims (the ready pose's animations), socket (Transform2D: where the held gun's grip sits and
+## its turn / size, whatever gun the character holds: the gun sprite is drawn at the gun's scale
+## with its grip on the socket), hands [{name, texture, transform}] (drawn over the gun), aim
+## (Vector2 [down, up] degrees: the gun's turn range there)}; {} when the character has no ready
+## pose. Placed by hand in the character's pose scene (side.json readyPose.scene:
+## scenes/character/poses/<id>_ready.tscn; assets/README.md): one GunSocket (Node2D, its Preview
+## child the character's gun), Hand* (Sprite2D) and the root's metadata aim_down / aim_up.
+## Without the scene (or a node): the gun anchors' grip, level, and the hands where they were drawn.
 static func ready_pose(id: String) -> Dictionary:
 	id = known_character(id)
 	if _ready_poses.has(id):
@@ -796,9 +796,7 @@ static func ready_pose(id: String) -> Dictionary:
 	var pivot: Vector2 = look["pivot"]
 	var anims: Array = rp["anims"]
 	var grip: Vector2 = gun_anchor(id, str(anims[0]) if not anims.is_empty() else DRAW_ANIM, 0)["grip"]
-	var sockets := {}
-	for kind in GUN_KINDS:
-		sockets[kind] = Transform2D(0.0, (grip - pivot) * k)
+	var socket := Transform2D(0.0, (grip - pivot) * k)
 	var hands: Array = []
 	for hname in rp["hands"]:
 		var h: Dictionary = rp["hands"][hname]
@@ -810,16 +808,13 @@ static func ready_pose(id: String) -> Dictionary:
 		var root: Node = ps.instantiate() if ps is PackedScene else null
 		if root is Node2D:
 			aim = Vector2(float(root.get_meta("aim_down", aim.x)), float(root.get_meta("aim_up", aim.y)))
-			for kind in GUN_KINDS:
-				var sock := root.get_node_or_null("GunSocket_" + kind) as Node2D
-				if sock == null:
-					continue
-				var xf := sock.transform
+			var sock := root.get_node_or_null("GunSocket") as Node2D
+			if sock != null:
+				socket = sock.transform
 				var preview := sock.get_node_or_null("Preview") as Node2D
 				if preview != null: # a Preview moved inside its socket counts too
-					var gs := float(gun(kind, GUN_BASIC)["scale"])
-					xf = xf * preview.transform * Transform2D(0.0, Vector2(gs, gs), 0.0, Vector2.ZERO).affine_inverse()
-				sockets[kind] = xf
+					var gs := float(gun(str(CHARACTER_GUNS.get(id, DEFAULT_GUN_KIND)), GUN_BASIC)["scale"])
+					socket = socket * preview.transform * Transform2D(0.0, Vector2(gs, gs), 0.0, Vector2.ZERO).affine_inverse()
 			for h in hands:
 				var node := root.get_node_or_null(str(h["name"])) as Sprite2D
 				if node != null:
@@ -830,7 +825,7 @@ static func ready_pose(id: String) -> Dictionary:
 			push_warning("art: %s is not a scene, the ready pose uses its defaults" % path)
 		if root != null:
 			root.free()
-	out.merge({"anims": anims, "sockets": sockets, "hands": hands, "aim": aim})
+	out.merge({"anims": anims, "socket": socket, "hands": hands, "aim": aim})
 	return out
 
 

@@ -29,9 +29,9 @@ extends Node2D
 ## fireHoldSec later; clear_aim() holsters it and walking holsters it first. Off: always out.
 ## A side view with a drawn ready pose (Rookie: side.json "draw" = the ready frame, "fire" = it
 ## with the recoil, "gunDraw" all 0 s) switches to it and back at once. Its gun is placed by hand
-## in the pose's scene (ui/art.gd ready_pose(): scenes/character/poses/rookie_ready.tscn, one
-## GunSocket_<kind> per gun kind): the gun sits on its kind's socket and turns with the aim round
-## the socket's origin (the grip), within the scene's aim_down..aim_up; the pose's hands are drawn
+## in the character's pose scene (ui/art.gd ready_pose(): scenes/character/poses/<id>_ready.tscn,
+## one GunSocket): whatever gun it holds sits on the socket and turns with the aim round the
+## socket's origin (the grip), within the scene's aim_down..aim_up; the pose's hands are drawn
 ## over it (Flip/ReadyHands, the scene's Hand* sprites) instead of the grip hand.
 ## Used by the lobby and Prep (ui/character_view.gd) and the match
 ## (match/views/player_view.gd).
@@ -367,10 +367,10 @@ func _gun_pose(anim: String, frame: int, k: float) -> Dictionary:
 	var deg: float = a["angle"]
 	var up := _aim_up if _aiming and not _dead else 0.0
 	if _is_ready_anim(anim):
-		# The ready pose: the gun on its kind's socket (placed in the pose's scene), turned by the
-		# aim (and the frame's kick: the anchor angle) round the socket's origin.
+		# The ready pose: the gun on the pose scene's socket (any gun held), turned by the aim (and
+		# the frame's kick: the anchor angle) round the socket's origin.
 		var rp := Art.ready_pose(character_id)
-		var sock: Transform2D = rp["sockets"].get(str(_gun.get("kind", "")), rp["sockets"].get(Art.DEFAULT_GUN_KIND, Transform2D.IDENTITY))
+		var sock: Transform2D = rp["socket"]
 		up = clampf(up, rp["aim"].x, rp["aim"].y)
 		var turn := Transform2D(deg_to_rad(deg - up), sock.origin)
 		return {"xf": turn * Transform2D(sock.x, sock.y, Vector2.ZERO), "front": true, "flash": float(a["flash"])}
