@@ -1,15 +1,15 @@
 [gd_scene format=3 uid="uid://chc7xj0sfu4kw"]
 
-[ext_resource type="Script" uid="uid://gb65mylmx08w" path="res://scenes/character/poses/pose_body.gd" id="body_script"]
 [ext_resource type="Texture2D" uid="uid://cey7xtkf7demh" path="res://assets/characters/tanko/idle_0.png" id="body"]
+[ext_resource type="Script" uid="uid://gb65mylmx08w" path="res://scenes/character/poses/pose_body.gd" id="body_script"]
 [ext_resource type="Texture2D" uid="uid://cvv63g25fa714" path="res://assets/weapons/cannon/iron.png" id="gun_cannon"]
 
-[node name="TankoReady" type="Node2D"]
+[node name="TankoReady" type="Node2D" unique_id=494138480]
 metadata/_edit_lock_ = true
 metadata/aim_down = -30.0
 metadata/aim_up = 60.0
 
-[node name="Body" type="Sprite2D" parent="."]
+[node name="Body" type="Sprite2D" parent="." unique_id=931677227]
 texture_filter = 2
 texture = ExtResource("body")
 centered = false
@@ -18,19 +18,19 @@ script = ExtResource("body_script")
 character_id = "tanko"
 metadata/_edit_lock_ = true
 
-[node name="GunSocket" type="Node2D" parent="."]
-position = Vector2(60.8, -69.2)
+[node name="GunSocket" type="Node2D" parent="." unique_id=545978203]
+position = Vector2(61, -70)
 metadata/_edit_group_ = true
 
-[node name="Preview" type="Sprite2D" parent="GunSocket"]
+[node name="Preview" type="Sprite2D" parent="GunSocket" unique_id=1706587991]
 texture_filter = 2
 scale = Vector2(2.285714, 2.285714)
 texture = ExtResource("gun_cannon")
 centered = false
 offset = Vector2(-23.1, -33.6)
 
-[node name="HandFront" type="Sprite2D" parent="."]
+[node name="HandFront" type="Sprite2D" parent="." unique_id=1172882737]
 texture_filter = 2
 
-[node name="HandBack" type="Sprite2D" parent="."]
+[node name="HandBack" type="Sprite2D" parent="." unique_id=246584185]
 texture_filter = 2

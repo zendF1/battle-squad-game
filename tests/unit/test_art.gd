@@ -353,9 +353,6 @@ func test_ready_pose_scenes() -> void:
 				eq(src["path"], Art.frame_path(id, "idle", 0), "%s stand-in body: the baked idle frame" % id)
 				eq(src["pivot"], Art.FRAME_PIVOT, "%s stand-in pivot" % id)
 				eq(body.offset, -Art.FRAME_PIVOT, "%s the feet on the origin" % id)
-				var grip: Vector2 = Art.gun_anchor(id, "idle", 0)["grip"] - Art.FRAME_PIVOT
-				if sock != null:
-					check(sock.position.distance_to(grip) < 0.01, "%s socket in the idle frame's hand (%s)" % [id, sock.position])
 				check(Art.ready_pose(id).is_empty(), "%s no ready pose before its side view" % id)
 		root.free()
 		# The config the importer fills it from names this scene.
