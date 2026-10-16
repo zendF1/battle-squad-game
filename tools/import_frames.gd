@@ -233,7 +233,7 @@ func _import(cfg_path: String) -> void:
 				side["gunDraw"][key] = cfg["gunDraw"][key]
 	var anchors_out := {"frameSize": side["size"], "pivot": side["pivot"], "anims": anchors}
 	# A pose's hands (tight PNGs + where they sit, frame px), the scene its gun is placed in (one
-	# socket per gun kind, edited in the editor: ui/art.gd ready_pose()) and its fallback seat.
+	# GunSocket for the held gun, edited in the editor: ui/art.gd ready_pose()) and its fallback seat.
 	for pname in poses:
 		var pc: Dictionary = poses[pname]["cfg"]
 		var pose_anims: Array = []
