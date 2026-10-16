@@ -89,6 +89,9 @@ The terrain mask stays the source of truth: the shader only decides colours per 
 | `explosion_0..5.png` | 256x256 (10–23 KB) | centred; drawn for a radius-60 crater, scaled to the real radius; played over 0.5 s | `match/views/explosion_fx.gd` |
 | `smoke.png` | 128x128 (21 KB) | soft puff, light grey (tinted and faded in code) | `explosion_fx.gd` |
 | `debris.png` | 24x24 (1 KB) | light grey chunk (tinted dirt/grass in code) | `explosion_fx.gd` |
+| `<kind>/projectile.png` | 64x64 (2–5 KB) | each gun's own shell, centred, flying towards +x, 2 px per world px: `tanko/` heavy iron cannonball, `spark/` cyan plasma orb with arcs, `flora/` green seed pod with a leaf. Rookie's bazooka has no folder: it fires `bomb.png` (also the fallback) | `projectile_view.gd` (kind from the shooter's character, `STYLES`; spin, flicker, skill glow, item tint/mark in code) |
+| `<kind>/trail.png` | 32x32 (1–2 KB) | the trail particle: Tanko grey smoke puff, Spark cyan spark, Flora pink petal (tinted by an item, faded in code) | `projectile_view.gd`; Spark/Flora impact bits in `explosion_fx.gd` |
+| `<kind>/impact_0..5.png` | 256x256 (10–30 KB) | like `explosion_*` (radius-60 crater, 0.5 s): Tanko a heavy dark-orange blast with soot (drawn 1.2x, more debris), Spark an electric burst (cyan flash, lightning arcs, sparks), Flora a green flash with petals; a missing file falls back to `explosion_*` | `explosion_fx.gd` (`STYLES`) |
 
 ### icons/ (96x96 each, 1–7 KB, transparent, dark outline)
 

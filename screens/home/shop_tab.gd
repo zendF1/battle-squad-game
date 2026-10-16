@@ -333,16 +333,18 @@ func _render_equipment() -> void:
 		flow.add_child(_empty("Chưa có trang bị nào được bán"))
 	for it in items:
 		var box := _card(flow, Vector2(290, 0))
-		var head := Ui.hbox(12)
-		box.add_child(head)
-		head.add_child(EquipmentUi.item_icon(it, {}, 76))
-		var names := Ui.vbox(2)
-		names.size_flags_horizontal = SIZE_EXPAND_FILL
-		head.add_child(names)
+		# The name gets the card's full width ("Súng điện Mithril"), above the icon.
 		var title := Ui.text(EquipmentModel.display_name(it), 25)
 		title.clip_text = true
 		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		names.add_child(title)
+		box.add_child(title)
+		var head := Ui.hbox(12)
+		box.add_child(head)
+		head.add_child(EquipmentUi.item_icon(it, {}, 64))
+		var names := Ui.vbox(2)
+		names.size_flags_horizontal = SIZE_EXPAND_FILL
+		names.alignment = BoxContainer.ALIGNMENT_CENTER
+		head.add_child(names)
 		names.add_child(Ui.text(EquipmentModel.slot_name(str(it.get("slot", ""))), 20, Ui.TEXT_DIM))
 		names.add_child(Ui.text(EquipmentModel.required_text(it), 20, EquipmentUi.LEVEL))
 		# Two stat lines are reserved, so the cards line up.

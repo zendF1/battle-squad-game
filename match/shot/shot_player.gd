@@ -8,6 +8,8 @@ signal finished
 const ProjectileView := preload("res://match/views/projectile_view.gd")
 
 var layer: Node2D
+## How this shot's projectiles look: ProjectileView.style_for() {kind, skill, item}; set before play().
+var style := {}
 
 var _timeline
 var _t := 0.0
@@ -24,6 +26,9 @@ func play(timeline) -> void:
 	_t = 0.0
 	for i in timeline.projectiles.size():
 		var view := ProjectileView.new()
+		view.kind = str(style.get("kind", "rookie"))
+		view.skill = bool(style.get("skill", false))
+		view.item = str(style.get("item", ""))
 		view.position = timeline.sample(i, 0.0)
 		layer.add_child(view)
 		_views.append(view)

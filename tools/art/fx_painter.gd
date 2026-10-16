@@ -1,6 +1,7 @@
 extends RefCounted
 ## Code-drawn effects (bake source only): the bomb, the explosion frames, a smoke puff, a debris
-## chunk, a muzzle/fuse flash and the character ground shadow. tools/bake_art.gd saves them
+## chunk, a muzzle/fuse flash, the character ground shadow, and each gun's own shot (Tanko's
+## cannonball, Spark's plasma orb, Flora's seed pod: projectile, trail particle, impact frames). tools/bake_art.gd saves them
 ## under assets/fx/ (the shadow under assets/characters/).
 
 const OUTLINE := Color(0.02, 0.02, 0.05)
@@ -19,6 +20,10 @@ const DEBRIS_SIZE := Vector2i(24, 24)
 const MUZZLE_SIZE := Vector2i(64, 64)
 ## The ground shadow, in character art units (drawn at the character PX_PER_UNIT).
 const SHADOW_UNITS := Vector2(100, 24)
+## Per-gun shots (ui/art.gd SHOT_KINDS; Rookie's bazooka keeps the bomb and explosion above):
+## the projectile (flying towards +x, 2 px per world px), a trail particle and the impact frames.
+const SHOT_PROJECTILE_SIZE := Vector2i(64, 64)
+const SHOT_TRAIL_SIZE := Vector2i(32, 32)
 
 
 ## The bomb, flying towards +x: dark ball, rim, highlight and the fuse trailing behind (-x).
@@ -119,3 +124,153 @@ static func shadow(ci: CanvasItem, size: Vector2) -> void:
 		for n in 64:
 			pts.append(c + Vector2.from_angle(TAU * n / 64.0) * r * k)
 		ci.draw_colored_polygon(pts, Color(0, 0, 0, 0.12 if j > 0 else 0.16))
+
+
+# ── Per-gun shots ───────────────────────────────────────────────────────────
+
+## The projectile of a gun kind ("tanko", "spark", "flora"), centred, flying towards +x.
+static func shot_projectile(ci: CanvasItem, size: Vector2, kind: String) -> void:
+	var c := size / 2
+	var glow := preload("res://tools/art/env_painter.gd").glow_texture()
+	match kind:
+		"tanko": # a heavy iron cannonball (world radius 10)
+			var r := 20.0
+			ci.draw_circle(c, r + 2.5, OUTLINE, true, -1.0, true)
+			ci.draw_circle(c, r, Color(0.2, 0.21, 0.24), true, -1.0, true)
+			ci.draw_circle(c + Vector2(2, 3), r * 0.75, Color(0.13, 0.13, 0.16), true, -1.0, true)
+			ci.draw_arc(c, r * 0.82, -0.9, 0.9, 16, Color(0.36, 0.37, 0.42), 3.0, true)
+			for a in [-0.6, 0.0, 0.6]:
+				ci.draw_circle(c + Vector2.from_angle(a) * r * 0.82, 2.0, Color(0.5, 0.5, 0.55), true, -1.0, true)
+			ci.draw_circle(c + Vector2(-6, -7), r * 0.32, Color(1, 1, 1, 0.4), true, -1.0, true)
+			ci.draw_circle(c + Vector2(-7.5, -8.5), r * 0.12, Color(1, 1, 1, 0.75), true, -1.0, true)
+		"spark": # a plasma orb: cyan glow, bright core, crackling arcs
+			ci.draw_texture_rect(glow, Rect2(Vector2.ZERO, size), false, Color(0.35, 0.9, 1.0, 0.85))
+			ci.draw_circle(c, 13.0, Color(0.5, 0.95, 1.0), true, -1.0, true)
+			ci.draw_circle(c, 8.0, Color(1.0, 0.98, 0.6), true, -1.0, true)
+			ci.draw_circle(c, 4.0, Color(1, 1, 1), true, -1.0, true)
+			var rng := RandomNumberGenerator.new()
+			rng.seed = 11
+			for j in 5:
+				var a := TAU * j / 5.0 + rng.randf_range(-0.3, 0.3)
+				var pts := PackedVector2Array([c + Vector2.from_angle(a) * 9.0])
+				for k in 3:
+					pts.append(c + Vector2.from_angle(a + rng.randf_range(-0.5, 0.5)) * (14.0 + k * 6.0))
+				ci.draw_polyline(pts, Color(1.0, 1.0, 0.75, 0.95), 2.0, true)
+		"flora": # a green seed pod with a cap and a leaf, like an acorn
+			var leaf := PackedVector2Array([c + Vector2(-10, -8), c + Vector2(-22, -18), c + Vector2(-26, -6), c + Vector2(-14, -2)])
+			ci.draw_colored_polygon(leaf, Color(0.3, 0.7, 0.3))
+			var pod := PackedVector2Array()
+			for n in 32:
+				var a := TAU * n / 32.0
+				pod.append(c + Vector2(cos(a) * 15.0, sin(a) * 11.0))
+			var ring := pod.duplicate()
+			ring.append(pod[0])
+			ci.draw_colored_polygon(pod, Color(0.42, 0.78, 0.3))
+			ci.draw_polyline(ring, OUTLINE, 3.0, true)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(4, -11), c + Vector2(13, -7), c + Vector2(17, 0), c + Vector2(13, 7), c + Vector2(4, 11)]), Color(0.55, 0.36, 0.2))
+			ci.draw_line(c + Vector2(-12, 0), c + Vector2(2, 0), Color(0.25, 0.55, 0.22), 2.0, true)
+			ci.draw_circle(c + Vector2(-5, -5), 3.5, Color(1, 1, 1, 0.55), true, -1.0, true)
+
+
+## A trail particle: Tanko a grey smoke puff, Spark a cyan spark, Flora a petal.
+static func shot_trail(ci: CanvasItem, size: Vector2, kind: String) -> void:
+	var c := size / 2
+	var glow := preload("res://tools/art/env_painter.gd").glow_texture()
+	match kind:
+		"tanko":
+			ci.draw_texture_rect(glow, Rect2(Vector2.ZERO, size), false, Color(0.75, 0.75, 0.78, 0.9))
+			ci.draw_texture_rect(glow, Rect2(c - Vector2(9, 11), Vector2(16, 16)), false, Color(0.95, 0.95, 0.97, 0.6))
+		"spark":
+			ci.draw_texture_rect(glow, Rect2(Vector2.ZERO, size), false, Color(0.4, 0.9, 1.0, 0.8))
+			ci.draw_colored_polygon(PackedVector2Array(_star4(c, 14.0, 3.0)), Color(0.85, 1.0, 1.0))
+			ci.draw_circle(c, 3.0, Color(1, 1, 0.8), true, -1.0, true)
+		"flora":
+			var petal := PackedVector2Array()
+			for n in 24:
+				var a := TAU * n / 24.0
+				petal.append(c + Vector2(cos(a) * 11.0, sin(a) * 6.0).rotated(0.5))
+			ci.draw_colored_polygon(petal, Color(1.0, 0.62, 0.78))
+			ci.draw_line(c + Vector2(-7, -4), c + Vector2(7, 4), Color(1.0, 0.85, 0.9), 2.0, true)
+
+
+static func _star4(c: Vector2, outer: float, inner: float) -> Array:
+	var out := []
+	for i in 8:
+		out.append(c + Vector2.from_angle(PI * i / 4.0 - PI / 2) * (outer if i % 2 == 0 else inner))
+	return out
+
+
+## Impact frame i (EXPLOSION_TIMES) of a gun kind, drawn for a radius-60 crater like explosion():
+## Tanko a heavy dark-orange blast with soot, Spark an electric burst (cyan flash, lightning arcs,
+## sparks), Flora a green flash with petals and leaves flying out.
+static func shot_impact(ci: CanvasItem, size: Vector2, kind: String, i: int) -> void:
+	var c := size / 2
+	var radius := EXPLOSION_RADIUS
+	var t: float = EXPLOSION_TIMES[i]
+	var k := t / EXPLOSION_SEC
+	var a := 1.0 - k * k
+	var grow := 0.75 + 0.55 * ease(k, 0.25)
+	var rng := RandomNumberGenerator.new()
+	match kind:
+		"tanko":
+			rng.seed = 31
+			if t < 0.32:
+				var q := t / 0.32
+				ci.draw_arc(c, radius * (0.6 + q * 1.3), 0.0, TAU, 96, Color(1, 0.9, 0.7, 0.85 * (1.0 - q)), 9.0 * (1.0 - q) + 2.0, true)
+			ci.draw_circle(c, radius * 1.3 * grow, Color(0.9, 0.35, 0.1, 0.4 * a), true, -1.0, true)
+			for j in 9:
+				var off := Vector2.from_angle(rng.randf() * TAU) * radius * rng.randf_range(0.2, 0.65)
+				ci.draw_circle(c + off * grow * 1.4, radius * rng.randf_range(0.35, 0.6) * 1.3 * grow, Color(0.95, 0.33, 0.08, 0.9 * a), true, -1.0, true)
+			rng.seed = 32
+			for j in 8: # heavy soot
+				var off := Vector2.from_angle(rng.randf() * TAU) * radius * rng.randf_range(0.3, 0.8)
+				ci.draw_circle(c + off * grow * 1.5, radius * rng.randf_range(0.25, 0.4) * grow, Color(0.2, 0.15, 0.13, 0.75 * k * a + 0.1 * a), true, -1.0, true)
+			ci.draw_circle(c, radius * 0.9 * grow, Color(1.0, 0.6, 0.18, 0.9 * a), true, -1.0, true)
+			ci.draw_circle(c, radius * 0.5 * grow, Color(1.0, 0.88, 0.45, 0.95 * a), true, -1.0, true)
+			if t < 0.14:
+				ci.draw_circle(c, radius * 0.75, Color(1, 0.97, 0.88, 1.0 - t / 0.14), true, -1.0, true)
+		"spark":
+			var glow := preload("res://tools/art/env_painter.gd").glow_texture()
+			var gr := radius * 2.0 * grow
+			ci.draw_texture_rect(glow, Rect2(c - Vector2(gr, gr), Vector2(gr, gr) * 2), false, Color(0.35, 0.9, 1.0, 0.8 * a))
+			if t < 0.32:
+				var q := t / 0.32
+				ci.draw_arc(c, radius * (0.5 + q * 1.2), 0.0, TAU, 96, Color(0.7, 1.0, 1.0, 0.9 * (1.0 - q)), 5.0 * (1.0 - q) + 1.5, true)
+			rng.seed = 41 + i # the bolts flicker from frame to frame
+			for j in 7:
+				var ang := TAU * j / 7.0 + rng.randf_range(-0.3, 0.3)
+				var reach := radius * rng.randf_range(0.9, 1.6) * grow
+				var pts := PackedVector2Array([c])
+				for n in 5:
+					var d := reach * (n + 1) / 5.0
+					pts.append(c + Vector2.from_angle(ang + rng.randf_range(-0.35, 0.35)) * d)
+				ci.draw_polyline(pts, Color(0.55, 0.95, 1.0, 0.9 * a), 7.0, true)
+				ci.draw_polyline(pts, Color(1.0, 1.0, 0.85, a), 2.5, true)
+			for j in 14:
+				var p := c + Vector2.from_angle(rng.randf() * TAU) * radius * rng.randf_range(0.4, 1.7) * grow
+				ci.draw_circle(p, rng.randf_range(2.0, 4.0), Color(1.0, 1.0, 0.7, a), true, -1.0, true)
+			ci.draw_circle(c, radius * 0.45 * grow, Color(0.75, 1.0, 1.0, 0.9 * a), true, -1.0, true)
+			if t < 0.14:
+				ci.draw_circle(c, radius * 0.7, Color(0.9, 1, 1, 1.0 - t / 0.14), true, -1.0, true)
+		"flora":
+			var glow := preload("res://tools/art/env_painter.gd").glow_texture()
+			var gr := radius * 1.8 * grow
+			ci.draw_texture_rect(glow, Rect2(c - Vector2(gr, gr), Vector2(gr, gr) * 2), false, Color(0.5, 1.0, 0.45, 0.75 * a))
+			if t < 0.32:
+				var q := t / 0.32
+				ci.draw_arc(c, radius * (0.5 + q * 1.1), 0.0, TAU, 96, Color(0.85, 1.0, 0.75, 0.85 * (1.0 - q)), 5.0 * (1.0 - q) + 1.5, true)
+			rng.seed = 51 # the same petals in every frame, flying out
+			for j in 16:
+				var ang := rng.randf() * TAU
+				var d := radius * rng.randf_range(0.3, 1.0) * (0.4 + 1.3 * ease(k, 0.4))
+				var spin := rng.randf_range(-6.0, 6.0) * t
+				var col := Color(1.0, 0.62, 0.78) if j % 3 == 0 else (Color(0.4, 0.8, 0.3) if j % 3 == 1 else Color(1.0, 0.9, 0.4))
+				var at := c + Vector2.from_angle(ang) * d
+				var petal := PackedVector2Array()
+				for n in 16:
+					var e := TAU * n / 16.0
+					petal.append(at + Vector2(cos(e) * 14.0, sin(e) * 7.5).rotated(ang + spin))
+				ci.draw_colored_polygon(petal, Color(col, a))
+			ci.draw_circle(c, radius * 0.5 * grow, Color(0.8, 1.0, 0.6, 0.85 * a), true, -1.0, true)
+			if t < 0.14:
+				ci.draw_circle(c, radius * 0.65, Color(0.95, 1, 0.9, 1.0 - t / 0.14), true, -1.0, true)

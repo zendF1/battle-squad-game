@@ -85,6 +85,10 @@ const GRASS_TUFT_ROWS := 6
 const EXPLOSION_FRAMES := 6
 ## The explosion frames are drawn for a crater of this radius (px in the frame).
 const EXPLOSION_RADIUS := 60.0
+## Each gun's own shot (assets/fx/<kind>/): projectile.png (64x64, flying +x, 2 px per world px),
+## trail.png (32x32 particle) and impact_0..N.png (like explosion_*). Rookie's bazooka has no
+## folder: it shoots the bomb and the explosion above, which are also the fallbacks.
+const SHOT_KINDS := ["tanko", "spark", "flora"]
 const FX := {
 	"bomb": ROOT + "fx/bomb.png",
 	"smoke": ROOT + "fx/smoke.png",
@@ -151,6 +155,10 @@ static func equipment_frame_path(frame: String) -> String:
 	return ROOT + "icons/equipment/%s.png" % frame
 
 
+static func shot_path(kind: String, part: String) -> String:
+	return ROOT + "fx/%s/%s.png" % [kind, part]
+
+
 static func explosion_path(i: int) -> String:
 	return ROOT + "fx/explosion_%d.png" % i
 
@@ -175,6 +183,11 @@ static func all_paths() -> Array[String]:
 			out.append(d[k])
 	for i in EXPLOSION_FRAMES:
 		out.append(explosion_path(i))
+	for kind in SHOT_KINDS:
+		out.append(shot_path(kind, "projectile"))
+		out.append(shot_path(kind, "trail"))
+		for i in EXPLOSION_FRAMES:
+			out.append(shot_path(kind, "impact_%d" % i))
 	for box_name in UI_BOXES:
 		out.append(ui_path(box_name))
 	for slot in EQUIP_SLOTS:
@@ -285,6 +298,18 @@ static func fx(key: String) -> Texture2D:
 
 static func explosion(i: int) -> Texture2D:
 	return texture(explosion_path(clampi(i, 0, EXPLOSION_FRAMES - 1)))
+
+
+## A part of a gun kind's shot ("projectile", "trail", "impact_<i>"), or `fallback` (a texture)
+## for Rookie / an unknown kind / a file missing or not imported yet.
+static func shot(kind: String, part: String, fallback: Texture2D) -> Texture2D:
+	if not SHOT_KINDS.has(kind):
+		return fallback
+	var path := shot_path(kind, part)
+	var t: Texture2D = _textures.get(path)
+	if t == null and ResourceLoader.exists(path):
+		t = texture(path)
+	return t if t != null and t != placeholder() else fallback
 
 
 ## The SpriteFrames of a character (idle/walk/shoot/hurt/die), falling back to rookie's, then to

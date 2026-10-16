@@ -187,6 +187,11 @@ func _bake_fx() -> void:
 	_save(await _render(FxPainter.SMOKE_SIZE, func(ci: CanvasItem) -> void: FxPainter.smoke(ci, Vector2(FxPainter.SMOKE_SIZE))), Art.FX["smoke"])
 	_save(await _render(FxPainter.DEBRIS_SIZE, func(ci: CanvasItem) -> void: FxPainter.debris(ci, Vector2(FxPainter.DEBRIS_SIZE))), Art.FX["debris"])
 	_save(await _render(FxPainter.MUZZLE_SIZE, func(ci: CanvasItem) -> void: FxPainter.muzzle(ci, Vector2(FxPainter.MUZZLE_SIZE))), Art.FX["muzzle"])
+	for kind in Art.SHOT_KINDS:
+		_save(await _render(FxPainter.SHOT_PROJECTILE_SIZE, func(ci: CanvasItem) -> void: FxPainter.shot_projectile(ci, Vector2(FxPainter.SHOT_PROJECTILE_SIZE), kind)), Art.shot_path(kind, "projectile"))
+		_save(await _render(FxPainter.SHOT_TRAIL_SIZE, func(ci: CanvasItem) -> void: FxPainter.shot_trail(ci, Vector2(FxPainter.SHOT_TRAIL_SIZE), kind)), Art.shot_path(kind, "trail"))
+		for i in Art.EXPLOSION_FRAMES:
+			_save(await _render(FxPainter.EXPLOSION_SIZE, func(ci: CanvasItem) -> void: FxPainter.shot_impact(ci, Vector2(FxPainter.EXPLOSION_SIZE), kind, i)), Art.shot_path(kind, "impact_%d" % i))
 
 
 func _bake_icons() -> void:
