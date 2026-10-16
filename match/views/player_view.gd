@@ -12,13 +12,14 @@ const LobbyUi := preload("res://ui/lobby_ui.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 
 const BODY := Vector2(28, 40) # server PlayerHeight = 40
-## px per art unit: the art (about 150 units) stands about 52 px tall over the 28x40 body.
+## px per art unit: the baked art (about 150 units) stands about 52 px tall over the 28x40
+## body; a side view (Rookie) is drawn at its own pxPerUnit, about 60 px tall.
 const ART_SCALE := 0.35
 const TEAM_COLORS := {1: Color(0.25, 0.55, 1.0), 2: Color(1.0, 0.35, 0.3)}
 const ALLY := Color(0.3, 0.6, 1.0)
 const ENEMY := Color(1.0, 0.35, 0.3)
 const HP_BAR_WIDTH := 50.0
-const ART_TOP := 56.0 # px above the feet the art reaches
+const ART_TOP := 56.0 # px above the feet the art reaches (at least; a taller side view raises it)
 const WALK_HOLD := 0.12 # s a walk animation lasts after the last x change
 
 var player_id := ""
@@ -39,6 +40,7 @@ var _dead := false
 var _last_x := 0.0
 var _walk_left := 0.0
 var _t := 0.0
+var _art_top := ART_TOP
 
 
 ## my_team: the local player's team; allies are blue, enemies red. -1 colours by team id.
@@ -64,16 +66,17 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	var gun := EquipmentModel.player_gun(p, PlayerState.catalog)
 	_sprite.set_weapon(gun["kind"], gun["tier"])
 	add_child(_sprite)
+	_art_top = maxf(ART_TOP, _sprite.art_height() * _sprite.scale.y + 3.0)
 
 	_name = LobbyUi.text(str(p.get("displayName", "")), 20, color.lightened(0.55) if not me else LobbyUi.GOLD, true)
 	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_name.size = Vector2(200, 26)
-	_name.position = Vector2(-100, -ART_TOP - 40)
+	_name.position = Vector2(-100, -_art_top - 40)
 	add_child(_name)
 	_status = Label.new()
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.size = Vector2(200, 24)
-	_status.position = Vector2(-100, -ART_TOP - 64)
+	_status.position = Vector2(-100, -_art_top - 64)
 	_status.add_theme_color_override("font_color", Color(0.75, 0.9, 1))
 	_status.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	_status.add_theme_constant_override("outline_size", 4)
@@ -201,7 +204,7 @@ func _draw() -> void:
 	if _dead:
 		return
 	# HP bar: dark rounded back, a fill green → yellow → red, a light top line.
-	var bar := Rect2(-HP_BAR_WIDTH / 2, -ART_TOP - 12, HP_BAR_WIDTH, 8)
+	var bar := Rect2(-HP_BAR_WIDTH / 2, -_art_top - 12, HP_BAR_WIDTH, 8)
 	draw_rect(bar.grow(2), Color(0.02, 0.03, 0.1, 0.85))
 	var frac := clampf(float(hp) / max_hp, 0.0, 1.0)
 	var fill := Color(1.0, 0.3, 0.25).lerp(Color(1.0, 0.85, 0.2), clampf(frac * 2.0, 0.0, 1.0))
@@ -211,7 +214,7 @@ func _draw() -> void:
 		draw_rect(f, fill)
 		draw_rect(Rect2(f.position, Vector2(f.size.x, 2)), fill.lightened(0.4))
 	if _active:
-		var y := -ART_TOP - 48 - absf(sin(_t * 4.0)) * 6.0
+		var y := -_art_top - 48 - absf(sin(_t * 4.0)) * 6.0
 		var arrow := PackedVector2Array([Vector2(-10, y - 12), Vector2(10, y - 12), Vector2(0, y)])
 		draw_colored_polygon(arrow, LobbyUi.GOLD)
 		arrow.append(arrow[0])

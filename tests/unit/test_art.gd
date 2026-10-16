@@ -19,6 +19,8 @@ func test_item_icons_exist() -> void:
 
 func test_character_frames_match_the_layout() -> void:
 	for id in Art.CHARACTERS:
+		if Art.has_side_view(id):
+			continue # test_side_view_frames_share_one_pivot
 		for anim in Art.ANIMS:
 			for i in int(Art.ANIMS[anim]["frames"]):
 				var img := Image.load_from_file(ProjectSettings.globalize_path(Art.frame_path(id, anim, i)))
@@ -30,6 +32,11 @@ func test_character_frames_match_the_layout() -> void:
 
 func test_sprite_frames_have_every_animation() -> void:
 	for id in Art.CHARACTERS:
+		var look := Art.character_look(id)
+		for anim in Art.ANIMS:
+			check(look["frames"].has_animation(anim) and look["frames"].get_frame_count(anim) > 0, "%s look has %s" % [id, anim])
+		if Art.has_side_view(id):
+			continue
 		var text := FileAccess.get_file_as_string(Art.frames_path(id))
 		for anim in Art.ANIMS:
 			check(text.contains('"name": &"%s"' % anim), "%s.tres has %s" % [id, anim])
@@ -121,14 +128,21 @@ func test_gun_fallbacks() -> void:
 func test_gun_anchors_cover_every_frame() -> void:
 	for id in Art.CHARACTERS:
 		var anchors := Art.gun_anchors(id)
+		var look := Art.character_look(id)
 		for anim in Art.ANIMS:
-			var n: int = Art.ANIMS[anim]["frames"]
+			var n: int = look["frames"].get_frame_count(anim)
+			if not look["side"]:
+				eq(n, int(Art.ANIMS[anim]["frames"]), "%s %s baked frames" % [id, anim])
 			var frames: Array = anchors.get(anim, [])
 			eq(frames.size(), n, "%s %s anchors" % [id, anim])
 			for i in frames.size():
 				var a: Dictionary = frames[i]
-				check(Rect2(Vector2.ZERO, Vector2(Art.FRAME_SIZE)).has_point(a["grip"]), "%s %s_%d grip inside the frame" % [id, anim, i])
+				check(Rect2(Vector2.ZERO, look["size"]).has_point(a["grip"]), "%s %s_%d grip inside the frame" % [id, anim, i])
 				eq(a["front"], anim != "die", "%s %s_%d front" % [id, anim, i])
+				if look["side"]:
+					if anim != "die": # die turns the gun level with the fallen body
+						check(absf(a["angle"]) <= 20.0, "%s %s_%d gun kept near level (%.1f°)" % [id, anim, i, a["angle"]])
+					continue # the side view draws its own hand (hand.png) over the grip
 				# The hand is drawn in the frame at the grip: an opaque pixel there.
 				var img := Image.load_from_file(ProjectSettings.globalize_path(Art.frame_path(id, anim, i)))
 				if img != null:
@@ -163,4 +177,111 @@ func test_character_hands_free_hides_the_gun() -> void:
 	check(not c.get_node("Flip/Gun/Flash").visible, "no muzzle flash")
 	check(c.get_node("Flip/Gun/Hand").visible and c.get_node("Flip/Sprite").visible, "the frames with the bare hand")
 	eq(c.weapon()["kind"], "blaster", "the gun set is still known")
+	holder.free()
+
+
+## A side view (assets/characters/<id>/side/, tools/import_frames.gd): every frame on one
+## canvas, the soles on the pivot row, the hips centred on the pivot (no left / right jitter).
+func test_side_view_frames_share_one_pivot() -> void:
+	check(Art.has_side_view("rookie"), "rookie has a side view")
+	for id in Art.CHARACTERS:
+		if not Art.has_side_view(id):
+			continue
+		var look := Art.side_view(id)
+		check(not look.is_empty(), "%s side view loads" % id)
+		if look.is_empty():
+			continue
+		var data = JSON.parse_string(FileAccess.get_file_as_string(Art.side_json_path(id)))
+		var pivot: Vector2 = look["pivot"]
+		var size: Vector2 = look["size"]
+		check(Rect2(Vector2.ZERO, size).has_point(pivot - Vector2(0, 0.5)), "%s pivot inside the canvas" % id)
+		near(float(look["scale"]), Art.PX_PER_UNIT / float(data["pxPerUnit"]), 0.0001, "%s scale" % id)
+		var hips: Array = []
+		var stems := {}
+		for anim in data["anims"]:
+			for stem in data["anims"][anim]["frames"]:
+				stems[str(stem)] = true
+		for stem in stems:
+				var path := Art.side_dir(id) + str(stem) + ".png"
+				var img := Image.load_from_file(ProjectSettings.globalize_path(path))
+				if img == null:
+					check(false, path + " loads")
+					continue
+				eq(Vector2(img.get_size()), size, "%s canvas" % path)
+				var used := _opaque_rect(img)
+				check(absf(used.end.y - pivot.y) <= 1.0, "%s soles on the pivot row (%d vs %.1f)" % [path, used.end.y, pivot.y])
+				var faint := img.get_used_rect()
+				check(faint.position.x > 0 and faint.position.y > 0 and faint.end.x < img.get_width() and faint.end.y < img.get_height(), "%s not cut at the edge" % path)
+				# The hip rows' middle (the importer's hipRows) stays on the pivot.
+				var y := int(pivot.y - float(look["height"]) * 0.23)
+				var x0 := -1
+				var x1 := -1
+				for x in img.get_width():
+					if img.get_pixel(x, y).a > 0.5:
+						x1 = x
+						if x0 < 0:
+							x0 = x
+				hips.append((x0 + x1 + 1) * 0.5)
+		for h in hips:
+			check(absf(float(h) - pivot.x) <= 0.12 * float(look["height"]), "%s hips near the pivot (%.1f vs %.1f)" % [id, h, pivot.x])
+		var walk: Array = data["anims"]["walk"]["frames"]
+		check(walk.size() >= 4 and bool(data["anims"]["walk"]["loop"]), "%s walk loops over its frames" % id)
+		check(look["hand"] != null, "%s hand.png" % id)
+
+
+## The rect of the pixels at least half opaque.
+func _opaque_rect(img: Image) -> Rect2i:
+	var r := Rect2i()
+	for y in img.get_height():
+		for x in img.get_width():
+			if img.get_pixel(x, y).a > 0.5:
+				r = Rect2i(x, y, 1, 1) if r.size == Vector2i.ZERO else r.expand(Vector2i(x, y)).merge(Rect2i(x, y, 1, 1))
+	return r
+
+
+func test_side_view_motion_poses() -> void:
+	var C := load("res://scenes/character/character.gd")
+	var ext := {"back": 90.0, "front": 90.0, "top": 280.0}
+	eq(C.motion_pose("", 0.5, 1.0, ext), {"pos": Vector2.ZERO, "rot": 0.0, "scale": Vector2.ONE}, "no motion")
+	var kick: Dictionary = C.motion_pose("recoil", 0.12, 0.0, ext)
+	check(kick["pos"].x < 0.0 and kick["rot"] < 0.0, "recoil kicks back")
+	var rest: Dictionary = C.motion_pose("recoil", 1.0, 0.0, ext)
+	check(rest["pos"].length() < 0.01 and absf(rest["rot"]) < 0.001, "recoil ends at rest")
+	check(C.motion_pose("knockback", 0.2, 0.0, ext)["pos"].x < 0.0, "hurt pushes back")
+	var lying: Dictionary = C.motion_pose("fall", 1.0, 0.0, ext)
+	near(lying["rot"], -PI / 2, 0.01, "dead: on its back")
+	check(lying["pos"].y < 0.0, "lifted so the backpack stays on the ground")
+	var b: Dictionary = C.motion_pose("breathe", 0.0, 0.6, ext)
+	check(b["scale"].y > 1.0 and b["scale"].y < 1.03, "breathing is subtle")
+
+
+## Facing left mirrors round the feet: no jump, the gun mirrored (not upside down), the muzzle
+## mirrored too.
+func test_side_view_faces_left_round_the_feet() -> void:
+	var c: Node2D = preload("res://scenes/character/character.tscn").instantiate()
+	c.character_id = "rookie"
+	var holder := Node2D.new()
+	holder.add_child(c)
+	c._ready() # not in the tree: the setters below skip their update, done by hand as they would
+	var flip: Node2D = c.get_node("Flip")
+	var gun: Node2D = c.get_node("Flip/Gun")
+	var sprite: AnimatedSprite2D = c.get_node("Flip/Sprite")
+	var look := Art.character_look("rookie")
+	near(sprite.scale.x, float(look["scale"]), 0.0001, "side view drawn at its scale")
+	eq(sprite.offset, -look["pivot"], "side view drawn at its pivot")
+	var flash: Node2D = c.get_node("Flip/Gun/Flash")
+	var muzzle := func() -> Vector2: return flip.transform * gun.transform * flash.position # out of the tree: local
+	var right: Vector2 = muzzle.call()
+	var grip_right: Vector2 = flip.transform * gun.position
+	c.facing = -1
+	c._apply_motion()
+	c._update_gun()
+	var left: Vector2 = muzzle.call()
+	near(left.x, -right.x, 0.01, "muzzle mirrored round the feet")
+	near(left.y, right.y, 0.01, "muzzle at the same height")
+	near((flip.transform * gun.position).x, -grip_right.x, 0.01, "grip mirrored")
+	check((flip.transform * gun.transform).y.y > 0.0, "the gun is not upside down")
+	check((flip.transform * gun.transform).x.x < 0.0, "the gun points left")
+	eq(flip.position, Vector2.ZERO, "no jump: the feet stay on the origin")
+	check(right.x > 0.0, "facing right the muzzle is in front")
 	holder.free()

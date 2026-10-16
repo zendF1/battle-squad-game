@@ -37,6 +37,14 @@ const HAND := ROOT + "characters/hand.png"
 ## missing or broken. The match keeps the side-view frames.
 const LOBBY_VIEW := "lobby"
 const FULL_ANIMS := ROOT + "characters/lobby_full_anims.json"
+## The match draws a character's side view: <id>/side/ (side.json + its frames, hand.png and
+## gun_anchors.json, made from hand-drawn frames by tools/import_frames.gd) when it has one,
+## else the code-baked frames above (<id>.tres, gun_anchors.json, FRAME_SIZE / FRAME_PIVOT).
+## character_look() picks one: side view → baked frames → rookie's side view → rookie's baked
+## frames → empty animations.
+const SIDE_VIEW := "side"
+## side.json `motion` names scenes/character/character.gd plays on top of the frames.
+const SIDE_MOTIONS := ["", "breathe", "recoil", "knockback", "fall"]
 
 # ── Guns (assets/weapons/) ──────────────────────────────────────────────────
 
@@ -158,7 +166,8 @@ const UI_BOXES := {
 static var _warned := {}
 static var _textures := {} # path -> Texture2D
 static var _guns_data: Variant = null # parsed weapons.json ({} when missing)
-static var _anchors := {} # character id -> {anim: [anchor...]}
+static var _looks := {} # character id -> character_look()
+static var _sides := {} # side view dir -> parse_side() ({} = none)
 static var _placeholder: Texture2D
 static var _empty_frames: SpriteFrames
 static var _fulls := {} # character id -> lobby_full() data ({} = none)
@@ -195,6 +204,19 @@ static func gun_path(kind: String, tier: String) -> String:
 
 static func gun_anchors_path(id: String) -> String:
 	return ROOT + "characters/%s/gun_anchors.json" % id
+
+
+static func side_dir(id: String) -> String:
+	return ROOT + "characters/%s/%s/" % [id, SIDE_VIEW]
+
+
+static func side_json_path(id: String) -> String:
+	return side_dir(id) + "side.json"
+
+
+## The character has a side view (its side.json exists; side_view() checks the rest).
+static func has_side_view(id: String) -> bool:
+	return FileAccess.file_exists(side_json_path(id))
 
 
 static func icon_path(icon_name: String) -> String:
@@ -237,12 +259,15 @@ static func ui_path(box_name: String) -> String:
 static func all_paths() -> Array[String]:
 	var out: Array[String] = [SHADOW, HAND, GUNS_DATA, FULL_ANIMS]
 	for id in CHARACTERS:
-		out.append(frames_path(id))
 		out.append(portrait_path(id))
-		out.append(gun_anchors_path(id))
-		for anim in ANIMS:
-			for i in int(ANIMS[anim]["frames"]):
-				out.append(frame_path(id, anim, i))
+		if has_side_view(id):
+			out.append_array(side_paths(id))
+		else:
+			out.append(frames_path(id))
+			out.append(gun_anchors_path(id))
+			for anim in ANIMS:
+				for i in int(ANIMS[anim]["frames"]):
+					out.append(frame_path(id, anim, i))
 		out.append(full_path(id))
 		out.append(full_json_path(id))
 	for icon_name in ICONS:
@@ -397,23 +422,124 @@ static func _cached(path: String) -> Texture2D:
 	return t if t != null and t != placeholder() else null
 
 
-## The SpriteFrames of a character (idle/walk/shoot/hurt/die), falling back to rookie's, then to
-## empty animations (nothing drawn, nothing breaks).
+## The SpriteFrames of a character (idle/walk/shoot/hurt/die): character_look()'s.
 static func character_frames(id: String) -> SpriteFrames:
-	for cid in [known_character(id), DEFAULT_CHARACTER]:
-		var path := frames_path(cid)
-		if ResourceLoader.exists(path):
-			var f = load(path)
-			if f is SpriteFrames:
-				return f
-		_warn(path)
-	if _empty_frames == null:
-		_empty_frames = SpriteFrames.new()
-		for anim in ANIMS:
-			if not _empty_frames.has_animation(anim):
-				_empty_frames.add_animation(anim)
-			_empty_frames.add_frame(anim, placeholder())
-	return _empty_frames
+	return character_look(id)["frames"]
+
+
+## How the match draws a character: {side (true: its side view), frames (SpriteFrames with
+## idle/walk/shoot/hurt/die), size (Vector2 texture px), pivot (the feet, texture px), scale
+## (character px per texture px: the character node is PX_PER_UNIT px per art unit), height (the
+## figure, texture px), extent {back, front, top} (texture px from the pivot), motions {anim:
+## SIDE_MOTIONS name}, anchors {anim: [gun anchor...]} (texture px), hand (Texture2D drawn over
+## the gun's grip, null: HAND), hand_scale}. Order: side view → baked frames → rookie's → empty.
+static func character_look(id: String) -> Dictionary:
+	id = known_character(id)
+	if _looks.has(id):
+		return _looks[id]
+	var look := {}
+	for cid in [id, DEFAULT_CHARACTER]:
+		look = side_view(cid)
+		if look.is_empty():
+			look = _baked_look(cid)
+		if not look.is_empty():
+			break
+	if look.is_empty():
+		if _empty_frames == null:
+			_empty_frames = SpriteFrames.new()
+			for anim in ANIMS:
+				if not _empty_frames.has_animation(anim):
+					_empty_frames.add_animation(anim)
+				_empty_frames.add_frame(anim, placeholder())
+		look = _baked(_empty_frames, {})
+	_looks[id] = look
+	return look
+
+
+## The code-baked frames (<id>.tres + gun_anchors.json), {} when the .tres is missing.
+static func _baked_look(id: String) -> Dictionary:
+	var path := frames_path(id)
+	if ResourceLoader.exists(path):
+		var f = load(path)
+		if f is SpriteFrames:
+			return _baked(f, _parse_anchors(gun_anchors_path(id)))
+	_warn(path)
+	return {}
+
+
+static func _baked(frames: SpriteFrames, anchors: Dictionary) -> Dictionary:
+	var h := 150.0 * PX_PER_UNIT
+	return {"side": false, "frames": frames, "size": Vector2(FRAME_SIZE), "pivot": FRAME_PIVOT, "scale": 1.0, "height": h,
+		"extent": {"back": 40.0 * PX_PER_UNIT, "front": 40.0 * PX_PER_UNIT, "top": h}, "motions": {}, "anchors": anchors,
+		"hand": null, "hand_scale": 1.0}
+
+
+## A character's side view (see character_look()), {} when it has none or it is broken.
+static func side_view(id: String) -> Dictionary:
+	return parse_side(side_dir(known_character(id)))
+
+
+## The side view in dir (side.json, its frames, gun_anchors.json, hand.png); {} when side.json is
+## missing, lacks an animation of ANIMS or a frame file. Frames not imported yet are read from
+## the PNG.
+static func parse_side(dir: String) -> Dictionary:
+	if _sides.has(dir):
+		return _sides[dir]
+	var out := {}
+	_sides[dir] = out
+	if not FileAccess.file_exists(dir + "side.json"):
+		return out
+	var data := _load_json(dir + "side.json")
+	var ppu := float(data.get("pxPerUnit", 0.0))
+	if ppu <= 0.0 or not data.get("pivot") is Array or not data.get("anims") is Dictionary:
+		push_warning("art: %sside.json is not a side view, using the baked frames" % dir)
+		return out
+	var frames := SpriteFrames.new()
+	if frames.has_animation("default"):
+		frames.remove_animation("default")
+	var motions := {}
+	for anim in ANIMS:
+		var spec = data["anims"].get(anim)
+		if not spec is Dictionary or not spec.get("frames") is Array or (spec["frames"] as Array).is_empty():
+			push_warning("art: %sside.json has no %s, using the baked frames" % [dir, anim])
+			return out
+		frames.add_animation(anim)
+		frames.set_animation_speed(anim, float(spec.get("fps", 8.0)))
+		frames.set_animation_loop(anim, bool(spec.get("loop", false)))
+		for stem in spec["frames"]:
+			var tex := _png_texture(dir + str(stem) + ".png")
+			if tex == null:
+				return out
+			frames.add_frame(anim, tex)
+		var motion := str(spec.get("motion", ""))
+		motions[anim] = motion if SIDE_MOTIONS.has(motion) else ""
+	var scale := PX_PER_UNIT / ppu
+	var ext = data.get("extent", {})
+	var height := float(data.get("height", 0.0))
+	var hand: Texture2D = null
+	if str(data.get("hand", "")) != "":
+		hand = _png_texture(dir + str(data["hand"]))
+	out.merge({"side": true, "frames": frames, "size": _vec2(data.get("size", [])), "pivot": _vec2(data["pivot"]), "scale": scale,
+		"height": height, "extent": {"back": float(ext.get("back", height * 0.3)), "front": float(ext.get("front", height * 0.3)),
+		"top": float(ext.get("top", height))}, "motions": motions, "anchors": _parse_anchors(dir + "gun_anchors.json"),
+		"hand": hand, "hand_scale": scale if hand != null else 1.0})
+	return out
+
+
+## Every file of a character's side view (side.json, gun_anchors.json, the frames, hand.png).
+static func side_paths(id: String) -> Array[String]:
+	var dir := side_dir(id)
+	var out: Array[String] = [dir + "side.json", dir + "gun_anchors.json"]
+	var data := _load_json(dir + "side.json")
+	var anims = data.get("anims")
+	if anims is Dictionary:
+		for anim in anims:
+			for stem in anims[anim].get("frames", []):
+				if not out.has(dir + str(stem) + ".png"):
+					out.append(dir + str(stem) + ".png")
+	if str(data.get("hand", "")) != "":
+		out.append(dir + str(data["hand"]))
+	return out
 
 
 # ── Full-body pictures ──────────────────────────────────────────────────────
@@ -505,7 +631,7 @@ static func _png_texture(path: String) -> Texture2D:
 	var cached: Texture2D = _textures.get(path)
 	if cached != null:
 		return cached
-	if ResourceLoader.exists(path):
+	if ResourceLoader.exists(path) and _imported(path):
 		var t = load(path)
 		if t is Texture2D:
 			_textures[path] = t
@@ -518,6 +644,12 @@ static func _png_texture(path: String) -> Texture2D:
 			return t
 	_warn(path)
 	return null
+
+
+## The editor has imported the file (its .import names the imported copy); a fresh .import
+## written by a tool has not been yet, and loading it would only print an error.
+static func _imported(path: String) -> bool:
+	return not FileAccess.file_exists(path + ".import") or FileAccess.get_file_as_string(path + ".import").contains("\npath")
 
 
 # ── Guns ────────────────────────────────────────────────────────────────────
@@ -559,26 +691,25 @@ static func guns_data() -> Dictionary:
 	return _guns_data
 
 
-## Where a character holds its gun in each frame: anim -> [{grip (Vector2, px in the frame),
+## Where a character holds its gun in each frame of its look (character_look(): the side view's
+## or the baked frames' gun_anchors.json): anim -> [{grip (Vector2, px in the frame texture),
 ## angle (degrees, 0 = level, + turns the muzzle down), front (drawn over the body), flash
-## (0..1 muzzle flash)}], one per frame. Falls back to Rookie's, then to a fixed hold.
+## (0..1 muzzle flash)}], one per frame.
 static func gun_anchors(id: String) -> Dictionary:
-	id = known_character(id)
-	if _anchors.has(id):
-		return _anchors[id]
+	return character_look(id)["anchors"]
+
+
+static func _parse_anchors(path: String) -> Dictionary:
 	var out := {}
-	for cid in [id, DEFAULT_CHARACTER]:
-		var data := _load_json(gun_anchors_path(cid))
-		if data.get("anims") is Dictionary:
-			for anim in data["anims"]:
-				var frames: Array = []
-				for a in data["anims"][anim]:
-					if a is Dictionary and a.get("grip") is Array:
-						frames.append({"grip": _vec2(a["grip"]), "angle": float(a.get("angle", 0.0)),
-							"front": bool(a.get("front", true)), "flash": float(a.get("flash", 0.0))})
-				out[anim] = frames
-			break
-	_anchors[id] = out
+	var data := _load_json(path)
+	if data.get("anims") is Dictionary:
+		for anim in data["anims"]:
+			var frames: Array = []
+			for a in data["anims"][anim]:
+				if a is Dictionary and a.get("grip") is Array:
+					frames.append({"grip": _vec2(a["grip"]), "angle": float(a.get("angle", 0.0)),
+						"front": bool(a.get("front", true)), "flash": float(a.get("flash", 0.0))})
+			out[anim] = frames
 	return out
 
 
@@ -589,7 +720,8 @@ static func gun_anchor(id: String, anim: String, i: int) -> Dictionary:
 	if frames.is_empty():
 		frames = gun_anchors(id).get("idle", [])
 	if frames.is_empty():
-		return {"grip": FRAME_PIVOT + Vector2(32, -50) * PX_PER_UNIT, "angle": 0.0, "front": true, "flash": 0.0}
+		var look := character_look(id)
+		return {"grip": look["pivot"] + Vector2(32, -50) * PX_PER_UNIT / float(look["scale"]), "angle": 0.0, "front": true, "flash": 0.0}
 	return frames[clampi(i, 0, frames.size() - 1)]
 
 

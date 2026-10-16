@@ -7,7 +7,8 @@ extends SceneTree
 ##
 ## Groups: characters, weapons, env, terrain, fx, icons, ui, equipment (default: all). It
 ## overwrites the PNGs (and the characters' SpriteFrames .tres and gun_anchors.json, the guns'
-## weapons.json), prints every file it wrote and quits. Then import them once
+## weapons.json), prints every file it wrote and quits. A character with a side view
+## (assets/characters/<id>/side/, tools/import_frames.gd) gets only its portrait, no frames. Then import them once
 ## (editor, or `$GODOT --headless --path . --import`) so the .import files exist. An existing
 ## .import file is never touched, so import settings changed in the editor survive a re-bake.
 ##
@@ -123,27 +124,37 @@ func _write_import(path: String) -> void:
 func _bake_characters() -> void:
 	var k := Art.PX_PER_UNIT
 	for id in Art.CHARACTERS:
-		var used := Rect2i()
-		for anim in Art.ANIMS:
-			var n: int = Art.ANIMS[anim]["frames"]
-			for i in n:
-				var img: Image = await _render(Art.FRAME_SIZE, func(ci: CanvasItem) -> void:
-					CharacterPainter.paint_frame(ci, Art.FRAME_PIVOT, k, id, anim, i, n))
-				var r := img.get_used_rect()
-				used = r if used.size == Vector2i.ZERO else used.merge(r)
-				_save(img, Art.frame_path(id, anim, i))
-		print("  %s: art inside %s of %s (pivot %s)" % [id, used, Art.FRAME_SIZE, Art.FRAME_PIVOT])
-		_write_anchors(id)
+		if Art.has_side_view(id):
+			print("  %s: has a side view (%s, tools/import_frames.gd): no baked frames, only the portrait" % [id, Art.side_dir(id)])
+		else:
+			await _bake_frames(id)
 		# Portrait: head and shoulders, centred on the head.
 		var portrait: Image = await _render(Art.PORTRAIT_SIZE, func(ci: CanvasItem) -> void:
 			var s := Art.PORTRAIT_SIZE.x / 112.0
 			CharacterPainter.paint(ci, Transform2D(0.0, Vector2(s, s), 0.0, Vector2(Art.PORTRAIT_SIZE.x / 2.0 - 4 * s, 158 * s)), id, {"bob": 0.0})
 			ci.draw_set_transform(Vector2.ZERO))
 		_save(portrait, Art.portrait_path(id))
-		_write_frames(id)
 	var shadow_size := Vector2i(FxPainter.SHADOW_UNITS * k)
 	_save(await _render(shadow_size, func(ci: CanvasItem) -> void: FxPainter.shadow(ci, Vector2(shadow_size))), Art.SHADOW)
 	_save(await _render(HAND_SIZE, func(ci: CanvasItem) -> void: CharacterPainter.paint_hand(ci, Vector2(HAND_SIZE) / 2, k)), Art.HAND)
+
+
+## The code-drawn side-view frames of a character without a side view: <id>/<anim>_<i>.png,
+## gun_anchors.json and <id>.tres.
+func _bake_frames(id: String) -> void:
+	var k := Art.PX_PER_UNIT
+	var used := Rect2i()
+	for anim in Art.ANIMS:
+		var n: int = Art.ANIMS[anim]["frames"]
+		for i in n:
+			var img: Image = await _render(Art.FRAME_SIZE, func(ci: CanvasItem) -> void:
+				CharacterPainter.paint_frame(ci, Art.FRAME_PIVOT, k, id, anim, i, n))
+			var r := img.get_used_rect()
+			used = r if used.size == Vector2i.ZERO else used.merge(r)
+			_save(img, Art.frame_path(id, anim, i))
+	print("  %s: art inside %s of %s (pivot %s)" % [id, used, Art.FRAME_SIZE, Art.FRAME_PIVOT])
+	_write_anchors(id)
+	_write_frames(id)
 
 
 ## The hand overlay's canvas (the hand centred).

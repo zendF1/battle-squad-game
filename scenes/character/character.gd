@@ -1,10 +1,16 @@
 extends Node2D
 ## A character, feet at this node's origin, facing +x before the flip. Its art is the
-## character's SpriteFrames (assets/characters/<id>/<id>.tres, via ui/art.gd): idle and walk
-## loop; shoot and hurt play once and go back; die stays on its last frame. Code adds only what
-## is a tint or a tween: the red hurt flash and the grey of a knocked-out character.
-## Set `scale` for the size: Art.PX_PER_UNIT px per art unit at scale 1 (the art is about 150
-## units tall), e.g. 0.35 / Art.PX_PER_UNIT for the ~52 px match body.
+## character's look (ui/art.gd character_look()): its side view (assets/characters/<id>/side/,
+## frames made from hand-drawn art by tools/import_frames.gd, drawn at their own pivot and
+## scale) or the code-baked SpriteFrames (assets/characters/<id>/<id>.tres): idle and walk
+## loop; shoot and hurt play once and go back; die stays on its last frame. Code adds the red
+## hurt flash and the grey of a knocked-out character, and for a side view the motion its
+## side.json names per animation (motion_pose(): breathe, recoil, knockback, fall) on the Flip
+## node round the feet, so a few drawn frames cover all five animations.
+## Set `scale` for the size: Art.PX_PER_UNIT px per art unit at scale 1 (the baked art is about
+## 150 units tall), e.g. 0.35 / Art.PX_PER_UNIT for the ~52 px match body.
+## Facing left mirrors Flip round the feet (scale.x -1): the frames, the gun anchors, the gun
+## (still the right way up: mirrored, not turned) and the muzzle; no position jump on a turn.
 ##
 ## The gun is its own sprite (Flip/Gun: the gun, the hand over its grip, the muzzle flash):
 ## set_weapon(kind, tier) picks it (ui/art.gd gun(); the character's basic gun until then). Each
@@ -57,7 +63,7 @@ var facing := 1:
 	set(value):
 		facing = value
 		if is_node_ready():
-			_flip.scale.x = facing
+			_apply_motion()
 			_update_gun()
 
 var _walking := false
@@ -70,6 +76,8 @@ var _aiming := false
 var _aim_up := 0.0 # degrees above level towards the facing side, clamped
 var _full: FullBody # the skinned full-body picture, null otherwise
 var _full_id := ""
+var _look := {} # Art.character_look()
+var _time := 0.0
 
 @onready var _flip: Node2D = $Flip
 @onready var _sprite: AnimatedSprite2D = $Flip/Sprite
@@ -84,14 +92,16 @@ func _ready() -> void:
 	_shadow.texture = Art.texture(Art.SHADOW)
 	_hand.texture = Art.texture(Art.HAND)
 	_flash.texture = Art.fx("muzzle")
-	_flip.scale.x = facing
 	_sprite.animation_finished.connect(_on_animation_finished)
 	_sprite.frame_changed.connect(_update_gun)
 	_sprite.animation_changed.connect(_update_gun)
 	_apply_frames()
+	_apply_motion()
 
 
 func _process(delta: float) -> void:
+	_time += delta
+	_apply_motion()
 	_hurt_left = maxf(0.0, _hurt_left - delta)
 	var tint := DEAD_TINT if _dead else Color.WHITE.lerp(HURT_TINT, _hurt_left / HURT_FLASH_SEC)
 	_sprite.self_modulate = tint
@@ -108,7 +118,12 @@ func _apply_frames() -> void:
 		return
 	_drop_full()
 	var anim := _sprite.animation
-	_sprite.sprite_frames = Art.character_frames(character_id)
+	_look = Art.character_look(character_id)
+	_sprite.sprite_frames = _look["frames"]
+	_sprite.offset = -_look["pivot"]
+	_sprite.scale = Vector2.ONE * float(_look["scale"])
+	_hand.texture = _look["hand"] if _look["hand"] != null else Art.texture(Art.HAND)
+	_hand.scale = Vector2.ONE * float(_look["hand_scale"])
 	if _sprite.sprite_frames.has_animation(anim):
 		_sprite.play(anim)
 	else:
@@ -132,6 +147,7 @@ func _apply_full(data: Dictionary) -> void:
 		_flip.move_child(_full, _sprite.get_index() + 1)
 	_sprite.visible = false
 	_sprite.stop()
+	_flip.transform = Transform2D(0.0, Vector2(facing, 1.0), 0.0, Vector2.ZERO)
 	_gun_node.visible = false
 	_flash.visible = false
 	_full.play(_base())
@@ -229,7 +245,7 @@ func _update_gun() -> void:
 	if not is_node_ready() or _gun.is_empty() or _full != null:
 		return
 	var a := Art.gun_anchor(character_id, str(_sprite.animation), _sprite.frame)
-	_gun_node.position = a["grip"] - Art.FRAME_PIVOT
+	_gun_node.position = (a["grip"] - _look.get("pivot", Art.FRAME_PIVOT)) * float(_look.get("scale", 1.0))
 	var deg: float = a["angle"]
 	if _aiming and not _dead:
 		deg -= _aim_up
@@ -240,6 +256,75 @@ func _update_gun() -> void:
 	var flash: float = a["flash"]
 	_flash.visible = flash > 0.0 and not hands_free
 	_flash.modulate = Color(FLASH_TINT, clampf(flash, 0.0, 1.0))
+
+
+## The side view's motion of the current animation on Flip (round the feet), mirrored with the
+## facing; the baked frames and the full-body picture have none.
+func _apply_motion() -> void:
+	var motion := ""
+	if _full == null and not _look.is_empty():
+		motion = str(_look["motions"].get(str(_sprite.animation), ""))
+	var pose := motion_pose(motion, _progress(), _time, _extent())
+	_flip.transform = Transform2D(float(pose["rot"]) * facing, Vector2(facing * pose["scale"].x, pose["scale"].y), 0.0,
+		Vector2(pose["pos"].x * facing, pose["pos"].y))
+
+
+## How far the current one-shot animation is (0..1; die stays at 1 once over).
+func _progress() -> float:
+	var n := _sprite.sprite_frames.get_frame_count(_sprite.animation) if _sprite.sprite_frames != null else 0
+	if n <= 0:
+		return 0.0
+	if not _sprite.is_playing():
+		return 1.0
+	return clampf((_sprite.frame + _sprite.get_frame_progress()) / n, 0.0, 1.0)
+
+
+## The figure's size round the feet in character px: {back, front, top}.
+func _extent() -> Dictionary:
+	var k := float(_look.get("scale", 1.0))
+	var e: Dictionary = _look.get("extent", {"back": 0.0, "front": 0.0, "top": 0.0})
+	return {"back": float(e["back"]) * k, "front": float(e["front"]) * k, "top": float(e["top"]) * k}
+
+
+## The figure's height above the feet in character px (the art's top).
+func art_height() -> float:
+	var look := _look if not _look.is_empty() else Art.character_look(character_id)
+	return float(look["extent"]["top"]) * float(look["scale"])
+
+
+## The pose a side-view motion gives the body round the feet, facing right: {pos (character px),
+## rot (radians, + clockwise), scale}. t: the one-shot animation's progress 0..1; time: seconds
+## (loops); extent {back, front, top} of the figure in character px.
+##   breathe   (idle): a slow vertical stretch, about 1.5 %.
+##   recoil    (shoot): kicked back and leaning back, then easing forward again.
+##   knockback (hurt): pushed back, squashed, a wobble that dies out.
+##   fall      (die): falls on its back round the heels, lifted so the backpack stays on the
+##             ground, slid forward so it lies over its feet position; a small bounce at the end.
+static func motion_pose(motion: String, t: float, time: float, extent: Dictionary) -> Dictionary:
+	var pos := Vector2.ZERO
+	var rot := 0.0
+	var sc := Vector2.ONE
+	var top := maxf(1.0, float(extent.get("top", 240.0)))
+	match motion:
+		"breathe":
+			var b := sin(time * TAU / 2.4)
+			sc = Vector2(1.0 - 0.004 * b, 1.0 + 0.015 * b)
+		"recoil":
+			var e := t / 0.12 if t < 0.12 else pow(1.0 - (t - 0.12) / 0.88, 2.0)
+			pos.x = -0.035 * top * e
+			rot = deg_to_rad(-4.0) * e
+			sc = Vector2(1.0, 1.0 - 0.02 * e)
+		"knockback":
+			var push := t / 0.2 if t < 0.2 else 1.0 - smoothstep(0.2, 1.0, t)
+			pos.x = -0.06 * top * push
+			rot = deg_to_rad(-3.0) * push + deg_to_rad(-7.0) * sin(t * TAU * 1.5) * (1.0 - t)
+			sc = Vector2(1.0 + 0.02 * push, 1.0 - 0.04 * push)
+		"fall":
+			var f := pow(t / 0.75, 2.0) if t < 0.75 else 1.0 - 0.06 * sin((t - 0.75) / 0.25 * PI)
+			var a := PI * 0.5 * f
+			rot = -a
+			pos = Vector2(0.45 * top * sin(a), -0.8 * float(extent.get("back", 0.0)) * sin(a))
+	return {"pos": pos, "rot": rot, "scale": sc}
 
 
 ## Plays an animation by name (idle, walk, shoot, hurt, die).

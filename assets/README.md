@@ -16,7 +16,10 @@ Total about 3.8 MB of PNG (the full-body pictures about 0.45 MB of it).
 - **Characters (lobby)**: the screens outside the match draw the skinned full-body picture
   `characters/<id>/lobby/full.png` + `full.json`; without one, the baked side-view frames. Re-cut
   the full-body pictures from a new lineup image with `tools/cut_sheet.gd` (below).
-- **Characters (match)**: either overwrite the frame PNGs, or open
+- **Characters (match), drawn frames**: drop hand-drawn side-view frames in and run the importer
+  (`characters/<id>/side/`, below): Rookie's match art is made this way; any character switches by
+  getting a `side/` folder, the code needs no change.
+- **Characters (match), baked frames**: either overwrite the frame PNGs, or open
   `characters/<id>/<id>.tres` (SpriteFrames) in the editor and change frames, counts, speed or
   loop flags. The animation names must stay `idle`, `walk`, `shoot`, `hurt`, `die`. If you change
   the canvas size or pivot, update `FRAME_SIZE` / `FRAME_PIVOT` / `PX_PER_UNIT` in `ui/art.gd`
@@ -48,7 +51,60 @@ replaced art too: only re-bake the groups you have not replaced.
 
 ## Files
 
-### characters/ (scene: `scenes/character/character.tscn`)
+### characters/<id>/side/ (the match side view from drawn frames: `tools/import_frames.gd`, loaded by `ui/art.gd` `side_view()`)
+
+A character with `side/side.json` is drawn in the match (and the fallback outside it) from these
+frames instead of the baked ones below (`ui/art.gd` `character_look()`: side view → baked frames →
+Rookie's → empty). Today: **Rookie**. Facing left is the same frames mirrored round the feet
+(`Flip` scale x -1): no separate files, no jump on a turn, the gun anchors and the muzzle mirror
+with them and the gun stays the right way up.
+
+| File | Size | Notes |
+|---|---|---|
+| `rookie/side/walk_0..7.png` | 84x130 (15–17 KB each) | the run cycle, loops at **20 fps** (the planted foot moves back about 4.5 world px a frame, so at the 90 px/s walk the feet barely slide) |
+| `rookie/side/idle_0.png` | 84x130 | walk frame 0 (the most upright one); idle breathes in code (a ~1.5 % vertical stretch over 2.4 s) |
+| `rookie/side/hand.png` | 13x13 | the fist drawn over the gun's grip (cut from source frame 4 by the importer, same style as the frames) |
+| `rookie/side/side.json` | 1 KB | `size`, `pivot` (the feet, texture px: the same in every frame), `pxPerUnit` (0.7 = 2 texture px per world px at the match's 0.35 px per unit), `height` (figure px), `extent` {`back`, `front`, `top`} px from the pivot, `hand`, `anims` {name: {`frames` (PNG names, without .png, in this folder), `fps`, `loop`, `motion`}} for `idle`, `walk`, `shoot`, `hurt`, `die` |
+| `rookie/side/gun_anchors.json` | 2 KB | the baked format (below), px in these frames: the grip follows the near fist in the walk (damped, so the gun is carried at the hip and sways a little), tilted ±4° with the swing |
+
+`motion` (`scenes/character/character.gd` `motion_pose()`, on `Flip` round the feet, mirrored with the
+facing): `breathe` (idle), `recoil` (shoot: kicked back and leaning back, the gun kicks up from the
+anchors, muzzle flash on frame 0), `knockback` (hurt: pushed back, squashed, a dying wobble; the red
+flash is the usual tint), `fall` (die: falls on its back round the heels, lifted by `extent.back`, the
+gun lying behind; then grey). Rookie's shoot / hurt / die are the idle frame with these motions, so
+the whole match look is one style.
+
+The frames are baked at **2 texture px per world px** (the figure 120 px tall, 60 world px on
+screen, a bit taller than the baked characters' 52), linear filter, no mipmaps: sharper at the
+match's 1:1 than an exact 1x bake (which blurs on the sub-pixel feet positions).
+
+**Drop in new side-view frames (any character)**: put the source frames (any size, transparent
+background, facing right, the feet on the ground in every frame, a loop for the walk) in
+`art_source/characters/<id>/side_<name>/` with an `import.json` like Rookie's
+(`art_source/characters/rookie/side_run/import.json`): `id`, `out` (`res://assets/characters/<id>/side/`),
+`frames` (source files in cycle order), `alphaCut`, `keepPieces`, `defringe` {`band`, `outline`
+colour, `maxChroma`}, `stabilise` {`rows` (0 top .. 1 soles: the torso band matched between frames),
+`search` px}, `hipRows`, `height` (world px), `oversample`, `worldPxPerUnit`, `pad`, `anims`
+(`frames`: source indices, or `"idle"` + `count` to reuse the idle PNG with a code `motion`; `fps`,
+`loop`, `motion`, `swing`, per-frame `angle` / `flash`, `front`), `gun` {`fists` (the near fist
+centre per source frame, source px), `carry` (source px from the pivot), `follow` (0..1),
+`swingDeg`}, `hand` {`frame`, `center`, `radius`, `feather`}. Then
+
+```
+$GODOT --headless --path . -s tools/import_frames.gd [-- res://art_source/characters/<id>/side_<name>/import.json]
+```
+
+and let the editor import the PNGs. Per frame it clears alpha below `alphaCut`, keeps only the big
+connected pieces (the stray pixels near the canvas edges go), turns the white halo round the black
+outline into a soft dark edge, finds the soles (lowest row: the ground contact) and the torso's
+column profile; every frame is shifted so its soles sit on frame 0's row and its torso best matches
+frame 0's (the cycle runs in place, no left / right jitter); the pivot is the median hip centre on
+the soles' row; one canvas round all frames; one Lanczos downscale on premultiplied colour. It
+prints the shifts, the pivot and where the soles touch per walk frame (to tune `fps`: the planted
+foot should move back by walk speed / fps per frame). Without a `side/` folder the character keeps
+its baked frames; `tools/bake_art.gd` bakes only those (and every portrait).
+
+### characters/ (baked frames, scene: `scenes/character/character.tscn`)
 
 The frames draw the character with its hands free (the front arm reaches forward, the hand at the gun's
 grip); the gun is a separate sprite (`weapons/`) the scene draws at the hand, so it changes with the
@@ -67,7 +123,8 @@ equipped weapon.
 | `shadow.png` | 160x38 | ground shadow under every character, centred on the feet |
 | `hand.png` | 32x32 (0.5 KB) | the hand drawn over the gun's grip, centred on the grip (shared) |
 
-`<id>` is `rookie`, `tanko`, `spark`, `flora` (about 13–24 KB per frame). **Every frame**: canvas
+`<id>` is `tanko`, `spark`, `flora` (about 13–24 KB per frame; Rookie has a side view instead, only
+its `portrait.png` is baked). **Every frame**: canvas
 512x400, transparent, **feet at pixel (256, 360)** (bottom centre, the same pixel in every frame),
 facing right, drawn at 1.6 px per art unit (the character is about 150 units = 240 px tall).
 The game flips it for facing left. The match (`match/views/player_view.gd`, 0.35 px per unit,

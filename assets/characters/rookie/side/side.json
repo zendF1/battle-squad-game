@@ -1,0 +1,74 @@
+{
+	"size": [
+		84,
+		130
+	],
+	"pivot": [
+		41.57,
+		125.94
+	],
+	"pxPerUnit": 0.7,
+	"height": 120.07,
+	"extent": {
+		"back": 40.57,
+		"front": 39.43,
+		"top": 124.94
+	},
+	"anims": {
+		"idle": {
+			"frames": [
+				"idle_0"
+			],
+			"fps": 1.0,
+			"loop": true,
+			"motion": "breathe"
+		},
+		"walk": {
+			"frames": [
+				"walk_0",
+				"walk_1",
+				"walk_2",
+				"walk_3",
+				"walk_4",
+				"walk_5",
+				"walk_6",
+				"walk_7"
+			],
+			"fps": 20.0,
+			"loop": true,
+			"motion": ""
+		},
+		"shoot": {
+			"frames": [
+				"idle_0",
+				"idle_0",
+				"idle_0"
+			],
+			"fps": 9.0,
+			"loop": false,
+			"motion": "recoil"
+		},
+		"hurt": {
+			"frames": [
+				"idle_0",
+				"idle_0",
+				"idle_0"
+			],
+			"fps": 7.0,
+			"loop": false,
+			"motion": "knockback"
+		},
+		"die": {
+			"frames": [
+				"idle_0",
+				"idle_0",
+				"idle_0",
+				"idle_0"
+			],
+			"fps": 8.0,
+			"loop": false,
+			"motion": "fall"
+		}
+	},
+	"hand": "hand.png"
+}
