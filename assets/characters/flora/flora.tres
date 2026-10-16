@@ -1,28 +1,59 @@
-[gd_resource type="SpriteFrames" load_steps=21 format=3]
+[gd_resource type="SpriteFrames" format=3 uid="uid://d2222mnsnqqqw"]
 
-[ext_resource type="Texture2D" path="res://assets/characters/flora/idle_0.png" id="1"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/idle_1.png" id="2"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/idle_2.png" id="3"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/idle_3.png" id="4"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/walk_0.png" id="5"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/walk_1.png" id="6"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/walk_2.png" id="7"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/walk_3.png" id="8"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/walk_4.png" id="9"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/walk_5.png" id="10"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/shoot_0.png" id="11"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/shoot_1.png" id="12"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/shoot_2.png" id="13"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/hurt_0.png" id="14"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/hurt_1.png" id="15"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/hurt_2.png" id="16"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/die_0.png" id="17"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/die_1.png" id="18"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/die_2.png" id="19"]
-[ext_resource type="Texture2D" path="res://assets/characters/flora/die_3.png" id="20"]
+[ext_resource type="Texture2D" uid="uid://cw1v8y7pacjtu" path="res://assets/characters/flora/idle_0.png" id="1"]
+[ext_resource type="Texture2D" uid="uid://bxehvog8gfai1" path="res://assets/characters/flora/idle_1.png" id="2"]
+[ext_resource type="Texture2D" uid="uid://clnnsehstksu5" path="res://assets/characters/flora/idle_2.png" id="3"]
+[ext_resource type="Texture2D" uid="uid://dif6yjrbx7osy" path="res://assets/characters/flora/idle_3.png" id="4"]
+[ext_resource type="Texture2D" uid="uid://bogfer7mj5458" path="res://assets/characters/flora/walk_0.png" id="5"]
+[ext_resource type="Texture2D" uid="uid://oxr4w0mln31x" path="res://assets/characters/flora/walk_1.png" id="6"]
+[ext_resource type="Texture2D" uid="uid://opgxc0vw2ot8" path="res://assets/characters/flora/walk_2.png" id="7"]
+[ext_resource type="Texture2D" uid="uid://bdkimnypae2ct" path="res://assets/characters/flora/walk_3.png" id="8"]
+[ext_resource type="Texture2D" uid="uid://h1u3pqjubkdp" path="res://assets/characters/flora/walk_4.png" id="9"]
+[ext_resource type="Texture2D" uid="uid://cqa7xoyk4saub" path="res://assets/characters/flora/walk_5.png" id="10"]
+[ext_resource type="Texture2D" uid="uid://brk83vnxjjv4i" path="res://assets/characters/flora/shoot_0.png" id="11"]
+[ext_resource type="Texture2D" uid="uid://r3ymbnmf2sid" path="res://assets/characters/flora/shoot_1.png" id="12"]
+[ext_resource type="Texture2D" uid="uid://cycl61nl22xj2" path="res://assets/characters/flora/shoot_2.png" id="13"]
+[ext_resource type="Texture2D" uid="uid://cd3jqnm6khinn" path="res://assets/characters/flora/hurt_0.png" id="14"]
+[ext_resource type="Texture2D" uid="uid://btar4yvm7polu" path="res://assets/characters/flora/hurt_1.png" id="15"]
+[ext_resource type="Texture2D" uid="uid://behg6csci7upe" path="res://assets/characters/flora/hurt_2.png" id="16"]
+[ext_resource type="Texture2D" uid="uid://lnoyexovcsoo" path="res://assets/characters/flora/die_0.png" id="17"]
+[ext_resource type="Texture2D" uid="uid://b4qkxu7oaopoq" path="res://assets/characters/flora/die_1.png" id="18"]
+[ext_resource type="Texture2D" uid="uid://xm65x8u1mjl3" path="res://assets/characters/flora/die_2.png" id="19"]
+[ext_resource type="Texture2D" uid="uid://bo44qvjp3lf1g" path="res://assets/characters/flora/die_3.png" id="20"]
 
 [resource]
 animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("17")
+}, {
+"duration": 1.0,
+"texture": ExtResource("18")
+}, {
+"duration": 1.0,
+"texture": ExtResource("19")
+}, {
+"duration": 1.0,
+"texture": ExtResource("20")
+}],
+"loop": 0,
+"name": &"die",
+"speed": 8.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("14")
+}, {
+"duration": 1.0,
+"texture": ExtResource("15")
+}, {
+"duration": 1.0,
+"texture": ExtResource("16")
+}],
+"loop": 0,
+"name": &"hurt",
+"speed": 7.0
+}, {
 "frames": [{
 "duration": 1.0,
 "texture": ExtResource("1")
@@ -36,9 +67,23 @@ animations = [{
 "duration": 1.0,
 "texture": ExtResource("4")
 }],
-"loop": true,
+"loop": 1,
 "name": &"idle",
 "speed": 2.5
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("11")
+}, {
+"duration": 1.0,
+"texture": ExtResource("12")
+}, {
+"duration": 1.0,
+"texture": ExtResource("13")
+}],
+"loop": 0,
+"name": &"shoot",
+"speed": 9.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -59,52 +104,7 @@ animations = [{
 "duration": 1.0,
 "texture": ExtResource("10")
 }],
-"loop": true,
+"loop": 1,
 "name": &"walk",
 "speed": 9.0
-}, {
-"frames": [{
-"duration": 1.0,
-"texture": ExtResource("11")
-}, {
-"duration": 1.0,
-"texture": ExtResource("12")
-}, {
-"duration": 1.0,
-"texture": ExtResource("13")
-}],
-"loop": false,
-"name": &"shoot",
-"speed": 9.0
-}, {
-"frames": [{
-"duration": 1.0,
-"texture": ExtResource("14")
-}, {
-"duration": 1.0,
-"texture": ExtResource("15")
-}, {
-"duration": 1.0,
-"texture": ExtResource("16")
-}],
-"loop": false,
-"name": &"hurt",
-"speed": 7.0
-}, {
-"frames": [{
-"duration": 1.0,
-"texture": ExtResource("17")
-}, {
-"duration": 1.0,
-"texture": ExtResource("18")
-}, {
-"duration": 1.0,
-"texture": ExtResource("19")
-}, {
-"duration": 1.0,
-"texture": ExtResource("20")
-}],
-"loop": false,
-"name": &"die",
-"speed": 8.0
 }]
