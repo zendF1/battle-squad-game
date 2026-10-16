@@ -1,6 +1,7 @@
 extends "res://tests/test_case.gd"
 
 const M := preload("res://screens/home/equipment_model.gd")
+const Art := preload("res://ui/art.gd")
 
 ## Design levels: normal 10/20/30/40, crafted 75 for diamond. Weapons are per character; the
 ## generic Iron/Mithril Blaster are retired (inactive) but owned pieces still need them.
@@ -225,3 +226,41 @@ func test_bonus_lines() -> void:
 	eq(M.bonus_lines(stats), ["Máu +6.040", "Sát thương +1.735", "Phòng thủ +298", "Chí mạng +2.3%"], "older server: battle values only")
 	eq(M.bonus_lines({"fromEquipment": {"maxHp": 0}}), [], "nothing worn")
 	eq(M.bonus_lines(null), [], "no stats")
+
+
+func test_gun_of_weapon_items() -> void:
+	eq(M.gun("rookie_weapon_lv30"), {"kind": "bazooka", "tier": "mithril"}, "rookie lv30")
+	eq(M.gun("tanko_weapon_lv10"), {"kind": "cannon", "tier": "iron"}, "tanko lv10")
+	eq(M.gun("spark_weapon_lv40"), {"kind": "shock_rifle", "tier": "dragon"}, "spark lv40")
+	eq(M.gun("flora_weapon_lv20"), {"kind": "seed_launcher", "tier": "steel"}, "flora lv20")
+	eq(M.gun("crafted_weapon_gold"), {"kind": "blaster", "tier": "gold"}, "crafted gold")
+	eq(M.gun("crafted_weapon_diamond"), {"kind": "blaster", "tier": "diamond"}, "crafted diamond")
+	eq(M.gun("normal_weapon_lv10"), {"kind": "blaster", "tier": "iron"}, "generic lv10")
+	eq(M.gun("", {}, "tanko"), {"kind": "cannon", "tier": "basic"}, "no weapon: the character's basic gun")
+	eq(M.gun("", {}, "nope"), {"kind": "bazooka", "tier": "basic"}, "no weapon, unknown character")
+	var item := {"itemId": "x", "slot": "weapon", "name": "Steel Seed Launcher", "category": "normal"}
+	eq(M.gun("x", item), {"kind": "seed_launcher", "tier": "steel"}, "catalog entry by name")
+	item = {"itemId": "y", "slot": "weapon", "name": "Titan Blaster", "category": "crafted", "tier": "titan"}
+	eq(M.gun("y", item, "spark"), {"kind": "blaster", "tier": "titan"}, "catalog crafted entry")
+	# Every weapon id the server seeds maps to a baked gun.
+	var ids := ["normal_weapon_lv10", "normal_weapon_lv40", "crafted_weapon_silver", "crafted_weapon_titan"]
+	for ch in ["rookie", "tanko", "spark", "flora"]:
+		for lv in [10, 20, 30, 40]:
+			ids.append("%s_weapon_lv%d" % [ch, lv])
+	for id in ids:
+		var g := M.gun(id)
+		check(Art.GUN_KINDS.has(g["kind"]) and Art.GUN_TIERS[g["kind"]].has(g["tier"]), "%s → %s has a sprite" % [id, g])
+
+
+func test_worn_gun() -> void:
+	var owned := [
+		{"equipmentId": "a", "itemId": "rookie_weapon_lv40", "slot": "weapon", "isEquipped": true, "equippedOn": "rookie"},
+		{"equipmentId": "b", "itemId": "normal_helmet_lv10", "slot": "helmet", "isEquipped": true, "equippedOn": "tanko"},
+		{"equipmentId": "c", "itemId": "crafted_weapon_gold", "slot": "weapon", "category": "crafted", "tier": "gold", "isEquipped": false},
+	]
+	eq(M.worn_gun(owned, null, "rookie"), {"kind": "bazooka", "tier": "dragon"}, "rookie wears a Dragon Bazooka")
+	eq(M.worn_gun(owned, null, "tanko"), {"kind": "cannon", "tier": "basic"}, "tanko wears no weapon")
+	eq(M.worn_gun(null, null, "spark"), {"kind": "shock_rifle", "tier": "basic"}, "pieces not loaded")
+	owned[2]["isEquipped"] = true
+	owned[2]["equippedOn"] = "tanko"
+	eq(M.worn_gun(owned, null, "tanko"), {"kind": "blaster", "tier": "gold"}, "moved to tanko")

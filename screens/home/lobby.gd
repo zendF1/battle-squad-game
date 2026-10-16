@@ -118,6 +118,7 @@ static func _grow(anchor: float) -> GrowDirection:
 func _on_visibility_changed() -> void:
 	if is_visible_in_tree():
 		PlayerState.need_characters()
+		PlayerState.need_equipment() # the stage character holds the weapon it wears
 		_render_character() # back from a page: whatever it loaded or bought
 
 

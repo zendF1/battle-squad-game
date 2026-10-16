@@ -1,10 +1,14 @@
 extends Control
 ## A character (scenes/character/character.tscn) fitted into this rect, feet at the bottom
 ## centre over its shadow. `idle` plays the idle animation and adds a gentle hop (the shadow
-## shrinks while the body is up). Used by the lobby stage and the Prep character panel.
+## shrinks while the body is up). It holds the gun of the weapon that character wears
+## (PlayerState owned equipment + catalog, EquipmentModel.worn_gun()): it changes as soon as the
+## owned pieces reload after an equip / unequip / move, and a character not owned (or with no
+## weapon) holds its basic gun. Used by the lobby stage, the Nhân vật page and the Prep panel.
 
 const Art := preload("res://ui/art.gd")
 const CharacterScene := preload("res://scenes/character/character.tscn")
+const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 
 ## The art box in units the rect is fitted to (the art is about 150 units tall).
 const UNITS := Vector2(150, 160)
@@ -15,6 +19,7 @@ const HOP := 5.0 # units
 		character_id = value
 		if _character != null:
 			_character.character_id = value
+			_show_worn_gun()
 
 ## Plays the idle animation and hops (otherwise stands still on its first frame).
 @export var idle := false:
@@ -34,7 +39,15 @@ func _ready() -> void:
 	add_child(_character)
 	set_process(idle)
 	resized.connect(_layout)
+	PlayerState.equipment_changed.connect(_show_worn_gun)
+	_show_worn_gun()
 	_layout()
+
+
+## The gun of the weapon the character wears (its basic gun when none or not loaded).
+func _show_worn_gun() -> void:
+	var g := EquipmentModel.worn_gun(PlayerState.equipment, PlayerState.catalog, character_id)
+	_character.set_weapon(g["kind"], g["tier"])
 
 
 func _process(delta: float) -> void:

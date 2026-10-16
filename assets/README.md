@@ -5,7 +5,7 @@ code (`tools/art/*.gd`) and baked by `tools/bake_art.gd`. `ui/art.gd` is the one
 ids to these paths; a missing file never crashes (a character falls back to rookie, an icon to
 `icons/unknown.png`, anything else to a small grey square, with a warning).
 
-Total about 2.5 MB of PNG.
+Total about 3.2 MB of PNG.
 
 ## Replacing art
 
@@ -17,7 +17,12 @@ Total about 2.5 MB of PNG.
   `characters/<id>/<id>.tres` (SpriteFrames) in the editor and change frames, counts, speed or
   loop flags. The animation names must stay `idle`, `walk`, `shoot`, `hurt`, `die`. If you change
   the canvas size or pivot, update `FRAME_SIZE` / `FRAME_PIVOT` / `PX_PER_UNIT` in `ui/art.gd`
-  and the sprite `offset` in `scenes/character/character.tscn` (= -pivot).
+  and the sprite `offset` in `scenes/character/character.tscn` (= -pivot). The frames draw no
+  gun: replace a frame **and its entry in `characters/<id>/gun_anchors.json`** together (where
+  the hand holds the gun in that frame), and keep one entry per frame.
+- **Guns**: overwrite `weapons/<kind>/<tier>.png` and, when the grip or muzzle moved, its entry
+  in `weapons/weapons.json`. Any canvas size works (the grip pivot places it); draw it at
+  `pxPerUnit` px per art unit (1.6, like the frames) or change `pxPerUnit` (it scales every gun).
 - **9-patches** (`ui/`): keep the corners inside the texture margins listed below
   (`ui/art.gd` `UI_BOXES`), or change the margins there.
 - Import settings: icons, effects and clouds are imported with mipmaps (they are shown smaller
@@ -32,8 +37,9 @@ $GODOT --path . -s tools/bake_art.gd                 # everything
 $GODOT --path . -s tools/bake_art.gd -- icons ui     # only some groups
 ```
 
-Groups: `characters`, `env`, `terrain`, `fx`, `icons`, `ui`, `equipment`. It overwrites the PNGs (and the
-characters' `.tres`), prints each file with its size and quits. Then let the editor import them
+Groups: `characters`, `weapons`, `env`, `terrain`, `fx`, `icons`, `ui`, `equipment`. It overwrites the
+PNGs (and the characters' `.tres` and `gun_anchors.json`, the guns' `weapons.json`), prints each file with
+its size and quits. Then let the editor import them
 (or run `$GODOT --headless --path . --import` while no editor is open). Baking overwrites
 replaced art too: only re-bake the groups you have not replaced.
 
@@ -41,25 +47,53 @@ replaced art too: only re-bake the groups you have not replaced.
 
 ### characters/ (scene: `scenes/character/character.tscn`)
 
-Every character holds its gun: Rookie a bazooka, Tanko a heavy cannon, Spark a shock rifle, Flora a seed launcher.
+The frames draw the character with its hands free (the front arm reaches forward, the hand at the gun's
+grip); the gun is a separate sprite (`weapons/`) the scene draws at the hand, so it changes with the
+equipped weapon.
 
 | File | Size | Notes |
 |---|---|---|
 | `<id>/idle_0..3.png` | 512x400 each | loops, 2.5 fps; upper body breathing |
 | `<id>/walk_0..5.png` | 512x400 each | loops, 9 fps; leg swing, bob, forward lean |
-| `<id>/shoot_0..2.png` | 512x400 each | once, 9 fps; recoil, muzzle flash in frame 0 at the gun's tip (`character_painter.gd` MUZZLES) |
+| `<id>/shoot_0..2.png` | 512x400 each | once, 9 fps; the hand recoils (the muzzle flash is drawn at the gun's muzzle from the anchors' `flash`) |
 | `<id>/hurt_0..2.png` | 512x400 each | once, 7 fps; knocked back, wobble, squint (the red flash is code) |
 | `<id>/die_0..3.png` | 512x400 each | once, 8 fps, holds the last frame; falls on its back (the grey tint is code) |
 | `<id>/<id>.tres` | – | SpriteFrames of the five animations |
+| `<id>/gun_anchors.json` | 2 KB | per animation, one entry per frame: `grip` [x, y] px in the frame (the hand's centre, where the gun's grip goes), `angle` degrees (0 = level, + turns the muzzle down; recoil kick, walk lean, hurt wobble), `front` (gun over the body; `false` in `die`: behind), `flash` 0..1 (muzzle flash) |
 | `<id>/portrait.png` | 128x128 | head and shoulders: Profile and Shop character cards |
 | `shadow.png` | 160x38 | ground shadow under every character, centred on the feet |
+| `hand.png` | 32x32 (0.5 KB) | the hand drawn over the gun's grip, centred on the grip (shared) |
 
-`<id>` is `rookie`, `tanko`, `spark`, `flora` (about 14–34 KB per frame). **Every frame**: canvas
+`<id>` is `rookie`, `tanko`, `spark`, `flora` (about 13–24 KB per frame). **Every frame**: canvas
 512x400, transparent, **feet at pixel (256, 360)** (bottom centre, the same pixel in every frame),
 facing right, drawn at 1.6 px per art unit (the character is about 150 units = 240 px tall).
 The game flips it for facing left. Used by the lobby stage and the Prep panel
 (`ui/character_view.gd`, about 2.5 and 1.5 px per unit) and the match (`match/views/player_view.gd`,
 0.35 px per unit, about 52 px tall, feet on the server position).
+
+### weapons/ (the held guns: `scenes/character/character.gd` Flip/Gun, paths in `ui/art.gd`)
+
+```
+weapons/
+  weapons.json                      grip + muzzle of every sprite, pxPerUnit
+  bazooka/        basic iron steel mithril dragon          (Rookie's guns)
+  cannon/         basic iron steel mithril dragon          (Tanko's)
+  shock_rifle/    basic iron steel mithril dragon          (Spark's)
+  seed_launcher/  basic iron steel mithril dragon          (Flora's)
+  blaster/        basic iron steel mithril dragon silver gold titan diamond   (generic + crafted)
+```
+
+| File | Size | Notes |
+|---|---|---|
+| `<kind>/<tier>.png` | 224x128 (2–13 KB, 29 files) | side view facing right, transparent, drawn at 1.6 px per art unit like the frames; the grip (the hand) at (96, 88). Kind = silhouette, tier = look: `basic` in the character's own gun colours (no weapon equipped), iron/steel/mithril/dragon and silver/gold/titan/diamond in the equipment icons' palettes; mithril, dragon, gold, titan, diamond glow |
+| `weapons.json` | 4 KB | `{"pxPerUnit": 1.6, "guns": {kind: {tier: {"size": [w, h], "grip": [x, y], "muzzle": [x, y]}}}}`, px in the image. `grip` is the pivot (placed on the frame's anchor), `muzzle` is where the flash and the shots start (visual only) |
+
+Which gun: `screens/home/equipment_model.gd` `gun()` maps a weapon item to {kind, tier}
+(`rookie_weapon_lv30` → bazooka/mithril, `crafted_weapon_gold` → blaster/gold, `normal_weapon_lv10` →
+blaster/iron, no weapon → the character's kind/basic). A missing tier falls back to the kind's `basic`, a
+missing kind to `bazooka/basic` (`ui/art.gd` `gun()`). Lobby, Prep and the Nhân vật page show the weapon the
+character wears (`ui/character_view.gd`); the match shows the one each player brought (`weaponItemId`).
+The JSON files are read with `FileAccess` (an export that filters resources must keep `*.json`).
 
 ### env/
 

@@ -28,6 +28,35 @@ const ANIMS := {
 const PORTRAIT_SIZE := Vector2i(128, 128)
 ## The ground shadow under a character (centred on the feet), drawn at PX_PER_UNIT too.
 const SHADOW := ROOT + "characters/shadow.png"
+## The hand drawn over the gun's grip (centred on the grip), shared by every character.
+const HAND := ROOT + "characters/hand.png"
+
+# ── Guns (assets/weapons/) ──────────────────────────────────────────────────
+
+## The gun a character holds is a separate sprite: assets/weapons/<kind>/<tier>.png, side view,
+## facing right; weapons.json gives each sprite's grip pivot and muzzle point (px in the image)
+## and the px per art unit it is drawn at. The frames of each character carry, per animation
+## frame, where the hand holds it (assets/characters/<id>/gun_anchors.json: grip px in the frame,
+## angle in degrees, in front of or behind the body, muzzle flash 0..1).
+## Kind = silhouette, tier = look. `basic` is a character's starter gun (no weapon equipped).
+const GUN_KINDS := ["bazooka", "cannon", "shock_rifle", "seed_launcher", "blaster"]
+const GUN_BASIC := "basic"
+const GUN_NORMAL_TIERS := ["iron", "steel", "mithril", "dragon"]
+const GUN_CRAFTED_TIERS := ["silver", "gold", "titan", "diamond"]
+## The tiers baked per kind: the characters' guns come in the shop tiers, the blaster (generic
+## and crafted weapons) in all of them. A tier not listed falls back to the kind's basic.
+const GUN_TIERS := {
+	"bazooka": [GUN_BASIC, "iron", "steel", "mithril", "dragon"],
+	"cannon": [GUN_BASIC, "iron", "steel", "mithril", "dragon"],
+	"shock_rifle": [GUN_BASIC, "iron", "steel", "mithril", "dragon"],
+	"seed_launcher": [GUN_BASIC, "iron", "steel", "mithril", "dragon"],
+	"blaster": [GUN_BASIC, "iron", "steel", "mithril", "dragon", "silver", "gold", "titan", "diamond"],
+}
+## The gun each character's own weapons are (its basic gun when no weapon is equipped).
+const CHARACTER_GUNS := {"rookie": "bazooka", "tanko": "cannon", "spark": "shock_rifle", "flora": "seed_launcher"}
+## The last fallback: Rookie's starter bazooka.
+const DEFAULT_GUN_KIND := "bazooka"
+const GUNS_DATA := ROOT + "weapons/weapons.json"
 
 # ── Icons (96x96, drawn shapes) ─────────────────────────────────────────────
 
@@ -116,6 +145,8 @@ const UI_BOXES := {
 
 static var _warned := {}
 static var _textures := {} # path -> Texture2D
+static var _guns_data: Variant = null # parsed weapons.json ({} when missing)
+static var _anchors := {} # character id -> {anim: [anchor...]}
 static var _placeholder: Texture2D
 static var _empty_frames: SpriteFrames
 
@@ -135,6 +166,14 @@ static func frames_path(id: String) -> String:
 
 static func portrait_path(id: String) -> String:
 	return ROOT + "characters/%s/portrait.png" % id
+
+
+static func gun_path(kind: String, tier: String) -> String:
+	return ROOT + "weapons/%s/%s.png" % [kind, tier]
+
+
+static func gun_anchors_path(id: String) -> String:
+	return ROOT + "characters/%s/gun_anchors.json" % id
 
 
 static func icon_path(icon_name: String) -> String:
@@ -171,10 +210,11 @@ static func ui_path(box_name: String) -> String:
 
 ## Every file this script names (the test checks they all exist).
 static func all_paths() -> Array[String]:
-	var out: Array[String] = [SHADOW]
+	var out: Array[String] = [SHADOW, HAND, GUNS_DATA]
 	for id in CHARACTERS:
 		out.append(frames_path(id))
 		out.append(portrait_path(id))
+		out.append(gun_anchors_path(id))
 		for anim in ANIMS:
 			for i in int(ANIMS[anim]["frames"]):
 				out.append(frame_path(id, anim, i))
@@ -202,6 +242,9 @@ static func all_paths() -> Array[String]:
 	for frame in EQUIP_FRAMES:
 		out.append(equipment_frame_path(frame))
 	out.append(EQUIP_BADGE)
+	for kind in GUN_KINDS:
+		for tier in GUN_TIERS[kind]:
+			out.append(gun_path(kind, tier))
 	return out
 
 
@@ -331,6 +374,94 @@ static func character_frames(id: String) -> SpriteFrames:
 				_empty_frames.add_animation(anim)
 			_empty_frames.add_frame(anim, placeholder())
 	return _empty_frames
+
+
+# ── Guns ────────────────────────────────────────────────────────────────────
+
+## The sprite of a gun: {kind, tier, texture, grip, muzzle (px in the texture), scale (texture
+## px → character frame px)}. Falls back to the kind's basic, then to Rookie's basic bazooka
+## (a missing file, one not imported yet or no weapons.json entry), then to the placeholder.
+static func gun(kind: String, tier: String) -> Dictionary:
+	for kt in [[kind, tier], [kind, GUN_BASIC], [DEFAULT_GUN_KIND, GUN_BASIC]]:
+		var meta := gun_meta(kt[0], kt[1])
+		var path := gun_path(kt[0], kt[1])
+		if meta.is_empty() or not ResourceLoader.exists(path):
+			continue
+		var t := texture(path)
+		if t == placeholder():
+			continue
+		var data := guns_data()
+		var ppu := float(data.get("pxPerUnit", PX_PER_UNIT))
+		return {"kind": kt[0], "tier": kt[1], "texture": t, "grip": meta["grip"], "muzzle": meta["muzzle"],
+			"scale": PX_PER_UNIT / ppu if ppu > 0.0 else 1.0}
+	_warn(gun_path(kind, tier))
+	return {"kind": DEFAULT_GUN_KIND, "tier": GUN_BASIC, "texture": placeholder(), "grip": Vector2(4, 8),
+		"muzzle": Vector2(16, 8), "scale": 1.0}
+
+
+## weapons.json's entry of a sprite: {grip, muzzle} (Vector2 px), {} when it has none.
+static func gun_meta(kind: String, tier: String) -> Dictionary:
+	var guns = guns_data().get("guns")
+	var e = guns.get(kind, {}).get(tier) if guns is Dictionary and guns.get(kind) is Dictionary else null
+	if not e is Dictionary or not e.get("grip") is Array or not e.get("muzzle") is Array:
+		return {}
+	return {"grip": _vec2(e["grip"]), "muzzle": _vec2(e["muzzle"])}
+
+
+## weapons.json parsed ({} when missing or invalid).
+static func guns_data() -> Dictionary:
+	if _guns_data == null:
+		_guns_data = _load_json(GUNS_DATA)
+	return _guns_data
+
+
+## Where a character holds its gun in each frame: anim -> [{grip (Vector2, px in the frame),
+## angle (degrees, 0 = level, + turns the muzzle down), front (drawn over the body), flash
+## (0..1 muzzle flash)}], one per frame. Falls back to Rookie's, then to a fixed hold.
+static func gun_anchors(id: String) -> Dictionary:
+	id = known_character(id)
+	if _anchors.has(id):
+		return _anchors[id]
+	var out := {}
+	for cid in [id, DEFAULT_CHARACTER]:
+		var data := _load_json(gun_anchors_path(cid))
+		if data.get("anims") is Dictionary:
+			for anim in data["anims"]:
+				var frames: Array = []
+				for a in data["anims"][anim]:
+					if a is Dictionary and a.get("grip") is Array:
+						frames.append({"grip": _vec2(a["grip"]), "angle": float(a.get("angle", 0.0)),
+							"front": bool(a.get("front", true)), "flash": float(a.get("flash", 0.0))})
+				out[anim] = frames
+			break
+	_anchors[id] = out
+	return out
+
+
+## The anchor of frame i of anim (the last frame's when i is past the end; a fixed hold in
+## front of the chest when the character has no anchors).
+static func gun_anchor(id: String, anim: String, i: int) -> Dictionary:
+	var frames: Array = gun_anchors(id).get(anim, [])
+	if frames.is_empty():
+		frames = gun_anchors(id).get("idle", [])
+	if frames.is_empty():
+		return {"grip": FRAME_PIVOT + Vector2(32, -50) * PX_PER_UNIT, "angle": 0.0, "front": true, "flash": 0.0}
+	return frames[clampi(i, 0, frames.size() - 1)]
+
+
+static func _load_json(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		_warn(path)
+		return {}
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if not parsed is Dictionary:
+		push_warning("art: %s is not a JSON object" % path)
+		return {}
+	return parsed
+
+
+static func _vec2(a: Array) -> Vector2:
+	return Vector2(float(a[0]), float(a[1])) if a.size() >= 2 else Vector2.ZERO
 
 
 ## A StyleBoxTexture from assets/ui/<box_name>.png with its texture margins; modulate tints it

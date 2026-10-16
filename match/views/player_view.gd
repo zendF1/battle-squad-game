@@ -1,6 +1,7 @@
 extends Node2D
 ## One player, drawn at its feet (server Position is the first solid pixel under the feet): a
-## team ring, the character (scenes/character/character.tscn: its art and animations), the HP bar, the name
+## team ring, the character (scenes/character/character.tscn: its art and animations) holding the
+## gun of the weapon it brought (weaponItemId → EquipmentModel.gun()), the HP bar, the name
 ## and above it the markers of its active status effects (match/status_effects.gd).
 ## Walking is read from the position changes (prediction or tweens), so callers only move it.
 
@@ -8,6 +9,7 @@ const Status := preload("res://match/status_effects.gd")
 const CharacterScene := preload("res://scenes/character/character.tscn")
 const Art := preload("res://ui/art.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
+const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 
 const BODY := Vector2(28, 40) # server PlayerHeight = 40
 ## px per art unit: the art (about 150 units) stands about 52 px tall over the 28x40 body.
@@ -59,6 +61,11 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_sprite.scale = Vector2.ONE * (ART_SCALE / Art.PX_PER_UNIT)
 	_sprite.show_behind_parent = true
 	_sprite.character_id = str(p.get("characterId", ""))
+	var weapon = p.get("weaponItemId")
+	var weapon_id := str(weapon) if weapon is String else ""
+	var gun := EquipmentModel.gun(weapon_id, EquipmentModel.item_of(PlayerState.catalog, weapon_id) if weapon_id != "" else {},
+		_sprite.character_id)
+	_sprite.set_weapon(gun["kind"], gun["tier"])
 	add_child(_sprite)
 
 	_name = LobbyUi.text(str(p.get("displayName", "")), 20, color.lightened(0.55) if not me else LobbyUi.GOLD, true)
@@ -138,6 +145,25 @@ func face_angle(angle: float) -> void:
 
 func facing() -> int:
 	return _sprite.facing
+
+
+## Points the gun at an aim angle (degrees, 0 right, 90 up), within the arm's reach.
+func aim(angle: float) -> void:
+	_sprite.aim(angle)
+
+
+func clear_aim() -> void:
+	_sprite.clear_aim()
+
+
+## The gun's muzzle, global coordinates (visual only: the server's shot origin is unchanged).
+func muzzle_position() -> Vector2:
+	return _sprite.muzzle_position()
+
+
+## {kind, tier} of the gun held.
+func weapon() -> Dictionary:
+	return _sprite.weapon()
 
 
 ## Recoil and muzzle flash (a shot leaves).

@@ -1,8 +1,10 @@
 extends RefCounted
-## The code-drawn characters (bake source only, not used at runtime): a chibi body, head, eyes,
-## a hat and the character's gun (Rookie bazooka, Tanko cannon, Spark shock rifle, Flora seed
-## launcher), in its own colours. tools/bake_art.gd renders every
-## animation frame and the portrait from here into assets/characters/<id>/.
+## The code-drawn characters (bake source only, not used at runtime): a chibi body, head, eyes and
+## a hat in the character's own colours, hands free: the front arm reaches forward to hold a gun,
+## which is a separate sprite (assets/weapons/, tools/art/weapon_painter.gd) the game draws at
+## the hand. tools/bake_art.gd renders every animation frame and the portrait from here into
+## assets/characters/<id>/, and gun_anchor() gives, per frame, where the hand is (the gun's grip),
+## its angle, front/behind and the muzzle flash (gun_anchors.json).
 ##
 ## The art is drawn in UNITS: feet at the origin, up is -y, facing +x, about ART_HEIGHT units
 ## tall. frame_pose() samples the animations (idle, walk, shoot, hurt, die) the match used to
@@ -12,8 +14,12 @@ const OUTLINE := Color(0.07, 0.07, 0.12)
 const SKIN := Color(1.0, 0.82, 0.66)
 ## Height of the art in units, from the feet to the top of the tallest hat.
 const ART_HEIGHT := 150.0
+## The hand: radius and outline (units).
+const HAND_RADIUS := 6.5
+const HAND_OUTLINE := 3.0
 
-## Per character: body, trim (belt, shoes, hat details), hat, weapon colours, body width.
+## Per character: body, trim (belt, shoes, hat details), hat, weapon (the starter gun's metal,
+## tools/art/weapon_painter.gd), glow colours, body width.
 const LOOKS := {
 	"rookie": {"body": Color(0.25, 0.55, 1.0), "trim": Color(0.16, 0.25, 0.5), "hat": Color(0.36, 0.62, 0.3),
 		"weapon": Color(0.55, 0.6, 0.68), "glow": Color(1.0, 0.75, 0.3), "width": 44.0},
@@ -24,10 +30,12 @@ const LOOKS := {
 	"flora": {"body": Color(0.3, 0.75, 0.5), "trim": Color(0.16, 0.45, 0.3), "hat": Color(1.0, 0.5, 0.7),
 		"weapon": Color(0.6, 0.42, 0.25), "glow": Color(1.0, 0.92, 0.4), "width": 42.0},
 }
-## Where each weapon fires from (units): the shoot flash is drawn here.
-const MUZZLES := {
-	"rookie": Vector2(74, -72), "tanko": Vector2(90, -49), "spark": Vector2(86, -59), "flora": Vector2(84, -61),
+## Where the front hand holds the gun (units, upper body, before recoil): the gun's grip.
+const HOLDS := {
+	"rookie": Vector2(32, -50), "tanko": Vector2(38, -42), "spark": Vector2(31, -47), "flora": Vector2(32, -47),
 }
+## The shoot animation kicks the gun up by this many degrees at the shot (easing out).
+const SHOOT_KICK := 8.0
 
 static var _boxes := {} # [color, radius, outline] -> StyleBoxFlat, so a redraw allocates nothing
 
@@ -72,7 +80,8 @@ static func known_id(id: String) -> String:
 ## +x). pose (all optional):
 ## - bob: units the upper body is lifted (the feet stay put);
 ## - legs: -1..1 leg swing (walking);
-## - recoil: units the weapon is pushed back; flash: 0..1 muzzle flash;
+## - recoil: units the front hand (and the gun it holds) is pushed back; flash: the muzzle flash
+##   (drawn by the game at the gun's muzzle, not here);
 ## - ko: true draws closed (X) eyes; hurt: true squints (> <) with a frown.
 ## Leaves ci's draw transform changed: the caller resets it.
 static func paint(ci: CanvasItem, xform: Transform2D, id: String, pose: Dictionary = {}) -> void:
@@ -93,22 +102,34 @@ static func paint(ci: CanvasItem, xform: Transform2D, id: String, pose: Dictiona
 			_flora_hat(ci, look)
 		_:
 			_rookie_hat(ci, look)
-	var recoil: float = pose.get("recoil", 0.0)
-	ci.draw_set_transform_matrix(upper * Transform2D(0.0, Vector2(-recoil, 0)))
-	match id:
-		"tanko":
-			_tanko_weapon(ci, look)
-		"spark":
-			_spark_weapon(ci, look)
-		"flora":
-			_flora_weapon(ci, look)
-		_:
-			_rookie_weapon(ci, look)
-	var flash: float = pose.get("flash", 0.0)
-	if flash > 0.0:
-		var at: Vector2 = MUZZLES[id]
-		ci.draw_circle(at, 24.0 * flash, Color(look["glow"], 0.4 * flash))
-		ci.draw_circle(at, 13.0 * flash, Color(1.0, 0.95, 0.6, 0.9 * flash))
+	_front_arm(ci, look, hand(id, pose))
+
+
+## The front hand (units, upper body space): HOLDS pushed back by the pose's recoil.
+static func hand(id: String, pose: Dictionary = {}) -> Vector2:
+	return HOLDS[known_id(id)] - Vector2(float(pose.get("recoil", 0.0)), 0.0)
+
+
+## Where the gun is held in frame i of n of anim, drawn like paint_frame(feet, scale): {grip
+## (ci px, the hand's centre), angle (degrees, + turns the muzzle down), front (the gun is drawn
+## over the body), flash (0..1 muzzle flash)}.
+static func gun_anchor(feet: Vector2, scale: float, id: String, anim: String, i: int, n: int) -> Dictionary:
+	var fp := frame_pose(anim, i, n)
+	var pose: Dictionary = fp["pose"]
+	var xform := Transform2D(fp["rot"], Vector2(scale, scale), 0.0, feet + fp["offset"] * scale)
+	var upper := xform * Transform2D(0.0, Vector2(0, -float(pose.get("bob", 0.0))))
+	var angle := rad_to_deg(float(fp["rot"]))
+	if anim == "shoot":
+		var k := 1.0 - float(i) / n
+		angle -= SHOOT_KICK * k * k
+	return {"grip": upper * hand(id, pose), "angle": angle, "front": anim != "die", "flash": float(pose.get("flash", 0.0))}
+
+
+## The hand drawn over the gun's grip (assets/characters/hand.png), centred on c.
+static func paint_hand(ci: CanvasItem, c: Vector2, scale: float) -> void:
+	ci.draw_set_transform(c, 0.0, Vector2(scale, scale))
+	_circle(ci, Vector2.ZERO, HAND_RADIUS, SKIN, HAND_OUTLINE)
+	ci.draw_set_transform(Vector2.ZERO)
 
 
 ## Legs and shoes; swing moves them apart (one forward and raised, one back).
@@ -129,10 +150,9 @@ static func _body(ci: CanvasItem, look: Dictionary, ko: bool, hurt: bool = false
 	_rect(ci, Rect2(-w / 2, -74, w, 48), look["body"], 14)
 	_rect(ci, Rect2(-w / 2 + 2, -40, w - 4, 7), look["trim"], 3, 0.0)
 	_rect(ci, Rect2(-5, -42, 10, 11), look["glow"], 3, 2.0)
-	# Arms.
+	# The back arm hangs (the front one holds the gun: _front_arm()).
 	_rect(ci, Rect2(-w / 2 - 11, -70, 13, 32), look["body"].darkened(0.1), 6)
-	_rect(ci, Rect2(w / 2 - 2, -70, 13, 32), look["body"].darkened(0.1), 6)
-	_circle(ci, Vector2(-w / 2 - 4.5, -38), 6.5, SKIN)
+	_circle(ci, Vector2(-w / 2 - 4.5, -38), HAND_RADIUS, SKIN)
 	# Head.
 	_circle(ci, Vector2(0, -102), 30, SKIN)
 	for x in [-11.0, 11.0]:
@@ -155,19 +175,22 @@ static func _body(ci: CanvasItem, look: Dictionary, ko: bool, hurt: bool = false
 	ci.draw_circle(Vector2(21, -91), 4.0, Color(1, 0.5, 0.5, 0.45))
 
 
+## The front arm from the shoulder to the hand holding the gun, and the hand.
+static func _front_arm(ci: CanvasItem, look: Dictionary, at: Vector2) -> void:
+	var shoulder := Vector2(look["width"] / 2 - 3, -64)
+	var sleeve: Color = look["body"].darkened(0.1)
+	ci.draw_line(shoulder, at, OUTLINE, 13.0 + 6.0, true)
+	ci.draw_circle(shoulder, (13.0 + 6.0) / 2, OUTLINE)
+	ci.draw_line(shoulder, at, sleeve, 13.0, true)
+	ci.draw_circle(shoulder, 13.0 / 2, sleeve)
+	_circle(ci, at, HAND_RADIUS, SKIN, HAND_OUTLINE)
+
+
 ## A cap.
 static func _rookie_hat(ci: CanvasItem, look: Dictionary) -> void:
 	_polygon(ci, [Vector2(-31, -110), Vector2(-26, -128), Vector2(-8, -137), Vector2(14, -136), Vector2(29, -122), Vector2(31, -110)], look["hat"])
 	_rect(ci, Rect2(10, -114, 34, 7), look["hat"].darkened(0.2), 3)
 	ci.draw_circle(Vector2(0, -128), 4.0, look["glow"])
-
-
-## A short bazooka over the right shoulder, pointing forward.
-static func _rookie_weapon(ci: CanvasItem, look: Dictionary) -> void:
-	_rect(ci, Rect2(6, -80, 62, 16), look["weapon"], 7)
-	_rect(ci, Rect2(60, -82, 12, 20), look["weapon"].darkened(0.25), 4)
-	_rect(ci, Rect2(28, -68, 8, 14), look["weapon"].darkened(0.3), 3)
-	_circle(ci, Vector2(33, -52), 6.5, SKIN)
 
 
 ## A helmet.
@@ -177,34 +200,11 @@ static func _tanko_hat(ci: CanvasItem, look: Dictionary) -> void:
 	_rect(ci, Rect2(-4, -143, 8, 24), look["hat"].lightened(0.2), 3, 0.0)
 
 
-## A heavy two-handed cannon held low across the body.
-static func _tanko_weapon(ci: CanvasItem, look: Dictionary) -> void:
-	_rect(ci, Rect2(-6, -62, 88, 26), look["weapon"], 9)
-	_rect(ci, Rect2(72, -66, 16, 34), look["weapon"].darkened(0.3), 5)
-	_rect(ci, Rect2(10, -58, 30, 6), look["glow"], 2, 0.0)
-	_rect(ci, Rect2(4, -38, 14, 12), look["weapon"].darkened(0.2), 3)
-	_circle(ci, Vector2(36, -36), 7.0, SKIN)
-
-
 ## Spiky hair.
 static func _spark_hat(ci: CanvasItem, look: Dictionary) -> void:
 	_polygon(ci, [Vector2(-31, -104), Vector2(-38, -126), Vector2(-20, -122), Vector2(-16, -146), Vector2(-2, -128),
 		Vector2(8, -150), Vector2(14, -126), Vector2(34, -136), Vector2(28, -116), Vector2(33, -104), Vector2(20, -118),
 		Vector2(0, -114), Vector2(-20, -118)], look["hat"])
-
-
-## A shock rifle held at the chest: stock, body, barrel with glowing coils, an energy tank.
-static func _spark_weapon(ci: CanvasItem, look: Dictionary) -> void:
-	var metal: Color = look["weapon"]
-	_polygon(ci, [Vector2(-4, -64), Vector2(14, -66), Vector2(14, -52), Vector2(-2, -46)], look["trim"])
-	_rect(ci, Rect2(10, -68, 52, 16), metal, 6)
-	_rect(ci, Rect2(58, -63, 26, 8), metal.darkened(0.3), 3)
-	for x in [64.0, 71.0, 78.0]:
-		_rect(ci, Rect2(x, -66, 4, 14), look["glow"], 2, 2.0)
-	_rect(ci, Rect2(22, -80, 26, 12), look["glow"], 5)
-	_polygon(ci, [Vector2(37, -79), Vector2(31, -73), Vector2(35, -73), Vector2(32, -69), Vector2(40, -75), Vector2(36, -75)], Color(1, 1, 0.6), 1.5)
-	_rect(ci, Rect2(26, -54, 8, 12), metal.darkened(0.3), 3)
-	_circle(ci, Vector2(31, -46), 6.5, SKIN)
 
 
 ## Leafy hair with a flower.
@@ -215,20 +215,6 @@ static func _flora_hat(ci: CanvasItem, look: Dictionary) -> void:
 	for i in 5:
 		_circle(ci, c + Vector2.from_angle(TAU * i / 5.0) * 9.0, 7.0, look["hat"], 2.0)
 	_circle(ci, c, 5.0, look["glow"], 2.0)
-
-
-## A seed launcher: a wide wooden tube with a flared bell, a round hopper with a seed on top.
-static func _flora_weapon(ci: CanvasItem, look: Dictionary) -> void:
-	var wood: Color = look["weapon"]
-	var seed_c := Color(0.45, 0.85, 0.4)
-	_rect(ci, Rect2(4, -71, 66, 20), wood, 9)
-	_polygon(ci, [Vector2(66, -72), Vector2(84, -78), Vector2(84, -44), Vector2(66, -50)], wood.darkened(0.25))
-	_rect(ci, Rect2(44, -73, 6, 24), seed_c.darkened(0.3), 2)
-	_circle(ci, Vector2(28, -78), 11.0, wood.darkened(0.15))
-	_circle(ci, Vector2(28, -80), 6.5, seed_c, 2.0)
-	_polygon(ci, [Vector2(6, -70), Vector2(-6, -86), Vector2(14, -78)], seed_c, 2.0)
-	_rect(ci, Rect2(28, -54, 8, 12), wood.darkened(0.3), 3)
-	_circle(ci, Vector2(33, -46), 6.5, SKIN)
 
 
 static func _rect(ci: CanvasItem, r: Rect2, color: Color, radius: float, outline: float = 3.0) -> void:

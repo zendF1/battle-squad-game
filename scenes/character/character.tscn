@@ -18,3 +18,16 @@ animation = &"idle"
 autoplay = "idle"
 centered = false
 offset = Vector2(-256, -360)
+
+[node name="Gun" type="Node2D" parent="Flip"]
+
+[node name="Sprite" type="Sprite2D" parent="Flip/Gun"]
+texture_filter = 2
+centered = false
+
+[node name="Hand" type="Sprite2D" parent="Flip/Gun"]
+texture_filter = 2
+
+[node name="Flash" type="Sprite2D" parent="Flip/Gun"]
+visible = false
+texture_filter = 2

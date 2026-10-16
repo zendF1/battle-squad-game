@@ -19,6 +19,7 @@ extends RefCounted
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
 const Fmt := preload("res://core/fmt.gd")
+const Art := preload("res://ui/art.gd")
 
 ## Display order (the Nhân vật page's slots, filters, sorting).
 const SLOTS := ["helmet", "armor", "gloves", "pants", "boots", "weapon"]
@@ -43,6 +44,9 @@ const TYPE_WORDS := {
 ## The gun each character fires (its weapons' icon); generic and crafted weapons are blasters ("").
 const WEAPON_KINDS := {"rookie": "bazooka", "tanko": "cannon", "spark": "rifle", "flora": "launcher"}
 const KIND_OF_TYPE := {"bazooka": "bazooka", "cannon": "cannon", "shock rifle": "rifle", "seed launcher": "launcher"}
+## The held gun sprite (ui/art.gd GUN_KINDS) of a weapon_kind() icon kind; "" (generic and
+## crafted weapons) is the blaster.
+const GUN_OF_KIND := {"bazooka": "bazooka", "cannon": "cannon", "rifle": "shock_rifle", "launcher": "seed_launcher", "": "blaster"}
 ## key: the catalog field; point: the statMultipliers / stats.equipmentPoints key ("" for crit);
 ## unit "%" for the crit chance; total: the stats.fromEquipment field.
 const STATS := [
@@ -170,6 +174,44 @@ static func weapon_kind(item: Dictionary) -> String:
 	if words.size() >= 2:
 		return str(KIND_OF_TYPE.get(" ".join(words.slice(1)), ""))
 	return ""
+
+
+## The gun a character holds (character.gd set_weapon()): {kind, tier} of the weapon item
+## `item_id` (its catalog entry `item` when known, else read from the id:
+## <character>_weapon_lvN → that character's gun in the lvN tier, crafted_weapon_<tier> and
+## normal_weapon_lvN → the blaster), or the character's basic gun for "" (no weapon).
+## rookie_weapon_lv30 → bazooka/mithril, crafted_weapon_gold → blaster/gold, normal_weapon_lv10 →
+## blaster/iron, "" for Tanko → cannon/basic.
+static func gun(item_id: String, item: Dictionary = {}, character_id: String = "") -> Dictionary:
+	if item_id == "" and item.is_empty():
+		return {"kind": str(Art.CHARACTER_GUNS.get(character_id, Art.DEFAULT_GUN_KIND)), "tier": Art.GUN_BASIC}
+	var it := item if not item.is_empty() else weapon_from_id(item_id)
+	return {"kind": str(GUN_OF_KIND.get(weapon_kind(it), "blaster")), "tier": tier(it)}
+
+
+## A stand-in catalog entry for a weapon id the catalog does not give: {itemId, slot, category,
+## characterId?, tier?}.
+static func weapon_from_id(item_id: String) -> Dictionary:
+	var out := {"itemId": item_id, "slot": "weapon", "category": "normal"}
+	if item_id.begins_with("crafted_"):
+		out["category"] = "crafted"
+		var t := item_id.get_slice("_", item_id.get_slice_count("_") - 1)
+		if TIER_WORDS.has(t):
+			out["tier"] = t
+		return out
+	var owner := item_id.get_slice("_", 0)
+	if WEAPON_KINDS.has(owner) and item_id.begins_with(owner + "_weapon_"):
+		out["characterId"] = owner
+	return out
+
+
+## The gun `character_id` holds outside a match: the weapon it wears among the owned pieces
+## (catalog for its entry), its basic gun when none (or the pieces are not loaded).
+static func worn_gun(owned: Variant, catalog: Variant, character_id: String) -> Dictionary:
+	var piece: Dictionary = worn(owned, character_id).get("weapon", {})
+	if piece.is_empty():
+		return gun("", {}, character_id)
+	return gun(str(piece.get("itemId", "")), item_of(catalog, str(piece.get("itemId", ""))), character_id)
 
 
 ## "+3" (the upgrade badge; "+0" for a new piece).

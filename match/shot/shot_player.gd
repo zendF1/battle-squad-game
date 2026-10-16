@@ -1,19 +1,27 @@
 extends Node
 ## Replays one ShotResolved: moves projectile views along the server paths and emits each
 ## timeline event when its time comes. Driven by frame delta, so it is smooth at any FPS.
+## `muzzle` (layer coordinates, set before play()) makes the projectiles that leave near it start
+## drawn at the gun's muzzle and blend into the server path over SPAWN_BLEND seconds (visual
+## only: the path and its events are unchanged).
 
 signal event_due(event: Dictionary)
 signal finished
 
 const ProjectileView := preload("res://match/views/projectile_view.gd")
+const SPAWN_BLEND := 0.15 # s
+const SPAWN_NEAR := 90.0 # px: a path starting farther from the muzzle (air strike) is not moved
 
 var layer: Node2D
 ## How this shot's projectiles look: ProjectileView.style_for() {kind, skill, item}; set before play().
 var style := {}
+## Where the shooter's gun muzzle is (layer coordinates), or null; used by the next play() only.
+var muzzle: Variant = null
 
 var _timeline
 var _t := 0.0
 var _views: Array = []
+var _spawn_offsets: Array = [] # per projectile: muzzle - path start (or zero)
 
 
 func is_playing() -> bool:
@@ -24,14 +32,30 @@ func play(timeline) -> void:
 	stop()
 	_timeline = timeline
 	_t = 0.0
+	_spawn_offsets.clear()
 	for i in timeline.projectiles.size():
+		var offset := Vector2.ZERO
+		if muzzle is Vector2:
+			offset = muzzle - timeline.sample(i, 0.0)
+			if offset.length() > SPAWN_NEAR:
+				offset = Vector2.ZERO
+		_spawn_offsets.append(offset)
 		var view := ProjectileView.new()
 		view.kind = str(style.get("kind", "rookie"))
 		view.skill = bool(style.get("skill", false))
 		view.item = str(style.get("item", ""))
-		view.position = timeline.sample(i, 0.0)
+		view.position = timeline.sample(i, 0.0) + _spawn_offsets[i]
 		layer.add_child(view)
 		_views.append(view)
+	muzzle = null
+
+
+## How far projectile i is drawn off its path at time t: the muzzle offset easing out.
+func spawn_offset(i: int, t: float) -> Vector2:
+	if i >= _spawn_offsets.size():
+		return Vector2.ZERO
+	var k := clampf(1.0 - t / SPAWN_BLEND, 0.0, 1.0)
+	return _spawn_offsets[i] * k * k
 
 
 ## Drops the replay without emitting the remaining events (a full snapshot replaces it).
@@ -55,7 +79,7 @@ func _process(delta: float) -> void:
 			view.queue_free()
 			_views[i] = null
 		else:
-			view.position = _timeline.sample(i, _t)
+			view.position = _timeline.sample(i, _t) + spawn_offset(i, _t)
 	var timeline = _timeline
 	for event in timeline.pop_due(_t):
 		event_due.emit(event)

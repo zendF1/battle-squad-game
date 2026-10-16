@@ -1,0 +1,202 @@
+{
+	"frameSize": [
+		512,
+		400
+	],
+	"pivot": [
+		256.0,
+		360.0
+	],
+	"anims": {
+		"idle": [
+			{
+				"grip": [
+					307.2,
+					278.0
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					307.2,
+					276.0
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					307.2,
+					278.0
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					307.2,
+					280.0
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.0
+			}
+		],
+		"walk": [
+			{
+				"grip": [
+					311.9,
+					283.2
+				],
+				"angle": 3.44,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					312.2,
+					277.7
+				],
+				"angle": 3.44,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					312.2,
+					277.7
+				],
+				"angle": 3.44,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					311.9,
+					283.2
+				],
+				"angle": 3.44,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					312.2,
+					277.7
+				],
+				"angle": 3.44,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					312.2,
+					277.7
+				],
+				"angle": 3.44,
+				"front": true,
+				"flash": 0.0
+			}
+		],
+		"shoot": [
+			{
+				"grip": [
+					278.2,
+					276.0
+				],
+				"angle": -12.58,
+				"front": true,
+				"flash": 1.0
+			},
+			{
+				"grip": [
+					292.8,
+					276.0
+				],
+				"angle": -6.61,
+				"front": true,
+				"flash": 0.26
+			},
+			{
+				"grip": [
+					302.5,
+					276.8
+				],
+				"angle": -2.42,
+				"front": true,
+				"flash": 0.0
+			}
+		],
+		"hurt": [
+			{
+				"grip": [
+					273.6,
+					273.8
+				],
+				"angle": -7.75,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					291.9,
+					280.2
+				],
+				"angle": 0.24,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					302.7,
+					283.1
+				],
+				"angle": 3.27,
+				"front": true,
+				"flash": 0.0
+			}
+		],
+		"die": [
+			{
+				"grip": [
+					233.8,
+					248.0
+				],
+				"angle": -46.16,
+				"front": false,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					193.1,
+					257.2
+				],
+				"angle": -74.09,
+				"front": false,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					178.6,
+					267.7
+				],
+				"angle": -87.19,
+				"front": false,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					176.0,
+					270.4
+				],
+				"angle": -90.0,
+				"front": false,
+				"flash": 0.0
+			}
+		]
+	}
+}

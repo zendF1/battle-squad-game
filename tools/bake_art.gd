@@ -5,8 +5,9 @@ extends SceneTree
 ##
 ##   $GODOT --path . -s tools/bake_art.gd [-- <group> ...]
 ##
-## Groups: characters, env, terrain, fx, icons, ui, equipment (default: all). It overwrites the PNGs (and the
-## characters' SpriteFrames .tres), prints every file it wrote and quits. Then import them once
+## Groups: characters, weapons, env, terrain, fx, icons, ui, equipment (default: all). It
+## overwrites the PNGs (and the characters' SpriteFrames .tres and gun_anchors.json, the guns'
+## weapons.json), prints every file it wrote and quits. Then import them once
 ## (editor, or `$GODOT --headless --path . --import`) so the .import files exist. An existing
 ## .import file is never touched, so import settings changed in the editor survive a re-bake.
 ##
@@ -21,8 +22,9 @@ const TerrainPainter := preload("res://tools/art/terrain_painter.gd")
 const IconPainter := preload("res://tools/art/icon_painter.gd")
 const UiPainter := preload("res://tools/art/ui_painter.gd")
 const EquipmentPainter := preload("res://tools/art/equipment_painter.gd")
+const WeaponPainter := preload("res://tools/art/weapon_painter.gd")
 
-const GROUPS := ["characters", "env", "terrain", "fx", "icons", "ui", "equipment"]
+const GROUPS := ["characters", "weapons", "env", "terrain", "fx", "icons", "ui", "equipment"]
 ## Shown much smaller than drawn (icons on buttons, effects, clouds): mipmapped. The characters
 ## are not: plain linear filtering keeps the small match bodies sharper.
 const MIPMAPPED := ["fx", "icons", "env/cloud"]
@@ -131,6 +133,7 @@ func _bake_characters() -> void:
 				used = r if used.size == Vector2i.ZERO else used.merge(r)
 				_save(img, Art.frame_path(id, anim, i))
 		print("  %s: art inside %s of %s (pivot %s)" % [id, used, Art.FRAME_SIZE, Art.FRAME_PIVOT])
+		_write_anchors(id)
 		# Portrait: head and shoulders, centred on the head.
 		var portrait: Image = await _render(Art.PORTRAIT_SIZE, func(ci: CanvasItem) -> void:
 			var s := Art.PORTRAIT_SIZE.x / 112.0
@@ -140,6 +143,56 @@ func _bake_characters() -> void:
 		_write_frames(id)
 	var shadow_size := Vector2i(FxPainter.SHADOW_UNITS * k)
 	_save(await _render(shadow_size, func(ci: CanvasItem) -> void: FxPainter.shadow(ci, Vector2(shadow_size))), Art.SHADOW)
+	_save(await _render(HAND_SIZE, func(ci: CanvasItem) -> void: CharacterPainter.paint_hand(ci, Vector2(HAND_SIZE) / 2, k)), Art.HAND)
+
+
+## The hand overlay's canvas (the hand centred).
+const HAND_SIZE := Vector2i(32, 32)
+
+
+## Where each frame holds the gun (ui/art.gd gun_anchors()): grip px in the frame, angle in
+## degrees, front, muzzle flash.
+func _write_anchors(id: String) -> void:
+	var anims := {}
+	for anim in Art.ANIMS:
+		var n: int = Art.ANIMS[anim]["frames"]
+		var frames: Array = []
+		for i in n:
+			var a := CharacterPainter.gun_anchor(Art.FRAME_PIVOT, Art.PX_PER_UNIT, id, anim, i, n)
+			frames.append({"grip": [snappedf(a["grip"].x, 0.1), snappedf(a["grip"].y, 0.1)], "angle": snappedf(a["angle"], 0.01),
+				"front": a["front"], "flash": snappedf(a["flash"], 0.01)})
+		anims[anim] = frames
+	var data := {"frameSize": [Art.FRAME_SIZE.x, Art.FRAME_SIZE.y], "pivot": [Art.FRAME_PIVOT.x, Art.FRAME_PIVOT.y], "anims": anims}
+	_write_text(Art.gun_anchors_path(id), JSON.stringify(data, "\t", false) + "\n")
+
+
+func _write_text(path: String, text: String) -> void:
+	var abs_path := ProjectSettings.globalize_path(path)
+	DirAccess.make_dir_recursive_absolute(abs_path.get_base_dir())
+	var f := FileAccess.open(abs_path, FileAccess.WRITE)
+	f.store_string(text)
+	f.close()
+	_written.append([path, text.length()])
+	print("  %s  %.1f KB" % [path, text.length() / 1024.0])
+
+
+## Every gun sprite (Art.GUN_TIERS) and weapons.json with their grip and muzzle points.
+func _bake_weapons() -> void:
+	var k := Art.PX_PER_UNIT
+	var guns := {}
+	for kind in Art.GUN_KINDS:
+		guns[kind] = {}
+		var pts := WeaponPainter.points(kind, k)
+		for tier in Art.GUN_TIERS[kind]:
+			var img: Image = await _render(WeaponPainter.SIZE, func(ci: CanvasItem) -> void: WeaponPainter.paint(ci, kind, tier, k))
+			var used := img.get_used_rect()
+			if used.position.x <= 0 or used.position.y <= 0 or used.end.x >= img.get_width() or used.end.y >= img.get_height():
+				push_warning("bake_art: %s %s touches the canvas edge (%s)" % [kind, tier, used])
+			_save(img, Art.gun_path(kind, tier))
+			guns[kind][tier] = {"size": [img.get_width(), img.get_height()], "grip": [pts["grip"].x, pts["grip"].y],
+				"muzzle": [snappedf(pts["muzzle"].x, 0.1), snappedf(pts["muzzle"].y, 0.1)]}
+	var data := {"pxPerUnit": k, "guns": guns}
+	_write_text(Art.GUNS_DATA, JSON.stringify(data, "\t", false) + "\n")
 
 
 ## The character's SpriteFrames: one animation per Art.ANIMS entry, its frames in order.

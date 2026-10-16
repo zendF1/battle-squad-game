@@ -95,6 +95,7 @@ func _ready() -> void:
 	_aim.fire.connect(_on_fire)
 	_aim.aim_changed.connect(_hud.set_aim)
 	_aim.aim_changed.connect(_face_aim)
+	_aim.aim_cleared.connect(_clear_my_aim)
 	_aim.column_changed.connect(_hud.set_column)
 	_shot_player.event_due.connect(_on_shot_event)
 	_shot_player.finished.connect(_on_shot_finished)
@@ -297,6 +298,8 @@ func _apply(event: String, data: Variant) -> void:
 				if _players.has(id):
 					_players[id]["skillEnergy"] = energies[id]
 			_hud.set_time(TURN_SECONDS)
+			for view in _views.values():
+				view.clear_aim() # guns back to the animation's hold
 			_set_current(str(data.get("currentPlayerId", "")), int(data.get("moveEnergy", 0)))
 		"TurnTimerTick":
 			_hud.set_time(int(data.get("timeLeft", 0)))
@@ -433,6 +436,8 @@ func _on_shot_event(e: Dictionary) -> void:
 
 
 func _on_shot_finished() -> void:
+	for view in _views.values():
+		view.clear_aim()
 	while not _deferred.is_empty() and not _shot_player.is_playing():
 		var item: Array = _deferred.pop_front()
 		_apply(item[0], item[1])
@@ -653,20 +658,36 @@ func _popup(id: String, text: String, color: Color) -> void:
 
 # ── Visual only (no game state) ──────────────────────────────────────────────
 
-## My character turns to the side I aim at.
+## My character turns to the side I aim at and points its gun there.
 func _face_aim(angle: float, _power: float) -> void:
 	if _views.has(_me):
 		_views[_me].face_angle(angle)
+		_views[_me].aim(angle)
 
 
-## The shooter turns towards where its first projectile leaves and plays its shoot animation.
+func _clear_my_aim() -> void:
+	if _views.has(_me):
+		_views[_me].clear_aim()
+
+
+## The shooter turns towards where its first projectile leaves, points its gun along it and
+## plays its shoot animation; the projectiles are drawn leaving from the muzzle (ShotPlayer).
+## A shot that does not start at the shooter (air strike from the sky) only plays the animation.
 func _show_shooting(shooter: String, timeline) -> void:
 	if not _views.has(shooter) or timeline.projectiles.is_empty():
 		return
-	var d: Vector2 = timeline.sample(0, 0.05) - timeline.sample(0, 0.0)
-	if absf(d.x) > 0.5:
-		_views[shooter].face(d.x)
-	_views[shooter].shoot()
+	var view = _views[shooter]
+	var start: Vector2 = timeline.sample(0, 0.0)
+	var d: Vector2 = timeline.sample(0, 0.05) - start
+	var near := start.distance_to(view.position) <= ShotPlayer.SPAWN_NEAR
+	if near:
+		if absf(d.x) > 0.5:
+			view.face(d.x)
+		if d.length() > 0.01:
+			view.aim(rad_to_deg(atan2(-d.y, d.x)))
+	view.shoot()
+	if near:
+		_shot_player.muzzle = _fx_layer.to_local(view.muzzle_position()) # the recoiled gun's
 
 
 func _show_wind() -> void:

@@ -10,6 +10,7 @@ extends Node2D
 ## still cancels.
 
 signal aim_changed(angle: float, power: float)
+signal aim_cleared # a drag ended without a shot (cancelled, or aiming was turned off)
 signal column_changed(x: float) # column mode (air_strike): the drop column under the pointer
 signal fire(angle: float, power: float)
 signal fire_column(target_x: float)
@@ -123,12 +124,15 @@ func _release() -> void:
 	var shoot := _power >= MIN_POWER and not _in_cancel
 	var angle := _angle
 	var power := _power
-	_reset()
+	_reset(not shoot)
 	if shoot:
 		fire.emit(angle, power)
 
 
-func _reset() -> void:
+## cleared: emit aim_cleared when a slingshot drag was running.
+func _reset(cleared: bool = true) -> void:
+	if _dragging and cleared and not target_column:
+		aim_cleared.emit()
 	_dragging = false
 	_in_cancel = false
 	for line in _lines:

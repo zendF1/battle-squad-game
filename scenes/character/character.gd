@@ -5,6 +5,13 @@ extends Node2D
 ## is a tint or a tween: the red hurt flash and the grey of a knocked-out character.
 ## Set `scale` for the size: Art.PX_PER_UNIT px per art unit at scale 1 (the art is about 150
 ## units tall), e.g. 0.35 / Art.PX_PER_UNIT for the ~52 px match body.
+##
+## The gun is its own sprite (Flip/Gun: the gun, the hand over its grip, the muzzle flash):
+## set_weapon(kind, tier) picks it (ui/art.gd gun(); the character's basic gun until then). Each
+## frame's gun anchor (assets/characters/<id>/gun_anchors.json) places its grip, angle, front /
+## behind the body and the muzzle flash, so the gun follows every animation. aim() turns it to
+## an aim angle (within the arm's reach) until clear_aim(); muzzle_position() is where shots
+## start (visual only).
 ## Used by the lobby and Prep (ui/character_view.gd) and the match (match/views/player_view.gd).
 
 const Art := preload("res://ui/art.gd")
@@ -13,6 +20,12 @@ const HURT_FLASH_SEC := 0.45
 const HURT_TINT := Color(1, 0.35, 0.35)
 const DEAD_TINT := Color(0.55, 0.55, 0.6)
 const DEAD_SHADOW := 1.45 # the shadow widens under a body lying down
+## How far the arm turns the gun: degrees above (+) / below (-) level, towards the facing side.
+const AIM_UP := 70.0
+const AIM_DOWN := -35.0
+## The muzzle flash (fx/common/muzzle.png) size in frame px at full flash, and its tint.
+const FLASH_PX := 84.0
+const FLASH_TINT := Color(1.0, 0.92, 0.65)
 
 @export var character_id := Art.DEFAULT_CHARACTER:
 	set(value):
@@ -25,29 +38,43 @@ var facing := 1:
 		facing = value
 		if is_node_ready():
 			_flip.scale.x = facing
+			_update_gun()
 
 var _walking := false
 var _dead := false
 var _hurt_left := 0.0
+var _weapon_kind := "" # "" = the character's basic gun
+var _weapon_tier := ""
+var _gun := {} # Art.gun() of the gun shown
+var _aiming := false
+var _aim_up := 0.0 # degrees above level towards the facing side, clamped
 
 @onready var _flip: Node2D = $Flip
 @onready var _sprite: AnimatedSprite2D = $Flip/Sprite
 @onready var _shadow: Sprite2D = $Shadow
+@onready var _gun_node: Node2D = $Flip/Gun
+@onready var _gun_sprite: Sprite2D = $Flip/Gun/Sprite
+@onready var _hand: Sprite2D = $Flip/Gun/Hand
+@onready var _flash: Sprite2D = $Flip/Gun/Flash
 
 
 func _ready() -> void:
 	_shadow.texture = Art.texture(Art.SHADOW)
+	_hand.texture = Art.texture(Art.HAND)
+	_flash.texture = Art.fx("muzzle")
 	_flip.scale.x = facing
 	_sprite.animation_finished.connect(_on_animation_finished)
+	_sprite.frame_changed.connect(_update_gun)
+	_sprite.animation_changed.connect(_update_gun)
 	_apply_frames()
 
 
 func _process(delta: float) -> void:
 	_hurt_left = maxf(0.0, _hurt_left - delta)
-	if _dead:
-		_sprite.self_modulate = DEAD_TINT
-	else:
-		_sprite.self_modulate = Color.WHITE.lerp(HURT_TINT, _hurt_left / HURT_FLASH_SEC)
+	var tint := DEAD_TINT if _dead else Color.WHITE.lerp(HURT_TINT, _hurt_left / HURT_FLASH_SEC)
+	_sprite.self_modulate = tint
+	_gun_sprite.self_modulate = tint
+	_hand.self_modulate = tint
 
 
 func _apply_frames() -> void:
@@ -60,6 +87,90 @@ func _apply_frames() -> void:
 	if _dead:
 		_sprite.play("die")
 		_sprite.frame = _sprite.sprite_frames.get_frame_count("die") - 1
+	_apply_gun()
+
+
+## The gun held: kind (Art.GUN_KINDS) and tier (Art.GUN_TIERS; a missing one falls back to the
+## kind's basic). "" for kind: the character's own basic gun.
+func set_weapon(kind: String, tier: String = Art.GUN_BASIC) -> void:
+	_weapon_kind = kind
+	_weapon_tier = tier
+	if is_node_ready():
+		_apply_gun()
+
+
+## {kind, tier} of the gun shown (after the fallbacks).
+func weapon() -> Dictionary:
+	return {"kind": str(_gun.get("kind", "")), "tier": str(_gun.get("tier", ""))}
+
+
+func _apply_gun() -> void:
+	var kind := _weapon_kind
+	var tier := _weapon_tier
+	if kind == "":
+		kind = str(Art.CHARACTER_GUNS.get(character_id, Art.DEFAULT_GUN_KIND))
+		tier = Art.GUN_BASIC
+	_gun = Art.gun(kind, tier)
+	_gun_sprite.texture = _gun["texture"]
+	_gun_sprite.scale = Vector2.ONE * float(_gun["scale"])
+	_gun_sprite.offset = -_gun["grip"]
+	var s: float = _gun["scale"]
+	_flash.position = (_gun["muzzle"] - _gun["grip"]) * s
+	var tex_px := maxf(1.0, float(_flash.texture.get_width()))
+	_flash.scale = Vector2.ONE * (FLASH_PX / tex_px)
+	_update_gun()
+
+
+## Turns the gun to an aim angle in degrees (0 right, 90 up, 180 left), measured towards the side
+## the character faces and clamped to the arm's reach (AIM_DOWN..AIM_UP). Face the aim side first.
+func aim(angle: float) -> void:
+	_aim_up = aim_elevation(angle, facing)
+	_aiming = true
+	_update_gun()
+
+
+## An aim angle (0 right, 90 up, 180 left) as degrees above level towards the facing side (1
+## right, -1 left), clamped to AIM_DOWN..AIM_UP: the gun turns by minus this.
+static func aim_elevation(angle: float, facing_dir: int) -> float:
+	var up := angle if facing_dir > 0 else 180.0 - angle
+	return clampf(wrapf(up, -180.0, 180.0), AIM_DOWN, AIM_UP)
+
+
+## Back to the animation's own hold.
+func clear_aim() -> void:
+	if not _aiming:
+		return
+	_aiming = false
+	_update_gun()
+
+
+func is_aiming() -> bool:
+	return _aiming
+
+
+## The gun's muzzle in global coordinates (where a shot leaves; visual only).
+func muzzle_position() -> Vector2:
+	if _gun.is_empty():
+		return global_position
+	return _gun_node.global_transform * _flash.position
+
+
+## Places the gun at the current frame's anchor.
+func _update_gun() -> void:
+	if not is_node_ready() or _gun.is_empty():
+		return
+	var a := Art.gun_anchor(character_id, str(_sprite.animation), _sprite.frame)
+	_gun_node.position = a["grip"] - Art.FRAME_PIVOT
+	var deg: float = a["angle"]
+	if _aiming and not _dead:
+		deg -= _aim_up
+	_gun_node.rotation = deg_to_rad(deg)
+	var at := _flip.get_child_count() - 1 if bool(a["front"]) else 0
+	if _gun_node.get_index() != at:
+		_flip.move_child(_gun_node, at)
+	var flash: float = a["flash"]
+	_flash.visible = flash > 0.0
+	_flash.modulate = Color(FLASH_TINT, clampf(flash, 0.0, 1.0))
 
 
 ## Plays an animation by name (idle, walk, shoot, hurt, die).

@@ -23,6 +23,8 @@ const ErrorText := preload("res://screens/home/error_text.gd")
 const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
 
 const UNCLEAR := "Không rõ kết quả, đã tải lại"
+## The stat name column (fits "Năng lượng di chuyển" at 20 px).
+const NAME_W := 216
 
 ## Where dialogs and toasts go (Home); defaults to this panel.
 var overlay: Control
@@ -88,10 +90,10 @@ func _ready() -> void:
 		var cell := Ui.vbox(0)
 		_detail.add_child(cell)
 		_stat_cells[key] = cell
-		var r := Ui.hbox(8)
+		var r := Ui.hbox(6)
 		cell.add_child(r)
-		var name_label := LobbyUi.text(s["label"], 21, Color(0.82, 0.9, 1.0))
-		name_label.custom_minimum_size.x = 250
+		var name_label := LobbyUi.text(s["label"], 20, Color(0.82, 0.9, 1.0))
+		name_label.custom_minimum_size.x = NAME_W
 		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		r.add_child(name_label)
 		var bs := _battle_cell()
@@ -99,7 +101,7 @@ func _ready() -> void:
 		_bs_cells[key] = bs["box"]
 		_bs_value[key] = bs["value"]
 		_bs_preview[key] = bs["preview"]
-		var points := Ui.hbox(6)
+		var points := Ui.hbox(4)
 		r.add_child(points)
 		_stat_points[key] = points
 		_stat_value[key] = _num_label(Color.WHITE)
@@ -114,27 +116,31 @@ func _ready() -> void:
 		cell.add_child(_bs_detail[key])
 	_crit_row = Ui.vbox(0)
 	_detail.add_child(_crit_row)
-	var crit_line := Ui.hbox(8)
+	var crit_line := Ui.hbox(6)
 	_crit_row.add_child(crit_line)
-	var crit_name := LobbyUi.text(BattleStats.CRIT_LABEL, 21, Color(0.82, 0.9, 1.0))
-	crit_name.custom_minimum_size.x = 250
+	var crit_name := LobbyUi.text(BattleStats.CRIT_LABEL, 20, Color(0.82, 0.9, 1.0))
+	crit_name.custom_minimum_size.x = NAME_W
 	crit_line.add_child(crit_name)
-	_crit_value = LobbyUi.text("", 24, Color.WHITE, true)
+	_crit_value = LobbyUi.text("", 22, Color.WHITE, true)
 	crit_line.add_child(_crit_value)
 	_crit_detail = _detail_label()
 	_crit_row.add_child(_crit_detail)
 
-	var actions := Ui.hbox(10)
+	var actions := Ui.hbox(8)
 	_detail.add_child(actions)
-	_owned_actions = Ui.hbox(10)
+	_owned_actions = Ui.hbox(8)
 	_owned_actions.size_flags_horizontal = SIZE_EXPAND_FILL
 	actions.add_child(_owned_actions)
+	# The three share the row by their text widths (stretch ratios) and never push it wider
+	# than the panel: a text that does not fit is cut with "…".
 	_allocate = _action_button("", _on_allocate)
-	_allocate.size_flags_horizontal = SIZE_EXPAND_FILL
+	_allocate.size_flags_stretch_ratio = 1.15
 	_owned_actions.add_child(_allocate)
 	_clear_draft = _action_button("Bỏ chọn", _on_clear_draft)
+	_clear_draft.size_flags_stretch_ratio = 0.8
 	_owned_actions.add_child(_clear_draft)
 	_reset = _action_button("", _on_reset)
+	_reset.size_flags_stretch_ratio = 1.4
 	_owned_actions.add_child(_reset)
 	_buy = _action_button("Mua ở Shop", func(): open_shop_characters.emit())
 	LobbyUi.style_button(_buy, LobbyUi.ICON_COLORS["orange"], 14, 8)
@@ -159,8 +165,8 @@ func _on_assets_dirty() -> void:
 
 
 func _num_label(color: Color) -> Label:
-	var l := LobbyUi.text("", 22, color, true)
-	l.custom_minimum_size.x = 36
+	var l := LobbyUi.text("", 20, color, true)
+	l.custom_minimum_size.x = 30
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	return l
@@ -174,16 +180,19 @@ func _detail_label() -> Label:
 
 
 func _small_button(text_value: String, on_press: Callable) -> Button:
-	var b := Ui.button(text_value, 26)
-	b.custom_minimum_size = Vector2(50, 44)
+	var b := Ui.button(text_value, 24)
+	b.custom_minimum_size = Vector2(42, 42)
 	b.focus_mode = FOCUS_NONE
 	b.pressed.connect(on_press)
 	return b
 
 
 func _action_button(text_value: String, on_press: Callable) -> Button:
-	var b := Ui.button(text_value, 22)
+	var b := Ui.button(text_value, 20)
 	b.custom_minimum_size = Vector2(0, 56)
+	b.size_flags_horizontal = SIZE_EXPAND_FILL
+	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.focus_mode = FOCUS_NONE
 	b.pressed.connect(on_press)
 	return b
@@ -191,14 +200,18 @@ func _action_button(text_value: String, on_press: Callable) -> Button:
 
 ## The battle stat: the value and the green "→ new" preview.
 func _battle_cell() -> Dictionary:
-	var box := Ui.hbox(8)
+	var box := Ui.hbox(4)
 	box.size_flags_horizontal = SIZE_EXPAND_FILL
-	var value := LobbyUi.text("", 24, Color.WHITE, true)
-	value.custom_minimum_size.x = 70
+	var value := LobbyUi.text("", 22, Color.WHITE, true)
+	value.custom_minimum_size.x = 64
 	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	box.add_child(value)
-	var preview := LobbyUi.text("", 24, Ui.TONES["good"], true)
+	# Takes what the row has left; a preview too long for it is cut, never pushing the − + out.
+	var preview := LobbyUi.text("", 20, Ui.TONES["good"], true)
 	preview.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	preview.size_flags_horizontal = SIZE_EXPAND_FILL
+	preview.clip_text = true
+	preview.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	box.add_child(preview)
 	return {"box": box, "value": value, "preview": preview}
 
