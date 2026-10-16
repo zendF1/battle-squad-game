@@ -4,7 +4,9 @@ extends Control
 ## shrinks while the body is up). It holds the gun of the weapon that character wears
 ## (PlayerState owned equipment + catalog, EquipmentModel.worn_gun()): it changes as soon as the
 ## owned pieces reload after an equip / unequip / move, and a character not owned (or with no
-## weapon) holds its basic gun. Used by the lobby stage, the Nhân vật page and the Prep panel.
+## weapon) holds its basic gun. hands_free: no gun in hand (the lobby stage shows the gun on its
+## own under the pedestal), the free pose instead. Used by the lobby stage, the Nhân vật page and
+## the Prep panel.
 
 const Art := preload("res://ui/art.gd")
 const CharacterScene := preload("res://scenes/character/character.tscn")
@@ -21,6 +23,13 @@ const HOP := 5.0 # units
 			_character.character_id = value
 			_show_worn_gun()
 
+## No gun in hand (scenes/character hands_free).
+@export var hands_free := false:
+	set(value):
+		hands_free = value
+		if _character != null:
+			_character.hands_free = value
+
 ## Plays the idle animation and hops (otherwise stands still on its first frame).
 @export var idle := false:
 	set(value):
@@ -36,6 +45,7 @@ func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_IGNORE
 	_character = CharacterScene.instantiate()
 	_character.character_id = character_id
+	_character.hands_free = hands_free
 	add_child(_character)
 	set_process(idle)
 	resized.connect(_layout)

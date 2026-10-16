@@ -5,7 +5,8 @@ extends SceneTree
 ##
 ##   $GODOT --path . -s tools/bake_art.gd [-- <group> ...]
 ##
-## Groups: characters, weapons, env, terrain, fx, icons, ui, equipment (default: all). It
+## Groups: characters, poses, weapons, env, terrain, fx, icons, ui, equipment (default: all;
+## characters includes poses, the no-gun lobby pose, which can also be baked alone). It
 ## overwrites the PNGs (and the characters' SpriteFrames .tres and gun_anchors.json, the guns'
 ## weapons.json), prints every file it wrote and quits. Then import them once
 ## (editor, or `$GODOT --headless --path . --import`) so the .import files exist. An existing
@@ -24,7 +25,7 @@ const UiPainter := preload("res://tools/art/ui_painter.gd")
 const EquipmentPainter := preload("res://tools/art/equipment_painter.gd")
 const WeaponPainter := preload("res://tools/art/weapon_painter.gd")
 
-const GROUPS := ["characters", "weapons", "env", "terrain", "fx", "icons", "ui", "equipment"]
+const GROUPS := ["characters", "poses", "weapons", "env", "terrain", "fx", "icons", "ui", "equipment"]
 ## Shown much smaller than drawn (icons on buttons, effects, clouds): mipmapped. The characters
 ## are not: plain linear filtering keeps the small match bodies sharper.
 const MIPMAPPED := ["fx", "icons", "env/cloud"]
@@ -72,7 +73,7 @@ func _initialize() -> void:
 func _bake() -> void:
 	var wanted: Array = Array(OS.get_cmdline_user_args()).filter(func(a): return GROUPS.has(a))
 	if wanted.is_empty():
-		wanted = GROUPS
+		wanted = GROUPS.filter(func(g): return g != "poses") # characters bakes them
 	for group in wanted:
 		await call("_bake_" + group)
 	var total := 0
@@ -141,9 +142,21 @@ func _bake_characters() -> void:
 			ci.draw_set_transform(Vector2.ZERO))
 		_save(portrait, Art.portrait_path(id))
 		_write_frames(id)
+	await _bake_poses()
 	var shadow_size := Vector2i(FxPainter.SHADOW_UNITS * k)
 	_save(await _render(shadow_size, func(ci: CanvasItem) -> void: FxPainter.shadow(ci, Vector2(shadow_size))), Art.SHADOW)
 	_save(await _render(HAND_SIZE, func(ci: CanvasItem) -> void: CharacterPainter.paint_hand(ci, Vector2(HAND_SIZE) / 2, k)), Art.HAND)
+
+
+## The no-gun lobby pose of every character (Art.FREE_POSE): the idle frames with the front arm
+## hanging.
+func _bake_poses() -> void:
+	var n: int = Art.ANIMS["idle"]["frames"]
+	for id in Art.CHARACTERS:
+		for i in n:
+			var img: Image = await _render(Art.FRAME_SIZE, func(ci: CanvasItem) -> void:
+				CharacterPainter.paint_free_frame(ci, Art.FRAME_PIVOT, Art.PX_PER_UNIT, id, i, n))
+			_save(img, Art.frame_path(id, Art.FREE_POSE, i))
 
 
 ## The hand overlay's canvas (the hand centred).
@@ -241,10 +254,15 @@ func _bake_fx() -> void:
 	_save(await _render(FxPainter.DEBRIS_SIZE, func(ci: CanvasItem) -> void: FxPainter.debris(ci, Vector2(FxPainter.DEBRIS_SIZE))), Art.FX["debris"])
 	_save(await _render(FxPainter.MUZZLE_SIZE, func(ci: CanvasItem) -> void: FxPainter.muzzle(ci, Vector2(FxPainter.MUZZLE_SIZE))), Art.FX["muzzle"])
 	for kind in Art.SHOT_KINDS:
-		_save(await _render(FxPainter.SHOT_PROJECTILE_SIZE, func(ci: CanvasItem) -> void: FxPainter.shot_projectile(ci, Vector2(FxPainter.SHOT_PROJECTILE_SIZE), kind)), Art.shot_path(kind, "projectile"))
 		_save(await _render(FxPainter.SHOT_TRAIL_SIZE, func(ci: CanvasItem) -> void: FxPainter.shot_trail(ci, Vector2(FxPainter.SHOT_TRAIL_SIZE), kind)), Art.shot_path(kind, "trail"))
+		if kind == Art.DEFAULT_SHOT_KIND:
+			continue # the bomb and the explosion above
+		_save(await _render(FxPainter.SHOT_PROJECTILE_SIZE, func(ci: CanvasItem) -> void: FxPainter.shot_projectile(ci, Vector2(FxPainter.SHOT_PROJECTILE_SIZE), kind)), Art.shot_path(kind, "projectile"))
 		for i in Art.EXPLOSION_FRAMES:
 			_save(await _render(FxPainter.EXPLOSION_SIZE, func(ci: CanvasItem) -> void: FxPainter.shot_impact(ci, Vector2(FxPainter.EXPLOSION_SIZE), kind, i)), Art.shot_path(kind, "impact_%d" % i))
+	for fx_name in Art.TIER_FX:
+		var size: Vector2i = FxPainter.TIER_FX_SIZES[fx_name]
+		_save(await _render(size, func(ci: CanvasItem) -> void: FxPainter.tier_fx(ci, Vector2(size), fx_name)), Art.tier_fx_path(fx_name))
 
 
 func _bake_icons() -> void:

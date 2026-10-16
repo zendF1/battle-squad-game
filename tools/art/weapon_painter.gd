@@ -21,6 +21,8 @@ const W := 3.0 # outline, units (the characters' outline)
 const LEATHER := Color(0.48, 0.3, 0.17)
 const SHOCK := Color(0.55, 0.95, 1.0)
 const SEED := Color(0.45, 0.82, 0.38)
+## The dragon tier's glow (fire); the other tiers glow in their light colour.
+const DRAGON_GLOW := Color(1.0, 0.62, 0.28)
 ## Tiers that glow around the barrel and at the muzzle.
 const GLOWING := ["mithril", "dragon", "gold", "titan", "diamond"]
 ## The character whose starter look a kind's basic tier has.
@@ -154,7 +156,7 @@ static func _blaster(ci: CanvasItem, pal: Dictionary) -> void:
 static func _glow(ci: CanvasItem, kind: String, pal: Dictionary) -> void:
 	var shape: Dictionary = SHAPES.get(kind, SHAPES["bazooka"])
 	var axis: Array = shape["axis"]
-	var c: Color = Color(1.0, 0.62, 0.28) if pal["tier"] == "dragon" else pal["light"]
+	var c: Color = DRAGON_GLOW if pal["tier"] == "dragon" else pal["light"]
 	var y: float = axis[0]
 	var h: float = axis[3]
 	for layer in [[h + 8.0, 0.07], [h + 4.0, 0.1]]:

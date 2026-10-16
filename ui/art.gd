@@ -25,6 +25,10 @@ const ANIMS := {
 	"hurt": {"frames": 3, "fps": 7.0, "loop": false},
 	"die": {"frames": 4, "fps": 8.0, "loop": false},
 }
+## The lobby stage's pose without a gun: the idle animation (same frame count, speed and canvas)
+## with the front arm hanging relaxed, <id>/idle_free_0..3.png. Not in the .tres: free_frames()
+## builds its SpriteFrames from the files (no anchors: no gun is drawn).
+const FREE_POSE := "idle_free"
 const PORTRAIT_SIZE := Vector2i(128, 128)
 ## The ground shadow under a character (centred on the feet), drawn at PX_PER_UNIT too.
 const SHADOW := ROOT + "characters/shadow.png"
@@ -114,14 +118,19 @@ const GRASS_TUFT_ROWS := 6
 const EXPLOSION_FRAMES := 6
 ## The explosion frames are drawn for a crater of this radius (px in the frame).
 const EXPLOSION_RADIUS := 60.0
-## Each gun's own shot (assets/fx/<kind>/): projectile.png (64x64, flying +x, 2 px per world px),
-## trail.png (32x32 particle) and impact_0..N.png. Rookie's folder holds the bomb
-## (rookie/projectile.png) and the explosion (rookie/impact_*), which are also the fallbacks of the
-## other kinds; Rookie has no trail particle (its fuse spark and line trail are drawn in code).
-## Effects every kind uses (smoke, debris, muzzle flash) are in assets/fx/common/.
-const SHOT_KINDS := ["tanko", "spark", "flora"]
+## Each gun kind's own shot (assets/fx/<kind>/, kind = GUN_KINDS): projectile.png (flying +x,
+## 2 px per world px), trail.png (32x32 trail particle) and impact_0..N.png (the burst).
+## bazooka/ (the bomb and the fire explosion) is also the fallback of a missing file of another
+## kind. Effects every kind uses (smoke, debris, muzzle flash) are in assets/fx/common/; the
+## shared tier overlays (match/views/shot_look.gd TIERS: glow, sparkles, embers, coins, shards,
+## shockwave ring, lens flare, ground cracks) in assets/fx/tiers/, all drawn white-ish and tinted
+## in code except the coin and the crack.
+const SHOT_KINDS := GUN_KINDS
+const SHOT_PARTS := ["projectile", "trail"]
+const DEFAULT_SHOT_KIND := "bazooka"
+const TIER_FX := ["glow", "sparkle", "ember", "coin", "shard", "ring", "flare", "crack"]
 const FX := {
-	"bomb": ROOT + "fx/rookie/projectile.png",
+	"bomb": ROOT + "fx/bazooka/projectile.png",
 	"smoke": ROOT + "fx/common/smoke.png",
 	"debris": ROOT + "fx/common/debris.png",
 	"muzzle": ROOT + "fx/common/muzzle.png",
@@ -149,6 +158,7 @@ static var _guns_data: Variant = null # parsed weapons.json ({} when missing)
 static var _anchors := {} # character id -> {anim: [anchor...]}
 static var _placeholder: Texture2D
 static var _empty_frames: SpriteFrames
+static var _free_frames := {} # character id -> SpriteFrames
 
 
 ## The id, or DEFAULT_CHARACTER for an unknown or missing one (e.g. a bot without one).
@@ -201,7 +211,11 @@ static func shot_path(kind: String, part: String) -> String:
 
 
 static func explosion_path(i: int) -> String:
-	return ROOT + "fx/rookie/impact_%d.png" % i
+	return shot_path(DEFAULT_SHOT_KIND, "impact_%d" % i)
+
+
+static func tier_fx_path(fx_name: String) -> String:
+	return ROOT + "fx/tiers/%s.png" % fx_name
 
 
 static func ui_path(box_name: String) -> String:
@@ -218,18 +232,20 @@ static func all_paths() -> Array[String]:
 		for anim in ANIMS:
 			for i in int(ANIMS[anim]["frames"]):
 				out.append(frame_path(id, anim, i))
+		for i in int(ANIMS["idle"]["frames"]):
+			out.append(frame_path(id, FREE_POSE, i))
 	for icon_name in ICONS:
 		out.append(icon_path(icon_name))
 	for d in [ENV, TERRAIN, FX]:
 		for k in d:
 			out.append(d[k])
-	for i in EXPLOSION_FRAMES:
-		out.append(explosion_path(i))
 	for kind in SHOT_KINDS:
-		out.append(shot_path(kind, "projectile"))
-		out.append(shot_path(kind, "trail"))
+		for part in SHOT_PARTS:
+			out.append(shot_path(kind, part))
 		for i in EXPLOSION_FRAMES:
 			out.append(shot_path(kind, "impact_%d" % i))
+	for fx_name in TIER_FX:
+		out.append(tier_fx_path(fx_name))
 	for box_name in UI_BOXES:
 		out.append(ui_path(box_name))
 	for slot in EQUIP_SLOTS:
@@ -346,15 +362,28 @@ static func explosion(i: int) -> Texture2D:
 
 
 ## A part of a gun kind's shot ("projectile", "trail", "impact_<i>"), or `fallback` (a texture)
-## for Rookie / an unknown kind / a file missing or not imported yet.
+## for an unknown kind / a file missing or not imported yet.
 static func shot(kind: String, part: String, fallback: Texture2D) -> Texture2D:
 	if not SHOT_KINDS.has(kind):
 		return fallback
-	var path := shot_path(kind, part)
+	var t := _cached(shot_path(kind, part))
+	return t if t != null else fallback
+
+
+## A shared tier overlay (TIER_FX), or null when its file is missing or not imported yet (the
+## effect is then left out).
+static func tier_fx(fx_name: String) -> Texture2D:
+	return _cached(tier_fx_path(fx_name)) if TIER_FX.has(fx_name) else null
+
+
+## The texture at path when it loads (cached), null otherwise; warns once.
+static func _cached(path: String) -> Texture2D:
 	var t: Texture2D = _textures.get(path)
 	if t == null and ResourceLoader.exists(path):
 		t = texture(path)
-	return t if t != null and t != placeholder() else fallback
+	if t == null:
+		_warn(path)
+	return t if t != null and t != placeholder() else null
 
 
 ## The SpriteFrames of a character (idle/walk/shoot/hurt/die), falling back to rookie's, then to
@@ -374,6 +403,29 @@ static func character_frames(id: String) -> SpriteFrames:
 				_empty_frames.add_animation(anim)
 			_empty_frames.add_frame(anim, placeholder())
 	return _empty_frames
+
+
+## The no-gun pose of a character as SpriteFrames with one looping "idle" animation, or null when
+## one of its frames is missing or not imported yet (the caller keeps the normal frames).
+static func free_frames(id: String) -> SpriteFrames:
+	id = known_character(id)
+	if _free_frames.has(id):
+		return _free_frames[id]
+	var spec: Dictionary = ANIMS["idle"]
+	var f := SpriteFrames.new()
+	f.set_animation_loop("default", true)
+	f.rename_animation("default", "idle")
+	f.set_animation_speed("idle", float(spec["fps"]))
+	f.set_animation_loop("idle", true)
+	for i in int(spec["frames"]):
+		var t := _cached(frame_path(id, FREE_POSE, i))
+		if t == null:
+			f = null
+			break
+		f.add_frame("idle", t)
+	if f != null:
+		_free_frames[id] = f # a missing frame is looked up again next time (imported meanwhile)
+	return f
 
 
 # ── Guns ────────────────────────────────────────────────────────────────────

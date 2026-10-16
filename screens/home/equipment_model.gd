@@ -47,6 +47,9 @@ const KIND_OF_TYPE := {"bazooka": "bazooka", "cannon": "cannon", "shock rifle": 
 ## The held gun sprite (ui/art.gd GUN_KINDS) of a weapon_kind() icon kind; "" (generic and
 ## crafted weapons) is the blaster.
 const GUN_OF_KIND := {"bazooka": "bazooka", "cannon": "cannon", "rifle": "shock_rifle", "launcher": "seed_launcher", "": "blaster"}
+## A gun kind's name (ui/art.gd GUN_KINDS), for the basic gun of a character with no weapon.
+const GUN_NAMES := {"bazooka": "Bazooka", "cannon": "Đại pháo", "shock_rifle": "Súng điện", "seed_launcher": "Súng hạt", "blaster": "Súng"}
+const BASIC_WORD := "cơ bản"
 ## key: the catalog field; point: the statMultipliers / stats.equipmentPoints key ("" for crit);
 ## unit "%" for the crit chance; total: the stats.fromEquipment field.
 const STATS := [
@@ -189,6 +192,14 @@ static func gun(item_id: String, item: Dictionary = {}, character_id: String = "
 	return {"kind": str(GUN_OF_KIND.get(weapon_kind(it), "blaster")), "tier": tier(it)}
 
 
+## The gun a match player brought: its weaponItemId (catalog for the entry; empty / missing for
+## no weapon and for bots) → gun(), its character's basic gun when none.
+static func player_gun(player: Dictionary, catalog: Variant = null) -> Dictionary:
+	var weapon = player.get("weaponItemId")
+	var weapon_id := str(weapon) if weapon is String else ""
+	return gun(weapon_id, item_of(catalog, weapon_id) if weapon_id != "" else {}, str(player.get("characterId", "")))
+
+
 ## A stand-in catalog entry for a weapon id the catalog does not give: {itemId, slot, category,
 ## characterId?, tier?}.
 static func weapon_from_id(item_id: String) -> Dictionary:
@@ -212,6 +223,16 @@ static func worn_gun(owned: Variant, catalog: Variant, character_id: String) -> 
 	if piece.is_empty():
 		return gun("", {}, character_id)
 	return gun(str(piece.get("itemId", "")), item_of(catalog, str(piece.get("itemId", ""))), character_id)
+
+
+## The name and "+N" of the gun character_id holds outside a match ({name, level}): the worn
+## weapon's display_name() and level_text(), or its basic gun ("Bazooka cơ bản", level "").
+static func worn_gun_label(owned: Variant, catalog: Variant, character_id: String) -> Dictionary:
+	var piece: Dictionary = worn(owned, character_id).get("weapon", {})
+	if piece.is_empty():
+		var kind := str(gun("", {}, character_id)["kind"])
+		return {"name": "%s %s" % [GUN_NAMES.get(kind, GUN_NAMES["blaster"]), BASIC_WORD], "level": ""}
+	return {"name": display_name(item_of_piece(catalog, piece)), "level": level_text(piece)}
 
 
 ## "+3" (the upgrade badge; "+0" for a new piece).

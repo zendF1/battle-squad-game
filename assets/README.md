@@ -5,7 +5,7 @@ code (`tools/art/*.gd`) and baked by `tools/bake_art.gd`. `ui/art.gd` is the one
 ids to these paths; a missing file never crashes (a character falls back to rookie, an icon to
 `icons/unknown.png`, anything else to a small grey square, with a warning).
 
-Total about 3.2 MB of PNG.
+Total about 3.6 MB of PNG.
 
 ## Replacing art
 
@@ -37,7 +37,8 @@ $GODOT --path . -s tools/bake_art.gd                 # everything
 $GODOT --path . -s tools/bake_art.gd -- icons ui     # only some groups
 ```
 
-Groups: `characters`, `weapons`, `env`, `terrain`, `fx`, `icons`, `ui`, `equipment`. It overwrites the
+Groups: `characters` (includes `poses`), `poses` (only the lobby's no-gun pose), `weapons`, `env`, `terrain`,
+`fx`, `icons`, `ui`, `equipment`. It overwrites the
 PNGs (and the characters' `.tres` and `gun_anchors.json`, the guns' `weapons.json`), prints each file with
 its size and quits. Then let the editor import them
 (or run `$GODOT --headless --path . --import` while no editor is open). Baking overwrites
@@ -58,6 +59,7 @@ equipped weapon.
 | `<id>/shoot_0..2.png` | 512x400 each | once, 9 fps; the hand recoils (the muzzle flash is drawn at the gun's muzzle from the anchors' `flash`) |
 | `<id>/hurt_0..2.png` | 512x400 each | once, 7 fps; knocked back, wobble, squint (the red flash is code) |
 | `<id>/die_0..3.png` | 512x400 each | once, 8 fps, holds the last frame; falls on its back (the grey tint is code) |
+| `<id>/idle_free_0..3.png` | 512x400 each (13–17 KB) | the lobby stage's pose without a gun: the idle frames with the front arm hanging like the back one; same canvas, pivot and speed as `idle`. Not in the `.tres` (`ui/art.gd` `free_frames()` builds it, no anchors); missing or not imported yet → the normal idle with the bare hand |
 | `<id>/<id>.tres` | – | SpriteFrames of the five animations |
 | `<id>/gun_anchors.json` | 2 KB | per animation, one entry per frame: `grip` [x, y] px in the frame (the hand's centre, where the gun's grip goes), `angle` degrees (0 = level, + turns the muzzle down; recoil kick, walk lean, hurt wobble), `front` (gun over the body; `false` in `die`: behind), `flash` 0..1 (muzzle flash) |
 | `<id>/portrait.png` | 128x128 | head and shoulders: Profile and Shop character cards |
@@ -92,7 +94,10 @@ Which gun: `screens/home/equipment_model.gd` `gun()` maps a weapon item to {kind
 (`rookie_weapon_lv30` → bazooka/mithril, `crafted_weapon_gold` → blaster/gold, `normal_weapon_lv10` →
 blaster/iron, no weapon → the character's kind/basic). A missing tier falls back to the kind's `basic`, a
 missing kind to `bazooka/basic` (`ui/art.gd` `gun()`). Lobby, Prep and the Nhân vật page show the weapon the
-character wears (`ui/character_view.gd`); the match shows the one each player brought (`weaponItemId`).
+character wears (`ui/character_view.gd`); the lobby stage instead shows the character with its hands free
+and the worn gun resting on the pedestal at its left, lying diagonally with the muzzle up-left, its name and
+"+N" under it (`screens/home/pedestal_gun.gd`, a soft glow in the tier's colour); the match shows the one each player brought (`weaponItemId`), and its
+shots look like that gun (`fx/` below).
 The JSON files are read with `FileAccess` (an export that filters resources must keep `*.json`).
 
 ### env/
@@ -114,29 +119,58 @@ The JSON files are read with `FileAccess` (an export that filters resources must
 
 The terrain mask stays the source of truth: the shader only decides colours per mask pixel.
 
-### fx/
+### fx/ (shots: `match/views/projectile_view.gd`, `explosion_fx.gd`; looks in `match/views/shot_look.gd`)
 
-One folder per gun (`rookie/`, `tanko/`, `spark/`, `flora/`) plus `common/` for effects every gun uses.
+A shot looks like the shooter's **gun**: its weapon's kind and tier (`weaponItemId` → `EquipmentModel.gun()`;
+no weapon or a bot → its character's kind, `basic`). The **kind** is the bullet and the impact's theme, one
+folder each; the **tier** is the intensity, from one table (`ShotLook.TIERS`) and the shared overlays in
+`tiers/`, so no tier has images of its own. Visuals only: the path, timing, crater and damage are the server's.
 
 ```
 fx/
-  common/   smoke.png, debris.png, muzzle.png
-  rookie/   projectile.png (the bomb), impact_0..5.png (the explosion)
-  tanko/    projectile.png, trail.png, impact_0..5.png
-  spark/    projectile.png, trail.png, impact_0..5.png
-  flora/    projectile.png, trail.png, impact_0..5.png
+  common/          smoke.png, debris.png, muzzle.png
+  bazooka/         projectile.png (the bomb), trail.png, impact_0..5.png (fire explosion)   ← also every fallback
+  cannon/          projectile.png, trail.png, impact_0..5.png
+  shock_rifle/     projectile.png, trail.png, impact_0..5.png
+  seed_launcher/   projectile.png, trail.png, impact_0..5.png
+  blaster/         projectile.png, trail.png, impact_0..5.png
+  tiers/           glow, sparkle, ember, coin, shard, ring, flare, crack (.png)
 ```
 
-| File | Size | Notes | Used by |
-|---|---|---|---|
-| `common/muzzle.png` | 64x64 (5 KB) | a flash star; the bomb's fuse spark | `match/views/projectile_view.gd` |
-| `common/smoke.png` | 128x128 (21 KB) | soft puff, light grey (tinted and faded in code) | `match/views/explosion_fx.gd` |
-| `common/debris.png` | 24x24 (1 KB) | light grey chunk (tinted dirt/grass in code) | `explosion_fx.gd` |
-| `rookie/projectile.png` | 48x48 (2 KB) | the bazooka's bomb: ball centred, flying towards +x, fuse behind; 2 px per world px. Also the fallback projectile of every gun | `projectile_view.gd` (turned along the flight; Rookie's fuse spark and line trail are code, so Rookie has no `trail.png`) |
-| `rookie/impact_0..5.png` | 256x256 (10–23 KB) | the explosion: centred; drawn for a radius-60 crater, scaled to the real radius; played over 0.5 s. Also the fallback impact of every gun | `explosion_fx.gd` |
-| `<kind>/projectile.png` | 64x64 (2–5 KB) | each gun's own shell, centred, flying towards +x, 2 px per world px: `tanko/` heavy iron cannonball, `spark/` cyan plasma orb with arcs, `flora/` green seed pod with a leaf | `projectile_view.gd` (kind from the shooter's character, `STYLES`; spin, flicker, skill glow, item tint/mark in code) |
-| `<kind>/trail.png` | 32x32 (1–2 KB) | the trail particle: Tanko grey smoke puff, Spark cyan spark, Flora pink petal (tinted by an item, faded in code) | `projectile_view.gd`; Spark/Flora impact bits in `explosion_fx.gd` |
-| `<kind>/impact_0..5.png` | 256x256 (10–30 KB) | like `rookie/impact_*` (radius-60 crater, 0.5 s): Tanko a heavy dark-orange blast with soot (drawn 1.2x, more debris), Spark an electric burst (cyan flash, lightning arcs, sparks), Flora a green flash with petals; a missing file falls back to Rookie's | `explosion_fx.gd` (`STYLES`) |
+| File | Size | Notes |
+|---|---|---|
+| `common/muzzle.png` | 64x64 (5 KB) | a flash star: the bomb's fuse spark, the guns' muzzle flash |
+| `common/smoke.png` | 128x128 (21 KB) | soft puff, light grey (tinted and faded in code) |
+| `common/debris.png` | 24x24 (1 KB) | light grey chunk (tinted dirt/grass in code) |
+| `bazooka/projectile.png` | 48x48 (2 KB) | the bomb: ball centred, flying towards +x, fuse behind; 2 px per world px. Fallback projectile of every kind |
+| `<kind>/projectile.png` | 64x64 (1–6 KB) | centred, flying towards +x, 2 px per world px: `cannon/` heavy iron ball, `shock_rifle/` cyan plasma orb with arcs, `seed_launcher/` seed pod with a leaf, `blaster/` an energy bolt drawn **white** (the game colours it with the tier) |
+| `<kind>/trail.png` | 32x32 (0.5–2 KB) | the trail particle: bazooka warm puff, cannon grey smoke, shock rifle cyan spark, seed launcher pink petal, blaster white spark (tinted) |
+| `<kind>/impact_0..5.png` | 256x256 (10–71 KB) | the burst, centred, drawn for a radius-60 crater (scaled to the real radius times the tier's scale), played over 0.5 s: bazooka fire explosion, cannon heavy dark-orange blast with soot (drawn 1.2x, more debris), shock rifle electric burst, seed launcher green flash with petals, blaster white energy burst (tinted). A missing file falls back to the bazooka's |
+| `tiers/glow.png` | 64x64 (2 KB) | soft round glow, white: projectile halo, impact flash, the lobby gun's glow |
+| `tiers/sparkle.png` | 32x32 (1 KB) | four-point star, white: mithril / silver trails, impact sparkles (diamond's linger) |
+| `tiers/ember.png` | 32x32 (1 KB) | hot ember, white: dragon / titan trails and impacts (tinted fire) |
+| `tiers/coin.png` | 32x32 (1 KB) | a gold coin (own colours): gold trail and impact |
+| `tiers/shard.png` | 32x32 (1 KB) | crystal shard, white: diamond trail and impact (rainbow tints) |
+| `tiers/ring.png` | 256x256 (20 KB) | shockwave ring (band at 0.86 of the half size), white |
+| `tiers/flare.png` | 256x256 (9 KB) | lens-flare burst (streaks, star, ghost rings), white |
+| `tiers/crack.png` | 256x256 (29 KB) | dark ground cracks radiating out of a transparent middle (titan) |
+
+Every overlay is optional: a missing one is left out. The tier table (`ShotLook.TIERS`; colours from the
+guns' tier palettes, `tools/art/weapon_painter.gd` / `equipment_painter.gd`):
+
+| Tier | Projectile | Impact |
+|---|---|---|
+| basic, iron | the kind's own look | the kind's burst |
+| steel | 1.05x, a little glow, brighter wider trail | 1.05x, a blue flash |
+| mithril | 1.1x, teal glow, sparkle trail | 1.12x, teal flash, 14 sparkles |
+| dragon | 1.15x, fire glow, ember trail | 1.25x, fire flash, a shockwave ring, 22 embers |
+| silver | 1.12x, silver glow, glint trail | 1.18x, a ring, 20 sparkles, a small flare |
+| gold | 1.18x, golden trail, coin sparks, a hot core | 1.3x, bright flash, a ring, 18 coins, 14 sparkles, flare, faint gold screen tint |
+| titan | 1.22x, heavy thick trail, embers | 1.4x, double ring, 26 embers, more debris, ground cracks, orange screen flash |
+| diamond | 1.25x, rainbow glow, crystal-shard trail | 1.45x, double rainbow ring, 18 shards, 24 sparkles that linger, lens flare, screen flash |
+
+A skill shot is 1.3x with a brighter glow and a 1.1x impact with more particles; an item shot keeps its item
+tint and mark on top. Particles stay within 120 per impact and 48 per projectile.
 
 ### icons/ (96x96 each, 1–7 KB, transparent, dark outline)
 

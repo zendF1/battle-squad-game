@@ -264,3 +264,16 @@ func test_worn_gun() -> void:
 	owned[2]["isEquipped"] = true
 	owned[2]["equippedOn"] = "tanko"
 	eq(M.worn_gun(owned, null, "tanko"), {"kind": "blaster", "tier": "gold"}, "moved to tanko")
+
+
+func test_worn_gun_label_and_player_gun() -> void:
+	var catalog := {"items": {"rookie_weapon_lv40": {"itemId": "rookie_weapon_lv40", "slot": "weapon", "name": "Dragon Bazooka", "characterId": "rookie"}}}
+	var owned := [{"equipmentId": "a", "itemId": "rookie_weapon_lv40", "slot": "weapon", "isEquipped": true, "equippedOn": "rookie", "upgradeLevel": 7}]
+	eq(M.worn_gun_label(owned, catalog, "rookie"), {"name": "Bazooka Rồng", "level": "+7"}, "worn weapon: name and +N")
+	eq(M.worn_gun_label(owned, catalog, "tanko"), {"name": "Đại pháo cơ bản", "level": ""}, "no weapon: the basic gun")
+	eq(M.worn_gun_label(null, null, "spark"), {"name": "Súng điện cơ bản", "level": ""}, "pieces not loaded")
+	for kind in preload("res://ui/art.gd").GUN_KINDS:
+		check(M.GUN_NAMES.has(kind), "gun %s has a name" % kind)
+	eq(M.player_gun({"characterId": "flora", "weaponItemId": "crafted_weapon_titan"}), {"kind": "blaster", "tier": "titan"}, "match player's weapon")
+	eq(M.player_gun({"characterId": "flora", "weaponItemId": null}), {"kind": "seed_launcher", "tier": "basic"}, "bot: basic gun")
+	eq(M.player_gun({"characterId": "spark"}), {"kind": "shock_rifle", "tier": "basic"}, "no weaponItemId")

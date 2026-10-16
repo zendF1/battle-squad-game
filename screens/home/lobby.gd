@@ -5,8 +5,10 @@ extends Control
 ## Lịch sử → Hồ sơ, Shop), the
 ## selected character's info card (role, skill, stats; its name and level are on the stage) on
 ## the left, a placeholder chat box bottom-left and the mode card with "BẮT ĐẦU" bottom-right.
-## Centre stage: the selected character's name and level over it, drawn big on a pedestal;
-## ◀ ▶ or a swipe cycles the four characters. The character is the Loadout's (saved
+## Centre stage: the selected character's name and level over it, drawn big on a pedestal with
+## its hands free; the gun it wears (its basic gun when none) rests on the pedestal at its left
+## with its name and "+N" under it (pedestal_gun.gd), updated on equip / unequip. ◀ ▶ or a swipe cycles
+## the four characters. The character is the Loadout's (saved
 ## in the same settings file, so the Loadout opens with it) and the mode is remembered there
 ## too. "BẮT ĐẦU" puts the mode's QuickPlay base in Router.quick_play_base and opens the
 ## Loadout. Character levels and stats come from the PlayerState characters cache, loaded when
@@ -20,6 +22,8 @@ signal open_character
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const CharacterView := preload("res://ui/character_view.gd")
+const PedestalGun := preload("res://screens/home/pedestal_gun.gd")
+const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const Art := preload("res://ui/art.gd")
 const WalletPills := preload("res://ui/wallet_pills.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
@@ -51,6 +55,7 @@ var _conn: Label
 
 # Stage and info card
 var _art: CharacterView
+var _gun_stand: PedestalGun
 var _stage_name: Label
 var _stage_level: Label
 var _info_role: Label
@@ -83,6 +88,7 @@ func _ready() -> void:
 
 	PlayerState.changed.connect(_render_player)
 	PlayerState.characters_changed.connect(_render_character)
+	PlayerState.equipment_changed.connect(_render_gun)
 	GameSocket.connected.connect(_render_conn)
 	GameSocket.disconnected.connect(_render_conn)
 	visibility_changed.connect(_on_visibility_changed)
@@ -308,7 +314,13 @@ func _add_stage() -> void:
 	_art.position = Vector2((STAGE.x - 375) / 2, 142) # 2.5 px per art unit; feet on the pedestal
 	_art.size = Vector2(375, 400)
 	_art.idle = true
+	_art.hands_free = true
 	stage.add_child(_art)
+
+	_gun_stand = PedestalGun.new()
+	_gun_stand.size = GUN_STAND.size
+	_gun_stand.position = GUN_STAND.position
+	stage.add_child(_gun_stand)
 
 	for side in [-1, 1]:
 		var arrow := LobbyUi.round_button("arrow_left" if side < 0 else "arrow_right", 76, Color(0.05, 0.08, 0.2, 0.7), 0.5)
@@ -318,6 +330,10 @@ func _add_stage() -> void:
 
 
 const PEDESTAL_AT := 528.0 # stage y of the pedestal centre (the character's feet)
+## The gun's rect in the stage: on the pedestal left of the character's legs, its foot on the top
+## face (stage y 545), the muzzle up-left under the arms (clear of every character's body and of
+## the ◀ arrow above); the label under it on the pedestal's front rim, below the feet.
+const GUN_STAND := Rect2(80, 433, 125, 150)
 
 
 func _draw_pedestal(c: Control) -> void:
@@ -386,6 +402,8 @@ func _render_character() -> void:
 	var level := LobbyModel.level_text(info)
 	_art.character_id = id
 	_art.modulate = Color(0.72, 0.72, 0.8) if info["owned"] == false else Color.WHITE
+	_gun_stand.modulate = _art.modulate
+	_render_gun()
 	_stage_name.text = info["name"]
 	_stage_level.text = level
 	_info_role.text = info["role"]
@@ -401,6 +419,16 @@ func _render_character() -> void:
 		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		_info_stats.add_child(value)
 	_info_buy.visible = info["owned"] == false
+
+
+## The stage character's gun under the pedestal (worn weapon or its basic gun).
+func _render_gun() -> void:
+	if _gun_stand == null:
+		return
+	var id := _model.character_id
+	var g := EquipmentModel.worn_gun(PlayerState.equipment, PlayerState.catalog, id)
+	var label := EquipmentModel.worn_gun_label(PlayerState.equipment, PlayerState.catalog, id)
+	_gun_stand.set_gun(g["kind"], g["tier"], label["name"], label["level"])
 
 
 # ── Mode and start ──────────────────────────────────────────────────────────

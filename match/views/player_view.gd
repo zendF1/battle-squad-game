@@ -61,10 +61,7 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_sprite.scale = Vector2.ONE * (ART_SCALE / Art.PX_PER_UNIT)
 	_sprite.show_behind_parent = true
 	_sprite.character_id = str(p.get("characterId", ""))
-	var weapon = p.get("weaponItemId")
-	var weapon_id := str(weapon) if weapon is String else ""
-	var gun := EquipmentModel.gun(weapon_id, EquipmentModel.item_of(PlayerState.catalog, weapon_id) if weapon_id != "" else {},
-		_sprite.character_id)
+	var gun := EquipmentModel.player_gun(p, PlayerState.catalog)
 	_sprite.set_weapon(gun["kind"], gun["tier"])
 	add_child(_sprite)
 

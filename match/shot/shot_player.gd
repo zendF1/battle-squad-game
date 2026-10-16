@@ -13,7 +13,7 @@ const SPAWN_BLEND := 0.15 # s
 const SPAWN_NEAR := 90.0 # px: a path starting farther from the muzzle (air strike) is not moved
 
 var layer: Node2D
-## How this shot's projectiles look: ProjectileView.style_for() {kind, skill, item}; set before play().
+## How this shot's projectiles look: ShotLook.style_for() {kind, tier, skill, item}; set before play().
 var style := {}
 ## Where the shooter's gun muzzle is (layer coordinates), or null; used by the next play() only.
 var muzzle: Variant = null
@@ -41,7 +41,8 @@ func play(timeline) -> void:
 				offset = Vector2.ZERO
 		_spawn_offsets.append(offset)
 		var view := ProjectileView.new()
-		view.kind = str(style.get("kind", "rookie"))
+		view.kind = str(style.get("kind", ""))
+		view.tier = str(style.get("tier", ""))
 		view.skill = bool(style.get("skill", false))
 		view.item = str(style.get("item", ""))
 		view.position = timeline.sample(i, 0.0) + _spawn_offsets[i]

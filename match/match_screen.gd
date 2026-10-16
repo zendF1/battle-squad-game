@@ -11,7 +11,7 @@ const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
 const TerrainView := preload("res://match/terrain/terrain_view.gd")
 const PlayerView := preload("res://match/views/player_view.gd")
 const ExplosionFx := preload("res://match/views/explosion_fx.gd")
-const ProjectileView := preload("res://match/views/projectile_view.gd")
+const ShotLook := preload("res://match/views/shot_look.gd")
 const DamagePopup := preload("res://match/views/damage_popup.gd")
 const SkyView := preload("res://match/views/sky_view.gd")
 const ShotTimeline := preload("res://match/shot/shot_timeline.gd")
@@ -315,10 +315,10 @@ func _apply(event: String, data: Variant) -> void:
 			_snap_to_server(shooter)
 			var timeline := ShotTimeline.new(data)
 			_show_shooting(shooter, timeline)
-			# Each gun has its own projectile and impact (visuals only), picked by the shooter's
-			# character; rookie's bomb when unknown.
-			var shooter_char := str(_players.get(shooter, {}).get("characterId", ""))
-			_shot_player.style = ProjectileView.style_for(shooter_char, str(data.get("actionMode", "")), str(data.get("itemId", "")))
+			# The shot looks like the shooter's gun (visuals only): the kind and tier of the weapon
+			# it brought (weaponItemId), its character's basic gun when none (bots).
+			_shot_player.style = ShotLook.style_for(_players.get(shooter, {}), str(data.get("actionMode", "")),
+				str(data.get("itemId", "")), PlayerState.catalog)
 			_shot_player.play(timeline)
 			_refresh_controls()
 		"PlayerDamaged": # lava at turn start (shot damage comes in ShotResolved)
@@ -396,7 +396,9 @@ func _on_shot_event(e: Dictionary) -> void:
 			_terrain_view.refresh()
 			var fx := ExplosionFx.new()
 			fx.radius = radius
-			fx.kind = str(_shot_player.style.get("kind", "rookie"))
+			fx.kind = str(_shot_player.style.get("kind", ""))
+			fx.tier = str(_shot_player.style.get("tier", ""))
+			fx.skill = bool(_shot_player.style.get("skill", false))
 			fx.position = p
 			_fx_layer.add_child(fx)
 			var server_version := int(e.get("terrainVersion", _mask.version))

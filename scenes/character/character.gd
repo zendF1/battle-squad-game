@@ -11,7 +11,8 @@ extends Node2D
 ## frame's gun anchor (assets/characters/<id>/gun_anchors.json) places its grip, angle, front /
 ## behind the body and the muzzle flash, so the gun follows every animation. aim() turns it to
 ## an aim angle (within the arm's reach) until clear_aim(); muzzle_position() is where shots
-## start (visual only).
+## start (visual only). hands_free (the lobby stage) shows no gun: the free pose (both arms
+## hanging, ui/art.gd free_frames()) idles instead; weapon() still tells the gun set.
 ## Used by the lobby and Prep (ui/character_view.gd) and the match (match/views/player_view.gd).
 
 const Art := preload("res://ui/art.gd")
@@ -32,6 +33,13 @@ const FLASH_TINT := Color(1.0, 0.92, 0.65)
 		character_id = Art.known_character(value)
 		if is_node_ready():
 			_apply_frames()
+## No gun in hand: the free pose's idle (the front arm hangs) and no gun, hand or flash. While
+## those frames are missing (not imported yet) the normal frames show with the bare hand.
+@export var hands_free := false:
+	set(value):
+		hands_free = value
+		if is_node_ready():
+			_apply_frames()
 ## 1 faces right, -1 left.
 var facing := 1:
 	set(value):
@@ -48,6 +56,7 @@ var _weapon_tier := ""
 var _gun := {} # Art.gun() of the gun shown
 var _aiming := false
 var _aim_up := 0.0 # degrees above level towards the facing side, clamped
+var _free_pose := false # the free pose's frames are shown (hands_free)
 
 @onready var _flip: Node2D = $Flip
 @onready var _sprite: AnimatedSprite2D = $Flip/Sprite
@@ -79,14 +88,18 @@ func _process(delta: float) -> void:
 
 func _apply_frames() -> void:
 	var anim := _sprite.animation
-	_sprite.sprite_frames = Art.character_frames(character_id)
+	var free := Art.free_frames(character_id) if hands_free else null
+	_free_pose = free != null
+	_sprite.sprite_frames = free if _free_pose else Art.character_frames(character_id)
 	if _sprite.sprite_frames.has_animation(anim):
 		_sprite.play(anim)
 	else:
 		play(_base())
-	if _dead:
+	if _dead and _sprite.sprite_frames.has_animation("die"):
 		_sprite.play("die")
 		_sprite.frame = _sprite.sprite_frames.get_frame_count("die") - 1
+	_gun_node.visible = not _free_pose
+	_gun_sprite.visible = not hands_free
 	_apply_gun()
 
 
@@ -169,7 +182,7 @@ func _update_gun() -> void:
 	if _gun_node.get_index() != at:
 		_flip.move_child(_gun_node, at)
 	var flash: float = a["flash"]
-	_flash.visible = flash > 0.0
+	_flash.visible = flash > 0.0 and not hands_free
 	_flash.modulate = Color(FLASH_TINT, clampf(flash, 0.0, 1.0))
 
 

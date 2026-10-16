@@ -82,7 +82,8 @@ static func known_id(id: String) -> String:
 ## - legs: -1..1 leg swing (walking);
 ## - recoil: units the front hand (and the gun it holds) is pushed back; flash: the muzzle flash
 ##   (drawn by the game at the gun's muzzle, not here);
-## - ko: true draws closed (X) eyes; hurt: true squints (> <) with a frown.
+## - ko: true draws closed (X) eyes; hurt: true squints (> <) with a frown;
+## - free: true lets the front arm hang relaxed like the back one (no gun: the lobby stage).
 ## Leaves ci's draw transform changed: the caller resets it.
 static func paint(ci: CanvasItem, xform: Transform2D, id: String, pose: Dictionary = {}) -> void:
 	id = known_id(id)
@@ -105,9 +106,21 @@ static func paint(ci: CanvasItem, xform: Transform2D, id: String, pose: Dictiona
 	_front_arm(ci, look, hand(id, pose))
 
 
-## The front hand (units, upper body space): HOLDS pushed back by the pose's recoil.
+## The front hand (units, upper body space): HOLDS pushed back by the pose's recoil; hanging at
+## the side for a free pose (mirroring the back hand).
 static func hand(id: String, pose: Dictionary = {}) -> Vector2:
+	if pose.get("free", false):
+		return Vector2(float(LOOKS[known_id(id)]["width"]) / 2 + 4.5, -38)
 	return HOLDS[known_id(id)] - Vector2(float(pose.get("recoil", 0.0)), 0.0)
+
+
+## Frame i of n of the free pose (ui/art.gd FREE_POSE): the idle frame with the front arm hanging.
+static func paint_free_frame(ci: CanvasItem, feet: Vector2, scale: float, id: String, i: int, n: int) -> void:
+	var fp := frame_pose("idle", i, n)
+	var pose: Dictionary = fp["pose"].duplicate()
+	pose["free"] = true
+	paint(ci, Transform2D(fp["rot"], Vector2(scale, scale), 0.0, feet + fp["offset"] * scale), id, pose)
+	ci.draw_set_transform(Vector2.ZERO)
 
 
 ## Where the gun is held in frame i of n of anim, drawn like paint_frame(feet, scale): {grip
