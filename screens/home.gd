@@ -1,11 +1,11 @@
 extends Control
 ## Home: the lobby (screens/home/lobby.gd) and the full-screen pages opened from it: "Nhân vật"
 ## (gear slots, character, Trang bị / Chỉ số), "Túi đồ" (Trang bị / Vật phẩm), "Hồ sơ" (player
-## card, Lịch sử) and "Shop" (Vật phẩm / Trang bị / Nhân vật / Kim cương). A page has a
+## card, Lịch sử) and "Shop" (Vật phẩm / Trang bị / Nhân vật / Kim cương / Đổi xu). A page has a
 ## header with "← Sảnh", its title and the wallet pills; "← Sảnh", Esc (ui_cancel) and the
 ## Android back button return to the lobby. The pages are built with Home but hidden, and each
 ## loads its data the first time it is shown (the tabs' own lazy loading). The wallet "+"
-## buttons open the Shop on Kim cương (gem) or Vật phẩm (coin).
+## buttons open the Shop on Kim cương (gem) or Đổi xu (coin).
 ## Each time Home is shown (first entry, back from Loadout or a match) the profile is refreshed in
 ## the background; the last known values show meanwhile. The cached characters and the owned
 ## equipment are marked stale too (a match changes their EXP), so whatever shows them reloads
@@ -117,7 +117,7 @@ func _build_page(title: String, content: Control) -> Control:
 
 func _connect_wallet(wallet: WalletPills) -> void:
 	wallet.gem_plus.connect(open_shop.bind(ShopTab.GEMS))
-	wallet.coin_plus.connect(open_shop.bind(ShopTab.ITEMS))
+	wallet.coin_plus.connect(open_shop.bind(ShopTab.EXCHANGE))
 
 
 func open_profile() -> void:

@@ -1,14 +1,17 @@
 extends RefCounted
-## Shop data as the Shop tab shows it: GET /shop/offers split into items and character unlocks,
-## the per-player limit left from GET /shop/purchases, prices and confirm texts, GET /iap/products
-## labels and the IAP platform.
+## Shop data as the Shop tab shows it: GET /shop/offers split into items, character unlocks and
+## coin packs (đổi kim cương ra xu), the per-player limit left from GET /shop/purchases, prices
+## and confirm texts, GET /iap/products labels and the IAP platform.
 
 const Fmt := preload("res://core/fmt.gd")
 const Items := preload("res://match/items.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 
 const CHARACTER_UNLOCK := "character_unlock"
+const COIN_PACK := "coin_pack" # itemId "coin", paid in gem, grants `quantity` coin
 const UNLIMITED := -1
+## Base exchange rate: xu per kim cương. A coin pack only shows a bonus when it beats it.
+const COINS_PER_GEM := 100
 
 
 ## Active offers from the GET /shop/offers data (a bare array; null when empty).
@@ -24,7 +27,60 @@ static func parse_offers(data: Variant) -> Array:
 
 ## Item and bundle offers, in the server's order.
 static func item_offers(offers: Array) -> Array:
-	return offers.filter(func(o): return str(o.get("offerType", "")) != CHARACTER_UNLOCK)
+	return offers.filter(func(o): return not (str(o.get("offerType", "")) in [CHARACTER_UNLOCK, COIN_PACK]))
+
+
+## Coin packs paid in gem (the only kind the server sells), cheapest first.
+static func coin_packs(offers: Array) -> Array:
+	var out := offers.filter(_sellable_coin_pack)
+	out.sort_custom(func(a, b): return int(a["priceAmount"]) < int(b["priceAmount"]))
+	return out
+
+
+static func _sellable_coin_pack(o: Dictionary) -> bool:
+	return is_coin_pack(o) and str(o.get("priceCurrency", "")) == "gem" and int(o.get("priceAmount", 0)) > 0 and int(o.get("quantity", 0)) > 0
+
+
+static func is_coin_pack(offer: Dictionary) -> bool:
+	return str(offer.get("offerType", "")) == COIN_PACK
+
+
+## Whole percent of extra coin over COINS_PER_GEM (rounded down), 0 at or below the base rate.
+static func coin_pack_bonus_percent(offer: Dictionary, coins_per_gem: int = COINS_PER_GEM) -> int:
+	var base := int(offer.get("priceAmount", 0)) * coins_per_gem
+	if base <= 0:
+		return 0
+	return maxi(int(offer.get("quantity", 0)) * 100 / base - 100, 0)
+
+
+## "+10%", or "" without a bonus.
+static func coin_pack_bonus(offer: Dictionary) -> String:
+	var pct := coin_pack_bonus_percent(offer)
+	return "+%d%%" % pct if pct > 0 else ""
+
+
+## "1.000": the coin a pack grants (shown with the coin icon).
+static func coin_pack_amount(offer: Dictionary) -> String:
+	return Fmt.thousands(int(offer.get("quantity", 0)))
+
+
+## Whether `gem` pays for the pack.
+static func can_afford(offer: Dictionary, gem: int) -> bool:
+	return gem >= int(offer.get("priceAmount", 0))
+
+
+## The coin pack card's button: "Đổi", or "Không đủ kim cương" when the known wallet is short.
+static func coin_pack_button(offer: Dictionary, gem: int, wallet_known: bool) -> String:
+	return "Không đủ kim cương" if wallet_known and not can_afford(offer, gem) else "Đổi"
+
+
+## "Đổi thành công! +1.000 xu": granted is the answer's quantityGranted (the offer's quantity
+## when the answer has none).
+static func coin_pack_success(offer: Dictionary, data: Variant) -> String:
+	var granted := int(offer.get("quantity", 0))
+	if data is Dictionary and int(data.get("quantityGranted", 0)) > 0:
+		granted = int(data["quantityGranted"])
+	return "Đổi thành công! +%s xu" % Fmt.thousands(granted)
 
 
 ## Character unlock offers grouped per character, known characters first in roster order:
@@ -77,6 +133,8 @@ static func remaining_text(n: int) -> String:
 
 static func offer_name(offer: Dictionary) -> String:
 	var id := str(offer.get("itemId", ""))
+	if is_coin_pack(offer):
+		return "%s xu" % coin_pack_amount(offer)
 	if str(offer.get("offerType", "")) == CHARACTER_UNLOCK:
 		for c in LoadoutModel.CHARACTERS:
 			if c["id"] == id:
@@ -99,8 +157,10 @@ static func price_text(offer: Dictionary) -> String:
 	return Fmt.thousands(int(offer.get("priceAmount", 0)))
 
 
-## "Hộp cứu thương x3 với giá 300 xu?"
+## "Hộp cứu thương x3 với giá 300 xu?"; a coin pack: "Đổi 10 kim cương lấy 1.000 xu?"
 static func confirm_text(offer: Dictionary) -> String:
+	if is_coin_pack(offer):
+		return "Đổi %s kim cương lấy %s xu?" % [Fmt.thousands(int(offer.get("priceAmount", 0))), coin_pack_amount(offer)]
 	return "%s x%d với giá %s %s?" % [offer_name(offer), maxi(int(offer.get("quantity", 1)), 1),
 		Fmt.thousands(int(offer.get("priceAmount", 0))), currency_word(str(offer.get("priceCurrency", "")))]
 

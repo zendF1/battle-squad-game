@@ -1,12 +1,16 @@
 extends Control
-## "Shop": four sub-tabs.
+## "Shop": five sub-tabs.
 ## - "Vật phẩm": item offers (GET /shop/offers) with "Còn N lượt" from GET /shop/purchases;
 ## - "Trang bị": the equipment the catalog sells (PlayerState.catalog, normal items with a
 ##   price), filtered by slot: icon, name, "Lv N", stats, price, "Đã có N"; "Mua" asks "Mua
 ##   <tên> với giá <giá>?", then PlayerState.buy_equipment() sends POST /shop/equipment/buy
 ##   {itemId, idempotencyKey} with the same key rules as the purchases below;
 ## - "Nhân vật": character_unlock offers per character, "Đã sở hữu" from GET /player/characters;
-## - "Kim cương": GET /iap/products, "Nạp" → POST /iap/verify with a mock purchase token.
+## - "Kim cương": GET /iap/products, "Nạp" → POST /iap/verify with a mock purchase token;
+## - "Đổi xu": coin_pack offers (gem → coin): "10 [gem] → 1.000 [coin]", a bonus over the base
+##   rate (ShopModel.COINS_PER_GEM) when there is one, "Đổi" ("Không đủ kim cương" and disabled
+##   while the wallet is short) asks "Đổi 10 kim cương lấy 1.000 xu?" and buys the offer like
+##   "Mua"; "Chưa có gói đổi" when the server sells none.
 ## "Mua" asks "Xác nhận mua", then PlayerState.buy() sends POST /shop/purchase {offerId,
 ## idempotencyKey}. The key (and the mock token) is reused until a definite answer
 ## (core/idempotency_keys.gd), so a retry after a network error or a 5xx can never charge twice;
@@ -31,18 +35,19 @@ const Fmt := preload("res://core/fmt.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
 
-const SUB_TABS := ["Vật phẩm", "Trang bị", "Nhân vật", "Kim cương"]
+const SUB_TABS := ["Vật phẩm", "Trang bị", "Nhân vật", "Kim cương", "Đổi xu"]
 const ITEMS := 0
 const EQUIPMENT := 1
 const CHARACTERS := 2
 const GEMS := 3
+const EXCHANGE := 4
 const SOURCES := {
 	"offers": "/shop/offers",
 	"purchases": "/shop/purchases",
 	"products": "/iap/products",
 }
 ## The sources each sub-tab needs ("characters", "equipment": the PlayerState caches).
-const NEEDS := [["offers", "purchases"], ["equipment"], ["offers", "purchases", "characters"], ["products"]]
+const NEEDS := [["offers", "purchases"], ["equipment"], ["offers", "purchases", "characters"], ["products"], ["offers", "purchases"]]
 const REPLAYED := "Giao dịch trước đã hoàn tất"
 
 ## Where dialogs and toasts go (the Home shell); defaults to this tab.
@@ -111,6 +116,7 @@ func _ready() -> void:
 	PlayerState.characters_changed.connect(_on_characters_changed)
 	PlayerState.busy_changed.connect(_on_busy_changed)
 	PlayerState.equipment_changed.connect(_on_equipment_changed)
+	PlayerState.changed.connect(_on_wallet_changed)
 	visibility_changed.connect(_on_visibility_changed)
 	_on_characters_changed() # whatever "Hồ sơ" or an earlier Home already loaded
 	show_section(ITEMS)
@@ -124,6 +130,11 @@ func _on_equipment_changed() -> void:
 		_render_equipment.call_deferred()
 	else:
 		_equipment_dirty = true
+
+
+## The "Đổi xu" buttons depend on the gem balance.
+func _on_wallet_changed() -> void:
+	_render_exchange.call_deferred()
 
 
 func show_section(index: int) -> void:
@@ -394,6 +405,39 @@ func _render_gems() -> void:
 		box.add_child(top_up)
 
 
+func _render_exchange() -> void:
+	var flow := _flows[EXCHANGE]
+	Ui.clear(flow)
+	if not _data.has("offers"):
+		return
+	var packs := ShopModel.coin_packs(_data["offers"])
+	if packs.is_empty():
+		flow.add_child(_empty("Chưa có gói đổi"))
+	for o in packs:
+		# Wide enough for "500 → 50.000" and "Không đủ kim cương": every card the same width.
+		var box := _card(flow, Vector2(340, 0))
+		var rate := HBoxContainer.new()
+		rate.alignment = BoxContainer.ALIGNMENT_CENTER
+		rate.add_theme_constant_override("separation", 10)
+		box.add_child(rate)
+		LobbyUi.icon_text(rate, "gem", ShopModel.price_text(o), 30, Color.WHITE, false, 40)
+		rate.add_child(LobbyUi.icon("arrow_right", 30))
+		LobbyUi.icon_text(rate, "coin", ShopModel.coin_pack_amount(o), 30, Color.WHITE, false, 40)
+		var bonus := Ui.label(ShopModel.coin_pack_bonus(o), 22)
+		bonus.add_theme_color_override("font_color", Ui.TONES["good"])
+		bonus.custom_minimum_size.y = 30 # keeps the cards aligned without a bonus
+		box.add_child(bonus)
+		var left := ShopModel.remaining(o, _data["purchases"]) if _data.has("purchases") else ShopModel.UNLIMITED
+		if left != ShopModel.UNLIMITED: # the seeded packs have no limit; an admin may add one
+			box.add_child(Ui.text(ShopModel.remaining_text(left), 20, Ui.TEXT_DIM))
+		var wallet_known := PlayerState.is_loaded()
+		var gem := PlayerState.gem() if wallet_known else 0
+		var swap := _action_button(ShopModel.coin_pack_button(o, gem, wallet_known))
+		swap.disabled = PlayerState.busy_id != "" or left == 0 or (wallet_known and not ShopModel.can_afford(o, gem))
+		swap.pressed.connect(_on_buy.bind(o))
+		box.add_child(swap)
+
+
 ## The price: the currency icon and the amount.
 func _price(box: Control, offer: Dictionary) -> void:
 	LobbyUi.icon_text(box, ShopModel.currency_icon(str(offer.get("priceCurrency", ""))), ShopModel.price_text(offer), 26, Color.WHITE, false, 34)
@@ -426,11 +470,12 @@ static func _empty(message: String) -> Label:
 func _on_buy(offer: Dictionary) -> void:
 	if PlayerState.busy_id != "":
 		return
+	var swap := ShopModel.is_coin_pack(offer)
 	var m := Modal.new()
-	m.open(overlay, "Xác nhận mua")
+	m.open(overlay, "Xác nhận đổi" if swap else "Xác nhận mua")
 	m.add_text(ShopModel.confirm_text(offer))
 	m.add_button("Huỷ", m.close)
-	m.add_button("Mua", _confirm_buy.bind(m, offer))
+	m.add_button("Đổi" if swap else "Mua", _confirm_buy.bind(m, offer))
 
 
 func _confirm_buy(m: Modal, offer: Dictionary) -> void:
@@ -441,7 +486,8 @@ func _confirm_buy(m: Modal, offer: Dictionary) -> void:
 func _purchase(offer: Dictionary) -> void:
 	if PlayerState.busy_id != "":
 		return
-	_action_status.show_loading("Đang mua %s..." % ShopModel.offer_name(offer))
+	var swap := ShopModel.is_coin_pack(offer)
+	_action_status.show_loading(("Đang đổi lấy %s..." if swap else "Đang mua %s...") % ShopModel.offer_name(offer))
 	var res: Dictionary = await PlayerState.buy(str(offer.get("offerId", "")))
 	if not is_inside_tree():
 		return
@@ -450,7 +496,10 @@ func _purchase(offer: Dictionary) -> void:
 		return
 	if res.ok:
 		_action_status.clear()
-		Ui.toast(overlay, REPLAYED if res.replay else "Mua thành công!")
+		if res.replay:
+			Ui.toast(overlay, REPLAYED)
+		else:
+			Ui.toast(overlay, ShopModel.coin_pack_success(offer, res.data) if swap else "Mua thành công!")
 		return
 	var retry := _purchase.bind(offer) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.purchase(res, str(offer.get("priceCurrency", ""))), retry)
@@ -519,3 +568,4 @@ func _render_cards() -> void:
 	_render_equipment()
 	_render_characters()
 	_render_gems()
+	_render_exchange()
