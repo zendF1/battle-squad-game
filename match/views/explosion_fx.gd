@@ -2,7 +2,7 @@ extends Node2D
 ## An explosion, drawn the way the shooter's gun hits (STYLES, by `kind`; the same kinds as
 ## projectile_view.gd): the burst frames scaled to the crater radius, smoke puffs drifting up and
 ## fading, and bits thrown out with gravity.
-## - rookie: the explosion (assets/fx/explosion_0..N.png), grey smoke, dirt debris;
+## - rookie: the explosion (assets/fx/rookie/impact_0..N.png), grey smoke, dirt debris;
 ## - tanko: a bigger heavy blast (assets/fx/tanko/impact_*), dark smoke, more debris;
 ## - spark: an electric burst (cyan flash, lightning arcs) with sparks flying out;
 ## - flora: a green flash with petals and leaves flying out.

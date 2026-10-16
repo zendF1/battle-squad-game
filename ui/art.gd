@@ -86,14 +86,16 @@ const EXPLOSION_FRAMES := 6
 ## The explosion frames are drawn for a crater of this radius (px in the frame).
 const EXPLOSION_RADIUS := 60.0
 ## Each gun's own shot (assets/fx/<kind>/): projectile.png (64x64, flying +x, 2 px per world px),
-## trail.png (32x32 particle) and impact_0..N.png (like explosion_*). Rookie's bazooka has no
-## folder: it shoots the bomb and the explosion above, which are also the fallbacks.
+## trail.png (32x32 particle) and impact_0..N.png. Rookie's folder holds the bomb
+## (rookie/projectile.png) and the explosion (rookie/impact_*), which are also the fallbacks of the
+## other kinds; Rookie has no trail particle (its fuse spark and line trail are drawn in code).
+## Effects every kind uses (smoke, debris, muzzle flash) are in assets/fx/common/.
 const SHOT_KINDS := ["tanko", "spark", "flora"]
 const FX := {
-	"bomb": ROOT + "fx/bomb.png",
-	"smoke": ROOT + "fx/smoke.png",
-	"debris": ROOT + "fx/debris.png",
-	"muzzle": ROOT + "fx/muzzle.png",
+	"bomb": ROOT + "fx/rookie/projectile.png",
+	"smoke": ROOT + "fx/common/smoke.png",
+	"debris": ROOT + "fx/common/debris.png",
+	"muzzle": ROOT + "fx/common/muzzle.png",
 }
 
 # ── UI 9-patches ────────────────────────────────────────────────────────────
@@ -160,7 +162,7 @@ static func shot_path(kind: String, part: String) -> String:
 
 
 static func explosion_path(i: int) -> String:
-	return ROOT + "fx/explosion_%d.png" % i
+	return ROOT + "fx/rookie/impact_%d.png" % i
 
 
 static func ui_path(box_name: String) -> String:

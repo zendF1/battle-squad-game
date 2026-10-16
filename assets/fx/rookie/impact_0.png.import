@@ -10,7 +10,7 @@ metadata={
 
 [deps]
 
-source_file="res://assets/fx/explosion_0.png"
+source_file="res://assets/fx/rookie/impact_0.png"
 dest_files=["res://.godot/imported/explosion_0.png-230937e7913856aecddc32b79e968ea6.ctex"]
 
 [params]

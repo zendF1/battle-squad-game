@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://8l8q6cbcb6i7"
-path="res://.godot/imported/debris.png-1723d81c3c56081a8c67737c6aecac4d.ctex"
+uid="uid://btfjpsm1swydq"
+path="res://.godot/imported/explosion_2.png-b12a1a7bb5f588f752d76234170aa886.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/fx/debris.png"
-dest_files=["res://.godot/imported/debris.png-1723d81c3c56081a8c67737c6aecac4d.ctex"]
+source_file="res://assets/fx/rookie/impact_2.png"
+dest_files=["res://.godot/imported/explosion_2.png-b12a1a7bb5f588f752d76234170aa886.ctex"]
 
 [params]
 

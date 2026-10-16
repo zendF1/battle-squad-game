@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://gjd0iata7une"
-path="res://.godot/imported/bomb.png-64b8cc3f8a0130998347320d272947e2.ctex"
+uid="uid://8l8q6cbcb6i7"
+path="res://.godot/imported/debris.png-1723d81c3c56081a8c67737c6aecac4d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/fx/bomb.png"
-dest_files=["res://.godot/imported/bomb.png-64b8cc3f8a0130998347320d272947e2.ctex"]
+source_file="res://assets/fx/common/debris.png"
+dest_files=["res://.godot/imported/debris.png-1723d81c3c56081a8c67737c6aecac4d.ctex"]
 
 [params]
 

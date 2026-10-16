@@ -10,7 +10,7 @@ metadata={
 
 [deps]
 
-source_file="res://assets/fx/muzzle.png"
+source_file="res://assets/fx/common/muzzle.png"
 dest_files=["res://.godot/imported/muzzle.png-f906c601b0d3118a7eb51c686c363f6c.ctex"]
 
 [params]

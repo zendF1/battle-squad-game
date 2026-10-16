@@ -1,8 +1,8 @@
 extends Node2D
 ## A shell in flight (moved by shot_player.gd), drawn the way the shooter's gun fires it
 ## (STYLES, by `kind`, see style_for()):
-## - rookie (bazooka): the bomb (assets/fx/bomb.png, fuse behind) with a flickering spark
-##   (assets/fx/muzzle.png) on the fuse and a warm fading line trail;
+## - rookie (bazooka): the bomb (assets/fx/rookie/projectile.png, fuse behind) with a flickering spark
+##   (assets/fx/common/muzzle.png) on the fuse and a warm fading line trail;
 ## - tanko (cannon): a big iron cannonball with a short grey smoke trail;
 ## - spark (shock rifle): a glowing plasma orb, flickering, with a bright electric trail and sparks;
 ## - flora (seed launcher): a spinning seed pod with a petal trail.

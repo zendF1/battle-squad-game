@@ -2,7 +2,7 @@ extends RefCounted
 ## Code-drawn effects (bake source only): the bomb, the explosion frames, a smoke puff, a debris
 ## chunk, a muzzle/fuse flash, the character ground shadow, and each gun's own shot (Tanko's
 ## cannonball, Spark's plasma orb, Flora's seed pod: projectile, trail particle, impact frames). tools/bake_art.gd saves them
-## under assets/fx/ (the shadow under assets/characters/).
+## under assets/fx/<gun>/ and assets/fx/common/ (the shadow under assets/characters/).
 
 const OUTLINE := Color(0.02, 0.02, 0.05)
 const BOMB_SIZE := Vector2i(48, 48)
