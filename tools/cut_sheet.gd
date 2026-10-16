@@ -1,47 +1,36 @@
 extends SceneTree
-## Cuts a character's AI-made parts sheet (art_source/characters/<id>/, white background) into
-## the part PNGs of one of its cutout rigs (assets/characters/<id>/<rig>/parts/<part>.png, see
-## scenes/character/rig.gd and assets/README.md; <rig> is "lobby", the front view of the screens
-## outside the match). Reproducible: everything it does is in art_source/characters/<id>/
-## parts.json (and any other *parts.json there, one per rig). Runs headless or windowed (only
-## Image is used):
+## Cuts one coherent full-body picture per character out of the AI-made lineup image (all the
+## characters side by side on a white background, art_source/characters/lineup_v1.png) into
+## assets/characters/<id>/lobby/full.png + full.json (the screens outside the match draw it,
+## skinned on a skeleton: scenes/character/full_body.gd, assets/README.md). Reproducible:
+## everything it does is in art_source/characters/lineup_parts.json. Runs headless or windowed
+## (only Image is used):
 ##
-##   $GODOT --headless --path . -s tools/cut_sheet.gd [-- <id> ...]    # default: every id with a parts.json
+##   $GODOT --headless --path . -s tools/cut_sheet.gd [-- <id> ...]    # default: every figure
 ##
-## parts.json: {"rig": "lobby", "sheet": "<file in the same folder>", "scale": output px per sheet
-## px (pick it so the parts are drawn 1:1 where they are shown: the lobby rig's rig.json scale
-## 0.64 puts them 1:1 on the 1600x900 lobby stage),
-## "tolerance": 0..1 (how far from white still counts as background), "parts": {name: part}}.
-## A part: "rect" [x, y, w, h] in sheet px (loose is fine), optional "seed" [x, y] (a sheet
-## point on the part: the connected piece under it is kept, otherwise the largest piece in the
-## rect), "clip" [[x, y], ...] a convex polygon in sheet px the part is cut to (to split joined
-## pieces, e.g. the hips from the legs) with "feather" px of soft edge along the cut, "holes"
-## [[x, y], ...] sheet points of enclosed white areas to clear (a fist's hole the gun's grip
-## shows through), "pad" px of transparent border kept round it (default 2).
+## lineup_parts.json: {"sheet", "tolerance": 0..1 (how far from white still counts as
+## background), "pad" (transparent px kept round the figure), "drawScale" (full.png px →
+## character px, 0.64 = 1:1 on the lobby stage), "figures": {id: figure}}. A figure: "rect"
+## [x, y, w, h] in sheet px (loose is fine), optional "seed" [x, y] (a sheet point on the figure:
+## the connected piece under it is kept, otherwise the largest piece in the rect), "clip" [[x,
+## y], ...] a convex polygon in sheet px it is cut to with "feather" px of soft edge along the
+## cut, "holes" [[x, y], ...] sheet points of enclosed white areas to clear, "scale" (full.png px
+## per sheet px), "joints" {name: [x, y] sheet px, see SKELETON}, optional "strength" {bone: k}
+## and "anims" (merged over the shared assets/characters/lobby_full_anims.json).
 ##
-## Per part: the white background is flood-filled from the rect's border (near-white pixels,
+## Per figure: the white background is flood-filled from the rect's border (near-white pixels,
 ## `tolerance`), so enclosed whites (eyes, teeth, highlights) stay; only the piece under the
 ## seed is kept (no bits of neighbours); the edge pixels get their alpha from how far they are
 ## from white and their colour un-blended from white (no white halo, the anti-aliased outline
-## stays soft); then the clip, a trim to the visible pixels (+2 px), the scale (Lanczos on
+## stays soft); then the clip, a trim to the visible pixels (+pad), the scale (Lanczos on
 ## premultiplied colour, once, from the full-resolution cut) and the PNG. A new PNG gets an
-## .import without mipmaps (the parts are drawn at their own size); an existing .import is never
-## touched.
+## .import without mipmaps; an existing .import is never touched.
 ##
-## Lineup mode (`-- lineup [<id> ...]`, also run by default): art_source/characters/
-## lineup_parts.json cuts one coherent full-body picture per character out of a lineup image
-## (all the characters side by side on white) into assets/characters/<id>/lobby/full.png +
-## full.json (the screens outside the match draw it, skinned on a skeleton, instead of the rig:
-## scenes/character/full_body.gd, assets/README.md). lineup_parts.json: {"sheet", "tolerance",
-## "pad" (transparent px kept round the figure), "drawScale" (full.png px → character px, 0.64 =
-## 1:1 on the lobby stage), "figures": {id: a part as above (rect, seed, holes, clip, feather) +
-## "scale" (full.png px per sheet px), "joints" {name: [x, y] sheet px, see SKELETON},
-## optional "strength" {bone: k} and "anims" (merged over the shared
-## assets/characters/lobby_full_anims.json)}}. full.json: {size, pivot (the feet: the middle of
-## the boots' outer edges, the soles' bottom; px in full.png), height (feet to the top of the
-## head, px), scale (= drawScale), bones [{name, parent, at (the joint), tip (the end of its
-## segment), strength}] in full.png px, anims, mesh {vertices (px in full.png = uv), triangles
-## (3 indices each)}, weights (per vertex: bone index, weight, ...)} (tools/full_mesh.gd).
+## full.json: {size, pivot (the feet: the middle of the boots' outer edges, the soles' bottom; px
+## in full.png), height (feet to the top of the head, px), scale (= drawScale), bones [{name,
+## parent, at (the joint), tip (the end of its segment), strength}] in full.png px, anims, mesh
+## {vertices (px in full.png = uv), triangles (3 indices each)}, weights (per vertex: bone index,
+## weight, ...)} (tools/full_mesh.gd).
 
 const FullMesh := preload("res://tools/full_mesh.gd")
 const SRC := "res://art_source/characters/"
@@ -55,47 +44,13 @@ var _bytes := 0
 
 
 func _initialize() -> void:
-	var ids: Array = Array(OS.get_cmdline_user_args())
-	if ids.has("lineup"): # only the lineup (figure ids after it pick some)
-		_cut_lineup(SRC + "lineup_parts.json")
-		_done()
-		return
-	if ids.is_empty():
-		ids = Array(DirAccess.get_directories_at(SRC))
-		_cut_lineup(SRC + "lineup_parts.json")
-	for id in ids:
-		for f in DirAccess.get_files_at(SRC + str(id)):
-			if f.ends_with("parts.json"):
-				_cut_character(str(id), SRC + str(id) + "/" + f)
+	_cut_lineup(SRC + "lineup_parts.json") # figure ids on the command line pick some
 	_done()
 
 
 func _done() -> void:
 	print("cut_sheet: wrote %d pictures, %.1f KB" % [_written, _bytes / 1024.0])
 	quit()
-
-
-func _cut_character(id: String, spec_path: String) -> void:
-	var spec = JSON.parse_string(FileAccess.get_file_as_string(spec_path))
-	if not spec is Dictionary:
-		push_error("cut_sheet: %s missing or not a JSON object" % spec_path)
-		return
-	var sheet := Image.load_from_file(ProjectSettings.globalize_path(SRC + id + "/" + str(spec["sheet"])))
-	if sheet == null:
-		push_error("cut_sheet: cannot read the sheet of " + id)
-		return
-	sheet.convert(Image.FORMAT_RGBA8)
-	var scale := float(spec.get("scale", 1.0))
-	var tol := float(spec.get("tolerance", 0.1))
-	var rig_name := str(spec.get("rig", "lobby"))
-	print("%s %s: %s %dx%d, scale %.4f" % [id, rig_name, spec["sheet"], sheet.get_width(), sheet.get_height(), scale])
-	var parts: Dictionary = spec["parts"]
-	for part_name in parts:
-		var cut := cut_part(sheet, parts[part_name], tol, scale)
-		if cut.is_empty():
-			push_error("cut_sheet: %s/%s is empty" % [id, part_name])
-			continue
-		_save(cut["image"], OUT + "%s/%s/parts/%s.png" % [id, rig_name, part_name], cut["origin"])
 
 
 func _cut_lineup(spec_path: String) -> void:
@@ -191,7 +146,7 @@ func _write_full_json(path: String, img: Image, feet: Dictionary, bones: Array, 
 			"tip": [b["tip"].x, b["tip"].y], "strength": b["strength"]}))
 	var lines: Array = [
 		"{",
-		'\t"_doc": "Generated by tools/cut_sheet.gd (lineup mode) from art_source/characters/lineup_parts.json: edit that and re-cut. Drawn by scenes/character/full_body.gd, see assets/README.md.",',
+		'\t"_doc": "Generated by tools/cut_sheet.gd from art_source/characters/lineup_parts.json: edit that and re-cut. Drawn by scenes/character/full_body.gd, see assets/README.md.",',
 		'\t"source": %s,' % JSON.stringify(source),
 		'\t"size": [%d, %d],' % [img.get_width(), img.get_height()],
 		'\t"pivot": [%d, %d],' % [feet["pivot"].x, feet["pivot"].y],
@@ -235,7 +190,7 @@ static func feet_of(img: Image) -> Dictionary:
 	return {"pivot": Vector2(round((x0 + x1 + 1) / 2.0), bottom + 1), "height": bottom + 1 - top}
 
 
-## One part (see the header): {image (straight-alpha RGBA), origin (sheet px of the image's
+## One figure (see the header): {image (straight-alpha RGBA), origin (sheet px of the image's
 ## top-left before the scale)}, or {} when nothing is left.
 static func cut_part(sheet: Image, p: Dictionary, tol: float, scale: float) -> Dictionary:
 	var r: Array = p["rect"]

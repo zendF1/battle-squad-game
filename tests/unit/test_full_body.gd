@@ -72,7 +72,7 @@ func test_skeleton_mesh_and_weights_are_sane() -> void:
 
 func test_lobby_full_falls_back() -> void:
 	eq(Art.parse_full("res://assets/characters/nope/lobby/full.json", "res://assets/characters/nope/lobby/full.png"), {}, "missing → {}")
-	eq(Art.parse_full(Art.rig_path("rookie"), Art.full_path("rookie")), {}, "not a full-body json → {}")
+	eq(Art.parse_full(Art.gun_anchors_path("rookie"), Art.full_path("rookie")), {}, "not a full-body json → {}")
 	eq(Art.parse_full(Art.full_json_path("rookie"), "res://assets/characters/nope.png"), {}, "picture missing → {}")
 	eq(Art.lobby_full("nobody")["pivot"], Art.lobby_full("rookie")["pivot"], "unknown id → Rookie's")
 
@@ -81,12 +81,12 @@ func test_character_prefers_the_full_body_picture() -> void:
 	for id in Art.CHARACTERS:
 		var c: Node2D = CharacterScene.instantiate()
 		c.character_id = id
-		c.lobby_rig = true
+		c.lobby_full = true
 		var holder := Node.new()
 		holder.add_child(c)
 		c._ready()
 		var full: Node2D = c.full()
-		check(full != null and c.rig() == null, "%s drawn by its full-body picture" % id)
+		check(full != null, "%s drawn by its full-body picture" % id)
 		if full == null:
 			holder.free()
 			continue
@@ -108,7 +108,7 @@ func test_character_prefers_the_full_body_picture() -> void:
 		check(r.size.y > 200.0 and r.size.y < 260.0, "%s about 150 units tall: %.0f" % [id, r.size.y])
 		c.lobby_full = false
 		c._apply_frames() # not in the tree: the setter only stores it
-		check(c.full() == null and c.rig() != null, "%s lobby_full off: the rig" % id)
+		check(c.full() == null and c.get_node("Flip/Sprite").visible and c.holds_gun(), "%s lobby_full off: the frames with the gun" % id)
 		holder.free()
 	var m: Node2D = CharacterScene.instantiate()
 	var holder := Node.new()
@@ -116,3 +116,10 @@ func test_character_prefers_the_full_body_picture() -> void:
 	m._ready()
 	check(m.full() == null and m.holds_gun(), "the match: frames with the gun")
 	holder.free()
+
+
+func test_character_view_uses_the_full_body_picture() -> void:
+	var text := FileAccess.get_file_as_string("res://ui/character_view.gd")
+	check(text.contains("lobby_full = true"), "CharacterView turns the full-body picture on")
+	text = FileAccess.get_file_as_string("res://match/views/player_view.gd")
+	check(not text.contains("lobby_full"), "the match does not")

@@ -25,30 +25,18 @@ const ANIMS := {
 	"hurt": {"frames": 3, "fps": 7.0, "loop": false},
 	"die": {"frames": 4, "fps": 8.0, "loop": false},
 }
-## The lobby stage's pose without a gun: the idle animation (same frame count, speed and canvas)
-## with the front arm hanging relaxed, <id>/idle_free_0..3.png. Not in the .tres: free_frames()
-## builds its SpriteFrames from the files (no anchors: no gun is drawn).
-const FREE_POSE := "idle_free"
 const PORTRAIT_SIZE := Vector2i(128, 128)
 ## The ground shadow under a character (centred on the feet), drawn at PX_PER_UNIT too.
 const SHADOW := ROOT + "characters/shadow.png"
 ## The hand drawn over the gun's grip (centred on the grip), shared by every character.
 const HAND := ROOT + "characters/hand.png"
-## The screens outside the match (lobby stage, Prep, Nhân vật) draw a character with
-## <id>/lobby/rig.json as its front-view cutout rig (scenes/character/rig.gd): part pictures in
-## <id>/lobby/parts/<part>.png on bones, animated by the shared LOBBY_ANIMS (a rig.json may add
-## or override one). rig() falls back to {} (the frames above) when the rig or a part is missing.
-## The match keeps the side-view frames.
-const RIG_VIEW := "lobby"
-const LOBBY_ANIMS := ROOT + "characters/lobby_anims.json"
-## The screens outside the match prefer <id>/lobby/full.png (one full-body picture, cut from
-## art_source/characters/lineup_v1.png) skinned on the skeleton in <id>/lobby/full.json
-## (scenes/character/full_body.gd), animated by FULL_ANIMS merged with the full.json's anims;
-## lobby_full() falls back to {} (then the rig, then the frames) when either file is missing or
-## broken.
+## The screens outside the match (lobby stage, Prep, Nhân vật) draw <id>/lobby/full.png (one
+## full-body picture, cut from art_source/characters/lineup_v1.png) skinned on the skeleton in
+## <id>/lobby/full.json (scenes/character/full_body.gd), animated by FULL_ANIMS merged with the
+## full.json's anims; lobby_full() falls back to {} (the frames above) when either file is
+## missing or broken. The match keeps the side-view frames.
+const LOBBY_VIEW := "lobby"
 const FULL_ANIMS := ROOT + "characters/lobby_full_anims.json"
-## The animations a lobby rig needs (idle: holding the gun; idle_free: hands free).
-const RIG_ANIM_NAMES := ["idle", "idle_free"]
 
 # ── Guns (assets/weapons/) ──────────────────────────────────────────────────
 
@@ -173,8 +161,6 @@ static var _guns_data: Variant = null # parsed weapons.json ({} when missing)
 static var _anchors := {} # character id -> {anim: [anchor...]}
 static var _placeholder: Texture2D
 static var _empty_frames: SpriteFrames
-static var _free_frames := {} # character id -> SpriteFrames
-static var _rigs := {} # character id -> rig() data ({} = no rig)
 static var _fulls := {} # character id -> lobby_full() data ({} = none)
 
 
@@ -195,20 +181,12 @@ static func portrait_path(id: String) -> String:
 	return ROOT + "characters/%s/portrait.png" % id
 
 
-static func rig_path(id: String) -> String:
-	return ROOT + "characters/%s/%s/rig.json" % [id, RIG_VIEW]
-
-
-static func rig_part_path(id: String, part: String) -> String:
-	return ROOT + "characters/%s/%s/parts/%s.png" % [id, RIG_VIEW, part]
-
-
 static func full_path(id: String) -> String:
-	return ROOT + "characters/%s/%s/full.png" % [id, RIG_VIEW]
+	return ROOT + "characters/%s/%s/full.png" % [id, LOBBY_VIEW]
 
 
 static func full_json_path(id: String) -> String:
-	return ROOT + "characters/%s/%s/full.json" % [id, RIG_VIEW]
+	return ROOT + "characters/%s/%s/full.json" % [id, LOBBY_VIEW]
 
 
 static func gun_path(kind: String, tier: String) -> String:
@@ -257,7 +235,7 @@ static func ui_path(box_name: String) -> String:
 
 ## Every file this script names (the test checks they all exist).
 static func all_paths() -> Array[String]:
-	var out: Array[String] = [SHADOW, HAND, GUNS_DATA, LOBBY_ANIMS, FULL_ANIMS]
+	var out: Array[String] = [SHADOW, HAND, GUNS_DATA, FULL_ANIMS]
 	for id in CHARACTERS:
 		out.append(frames_path(id))
 		out.append(portrait_path(id))
@@ -265,9 +243,6 @@ static func all_paths() -> Array[String]:
 		for anim in ANIMS:
 			for i in int(ANIMS[anim]["frames"]):
 				out.append(frame_path(id, anim, i))
-		for i in int(ANIMS["idle"]["frames"]):
-			out.append(frame_path(id, FREE_POSE, i))
-		out.append_array(rig_paths(id))
 		out.append(full_path(id))
 		out.append(full_json_path(id))
 	for icon_name in ICONS:
@@ -441,115 +416,13 @@ static func character_frames(id: String) -> SpriteFrames:
 	return _empty_frames
 
 
-## The no-gun pose of a character as SpriteFrames with one looping "idle" animation, or null when
-## one of its frames is missing or not imported yet (the caller keeps the normal frames).
-static func free_frames(id: String) -> SpriteFrames:
-	id = known_character(id)
-	if _free_frames.has(id):
-		return _free_frames[id]
-	var spec: Dictionary = ANIMS["idle"]
-	var f := SpriteFrames.new()
-	f.set_animation_loop("default", true)
-	f.rename_animation("default", "idle")
-	f.set_animation_speed("idle", float(spec["fps"]))
-	f.set_animation_loop("idle", true)
-	for i in int(spec["frames"]):
-		var t := _cached(frame_path(id, FREE_POSE, i))
-		if t == null:
-			f = null
-			break
-		f.add_frame("idle", t)
-	if f != null:
-		_free_frames[id] = f # a missing frame is looked up again next time (imported meanwhile)
-	return f
-
-
-# ── Cutout rigs ─────────────────────────────────────────────────────────────
-
-## rig.json and every part picture it names ([] without a rig.json).
-static func rig_paths(id: String) -> Array[String]:
-	var out: Array[String] = []
-	var path := rig_path(id)
-	if not FileAccess.file_exists(path):
-		return out
-	out.append(path)
-	var data := _load_json(path)
-	var parts := {}
-	for b in data.get("bones", []):
-		if b is Dictionary and b.has("part"):
-			parts[str(b["part"])] = true
-	for part in parts:
-		out.append(rig_part_path(id, part))
-	return out
-
-
-## A character's lobby rig: {scale (part px → character px), bones: [{name, parent, part, at, pivot
-## (Vector2 part px), rot, z, flip, shade, set}], gun: {bone, at, angle, z}, textures: {part:
-## Texture2D}, anims: {name: spec}}, or {} when it has no rig.json, the file is broken or a part
-## picture is missing (the character then uses its frames). A part not imported yet is read
-## straight from its PNG.
-static func rig(id: String) -> Dictionary:
-	id = known_character(id)
-	if _rigs.has(id):
-		return _rigs[id]
-	var out := _parse_rig(id)
-	_rigs[id] = out
-	return out
-
-
-static func _parse_rig(id: String) -> Dictionary:
-	var path := rig_path(id)
-	if not FileAccess.file_exists(path):
-		return {}
-	var data := _load_json(path)
-	if not data.get("bones") is Array or not data.get("gun") is Dictionary or float(data.get("scale", 0.0)) <= 0.0:
-		push_warning("art: %s is not a rig, using the frames" % path)
-		return {}
-	var names := {}
-	for b in data["bones"]:
-		if b is Dictionary and b.has("name"):
-			names[str(b["name"])] = true
-	var bones: Array = []
-	var textures := {}
-	for b in data["bones"]:
-		if not b is Dictionary or not b.has("name") or (b.has("parent") and not names.has(str(b["parent"]))):
-			push_warning("art: %s has a bad bone %s, using the frames" % [path, str(b)])
-			return {}
-		var e := {"name": str(b["name"]), "parent": str(b.get("parent", "")), "at": _vec2(b.get("at", [])),
-			"pivot": _vec2(b.get("pivot", [])), "rot": float(b.get("rot", 0.0)), "z": int(b.get("z", 0)),
-			"flip": bool(b.get("flip", false)), "shade": float(b.get("shade", 1.0)), "set": str(b.get("set", ""))}
-		if b.has("part"):
-			var part := str(b["part"])
-			if not textures.has(part):
-				var t := _rig_texture(rig_part_path(id, part))
-				if t == null:
-					return {}
-				textures[part] = t
-			e["part"] = part
-		bones.append(e)
-	var g: Dictionary = data["gun"]
-	if not names.has(str(g.get("bone", ""))):
-		push_warning("art: %s gun bone missing, using the frames" % path)
-		return {}
-	var anims: Dictionary = _load_json(LOBBY_ANIMS).duplicate()
-	anims.erase("_doc")
-	if data.get("anims") is Dictionary:
-		anims.merge(data["anims"], true)
-	for anim in RIG_ANIM_NAMES:
-		if not anims.get(anim) is Dictionary:
-			push_warning("art: rig animation %s missing, using the frames" % anim)
-			return {}
-	return {"scale": float(data["scale"]), "bones": bones, "textures": textures, "anims": anims,
-		"gun": {"bone": str(g["bone"]), "at": _vec2(g.get("at", [])), "angle": float(g.get("angle", 0.0)), "z": int(g.get("z", 0))}}
-
-
 # ── Full-body pictures ──────────────────────────────────────────────────────
 
 ## A character's skinned full-body picture: {texture, size, pivot (the feet, px in the picture),
 ## height (px), scale (picture px → character px), bones: [{name, parent, at, tip (Vector2 px)}]
 ## (parents first), vertices (PackedVector2Array, px = uv), polygons (Array of PackedInt32Array
 ## triangles), weights (per bone a PackedFloat32Array, one per vertex), anims: {name: spec}}, or
-## {} when it has none (the rig, then the frames, draw it). Not imported yet: read from the PNG.
+## {} when it has none (the frames draw it). Not imported yet: read from the PNG.
 static func lobby_full(id: String) -> Dictionary:
 	id = known_character(id)
 	if _fulls.has(id):
@@ -567,13 +440,13 @@ static func parse_full(json_path: String, png_path: String) -> Dictionary:
 	if float(data.get("scale", 0.0)) <= 0.0 or not data.get("pivot") is Array or not data.get("bones") is Array \
 			or not mesh is Dictionary or not mesh.get("vertices") is Array or not mesh.get("triangles") is Array \
 			or not data.get("weights") is Array or (data["weights"] as Array).size() != (mesh["vertices"] as Array).size():
-		push_warning("art: %s is not a full-body picture, using the rig" % json_path)
+		push_warning("art: %s is not a full-body picture, using the frames" % json_path)
 		return {}
 	var bones: Array = []
 	var index := {}
 	for b in data["bones"]:
 		if not b is Dictionary or not b.has("name") or (str(b.get("parent", "")) != "" and not index.has(str(b["parent"]))):
-			push_warning("art: %s has a bad bone %s, using the rig" % [json_path, str(b)])
+			push_warning("art: %s has a bad bone %s, using the frames" % [json_path, str(b)])
 			return {}
 		index[str(b["name"])] = bones.size()
 		bones.append({"name": str(b["name"]), "parent": str(b.get("parent", "")), "at": _vec2(b.get("at", [])), "tip": _vec2(b.get("tip", []))})
@@ -587,7 +460,7 @@ static func parse_full(json_path: String, png_path: String) -> Dictionary:
 		var tri := PackedInt32Array([int(tris[t]), int(tris[t + 1]), int(tris[t + 2])])
 		for i in tri:
 			if i < 0 or i >= n:
-				push_warning("art: %s triangle index %d out of range, using the rig" % [json_path, i])
+				push_warning("art: %s triangle index %d out of range, using the frames" % [json_path, i])
 				return {}
 		polygons.append(tri)
 	var weights: Array = []
@@ -618,17 +491,17 @@ static func parse_full(json_path: String, png_path: String) -> Dictionary:
 			else:
 				anims[anim] = own[anim]
 	if not anims.get("idle") is Dictionary or polygons.is_empty() or bones.is_empty():
-		push_warning("art: %s has no idle, mesh or bones, using the rig" % json_path)
+		push_warning("art: %s has no idle, mesh or bones, using the frames" % json_path)
 		return {}
-	var tex := _rig_texture(png_path)
+	var tex := _png_texture(png_path)
 	if tex == null:
 		return {}
 	return {"texture": tex, "size": _vec2(data.get("size", [])), "pivot": _vec2(data["pivot"]), "height": float(data.get("height", 0.0)),
 		"scale": float(data["scale"]), "bones": bones, "vertices": vertices, "polygons": polygons, "weights": weights, "anims": anims}
 
 
-## A part picture: the imported texture, else the PNG itself, else null.
-static func _rig_texture(path: String) -> Texture2D:
+## A picture: the imported texture, else the PNG itself (not imported yet), else null.
+static func _png_texture(path: String) -> Texture2D:
 	var cached: Texture2D = _textures.get(path)
 	if cached != null:
 		return cached

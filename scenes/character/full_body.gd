@@ -7,13 +7,8 @@ extends Node2D
 ## assets/characters/lobby_full_anims.json merged with the character's own tracks (full.json
 ## anims). Everything comes from ui/art.gd lobby_full() (full.json: bones, mesh, weights; made by
 ## tools/cut_sheet.gd). Feet at this node's origin. Built by scenes/character/character.gd for
-## the screens outside the match (lobby_rig + lobby_full); it only idles and draws no gun (the
+## the screens outside the match (lobby_full); it only idles and draws no gun (the
 ## pose has no gun hand). See assets/README.md.
-
-const Rig := preload("res://scenes/character/rig.gd")
-
-## Target of an animation's `_flash` track (unused: no gun).
-var flash := 0.0
 
 var _bones := {} # name -> Bone2D
 var _skeleton: Skeleton2D
@@ -66,7 +61,7 @@ func setup(data: Dictionary) -> void:
 				used = true
 				break
 		if used:
-			_mesh.add_bone(NodePath(Rig.path_of(_bones[bones[i]["name"]], _skeleton)), w)
+			_mesh.add_bone(NodePath(path_of(_bones[bones[i]["name"]], _skeleton)), w)
 	_player = AnimationPlayer.new()
 	_player.name = "Anim"
 	add_child(_player)
@@ -74,9 +69,56 @@ func setup(data: Dictionary) -> void:
 	_player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 	var lib := AnimationLibrary.new()
 	for anim_name in data["anims"]:
-		lib.add_animation(anim_name, Rig.build_animation(data["anims"][anim_name], _bones, self))
+		lib.add_animation(anim_name, build_animation(data["anims"][anim_name], _bones, self))
 	_player.add_animation_library("", lib)
 	play("idle")
+
+
+## An Animation of a lobby_full_anims.json spec moving `bones` (name -> Node2D with the metas
+## rest_pos / rest_rot; paths from `root`).
+static func build_animation(spec: Dictionary, bones: Dictionary, root: Node) -> Animation:
+	var a := Animation.new()
+	a.length = maxf(0.05, float(spec.get("length", 1.0)))
+	a.loop_mode = Animation.LOOP_LINEAR if bool(spec.get("loop", false)) else Animation.LOOP_NONE
+	var tracks: Dictionary = spec.get("tracks", {})
+	for bone_name in bones:
+		var n: Node2D = bones[bone_name]
+		var tr: Dictionary = tracks.get(bone_name, {})
+		var path := path_of(n, root)
+		var times: Array = tr.get("t", [0.0])
+		var rest_pos: Vector2 = n.get_meta("rest_pos")
+		var rest_rot: float = n.get_meta("rest_rot")
+		var pos := a.add_track(Animation.TYPE_VALUE)
+		var rot := a.add_track(Animation.TYPE_VALUE)
+		var scl := a.add_track(Animation.TYPE_VALUE)
+		a.track_set_path(pos, path + ":position")
+		a.track_set_path(rot, path + ":rotation")
+		a.track_set_path(scl, path + ":scale")
+		for t in [pos, rot, scl]:
+			a.track_set_interpolation_type(t, Animation.INTERPOLATION_CUBIC)
+			a.value_track_set_update_mode(t, Animation.UPDATE_CONTINUOUS)
+		for k in times.size():
+			var time := clampf(float(times[k]), 0.0, a.length)
+			a.track_insert_key(pos, time, rest_pos + Vector2(_key(tr, "x", k, 0.0), _key(tr, "y", k, 0.0)))
+			a.track_insert_key(rot, time, rest_rot + deg_to_rad(_key(tr, "rot", k, 0.0)))
+			a.track_insert_key(scl, time, Vector2(_key(tr, "sx", k, 1.0), _key(tr, "sy", k, 1.0)))
+	return a
+
+
+## The node's path from root (built by hand: the skeleton may not be in the tree yet).
+static func path_of(n: Node, root: Node) -> String:
+	var names: Array[String] = []
+	while n != null and n != root:
+		names.push_front(str(n.name))
+		n = n.get_parent()
+	return "/".join(names)
+
+
+static func _key(track: Dictionary, field: String, k: int, default: float) -> float:
+	var v = track.get(field)
+	if not v is Array or v.is_empty():
+		return default
+	return float(v[mini(k, v.size() - 1)])
 
 
 ## Plays an animation by name; one it does not have (walk, shoot ...) keeps the idle.

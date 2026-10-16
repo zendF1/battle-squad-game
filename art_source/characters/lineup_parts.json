@@ -1,5 +1,5 @@
 {
-	"_doc": "tools/cut_sheet.gd lineup mode: one full-body picture per character for the screens outside the match (assets/characters/<id>/lobby/full.png + full.json, skinned on a skeleton by scenes/character/full_body.gd). rect / seed / holes / joints in sheet px; scale = full.png px per sheet px (about 375 px tall at most, drawn 1:1 on the lobby stage); holes = the enclosed white gaps between an arm and the body; joints = where the bones turn (l / r = the left / right of the picture); anims = this character's tracks merged over assets/characters/lobby_full_anims.json. Run: $GODOT --headless --path . -s tools/cut_sheet.gd -- lineup [<id> ...]",
+	"_doc": "tools/cut_sheet.gd: one full-body picture per character for the screens outside the match (assets/characters/<id>/lobby/full.png + full.json, skinned on a skeleton by scenes/character/full_body.gd). rect / seed / holes / joints in sheet px; scale = full.png px per sheet px (about 375 px tall at most, drawn 1:1 on the lobby stage); holes = the enclosed white gaps between an arm and the body; joints = where the bones turn (l / r = the left / right of the picture); anims = this character's tracks merged over assets/characters/lobby_full_anims.json. Run: $GODOT --headless --path . -s tools/cut_sheet.gd [-- <id> ...]",
 	"sheet": "lineup_v1.png",
 	"tolerance": 0.1,
 	"pad": 10,

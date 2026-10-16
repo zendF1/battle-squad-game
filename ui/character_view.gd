@@ -5,12 +5,11 @@ extends Control
 ## (PlayerState owned equipment + catalog, EquipmentModel.worn_gun()): it changes as soon as the
 ## owned pieces reload after an equip / unequip / move, and a character not owned (or with no
 ## weapon) holds its basic gun. hands_free: no gun in hand (the lobby stage shows the gun on its
-## own under the pedestal), the free pose instead. Used by the lobby stage, the Nhân vật page and
-## the Prep panel: the character's lobby (front-view) rig when it has one (scenes/character
-## lobby_rig), drawn 1:1 on the 375x400 stage; before it the character's skinned full-body
-## picture (scenes/character/full_body.gd), which has no gun in hand (holds_gun() false: the
-## screens put the gun beside it, screens/home/pedestal_gun.gd) and breathes in place instead
-## of hopping. Order: full.png → lobby rig → frames.
+## own under the pedestal). Used by the lobby stage, the Nhân vật page and the Prep panel: the
+## character's skinned full-body picture (scenes/character lobby_full, full_body.gd), drawn 1:1
+## on the 375x400 stage, which has no gun in hand (holds_gun() false: the screens put the gun
+## beside it, screens/home/pedestal_gun.gd) and breathes in place instead of hopping; without
+## one the side-view frames (hopping). Order: full.png → frames.
 
 const Art := preload("res://ui/art.gd")
 const CharacterScene := preload("res://scenes/character/character.tscn")
@@ -50,7 +49,7 @@ func _ready() -> void:
 	_character = CharacterScene.instantiate()
 	_character.character_id = character_id
 	_character.hands_free = hands_free
-	_character.lobby_rig = true
+	_character.lobby_full = true
 	add_child(_character)
 	set_process(idle)
 	resized.connect(_layout)

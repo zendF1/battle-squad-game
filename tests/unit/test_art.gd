@@ -152,23 +152,6 @@ func test_character_aim_stays_in_the_arm_reach() -> void:
 		check(text.contains(node), "character.tscn has " + node)
 
 
-func test_free_pose_frames() -> void:
-	for id in Art.CHARACTERS:
-		for i in int(Art.ANIMS["idle"]["frames"]):
-			var path := Art.frame_path(id, Art.FREE_POSE, i)
-			check(Art.all_paths().has(path), "%s listed" % path)
-			var img := Image.load_from_file(ProjectSettings.globalize_path(path))
-			if img == null:
-				check(false, "%s loads" % path)
-				continue
-			eq(img.get_size(), Art.FRAME_SIZE, "%s canvas" % path)
-			# Feet on the pivot like every frame: opaque just above it.
-			check(img.get_pixelv(Vector2i(Art.FRAME_PIVOT) + Vector2i(-20, -6)).a > 0.5, "%s feet at the pivot" % path)
-			# The hand no longer reaches forward to the grip of the gun.
-			var grip: Vector2 = Art.gun_anchor(id, "idle", i)["grip"]
-			check(img.get_pixelv(Vector2i(grip) + Vector2i(14, 0)).a < 0.5, "%s free hand is not at the grip" % path)
-
-
 func test_character_hands_free_hides_the_gun() -> void:
 	var c: Node2D = preload("res://scenes/character/character.tscn").instantiate()
 	c.hands_free = true
@@ -178,5 +161,6 @@ func test_character_hands_free_hides_the_gun() -> void:
 	c._ready()
 	check(not c.get_node("Flip/Gun/Sprite").visible, "no gun sprite")
 	check(not c.get_node("Flip/Gun/Flash").visible, "no muzzle flash")
+	check(c.get_node("Flip/Gun/Hand").visible and c.get_node("Flip/Sprite").visible, "the frames with the bare hand")
 	eq(c.weapon()["kind"], "blaster", "the gun set is still known")
 	holder.free()
