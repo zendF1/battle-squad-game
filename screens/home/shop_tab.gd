@@ -6,7 +6,11 @@ extends Control
 ##   ("Vũ khí của Rookie"), filtered by slot: icon, name, "Lv N", stats, price, "Đã có N"; "Mua" asks "Mua
 ##   <tên> với giá <giá>?", then PlayerState.buy_equipment() sends POST /shop/equipment/buy
 ##   {itemId, idempotencyKey} with the same key rules as the purchases below;
-## - "Nhân vật": character_unlock offers per character, "Đã sở hữu" from GET /player/characters;
+## - "Nhân vật": one tall card per character (character_shop_model.gd / character_shop_ui.gd):
+##   the animated lobby figure, name, role, "Thông tin" (a popup: base stats with bars, weapon,
+##   skill, "Lối chơi") and the buy button: the price of its character_unlock offer ("hoặc ..."
+##   under it when it has more; Mua then asks which), "Đã sở hữu" (GET /player/characters;
+##   Rookie always), or "Chưa mở bán";
 ## - "Kim cương": GET /iap/products, "Nạp" → POST /iap/verify with a mock purchase token;
 ## - "Đổi xu": coin_pack offers (gem → coin): "10 [gem] → 1.000 [coin]", a bonus over the base
 ##   rate (ShopModel.COINS_PER_GEM) when there is one, "Đổi" ("Không đủ kim cương" and disabled
@@ -25,7 +29,6 @@ const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Art := preload("res://ui/art.gd")
 const Modal := preload("res://ui/modal.gd")
 const LoadStatus := preload("res://ui/load_status.gd")
-const Skills := preload("res://match/skills.gd")
 const Items := preload("res://match/items.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const ShopModel := preload("res://screens/home/shop_model.gd")
@@ -35,6 +38,8 @@ const Fmt := preload("res://core/fmt.gd")
 
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
+const CharacterShopModel := preload("res://screens/home/character_shop_model.gd")
+const CharacterShopUi := preload("res://screens/home/character_shop_ui.gd")
 
 const SUB_TABS := ["Vật phẩm", "Trang bị", "Nhân vật", "Kim cương", "Đổi xu"]
 const ITEMS := 0
@@ -74,6 +79,7 @@ var _chips: Array[Button]
 var _equipment_dirty := false # equipment changed while Trang bị was not shown
 var _weapons_label: Label # "Vũ khí của Rookie"
 var _equipment_character := "" # whose weapons the Trang bị cards show
+var _character_cards := {} # character id -> CharacterShopUi.card() parts
 
 
 func _ready() -> void:
@@ -99,6 +105,13 @@ func _ready() -> void:
 	pages.size_flags_vertical = SIZE_EXPAND_FILL
 	col.add_child(pages)
 	for i in SUB_TABS.size():
+		if i == CHARACTERS:
+			var row := _build_character_cards()
+			row.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+			pages.add_child(row)
+			_pages.append(row)
+			_flows.append(null)
+			continue
 		var flow := HFlowContainer.new()
 		flow.add_theme_constant_override("h_separation", 14)
 		flow.add_theme_constant_override("v_separation", 14)
@@ -363,44 +376,51 @@ func _render_equipment() -> void:
 		box.add_child(buy)
 
 
+## The four cards, built once (their figures keep idling); _render_characters() sets the buttons.
+func _build_character_cards() -> HBoxContainer:
+	var row := Ui.hbox(14)
+	for id in CharacterShopModel.ids():
+		var parts := CharacterShopUi.card(id, _on_character_info.bind(id), _on_character_buy.bind(id))
+		row.add_child(parts["root"])
+		_character_cards[id] = parts
+	return row
+
+
+func _character_card(id: String) -> Dictionary:
+	return CharacterShopModel.card(id, _data.get("offers"), _data.get("purchases"), _data.get("characters"))
+
+
 func _render_characters() -> void:
-	var flow := _flows[CHARACTERS]
-	Ui.clear(flow)
-	if not _data.has("offers"):
+	for id in _character_cards:
+		var parts: Dictionary = _character_cards[id]
+		var c := _character_card(id)
+		CharacterShopUi.set_buy(parts["buy"], CharacterShopModel.buy_button(c), PlayerState.busy_id != "")
+		CharacterShopUi.set_other_prices(parts["other"], CharacterShopModel.other_prices(c))
+
+
+func _on_character_info(id: String) -> void:
+	CharacterShopUi.open_info(overlay, id, PlayerState.characters, _character_card(id), PlayerState.busy_id != "",
+		_on_character_buy.bind(id))
+
+
+## One offer: the usual "Xác nhận mua"; more: a popup with one button per price.
+func _on_character_buy(id: String) -> void:
+	var c := _character_card(id)
+	if PlayerState.busy_id != "" or c["state"] != CharacterShopModel.BUY:
 		return
-	var groups := ShopModel.character_groups(_data["offers"])
-	if groups.is_empty():
-		flow.add_child(_empty("Chưa có nhân vật nào được bán"))
-	var owned: Variant = _data.get("characters")
-	for g in groups:
-		var id: String = g["characterId"]
-		var box := _card(flow, Vector2(360, 0))
-		var head := Ui.hbox(12)
-		box.add_child(head)
-		head.add_child(LobbyUi.icon(Art.portrait(id), 64))
-		var title := Ui.text(g["name"], 30)
-		title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		head.add_child(title)
-		var role := ""
-		for c in LoadoutModel.CHARACTERS:
-			if c["id"] == id:
-				role = c["role"]
-		var skill := Skills.for_character(id)
-		var sub := Ui.text("%s · Kỹ năng: %s" % [role, skill.get("name", "")] if not skill.is_empty() else role, 20, Ui.TEXT_DIM)
-		sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		box.add_child(sub)
-		if owned is Array and owned.has(id):
-			var have := _action_button("Đã sở hữu")
-			have.disabled = true
-			box.add_child(have)
-			continue
-		for o in g["offers"]:
-			var buy := _action_button(ShopModel.price_text(o))
-			LobbyUi.set_icon(buy, ShopModel.currency_icon(str(o.get("priceCurrency", ""))), 34)
-			var left := ShopModel.remaining(o, _data["purchases"]) if _data.has("purchases") else ShopModel.UNLIMITED
-			buy.disabled = PlayerState.busy_id != "" or left == 0
-			buy.pressed.connect(_on_buy.bind(o))
-			box.add_child(buy)
+	var offers: Array = c["offers"]
+	if offers.size() == 1:
+		_on_buy(offers[0])
+		return
+	var m := Modal.new()
+	m.open(overlay, "Xác nhận mua")
+	m.add_text("Mở khoá %s với giá:" % CharacterShopModel.character_name(id))
+	for o in offers:
+		var b := m.add_button(ShopModel.price_text(o), func() -> void:
+			m.close()
+			_purchase(o))
+		LobbyUi.set_icon(b, ShopModel.currency_icon(str(o.get("priceCurrency", ""))), 36)
+	m.add_button("Huỷ", m.close)
 
 
 func _render_gems() -> void:
