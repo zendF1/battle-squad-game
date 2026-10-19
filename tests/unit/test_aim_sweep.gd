@@ -91,10 +91,10 @@ func _drive(v: Node2D, sec: float) -> void:
 		t += DT
 
 
-## The code gun draw (Tanko's baked frames): faces the aim side, draws, swings onto the aim and
+## The code gun draw (Spark's baked frames): faces the aim side, draws, swings onto the aim and
 ## holds it until the shot.
 func test_view_sweep_draws_and_lands_on_the_aim() -> void:
-	var v := _view("tanko")
+	var v := _view("spark")
 	var c: Node2D = v.get_child(1)
 	v.face(1.0)
 	v.aim_sweep(140.0, 1.5)
@@ -104,7 +104,7 @@ func test_view_sweep_draws_and_lands_on_the_aim() -> void:
 	eq(v.gun_state(), "aiming", "the gun is out")
 	_drive(v, 1.1)
 	var gun: Node2D = c.get_node("Flip/Gun")
-	var anchor: Dictionary = Art.gun_anchor("tanko", "idle", 0)
+	var anchor: Dictionary = Art.gun_anchor("spark", "idle", 0)
 	near(rad_to_deg(gun.rotation), float(anchor["angle"]) - 45.0, 0.01, "on the aim's direction (140: 45 above level, to the left)")
 	_drive(v, 1.0)
 	eq(v.gun_state(), "aiming", "held until the shot")
@@ -142,18 +142,18 @@ func test_view_sweep_rookie_ready_pose_steps_to_up() -> void:
 
 ## Below level on the left: the sweep ends on 225 (-45 to the left), no lower.
 func test_view_sweep_down_left() -> void:
-	var v := _view("tanko")
+	var v := _view("spark")
 	var c: Node2D = v.get_child(1)
 	v.aim_sweep(240.0, 1.5)
 	eq(v.facing(), -1, "faces left")
 	_drive(v, 1.5)
-	var anchor: Dictionary = Art.gun_anchor("tanko", "idle", 0)
+	var anchor: Dictionary = Art.gun_anchor("spark", "idle", 0)
 	near(rad_to_deg(c.get_node("Flip/Gun").rotation), float(anchor["angle"]) + 45.0, 0.01, "-45 to the left")
 	v.get_parent().free()
 
 
 func test_view_sweep_ends_on_holster_or_death() -> void:
-	var v := _view("tanko")
+	var v := _view("spark")
 	v.aim_sweep(60.0, 1.5)
 	_drive(v, 0.5)
 	v.clear_aim()
@@ -181,7 +181,7 @@ func _screen(view: Node2D) -> Node2D:
 
 
 func test_match_player_aiming() -> void:
-	var v := _view("tanko")
+	var v := _view("spark")
 	var m := _screen(v)
 	m._apply("PlayerAiming", {"playerId": "bot", "angle": 50.0, "durationMs": 1500})
 	check(v.is_sweeping(), "the current bot aims")

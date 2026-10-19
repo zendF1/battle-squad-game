@@ -1,0 +1,246 @@
+{
+	"frameSize": [
+		93,
+		126
+	],
+	"pivot": [
+		37.51,
+		121.94
+	],
+	"anims": {
+		"idle": [
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.0
+			}
+		],
+		"walk": [
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.0
+			}
+		],
+		"shoot": [
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": -14.0,
+				"front": true,
+				"flash": 1.0
+			},
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": -6.0,
+				"front": true,
+				"flash": 0.35
+			},
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": -1.0,
+				"front": true,
+				"flash": 0.0
+			}
+		],
+		"hurt": [
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": 5.0,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": -4.0,
+				"front": true,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": 1.0,
+				"front": true,
+				"flash": 0.0
+			}
+		],
+		"die": [
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": 0.0,
+				"front": false,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": 25.0,
+				"front": false,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": 65.0,
+				"front": false,
+				"flash": 0.0
+			},
+			{
+				"grip": [
+					48.8,
+					85.88
+				],
+				"angle": 90.0,
+				"front": false,
+				"flash": 0.0
+			}
+		],
+		"draw": [
+			{
+				"grip": [
+					55.51,
+					69.69
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.0
+			}
+		],
+		"fire": [
+			{
+				"grip": [
+					55.51,
+					69.69
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 1.0
+			},
+			{
+				"grip": [
+					55.51,
+					69.69
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.35
+			},
+			{
+				"grip": [
+					55.51,
+					69.69
+				],
+				"angle": 0.0,
+				"front": true,
+				"flash": 0.0
+			}
+		]
+	},
+	"ready": {
+		"grip": [
+			55.51,
+			69.69
+		],
+		"angle": 0.0,
+		"front": true,
+		"flash": 0.0,
+		"anims": [
+			"draw",
+			"fire"
+		]
+	}
+}

@@ -114,7 +114,7 @@ func test_character_prefers_the_full_body_picture() -> void:
 		holder.free()
 	var m: Node2D = CharacterScene.instantiate()
 	var holder := Node.new()
-	m.character_id = "tanko" # Rookie holds his gun only in the ready pose
+	m.character_id = "spark" # Rookie, Flora and Tanko hold their gun only in the ready pose
 	holder.add_child(m)
 	m._ready()
 	check(m.full() == null and m.holds_gun(), "the match: frames with the gun")

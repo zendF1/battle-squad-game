@@ -231,9 +231,11 @@ func test_character_hands_free_hides_the_gun() -> void:
 
 
 ## A side view (assets/characters/<id>/side/, tools/import_frames.gd): every frame on one
-## canvas, the soles on the pivot row, the hips centred on the pivot (no left / right jitter).
+## canvas, the soles on the pivot row, the hips of the run / idle frames centred on the pivot (no
+## left / right jitter; a kneeling ready pose only over it). Rookie, Flora and Tanko have one.
 func test_side_view_frames_share_one_pivot() -> void:
-	check(Art.has_side_view("rookie"), "rookie has a side view")
+	for id in ["rookie", "flora", "tanko"]:
+		check(Art.has_side_view(id), "%s has a side view" % id)
 	for id in Art.CHARACTERS:
 		if not Art.has_side_view(id):
 			continue
@@ -251,6 +253,10 @@ func test_side_view_frames_share_one_pivot() -> void:
 		for anim in data["anims"]:
 			for stem in data["anims"][anim]["frames"]:
 				stems[str(stem)] = true
+		var ready_stems := {} # the drawn ready pose's frames
+		for anim in data.get("readyPose", {}).get("anims", []):
+			for stem in data["anims"].get(anim, {}).get("frames", []):
+				ready_stems[str(stem)] = true
 		for stem in stems:
 				var path := Art.side_dir(id) + str(stem) + ".png"
 				var img := Image.load_from_file(ProjectSettings.globalize_path(path))
@@ -262,6 +268,9 @@ func test_side_view_frames_share_one_pivot() -> void:
 				check(absf(used.end.y - pivot.y) <= 1.0, "%s soles on the pivot row (%d vs %.1f)" % [path, used.end.y, pivot.y])
 				var faint := img.get_used_rect()
 				check(faint.position.x > 0 and faint.position.y > 0 and faint.end.x < img.get_width() and faint.end.y < img.get_height(), "%s not cut at the edge" % path)
+				if ready_stems.has(str(stem)): # a kneeling pose, placed by its alignX (the head on the idle's): over the feet
+					check(used.position.x < pivot.x and used.end.x > pivot.x, "%s over the pivot (%s vs %.1f)" % [path, used, pivot.x])
+					continue
 				# The hip rows' middle (the importer's hipRows) stays on the pivot.
 				var y := int(pivot.y - float(look["height"]) * 0.23)
 				var x0 := -1
@@ -342,11 +351,13 @@ func test_side_view_faces_left_round_the_feet() -> void:
 ## Every character has a ready pose scene (scenes/character/poses/<id>_ready.tscn): a locked root
 ## → Body (locked) → one GunSocket (grouped) with a Preview (not centred); no hand sprites, no aim
 ## metadata. Rookie's Preview is its iron hug gun (pose_gun.gd: the picture once imported) with its
-## hold on the socket's origin at the weapons' scale, the socket on the hug point between the fists;
-## Tanko's, Spark's and Flora's keep their iron gun (grip on the origin) and their Body follows the
-## art (pose_body.gd): the baked idle frame until a side view's ready frame is imported. Rookie's has
-## an ArmFront after GunSocket (drawn over the gun; pose_arm.gd: the front arm once imported) at
-## the Body's place; the others none until their side.json has a front arm cut.
+## hold on the socket's origin at the weapons' scale, the socket on the hug point between the fists.
+## Flora's and Tanko's (side views, no hug art for their kind yet): their iron gun sprite as a
+## stand-in (pose_gun.gd: replaced by the hug gun once there is one), its centre on the hug point;
+## their Body follows the art (pose_body.gd): the side view's ready frame once imported. Spark's
+## keeps its iron gun (grip on the origin) and the baked idle frame as the body. Rookie's, Flora's
+## and Tanko's have an ArmFront after GunSocket (drawn over the gun; pose_arm.gd: the front arm
+## once imported) at the Body's place; Spark's none until its side.json has a front arm cut.
 func test_ready_pose_scenes() -> void:
 	var PoseBody := load("res://scenes/character/poses/pose_body.gd")
 	var PoseGun := load("res://scenes/character/poses/pose_gun.gd")
@@ -361,7 +372,7 @@ func test_ready_pose_scenes() -> void:
 		check(not root.has_meta("aim_down") and not root.has_meta("aim_up"), "%s no aim metadata" % id)
 		var names: Array = root.get_children().map(func(n): return str(n.name))
 		var has_arm: bool = PoseArm.arm_path(id) != ""
-		check(has_arm or id != "rookie", "rookie has a front arm cut")
+		check(has_arm or not ["rookie", "flora", "tanko"].has(id), "%s has a front arm cut" % id)
 		eq(names, ["Body", "GunSocket", "ArmFront"] if has_arm else ["Body", "GunSocket"], "%s Body, one GunSocket (and the ArmFront over it with a front arm cut), no hand sprites" % id)
 		var arm := root.get_node_or_null("ArmFront") as Sprite2D
 		var body0 := root.get_node_or_null("Body") as Sprite2D
@@ -388,6 +399,18 @@ func test_ready_pose_scenes() -> void:
 			var look := Art.side_view("rookie")
 			var hug: Vector2 = (Art.gun_anchor("rookie", "draw", 0)["grip"] - look["pivot"]) * float(look["scale"])
 			check(sock.position.distance_to(hug) < 0.05, "rookie socket on the hug point (%s vs %s)" % [sock.position, hug])
+		elif preview != null and Art.has_side_view(id):
+			# No hug art for the kind yet: its iron gun sprite stands in, its centre (where the match
+			# turns that sprite: Art.hug_gun()) on the socket's origin, on the hug point.
+			eq(preview.get_script(), PoseGun, "%s Preview shows the hug gun once there is one" % id)
+			eq([str(preview.get("kind")), str(preview.get("tier"))], [kind, "iron"], "%s Preview: the iron %s" % [id, kind])
+			check(preview.texture != null and preview.texture.resource_path == Art.gun_path(kind, "iron"), "%s Preview is its iron %s" % [id, kind])
+			check(PoseGun.stand_in(preview), "%s the gun sprite is a stand-in" % id)
+			near(preview.offset.distance_to(-preview.texture.get_size() * 0.5), 0.0, 0.01, "%s its centre on the socket's origin" % id)
+			near(preview.scale.x, gs, 1e-4, "%s gun at the weapons' scale (as long as in hand)" % id)
+			var look := Art.side_view(id)
+			var hug: Vector2 = (Art.gun_anchor(id, "draw", 0)["grip"] - look["pivot"]) * float(look["scale"])
+			check(sock.position.distance_to(hug) < 0.05, "%s socket on the hug point (%s vs %s)" % [id, sock.position, hug])
 		elif preview != null:
 			check(preview.texture != null and preview.texture.resource_path == Art.gun_path(kind, "iron"), "%s Preview is its iron %s" % [id, kind])
 			near(preview.offset.distance_to(-Art.gun(kind, "iron")["grip"]), 0.0, 0.01, "%s the grip on the socket's origin" % id)
@@ -398,7 +421,13 @@ func test_ready_pose_scenes() -> void:
 			eq(body.get_script(), PoseBody, "%s Body follows the art" % id)
 			eq(str(body.get("character_id")), id, "%s Body's character" % id)
 			var src: Dictionary = PoseBody.source(id)
-			if not Art.has_side_view(id):
+			if Art.has_side_view(id):
+				var look := Art.side_view(id)
+				eq(src["path"], Art.side_dir(id) + "ready_0.png", "%s body: the side view's ready frame" % id)
+				check(body.offset.is_equal_approx(-look["pivot"]), "%s the feet on the origin (%s)" % [id, body.offset])
+				check(body.scale.is_equal_approx(Vector2.ONE * float(look["scale"])), "%s at the side view's scale" % id)
+				check(body.texture == null or body.texture.resource_path == src["path"], "%s body picture (none until imported)" % id)
+			else:
 				eq(src["path"], Art.frame_path(id, "idle", 0), "%s stand-in body: the baked idle frame" % id)
 				eq(src["pivot"], Art.FRAME_PIVOT, "%s stand-in pivot" % id)
 				eq(body.offset, -Art.FRAME_PIVOT, "%s the feet on the origin" % id)
@@ -433,6 +462,13 @@ func test_ready_pose_scenes() -> void:
 	pv.texture = tex
 	pv.sync()
 	eq(pv.texture, tex, "a Preview with a picture is left as it is")
+	check(not PoseGun.stand_in(pv), "another kind's gun is no stand-in")
+	# A stand-in (its kind's gun sprite) waits for its kind's hug art: none for the cannon yet.
+	var tk: Sprite2D = scene.get_node("GunSocket/Preview")
+	var stand := tk.texture
+	check(PoseGun.stand_in(tk), "Tanko's iron cannon stands in")
+	tk.sync()
+	check(tk.texture == stand or (tk.texture.resource_path == Art.hug_gun_path("cannon", "iron") and tk.offset == -Art.hug_meta("cannon", "iron")["pivot"]), "a stand-in gives way only to its hug gun")
 	scene.free()
 	mine.free()
 
@@ -572,6 +608,22 @@ func test_key_background() -> void:
 	I.key_background(p2, {"key": "corners", "corner": 2, "tolerance": 45, "soft": 45, "holeMin": 10, "holePure": 0, "spill": 0})
 	check(p2.get_pixel(9, 9).a < 0.2, "holePure 0: the pocket keyed (%f)" % p2.get_pixel(9, 9).a)
 	eq(p2.get_pixel(5, 5), Color8(20, 20, 24), "the figure round it stays")
+	# spillFrom "keyed": a pocket only partly keyed (nothing cleared near it, Flora's hair wedges)
+	# keeps a green tint by default; measured from the keyed pixels it is despilled too.
+	var wedge := Image.create(20, 20, false, Image.FORMAT_RGBA8)
+	wedge.fill(key)
+	wedge.fill_rect(Rect2i(4, 4, 12, 12), Color8(20, 20, 24))
+	wedge.fill_rect(Rect2i(8, 8, 4, 4), Color8(40, 180, 30)) # d ≈ 66: a ≈ 0.5
+	var w2: Image = wedge.duplicate()
+	var opts := {"key": "corners", "corner": 2, "tolerance": 45, "soft": 45, "holeMin": 10, "holePure": 0, "spill": 2}
+	I.key_background(wedge, opts)
+	var tint := wedge.get_pixel(9, 9)
+	check(tint.a > 0.2 and tint.g > maxf(tint.r, tint.b) + 0.1, "by default the partly keyed pocket stays green (%s)" % tint)
+	opts["spillFrom"] = "keyed"
+	I.key_background(w2, opts)
+	var despilled := w2.get_pixel(9, 9)
+	check(despilled.a > 0.2 and despilled.g <= maxf(despilled.r, despilled.b) + 1e-6, "spillFrom keyed: despilled (%s)" % despilled)
+	eq(w2.get_pixel(5, 5), Color8(20, 20, 24), "spillFrom keyed: the figure's dark outline stays")
 
 
 ## tools/import_guns.gd recolour(): HSV multipliers on every pixel, a hue shift, limited to a hue
@@ -782,7 +834,14 @@ func test_import_frames_arguments() -> void:
 	eq(short["walk"]["frames"].map(func(i): return int(i)), [0, 1, 2, 3, 4, 5], "past the last frame dropped")
 	check(not short.has("draw") and not short.has("fire"), "no ready picture: no draw / fire")
 	check(short.has("shoot") and short.has("die"), "the idle reuses stay")
-	var tanko = JSON.parse_string(FileAccess.get_file_as_string(cfg_of.call("tanko")))
-	eq(str(tanko["frames"]), "frame_*.png", "the template takes every frame_N.png")
-	eq(I.resolve_anims(tanko["anims"], 5, ["ready"])["walk"]["frames"], [0, 1, 2, 3, 4], "walk: all the frames")
-	eq(I.resolve_anims(tanko["anims"], 5, ["ready"]).keys(), rookie["anims"].keys(), "the template's anims are Rookie's")
+	var spark = JSON.parse_string(FileAccess.get_file_as_string(cfg_of.call("spark")))
+	eq(str(spark["frames"]), "frame_*.png", "the template takes every frame_N.png")
+	eq(I.resolve_anims(spark["anims"], 5, ["ready"])["walk"]["frames"], [0, 1, 2, 3, 4], "walk: all the frames")
+	eq(I.resolve_anims(spark["anims"], 5, ["ready"]).keys(), rookie["anims"].keys(), "the template's anims are Rookie's")
+	# Flora's and Tanko's, filled for their 8 run frames: every anim; Tanko idles on his most upright frame.
+	for id in ["flora", "tanko"]:
+		var c = JSON.parse_string(FileAccess.get_file_as_string(cfg_of.call(id)))
+		eq(I.resolve_anims(c["anims"], 8, ["ready"]).keys(), rookie["anims"].keys(), "%s: every anim" % id)
+		eq(I.resolve_anims(c["anims"], 8, ["ready"])["walk"]["frames"], range(8), "%s: the walk over the 8 frames" % id)
+		check(c["poses"]["ready"].has("alignX") and c["poses"]["ready"].has("armFront") and c["poses"]["ready"]["gun"].has("grip"), "%s: the pose placed, its arm cut and hug point set" % id)
+	eq(JSON.parse_string(FileAccess.get_file_as_string(cfg_of.call("tanko")))["anims"]["idle"]["frames"].map(func(i): return int(i)), [6], "Tanko idles on frame_7")

@@ -775,7 +775,10 @@ static func corner_colour(img: Image, corner: int = 8) -> Color:
 ## alpha = (d - tolerance) / soft (0..1): the soft edge; a partly keyed pixel's colour is un-blended
 ## from the key (p = a·c + (1 - a)·key). Spill: within `spill` px (4-steps) of the cleared pixels the
 ## key's strongest channel is capped at the larger of the other two (no green rim on the dark
-## outline). Returns how many pixels it cleared (alpha 0). Pure: only img changes.
+## outline); `spillFrom` "keyed" measures that band from every backdrop pixel, the partly keyed
+## ones too (a thin wedge of backdrop between hair strands, a small pocket whose middle only
+## alphaCut clears: their green rim is farther than `spill` from a fully cleared pixel). Returns
+## how many pixels it cleared (alpha 0). Pure: only img changes.
 static func key_background(img: Image, bg: Dictionary) -> int:
 	img.convert(Image.FORMAT_RGBA8)
 	var w := img.get_width()
@@ -839,9 +842,13 @@ static func key_background(img: Image, bg: Dictionary) -> int:
 	var cleared := 0
 	var gone := PackedByteArray()
 	gone.resize(n)
+	var from_keyed := str(bg.get("spillFrom", "cleared")) == "keyed"
+	var kc := 0 if kr >= kg and kr >= kb else (1 if kg >= kb else 2) # the key's strongest channel
 	for i in n:
 		if label[i] == 0 or backdrop[label[i]] == 0:
 			continue
+		if from_keyed:
+			gone[i] = 1
 		var o := i * 4
 		var a := clampf((dist[i] - tol) / soft, 0.0, 1.0)
 		if a <= 0.0:
@@ -856,10 +863,11 @@ static func key_background(img: Image, bg: Dictionary) -> int:
 		px[o + 1] = clampi(roundi((px[o + 1] - (1.0 - a) * kg) / a), 0, 255)
 		px[o + 2] = clampi(roundi((px[o + 2] - (1.0 - a) * kb) / a), 0, 255)
 		px[o + 3] = roundi(px[o + 3] * a)
-	# Despill the band next to the cleared pixels: the key's channel no stronger than the others.
+		if from_keyed: # a partly keyed pixel is despilled too (it starts the band)
+			px[o + kc] = mini(px[o + kc], maxi(px[o + (kc + 1) % 3], px[o + (kc + 2) % 3]))
+	# Despill the band next to the cleared (or keyed) pixels: the key's channel no stronger than the others.
 	var band := int(bg.get("spill", 3))
 	if band > 0:
-		var kc := 0 if kr >= kg and kr >= kb else (1 if kg >= kb else 2)
 		var front := PackedInt32Array()
 		var seen := gone.duplicate()
 		for i in n:

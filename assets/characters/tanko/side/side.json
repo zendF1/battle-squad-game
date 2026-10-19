@@ -1,0 +1,105 @@
+{
+	"size": [
+		93,
+		126
+	],
+	"pivot": [
+		37.51,
+		121.94
+	],
+	"pxPerUnit": 0.7,
+	"height": 116.08,
+	"extent": {
+		"back": 36.51,
+		"front": 48.49,
+		"top": 120.94
+	},
+	"anims": {
+		"idle": {
+			"frames": [
+				"idle_0"
+			],
+			"fps": 1.0,
+			"loop": true,
+			"motion": "breathe"
+		},
+		"walk": {
+			"frames": [
+				"walk_0",
+				"walk_1",
+				"walk_2",
+				"walk_3",
+				"walk_4",
+				"walk_5",
+				"walk_6",
+				"walk_7"
+			],
+			"fps": 15.0,
+			"loop": true,
+			"motion": ""
+		},
+		"shoot": {
+			"frames": [
+				"idle_0",
+				"idle_0",
+				"idle_0"
+			],
+			"fps": 9.0,
+			"loop": false,
+			"motion": "recoil"
+		},
+		"hurt": {
+			"frames": [
+				"idle_0",
+				"idle_0",
+				"idle_0"
+			],
+			"fps": 7.0,
+			"loop": false,
+			"motion": "knockback"
+		},
+		"die": {
+			"frames": [
+				"idle_0",
+				"idle_0",
+				"idle_0",
+				"idle_0"
+			],
+			"fps": 8.0,
+			"loop": false,
+			"motion": "fall"
+		},
+		"draw": {
+			"frames": [
+				"ready_0"
+			],
+			"fps": 1.0,
+			"loop": false,
+			"motion": ""
+		},
+		"fire": {
+			"frames": [
+				"ready_0",
+				"ready_0",
+				"ready_0"
+			],
+			"fps": 9.0,
+			"loop": false,
+			"motion": "recoil"
+		}
+	},
+	"gunDraw": {
+		"drawSec": 0.0,
+		"fastDrawSec": 0.0,
+		"holsterSec": 0.0,
+		"fadeIn": 0.0
+	},
+	"readyPose": {
+		"anims": [
+			"draw",
+			"fire"
+		],
+		"scene": "res://scenes/character/poses/tanko_ready.tscn",
+		"armFront": "ready_arm_front"
+	}
+}
