@@ -13,3 +13,10 @@ Chạy (trong thư mục battle-squad-game):
 
 Sau đó trong editor: đợi import xong, mở scenes/character/poses/flora_ready.tscn, kéo / co giãn
 GunSocket (bấm vào súng) cho súng che kín hai nắm tay (súng xoay quanh gốc GunSocket), Ctrl+S, F5.
+
+Tay ôm súng (vẽ đè lên súng, tự cắt từ ready_v1.png, không cần vẽ thêm): chép mục poses.ready.armFront
+trong art_source/characters/rookie/side_run/import.json vào ../side_run/import.json (mục poses.ready),
+đặt lại polygon (vùng vai + tay áo gần + hai nắm tay) và seeds (một điểm bên trong mỗi mảng: bắp tay,
+cẳng tay, nắm tay) theo px của ready_v1.png, chạy lại import_frames, xem
+assets/characters/flora/side/ready_arm_front.png; thiếu mảng → thêm seed, lẹm áo → thu polygon. Thêm
+node ArmFront vào flora_ready.tscn như cảnh của Rookie (sau GunSocket).

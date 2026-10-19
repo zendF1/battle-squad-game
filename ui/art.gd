@@ -453,7 +453,9 @@ static func character_frames(id: String) -> SpriteFrames:
 ## figure, texture px), extent {back, front, top} (texture px from the pivot), motions {anim:
 ## SIDE_MOTIONS name}, anchors {anim: [gun anchor...]} (texture px), hand (Texture2D drawn over
 ## the gun's grip, null: HAND), hand_scale, draw_frames (frames has DRAW_ANIM), fire_frames (and
-## FIRE_ANIM), ready (side.json "readyPose": {anims, scene}; {} without: see ready_pose()),
+## FIRE_ANIM), ready (side.json "readyPose": {anims, scene, arm_front (Texture2D: the near arm
+## drawn over the hugged gun, same size / pivot / scale as the frames; null without)}; {} without:
+## see ready_pose()),
 ## gun_draw (side.json "gunDraw": gun_draw.gd TIMINGS overrides)}.
 ## Order: side view → baked frames → rookie's → empty.
 static func character_look(id: String) -> Dictionary:
@@ -560,8 +562,8 @@ static func parse_side(dir: String) -> Dictionary:
 				frames.add_frame(anim, tex)
 			var motion := str(spec.get("motion", ""))
 			motions[anim] = motion if SIDE_MOTIONS.has(motion) else ""
-	# "readyPose": the drawn ready pose's anims and the scene its hug gun is placed in by hand
-	# (ready_pose()).
+	# "readyPose": the drawn ready pose's anims, the scene its hug gun is placed in by hand
+	# (ready_pose()) and its near arm drawn over that gun (armFront: a PNG stem; a missing PNG: none).
 	var ready := {}
 	var rp = data.get("readyPose")
 	if rp is Dictionary and frames.has_animation(DRAW_ANIM):
@@ -569,7 +571,10 @@ static func parse_side(dir: String) -> Dictionary:
 		for anim in rp.get("anims", []):
 			if frames.has_animation(str(anim)):
 				ra.append(str(anim))
-		ready = {"anims": ra, "scene": str(rp.get("scene", ""))}
+		var arm: Texture2D = null
+		if str(rp.get("armFront", "")) != "":
+			arm = _png_texture(dir + str(rp["armFront"]) + ".png")
+		ready = {"anims": ra, "scene": str(rp.get("scene", "")), "arm_front": arm}
 	var scale := PX_PER_UNIT / ppu
 	var ext = data.get("extent", {})
 	var height := float(data.get("height", 0.0))
@@ -585,7 +590,8 @@ static func parse_side(dir: String) -> Dictionary:
 	return out
 
 
-## Every file of a character's side view (side.json, gun_anchors.json, the frames, hand.png).
+## Every file of a character's side view (side.json, gun_anchors.json, the frames, hand.png, the
+## ready pose's front arm).
 static func side_paths(id: String) -> Array[String]:
 	var dir := side_dir(id)
 	var out: Array[String] = [dir + "side.json", dir + "gun_anchors.json"]
@@ -598,6 +604,9 @@ static func side_paths(id: String) -> Array[String]:
 					out.append(dir + str(stem) + ".png")
 	if str(data.get("hand", "")) != "":
 		out.append(dir + str(data["hand"]))
+	var rp = data.get("readyPose")
+	if rp is Dictionary and str(rp.get("armFront", "")) != "":
+		out.append(dir + str(rp["armFront"]) + ".png")
 	return out
 
 

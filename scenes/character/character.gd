@@ -36,6 +36,9 @@ extends Node2D
 ## scenes/character/poses/<id>_ready.tscn, one GunSocket and its Preview) and drawn exactly as the
 ## Preview shows it (Art.gun_transform()), the whole socket turned round its origin (the hug point)
 ## to the same 7 directions; the shot kicks it back along its axis (HUG_KICK × the frame's flash).
+## Its near arm (side.json readyPose.armFront: the sleeve and both fists cut from the ready frame,
+## same canvas) is drawn over the gun (Flip/ArmFront, made here, mirrored with the body), so the
+## fists hold the gun at every direction; shown only while the gun is hugged.
 ## Used by the lobby and Prep (ui/character_view.gd) and the match
 ## (match/views/player_view.gd).
 ##
@@ -118,12 +121,21 @@ var _gun_draw := GunDraw.new() # the gun draw (holster on)
 @onready var _gun_sprite: Sprite2D = $Flip/Gun/Sprite
 @onready var _hand: Sprite2D = $Flip/Gun/Hand
 @onready var _flash: Sprite2D = $Flip/Gun/Flash
+var _arm: Sprite2D # Flip/ArmFront: the ready pose's near arm over the hugged gun
 
 
 func _ready() -> void:
 	_shadow.texture = Art.texture(Art.SHADOW)
 	_hand.texture = Art.texture(Art.HAND)
 	_flash.texture = Art.fx("muzzle")
+	_arm = _flip.get_node_or_null("ArmFront") as Sprite2D
+	if _arm == null:
+		_arm = Sprite2D.new()
+		_arm.name = "ArmFront"
+		_arm.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		_arm.centered = false
+		_arm.visible = false
+		_flip.add_child(_arm)
 	_sprite.animation_finished.connect(_on_animation_finished)
 	_sprite.frame_changed.connect(_update_gun)
 	_sprite.animation_changed.connect(_update_gun)
@@ -151,6 +163,7 @@ func _process(delta: float) -> void:
 	var tint := DEAD_TINT if _dead else Color.WHITE.lerp(HURT_TINT, _hurt_left / HURT_FLASH_SEC)
 	_sprite.self_modulate = tint
 	_gun_sprite.self_modulate = tint
+	_arm.self_modulate = tint
 	_hand.self_modulate = tint
 	if _full != null:
 		_full.set_tint(tint)
@@ -171,6 +184,9 @@ func _apply_frames() -> void:
 	_sprite.scale = Vector2.ONE * float(_look["scale"])
 	_hand.texture = _look["hand"] if _look["hand"] != null else Art.texture(Art.HAND)
 	_hand.scale = Vector2.ONE * float(_look["hand_scale"])
+	_arm.texture = _look.get("ready", {}).get("arm_front")
+	_arm.offset = -_look["pivot"]
+	_arm.scale = _sprite.scale
 	if _sprite.sprite_frames.has_animation(anim) and not (holster and anim in BASE_ANIMS):
 		_sprite.play(anim)
 	else:
@@ -197,6 +213,7 @@ func _apply_full(data: Dictionary) -> void:
 	_flip.transform = Transform2D(0.0, Vector2(facing, 1.0), 0.0, Vector2.ZERO)
 	_gun_node.visible = false
 	_flash.visible = false
+	_arm.visible = false
 	_full.play(_base())
 	_apply_gun()
 
@@ -373,13 +390,20 @@ func _update_gun() -> void:
 	var in_pose := out and not hands_free and _is_ready_anim(anim)
 	_set_pose_look(in_pose)
 	_hand.visible = not in_pose
+	# The near arm over the hugged gun (the body under it has the same arm: no hole round it).
+	_arm.visible = in_pose and _arm.texture != null
 	if not out:
 		_flash.visible = false
 		return
 	var pose := _gun_pose(anim, _sprite.frame, _gun_draw.shown() if holster else 1.0)
 	_gun_node.transform = pose["xf"]
 	_gun_node.modulate.a = _gun_draw.alpha() if holster else 1.0
-	var at := _flip.get_child_count() - 1 if bool(pose["front"]) else 0
+	var top := _flip.get_child_count() - 1
+	if _arm.visible: # the arm on top, the gun right under it
+		if _arm.get_index() != top:
+			_flip.move_child(_arm, top)
+		top -= 1
+	var at := top if bool(pose["front"]) else 0
 	if _gun_node.get_index() != at:
 		_flip.move_child(_gun_node, at)
 	var flash: float = pose["flash"]

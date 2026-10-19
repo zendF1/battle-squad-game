@@ -69,6 +69,21 @@ Total about 3.8 MB of PNG (the full-body pictures about 0.45 MB of it).
    = −`hold` trong `hug.json`, như cảnh của Rookie.)
 7. **`Ctrl+S`**, rồi **`F5`** vào trận để xem: nhân vật tự dùng ảnh góc ngang (có `side.json` là dùng).
 
+**Tay ôm súng (tự cắt, không cần vẽ thêm)**: cánh tay gần (tay áo từ vai tới nắm tay + cả hai nắm
+tay) được cắt tự động từ `ready_v1.png` thành `side/ready_arm_front.png` (cùng khung với `ready_0.png`)
+và vẽ **đè lên súng**, nên hai nắm tay luôn ôm súng ở mọi hướng ngắm. Cấu hình ở
+`art_source/characters/<id>/side_run/import.json`, mục `poses.ready.armFront` (Rookie có sẵn; nhân vật
+mới thì chép mục đó của Rookie vào), toạ độ là px của `ready_v1.png`:
+- `polygon`: vùng tối đa được cắt (bao quanh vai, tay áo, hai nắm tay; không cần sát, nét viền đen sẽ
+  tự giới hạn).
+- `seeds`: mỗi mảng bị nét viền đen chia ra cần một điểm nằm bên trong (vd. bắp tay, cẳng tay, nắm
+  tay); điểm phải nằm trên màu, không nằm trên nét đen.
+- `darkMax` (độ sáng tối đa của nét viền), `grow` (bề dày viền giữ lại), `feather` (mép mềm).
+Chạy lại lệnh ở bước 3 rồi xem `ready_arm_front.png`: thiếu một mảng tay → thêm `seed` vào mảng đó;
+lẹm vào áo / ngực → thu `polygon` lại chỗ đó. Bỏ mục `armFront` = không có lớp tay (súng đè lên người).
+Trong editor: thêm node `ArmFront` vào cảnh dáng ngắm (sau `GunSocket`, như cảnh của Rookie) để thấy tay
+đè lên súng như trong trận.
+
 `art_source/characters/<id>/side_run/import.json` là cấu hình chép từ Rookie (chiều cao 60 px trong
 trận, cách xoá viền, `poses.ready.scale` = cỡ dáng quỳ so với ảnh chạy, …). Nếu dáng quỳ lệch cỡ /
 lệch chỗ so với dáng đứng thì chỉnh `scale` (mũ / đầu rộng bằng ảnh chạy) / `alignX`, đặt `gun.grip`
@@ -208,14 +223,28 @@ the hug point (the middle of the two fists, pose px): the fallback seat in `gun_
 PNGs did not change. No hand cut-outs. In `side.json`: `"draw": ["ready_0"]`, `"fire"` (it with the
 recoil, played for the shot instead of `shoot`), `"gunDraw"` all 0 s (idle ↔ ready switch at once, no
 transition; back to idle `fireHoldSec` after the shot or at once on a cancel) and `"readyPose"`
-{`anims`, `scene`}.
+{`anims`, `scene`, `armFront`}.
+
+**The front arm over the gun**: `poses.ready.armFront` cuts the near arm (the sleeve from the
+shoulder to the fist, and both fists) out of the cleaned pose into `side/ready_arm_front.png`, same
+canvas / pivot / scale as `ready_0.png` (`tools/import_frames.gd` `arm_mask()`, pose px of
+`ready_v1.png`): a flood fill from `seeds` (one point inside each piece the outline walls in: the upper
+arm, the forearm, the fists) through the non-dark pixels inside `polygon` (the most it may take), the
+dark outline (max channel ≤ `darkMax`) the barrier, grown `grow` px over the outline so the arm keeps
+its own black edge, the holes it encloses filled, the edge feathered `feather` px inward; then
+resampled like `ready_0`. The game draws it over the hugged gun (`character.gd` Flip/ArmFront, at the
+body's place, mirrored with it), so the fists stay on the gun at every direction (the gun turns
+round the point between them); the body under it still has the arm (no hole). A new character: copy
+Rookie's `armFront`, set the polygon and seeds on its picture, re-import and look at the PNG (a piece
+missing: a seed in it; torso cut: tighten the polygon there). No `armFront`: no arm layer.
 
 | File | Size | Notes |
 |---|---|---|
 | `rookie/side/ready_0.png` | 112x130 | the kneeling ready pose, fists on the chest, no gun (same canvas / pivot as the run frames) |
+| `rookie/side/ready_arm_front.png` | 112x130 | the near arm and both fists cut from it, drawn over the gun (same canvas) |
 
 **The hug gun**: on the ready pose the character hugs a big gun against the middle of the chest
-(`weapons/<kind>/hug_<tier>.png`, below), drawn in front of the body over the fists and arms (no hand
+(`weapons/<kind>/hug_<tier>.png`, below), drawn in front of the body and under the front arm (no hand
 sprites, no grip hand), turned round the hug point to the snapped direction (`aim_snap.gd`: -45, 0,
 45, 90 above level towards the facing side; facing left is mirrored; the shot, the aim line, the
 power and the network keep the real angle). Which gun (`ui/art.gd` `hug_gun()`): the equipped
@@ -239,7 +268,9 @@ scene can only name an imported picture). Move / scale / rotate `GunSocket` (or 
 it, even non-uniformly) until the gun covers the fists, `Ctrl+S`, `F5`: **the match draws the gun
 exactly as the Preview shows it at 0°** (the Preview's position / scale / offset and the socket's,
 `ui/art.gd` `ready_pose()` / `gun_transform()`), and turns the whole socket round its origin. Check it
-at level, 45 and straight up. No JSON to edit; `tools/import_frames.gd` never writes the scene. Without
+at level, 45 and straight up. Rookie's scene also has `ArmFront` after `GunSocket` (locked, the Body's
+scale / offset; `pose_arm.gd` shows `ready_arm_front.png` once imported): the front arm over the gun,
+as in the match. No JSON to edit; `tools/import_frames.gd` never writes the scene. Without
 the scene (or a node) the gun sits on `gun_anchors.json` `"ready".grip` (the hug point), the
 character's iron hug gun at the weapons' scale, level.
 

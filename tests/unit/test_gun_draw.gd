@@ -243,6 +243,7 @@ func test_drawn_draw_frames() -> void:
 	data["anims"]["draw"] = {"frames": ["idle_0", "walk_3", "walk_0"]}
 	data["anims"].erase("fire")
 	data.erase("overGun")
+	data["readyPose"].erase("armFront") # its PNG is not copied
 	data["gunDraw"] = {"drawSec": 0.3}
 	var fa := FileAccess.open(dir + "side.json", FileAccess.WRITE)
 	fa.store_string(JSON.stringify(data))
@@ -297,7 +298,8 @@ func test_drawn_draw_frames() -> void:
 
 ## Rookie's drawn ready pose: side.json draw = ready_0 (kneeling, the fists together on the chest,
 ## no gun), fire = it with the recoil, gunDraw all 0 s; the hug gun is placed in
-## scenes/character/poses/rookie_ready.tscn. No hand cut-outs.
+## scenes/character/poses/rookie_ready.tscn. No hand cut-outs; the near arm (sleeve and both fists)
+## cut from ready_0 into ready_arm_front.png on the same canvas, drawn over the gun.
 func test_rookie_ready_pose_assets() -> void:
 	var Art := preload("res://ui/art.gd")
 	var dir := Art.side_dir("rookie")
@@ -309,7 +311,11 @@ func test_rookie_ready_pose_assets() -> void:
 	eq(look["frames"].get_frame_count("draw"), 1, "one ready frame")
 	eq(look["frames"].get_frame_count("fire"), 3, "three fire frames")
 	eq(look["motions"]["fire"], "recoil", "the fire recoils")
-	eq(look["ready"], {"anims": ["draw", "fire"], "scene": "res://scenes/character/poses/rookie_ready.tscn"}, "readyPose: anims and scene, no hands")
+	eq(look["ready"].keys(), ["anims", "scene", "arm_front"], "readyPose: anims, scene and the front arm, no hands")
+	eq(look["ready"]["anims"], ["draw", "fire"], "readyPose anims")
+	eq(look["ready"]["scene"], "res://scenes/character/poses/rookie_ready.tscn", "readyPose scene")
+	check(look["ready"]["arm_front"] is Texture2D, "readyPose front arm")
+	check(Art.side_paths("rookie").has(dir + "ready_arm_front.png"), "the front arm is one of the side view's files")
 	for key in ["drawSec", "fastDrawSec", "holsterSec"]:
 		near(float(look["gun_draw"].get(key, -1.0)), 0.0, 1e-9, "gunDraw %s 0" % key)
 	for anim in ["draw", "fire"]:
@@ -348,6 +354,42 @@ func test_rookie_ready_pose_assets() -> void:
 			if c.a > 0.1 and c.g > 0.6 and c.g > maxf(c.r, c.b) + 0.3:
 				green += 1
 	eq(green, 0, "no green-screen pixels left")
+	# The front arm: on ready_0's canvas, a part of it (every pixel it has, ready_0 has there), on
+	# the fists (the hug point) and the near shoulder, not the head or the legs.
+	var arm := Image.load_from_file(ProjectSettings.globalize_path(dir + "ready_arm_front.png"))
+	eq(arm.get_size(), ready.get_size(), "front arm: ready_0's canvas")
+	var arm_px := 0
+	var outside := 0
+	for y in arm.get_height():
+		for x in arm.get_width():
+			var a := arm.get_pixel(x, y)
+			if a.a > 0.1:
+				arm_px += 1
+				var c := a.a > 0.9 and ready.get_pixel(x, y).a > 0.9
+				if not c and a.a > 0.9:
+					outside += 1
+				if a.g > 0.6 and a.g > maxf(a.r, a.b) + 0.3:
+					green += 1
+	check(arm_px > 200 and arm_px < ready.get_used_rect().get_area() / 4, "front arm: a part of the body (%d px)" % arm_px)
+	eq(outside, 0, "front arm: only where ready_0 is drawn")
+	eq(green, 0, "front arm: no green-screen pixels")
+	check(arm.get_pixelv(Vector2i(grip.round())).a > 0.9, "front arm: on the fists (the hug point)")
+	var arm_rect := arm.get_used_rect()
+	check(arm_rect.position.y > ready.get_used_rect().position.y + ready.get_used_rect().size.y * 0.3, "front arm: below the head")
+	check(arm_rect.end.y < pivot.y - 20.0, "front arm: above the legs")
+	check(arm_rect.position.x < grip.x - 20.0, "front arm: from the near shoulder (%s)" % arm_rect)
+	# The pixels it has are ready_0's (same keying / cleanup).
+	var same := 0
+	var opaque := 0
+	for y in arm.get_height():
+		for x in arm.get_width():
+			var a := arm.get_pixel(x, y)
+			if a.a > 0.99:
+				opaque += 1
+				var b := ready.get_pixel(x, y)
+				if absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b) < 0.05:
+					same += 1
+	check(opaque > 0 and same >= opaque * 0.95, "front arm: ready_0's colours (%d of %d)" % [same, opaque])
 
 
 ## In the match Rookie switches to the ready pose at once, hugging the gun over the fists, turned
@@ -374,7 +416,13 @@ func test_rookie_ready_switches_at_once() -> void:
 	eq(c.animation(), "draw", "the ready frame")
 	check(gun.visible and is_equal_approx(gun.modulate.a, 1.0), "the gun out")
 	check(not hand.visible, "no grip hand: the gun covers the fists")
-	eq(gun.get_index(), flip.get_child_count() - 1, "in front of the body")
+	var arm: Sprite2D = c.get_node("Flip/ArmFront")
+	var body: AnimatedSprite2D = c.get_node("Flip/Sprite")
+	check(arm.visible and arm.texture == Art.side_view("rookie")["ready"]["arm_front"], "the front arm shown")
+	eq(arm.get_index(), flip.get_child_count() - 1, "the front arm over everything")
+	eq(gun.get_index(), flip.get_child_count() - 2, "the gun in front of the body, under the front arm")
+	check(gun.get_index() > body.get_index(), "the gun over the body")
+	check(arm.transform.is_equal_approx(body.transform) and arm.offset == body.offset and not arm.centered and not body.centered, "the front arm at the body's place")
 	var hug := Art.hug_gun("bazooka", "iron")
 	eq(sprite.texture, hug["texture"], "the iron hug gun (no weapon: the starter's kind)")
 	var rp := Art.ready_pose("rookie")
@@ -399,6 +447,8 @@ func test_rookie_ready_switches_at_once() -> void:
 			check(c.muzzle_position().distance_to(want) < 0.05, "side %d at %d: the muzzle at %s (%s)" % [f, e, want, c.muzzle_position()])
 			near(rad_to_deg(gun.rotation), -e, 0.01, "side %d at %d: the socket turned" % [f, e])
 			check(to_flip.y.y > 0.0 or e == 90.0, "side %d at %d: not upside down" % [f, e])
+			check(arm.visible and arm.get_index() == flip.get_child_count() - 1 and gun.get_index() == arm.get_index() - 1, "side %d at %d: the front arm over the gun" % [f, e])
+			check(arm.get_parent() == flip and signf(flip.transform.determinant()) == float(f), "side %d at %d: the arm mirrored with the body" % [f, e])
 	c.facing = 1
 	c._apply_motion()
 	c.aim(85.0)
@@ -411,6 +461,7 @@ func test_rookie_ready_switches_at_once() -> void:
 	near(c.shoot(), 0.0, 1e-9, "fires at once")
 	eq(c.gun_state(), "firing", "firing")
 	eq(c.animation(), "fire", "the recoil on the ready frame")
+	check(arm.visible and arm.get_index() == flip.get_child_count() - 1, "firing: the front arm over the gun")
 	check(c.get_node("Flip/Gun/Flash").visible, "muzzle flash")
 	check(c.muzzle_position().distance_to(predicted) < 0.5, "leaves where predicted")
 	near(rad_to_deg(gun.rotation), 0.0, 0.01, "no turn kick: still level")
@@ -426,6 +477,7 @@ func test_rookie_ready_switches_at_once() -> void:
 	eq(c.gun_state(), "holstered", "away after fireHoldSec")
 	eq(c.animation(), "idle", "back to idle at once")
 	check(not gun.visible, "gun gone")
+	check(not arm.visible, "idle: no front arm layer (the body's own)")
 	# A drag cancelled: back to idle at once.
 	c.draw_gun()
 	c.clear_aim()

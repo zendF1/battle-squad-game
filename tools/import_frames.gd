@@ -53,10 +53,14 @@ extends SceneTree
 ## go), trimmed to what is left, scaled by `scale` (source px per pose px) with its lowest row on the
 ## soles' row and `alignX` [pose x, source x] lined up, and resampled once into the shared canvas.
 ## `canvas` [x, y, w, h] (source px, optional) is always inside that canvas, so a new pose that fits
-## leaves the run frames' PNGs as they were. side.json gets `readyPose` {anims, scene} and
-## gun_anchors.json the pose's fallback `gun` seat (the draw anchors' grip: `gun.grip`, the hug point
-## between the fists, else the pose figure's middle); the gun itself is placed by hand in the pose's
-## scene (never written here).
+## leaves the run frames' PNGs as they were. A pose's `armFront` cuts its near arm (the sleeve from
+## the shoulder to the fist and both fists) out of the cleaned pose (arm_mask(): flood fill from
+## `seeds` inside `polygon`, pose px, the dark outline the barrier, grown over the outline) into its
+## own PNG `stem` (default <pose>_arm_front) on the same canvas / pivot / scale, drawn over the hugged
+## gun (the body keeps the arm too). side.json gets `readyPose` {anims, scene, armFront (that stem,
+## with the cut)} and gun_anchors.json the pose's fallback `gun` seat (the draw anchors' grip:
+## `gun.grip`, the hug point between the fists, else the pose figure's middle); the gun itself is
+## placed by hand in the pose's scene (never written here).
 
 const CutSheet := preload("res://tools/cut_sheet.gd")
 const SRC := "res://art_source/characters/"
@@ -338,6 +342,10 @@ func _import(cfg_path: String) -> void:
 		var info := {"anims": pose_anims}
 		if pc.has("scene"):
 			info["scene"] = str(pc["scene"])
+		if poses[pname].has("arm"): # the near arm over the gun: same canvas, pivot and scale as the pose
+			var stem := str(pc["armFront"].get("stem", "%s_arm_front" % pname))
+			_save(_scaled_pose(poses[pname]["arm"], poses[pname], origin, src_size, out_size), out_dir + stem + ".png")
+			info["armFront"] = stem
 		side["readyPose"] = info
 		if pc.has("gun"):
 			var seat: Dictionary = pose_hold.call(pname)
@@ -554,11 +562,26 @@ func _load_pose(dir: String, cfg: Dictionary, pname: String, pc: Dictionary, ref
 	if wrect.size == Vector2i.ZERO:
 		push_error("import_frames: pose %s is empty after cleaning" % pname)
 		return {}
+	# The near arm drawn over the gun: cut from the cleaned pose (the same keying and cleanup).
+	var arm: Image = null
+	if pc.get("armFront") is Dictionary:
+		var am := arm_mask(img, pc["armFront"], ws)
+		var count := 0
+		for v in am:
+			if v > 0.0:
+				count += 1
+		if count == 0:
+			push_warning("import_frames: pose %s armFront cut nothing (check its seeds / polygon), no arm layer" % pname)
+		else:
+			arm = apply_mask(img, am)
+			print("  pose %s armFront: %d px" % [pname, count])
 	var rect := Rect2(Vector2(wrect.position) / ws, Vector2(wrect.size) / ws)
 	var sp := float(pc["scale"])
 	var ax: Array = pc.get("alignX", [rect.get_center().x, ref["hip"]])
 	var t := Vector2(float(ax[1]) - float(ax[0]) * sp, float(ref["bottom"]) + 1.0 - float(rect.end.y) * sp)
 	var pose := {"image": img, "sp": sp, "t": t, "cfg": pc, "ws": ws, "center": rect.get_center()}
+	if arm != null:
+		pose["arm"] = arm
 	var a := _pose_to_src(pose, Vector2(rect.position))
 	var b := _pose_to_src(pose, Vector2(rect.end))
 	pose["rect"] = Rect2i(Vector2i(floori(a.x), floori(a.y)), Vector2i(ceili(b.x) - floori(a.x), ceili(b.y) - floori(a.y)))
@@ -585,6 +608,140 @@ static func _scaled_pose(img: Image, pose: Dictionary, origin: Vector2i, src_siz
 	canvas.resize(out_size.x, out_size.y, Image.INTERPOLATE_LANCZOS)
 	var out := CutSheet._unpremultiply(canvas)
 	_clear_faint(out)
+	return out
+
+
+## A part of a drawn figure with thick dark outlines (a pose's near arm) as a mask (0..1 per pixel
+## of img): the pixels 4-connected to `seeds` [[x, y], ...] through non-dark opaque pixels inside
+## `polygon` [[x, y], ...] (the region it may take: where an outline is open, its edge is the cut),
+## dark = max(r, g, b) ≤ `darkMax` (the outline is the barrier); grown `grow` px (4-steps) over the
+## dark opaque pixels inside the polygon (it keeps its own outline), then the holes it encloses
+## filled (the creases, a detail drawn in another colour); the edge feathered inward over `feather`
+## px (the kept share of a (2f+1)² box, nothing outside the cut). Coordinates in the config's px, img
+## at ws × them. A seed on a dark, clear or outside pixel is skipped with a warning. Pure.
+static func arm_mask(img: Image, ac: Dictionary, ws: float = 1.0) -> PackedFloat32Array:
+	var w := img.get_width()
+	var h := img.get_height()
+	var n := w * h
+	var px := img.get_data()
+	var mask := PackedFloat32Array()
+	mask.resize(n)
+	var poly := PackedVector2Array()
+	for p in ac.get("polygon", []):
+		poly.append(_v(p) * ws)
+	if poly.size() < 3:
+		push_warning("import_frames: armFront needs a polygon of 3 points or more")
+		return mask
+	var lo := poly[0]
+	var hi := poly[0]
+	for p in poly:
+		lo = lo.min(p)
+		hi = hi.max(p)
+	# The work box: the polygon's bounds and a 1 px clear border (outside the polygon).
+	var x0 := clampi(floori(lo.x) - 1, 0, w)
+	var y0 := clampi(floori(lo.y) - 1, 0, h)
+	var x1 := clampi(ceili(hi.x) + 2, 0, w)
+	var y1 := clampi(ceili(hi.y) + 2, 0, h)
+	var bw := x1 - x0
+	var bh := y1 - y0
+	if bw <= 0 or bh <= 0:
+		return mask
+	var dark_max := int(ac.get("darkMax", 80))
+	var cls := PackedByteArray() # 0 outside the polygon or clear, 1 dark, 2 open
+	cls.resize(bw * bh)
+	for y in bh:
+		for x in bw:
+			var gx := x0 + x
+			var gy := y0 + y
+			if not Geometry2D.is_point_in_polygon(Vector2(gx + 0.5, gy + 0.5), poly):
+				continue
+			var o := (gy * w + gx) * 4
+			if px[o + 3] == 0:
+				continue
+			cls[y * bw + x] = 1 if maxi(px[o], maxi(px[o + 1], px[o + 2])) <= dark_max else 2
+	var m := PackedByteArray()
+	m.resize(bw * bh)
+	var stack := PackedInt32Array()
+	for sd in ac.get("seeds", []):
+		var sp := (_v(sd) * ws).floor()
+		var sx := int(sp.x) - x0
+		var sy := int(sp.y) - y0
+		if sx < 0 or sy < 0 or sx >= bw or sy >= bh or cls[sy * bw + sx] != 2:
+			push_warning("import_frames: armFront seed %s is not on an open pixel inside the polygon, skipped" % str(sd))
+			continue
+		if m[sy * bw + sx] == 1:
+			continue
+		m[sy * bw + sx] = 1
+		stack.append(sy * bw + sx)
+		while not stack.is_empty():
+			var i: int = stack[stack.size() - 1]
+			stack.resize(stack.size() - 1)
+			var x := i % bw
+			for j in [i - 1 if x > 0 else -1, i + 1 if x < bw - 1 else -1, i - bw, i + bw]:
+				if j >= 0 and j < bw * bh and m[j] == 0 and cls[j] == 2:
+					m[j] = 1
+					stack.append(j)
+	# Grow over the outline (dark, inside the polygon).
+	var front := PackedInt32Array()
+	for i in bw * bh:
+		if m[i] == 1:
+			front.append(i)
+	for d in int(round(float(ac.get("grow", 6)) * ws)):
+		var next := PackedInt32Array()
+		for i in front:
+			var x := i % bw
+			for j in [i - 1 if x > 0 else -1, i + 1 if x < bw - 1 else -1, i - bw, i + bw]:
+				if j >= 0 and j < bw * bh and m[j] == 0 and cls[j] == 1:
+					m[j] = 1
+					next.append(j)
+		front = next
+	# Holes: what the box border cannot reach without crossing the cut.
+	var out := PackedByteArray()
+	out.resize(bw * bh)
+	for y in bh:
+		for x in bw:
+			if (x == 0 or y == 0 or x == bw - 1 or y == bh - 1) and m[y * bw + x] == 0:
+				out[y * bw + x] = 1
+				stack.append(y * bw + x)
+	while not stack.is_empty():
+		var i: int = stack[stack.size() - 1]
+		stack.resize(stack.size() - 1)
+		var x := i % bw
+		for j in [i - 1 if x > 0 else -1, i + 1 if x < bw - 1 else -1, i - bw, i + bw]:
+			if j >= 0 and j < bw * bh and out[j] == 0 and m[j] == 0:
+				out[j] = 1
+				stack.append(j)
+	var f := maxi(0, int(round(float(ac.get("feather", 1)) * ws)))
+	for y in bh:
+		for x in bw:
+			if out[y * bw + x] == 1:
+				continue
+			var k := 1.0
+			if f > 0:
+				var sum := 0.0
+				var cnt := 0.0
+				for dy in range(-f, f + 1):
+					for dx in range(-f, f + 1):
+						var xx := x + dx
+						var yy := y + dy
+						cnt += 1.0
+						if xx >= 0 and yy >= 0 and xx < bw and yy < bh and out[yy * bw + xx] == 0:
+							sum += 1.0
+				k = sum / cnt
+			mask[(y0 + y) * w + x0 + x] = k
+	return mask
+
+
+## A copy of img with its alpha × mask (one value per pixel, 0..1).
+static func apply_mask(img: Image, mask: PackedFloat32Array) -> Image:
+	var out: Image = img.duplicate()
+	out.convert(Image.FORMAT_RGBA8)
+	var px := out.get_data()
+	for i in mini(mask.size(), px.size() / 4):
+		var k := mask[i]
+		if k < 1.0:
+			px[i * 4 + 3] = int(round(px[i * 4 + 3] * clampf(k, 0.0, 1.0)))
+	out.set_data(out.get_width(), out.get_height(), false, Image.FORMAT_RGBA8, px)
 	return out
 
 

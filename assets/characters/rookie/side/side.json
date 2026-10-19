@@ -100,6 +100,7 @@
 			"draw",
 			"fire"
 		],
-		"scene": "res://scenes/character/poses/rookie_ready.tscn"
+		"scene": "res://scenes/character/poses/rookie_ready.tscn",
+		"armFront": "ready_arm_front"
 	}
 }

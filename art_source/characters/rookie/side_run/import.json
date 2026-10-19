@@ -225,6 +225,57 @@
 				],
 				"angle": 0
 			},
+			"armFront": {
+				"_doc": "the near arm drawn OVER the hugged gun (assets/characters/rookie/side/ready_arm_front.png, same canvas as ready_0; tools/import_frames.gd arm_mask()), pose px. polygon: the region the cut may take (the shoulder, the sleeve down to the elbow and along the belly, both fists); seeds: one point inside each piece the outline walls in (the upper arm, the forearm, the fists; the far arm's cuff right of the fists has none: it stays under the gun); darkMax: the brightest channel of an outline pixel; grow: the outline width kept round the cut; feather: its soft edge (px). Check after an import: ready_arm_front.png.",
+				"stem": "ready_arm_front",
+				"polygon": [
+					[
+						185,
+						400
+					],
+					[
+						300,
+						400
+					],
+					[
+						320,
+						480
+					],
+					[
+						430,
+						465
+					],
+					[
+						520,
+						470
+					],
+					[
+						520,
+						620
+					],
+					[
+						185,
+						620
+					]
+				],
+				"seeds": [
+					[
+						230,
+						450
+					],
+					[
+						380,
+						540
+					],
+					[
+						470,
+						520
+					]
+				],
+				"darkMax": 80,
+				"grow": 6,
+				"feather": 1
+			},
 			"scene": "res://scenes/character/poses/rookie_ready.tscn"
 		}
 	}

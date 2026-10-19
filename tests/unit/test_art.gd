@@ -322,10 +322,13 @@ func test_side_view_faces_left_round_the_feet() -> void:
 ## metadata. Rookie's Preview is its iron hug gun (pose_gun.gd: the picture once imported) with its
 ## hold on the socket's origin at the weapons' scale, the socket on the hug point between the fists;
 ## Tanko's, Spark's and Flora's keep their iron gun (grip on the origin) and their Body follows the
-## art (pose_body.gd): the baked idle frame until a side view's ready frame is imported.
+## art (pose_body.gd): the baked idle frame until a side view's ready frame is imported. Rookie's has
+## an ArmFront after GunSocket (drawn over the gun; pose_arm.gd: the front arm once imported) at
+## the Body's place; the others none until their side.json has a front arm cut.
 func test_ready_pose_scenes() -> void:
 	var PoseBody := load("res://scenes/character/poses/pose_body.gd")
 	var PoseGun := load("res://scenes/character/poses/pose_gun.gd")
+	var PoseArm := load("res://scenes/character/poses/pose_arm.gd")
 	for id in Art.CHARACTERS:
 		var path := "res://scenes/character/poses/%s_ready.tscn" % id
 		check(ResourceLoader.exists(path), path)
@@ -335,7 +338,19 @@ func test_ready_pose_scenes() -> void:
 		check(root is Node2D and root.get_meta("_edit_lock_", false), "%s root a locked Node2D" % id)
 		check(not root.has_meta("aim_down") and not root.has_meta("aim_up"), "%s no aim metadata" % id)
 		var names: Array = root.get_children().map(func(n): return str(n.name))
-		eq(names, ["Body", "GunSocket"], "%s Body and one GunSocket, no hand sprites" % id)
+		var has_arm: bool = PoseArm.arm_path(id) != ""
+		check(has_arm or id != "rookie", "rookie has a front arm cut")
+		eq(names, ["Body", "GunSocket", "ArmFront"] if has_arm else ["Body", "GunSocket"], "%s Body, one GunSocket (and the ArmFront over it with a front arm cut), no hand sprites" % id)
+		var arm := root.get_node_or_null("ArmFront") as Sprite2D
+		var body0 := root.get_node_or_null("Body") as Sprite2D
+		if arm != null and body0 != null:
+			check(arm.get_meta("_edit_lock_", false), "%s ArmFront locked" % id)
+			eq(arm.get_script(), PoseArm, "%s ArmFront shows the front arm once imported" % id)
+			eq(str(arm.get("character_id")), id, "%s ArmFront's character" % id)
+			eq([arm.position, arm.offset, arm.centered, arm.texture_filter], [body0.position, body0.offset, body0.centered, body0.texture_filter], "%s ArmFront at the Body's place" % id)
+			check(arm.scale.is_equal_approx(body0.scale), "%s ArmFront at the Body's scale" % id)
+			check(arm.texture == null or arm.texture.resource_path == PoseArm.arm_path(id), "%s ArmFront picture" % id)
+			eq(PoseArm.arm_path(id), Art.side_dir(id) + "ready_arm_front.png", "%s the arm the importer cut" % id)
 		var sock := root.get_node_or_null("GunSocket") as Node2D
 		check(sock != null and sock.get_meta("_edit_group_", false), "%s GunSocket grouped" % id)
 		var preview := root.get_node_or_null("GunSocket/Preview") as Sprite2D
@@ -481,6 +496,60 @@ func test_key_background() -> void:
 	I.clean(img, {"alphaCut": 24, "keepPieces": 0.02, "defringe": {"band": 0}})
 	near(img.get_pixel(32, 22).a, 0.0, 1e-6, "clean(): the detached sparkle dropped")
 	eq(img.get_pixel(5, 5), Color8(20, 20, 24), "clean(): the figure stays")
+
+
+## tools/import_frames.gd arm_mask(): on a synthetic outlined drawing (an arm: a blue box with a
+## 2 px dark outline and a ring crease, touching a same-blue torso through the outline) the flood
+## fill from the seed stops at the outline, the grow takes the outline, what the crease encloses is
+## filled, the polygon limits it, and nothing past the outline (the torso, the backdrop) is cut.
+func test_arm_mask() -> void:
+	var I := load("res://tools/import_frames.gd")
+	var blue := Color8(70, 120, 170)
+	var ink := Color8(24, 22, 30)
+	var img := Image.create(40, 30, false, Image.FORMAT_RGBA8) # clear backdrop
+	img.fill_rect(Rect2i(20, 4, 18, 22), blue) # the torso, same blue as the sleeve
+	img.fill_rect(Rect2i(4, 8, 18, 12), ink) # the arm's outline (2 px) ...
+	img.fill_rect(Rect2i(6, 10, 14, 8), blue) # ... and its sleeve
+	img.fill_rect(Rect2i(14, 12, 5, 5), ink) # a ring crease in the sleeve ...
+	img.fill_rect(Rect2i(15, 13, 3, 3), blue) # ... round a piece the fill cannot reach
+	img.set_pixel(8, 12, Color8(200, 160, 120)) # a detail drawn in another colour
+	var ac := {"polygon": [[0, 0], [30, 0], [30, 30], [0, 30]], "seeds": [[8, 14]], "darkMax": 80, "grow": 2, "feather": 0}
+	var m: PackedFloat32Array = I.arm_mask(img, ac)
+	eq(m.size(), 40 * 30, "one value per pixel")
+	near(m[14 * 40 + 8], 1.0, 1e-6, "the seed's sleeve")
+	near(m[12 * 40 + 8], 1.0, 1e-6, "a detail inside it")
+	near(m[14 * 40 + 4], 1.0, 1e-6, "grown: the outer outline column")
+	near(m[9 * 40 + 5], 1.0, 1e-6, "grown: the outline corner")
+	near(m[14 * 40 + 14], 1.0, 1e-6, "the crease (grown over)")
+	near(m[14 * 40 + 16], 1.0, 1e-6, "the piece the crease walls in, enclosed: filled")
+	near(m[14 * 40 + 20], 1.0, 1e-6, "grown: the outline next to the torso")
+	near(m[14 * 40 + 24], 0.0, 1e-6, "the torso past the outline: not cut")
+	near(m[14 * 40 + 2], 0.0, 1e-6, "the backdrop: not cut")
+	near(m[4 * 40 + 4], 0.0, 1e-6, "nor above")
+	# Without grow the fill stops before the outline (it is the barrier).
+	ac["grow"] = 0
+	m = I.arm_mask(img, ac)
+	near(m[14 * 40 + 6], 1.0, 1e-6, "no grow: the sleeve's edge")
+	near(m[14 * 40 + 5], 0.0, 1e-6, "no grow: the outline is not filled into")
+	# The polygon limits the cut: its right part stays out.
+	ac["grow"] = 2
+	ac["polygon"] = [[0, 0], [10, 0], [10, 30], [0, 30]]
+	m = I.arm_mask(img, ac)
+	near(m[14 * 40 + 8], 1.0, 1e-6, "inside the polygon")
+	near(m[14 * 40 + 11], 0.0, 1e-6, "outside the polygon: not cut")
+	# The feather is inward: the edge softer, nothing outside.
+	ac["polygon"] = [[0, 0], [30, 0], [30, 30], [0, 30]]
+	ac["feather"] = 1
+	m = I.arm_mask(img, ac)
+	check(m[14 * 40 + 4] > 0.0 and m[14 * 40 + 4] < 1.0, "feathered edge (%f)" % m[14 * 40 + 4])
+	near(m[14 * 40 + 8], 1.0, 1e-6, "full inside")
+	near(m[14 * 40 + 3], 0.0, 1e-6, "nothing outside the cut")
+	# A seed on the outline cuts nothing; apply_mask() keeps only the cut.
+	var none: PackedFloat32Array = I.arm_mask(img, {"polygon": [[0, 0], [30, 0], [30, 30], [0, 30]], "seeds": [[4, 14]]})
+	check(Array(none).all(func(v): return v == 0.0), "a seed on the outline: nothing")
+	var cut: Image = I.apply_mask(img, m)
+	near(cut.get_pixel(24, 14).a, 0.0, 1e-6, "apply_mask: the torso gone")
+	eq(cut.get_pixel(8, 14), blue, "apply_mask: the sleeve as drawn")
 
 
 ## tools/import_hug_guns.gd -- <kind>_<tier> ...: which pictures, the name split and the tube's
