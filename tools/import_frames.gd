@@ -767,8 +767,8 @@ static func corner_colour(img: Image, corner: int = 8) -> Color:
 ## A flat background colour keyed out in place (bg.key: "corners", the corner_colour() of the image,
 ## or [r, g, b] 0..255). d = a pixel's RGB distance (0..441) to the key. The backdrop is every pixel
 ## with d < `tolerance` + `soft` connected to the border (4-connected), plus the enclosed pieces of
-## at least `holeMin` px that are mostly (≥ half) the key itself (d < tolerance: between an arm and
-## the body); the art's own greens are farther from the key or enclosed and small. On the backdrop
+## at least `holeMin` px that are mostly (≥ `holePure`, default half) the key itself (d < tolerance:
+## between an arm and the body; 0 takes a shaded pocket of backdrop too); the art's own greens are farther from the key or enclosed and small. On the backdrop
 ## alpha = (d - tolerance) / soft (0..1): the soft edge; a partly keyed pixel's colour is un-blended
 ## from the key (p = a·c + (1 - a)·key). Spill: within `spill` px (4-steps) of the cleared pixels the
 ## key's strongest channel is capped at the larger of the other two (no green rim on the dark
@@ -805,6 +805,7 @@ static func key_background(img: Image, bg: Dictionary) -> int:
 	var stack := PackedInt32Array()
 	stack.resize(n)
 	var hole_min := int(bg.get("holeMin", 200))
+	var hole_pure := float(bg.get("holePure", 0.5))
 	var backdrop := PackedByteArray([0])
 	for s in n:
 		if near[s] == 0 or label[s] != 0:
@@ -831,7 +832,7 @@ static func key_background(img: Image, bg: Dictionary) -> int:
 					label[j] = id
 					stack[top] = j
 					top += 1
-		backdrop.append(1 if border or (size >= hole_min and pure * 2 >= size) else 0)
+		backdrop.append(1 if border or (size >= hole_min and pure >= size * hole_pure) else 0)
 	var cleared := 0
 	var gone := PackedByteArray()
 	gone.resize(n)

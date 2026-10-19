@@ -423,8 +423,10 @@ func test_rookie_ready_switches_at_once() -> void:
 	eq(gun.get_index(), flip.get_child_count() - 2, "the gun in front of the body, under the front arm")
 	check(gun.get_index() > body.get_index(), "the gun over the body")
 	check(arm.transform.is_equal_approx(body.transform) and arm.offset == body.offset and not arm.centered and not body.centered, "the front arm at the body's place")
-	var hug := Art.hug_gun("bazooka", "iron")
-	eq(sprite.texture, hug["texture"], "the iron hug gun (no weapon: the starter's kind)")
+	var hug := Art.hug_gun("bazooka", Art.GUN_BASIC)
+	check(hug["hug"] and hug["tier"] == Art.GUN_BASIC, "the starter bazooka has its own hug art")
+	eq(sprite.texture, hug["texture"], "the basic hug gun (no weapon: the starter bazooka)")
+	eq([hug["pivot"], hug["size"]], [Art.hug_meta("bazooka", "iron")["pivot"], Art.hug_meta("bazooka", "iron")["size"]], "the iron gun's shape: drawn where the Preview's iron gun is")
 	var rp := Art.ready_pose("rookie")
 	var sock: Transform2D = rp["socket"]
 	check(gun.position.distance_to(sock.origin) < 0.01, "the gun on its socket")
@@ -492,12 +494,12 @@ func test_rookie_ready_switches_at_once() -> void:
 	for i in 30:
 		c._process(dt)
 	eq(c.animation(), "idle", "then idle")
-	# The gun hugged: the weapon's hug art → its kind's in another tier → its gun sprite round its
-	# centre, as long as the Preview's gun, its pivot on the hug point.
+	# The gun hugged: the weapon's hug art (every bazooka tier has its own) → its kind's in another
+	# tier → its gun sprite round its centre, as long as the Preview's gun, its pivot on the hug point.
 	var drawn := func() -> float: return sprite.transform.basis_xform(Vector2(sprite.texture.get_width(), 0.0)).length()
 	var preview_xf: Transform2D = sock * rp["preview"]
 	var hug_len := preview_xf.basis_xform(Vector2(float(rp["length"]), 0.0)).length()
-	for kt in [["bazooka", "basic"], ["bazooka", "iron"], ["bazooka", "dragon"], ["blaster", "gold"], ["", ""]]:
+	for kt in [["bazooka", "basic"], ["bazooka", "iron"], ["bazooka", "steel"], ["bazooka", "mithril"], ["bazooka", "dragon"], ["blaster", "gold"], ["", ""]]:
 		c.set_weapon(kt[0], kt[1])
 		c._apply_gun() # out of the tree: set_weapon() only stores it
 		c.draw_gun()
@@ -505,6 +507,7 @@ func test_rookie_ready_switches_at_once() -> void:
 		var want := Art.hug_gun(kt[0] if kt[0] != "" else "bazooka", kt[1] if kt[1] != "" else Art.GUN_BASIC)
 		eq(sprite.texture, want["texture"], "%s %s: its pose gun" % kt)
 		check(kt[0] == "blaster" or want["hug"], "%s %s: hug art" % kt)
+		check(kt[0] != "bazooka" or want["tier"] == kt[1], "%s %s: its own tier's" % kt)
 		near(drawn.call(), hug_len, 0.05, "%s %s: as long as the Preview's gun" % kt)
 		check((gun.transform * sprite.transform * want["pivot"]).distance_to(sock.origin) < 0.01, "%s %s: its pivot on the hug point" % kt)
 		var m: Vector2 = c.muzzle_position()

@@ -17,9 +17,11 @@ extends SceneTree
 ## opening, the rocket / barrel tip, the dragon's mouth), keep [[x, y]...] (enclosed whites that are
 ## art, not holes)}}; `guns` {kind: {length (world px the
 ## kind's iron gun is long in the match), tiers {tier: {cell, recolour (a `recolours` name)}}}};
-## `recolours` {name: {saturation, value (HSV multipliers on every pixel)} or {rules [{hue [lo, hi]
-## degrees, minSat, ramp [colours dark → light]}], sparkles [[x, y, r] fractions of the gun's
-## width / height / width]}}; `icons` {size, margin, tiltDeg, files {name with <tier>: {gun, tiers}}}.
+## `recolours` {name: {saturation, value (HSV multipliers on every pixel), hue (degrees added),
+## hueRange [lo, hi] (degrees: only the pixels of that hue, 8° soft edge; default every pixel)} or
+## {rules [{hue [lo, hi] degrees, minSat, ramp [colours dark → light]}], sparkles [[x, y, r]
+## fractions of the gun's width / height / width]}}; `icons` {size, margin, tiltDeg, files {name
+## with <tier>: {gun, tiers}}}. tools/import_hug_guns.gd uses the same recolour specs.
 ##
 ## Per cell (tools/cut_sheet.gd cut_part()): the white background is flood-filled from the rect's
 ## border (`tolerance`); enclosed pure-white areas (min channel within `holeTolerance` of white, at
@@ -218,15 +220,24 @@ static func find_holes(sheet: Image, rect: Rect2i, tol: float, min_area: int, ke
 static func recolour(img: Image, spec: Dictionary) -> void:
 	var w := img.get_width()
 	var h := img.get_height()
-	if spec.has("saturation") or spec.has("value"):
+	if spec.has("saturation") or spec.has("value") or spec.has("hue"):
 		var ks := float(spec.get("saturation", 1.0))
 		var kv := float(spec.get("value", 1.0))
+		var dh := float(spec.get("hue", 0.0)) / 360.0
+		var hr = spec.get("hueRange")
 		for y in h:
 			for x in w:
 				var c := img.get_pixel(x, y)
 				if c.a <= 0.0:
 					continue
-				img.set_pixel(x, y, Color.from_hsv(c.h, clampf(c.s * ks, 0.0, 1.0), clampf(c.v * kv, 0.0, 1.0), c.a))
+				var wt := 1.0
+				if hr is Array and hr.size() >= 2:
+					var hue := c.h * 360.0
+					wt = clampf(minf(hue - float(hr[0]), float(hr[1]) - hue) / 8.0 + 0.5, 0.0, 1.0)
+					if wt <= 0.0:
+						continue
+				var to := Color.from_hsv(fposmod(c.h + dh, 1.0), clampf(c.s * ks, 0.0, 1.0), clampf(c.v * kv, 0.0, 1.0), c.a)
+				img.set_pixel(x, y, c.lerp(to, wt) if wt < 1.0 else to)
 	# Every rule reads the original pixels (a pixel one rule recoloured is not picked up by the next).
 	var src: Image = img.duplicate()
 	for rule in spec.get("rules", []):

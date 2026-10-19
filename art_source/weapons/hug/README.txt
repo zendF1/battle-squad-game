@@ -1,7 +1,11 @@
 Súng ôm (dáng ngắm quỳ): mỗi súng một ảnh <loại>_<cấp>.png, vd. bazooka_iron.png, cannon_steel.png.
-loại = bazooka, cannon, shock_rifle, seed_launcher, blaster; cấp = iron, steel, mithril, dragon (blaster
+loại = bazooka, cannon, shock_rifle, seed_launcher, blaster; cấp = basic (súng khởi đầu), iron, steel, mithril, dragon (blaster
 thêm silver, gold, titan, diamond).
 - súng nằm ngang, nòng sang PHẢI, không có tay cầm, nền xanh lá đặc (dấu ✦ của AI tool tự xoá)
+- có ảnh: bazooka_iron.png (ô liu), bazooka_mithril.png (pha lê xanh), bazooka_dragon.png (rồng đỏ cam)
+- cấp chỉ khác màu không cần ảnh: hug.json "bazooka_basic" / "bazooka_steel" = {"from": "iron",
+  "recolour": {...}} (đổi màu ảnh iron: basic nhạt màu như basic.png cũ, steel ô liu đậm hơn như steel.png
+  cũ); đủ 5 cấp bazooka. Chạy lại tool với bazooka_iron là làm lại cả basic, steel.
 
 Chạy (trong thư mục battle-squad-game):
   /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_hug_guns.gd

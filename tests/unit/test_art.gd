@@ -422,39 +422,81 @@ func test_hug_guns() -> void:
 	var data := Art.hug_data()
 	check(FileAccess.file_exists("res://" + str(data.get("source", ""))), "hug guns imported from art_source/weapons/hug")
 	near(float(data.get("pxPerUnit", 0.0)), float(Art.guns_data()["pxPerUnit"]), 1e-6, "at the held guns' scale")
-	var meta := Art.hug_meta("bazooka", "iron")
-	check(not meta.is_empty(), "the iron bazooka's hug art")
-	var img := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("bazooka", "iron")))
-	check(img != null and Vector2(img.get_size()) == meta["size"], "hug_iron.png at its size")
-	if img != null:
-		var used: Rect2i = load("res://tools/import_hug_guns.gd").tube_points(img)["rect"]
-		near(meta["pivot"].x, used.get_center().x, 1.0, "hold: the middle of the gun")
-		check(meta["pivot"].y > used.position.y + used.size.y * 0.3 and meta["pivot"].y < used.end.y - used.size.y * 0.3, "hold: in the tube's height")
-		near(meta["muzzle"].x, float(used.end.x), 1.0, "muzzle: the warhead's tip")
-		near(meta["muzzle"].y, meta["pivot"].y, 0.01, "muzzle: on the tube's axis")
-		near(float(used.size.x) / 2.0, 57.0, 1.0, "57 world px long")
-		var corner := img.get_pixel(0, 0)
-		check(corner.a == 0.0, "the backdrop keyed out")
+	var H := load("res://tools/import_hug_guns.gd")
+	var iron_img := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("bazooka", "iron")))
+	# Every bazooka tier has its own hug art, the same length (a tier swap does not resize the gun).
+	for tier in Art.GUN_TIERS["bazooka"]:
+		var m := Art.hug_meta("bazooka", tier)
+		check(not m.is_empty(), "the %s bazooka's hug art" % tier)
+		if m.is_empty():
+			continue
+		var img := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("bazooka", tier)))
+		check(img != null and Vector2(img.get_size()) == m["size"], "hug_%s.png at its size" % tier)
+		if img == null:
+			continue
+		var used: Rect2i = H.tube_points(img)["rect"]
+		near(m["pivot"].x, used.get_center().x, 1.0, "%s hold: the middle of the gun" % tier)
+		check(m["pivot"].y > used.position.y + used.size.y * 0.3 and m["pivot"].y < used.end.y - used.size.y * 0.3, "%s hold: in the tube's height" % tier)
+		near(m["muzzle"].x, float(used.end.x), 1.0, "%s muzzle: the warhead's tip" % tier)
+		near(m["muzzle"].y, m["pivot"].y, 0.01, "%s muzzle: on the tube's axis" % tier)
+		near(float(used.size.x) / 2.0, 57.0, 1.0, "%s 57 world px long" % tier)
+		check(img.get_pixel(0, 0).a == 0.0, "%s the backdrop keyed out" % tier)
 		var green := 0
 		for y in img.get_height():
 			for x in img.get_width():
 				var c := img.get_pixel(x, y)
 				if c.a > 0.1 and c.g > 0.6 and c.g > maxf(c.r, c.b) + 0.3:
 					green += 1
-		eq(green, 0, "no green-screen pixels left")
-	var h := Art.hug_gun("bazooka", "iron")
-	check(h["hug"] and h["tier"] == "iron" and h["texture"] != null, "own tier")
-	h = Art.hug_gun("bazooka", "dragon")
-	check(h["hug"] and h["tier"] == "iron", "another tier's hug art")
-	h = Art.hug_gun("bazooka", Art.GUN_BASIC)
-	check(h["hug"] and h["tier"] == "iron", "no weapon (basic): the iron hug art")
-	h = Art.hug_gun("blaster", "gold")
-	check(not h["hug"] and h["kind"] == "blaster" and h["tier"] == "gold", "no hug art: the gun sprite")
-	eq(h["pivot"], h["size"] * 0.5, "turned round its centre, not the grip")
+		eq(green, 0, "%s no green-screen pixels left" % tier)
+		check(img.get_height() < 48 and used.size.y < 46, "%s the sparkle dropped (it would stretch the picture: %s)" % [tier, used])
+		var h := Art.hug_gun("bazooka", tier)
+		check(h["hug"] and h["tier"] == tier and h["texture"] != null and h["path"] == Art.hug_gun_path("bazooka", tier), "%s: its own hug art" % tier)
+	# basic and steel are the iron picture recoloured (hug.json from / recolour): the same shape and
+	# points; basic greyer (the old basic.png's desaturation), steel's olive more saturated, a little
+	# yellower, its red warhead as iron's.
+	var meta := Art.hug_meta("bazooka", "iron")
+	var olive := {}
+	var red := {}
+	for tier in ["iron", "basic", "steel"]:
+		var img := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("bazooka", tier)))
+		if tier != "iron":
+			eq(Art.hug_meta("bazooka", tier), meta, "%s: the iron gun's size / hold / muzzle" % tier)
+			var same := true
+			for y in img.get_height():
+				for x in img.get_width():
+					if absf(img.get_pixel(x, y).a - iron_img.get_pixel(x, y).a) > 0.01:
+						same = false
+			check(same, "%s: the iron gun's shape" % tier)
+		var o := Vector3.ZERO # hue (degrees), saturation, count
+		var r := Vector2.ZERO # saturation, count
+		for y in img.get_height():
+			for x in img.get_width():
+				var ic := iron_img.get_pixel(x, y)
+				var c := img.get_pixel(x, y)
+				if ic.a < 0.9 or ic.s < 0.15:
+					continue
+				if ic.h * 360.0 > 55.0 and ic.h * 360.0 < 125.0:
+					o += Vector3(c.h * 360.0, c.s, 1.0)
+				elif ic.h * 360.0 < 15.0 or ic.h * 360.0 > 345.0:
+					r += Vector2(c.s, 1.0)
+		olive[tier] = Vector2(o.x, o.y) / maxf(1.0, o.z)
+		red[tier] = r.x / maxf(1.0, r.y)
+	near(olive["basic"].y / olive["iron"].y, 0.55, 0.05, "basic: the olive desaturated like the old basic.png")
+	near(red["basic"] / red["iron"], 0.55, 0.06, "basic: the warhead too")
+	near(olive["steel"].y / olive["iron"].y, 1.25, 0.06, "steel: the olive more saturated (%s vs %s)" % [olive["steel"], olive["iron"]])
+	check(olive["steel"].x < olive["iron"].x - 2.0 and olive["steel"].x > olive["iron"].x - 7.0, "steel: a little yellower (%s vs %s)" % [olive["steel"].x, olive["iron"].x])
+	near(red["steel"], red["iron"], 0.01, "steel: the warhead as iron's")
+	var hug := Art.hug_gun("bazooka", "gold")
+	check(hug["hug"] and hug["tier"] == "iron", "a tier with no hug art: the iron one")
+	hug = Art.hug_gun("blaster", "gold")
+	check(not hug["hug"] and hug["kind"] == "blaster" and hug["tier"] == "gold", "no hug art: the gun sprite")
+	eq(hug["pivot"], hug["size"] * 0.5, "turned round its centre, not the grip")
 	eq(Art.pose_gun_meta(Art.hug_gun_path("bazooka", "iron")), meta, "a hug picture's meta")
 	eq(Art.pose_gun_meta(Art.gun_path("cannon", "iron"))["pivot"], Art.hug_gun("cannon", "iron")["size"] * 0.5, "a gun sprite's: its centre")
 	eq(Art.pose_gun_meta("res://assets/icons/coin.png"), {}, "any other picture")
-	check(Art.all_paths().has(Art.HUG_DATA) and Art.all_paths().has(Art.hug_gun_path("bazooka", "iron")), "listed")
+	check(Art.all_paths().has(Art.HUG_DATA), "hug.json listed")
+	for tier in Art.GUN_TIERS["bazooka"]:
+		check(Art.all_paths().has(Art.hug_gun_path("bazooka", tier)), "hug_%s.png listed" % tier)
 	# WYSIWYG: the Preview's own gun drawn as the Preview; another one with its pivot there, as long.
 	var pose := {"preview": Transform2D(0.3, Vector2(2.0, 3.0), 0.0, Vector2(5, -7)) * Transform2D(0.0, Vector2(-10, -4)),
 		"pivot": Vector2(10, 4), "length": 40.0}
@@ -496,6 +538,40 @@ func test_key_background() -> void:
 	I.clean(img, {"alphaCut": 24, "keepPieces": 0.02, "defringe": {"band": 0}})
 	near(img.get_pixel(32, 22).a, 0.0, 1e-6, "clean(): the detached sparkle dropped")
 	eq(img.get_pixel(5, 5), Color8(20, 20, 24), "clean(): the figure stays")
+	# holePure: an enclosed shaded pocket of backdrop (near the key, none of it pure) stays by
+	# default, holePure 0 keys it as a hole.
+	var pocket := Image.create(20, 20, false, Image.FORMAT_RGBA8)
+	pocket.fill(key)
+	pocket.fill_rect(Rect2i(4, 4, 12, 12), Color8(20, 20, 24))
+	pocket.fill_rect(Rect2i(8, 8, 4, 4), Color8(70, 200, 60)) # 16 px, d ≈ 50 from the key
+	var p2 := pocket.duplicate()
+	I.key_background(pocket, {"key": "corners", "corner": 2, "tolerance": 45, "soft": 45, "holeMin": 10, "spill": 0})
+	near(pocket.get_pixel(9, 9).a, 1.0, 1e-6, "a shaded pocket kept by default")
+	I.key_background(p2, {"key": "corners", "corner": 2, "tolerance": 45, "soft": 45, "holeMin": 10, "holePure": 0, "spill": 0})
+	check(p2.get_pixel(9, 9).a < 0.2, "holePure 0: the pocket keyed (%f)" % p2.get_pixel(9, 9).a)
+	eq(p2.get_pixel(5, 5), Color8(20, 20, 24), "the figure round it stays")
+
+
+## tools/import_guns.gd recolour(): HSV multipliers on every pixel, a hue shift, limited to a hue
+## range (the hug guns' steel: the olive only, the red warhead kept).
+func test_recolour() -> void:
+	var G := load("res://tools/import_guns.gd")
+	var img := Image.create(3, 1, false, Image.FORMAT_RGBA8)
+	var olive := Color.from_hsv(90.0 / 360.0, 0.4, 0.5)
+	var red := Color.from_hsv(0.0, 0.7, 0.7)
+	img.set_pixel(0, 0, olive)
+	img.set_pixel(1, 0, red)
+	img.set_pixel(2, 0, Color(olive, 0.0))
+	var a: Image = img.duplicate()
+	G.recolour(a, {"saturation": 0.5, "value": 0.9})
+	near(a.get_pixel(0, 0).s, 0.2, 0.01, "saturation ×0.5")
+	near(a.get_pixel(1, 0).v, 0.63, 0.01, "value ×0.9 (every hue)")
+	eq(a.get_pixel(2, 0), img.get_pixel(2, 0), "a clear pixel untouched")
+	var b: Image = img.duplicate()
+	G.recolour(b, {"hueRange": [45, 135], "hue": -5.0, "saturation": 1.25})
+	near(b.get_pixel(0, 0).h * 360.0, 85.0, 1.0, "hue shifted")
+	near(b.get_pixel(0, 0).s, 0.5, 0.01, "saturation ×1.25")
+	eq(b.get_pixel(1, 0), img.get_pixel(1, 0), "outside the hue range: kept")
 
 
 ## tools/import_frames.gd arm_mask(): on a synthetic outlined drawing (an arm: a blue box with a
@@ -564,10 +640,30 @@ func test_import_hug_guns_arguments() -> void:
 	eq(H.split_name("ray_iron"), {}, "unknown kind")
 	eq(H.split_name("bazooka"), {}, "no tier")
 	var all: Dictionary = H.sources_for([], dir)
-	check(all["guns"].has({"kind": "bazooka", "tier": "iron", "name": "bazooka_iron"}), "no argument: every picture")
+	for tier in ["iron", "mithril", "dragon"]:
+		check(all["guns"].has({"kind": "bazooka", "tier": tier, "name": "bazooka_" + tier, "source": "bazooka_" + tier}), "no argument: every picture (%s)" % tier)
 	eq(all["unknown"], [], "no argument: nothing unknown")
-	eq(H.sources_for(["bazooka_iron.png"], dir), {"guns": [{"kind": "bazooka", "tier": "iron", "name": "bazooka_iron"}], "unknown": []}, "a name")
+	eq(H.sources_for(["bazooka_iron.png"], dir), {"guns": [{"kind": "bazooka", "tier": "iron", "name": "bazooka_iron", "source": "bazooka_iron"}], "unknown": []}, "a name")
 	eq(H.sources_for(["cannon_iron", "nope"], dir)["unknown"], ["cannon_iron", "nope"], "no picture / not a gun")
+	# Guns made from another tier's picture (hug.json from + recolour).
+	var cfg = JSON.parse_string(FileAccess.get_file_as_string(dir + "hug.json"))
+	var derived: Dictionary = H.derived_of(cfg)
+	eq(derived, {"bazooka_basic": "bazooka_iron", "bazooka_steel": "bazooka_iron"}, "hug.json: basic and steel from the iron picture")
+	eq(H.derived_of({"guns": {"bazooka_steel": {"from": "gold"}, "bazooka_iron": {"from": "iron"}, "ray_iron": {"from": "steel"}, "bazooka_basic": {"length": 50}}}), {}, "not a tier of the kind / itself / not a gun / no from")
+	all = H.sources_for([], dir, derived)
+	check(all["guns"].has({"kind": "bazooka", "tier": "steel", "name": "bazooka_steel", "source": "bazooka_iron"}), "no argument: the derived guns too")
+	eq(all["guns"].size(), 5, "every bazooka tier (%s)" % [all["guns"]])
+	var named: Dictionary = H.sources_for(["bazooka_iron"], dir, derived)
+	eq(named["guns"].map(func(g): return g["name"]), ["bazooka_iron", "bazooka_basic", "bazooka_steel"], "naming a picture takes the guns made from it")
+	eq(H.sources_for(["bazooka_steel"], dir, derived)["guns"], [{"kind": "bazooka", "tier": "steel", "name": "bazooka_steel", "source": "bazooka_iron"}], "a derived gun by name")
+	eq(H.sources_for(["bazooka_mithril"], dir, derived)["guns"].size(), 1, "another picture: only it")
+	# despill(): the key's channel capped at the other two.
+	var sp := Image.create(3, 1, false, Image.FORMAT_RGBA8)
+	sp.set_pixel(0, 0, Color8(20, 60, 20))
+	sp.set_pixel(1, 0, Color8(200, 100, 50))
+	sp.set_pixel(2, 0, Color8(0, 255, 0, 0))
+	eq(H.despill(sp, 1), 1, "one pixel greener than its red / blue")
+	eq([sp.get_pixel(0, 0), sp.get_pixel(1, 0)], [Color8(20, 20, 20), Color8(200, 100, 50)], "capped; the other kept")
 	# A tube 30 px long, 6 px thick, with a sight on top: the hold is the tube's middle.
 	var img := Image.create(40, 20, false, Image.FORMAT_RGBA8)
 	img.fill_rect(Rect2i(5, 8, 30, 6), Color.WHITE)

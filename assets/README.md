@@ -50,7 +50,9 @@ Total about 3.8 MB of PNG (the full-body pictures about 0.45 MB of it).
      ngực, KHÔNG cầm súng**, nền **xanh lá đặc** (một màu; dấu ✦ của AI ở góc tool tự xoá).
 2. **Súng ôm** (vẽ riêng, mỗi súng một ảnh): `art_source/weapons/hug/<loại>_<cấp>.png` (vd.
    `cannon_iron.png`, loại = `bazooka` `cannon` `shock_rifle` `seed_launcher` `blaster`): súng nằm
-   ngang, **nòng sang phải**, **không có tay cầm**, nền xanh lá đặc.
+   ngang, **nòng sang phải**, **không có tay cầm**, nền xanh lá đặc. Cấp nào chỉ khác màu (vd.
+   `basic`, `steel` của bazooka) không cần ảnh: khai báo trong `hug.json` `"<loại>_<cấp>": {"from":
+   "iron", "recolour": {...}}` là tool tự đổi màu từ ảnh cấp đó.
 3. **Chạy** (trong thư mục `battle-squad-game`, editor mở cũng được):
    ```
    /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_frames.gd -- <id>
@@ -250,7 +252,8 @@ sprites, no grip hand), turned round the hug point to the snapped direction (`ai
 power and the network keep the real angle). Which gun (`ui/art.gd` `hug_gun()`): the equipped
 weapon's hug art (its kind / tier, `screens/home/equipment_model.gd` `gun()`) → the kind's hug art in
 another tier (iron first) → the weapon's held gun sprite turned round its own centre; no weapon (bots,
-the starter gun) = the kind's `basic` → its iron hug art. A gun other than the Preview's is drawn as
+the starter gun) = the kind's `basic`. Rookie's bazooka has hug art in all five tiers (basic, iron,
+steel, mithril, dragon), all the same length, so a tier swap does not resize or move the gun. A gun other than the Preview's is drawn as
 long as the Preview's, its pivot (hold / centre) on the Preview gun's. The shot kicks the gun back
 along its axis (`character.gd` `HUG_KICK` = 5 % of its length × the fire frame's flash 1 / 0.35 / 0)
 on top of the body's `recoil` motion; the muzzle flash is at the turned muzzle.
@@ -345,7 +348,7 @@ weapons/
   seed_launcher/  basic iron steel mithril dragon          (Flora's)
   blaster/        basic iron steel mithril dragon silver gold titan diamond   (generic + crafted)
   hug.json                          size + hold + muzzle of every hug gun
-  <kind>/hug_<tier>.png             the hug guns of the ready pose (today: bazooka/hug_iron.png)
+  <kind>/hug_<tier>.png             the hug guns of the ready pose (today: bazooka/hug_basic, iron, steel, mithril, dragon)
 ```
 
 | File | Size | Notes |
@@ -376,9 +379,10 @@ shots look like that gun (`fx/` below).
 The JSON files are read with `FileAccess` (an export that filters resources must keep `*.json`).
 
 **Hug guns** (the big gun a drawn ready pose hugs, `ui/art.gd` `hug_gun()`, Rookie's pose above):
-`<kind>/hug_<tier>.png` (bazooka/hug_iron.png: 118x41) cut from
-`art_source/weapons/hug/<kind>_<tier>.png` (the gun alone, horizontal, muzzle right, no hand grips, a
-flat green backdrop) by
+`<kind>/hug_<tier>.png` (bazooka: `hug_basic`, `hug_iron`, `hug_steel`, `hug_mithril` 118x41,
+`hug_dragon` 118x42, 7–9 KB) cut from `art_source/weapons/hug/<kind>_<tier>.png` (the gun alone,
+horizontal, muzzle right, no hand grips, a flat green backdrop: `bazooka_iron`, `bazooka_mithril` (blue
+crystal), `bazooka_dragon` (red / orange dragon)) by
 
 ```
 $GODOT --headless --path . -s tools/import_hug_guns.gd                    # every picture there
@@ -386,13 +390,23 @@ $GODOT --headless --path . -s tools/import_hug_guns.gd -- bazooka_iron    # some
 ```
 
 (`art_source/weapons/hug/hug.json`: `length` world px, 57 = about 1.5 × Rookie's kneeling body width;
-the keying options; per gun `length`, `hold`, `muzzle` overrides in source px). It keys the backdrop
+the keying options; per gun `length`, `hold`, `muzzle` overrides in source px, `background` key options
+over the shared ones and `despill` (no key colour left anywhere: `bazooka_dragon`, a shaded pocket of
+backdrop between its collar and head, `holeMin` 15 / `holePure` 0), and `from` + `recolour` for a tier
+made from another tier's picture: the same shape, hold and muzzle, recoloured by `tools/import_guns.gd`
+`recolour()` (the held guns' specs, plus `hue` shift and `hueRange`). `bazooka_basic` = iron × the held
+guns' `basic` (saturation 0.55, value 0.94, as `bazooka/basic.png` is made from `iron.png`);
+`bazooka_steel` = iron with the olive (hue 45–135°) shifted −4.5°, saturation × 1.25, value × 0.975, the
+red warhead kept (fitted from the held `steel.png` against `iron.png` on matching pixels). Naming a
+picture on the command line also re-makes the tiers made from it). It keys the backdrop
 out like the ready pose (`key_background()`), drops the detached pieces (the "✦" sparkle), trims,
 finds the hold (the middle of the gun at the tube's height: the median of the columns' middles, so a
 sight does not lift it) and the muzzle (the right end on that axis) and scales once to `length` ×
 2 texture px per world px. `hug.json` `{"source", "pxPerUnit": 0.7, "guns": {kind: {tier: {"size",
 "hold", "muzzle"}}}}` (px in the PNG; the guns not imported in a run are kept). New PNGs get an
-`.import`; let the editor import them.
+`.import`; let the editor import them (until then the game reads the PNG). The held sprites
+`bazooka/<tier>.png` stay: the pedestal gun of the lobby, Prep and the Nhân vật page, the gun in hand off
+the ready pose (e.g. `hurt` while it is out) and the last fallback of `gun()` are drawn from them.
 
 ### env/
 

@@ -1,7 +1,8 @@
 [gd_scene format=3 uid="uid://8eyvskf67ysd"]
 
+[ext_resource type="Texture2D" uid="uid://b6fbgkrvgv2lg" path="res://assets/weapons/bazooka/hug_iron.png" id="2_8wr12"]
 [ext_resource type="Texture2D" uid="uid://b8b7457xbntix" path="res://assets/characters/rookie/side/ready_0.png" id="body"]
-[ext_resource type="Script" path="res://scenes/character/poses/pose_gun.gd" id="gun_script"]
+[ext_resource type="Script" uid="uid://dnolkf6sro25w" path="res://scenes/character/poses/pose_gun.gd" id="gun_script"]
 [ext_resource type="Script" path="res://scenes/character/poses/pose_arm.gd" id="arm_script"]
 
 [node name="RookieReady" type="Node2D" unique_id=1904593647]
@@ -22,6 +23,7 @@ metadata/_edit_group_ = true
 [node name="Preview" type="Sprite2D" parent="GunSocket" unique_id=1632361271]
 texture_filter = 2
 scale = Vector2(2.285714, 2.285714)
+texture = ExtResource("2_8wr12")
 centered = false
 offset = Vector2(-59, -21.7)
 script = ExtResource("gun_script")
