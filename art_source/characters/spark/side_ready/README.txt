@@ -5,8 +5,8 @@ Bỏ vào thư mục này: ready_v1.png
 - cùng nét vẽ với ảnh chạy (../side_run/), nền xanh lá đặc (một màu; dấu ✦ của AI tool tự xoá)
 
 Súng ôm vẽ riêng: art_source/weapons/hug/<loại>_<cấp>.png (vd. shock_rifle_iron.png): nằm ngang, nòng
-sang phải, không tay cầm, nền xanh lá hoặc hồng tím đặc. Súng điện (shock_rifle) CHƯA có ảnh ôm: trong
-trận Spark ôm ảnh súng điện cũ (assets/weapons/shock_rifle/<cấp>.png) xoay quanh tâm ảnh, cỡ như cầm tay.
+sang phải, không tay cầm, nền xanh lá hoặc hồng tím đặc. Súng điện có ảnh ôm mọi cấp
+(shock_rifle_iron / steel / mithril / dragon.png, basic = iron nhạt màu), dài 55 px trong trận.
 
 Chạy (trong thư mục battle-squad-game):
   /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_frames.gd -- spark
@@ -14,8 +14,7 @@ Chạy (trong thư mục battle-squad-game):
 
 Sau đó trong editor: đợi import xong, mở scenes/character/poses/spark_ready.tscn, kéo / co giãn
 GunSocket (bấm vào súng) cho súng che kín hai nắm tay (súng xoay quanh gốc GunSocket), Ctrl+S, F5.
-Preview hiện là súng điện cũ shock_rifle/iron.png (ảnh tạm): có súng ôm shock_rifle_iron thì
-pose_gun.gd tự thay.
+Preview là súng ôm shock_rifle/hug_iron.png (pose_gun.gd tự hiện khi editor import xong).
 
 Tay ôm súng (vẽ đè lên súng, tự cắt từ ready_v1.png, không cần vẽ thêm): đã cấu hình ở
 ../side_run/import.json mục poses.ready.armFront (polygon: vai + bắp tay trần gần + cẳng tay + găng xanh

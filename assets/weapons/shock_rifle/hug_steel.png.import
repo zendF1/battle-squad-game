@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b1ju827tw1h8q"
-path="res://.godot/imported/steel.png-1b3db109aa49ce1c584a0212ccdcba92.ctex"
+uid="uid://c8n8qjd57v1b7"
+path="res://.godot/imported/hug_steel.png-ef4baec035fc139152fdeddfc3331bba.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/weapons/shock_rifle/steel.png"
-dest_files=["res://.godot/imported/steel.png-1b3db109aa49ce1c584a0212ccdcba92.ctex"]
+source_file="res://assets/weapons/shock_rifle/hug_steel.png"
+dest_files=["res://.godot/imported/hug_steel.png-ef4baec035fc139152fdeddfc3331bba.ctex"]
 
 [params]
 

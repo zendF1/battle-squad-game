@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://pwu7oq3xtxvv"
-path="res://.godot/imported/basic.png-73bbef2567241acacbb3c08a4674bdd6.ctex"
+uid="uid://bc5yi4lllods8"
+path="res://.godot/imported/hug_basic.png-7b29b56e66c3a8190cc9cf11842442cf.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/weapons/shock_rifle/basic.png"
-dest_files=["res://.godot/imported/basic.png-73bbef2567241acacbb3c08a4674bdd6.ctex"]
+source_file="res://assets/weapons/shock_rifle/hug_basic.png"
+dest_files=["res://.godot/imported/hug_basic.png-7b29b56e66c3a8190cc9cf11842442cf.ctex"]
 
 [params]
 

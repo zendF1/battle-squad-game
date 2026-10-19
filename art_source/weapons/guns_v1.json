@@ -1,5 +1,5 @@
 {
-	"_doc": "tools/import_guns.gd reads this: cuts guns_v1.png (4 rows = kinds, 4 columns = tiers iron, steel, mithril, dragon; side view, muzzle right, white background) into assets/weapons/<kind>/<tier>.png + weapons.json and the weapon equipment icons. The seed launcher, bazooka and cannon rows (the 1st, 2nd and 3rd) are not cut: Flora's seed launcher, Rookie's bazooka and Tanko's cannon are hug art (art_source/weapons/hug/, tools/import_hug_guns.gd: their guns and their weapon_launcher_<tier> / weapon_bazooka_<tier> / weapon_cannon_<tier> icons). Points are sheet px. See the tool's header and assets/README.md.",
+	"_doc": "tools/import_guns.gd reads this: cuts guns_v1.png (4 rows = kinds, 4 columns = tiers iron, steel, mithril, dragon; side view, muzzle right, white background) into assets/weapons/<kind>/<tier>.png + weapons.json and the weapon equipment icons. The seed launcher, bazooka and cannon rows (the 1st, 2nd and 3rd) are not cut and the shock rifle row (the 4th) only for the blaster: Flora's seed launcher, Rookie's bazooka, Tanko's cannon and Spark's shock rifle are hug art (art_source/weapons/hug/, tools/import_hug_guns.gd: their guns and their weapon_launcher_<tier> / weapon_bazooka_<tier> / weapon_cannon_<tier> / weapon_rifle_<tier> icons); the shock_rifle/<tier> cells are the blaster's pictures. Points are sheet px. See the tool's header and assets/README.md.",
 	"sheet": "guns_v1.png",
 	"tolerance": 0.1,
 	"holeTolerance": 0.04,
@@ -14,10 +14,6 @@
 		"shock_rifle/dragon": {"rect": [2073, 1189, 616, 330], "grip": [2255, 1430], "muzzle": [2635, 1340]}
 	},
 	"guns": {
-		"shock_rifle": {"length": 34, "tiers": {
-			"basic": {"cell": "shock_rifle/iron", "recolour": "basic"},
-			"iron": {"cell": "shock_rifle/iron"}, "steel": {"cell": "shock_rifle/steel"},
-			"mithril": {"cell": "shock_rifle/mithril"}, "dragon": {"cell": "shock_rifle/dragon"}}},
 		"blaster": {"length": 31, "tiers": {
 			"basic": {"cell": "shock_rifle/iron", "recolour": "basic"},
 			"iron": {"cell": "shock_rifle/iron"}, "steel": {"cell": "shock_rifle/steel"},
@@ -55,7 +51,6 @@
 		"margin": 6,
 		"tiltDeg": -14,
 		"files": {
-			"weapon_rifle_<tier>": {"gun": "shock_rifle", "tiers": ["iron", "steel", "mithril", "dragon"]},
 			"weapon_<tier>": {"gun": "blaster", "tiers": ["iron", "steel", "mithril", "dragon", "silver", "gold", "titan", "diamond"]}
 		}
 	}

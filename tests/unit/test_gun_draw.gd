@@ -305,8 +305,7 @@ func test_drawn_draw_frames() -> void:
 
 ## The drawn ready poses of Rookie, Flora, Tanko and Spark: side.json draw = ready_0 (kneeling, the fists
 ## together on the chest, no gun), fire = it with the recoil, gunDraw all 0 s; the hug gun is placed
-## in scenes/character/poses/<id>_ready.tscn (Spark's Preview: the iron shock rifle sprite, a
-## stand-in until the shock rifle has hug art). No hand cut-outs; the near arm (sleeve and both fists)
+## in scenes/character/poses/<id>_ready.tscn (the Preview: the character's iron hug gun). No hand cut-outs; the near arm (sleeve and both fists)
 ## cut from ready_0 into ready_arm_front.png on the same canvas, drawn over the gun.
 func test_ready_pose_assets() -> void:
 	for id in ["rookie", "flora", "tanko", "spark"]:
@@ -553,13 +552,13 @@ func test_rookie_ready_switches_at_once() -> void:
 	holder.free()
 
 
-## Flora and Tanko kneel on their ready pose too: Tanko hugs his hug cannon, Flora her hug seed
-## launcher, round its hold (every tier its own hug art); that point on the
+## Flora, Tanko and Spark kneel on their ready pose too: Tanko hugs his hug cannon, Flora her hug
+## seed launcher, Spark his hug shock rifle, round its hold (every tier its own hug art); that point on the
 ## hug point at every direction (drawn as the pose scene's Preview shows its iron one), the muzzle
 ## flash at the gun's muzzle, the front arm over it, idle again after.
-func test_flora_tanko_hug_their_gun() -> void:
+func test_flora_tanko_spark_hug_their_gun() -> void:
 	var Art := preload("res://ui/art.gd")
-	for id in ["flora", "tanko"]:
+	for id in ["flora", "tanko", "spark"]:
 		var kind := str(Art.CHARACTER_GUNS[id])
 		var c: Node2D = CharacterScene.instantiate()
 		c.character_id = id
@@ -612,58 +611,6 @@ func test_flora_tanko_hug_their_gun() -> void:
 		check(not gun.visible and not arm.visible, "%s gun and front arm away" % id)
 		holder.free()
 
-
-## Spark kneels on his ready pose too; the shock rifle has no hug art yet, so he hugs its held
-## sprite (as the pose scene's Preview shows the iron one: a stand-in) turned round its centre on
-## the hug point at every direction (mirrored to the left), in every tier at the iron one's length,
-## the flash at the sprite's muzzle, the front arm over it, idle again (gun and arm away) after.
-func test_spark_hugs_his_gun_sprite() -> void:
-	var Art := preload("res://ui/art.gd")
-	var c: Node2D = CharacterScene.instantiate()
-	c.character_id = "spark"
-	c.holster = true
-	var holder := Node2D.new()
-	holder.add_child(c)
-	c._ready()
-	var flip: Node2D = c.get_node("Flip")
-	var gun: Node2D = c.get_node("Flip/Gun")
-	var sprite: Sprite2D = c.get_node("Flip/Gun/Sprite")
-	var arm: Sprite2D = c.get_node("Flip/ArmFront")
-	c.set_weapon("shock_rifle", "iron")
-	c._apply_gun()
-	c.draw_gun()
-	eq(c.animation(), "draw", "the ready frame")
-	var hug := Art.hug_gun("shock_rifle", "iron")
-	check(not hug["hug"], "no shock rifle hug art yet")
-	eq(sprite.texture, hug["texture"], "hugs the iron shock rifle sprite")
-	check(not c.get_node("Flip/Gun/Hand").visible, "no grip hand")
-	check(arm.visible and arm.texture == Art.side_view("spark")["ready"]["arm_front"] and arm.get_index() == gun.get_index() + 1, "the front arm over the gun")
-	var rp := Art.ready_pose("spark")
-	c.aim(0.0)
-	check((flip.transform * gun.transform * sprite.transform).is_equal_approx(rp["socket"] * rp["preview"]), "drawn as the Preview shows it")
-	for f in [1, -1]:
-		c.facing = f
-		c._apply_motion()
-		for e in [-45.0, 0.0, 45.0, 90.0]:
-			c.aim(e if f > 0 else 180.0 - e)
-			var centre: Vector2 = flip.transform * gun.transform * sprite.transform * (hug["size"] * 0.5)
-			check(centre.distance_to(flip.transform * rp["socket"].origin) < 0.01, "side %d at %d: the centre on the hug point" % [f, e])
-			var muzzle: Vector2 = c.global_transform * (flip.transform * gun.transform * sprite.transform * hug["muzzle"])
-			check(c.muzzle_position().distance_to(muzzle) < 0.01, "side %d at %d: the flash at the sprite's muzzle" % [f, e])
-	c.facing = 1
-	c._apply_motion()
-	for tier in Art.GUN_TIERS["shock_rifle"]:
-		c.set_weapon("shock_rifle", tier)
-		c._apply_gun()
-		c.aim(0.0)
-		var want := Art.hug_gun("shock_rifle", tier)
-		eq(sprite.texture, want["texture"], "%s: its sprite" % tier)
-		check((gun.transform * sprite.transform * (want["size"] * 0.5)).distance_to(rp["socket"].origin) < 0.01, "%s: its centre on the hug point" % tier)
-		near(sprite.transform.basis_xform(Vector2(float(want["size"].x), 0.0)).length(), rp["preview"].basis_xform(Vector2(float(rp["length"]), 0.0)).length(), 0.05, "%s: as long as the Preview's" % tier)
-	c.clear_aim()
-	eq(c.animation(), "idle", "idle again")
-	check(not gun.visible and not arm.visible, "gun and front arm away")
-	holder.free()
 
 ## The widest row in the top fifth of the figure (the cap's brim), px.
 func _widest_top(img: Image) -> int:

@@ -93,9 +93,9 @@ func test_gun_sprites_match_their_metadata() -> void:
 	for kind in Art.GUN_KINDS:
 		check(Art.GUN_TIERS[kind].has(Art.GUN_BASIC), "%s has a basic gun" % kind)
 		if not data["guns"].has(kind):
-			# A kind with no held sprites (the bazooka, the cannon, the seed launcher) is its hug art
-			# in every tier.
-			check(["bazooka", "cannon", "seed_launcher"].has(kind), "%s: only the bazooka, the cannon and the seed launcher have no held sprites" % kind)
+			# A kind with no held sprites (the bazooka, the cannon, the seed launcher, the shock
+			# rifle: every character's gun) is its hug art in every tier.
+			check(["bazooka", "cannon", "seed_launcher", "shock_rifle"].has(kind), "%s: only the characters' guns have no held sprites" % kind)
 			for tier in Art.GUN_TIERS[kind]:
 				check(not Art.hug_meta(kind, tier).is_empty() and FileAccess.file_exists(Art.hug_gun_path(kind, tier)), "%s %s hug art" % [kind, tier])
 				check(not FileAccess.file_exists(Art.gun_path(kind, tier)), "no old %s %s sprite" % [kind, tier])
@@ -125,6 +125,8 @@ func test_gun_sprites_match_their_metadata() -> void:
 		check(Art.GUN_TIERS["blaster"].has(tier), "blaster in %s" % tier)
 	for kind in Art.CHARACTER_GUNS.values():
 		check(Art.GUN_KINDS.has(kind), "character gun %s exists" % kind)
+		check(not data["guns"].has(kind), "%s: hug art only, no held sprites" % kind)
+	eq(data["guns"].keys(), ["blaster"], "weapons.json: only the blaster's held sprites")
 	eq(Art.gun_path("shock_rifle", "dragon"), "res://assets/weapons/shock_rifle/dragon.png", "gun path")
 
 
@@ -150,21 +152,19 @@ func test_gun_fallbacks() -> void:
 	eq(Art.gun_meta("shock_rifle", "gold"), {}, "no crafted shock rifle")
 	eq(Art.gun_meta("ray_gun", "iron"), {}, "unknown kind")
 	var placeholder_ok := func(g: Dictionary) -> bool: return g["texture"] != null and g["grip"] is Vector2
-	if not ResourceLoader.exists(Art.gun_path("shock_rifle", "basic")):
-		check(placeholder_ok.call(Art.gun("shock_rifle", "gold")), "not imported yet: still a texture")
+	if not ResourceLoader.exists(Art.gun_path("blaster", "basic")):
+		check(placeholder_ok.call(Art.gun("blaster", "gold")), "not imported yet: still a texture")
 		return
-	var g := Art.gun("shock_rifle", "gold")
-	eq([g["kind"], g["tier"]], ["shock_rifle", "basic"], "missing tier → the kind's basic")
-	g = Art.gun("ray_gun", "iron")
+	var g := Art.gun("ray_gun", "iron")
 	eq([g["kind"], g["tier"]], [Art.FALLBACK_GUN_KIND, "basic"], "unknown kind → the blaster's basic")
 	check(not g["hug"], "a held sprite")
 	g = Art.gun("blaster", "diamond")
 	eq([g["kind"], g["tier"]], ["blaster", "diamond"], "crafted blaster")
 	eq(g["scale"], Art.PX_PER_UNIT / float(Art.guns_data()["pxPerUnit"]), "texture px → character px from weapons.json pxPerUnit")
 	eq(Art.gun_scale(), g["scale"], "gun_scale()")
-	# The bazooka, the cannon and the seed launcher have no held sprites: wherever a gun is shown
-	# (the pedestal) it is the hug art.
-	for kind in ["bazooka", "cannon", "seed_launcher"]:
+	# The bazooka, the cannon, the seed launcher and the shock rifle have no held sprites: wherever
+	# a gun is shown (the pedestal) it is the hug art; a missing tier → the kind's basic.
+	for kind in ["bazooka", "cannon", "seed_launcher", "shock_rifle"]:
 		for tier in Art.GUN_TIERS[kind]:
 			g = Art.gun(kind, tier)
 			var h := Art.hug_meta(kind, tier)
@@ -407,9 +407,9 @@ func test_side_view_faces_left_round_the_feet() -> void:
 ## → Body (locked) → one GunSocket (grouped) with a Preview (not centred); no hand sprites, no aim
 ## metadata. Rookie's Preview is its iron hug gun (pose_gun.gd: the picture once imported) with its
 ## hold on the socket's origin at the weapons' scale, the socket on the hug point between the fists.
-## Flora's seed launcher and Tanko's cannon the same (their hug art). Spark's (side view, no hug art
-## for the shock rifle yet): the iron shock rifle sprite as a stand-in (pose_gun.gd: replaced by the
-## hug gun once there is one), its centre on the hug point. Their Body follows the art
+## Flora's seed launcher, Tanko's cannon and Spark's shock rifle the same (their hug art; a kind
+## without hug art would show its iron gun sprite as a stand-in, pose_gun.gd: replaced by the hug
+## gun once there is one, its centre on the hug point). Their Body follows the art
 ## (pose_body.gd): the side view's ready frame once imported (a character without a side view: the
 ## baked idle frame). Every one has an ArmFront after GunSocket (drawn over the gun; pose_arm.gd:
 ## the front arm once imported) at the Body's place.
@@ -446,7 +446,7 @@ func test_ready_pose_scenes() -> void:
 		var kind := str(Art.CHARACTER_GUNS[id])
 		var gs := float(Art.gun(kind, "iron")["scale"])
 		if preview != null and not Art.hug_meta(kind, "iron").is_empty():
-			# Rookie's bazooka, Tanko's cannon: the iron hug gun (none until the editor imports it:
+			# Every character's gun: the iron hug gun (none until the editor imports it:
 			# pose_gun.gd puts it there), its hold on the socket's origin.
 			eq(preview.get_script(), PoseGun, "%s Preview shows the hug gun once imported" % id)
 			eq([str(preview.get("kind")), str(preview.get("tier"))], [kind, "iron"], "%s Preview: the iron %s" % [id, kind])
@@ -523,15 +523,16 @@ func test_ready_pose_scenes() -> void:
 	var had := pv.texture
 	pv.sync()
 	check(pv.texture == had or (pv.texture != null and pv.texture.resource_path == Art.hug_gun_path("bazooka", "iron")), "Preview sync")
-	var tex := Art.texture(Art.gun_path("shock_rifle", "iron"))
+	var tex := Art.texture(Art.gun_path("blaster", "iron"))
 	pv.texture = tex
 	pv.sync()
 	eq(pv.texture, tex, "a Preview with a picture is left as it is")
 	check(not PoseGun.stand_in(pv), "another kind's gun is no stand-in")
-	# A stand-in (its kind's gun sprite) waits for its kind's hug art: none for the shock rifle.
+	# A stand-in (its kind's gun sprite) waits for its kind's hug art: none for the blaster (the
+	# only kind left with held sprites).
 	var sr := Sprite2D.new()
 	sr.set_script(PoseGun)
-	sr.set("kind", "shock_rifle")
+	sr.set("kind", "blaster")
 	sr.texture = tex
 	check(PoseGun.stand_in(sr), "a Preview showing its kind's gun sprite stands in")
 	sr.sync()
@@ -548,6 +549,14 @@ func test_ready_pose_scenes() -> void:
 	tk.sync()
 	check(tk.texture == null or tk.texture.resource_path == Art.hug_gun_path("cannon", "iron"), "Tanko's Preview: the hug cannon or nothing yet")
 	near(tk.offset.distance_to(-Art.hug_meta("cannon", "iron")["pivot"]), 0.0, 0.01, "Tanko's Preview: its hold on the socket")
+	# Spark's Preview: the hug shock rifle (no longer the old held sprite as a stand-in).
+	var spark: Node = load("res://scenes/character/poses/spark_ready.tscn").instantiate()
+	var sp: Sprite2D = spark.get_node("GunSocket/Preview")
+	check(not PoseGun.stand_in(sp), "Spark's Preview: no stand-in")
+	sp.sync()
+	check(sp.texture == null or sp.texture.resource_path == Art.hug_gun_path("shock_rifle", "iron"), "Spark's Preview: the hug shock rifle or nothing yet")
+	near(sp.offset.distance_to(-Art.hug_meta("shock_rifle", "iron")["pivot"]), 0.0, 0.01, "Spark's Preview: its hold on the socket")
+	spark.free()
 	flora.free()
 	scene.free()
 	mine.free()
@@ -630,7 +639,7 @@ func test_hug_guns() -> void:
 	check(not hug["hug"] and hug["kind"] == "blaster" and hug["tier"] == "gold", "no hug art: the gun sprite")
 	eq(hug["pivot"], hug["size"] * 0.5, "turned round its centre, not the grip")
 	eq(Art.pose_gun_meta(Art.hug_gun_path("bazooka", "iron")), meta, "a hug picture's meta")
-	eq(Art.pose_gun_meta(Art.gun_path("shock_rifle", "iron"))["pivot"], Art.hug_gun("shock_rifle", "iron")["size"] * 0.5, "a gun sprite's: its centre")
+	eq(Art.pose_gun_meta(Art.gun_path("blaster", "iron"))["pivot"], Art.hug_gun("blaster", "iron")["size"] * 0.5, "a gun sprite's: its centre")
 	eq(Art.pose_gun_meta("res://assets/icons/coin.png"), {}, "any other picture")
 	check(Art.all_paths().has(Art.HUG_DATA), "hug.json listed")
 	for tier in Art.GUN_TIERS["bazooka"]:
@@ -807,6 +816,91 @@ func test_hug_seed_launcher() -> void:
 			if ic.a > 0.9 and ic.s > 0.15:
 				sat += Vector3(c.s, ic.s, 1.0)
 	check(same, "basic: the iron seed launcher's shape")
+	near(sat.x / sat.y, 0.55, 0.05, "basic: desaturated like the old basic.png")
+
+
+## Spark's shock rifle is hug art in every tier (art_source/weapons/hug/shock_rifle_<tier>.png on
+## green; basic the iron one desaturated): all 55 world px long (the back end stays above his soles
+## aiming straight up), held in the tube's middle, the muzzle on the orb between the prongs (the
+## dragon's: the orb in its mouth), keyed clean: no green left, the open fork keyed out, the orbs'
+## glows un-mixed into their own colour.
+func test_hug_shock_rifle() -> void:
+	var H := load("res://tools/import_hug_guns.gd")
+	var iron_img := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("shock_rifle", "iron")))
+	var rp := Art.ready_pose("spark")
+	check(not rp.is_empty(), "Spark's ready pose")
+	for tier in Art.GUN_TIERS["shock_rifle"]:
+		var m := Art.hug_meta("shock_rifle", tier)
+		check(not m.is_empty(), "the %s shock rifle's hug art" % tier)
+		if m.is_empty():
+			continue
+		var img := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("shock_rifle", tier)))
+		check(img != null and Vector2(img.get_size()) == m["size"], "shock rifle hug_%s.png at its size" % tier)
+		if img == null:
+			continue
+		eq(m["size"].x, Art.hug_meta("shock_rifle", "iron")["size"].x, "shock rifle %s as wide as the iron one (drawn at its length)" % tier)
+		var used: Rect2i = H.tube_points(img)["rect"] # alpha > 127: the gun, not the soft glow
+		near(float(used.size.x) / 2.0, 55.0, 1.0, "shock rifle %s 55 world px long" % tier)
+		near(m["pivot"].x, used.get_center().x, 1.0, "shock rifle %s hold: the middle of the gun" % tier)
+		check(m["pivot"].y > used.position.y + used.size.y * 0.3 and m["pivot"].y < used.end.y - used.size.y * 0.3, "shock rifle %s hold: in the tube's height" % tier)
+		check(m["muzzle"].x > used.end.x - used.size.x * 0.12 and m["muzzle"].x < used.end.x - 3.0, "shock rifle %s muzzle: on the orb, not the prongs' tips (%s, gun %s)" % [tier, m["muzzle"], used])
+		check(absf(m["muzzle"].y - m["pivot"].y) < used.size.y * 0.15, "shock rifle %s muzzle: near the tube's axis" % tier)
+		var orb := img.get_pixelv(Vector2i(m["muzzle"]))
+		check(orb.a > 0.9 and orb.v > 0.85, "shock rifle %s muzzle: on the bright orb (%s)" % [tier, orb])
+		check(img.get_pixel(0, 0).a == 0.0 and img.get_pixel(img.get_width() - 1, 0).a == 0.0, "shock rifle %s the backdrop keyed out" % tier)
+		var green := 0
+		for y in img.get_height():
+			for x in img.get_width():
+				var c := img.get_pixel(x, y)
+				if c.a > 0.1 and c.g > maxf(c.r, c.b) + 0.1:
+					green += 1
+		eq(green, 0, "shock rifle %s no green px left" % tier)
+		check(used.size.y < used.size.x * 0.5, "shock rifle %s the sparkle dropped (%s)" % [tier, used])
+		var h := Art.hug_gun("shock_rifle", tier)
+		check(h["hug"] and h["tier"] == tier and h["path"] == Art.hug_gun_path("shock_rifle", tier), "shock rifle %s: its own hug art" % tier)
+		# Aiming straight up the back end is at or above Spark's soles (the pose's origin).
+		if not rp.is_empty():
+			var back: Vector2 = rp["socket"] * Transform2D(-PI / 2.0, Vector2.ZERO) * rp["preview"] * (Vector2(used.position.x, m["pivot"].y))
+			check(back.y <= 0.0, "shock rifle %s at 90°: the back end above the ground (%s)" % [tier, back])
+	# The open fork between the prongs (iron / steel / mithril): keyed out between the prongs' root
+	# and the orb (past the orb its glow fills it), the tips themselves kept.
+	for tier in ["iron", "steel", "mithril"]:
+		var m := Art.hug_meta("shock_rifle", tier)
+		var img := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("shock_rifle", tier)))
+		var used: Rect2i = H.tube_points(img)["rect"]
+		var mz := Vector2i(m["muzzle"])
+		var gap := 0
+		for x in range(mz.x - 9, mz.x - 2):
+			gap += 1 if img.get_pixel(x, mz.y).a < 0.1 else 0
+		check(gap >= 2, "shock rifle %s the fork open between its root and the orb (%d px)" % [tier, gap])
+		var tips := 0
+		for y in used.size.y:
+			tips += 1 if img.get_pixel(used.end.x - 2, used.position.y + y).a > 0.5 else 0
+		check(tips >= 4, "shock rifle %s the prongs' tips kept (%d px)" % [tier, tips])
+	# The glows: a soft rim of their own colour (partly transparent, no key tint) round the orb.
+	for t in [["iron", Color8(60, 230, 255)], ["steel", Color8(170, 80, 255)], ["mithril", Color8(130, 235, 255)], ["dragon", Color8(255, 120, 20)]]:
+		var img := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("shock_rifle", t[0])))
+		var soft := 0
+		for y in img.get_height():
+			for x in img.get_width():
+				var c := img.get_pixel(x, y)
+				if c.a > 0.05 and c.a < 0.45 and absf(c.h - t[1].h) < 0.08 and c.s > 0.25:
+					soft += 1
+		check(soft > 5, "shock rifle %s: a soft glow of its own colour (%d px)" % [t[0], soft])
+	# basic: the iron picture desaturated (the old basic.png's recolour), the same shape and points.
+	eq(Art.hug_meta("shock_rifle", "basic"), Art.hug_meta("shock_rifle", "iron"), "basic: the iron shock rifle's size / hold / muzzle")
+	var basic := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("shock_rifle", "basic")))
+	var same := true
+	var sat := Vector3.ZERO
+	for y in basic.get_height():
+		for x in basic.get_width():
+			var ic := iron_img.get_pixel(x, y)
+			var c := basic.get_pixel(x, y)
+			if absf(c.a - ic.a) > 0.01:
+				same = false
+			if ic.a > 0.9 and ic.s > 0.15:
+				sat += Vector3(c.s, ic.s, 1.0)
+	check(same, "basic: the iron shock rifle's shape")
 	near(sat.x / sat.y, 0.55, 0.05, "basic: desaturated like the old basic.png")
 
 
@@ -1064,15 +1158,15 @@ func test_import_hug_guns_arguments() -> void:
 		check(all["guns"].has({"kind": "bazooka", "tier": tier, "name": "bazooka_" + tier, "source": "bazooka_" + tier}), "no argument: every picture (%s)" % tier)
 	eq(all["unknown"], [], "no argument: nothing unknown")
 	eq(H.sources_for(["bazooka_iron.png"], dir), {"guns": [{"kind": "bazooka", "tier": "iron", "name": "bazooka_iron", "source": "bazooka_iron"}], "unknown": []}, "a name")
-	eq(H.sources_for(["shock_rifle_iron", "nope"], dir)["unknown"], ["shock_rifle_iron", "nope"], "no picture / not a gun")
+	eq(H.sources_for(["blaster_iron", "nope"], dir)["unknown"], ["blaster_iron", "nope"], "no picture / not a gun")
 	# Guns made from another tier's picture (hug.json from + recolour).
 	var cfg = JSON.parse_string(FileAccess.get_file_as_string(dir + "hug.json"))
 	var derived: Dictionary = H.derived_of(cfg)
-	eq(derived, {"bazooka_basic": "bazooka_iron", "bazooka_steel": "bazooka_iron", "cannon_basic": "cannon_iron", "seed_launcher_basic": "seed_launcher_iron"}, "hug.json: the bazooka's basic and steel, the cannon's and the seed launcher's basic from the iron picture")
+	eq(derived, {"bazooka_basic": "bazooka_iron", "bazooka_steel": "bazooka_iron", "cannon_basic": "cannon_iron", "seed_launcher_basic": "seed_launcher_iron", "shock_rifle_basic": "shock_rifle_iron"}, "hug.json: the bazooka's basic and steel, the cannon's, the seed launcher's and the shock rifle's basic from the iron picture")
 	eq(H.derived_of({"guns": {"bazooka_steel": {"from": "gold"}, "bazooka_iron": {"from": "iron"}, "ray_iron": {"from": "steel"}, "bazooka_basic": {"length": 50}}}), {}, "not a tier of the kind / itself / not a gun / no from")
 	all = H.sources_for([], dir, derived)
 	check(all["guns"].has({"kind": "bazooka", "tier": "steel", "name": "bazooka_steel", "source": "bazooka_iron"}), "no argument: the derived guns too")
-	eq(all["guns"].size(), 15, "every bazooka, cannon and seed launcher tier (%s)" % [all["guns"]])
+	eq(all["guns"].size(), 20, "every bazooka, cannon, seed launcher and shock rifle tier (%s)" % [all["guns"]])
 	var named: Dictionary = H.sources_for(["bazooka_iron"], dir, derived)
 	eq(named["guns"].map(func(g): return g["name"]), ["bazooka_iron", "bazooka_basic", "bazooka_steel"], "naming a picture takes the guns made from it")
 	eq(H.sources_for(["bazooka_steel"], dir, derived)["guns"], [{"kind": "bazooka", "tier": "steel", "name": "bazooka_steel", "source": "bazooka_iron"}], "a derived gun by name")
@@ -1109,12 +1203,17 @@ func test_hug_gun_icons() -> void:
 	check(Array(held["cells"].keys()).all(func(k): return not str(k).begins_with("cannon/")), "guns_v1.json: no cannon cells")
 	check(not held["guns"].has("seed_launcher") and not held["icons"]["files"].has("weapon_launcher_<tier>"), "guns_v1.json: no seed launcher sprites / icons")
 	check(Array(held["cells"].keys()).all(func(k): return not str(k).begins_with("seed_launcher/")), "guns_v1.json: no seed launcher cells")
+	check(not held["guns"].has("shock_rifle") and not held["icons"]["files"].has("weapon_rifle_<tier>"), "guns_v1.json: no shock rifle sprites / icons")
+	eq(held["guns"].keys(), ["blaster"], "guns_v1.json: only the blaster's held sprites")
+	for tier in held["guns"]["blaster"]["tiers"]: # the shock rifle row's cells stay: the blaster's pictures
+		check(held["cells"].has(str(held["guns"]["blaster"]["tiers"][tier]["cell"])), "guns_v1.json: the blaster %s's cell" % tier)
 	var ic: Dictionary = H.icon_config(cfg, held)
 	for key in ["size", "margin", "tiltDeg"]:
 		eq(ic[key], held["icons"][key], "hug icons: the held guns' %s" % key)
 	eq(ic["files"], {"weapon_bazooka_<tier>": {"gun": "bazooka", "tiers": Art.EQUIP_KIND_TIERS},
 		"weapon_cannon_<tier>": {"gun": "cannon", "tiers": Art.EQUIP_KIND_TIERS},
-		"weapon_launcher_<tier>": {"gun": "seed_launcher", "tiers": Art.EQUIP_KIND_TIERS}}, "hug.json: the bazooka's, the cannon's and the seed launcher's icons in the shop tiers")
+		"weapon_launcher_<tier>": {"gun": "seed_launcher", "tiers": Art.EQUIP_KIND_TIERS},
+		"weapon_rifle_<tier>": {"gun": "shock_rifle", "tiers": Art.EQUIP_KIND_TIERS}}, "hug.json: every character's gun's icons in the shop tiers")
 	eq(H.icon_config({"icons": {"margin": 3}}, held)["margin"], 3, "hug.json overrides")
 	eq(H.icon_config({}, {})["files"], {}, "no icons")
 	# icon_canvases(): every tier the same tube length, the holds on the same canvas px.
@@ -1132,7 +1231,7 @@ func test_hug_gun_icons() -> void:
 	var rb := _opaque_rect(cv["dragon"])
 	check(absi(ra.size.x - rb.size.x) <= 1 and absi(ra.size.y - rb.size.y) <= 1 and absi(ra.position.x - rb.position.x) <= 1, "the same tube at the same place (%s vs %s)" % [ra, rb])
 	# The icons: the new gun (no hand grips), turned muzzle up-right like the others.
-	for kt in _kind_tiers(["bazooka", "cannon", "launcher"], Art.EQUIP_KIND_TIERS): # equipment kinds
+	for kt in _kind_tiers(["bazooka", "cannon", "launcher", "rifle"], Art.EQUIP_KIND_TIERS): # equipment kinds
 		var kind: String = kt[0]
 		var tier: String = kt[1]
 		var img := Image.load_from_file(ProjectSettings.globalize_path(Art.equipment_weapon_path(kind, tier)))
@@ -1148,10 +1247,11 @@ func test_hug_gun_icons() -> void:
 					sum += y
 					n += 1
 			return sum / maxf(1.0, n)
-		# The tube's middle line near both ends (the seed launcher's: inside its back cap and before
-		# the flared muzzle / the pod).
-		var xa := u.position.x + (6 if kind != "launcher" else int(u.size.x * 0.1))
-		var xb := u.end.x - 12 if kind != "launcher" else u.position.x + int(u.size.x * 0.7)
+		# The tube's middle line near both ends (the seed launcher's and the shock rifle's: inside the
+		# back cap and before the flared muzzle / the pod / the prongs).
+		var along := kind == "launcher" or kind == "rifle"
+		var xa := u.position.x + (6 if not along else int(u.size.x * 0.1))
+		var xb := u.end.x - 12 if not along else u.position.x + int(u.size.x * 0.7)
 		var rise: float = mid.call(xa) - mid.call(xb)
 		var slope := rise / float(xb - xa)
 		near(rad_to_deg(atan(slope)), -float(held["icons"]["tiltDeg"]), 4.0, "%s %s icon: the tube turned %s° (muzzle up)" % [kind, tier, held["icons"]["tiltDeg"]])

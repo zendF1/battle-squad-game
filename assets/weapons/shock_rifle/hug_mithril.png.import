@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://difb1wmte4dyi"
-path="res://.godot/imported/iron.png-af6cfdd076c666bb8a67293742f87006.ctex"
+uid="uid://cf2ukiw7t6i7y"
+path="res://.godot/imported/hug_mithril.png-4523027168ed34a5b71cb06433a86037.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/weapons/shock_rifle/iron.png"
-dest_files=["res://.godot/imported/iron.png-af6cfdd076c666bb8a67293742f87006.ctex"]
+source_file="res://assets/weapons/shock_rifle/hug_mithril.png"
+dest_files=["res://.godot/imported/hug_mithril.png-4523027168ed34a5b71cb06433a86037.ctex"]
 
 [params]
 

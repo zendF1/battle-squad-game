@@ -22,8 +22,9 @@ extends SceneTree
 ## PNG), keeping the entries of the guns not imported this run.
 ##
 ## The equipment icons of hug.json "icons" {files {<name with <tier>>: {gun, tiers}}} (today
-## weapon_bazooka_<tier>, weapon_cannon_<tier> and weapon_launcher_<tier>: Rookie's bazooka, Tanko's
-## cannon and Flora's seed launcher have no held sprites) are made from these pictures too,
+## weapon_bazooka_<tier>, weapon_cannon_<tier>, weapon_launcher_<tier> and weapon_rifle_<tier>:
+## Rookie's bazooka, Tanko's cannon, Flora's seed launcher and Spark's shock rifle have no held
+## sprites) are made from these pictures too,
 ## the same look as the held guns' icons (size / margin / tiltDeg from art_source/weapons/guns_v1.json
 ## "icons" unless hug.json sets them; tools/import_guns.gd icons()), written to
 ## assets/icons/equipment/ whenever a run imports a gun of that kind.

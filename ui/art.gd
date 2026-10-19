@@ -60,7 +60,9 @@ const FIRE_ANIM := "fire"
 ## The gun a character holds is a separate sprite: assets/weapons/<kind>/<tier>.png, side view,
 ## facing right; weapons.json gives each sprite's grip pivot and muzzle point (px in the image)
 ## and the px per art unit it is drawn at. A kind with no held sprites (the bazooka, the cannon, the
-## seed launcher: Rookie, Tanko and Flora only hug them, in their drawn ready poses) is its hug art (hug_<tier>.png, below) wherever a gun is shown. The frames of each character carry, per animation
+## seed launcher, the shock rifle: Rookie, Tanko, Flora and Spark only hug them, in their drawn ready
+## poses) is its hug art (hug_<tier>.png, below) wherever a gun is shown; only the blaster (generic
+## and crafted weapons, any character) has held sprites. The frames of each character carry, per animation
 ## frame, where the hand holds it (assets/characters/<id>/gun_anchors.json: grip px in the frame,
 ## angle in degrees, in front of or behind the body, muzzle flash 0..1).
 ## Kind = silhouette, tier = look. `basic` is a character's starter gun (no weapon equipped).
@@ -87,7 +89,7 @@ const GUNS_DATA := ROOT + "weapons/weapons.json"
 ## The hug guns: the big guns a drawn ready pose hugs against the chest (hug_gun()):
 ## assets/weapons/<kind>/hug_<tier>.png, horizontal, muzzle right, no hand grips (made by
 ## tools/import_hug_guns.gd); hug.json gives each one's size, hold point (where the pose turns it)
-## and muzzle (px in the image). A kind with hug art but no held sprites (the bazooka, the cannon, the seed launcher) is drawn
+## and muzzle (px in the image). A kind with hug art but no held sprites (the bazooka, the cannon, the seed launcher, the shock rifle) is drawn
 ## from it everywhere (gun(): the pedestal too).
 const HUG_DATA := ROOT + "weapons/hug.json"
 
@@ -726,7 +728,7 @@ static func _imported(path: String) -> bool:
 
 ## The sprite of a gun: {kind, tier, texture, grip, muzzle (px in the texture), scale (texture
 ## px → character frame px), hug (true: hug art)}. Per kind / tier: its held sprite (weapons.json),
-## else its hug art (hug.json: a kind with no held sprites, the bazooka, the cannon and the seed launcher; grip = the hold, the
+## else its hug art (hug.json: a kind with no held sprites, the bazooka, the cannon, the seed launcher and the shock rifle; grip = the hold, the
 ## middle of the tube); falls back to the kind's basic, then to the blaster's basic
 ## (FALLBACK_GUN_KIND; a missing file, one not imported yet or no entry), then to the placeholder.
 static func gun(kind: String, tier: String) -> Dictionary:

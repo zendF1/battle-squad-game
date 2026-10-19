@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://lo86mc10rqf1"
-path="res://.godot/imported/dragon.png-36d0f159061e38adab0c2ca87dd6b5f3.ctex"
+uid="uid://c64y1xcm1sjas"
+path="res://.godot/imported/hug_iron.png-9694da6329268aa77b68182ed5633bfd.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/weapons/shock_rifle/dragon.png"
-dest_files=["res://.godot/imported/dragon.png-36d0f159061e38adab0c2ca87dd6b5f3.ctex"]
+source_file="res://assets/weapons/shock_rifle/hug_iron.png"
+dest_files=["res://.godot/imported/hug_iron.png-9694da6329268aa77b68182ed5633bfd.ctex"]
 
 [params]
 
