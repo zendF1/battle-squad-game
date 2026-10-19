@@ -6,9 +6,13 @@ extends Control
 ##   on top. A tap opens the piece popup (equipment_ui.gd) for the character chosen in the
 ##   lobby: Mặc cho / Chuyển cho <nhân vật>, Tháo, Đóng, Bán, Vứt.
 ## - "Vật phẩm": the eight battle items with their GET /player/inventory counts.
-## Each tab loads the first time it is shown; failures show inline with "Thử lại".
+## - "Nguyên liệu": the upgrade stones owned (PlayerState.stones): icon, level, power, count;
+##   "Mua đá" (Shop → Đá nâng cấp) and "Ghép đá" (the Nâng cấp page's Ghép đá).
+## Each tab loads the first time it is shown; failures show inline with "Thử lại". Upgraded
+## pieces show their milestone aura and their name in the milestone colour.
 
 signal open_shop(section: int)
+signal open_upgrade(equipment_id: String, section: int)
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -20,10 +24,15 @@ const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
 const ShopTab := preload("res://screens/home/shop_tab.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
+const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
+const Fmt := preload("res://core/fmt.gd")
 
-const SUB_TABS := ["Trang bị", "Vật phẩm"]
+const SUB_TABS := ["Trang bị", "Vật phẩm", "Nguyên liệu"]
 const EQUIPMENT := 0
 const ITEMS := 1
+const MATERIALS := 2
+## The Nâng cấp page's Ghép đá tab (upgrade_page.gd MERGE).
+const UPGRADE_MERGE := 1
 const CARD := Vector2(232, 236)
 
 ## Where dialogs and toasts go (Home); defaults to this page.
@@ -47,6 +56,8 @@ var _gear_flow: HFlowContainer
 var _gear_hint: Label
 var _inv_status: LoadStatus
 var _inv_flow: HFlowContainer
+var _stone_status: LoadStatus
+var _stone_flow: HFlowContainer
 
 
 func _ready() -> void:
@@ -67,7 +78,7 @@ func _ready() -> void:
 	var pages := Control.new()
 	pages.size_flags_vertical = SIZE_EXPAND_FILL
 	col.add_child(pages)
-	for builder in [_build_gear_page, _build_items_page]:
+	for builder in [_build_gear_page, _build_items_page, _build_stones_page]:
 		var page: Control = builder.call()
 		page.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		pages.add_child(page)
@@ -76,10 +87,12 @@ func _ready() -> void:
 	PlayerState.equipment_changed.connect(_on_equipment_changed)
 	PlayerState.characters_changed.connect(_on_equipment_changed)
 	PlayerState.assets_dirty.connect(_on_assets_dirty)
+	PlayerState.stones_changed.connect(_on_stones_changed)
 	visibility_changed.connect(_ensure_loaded)
 	show_section(EQUIPMENT)
 	_render_gear()
 	_render_inventory()
+	_render_stones()
 	_arm.call_deferred()
 
 
@@ -107,6 +120,8 @@ func _ensure_loaded() -> void:
 		PlayerState.need_equipment()
 		PlayerState.need_characters() # the can-wear check
 		_render_gear() # the lobby character may have changed
+	elif _sub == MATERIALS:
+		PlayerState.need_stones()
 	elif (_inventory == null or _inv_stale) and not _inv_loading:
 		_load_inventory()
 
@@ -213,7 +228,7 @@ func _gear_card(piece: Dictionary, who: String) -> Control:
 	gap.custom_minimum_size.y = 6
 	gap.mouse_filter = MOUSE_FILTER_IGNORE
 	col.add_child(gap)
-	var title := LobbyUi.text(EquipmentModel.display_name(item), 24, Color.WHITE, true)
+	var title := LobbyUi.text(EquipmentModel.display_name(item), 24, UpgradeModel.name_color(piece), true)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.clip_text = true
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -283,3 +298,64 @@ func _render_inventory() -> void:
 		if n == 0:
 			card.modulate = Color(1, 1, 1, 0.4)
 		_inv_flow.add_child(card)
+
+
+# ── Nguyên liệu ─────────────────────────────────────────────────────────────
+
+func _build_stones_page() -> Control:
+	var col := Ui.vbox(14)
+	var top := Ui.hbox(12)
+	col.add_child(top)
+	var title := LobbyUi.text("Đá nâng cấp", 26, Color.WHITE, true)
+	title.size_flags_horizontal = SIZE_EXPAND_FILL
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	top.add_child(title)
+	for spec in [["Ghép đá", func(): open_upgrade.emit("", UPGRADE_MERGE)], ["Mua đá", func(): open_shop.emit(ShopTab.STONES)]]:
+		var b := Ui.button(spec[0], 22)
+		b.custom_minimum_size = Vector2(180, 56)
+		b.focus_mode = FOCUS_NONE
+		b.pressed.connect(spec[1])
+		top.add_child(b)
+	_stone_status = LoadStatus.new()
+	col.add_child(_stone_status)
+	_stone_flow = HFlowContainer.new()
+	_stone_flow.add_theme_constant_override("h_separation", 12)
+	_stone_flow.add_theme_constant_override("v_separation", 12)
+	col.add_child(_stone_flow)
+	return Ui.scroll(col)
+
+
+func _on_stones_changed() -> void:
+	if is_inside_tree():
+		_render_stones.call_deferred()
+
+
+func _render_stones() -> void:
+	if _stone_flow == null:
+		return
+	if PlayerState.stones_error != "":
+		_stone_status.show_error(PlayerState.stones_error, PlayerState.load_stones)
+	elif PlayerState.stones == null:
+		_stone_status.show_loading()
+	else:
+		_stone_status.clear()
+	Ui.clear(_stone_flow)
+	if PlayerState.stones == null:
+		return
+	var levels := UpgradeModel.owned_levels(PlayerState.stones)
+	if levels.is_empty():
+		_stone_flow.add_child(LobbyUi.text("Chưa có đá nâng cấp — mua ở Shop → Đá nâng cấp", 24, Ui.TEXT_DIM))
+		return
+	for lv in levels:
+		var card := Ui.card(Ui.CARD_BG, 16)
+		card.custom_minimum_size = Vector2(270, 120)
+		var row := Ui.hbox(12)
+		card.add_child(row)
+		row.add_child(LobbyUi.icon(Art.stone_icon(int(lv)), 80))
+		var box := Ui.vbox(2)
+		box.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_child(box)
+		box.add_child(Ui.text(UpgradeModel.stone_name(int(lv)), 24))
+		box.add_child(Ui.text("x%s" % Fmt.thousands(int(PlayerState.stones[lv])), 26, Ui.TONES["draw"]))
+		box.add_child(Ui.text("Sức mạnh %s" % Fmt.thousands(UpgradeModel.power(PlayerState.catalog, int(lv))), 18, Ui.TEXT_DIM))
+		_stone_flow.add_child(card)

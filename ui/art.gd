@@ -98,7 +98,7 @@ const HUG_DATA := ROOT + "weapons/hug.json"
 const ICON_SIZE := Vector2i(96, 96)
 const ICONS := [
 	"gem", "coin", "plus", "weapon", "skill", "battle",
-	"characters", "inventory", "history", "shop",
+	"characters", "inventory", "history", "shop", "upgrade",
 	"swap", "send", "back", "arrow_left", "arrow_right", "check", "close", "end_turn", "unknown",
 	"medkit", "teleport", "power_shot", "drill_bomb", "spider_net", "freeze_bomb", "air_strike", "wind_stopper",
 ]
@@ -120,6 +120,13 @@ const EQUIP_FRAME_SIZE := Vector2i(132, 152)
 const EQUIP_BADGE := ROOT + "icons/equipment/badge.png"
 ## badge.png texture margins [left, top, right, bottom].
 const EQUIP_BADGE_MARGINS := [15, 15, 15, 15]
+
+# ── Upgrade stones (icons/stones/) ──────────────────────────────────────────
+
+## One icon per stone level 1..12 (128x128, tools/art/stone_painter.gd): a gem whose colour and
+## cut escalate with the level (1–3 grey / green, 4–6 blue, 7–9 purple, 10–12 gold / red, glowing).
+const STONE_LEVELS := 12
+const STONE_ICON_SIZE := Vector2i(128, 128)
 
 # ── Environment, terrain, effects ───────────────────────────────────────────
 
@@ -263,6 +270,10 @@ static func equipment_slot_path(slot: String) -> String:
 	return ROOT + "icons/equipment/slot_%s.png" % slot
 
 
+static func stone_path(level: int) -> String:
+	return ROOT + "icons/stones/stone_%d.png" % level
+
+
 static func equipment_frame_path(frame: String) -> String:
 	return ROOT + "icons/equipment/%s.png" % frame
 
@@ -322,6 +333,8 @@ static func all_paths() -> Array[String]:
 	for frame in EQUIP_FRAMES:
 		out.append(equipment_frame_path(frame))
 	out.append(EQUIP_BADGE)
+	for level in range(1, STONE_LEVELS + 1):
+		out.append(stone_path(level))
 	for kind in GUN_KINDS:
 		for tier in GUN_TIERS[kind]:
 			if not gun_meta(kind, tier).is_empty():
@@ -347,10 +360,11 @@ static func placeholder() -> Texture2D:
 	return _placeholder
 
 
-## An icon by name (ICONS), or the "unknown" icon.
+## An icon by name (ICONS), or the "unknown" icon. A freshly baked icon the editor has not
+## imported yet loads from its PNG.
 static func icon(icon_name: String) -> Texture2D:
 	var path := icon_path(icon_name)
-	if ResourceLoader.exists(path):
+	if ResourceLoader.exists(path) or FileAccess.file_exists(path):
 		return texture(path)
 	_warn(path)
 	return texture(icon_path(UNKNOWN_ICON))
@@ -376,6 +390,12 @@ static func equipment_icon(slot: String, tier: String, kind: String = "") -> Tex
 			if t != placeholder():
 				return t
 	return texture(equipment_icon_path(slot, tier))
+
+
+## The icon of an upgrade stone level (clamped to 1..STONE_LEVELS); the PNG itself while the
+## editor has not imported it yet, the placeholder when it is missing.
+static func stone_icon(level: int) -> Texture2D:
+	return texture(stone_path(clampi(level, 1, STONE_LEVELS)))
 
 
 ## The white silhouette of an empty slot (tint it).

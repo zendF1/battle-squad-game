@@ -2,7 +2,7 @@ extends Control
 ## The Home lobby (a Gunny-style mobile lobby). Corners: the player (avatar letter, name, EXP
 ## bar, "Lv.N"; tap opens the Nhân vật page) top-left, the wallet pills top-right, the connection
 ## state top-centre, one round shortcut per page down the right (Nhân vật, Kho đồ → Túi đồ,
-## Lịch sử → Hồ sơ, Shop), the
+## Nâng cấp, Lịch sử → Hồ sơ, Shop), the
 ## selected character's info card (role, skill, stats; its name and level are on the stage) on
 ## the left, a placeholder chat box bottom-left and the mode card with "BẮT ĐẦU" bottom-right.
 ## Centre stage: the selected character's name and level over it, drawn big on a pedestal with
@@ -18,6 +18,7 @@ signal open_profile
 signal open_shop(section: int)
 signal open_bag
 signal open_character
+signal open_upgrade
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -218,12 +219,16 @@ func _render_conn() -> void:
 
 # ── Shortcuts and chat ──────────────────────────────────────────────────────
 
+const SHORTCUT := 70 # px, five round buttons fit above the mode card
+
+
 func _build_shortcuts() -> Control:
-	var col := Ui.vbox(12)
-	col.add_child(LobbyUi.icon_button("characters", "Nhân vật", LobbyUi.ICON_COLORS["blue"], func(): open_character.emit()))
-	col.add_child(LobbyUi.icon_button("inventory", "Kho đồ", LobbyUi.ICON_COLORS["green"], func(): open_bag.emit()))
-	col.add_child(LobbyUi.icon_button("history", "Lịch sử", LobbyUi.ICON_COLORS["purple"], func(): open_profile.emit()))
-	col.add_child(LobbyUi.icon_button("shop", "Shop", LobbyUi.ICON_COLORS["orange"], func(): open_shop.emit(ShopTab.ITEMS)))
+	var col := Ui.vbox(8)
+	col.add_child(LobbyUi.icon_button("characters", "Nhân vật", LobbyUi.ICON_COLORS["blue"], func(): open_character.emit(), SHORTCUT))
+	col.add_child(LobbyUi.icon_button("inventory", "Kho đồ", LobbyUi.ICON_COLORS["green"], func(): open_bag.emit(), SHORTCUT))
+	col.add_child(LobbyUi.icon_button("upgrade", "Nâng cấp", LobbyUi.ICON_COLORS["red"], func(): open_upgrade.emit(), SHORTCUT))
+	col.add_child(LobbyUi.icon_button("history", "Lịch sử", LobbyUi.ICON_COLORS["purple"], func(): open_profile.emit(), SHORTCUT))
+	col.add_child(LobbyUi.icon_button("shop", "Shop", LobbyUi.ICON_COLORS["orange"], func(): open_shop.emit(ShopTab.ITEMS), SHORTCUT))
 	return col
 
 

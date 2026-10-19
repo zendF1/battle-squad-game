@@ -56,6 +56,29 @@ const EQUIP_REMOVE := {
 	"EQUIP_NOT_OWNED": "Trang bị không còn trong túi",
 }
 
+## POST /player/equipment/upgrade; other codes as EQUIP.
+const UPGRADE := {
+	"EQUIP_MAX_UPGRADE": "Trang bị đã đạt +16, không nâng cấp thêm được",
+	"EQUIP_NO_STONES": "Chưa chọn đá nâng cấp",
+	"EQUIP_INSUFFICIENT_STONES": "Không đủ đá nâng cấp, hãy chọn lại",
+	"EQUIP_MODIFIED": "Trang bị vừa được nâng cấp ở nơi khác, hãy thử lại",
+	"EQUIP_NOT_OWNED": "Trang bị không còn trong túi",
+	"NOT_FOUND": "Loại đá này không tồn tại",
+}
+## POST /shop/stones/buy.
+const STONE_BUY := {
+	"BAD_REQUEST": "Đá này không bán, chỉ ghép được",
+	"NOT_FOUND": "Đá này không còn bán",
+	"IDEMPOTENCY_KEY_REUSED": "Giao dịch bị trùng, hãy thử lại",
+}
+## POST /merge/stone.
+const MERGE := {
+	"MERGE_MIN_COUNT": "Cần bỏ vào ít nhất 2 viên",
+	"MERGE_MAX_COUNT": "Chỉ bỏ vào tối đa 4 viên",
+	"MERGE_MAX_LEVEL": "Đá cấp 12 là cao nhất, không ghép tiếp được",
+	"EQUIP_INSUFFICIENT_STONES": "Không đủ đá để ghép",
+}
+
 
 ## POST /shop/purchase failure. currency is the offer's priceCurrency ("coin" | "gem").
 static func purchase(res: Dictionary, currency: String = "") -> String:
@@ -143,3 +166,30 @@ static func name_problem(raw: String) -> String:
 	if name.length() > MAX_NAME:
 		return "Tên tối đa %d ký tự" % MAX_NAME
 	return ""
+
+
+## POST /player/equipment/upgrade failure.
+static func upgrade(res: Dictionary) -> String:
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	var code := str(res.get("code", ""))
+	if UPGRADE.has(code):
+		return UPGRADE[code]
+	return EQUIP.get(code, "Nâng cấp thất bại: %s" % res.get("message", ""))
+
+
+## POST /shop/stones/buy failure. currency is what the stone costs ("coin" | "gem").
+static func stone_buy(res: Dictionary, currency: String = "") -> String:
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	var code := str(res.get("code", ""))
+	if code == "SHOP_INSUFFICIENT_BALANCE":
+		return purchase(res, currency)
+	return STONE_BUY.get(code, "Mua đá thất bại: %s" % res.get("message", ""))
+
+
+## POST /merge/stone failure.
+static func merge(res: Dictionary) -> String:
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	return MERGE.get(str(res.get("code", "")), "Ghép đá thất bại: %s" % res.get("message", ""))

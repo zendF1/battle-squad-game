@@ -7,9 +7,9 @@ extends RefCounted
 ## A catalog item: {itemId, name, slot, category: "normal" | "crafted", tier?, requiredLevel,
 ## characterId?, gemSlots, statHp, statDamage, statDefense, statCrit, statMoveEnergy, priceCoin,
 ## priceGem, isActive}. An owned piece: {equipmentId, itemId, slot, category, tier?,
-## upgradeLevel, isEquipped, equippedOn? (characterId), ...}. Stats shown are the item's base
-## stats; the upgrade bonus (×(1+0.02×level) and milestones) is applied by the server and only
-## shown as the "+N" badge.
+## upgradeLevel, isEquipped, equippedOn? (characterId), ...}. A piece's stats are its item's
+## upgraded like the server does (upgraded(): ×(1 + 0.02 × level + reached milestone bonuses),
+## rounded per item; piece_item()); shop items are +0.
 ##
 ## Item stats are stat points, like the points a character allocates: each becomes battle stats
 ## through the GET /player/characters statMultipliers (hp → Máu, damage → Sát thương, defense →
@@ -99,7 +99,36 @@ static func parse_catalog(data: Variant) -> Variant:
 	for k in ["upgradeRates", "setBonuses", "stones"]:
 		out[k] = data[k] if data.get(k) is Array else []
 	out["sellRate"] = parse_sell_rate(data.get("sellRate"))
+	if data.get("mergeRatePerItem") is int or data.get("mergeRatePerItem") is float:
+		out["mergeRatePerItem"] = float(data["mergeRatePerItem"])
+	out["upgradeMilestones"] = parse_milestones(data.get("upgradeMilestones"))
 	return out
+
+
+## Milestone bonuses of the server's battlestats: from level 6, 10, 14, 16 on, item stats get
+## a further +0.10, +0.20, +0.40, +1.00 (game_settings, sent as the catalog's upgradeMilestones).
+const DEFAULT_MILESTONES := [[6, 0.10], [10, 0.20], [14, 0.40], [16, 1.00]]
+
+
+## A catalog upgradeMilestones ([{level, bonus}]) → [[level, bonus]...] ascending;
+## DEFAULT_MILESTONES when missing or malformed (an older server).
+static func parse_milestones(v: Variant) -> Array:
+	if not v is Array or v.is_empty():
+		return DEFAULT_MILESTONES.duplicate(true)
+	var out: Array = []
+	for m in v:
+		if not m is Dictionary or not (m.get("level") is int or m.get("level") is float) or not (m.get("bonus") is int or m.get("bonus") is float):
+			return DEFAULT_MILESTONES.duplicate(true)
+		out.append([int(m["level"]), float(m["bonus"])])
+	out.sort_custom(func(a, b): return a[0] < b[0])
+	return out
+
+
+## The milestone bonuses of a parsed catalog (DEFAULT_MILESTONES before it loads).
+static func milestones(catalog: Variant) -> Array:
+	if catalog is Dictionary and catalog.get("upgradeMilestones") is Array:
+		return catalog["upgradeMilestones"]
+	return DEFAULT_MILESTONES
 
 
 ## A catalog sellRate, DEFAULT_SELL_RATE when it is not a number in (0, 1] (an older server).
@@ -252,6 +281,37 @@ static func level_text(piece: Dictionary) -> String:
 
 
 # ── Stats ───────────────────────────────────────────────────────────────────
+
+## The stat multiplier of an upgrade level: 1 + 0.02 × level + each reached milestone bonus, added
+## in the server's order (battlestats upgradeMultiplier), so the float is the same.
+static func upgrade_multiplier(level: int, ms: Array = DEFAULT_MILESTONES) -> float:
+	var mul := 1.0 + float(level) * 0.02
+	for m in ms:
+		if level >= int(m[0]):
+			mul += float(m[1])
+	return mul
+
+
+## A copy of `item` with its stats at upgrade `level` (battlestats SumEquipment per item): hp,
+## damage, defense and move energy points × upgrade_multiplier(), rounded half away from zero;
+## crit × the multiplier, unrounded.
+static func upgraded(item: Dictionary, level: int, ms: Array = DEFAULT_MILESTONES) -> Dictionary:
+	if level <= 0:
+		return item
+	var mul := upgrade_multiplier(level, ms)
+	var out := item.duplicate()
+	for s in STATS:
+		var v := _num(item, s["key"])
+		if v == 0.0:
+			continue
+		out[s["key"]] = v * mul if s["unit"] == "%" else float(roundi(v * mul))
+	return out
+
+
+## The catalog item of an owned piece with its upgraded stats (what it adds in battle).
+static func piece_item(catalog: Variant, piece: Dictionary) -> Dictionary:
+	return upgraded(item_of_piece(catalog, piece), int(piece.get("upgradeLevel", 0)), milestones(catalog))
+
 
 static func _num(item: Dictionary, key: String) -> float:
 	var v = item.get(key)

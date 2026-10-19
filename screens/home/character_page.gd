@@ -29,6 +29,8 @@ const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
 const ShopTab := preload("res://screens/home/shop_tab.gd")
 const StatsPanel := preload("res://screens/home/stats_panel.gd")
+const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
+const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
 
 const SUB_TABS := ["Trang bị", "Chỉ số"]
 const GEAR := 0
@@ -63,6 +65,7 @@ var _slot_frames := {} # slot -> TextureRect
 var _slot_icons := {} # slot -> TextureRect
 var _slot_names := {} # slot -> Label
 var _slot_badges := {} # slot -> PanelContainer
+var _slot_auras := {} # slot -> UpgradeAura behind the worn piece's icon
 var _bonus: Label
 var _art: CharacterView
 var _gun_stand: PedestalGun
@@ -165,6 +168,10 @@ func _build_slots() -> void:
 		frame.mouse_filter = MOUSE_FILTER_IGNORE
 		frame.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		b.add_child(frame)
+		var aura := UpgradeAura.new()
+		aura.center_on(Rect2((HEX.x - 80) / 2, 20, 80, 80))
+		b.add_child(aura)
+		_slot_auras[slot] = aura
 		var icon := LobbyUi.icon(Art.equipment_slot_icon(slot), 70)
 		icon.position = Vector2((HEX.x - 70) / 2, 20)
 		icon.size = Vector2(70, 70)
@@ -214,6 +221,9 @@ func _render_slots() -> void:
 		var filled := not piece.is_empty()
 		var frame := "hex_selected" if slot == _slot else ("hex_filled" if filled else "hex_empty")
 		_slot_frames[slot].texture = Art.equipment_frame(frame)
+		var level := int(piece.get("upgradeLevel", 0)) if filled else 0
+		_slot_frames[slot].self_modulate = UpgradeModel.frame_tint(level) if slot != _slot else Color.WHITE
+		_slot_auras[slot].level = level
 		var icon: TextureRect = _slot_icons[slot]
 		if filled:
 			var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
@@ -436,7 +446,7 @@ func _row(piece: Dictionary, worn: Dictionary) -> Control:
 	texts.custom_minimum_size.x = 210
 	texts.mouse_filter = MOUSE_FILTER_IGNORE
 	row.add_child(texts)
-	var title := LobbyUi.text(EquipmentModel.display_name(item), 24, Color.WHITE, true)
+	var title := LobbyUi.text(EquipmentModel.display_name(item), 24, UpgradeModel.name_color(piece), true)
 	title.clip_text = true
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	title.mouse_filter = MOUSE_FILTER_IGNORE
@@ -456,14 +466,14 @@ func _row(piece: Dictionary, worn: Dictionary) -> Control:
 	right.mouse_filter = MOUSE_FILTER_IGNORE
 	row.add_child(right)
 	if mine:
-		var stats := LobbyUi.text(EquipmentModel.stat_summary(item, EquipmentUi.multipliers()), 19, Color.WHITE)
+		var stats := LobbyUi.text(EquipmentModel.stat_summary(EquipmentModel.piece_item(PlayerState.catalog, piece), EquipmentUi.multipliers()), 19, Color.WHITE)
 		stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		stats.mouse_filter = MOUSE_FILTER_IGNORE
 		right.add_child(stats)
 	else:
 		var current: Dictionary = worn.get(str(piece.get("slot", "")), {})
-		var deltas := EquipmentUi.delta_row(item, EquipmentModel.item_of_piece(PlayerState.catalog, current) if not current.is_empty() else {})
+		var deltas := EquipmentUi.delta_row(EquipmentModel.piece_item(PlayerState.catalog, piece), EquipmentModel.piece_item(PlayerState.catalog, current) if not current.is_empty() else {})
 		deltas.alignment = FlowContainer.ALIGNMENT_END
 		right.add_child(deltas)
 	if not mine and not check["ok"]:

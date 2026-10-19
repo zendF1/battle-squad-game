@@ -1,11 +1,16 @@
 extends Control
-## "Shop": five sub-tabs.
+## "Shop": six sub-tabs.
 ## - "Vật phẩm": item offers (GET /shop/offers) with "Còn N lượt" from GET /shop/purchases;
 ## - "Trang bị": the equipment the catalog sells (PlayerState.catalog, active normal items with a
 ##   price): the gear shared by every character plus the weapons of the lobby's character only
 ##   ("Vũ khí của Rookie"), filtered by slot: icon, name, "Lv N", stats, price, "Đã có N"; "Mua" asks "Mua
 ##   <tên> với giá <giá>?", then PlayerState.buy_equipment() sends POST /shop/equipment/buy
 ##   {itemId, idempotencyKey} with the same key rules as the purchases below;
+## - "Đá nâng cấp": the upgrade stones, levels 1–12 (catalog stones): icon, power, price per stone
+##   (levels 1–6 coin, 7–10 gem), "Đang có N" (PlayerState.stones), a 1 / 5 / 10 quantity choice
+##   with the total, "Mua" asks "Mua 5 × Đá cấp 3 với giá 3.500 xu?", then PlayerState.buy_stones()
+##   sends POST /shop/stones/buy {stoneLevel, quantity, idempotencyKey} (the same key rules);
+##   levels 11–12 are "Chỉ ghép được";
 ## - "Nhân vật": one tall card per character (character_shop_model.gd / character_shop_ui.gd):
 ##   the animated lobby figure, name, role, "Thông tin" (a popup: base stats with bars, weapon,
 ##   skill, "Lối chơi") and the buy button: the price of its character_unlock offer ("hoặc ..."
@@ -40,20 +45,25 @@ const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
 const CharacterShopModel := preload("res://screens/home/character_shop_model.gd")
 const CharacterShopUi := preload("res://screens/home/character_shop_ui.gd")
+const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 
-const SUB_TABS := ["Vật phẩm", "Trang bị", "Nhân vật", "Kim cương", "Đổi xu"]
+const SUB_TABS := ["Vật phẩm", "Trang bị", "Đá nâng cấp", "Nhân vật", "Kim cương", "Đổi xu"]
 const ITEMS := 0
 const EQUIPMENT := 1
-const CHARACTERS := 2
-const GEMS := 3
-const EXCHANGE := 4
+const STONES := 2
+const CHARACTERS := 3
+const GEMS := 4
+const EXCHANGE := 5
 const SOURCES := {
 	"offers": "/shop/offers",
 	"purchases": "/shop/purchases",
 	"products": "/iap/products",
 }
 ## The sources each sub-tab needs ("characters", "equipment": the PlayerState caches).
-const NEEDS := [["offers", "purchases"], ["equipment"], ["offers", "purchases", "characters"], ["products"], ["offers", "purchases"]]
+const NEEDS := [["offers", "purchases"], ["equipment"], ["equipment", "stones"], ["offers", "purchases", "characters"], ["products"], ["offers", "purchases"]]
+## The quantities a stone card offers.
+const STONE_QUANTITIES := [1, 5, 10]
+const STONE_CARD_W := 246
 const REPLAYED := "Giao dịch trước đã hoàn tất"
 
 ## Where dialogs and toasts go (the Home shell); defaults to this tab.
@@ -80,6 +90,7 @@ var _equipment_dirty := false # equipment changed while Trang bị was not shown
 var _weapons_label: Label # "Vũ khí của Rookie"
 var _equipment_character := "" # whose weapons the Trang bị cards show
 var _character_cards := {} # character id -> CharacterShopUi.card() parts
+var _stone_qty := {} # stone level -> the quantity chosen on its card
 
 
 func _ready() -> void:
@@ -140,6 +151,7 @@ func _ready() -> void:
 	PlayerState.characters_changed.connect(_on_characters_changed)
 	PlayerState.busy_changed.connect(_on_busy_changed)
 	PlayerState.equipment_changed.connect(_on_equipment_changed)
+	PlayerState.stones_changed.connect(_on_stones_changed)
 	PlayerState.changed.connect(_on_wallet_changed)
 	visibility_changed.connect(_on_visibility_changed)
 	_on_characters_changed() # whatever "Hồ sơ" or an earlier Home already loaded
@@ -149,6 +161,9 @@ func _ready() -> void:
 
 ## Only the Trang bị cards (and the load line) depend on the equipment; rendered when shown.
 func _on_equipment_changed() -> void:
+	if is_visible_in_tree() and _sub == STONES:
+		_render_status.call_deferred()
+		_render_stones.call_deferred() # the catalog's stones
 	if is_visible_in_tree() and _sub == EQUIPMENT:
 		_render_status.call_deferred()
 		_render_equipment.call_deferred()
@@ -191,6 +206,8 @@ func _load_shown() -> void:
 			PlayerState.need_characters()
 		elif source == "equipment":
 			PlayerState.need_equipment()
+		elif source == "stones":
+			PlayerState.need_stones()
 		elif (not _data.has(source) or _stale.has(source)) and not _loading.has(source) and not _errors.has(source):
 			_load(source)
 
@@ -236,6 +253,9 @@ func _reload_failed() -> void:
 				PlayerState.load_characters()
 		elif source == "equipment":
 			PlayerState.retry_equipment()
+		elif source == "stones":
+			if PlayerState.stones_error != "":
+				PlayerState.load_stones()
 		elif _errors.has(source):
 			_load(source)
 
@@ -270,6 +290,8 @@ func _render_status() -> void:
 			return
 	for source in NEEDS[_sub]:
 		var missing := PlayerState.catalog == null or PlayerState.equipment == null if source == "equipment" else not _data.has(source)
+		if source == "stones":
+			missing = PlayerState.stones == null
 		if missing:
 			_load_status.show_loading()
 			return
@@ -282,6 +304,8 @@ func _source_error(source: String) -> String:
 			return PlayerState.characters_error
 		"equipment":
 			return PlayerState.catalog_error if PlayerState.catalog_error != "" else PlayerState.equipment_error
+		"stones":
+			return PlayerState.stones_error
 	return _errors.get(source, "")
 
 
@@ -374,6 +398,90 @@ func _render_equipment() -> void:
 		buy.disabled = PlayerState.busy_id != ""
 		buy.pressed.connect(_on_buy_equipment.bind(it))
 		box.add_child(buy)
+
+
+## The stone counts and the buy buttons depend on the owned stones.
+func _on_stones_changed() -> void:
+	if is_inside_tree():
+		_render_status.call_deferred()
+		_render_stones.call_deferred()
+
+
+func _render_stones() -> void:
+	var flow := _flows[STONES]
+	if flow == null:
+		return
+	Ui.clear(flow)
+	if PlayerState.catalog == null:
+		return
+	var owned: Dictionary = PlayerState.stones if PlayerState.stones is Dictionary else {}
+	for row in UpgradeModel.shop_stones(PlayerState.catalog):
+		var lv := int(row["stoneLevel"])
+		# One width for every card (six per row at 1600 px).
+		var box := _card(flow, Vector2(STONE_CARD_W, 0))
+		var head := Ui.hbox(8)
+		box.add_child(head)
+		head.add_child(LobbyUi.icon(Art.stone_icon(lv), 64))
+		var names := Ui.vbox(0)
+		names.alignment = BoxContainer.ALIGNMENT_CENTER
+		head.add_child(names)
+		names.add_child(Ui.text(UpgradeModel.stone_name(lv), 23))
+		names.add_child(Ui.text("Sức mạnh %s" % Fmt.thousands(int(row["power"])), 17, Ui.TEXT_DIM))
+		var have := Ui.text("Đang có %s" % Fmt.thousands(int(owned.get(lv, 0))) if PlayerState.stones is Dictionary else "Đang có —", 20, Ui.TONES["good"])
+		box.add_child(have)
+		if not row["buyable"]:
+			box.get_parent().modulate = Color(1, 1, 1, 0.6)
+			var only := Ui.text("Chỉ ghép được", 22, Ui.TONES["draw"])
+			only.custom_minimum_size.y = 152
+			only.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			box.add_child(only)
+			continue
+		LobbyUi.icon_text(box, ShopModel.currency_icon(row["currency"]), "%s / viên" % Fmt.thousands(int(row["price"])), 22, Color.WHITE, false, 30)
+		var qty := int(_stone_qty.get(lv, 1))
+		var chips := Ui.tab_row(STONE_QUANTITIES.map(func(q): return "x%d" % q), 20, func(i: int):
+			_stone_qty[lv] = STONE_QUANTITIES[i]
+			_render_stones.call_deferred(), 44)
+		var chip_row := Ui.hbox(6)
+		for c in chips:
+			chip_row.add_child(c)
+		Ui.select_tab(chips, maxi(STONE_QUANTITIES.find(qty), 0))
+		box.add_child(chip_row)
+		LobbyUi.icon_text(box, ShopModel.currency_icon(row["currency"]), "Tổng %s" % Fmt.thousands(int(row["price"]) * qty), 22, LobbyUi.GOLD, true, 30)
+		var buy := _action_button("Mua")
+		buy.disabled = PlayerState.busy_id != ""
+		buy.pressed.connect(_on_buy_stones.bind(row, qty))
+		box.add_child(buy)
+
+
+func _on_buy_stones(row: Dictionary, quantity: int) -> void:
+	if PlayerState.busy_id != "":
+		return
+	var m := Modal.new()
+	m.open(overlay, "Xác nhận mua")
+	m.add_text(UpgradeModel.buy_confirm_text(row, quantity))
+	m.add_button("Huỷ", m.close)
+	m.add_button("Mua", func():
+		m.close()
+		_purchase_stones(row, quantity))
+
+
+func _purchase_stones(row: Dictionary, quantity: int) -> void:
+	if PlayerState.busy_id != "":
+		return
+	var stone_name := UpgradeModel.stone_name(int(row["stoneLevel"]))
+	_action_status.show_loading("Đang mua %d × %s..." % [quantity, stone_name])
+	var res: Dictionary = await PlayerState.buy_stones(int(row["stoneLevel"]), quantity)
+	if not is_inside_tree():
+		return
+	if res.code == "BUSY":
+		_action_status.clear()
+		return
+	if res.ok:
+		_action_status.clear()
+		Ui.toast(overlay, REPLAYED if res.replay else "Đã mua %d × %s" % [quantity, stone_name])
+		return
+	var retry := _purchase_stones.bind(row, quantity) if not IdempotencyKeys.is_definite(res.status) else Callable()
+	_action_status.show_error(ErrorText.stone_buy(res, str(row["currency"])), retry)
 
 
 ## The four cards, built once (their figures keep idling); _render_characters() sets the buttons.
@@ -607,6 +715,7 @@ func _render_cards() -> void:
 	_render_status()
 	_render_items()
 	_render_equipment()
+	_render_stones()
 	_render_characters()
 	_render_gems()
 	_render_exchange()

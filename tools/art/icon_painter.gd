@@ -24,6 +24,7 @@ static func paint(ci: CanvasItem, icon_name: String) -> void:
 		"inventory": _inventory(ci)
 		"history": _history(ci)
 		"shop": _shop(ci)
+		"upgrade": _upgrade(ci)
 		"swap": _swap(ci)
 		"send": _send(ci)
 		"back": _back(ci)
@@ -252,6 +253,22 @@ static func _shop(ci: CanvasItem) -> void:
 	ci.draw_line(Vector2(24, 44), Vector2(80, 44), Color(0.7, 0.74, 0.82), 3.0, true)
 	_disc(ci, Vector2(36, 78), 7, Color(0.3, 0.32, 0.4))
 	_disc(ci, Vector2(68, 78), 7, Color(0.3, 0.32, 0.4))
+
+
+## Nâng cấp: a gold arrow rising out of a cut stone, a sparkle beside it.
+static func _upgrade(ci: CanvasItem) -> void:
+	var g := [Vector2(14, 64), Vector2(26, 52), Vector2(46, 52), Vector2(58, 64), Vector2(36, 88)]
+	_poly(ci, g, Color(0.36, 0.72, 1.0))
+	_fill(ci, [g[1], g[2], Vector2(42, 60), Vector2(30, 60)], Color(0.72, 0.92, 1.0))
+	_fill(ci, [g[0], g[1], Vector2(30, 60)], Color(0.55, 0.84, 1.0))
+	_fill(ci, [g[2], g[3], Vector2(42, 60)], Color(0.22, 0.48, 0.88))
+	_fill(ci, [Vector2(30, 60), Vector2(42, 60), g[4]], Color(0.42, 0.74, 1.0))
+	_fill(ci, [Vector2(42, 60), g[3], g[4]], Color(0.22, 0.48, 0.88))
+	var arrow := [Vector2(62, 10), Vector2(88, 38), Vector2(73, 38), Vector2(73, 74), Vector2(51, 74), Vector2(51, 38), Vector2(36, 38)]
+	_poly(ci, arrow, GOLD)
+	_fill(ci, [Vector2(62, 18), Vector2(78, 34), Vector2(66, 34), Vector2(66, 68), Vector2(58, 68), Vector2(58, 34)], Color(1.0, 0.92, 0.55))
+	_sparkle(ci, Vector2(84, 64), 10.0)
+	_sparkle(ci, Vector2(22, 30), 7.0)
 
 
 # ── Buttons ─────────────────────────────────────────────────────────────────

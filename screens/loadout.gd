@@ -20,6 +20,8 @@ const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const QuickPlay := preload("res://screens/quick_play.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
+const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
+const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
 const SETTINGS_PATH := LoadoutModel.SETTINGS_PATH
 
 const MARGIN := 18
@@ -43,6 +45,7 @@ var _char_skill: Label
 var _char_stats: GridContainer
 var _gear_frames := {} # slot -> TextureRect (the small hexagon)
 var _gear_icons := {} # slot -> TextureRect
+var _gear_auras := {} # slot -> UpgradeAura behind the icon
 
 var _slot_buttons: Array[Button] = []
 var _slot_icons: Array[TextureRect] = []
@@ -207,6 +210,10 @@ func _build_gear_row() -> Control:
 		frame.mouse_filter = MOUSE_FILTER_PASS # shows the tooltip
 		frame.tooltip_text = EquipmentModel.slot_name(slot)
 		row.add_child(frame)
+		var aura := UpgradeAura.new()
+		aura.center_on(Rect2(9, 13, 34, 34))
+		frame.add_child(aura)
+		_gear_auras[slot] = aura
 		var icon := LobbyUi.icon(Art.equipment_slot_icon(slot), 34)
 		icon.position = Vector2(9, 13)
 		icon.size = Vector2(34, 34)
@@ -222,6 +229,9 @@ func _render_gear() -> void:
 	for slot in EquipmentModel.SLOTS:
 		var piece: Dictionary = worn.get(slot, {})
 		var icon: TextureRect = _gear_icons[slot]
+		var level := int(piece.get("upgradeLevel", 0)) if not piece.is_empty() else 0
+		_gear_auras[slot].level = level
+		_gear_frames[slot].self_modulate = UpgradeModel.frame_tint(level)
 		if piece.is_empty():
 			_gear_frames[slot].texture = Art.equipment_frame("hex_empty")
 			icon.texture = Art.equipment_slot_icon(slot)
@@ -234,7 +244,7 @@ func _render_gear() -> void:
 			icon.modulate = Color.WHITE
 			# "Bazooka Sắt +3" over "Sát thương +8 điểm (+40)" (points only until the characters load).
 			var tip := "%s %s" % [EquipmentModel.display_name(item), EquipmentModel.level_text(piece)]
-			var stats := EquipmentModel.stat_summary(item, BattleStats.multipliers(PlayerState.characters))
+			var stats := EquipmentModel.stat_summary(EquipmentModel.piece_item(PlayerState.catalog, piece), BattleStats.multipliers(PlayerState.characters))
 			_gear_frames[slot].tooltip_text = tip + ("\n" + stats if stats != "" else "")
 
 

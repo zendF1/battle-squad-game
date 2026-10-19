@@ -1,10 +1,11 @@
 extends RefCounted
 ## Equipment widgets shared by the Shop (Trang bị), Túi đồ, the Nhân vật page and Prep: an item
-## icon with its "+N" badge, the slot filter chips, stat lines, and the piece popup (stats
-## compared with what the character wears in that slot, who wears it, Mặc / Tháo / Chuyển cho
-## <nhân vật> / Đóng, and below them Bán (+N xu, never-worn pieces only) / Vứt, each confirmed
-## first). Actions go through PlayerState (one at a time), which reloads the gear and the
-## characters afterwards.
+## icon with its "+N" badge and, from +6, its milestone aura (upgrade_aura.gd), the slot filter
+## chips, stat lines, and the piece popup (its upgraded stats compared with what the character
+## wears in that slot, who wears it, Mặc / Tháo / Chuyển cho <nhân vật> / Đóng, and below them
+## Nâng cấp (opens the upgrade page on the piece), Bán (+N xu, never-worn pieces only) / Vứt, each
+## confirmed first). Actions go through PlayerState (one at a time), which reloads the gear and the
+## characters afterwards. Upgraded pieces' names take their milestone colour.
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -13,19 +14,27 @@ const Modal := preload("res://ui/modal.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
+const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
+const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
 
 const GOOD := Color(0.45, 0.9, 0.55)
 const LOSS := Color(1.0, 0.45, 0.45)
 const WORN := Color(0.35, 0.8, 0.45)
 const LEVEL := Color(1.0, 0.8, 0.22)
 
+## Opens the Nâng cấp page on a piece (its equipmentId); Home sets it. The popup's Nâng cấp
+## button is left out while it is not set.
+static var open_upgrade: Callable
+
 
 ## The icon of a catalog item at px, with the "+N" badge of `piece` ({} = no badge) over its
-## bottom edge.
+## bottom edge and, from +6, the milestone aura behind it (spilling a little outside the box).
 static func item_icon(item: Dictionary, piece: Dictionary = {}, px: int = 72) -> Control:
 	var box := Control.new()
 	box.custom_minimum_size = Vector2(px, px)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not piece.is_empty() and UpgradeModel.milestone_tier(int(piece.get("upgradeLevel", 0))) > 0:
+		box.add_child(UpgradeAura.around(px, int(piece.get("upgradeLevel", 0))))
 	var icon := LobbyUi.icon(Art.equipment_icon(str(item.get("slot", "")), EquipmentModel.tier(item), EquipmentModel.weapon_kind(item)), px)
 	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	box.add_child(icon)
@@ -152,15 +161,19 @@ static func delta_row(item: Dictionary, worn: Dictionary, font_size: int = 19) -
 ## match.
 static func open_piece(overlay: Control, piece: Dictionary, character_id: String, note: String = "") -> Modal:
 	var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
+	var stats_item := EquipmentModel.piece_item(PlayerState.catalog, piece)
 	var who := EquipmentModel.wearer(piece)
 	var char_name := EquipmentModel.character_name(character_id)
 	var worn: Dictionary = EquipmentModel.worn(PlayerState.equipment, character_id).get(str(piece.get("slot", "")), {})
 	var worn_other: bool = not worn.is_empty() and str(worn.get("equipmentId", "")) != str(piece.get("equipmentId", ""))
 	var worn_item := EquipmentModel.item_of_piece(PlayerState.catalog, worn) if worn_other else {}
+	var worn_stats := EquipmentModel.piece_item(PlayerState.catalog, worn) if worn_other else {}
 	var check := EquipmentModel.can_wear(item, character_id, PlayerState.characters)
 
 	var m := Modal.new()
 	m.open(overlay, "%s %s" % [EquipmentModel.display_name(item), EquipmentModel.level_text(piece)], 880)
+	if UpgradeModel.milestone_tier(int(piece.get("upgradeLevel", 0))) > 0:
+		m.title.add_theme_color_override("font_color", UpgradeModel.name_color(piece))
 	var row := Ui.hbox(24)
 	m.body.add_child(row)
 	var left := Ui.vbox(8)
@@ -170,6 +183,7 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	frame.custom_minimum_size = Vector2(150, 172)
+	frame.self_modulate = UpgradeModel.frame_tint(int(piece.get("upgradeLevel", 0)))
 	left.add_child(frame)
 	var icon := item_icon(item, piece, 104)
 	icon.position = Vector2((150 - 104) / 2.0, (172 - 104) / 2.0 - 8)
@@ -193,9 +207,9 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 	info.add_child(stats)
 	var deltas := {}
 	var mult := multipliers()
-	for d in EquipmentModel.compare(item, worn_item if worn_other else {}, mult):
+	for d in EquipmentModel.compare(stats_item, worn_stats if worn_other else {}, mult):
 		deltas[d["key"]] = d
-	var lines := EquipmentModel.stat_lines(item, mult)
+	var lines := EquipmentModel.stat_lines(stats_item, mult)
 	for l in lines:
 		var k := LobbyUi.text(l["label"], 22, Color(0.8, 0.88, 1.0))
 		k.custom_minimum_size.x = 150
@@ -237,7 +251,13 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 	m.add_button("Đóng", m.close)
 	for b in m.buttons():
 		(b as Button).custom_minimum_size.x = 250
-	# Second row, smaller: selling and throwing away (irreversible, each asks first).
+	# Second row, smaller: upgrading, then selling and throwing away (irreversible, each asks first).
+	if open_upgrade.is_valid():
+		var up := _small(m.add_button("Nâng cấp", func() -> void:
+			m.close()
+			open_upgrade.call(piece_id), 1))
+		up.custom_minimum_size.x = 200
+		up.add_theme_color_override("font_color", LEVEL)
 	var refund := EquipmentModel.sell_price(item, PlayerState.catalog)
 	var locked := bool(piece.get("isLocked", false))
 	if locked:

@@ -5,7 +5,7 @@ extends SceneTree
 ##
 ##   $GODOT --path . -s tools/bake_art.gd [-- <group> ...]
 ##
-## Groups: characters, weapons, env, terrain, fx, icons, ui, equipment (default: all). It
+## Groups: characters, weapons, env, terrain, fx, icons, ui, equipment, stones (default: all). It
 ## overwrites the PNGs (and the characters' SpriteFrames .tres and gun_anchors.json, the guns'
 ## weapons.json), prints every file it wrote and quits. A character with a side view
 ## (assets/characters/<id>/side/, tools/import_frames.gd) gets only its portrait, no frames; the
@@ -27,8 +27,9 @@ const UiPainter := preload("res://tools/art/ui_painter.gd")
 const EquipmentPainter := preload("res://tools/art/equipment_painter.gd")
 const WeaponPainter := preload("res://tools/art/weapon_painter.gd")
 const ImportEquipment := preload("res://tools/import_equipment.gd")
+const StonePainter := preload("res://tools/art/stone_painter.gd")
 
-const GROUPS := ["characters", "weapons", "env", "terrain", "fx", "icons", "ui", "equipment"]
+const GROUPS := ["characters", "weapons", "env", "terrain", "fx", "icons", "ui", "equipment", "stones"]
 ## Shown much smaller than drawn (icons on buttons, effects, clouds): mipmapped. The characters
 ## are not: plain linear filtering keeps the small match bodies sharper.
 const MIPMAPPED := ["fx", "icons", "env/cloud"]
@@ -310,3 +311,9 @@ func _bake_equipment() -> void:
 	for frame in Art.EQUIP_FRAMES:
 		_save(await _render(Art.EQUIP_FRAME_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint_frame(ci, frame)), Art.equipment_frame_path(frame))
 	_save(await _render(EquipmentPainter.BADGE_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint_badge(ci)), Art.EQUIP_BADGE)
+
+
+## The upgrade stone icons, levels 1..12 (tools/art/stone_painter.gd).
+func _bake_stones() -> void:
+	for level in range(1, Art.STONE_LEVELS + 1):
+		_save(await _render(Art.STONE_ICON_SIZE, func(ci: CanvasItem) -> void: StonePainter.paint(ci, level)), Art.stone_path(level))

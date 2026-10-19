@@ -20,22 +20,32 @@ extends Node
 ## equip() / unequip() / move_equipment() / sell_equipment() / discard_equipment() run one action
 ## at a time (equip_busy) and reload the pieces and the characters (their stats include the
 ## equipment) whatever the answer.
+##
+## Upgrade stones: the owned stones (GET /player/stones → {stoneLevel: quantity}, coalesced, stale
+## after anything that uses or adds stones). buy_stones() runs POST /shop/stones/buy {stoneLevel,
+## quantity, idempotencyKey} like buy() (the key per player + level + quantity; the server says
+## when it replayed); upgrade() (POST /player/equipment/upgrade, also an equipment action:
+## equip_busy) and merge_stones() (POST /merge/stone) consume stones one at a time (stone_busy)
+## and reload the stones whatever the answer.
 
 signal changed # profile, loading or error changed
 signal assets_dirty # inventory, characters or purchases changed on the server
 signal characters_changed # characters, characters_loading or characters_error changed
 signal busy_changed # a purchase or top-up started or ended
 signal equipment_changed # catalog, owned equipment, their loading / errors, or equip_busy changed
+signal stones_changed # owned stones, their loading / error, or stone_busy changed
 
 const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
 const Coalescer := preload("res://core/coalescer.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
+const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 
 ## What a payment refreshes once it succeeded.
 const AFTER_WALLET := 0 # the wallet only (a top-up)
 const AFTER_ASSETS := 1 # wallet, characters, inventory (assets_changed)
 const AFTER_EQUIPMENT := 2 # wallet and the owned equipment
+const AFTER_STONES := 3 # wallet and the owned stones
 
 var profile: Dictionary = {} # last GET /player/profile data; {} until loaded
 var loading := false
@@ -46,6 +56,8 @@ var purchase_keys := IdempotencyKeys.new("", "user://purchase_keys.cfg")
 var iap_tokens := IdempotencyKeys.new("mock_", "user://iap_tokens.cfg")
 ## POST /shop/equipment/buy idempotencyKey, per player+item.
 var equipment_keys := IdempotencyKeys.new("", "user://equipment_keys.cfg")
+## POST /shop/stones/buy idempotencyKey, per player+level+quantity.
+var stone_keys := IdempotencyKeys.new("", "user://stone_keys.cfg")
 
 ## Last GET /player/characters data ({characters, resetStatsCost}); null until loaded.
 var characters: Variant = null
@@ -71,6 +83,17 @@ var equipment_version := 0 # bumped each time a GET /player/equipment answer is 
 var _equipment_player := ""
 ## The equipmentId of the equip / unequip running, "" when none.
 var equip_busy := ""
+
+## The owned upgrade stones ({stoneLevel: quantity}, levels with none left out); null until loaded.
+var stones: Variant = null
+var stones_loading := false
+var stones_error := "" # Vietnamese; "" after a success
+var stones_stale := true
+var stones_version := 0 # bumped each time a GET /player/stones answer is applied
+var _stones_player := ""
+## "upgrade" / "merge" while a request consuming stones runs, "" when none.
+var stone_busy := ""
+var _stones_gate := Coalescer.new()
 
 var _equipment_gate := Coalescer.new()
 var _profile_gate := Coalescer.new()
@@ -217,7 +240,15 @@ func buy_equipment(item_id: String) -> Dictionary:
 		func(key: String) -> Dictionary: return {"itemId": item_id, "idempotencyKey": key})
 
 
-## after: AFTER_WALLET, AFTER_ASSETS or AFTER_EQUIPMENT (what to refresh on success).
+## POST /shop/stones/buy {stoneLevel, quantity, idempotencyKey}, like buy(); the key is per
+## level and quantity (a retry of the same buy), "replay" comes from the server's answer. On
+## success the wallet takes the answer's balance and the stones reload.
+func buy_stones(stone_level: int, quantity: int) -> Dictionary:
+	return await _pay("/shop/stones/buy", stone_keys, "stone_%d_x%d" % [stone_level, quantity], "", AFTER_STONES,
+		func(key: String) -> Dictionary: return {"stoneLevel": stone_level, "quantity": quantity, "idempotencyKey": key})
+
+
+## after: AFTER_WALLET, AFTER_ASSETS, AFTER_EQUIPMENT or AFTER_STONES (what to refresh on success).
 func _pay(path: String, keys: IdempotencyKeys, id: String, id_field: String, after: int, make_body: Callable) -> Dictionary:
 	if busy_id != "":
 		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null, "replay": false}
@@ -235,31 +266,45 @@ func _pay(path: String, keys: IdempotencyKeys, id: String, id_field: String, aft
 	out["replay"] = false
 	if res.ok:
 		var data: Dictionary = res.data if res.data is Dictionary else {}
-		var result_id := str(data.get(id_field, ""))
-		out["replay"] = IdempotencyKeys.is_replay(carried, result_id, known, str(data.get("createdAt", "")), started)
+		var result_id := str(data.get(id_field, "")) if id_field != "" else ""
+		if data.get("replay") is bool:
+			out["replay"] = data["replay"] # the server knows (POST /shop/stones/buy)
+		else:
+			out["replay"] = IdempotencyKeys.is_replay(carried, result_id, known, str(data.get("createdAt", "")), started)
 		if result_id != "":
 			_known_ids[result_id] = true
-		match after:
-			AFTER_ASSETS:
-				assets_changed()
-			AFTER_EQUIPMENT:
-				refresh()
-				equipment_dirty()
-			_:
-				refresh()
+		_take_balance(data)
+		_after_pay(after)
 	elif not IdempotencyKeys.is_definite(res.status):
 		# No clear answer (network, 5xx): it may have gone through. The key is kept for the retry;
 		# show whatever the server has now.
-		match after:
-			AFTER_ASSETS:
-				assets_changed()
-			AFTER_EQUIPMENT:
-				refresh()
-				equipment_dirty()
-			_:
-				refresh()
+		_after_pay(after)
 	busy_changed.emit()
 	return out
+
+
+func _after_pay(after: int) -> void:
+	match after:
+		AFTER_ASSETS:
+			assets_changed()
+		AFTER_EQUIPMENT:
+			refresh()
+			equipment_dirty()
+		AFTER_STONES:
+			refresh()
+			stones_dirty()
+		_:
+			refresh()
+
+
+## An answer with {currency, balance} (stone buy, sell): the wallet shows it at once; the refresh
+## that follows confirms it.
+func _take_balance(data: Dictionary) -> void:
+	var currency := str(data.get("currency", ""))
+	var balance = data.get("balance")
+	if not profile.is_empty() and currency in ["coin", "gem"] and (balance is int or balance is float):
+		profile[currency] = int(balance)
+		changed.emit()
 
 
 ## Per-player key target ids, so another account on this device never sends them.
@@ -364,12 +409,7 @@ func move_equipment(equipment_id: String, character_id: String) -> Dictionary:
 func sell_equipment(equipment_id: String) -> Dictionary:
 	var res := await _equip_steps(equipment_id, _remove_steps("/player/equipment/sell", equipment_id, false))
 	if res.ok:
-		var data: Dictionary = res.data if res.data is Dictionary else {}
-		var currency := str(data.get("currency", ""))
-		var balance = data.get("balance")
-		if not profile.is_empty() and currency in ["coin", "gem"] and (balance is int or balance is float):
-			profile[currency] = int(balance)
-			changed.emit()
+		_take_balance(res.data if res.data is Dictionary else {})
 		refresh()
 	return res
 
@@ -388,6 +428,83 @@ func _remove_steps(path: String, equipment_id: String, worn: bool) -> Array:
 		steps.append(["/player/equipment/unequip", {"equipmentId": equipment_id}, ["EQUIP_NOT_EQUIPPED"]])
 	steps.append([path, {"equipmentId": equipment_id}, []])
 	return steps
+
+
+# ── Stones ──────────────────────────────────────────────────────────────────
+
+## Loads the owned stones unless a fresh copy is cached or already on its way.
+func need_stones() -> void:
+	if _stones_player != Session.player_id:
+		stones = null # another account signed in on this device
+	if not _stones_gate.running and (stones == null or stones_stale):
+		load_stones()
+
+
+func load_stones() -> void:
+	if not _stones_gate.ask():
+		return
+	stones_loading = true
+	stones_error = ""
+	stones_changed.emit()
+	while true:
+		var t := _stones_gate.ticket()
+		var player := Session.player_id
+		var res: Dictionary = await _api().get_json("/player/stones")
+		if not _stones_gate.finish(t):
+			continue
+		var parsed = UpgradeModel.parse_stones(res.data) if res.ok else null
+		if parsed is Dictionary:
+			stones = parsed
+			stones_stale = false
+			stones_version += 1
+			_stones_player = player
+		else:
+			stones_error = ErrorText.load_failed(res) if not res.ok else "Dữ liệu đá nâng cấp không hợp lệ"
+		break
+	stones_loading = false
+	stones_changed.emit()
+
+
+## The owned stones changed on the server: reload them (again, when a load is in flight).
+func stones_dirty() -> void:
+	stones_stale = true
+	load_stones()
+
+
+## The stones are loaded and nothing that uses them is running.
+func stones_ready() -> bool:
+	return stones != null and not stones_stale and not _stones_gate.running and stone_busy == ""
+
+
+## POST /player/equipment/upgrade {equipmentId, stones: [{stoneLevel, quantity}]} → {success,
+## newLevel, percent}. Every stone sent is consumed, whatever the roll. One stone action at a
+## time ({ok: false, code: "BUSY"}), and an equipment action (equip_busy): the pieces, the
+## characters and the stones reload afterwards whatever the answer.
+func upgrade(equipment_id: String, stone_list: Array) -> Dictionary:
+	if stone_busy != "":
+		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null}
+	if equipment_id == "" or equip_busy != "":
+		return await _equip_steps(equipment_id, []) # NO_EQUIPMENT / BUSY, nothing sent
+	stone_busy = "upgrade"
+	stones_changed.emit()
+	var res := await _equip_steps(equipment_id, [["/player/equipment/upgrade", {"equipmentId": equipment_id, "stones": stone_list}, []]])
+	stone_busy = ""
+	stones_dirty()
+	return res
+
+
+## POST /merge/stone {stoneLevel, count} → {success, message}: count stones of the level are
+## consumed, one of the next level is added on success. One stone action at a time; the stones
+## reload afterwards whatever the answer.
+func merge_stones(stone_level: int, count: int) -> Dictionary:
+	if stone_busy != "":
+		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null}
+	stone_busy = "merge"
+	stones_changed.emit()
+	var res: Dictionary = await _api().post_json("/merge/stone", {"stoneLevel": stone_level, "count": count})
+	stone_busy = ""
+	stones_dirty()
+	return res
 
 
 ## The owned pieces are loaded and no load or action is running: buttons built from them are

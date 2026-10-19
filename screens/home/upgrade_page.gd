@@ -1,0 +1,948 @@
+extends Control
+## "Nâng cấp" (lobby shortcut, the piece popup's Nâng cấp, Túi đồ → Nguyên liệu → Ghép đá): two
+## tabs.
+## - "Nâng cấp": left, the owned pieces (slot chips, worn first, "+N" and the name in the
+##   milestone colour, the aura from +6); centre, the selected piece big on its hexagon with its
+##   aura, "+N → +N+1", its stats now → after (green change), the milestone this upgrade reaches or
+##   the next one (with that milestone's aura as a preview) and what a failure does ("Thất bại: về
+##   +6" / "giữ nguyên +3"); right, the player's stones by level (icon, power, owned, − n +),
+##   "Tự chọn" (the least power reaching the cap, UpgradeModel.auto_pick) / "Bỏ chọn", the
+##   success chance bar "Tỉ lệ thành công 64% (tối đa 64%)", a warning when the stones go above the
+##   cap, "Mua đá" (Shop → Đá nâng cấp) and NÂNG CẤP (off with the reason: no stones, +16, the
+##   equipment or stones reloading). The result plays on the piece (success: flash, rings and
+##   sparkles, a bigger burst in the new colour when it reaches a milestone; failure: red flash,
+##   shake, smoke) with a toast; the piece and the stones reload (PlayerState).
+## - "Ghép đá": pick a level (1–11, owned counts), 2 / 3 / 4 stones, "4 × Đá cấp 3 → 1 × Đá cấp
+##   4" with the chance (count × mergeRatePerItem %), GHÉP; the result animates on the new stone.
+## Loads the catalog, the pieces, the characters and the stones when shown; failures show inline
+## with "Thử lại".
+
+signal open_shop(section: int)
+
+const Ui := preload("res://ui/ui.gd")
+const LobbyUi := preload("res://ui/lobby_ui.gd")
+const Art := preload("res://ui/art.gd")
+const LoadStatus := preload("res://ui/load_status.gd")
+const EquipmentModel := preload("res://screens/home/equipment_model.gd")
+const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
+const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
+const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
+const BattleStats := preload("res://screens/home/battle_stats.gd")
+const ErrorText := preload("res://screens/home/error_text.gd")
+const Fmt := preload("res://core/fmt.gd")
+
+const SUB_TABS := ["Nâng cấp", "Ghép đá"]
+const UPGRADE := 0
+const MERGE := 1
+## Shop section of "Đá nâng cấp" (shop_tab.gd STONES; not preloaded: the Shop preloads this page's
+## neighbours).
+const SHOP_STONES := 2
+
+const LEFT_W := 430
+const RIGHT_W := 480
+const FRAME := Vector2(210, 242)
+const BIG_ICON := 150
+const DIM := Color(0.8, 0.88, 1.0)
+const WARN := Color(1.0, 0.72, 0.3)
+const BAD := Color(1.0, 0.45, 0.45)
+const GOOD := Color(0.45, 0.9, 0.55)
+
+## Where dialogs and toasts go (Home); defaults to this page.
+var overlay: Control
+
+var _sub := UPGRADE
+var _armed := false
+var _slot := ""
+var _piece_id := ""
+var _picked := {} # stoneLevel -> quantity put in
+var _acting := false # an upgrade or merge request (or its animation) runs
+var _merge_level := 1
+var _merge_count := 4
+var _scroll_to_selected := true # the next list render scrolls to the selected piece
+
+var _sub_tabs: Array[Button]
+var _pages: Array[Control] = []
+var _status: LoadStatus
+var _chips: Array[Button]
+var _list: VBoxContainer
+var _center: VBoxContainer
+var _stone_list: VBoxContainer
+var _chance_bar: ProgressBar
+var _chance: Label
+var _waste: Label
+var _go: Button
+var _reason: Label
+var _auto: Button
+var _clear: Button
+# The big piece (centre), its aura and the effect layer over it.
+var _frame: TextureRect
+var _big_holder: Control
+var _fx: Control
+var _fx_t := 0.0
+var _fx_kind := "" # "success", "milestone", "fail", "merge_ok", "merge_fail"
+var _fx_color := Color.WHITE
+var _fx_parts: Array = [] # [angle, speed, size] per particle, made when an effect starts
+var _fx_text := "" # the word that pops over the piece ("THÀNH CÔNG", "THẤT BẠI", "ĐẠT MỐC +6")
+# Merge tab
+var _merge_levels: GridContainer
+var _merge_from: TextureRect
+var _merge_to: TextureRect
+var _merge_times: Label
+var _merge_to_holder: Control
+var _merge_text: Label
+var _merge_chance: Label
+var _merge_count_tabs: Array[Button]
+var _merge_go: Button
+var _merge_reason: Label
+var _merge_fx: Control
+
+
+func _ready() -> void:
+	if overlay == null:
+		overlay = self
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 16)
+	add_child(margin)
+	var col := Ui.vbox(12)
+	margin.add_child(col)
+	var tabs := Ui.hbox(8)
+	col.add_child(tabs)
+	_sub_tabs = Ui.tab_row(SUB_TABS, 24, show_section)
+	for b in _sub_tabs:
+		b.size_flags_horizontal = SIZE_FILL
+		b.custom_minimum_size.x = 220
+		tabs.add_child(b)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = SIZE_EXPAND_FILL
+	tabs.add_child(spacer)
+	var buy := _small_button("Mua đá", func(): open_shop.emit(SHOP_STONES), 22)
+	LobbyUi.style_button(buy, LobbyUi.ICON_COLORS["orange"], 14, 8)
+	buy.add_theme_font_override("font", LobbyUi.bold())
+	buy.custom_minimum_size = Vector2(180, 56)
+	tabs.add_child(buy)
+	_status = LoadStatus.new()
+	col.add_child(_status)
+	var pages := Control.new()
+	pages.size_flags_vertical = SIZE_EXPAND_FILL
+	col.add_child(pages)
+	for builder in [_build_upgrade_page, _build_merge_page]:
+		var page: Control = builder.call()
+		page.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		pages.add_child(page)
+		_pages.append(page)
+
+	PlayerState.equipment_changed.connect(_on_data_changed)
+	PlayerState.characters_changed.connect(_on_data_changed)
+	PlayerState.stones_changed.connect(_on_data_changed)
+	visibility_changed.connect(_ensure_loaded)
+	show_section(UPGRADE)
+	_render.call_deferred()
+	_arm.call_deferred()
+
+
+func show_section(index: int) -> void:
+	_sub = index
+	for i in _pages.size():
+		_pages[i].visible = i == index
+	Ui.select_tab(_sub_tabs, index)
+	_render()
+
+
+## Shows the Nâng cấp tab on a piece ("" keeps the current choice).
+func select_piece(equipment_id: String) -> void:
+	if equipment_id != "" and equipment_id != _piece_id:
+		_piece_id = equipment_id
+		_picked = {}
+		_slot = ""
+	_scroll_to_selected = true
+	show_section(UPGRADE)
+
+
+func _arm() -> void:
+	_armed = true
+	_ensure_loaded()
+
+
+func _ensure_loaded() -> void:
+	if not (_armed and is_visible_in_tree()):
+		return
+	PlayerState.need_equipment()
+	PlayerState.need_characters() # the stat multipliers
+	PlayerState.need_stones()
+	_render()
+
+
+## Deferred: a press inside a list must not free its own button mid-signal.
+func _on_data_changed() -> void:
+	if is_inside_tree():
+		_render.call_deferred()
+
+
+func _retry() -> void:
+	PlayerState.retry_equipment()
+	if PlayerState.stones_error != "":
+		PlayerState.load_stones()
+
+
+func _owned() -> Dictionary:
+	return PlayerState.stones if PlayerState.stones is Dictionary else {}
+
+
+func _piece() -> Dictionary:
+	return EquipmentModel.find_piece(PlayerState.equipment, _piece_id)
+
+
+func _render() -> void:
+	if _list == null:
+		return
+	var error := PlayerState.catalog_error if PlayerState.catalog_error != "" else PlayerState.equipment_error
+	if error == "":
+		error = PlayerState.stones_error
+	if error != "":
+		_status.show_error(error, _retry)
+	elif PlayerState.catalog == null or PlayerState.equipment == null or PlayerState.stones == null:
+		_status.show_loading()
+	else:
+		_status.clear()
+	_clamp_picked()
+	if _sub == UPGRADE:
+		_render_list()
+		_render_center()
+		_render_stones()
+	else:
+		_render_merge()
+
+
+## Picked stones never exceed what is owned (after a reload).
+func _clamp_picked() -> void:
+	var owned := _owned()
+	for lv in _picked.keys():
+		_picked[lv] = mini(int(_picked[lv]), int(owned.get(lv, 0)))
+		if int(_picked[lv]) <= 0:
+			_picked.erase(lv)
+
+
+static func _small_button(text_value: String, on_press: Callable, font_size: int = 20) -> Button:
+	var b := Ui.button(text_value, font_size)
+	b.custom_minimum_size = Vector2(0, 52)
+	b.focus_mode = FOCUS_NONE
+	b.pressed.connect(on_press)
+	return b
+
+
+# ── Nâng cấp: left list ─────────────────────────────────────────────────────
+
+func _build_upgrade_page() -> Control:
+	var row := Ui.hbox(16)
+	var left := LobbyUi.panel(14, 18)
+	left.custom_minimum_size.x = LEFT_W
+	row.add_child(left)
+	var lcol := Ui.vbox(10)
+	left.add_child(lcol)
+	lcol.add_child(LobbyUi.text("Trang bị", 26, Color.WHITE, true))
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	lcol.add_child(grid)
+	_chips = EquipmentUi.slot_chips(_on_slot, 18, 40)
+	for c in _chips:
+		c.custom_minimum_size.x = 92
+		grid.add_child(c)
+	_list = Ui.vbox(8)
+	lcol.add_child(Ui.scroll(_list))
+
+	var center := LobbyUi.panel(18, 18)
+	center.size_flags_horizontal = SIZE_EXPAND_FILL
+	row.add_child(center)
+	_center = Ui.vbox(10)
+	_center.alignment = BoxContainer.ALIGNMENT_BEGIN
+	center.add_child(_center)
+	_build_big_piece()
+
+	var right := LobbyUi.panel(14, 18)
+	right.custom_minimum_size.x = RIGHT_W
+	row.add_child(right)
+	var rcol := Ui.vbox(10)
+	right.add_child(rcol)
+	rcol.add_child(LobbyUi.text("Đá nâng cấp", 26, Color.WHITE, true))
+	_stone_list = Ui.vbox(6)
+	var scroll := Ui.scroll(_stone_list)
+	rcol.add_child(scroll)
+	var picks := Ui.hbox(10)
+	rcol.add_child(picks)
+	_auto = _small_button("Tự chọn", _on_auto)
+	_auto.size_flags_horizontal = SIZE_EXPAND_FILL
+	picks.add_child(_auto)
+	_clear = _small_button("Bỏ chọn", _on_clear)
+	_clear.size_flags_horizontal = SIZE_EXPAND_FILL
+	picks.add_child(_clear)
+	_chance = LobbyUi.text("", 22, Color.WHITE, true)
+	_chance.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rcol.add_child(_chance)
+	_chance_bar = Ui.bar(0.0, 18)
+	_chance_bar.add_theme_stylebox_override("fill", LobbyUi.box(LobbyUi.GOLD, 9, 0))
+	_chance_bar.add_theme_stylebox_override("background", LobbyUi.box(Color(0, 0, 0, 0.45), 9, 0, Color(1, 1, 1, 0.15), 1))
+	rcol.add_child(_chance_bar)
+	_waste = LobbyUi.text("", 18, WARN)
+	_waste.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_waste.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rcol.add_child(_waste)
+	_go = LobbyUi.start_button("NÂNG CẤP")
+	_go.custom_minimum_size = Vector2(0, 84)
+	_go.add_theme_font_size_override("font_size", 34)
+	_go.pressed.connect(_on_upgrade)
+	rcol.add_child(_go)
+	_reason = LobbyUi.text("", 18, Ui.TEXT_DIM)
+	_reason.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_reason.custom_minimum_size.y = 24
+	rcol.add_child(_reason)
+	return row
+
+
+func _on_slot(slot: String) -> void:
+	_slot = slot
+	_render_list()
+
+
+func _render_list() -> void:
+	EquipmentUi.select_chip(_chips, _slot)
+	Ui.clear(_list)
+	if PlayerState.equipment == null:
+		return
+	var all := EquipmentModel.sort_bag(PlayerState.equipment, PlayerState.catalog)
+	if _piece().is_empty() and not all.is_empty():
+		_piece_id = str(all[0].get("equipmentId", ""))
+		_picked = {}
+	var pieces := EquipmentModel.filter_slot(all, _slot)
+	if pieces.is_empty():
+		_list.add_child(LobbyUi.text("Chưa có trang bị nào" if _slot == "" else "Chưa có %s nào" % EquipmentModel.slot_name(_slot).to_lower(), 22, Ui.TEXT_DIM))
+		return
+	var selected: Control = null
+	for p in pieces:
+		var row := _piece_row(p)
+		_list.add_child(row)
+		if str(p.get("equipmentId", "")) == _piece_id:
+			selected = row
+	if selected != null and _scroll_to_selected:
+		_scroll_to_selected = false
+		_ensure_visible.call_deferred(selected)
+
+
+## Scrolls the piece list so `row` shows (after a selection from outside the list).
+func _ensure_visible(row: Control) -> void:
+	for i in 2:
+		await get_tree().process_frame # the list's layout first
+	if is_instance_valid(row) and row.is_inside_tree():
+		(_list.get_parent() as ScrollContainer).ensure_control_visible(row)
+
+
+func _piece_row(piece: Dictionary) -> Control:
+	var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
+	var id := str(piece.get("equipmentId", ""))
+	var level := int(piece.get("upgradeLevel", 0))
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 88)
+	b.focus_mode = FOCUS_NONE
+	if id == _piece_id:
+		LobbyUi.style_button(b, Color(0.16, 0.3, 0.56, 0.95), 14, 8, LobbyUi.GOLD, 3)
+	else:
+		LobbyUi.style_button(b, Color(0.08, 0.11, 0.26, 0.85), 14, 8, Color(1, 1, 1, 0.08), 2)
+	b.pressed.connect(_on_pick_piece.bind(id))
+	var row := Ui.hbox(14)
+	row.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	row.offset_left = 14
+	row.offset_right = -10
+	row.offset_top = 4
+	row.offset_bottom = -8
+	row.mouse_filter = MOUSE_FILTER_IGNORE
+	b.add_child(row)
+	var icon := EquipmentUi.item_icon(item, piece, 64)
+	icon.size_flags_vertical = SIZE_SHRINK_CENTER
+	row.add_child(icon)
+	var texts := Ui.vbox(0)
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
+	texts.size_flags_horizontal = SIZE_EXPAND_FILL
+	texts.mouse_filter = MOUSE_FILTER_IGNORE
+	row.add_child(texts)
+	var title := LobbyUi.text(EquipmentModel.display_name(item), 22, UpgradeModel.name_color(piece), true)
+	title.clip_text = true
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title.mouse_filter = MOUSE_FILTER_IGNORE
+	texts.add_child(title)
+	var who := EquipmentModel.wearer(piece)
+	var sub := "%s · %s" % [EquipmentModel.slot_name(str(item.get("slot", ""))), EquipmentModel.required_text(item)]
+	if who != "":
+		sub += " · " + EquipmentModel.character_name(who)
+	var sub_label := LobbyUi.text(sub, 17, WORN_COLOR if who != "" else DIM)
+	sub_label.mouse_filter = MOUSE_FILTER_IGNORE
+	texts.add_child(sub_label)
+	var lv := LobbyUi.text(EquipmentModel.level_text(piece), 30, UpgradeModel.milestone_color(level) if level >= 6 else Color.WHITE, true)
+	lv.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lv.mouse_filter = MOUSE_FILTER_IGNORE
+	row.add_child(lv)
+	return b
+
+
+const WORN_COLOR := Color(0.45, 0.88, 0.55)
+
+
+func _on_pick_piece(id: String) -> void:
+	if _acting or id == _piece_id:
+		return
+	_piece_id = id
+	_picked = {}
+	_render.call_deferred()
+
+
+# ── Nâng cấp: centre ────────────────────────────────────────────────────────
+
+func _build_big_piece() -> void:
+	# The big piece is built once (its aura keeps animating); _render_center() fills it.
+	_big_holder = Control.new()
+	_big_holder.custom_minimum_size = FRAME
+	_big_holder.size_flags_horizontal = SIZE_SHRINK_CENTER
+	_big_holder.mouse_filter = MOUSE_FILTER_IGNORE
+	_frame = TextureRect.new()
+	_frame.texture = Art.equipment_frame("hex_filled")
+	_frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_frame.size = FRAME
+	_frame.mouse_filter = MOUSE_FILTER_IGNORE
+	_big_holder.add_child(_frame)
+	_fx = Control.new()
+	_fx.size = FRAME
+	_fx.mouse_filter = MOUSE_FILTER_IGNORE
+	_fx.draw.connect(_draw_fx.bind(_fx))
+	_big_holder.add_child(_fx)
+
+
+func _render_center() -> void:
+	for c in _center.get_children():
+		if c != _big_holder:
+			_center.remove_child(c)
+			c.queue_free()
+	if _big_holder.get_parent() == null:
+		_center.add_child(_big_holder)
+	var piece := _piece()
+	# The icon inside the frame (rebuilt: another piece or level).
+	for c in _frame.get_children():
+		c.queue_free()
+	if piece.is_empty():
+		_frame.self_modulate = Color(1, 1, 1, 0.35)
+		_center.move_child(_big_holder, 0)
+		var hint := LobbyUi.text("Chọn một trang bị bên trái" if PlayerState.equipment != null else "Đang tải...", 24, Ui.TEXT_DIM)
+		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_center.add_child(hint)
+		return
+	var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
+	var level := int(piece.get("upgradeLevel", 0))
+	var maxed := level >= UpgradeModel.MAX_LEVEL
+	_frame.self_modulate = UpgradeModel.frame_tint(level)
+	var icon := EquipmentUi.item_icon(item, {"upgradeLevel": level}, BIG_ICON)
+	icon.position = (FRAME - Vector2(BIG_ICON, BIG_ICON)) / 2.0 - Vector2(0, 6)
+	_frame.add_child(icon)
+
+	var name_label := LobbyUi.text(EquipmentModel.display_name(item), 34, UpgradeModel.name_color(piece), true)
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_center.add_child(name_label)
+	_center.move_child(name_label, 0)
+	var sub := "%s · %s" % [EquipmentModel.slot_name(str(item.get("slot", ""))), EquipmentModel.worn_text(piece) if EquipmentModel.wearer(piece) != "" else "Chưa mặc"]
+	var sub_label := LobbyUi.text(sub, 19, DIM)
+	sub_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_center.add_child(sub_label)
+	_center.move_child(sub_label, 1)
+
+	# "+5 → +6"
+	var steps := HBoxContainer.new()
+	steps.alignment = BoxContainer.ALIGNMENT_CENTER
+	steps.add_theme_constant_override("separation", 18)
+	_center.add_child(steps)
+	steps.add_child(LobbyUi.text("+%d" % level, 46, UpgradeModel.milestone_color(level) if level >= 6 else Color.WHITE, true))
+	if not maxed:
+		steps.add_child(LobbyUi.icon("arrow_right", 40))
+		steps.add_child(LobbyUi.text("+%d" % (level + 1), 46, UpgradeModel.milestone_color(level + 1) if level + 1 >= 6 else LobbyUi.GOLD, true))
+	else:
+		steps.add_child(LobbyUi.text("TỐI ĐA", 30, LobbyUi.GOLD, true))
+
+	# Stats now → after: points, with what they add in battle under them.
+	var grid := GridContainer.new()
+	grid.columns = 5
+	grid.add_theme_constant_override("h_separation", 16)
+	grid.add_theme_constant_override("v_separation", 6)
+	grid.size_flags_horizontal = SIZE_SHRINK_CENTER
+	_center.add_child(grid)
+	var mult := EquipmentUi.multipliers()
+	for s in UpgradeModel.stat_steps(PlayerState.catalog, piece, mult):
+		grid.add_child(LobbyUi.text(s["label"], 21, DIM))
+		grid.add_child(_stat_cell(s["now_points"], s["now_battle"]))
+		if maxed:
+			for i in 3:
+				grid.add_child(Control.new())
+			continue
+		grid.add_child(LobbyUi.text("→", 21, DIM))
+		grid.add_child(_stat_cell(s["next_points"], s["next_battle"]))
+		grid.add_child(LobbyUi.text(s["delta"] if s["up"] else "", 19, GOOD, true))
+
+	# Milestone hint, with the milestone's aura as a preview.
+	var hint_text := UpgradeModel.milestone_hint(PlayerState.catalog, level)
+	if hint_text != "":
+		var target := level + 1 if UpgradeModel.MILESTONE_FROM.has(level + 1) else UpgradeModel.next_milestone(level + 1)
+		var hint_row := HBoxContainer.new()
+		hint_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		hint_row.add_theme_constant_override("separation", 10)
+		_center.add_child(hint_row)
+		var dot := Control.new()
+		dot.custom_minimum_size = Vector2(52, 52)
+		dot.mouse_filter = MOUSE_FILTER_IGNORE
+		var aura := UpgradeAura.around(40, target)
+		aura.position += Vector2(6, 6)
+		dot.add_child(aura)
+		hint_row.add_child(dot)
+		var hl := LobbyUi.text(hint_text, 20, UpgradeModel.milestone_color(target), true)
+		hint_row.add_child(hl)
+	var fail := UpgradeModel.fail_text(PlayerState.catalog, level)
+	if fail != "":
+		var reset := not fail.contains("giữ nguyên")
+		var fl := LobbyUi.text(fail, 21, WARN if reset else DIM, reset)
+		fl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_center.add_child(fl)
+
+
+## "+440 điểm" over a dim "+22.000" (the battle value, left out when unknown).
+static func _stat_cell(points: String, battle: String) -> Control:
+	var cell := Ui.vbox(0)
+	cell.add_child(LobbyUi.text(points, 21, Color.WHITE, true))
+	if battle != "":
+		cell.add_child(LobbyUi.text(battle, 16, Ui.TEXT_DIM))
+	return cell
+
+
+# ── Nâng cấp: stones ────────────────────────────────────────────────────────
+
+func _render_stones() -> void:
+	Ui.clear(_stone_list)
+	var owned := _owned()
+	var levels := UpgradeModel.owned_levels(owned)
+	if PlayerState.stones != null and levels.is_empty():
+		var empty := Ui.vbox(10)
+		empty.add_child(LobbyUi.text("Chưa có đá nâng cấp", 22, Ui.TEXT_DIM))
+		var shop := _small_button("Mua đá ở Shop", func(): open_shop.emit(SHOP_STONES), 20)
+		shop.size_flags_horizontal = SIZE_SHRINK_BEGIN
+		shop.custom_minimum_size.x = 220
+		empty.add_child(shop)
+		_stone_list.add_child(empty)
+	var piece := _piece()
+	var usable := not piece.is_empty() and not UpgradeModel.rate(PlayerState.catalog, int(piece.get("upgradeLevel", 0))).is_empty()
+	for lv in levels:
+		_stone_list.add_child(_stone_row(int(lv), int(owned[lv]), usable))
+	_render_chance()
+
+
+## usable: the selected piece can be upgraded (otherwise the − + are off).
+func _stone_row(stone_level: int, have: int, usable: bool) -> Control:
+	var n := int(_picked.get(stone_level, 0))
+	var card := PanelContainer.new()
+	var bg := Color(0.16, 0.3, 0.56, 0.9) if n > 0 else Color(0.08, 0.11, 0.26, 0.85)
+	card.add_theme_stylebox_override("panel", LobbyUi.box(bg, 12, 6, LobbyUi.GOLD if n > 0 else Color(1, 1, 1, 0.08), 2))
+	var row := Ui.hbox(10)
+	card.add_child(row)
+	row.add_child(LobbyUi.icon(Art.stone_icon(stone_level), 54))
+	var texts := Ui.vbox(0)
+	texts.size_flags_horizontal = SIZE_EXPAND_FILL
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(texts)
+	texts.add_child(LobbyUi.text(UpgradeModel.stone_name(stone_level), 21, Color.WHITE, true))
+	texts.add_child(LobbyUi.text("Sức mạnh %s · Có %s" % [Fmt.thousands(UpgradeModel.power(PlayerState.catalog, stone_level)), Fmt.thousands(have)], 17, DIM))
+	var minus := _step_button("−", _on_step.bind(stone_level, -1))
+	minus.disabled = n <= 0 or _acting
+	row.add_child(minus)
+	var count := LobbyUi.text(str(n), 26, LobbyUi.GOLD if n > 0 else Ui.TEXT_DIM, true)
+	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	count.custom_minimum_size.x = 44
+	row.add_child(count)
+	var plus := _step_button("+", _on_step.bind(stone_level, 1))
+	plus.disabled = n >= have or _acting or not usable
+	row.add_child(plus)
+	return card
+
+
+static func _step_button(text_value: String, on_press: Callable) -> Button:
+	var b := Ui.button(text_value, 28)
+	b.custom_minimum_size = Vector2(52, 52)
+	b.size_flags_vertical = SIZE_SHRINK_CENTER
+	b.focus_mode = FOCUS_NONE
+	b.pressed.connect(on_press)
+	return b
+
+
+func _on_step(stone_level: int, delta: int) -> void:
+	var have := int(_owned().get(stone_level, 0))
+	_picked[stone_level] = clampi(int(_picked.get(stone_level, 0)) + delta, 0, have)
+	if int(_picked[stone_level]) == 0:
+		_picked.erase(stone_level)
+	_render_stones.call_deferred()
+
+
+func _on_auto() -> void:
+	var piece := _piece()
+	if piece.is_empty() or _acting:
+		return
+	_picked = UpgradeModel.auto_pick(PlayerState.catalog, int(piece.get("upgradeLevel", 0)), _owned())
+	_render_stones()
+
+
+func _on_clear() -> void:
+	_picked = {}
+	_render_stones()
+
+
+func _render_chance() -> void:
+	var piece := _piece()
+	var level := int(piece.get("upgradeLevel", 0))
+	var c := UpgradeModel.chance(PlayerState.catalog, level, _picked)
+	var rated := not piece.is_empty() and not UpgradeModel.rate(PlayerState.catalog, level).is_empty()
+	_chance.text = UpgradeModel.chance_text(c) if rated else "Tỉ lệ thành công —"
+	_chance_bar.value = c["percent"] / 100.0 if rated else 0.0
+	_waste.text = UpgradeModel.waste_text(c) if rated else ""
+	_waste.visible = _waste.text != ""
+	var reason := _upgrade_reason(piece)
+	_go.disabled = reason != ""
+	_reason.text = reason if reason != "" else ("Đá bỏ vào sẽ bị tiêu hết dù thành công hay thất bại")
+	_reason.add_theme_color_override("font_color", Ui.TEXT_DIM)
+	_auto.disabled = piece.is_empty() or _owned().is_empty() or _acting or not rated
+	_clear.disabled = _picked.is_empty() or _acting
+
+
+func _upgrade_reason(piece: Dictionary) -> String:
+	if _acting:
+		return "Đang nâng cấp..."
+	if PlayerState.catalog == null or PlayerState.equipment == null:
+		return "Đang tải..."
+	var why := UpgradeModel.blocked_reason(PlayerState.catalog, piece, _picked, _owned())
+	if why != "":
+		return why
+	if not PlayerState.equipment_ready():
+		return "Đang cập nhật trang bị..."
+	if not PlayerState.stones_ready():
+		return "Đang cập nhật đá..."
+	return ""
+
+
+func _on_upgrade() -> void:
+	var piece := _piece()
+	if _upgrade_reason(piece) != "":
+		return
+	var level := int(piece.get("upgradeLevel", 0))
+	var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
+	var piece_name := EquipmentModel.display_name(item)
+	_acting = true
+	_render_chance()
+	_render_stones()
+	var res: Dictionary = await PlayerState.upgrade(_piece_id, UpgradeModel.request_stones(_picked))
+	if not is_inside_tree():
+		return
+	_picked = {}
+	if not res.ok:
+		_acting = false
+		var msg := ErrorText.upgrade(res) if res.code != "BUSY" else "Đang xử lý việc khác, hãy đợi"
+		Ui.toast(overlay, msg, 3.0)
+		_render()
+		return
+	var data: Dictionary = res.data if res.data is Dictionary else {}
+	var success := bool(data.get("success", false))
+	var new_level := int(data.get("newLevel", level + 1 if success else level))
+	var crossed := success and UpgradeModel.milestone_tier(new_level) > UpgradeModel.milestone_tier(level)
+	if success:
+		_play_fx("milestone" if crossed else "success", UpgradeModel.milestone_color(new_level) if new_level >= 6 else LobbyUi.GOLD,
+			null, "ĐẠT MỐC +%d!" % new_level if crossed else "THÀNH CÔNG!")
+		if crossed:
+			Ui.toast(overlay, "Đạt mốc +%d! %s +%d — hào quang %s" % [new_level, piece_name, new_level,
+				UpgradeModel.MILESTONE_WORDS[UpgradeModel.milestone_tier(new_level)]], 3.0)
+		else:
+			Ui.toast(overlay, "Nâng cấp thành công! %s +%d" % [piece_name, new_level], 2.5)
+	else:
+		_play_fx("fail", BAD, null, "THẤT BẠI")
+		_shake(_big_holder)
+		Ui.toast(overlay, ("Thất bại — %s giữ nguyên +%d" if new_level == level else "Thất bại — %s về +%d") % [piece_name, new_level], 3.0)
+	await get_tree().create_timer(1.1).timeout
+	if not is_inside_tree():
+		return
+	_acting = false
+	_render()
+
+
+# ── Effects ─────────────────────────────────────────────────────────────────
+
+## Starts a result effect on the big piece (or the merge result): a tween drives _fx_t 0 → 1 and
+## redraws only while it runs.
+func _play_fx(kind: String, color: Color, layer: Control = null, text_value: String = "") -> void:
+	if layer == null:
+		layer = _fx
+	_fx_kind = kind
+	_fx_color = color
+	_fx_text = text_value
+	_fx_parts.clear()
+	var n := 34 if kind == "milestone" else (22 if kind in ["success", "merge_ok"] else 14)
+	var rng := RandomNumberGenerator.new()
+	for i in n:
+		_fx_parts.append([rng.randf() * TAU, rng.randf_range(0.55, 1.0), rng.randf_range(3.0, 7.0)])
+	var dur := 1.4 if kind == "milestone" else (1.1 if kind == "fail" else 0.95)
+	var tw := create_tween()
+	tw.tween_method(func(t: float) -> void:
+		_fx_t = t
+		if is_instance_valid(layer):
+			layer.queue_redraw(), 0.0, 1.0, dur)
+	tw.tween_callback(func() -> void:
+		_fx_kind = ""
+		if is_instance_valid(layer):
+			layer.queue_redraw())
+	if kind in ["success", "milestone"]:
+		_big_holder.pivot_offset = FRAME / 2.0
+		var pop := create_tween()
+		pop.tween_property(_big_holder, "scale", Vector2(1.12, 1.12), 0.12).set_trans(Tween.TRANS_BACK)
+		pop.tween_property(_big_holder, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_SINE)
+
+
+func _draw_fx(c: Control) -> void:
+	if _fx_kind == "":
+		return
+	var t := _fx_t
+	var center := c.size / 2.0 - Vector2(0, 6)
+	var r := minf(c.size.x, c.size.y) * 0.5
+	var fade := 1.0 - t
+	match _fx_kind:
+		"success", "milestone", "merge_ok":
+			var big := _fx_kind == "milestone"
+			# White flash, then rings in the colour.
+			c.draw_circle(center, r * (0.5 + 0.6 * t), Color(1, 1, 1, 0.55 * maxf(0.0, 1.0 - t * 3.0)), true, -1.0, true)
+			for k in (3 if big else 1):
+				var tk := clampf(t * 1.25 - k * 0.15, 0.0, 1.0)
+				if tk > 0.0:
+					c.draw_arc(center, r * (0.35 + 1.0 * tk), 0, TAU, 48, Color(_fx_color, (1.0 - tk) * 0.9), (10.0 if big else 6.0) * (1.0 - tk) + 1.5, true)
+			if big:
+				for i in 16:
+					var a := i * TAU / 16 + t * 0.8
+					var d := Vector2.from_angle(a)
+					var side := Vector2(-d.y, d.x) * 7.0 * fade
+					var inner := center + d * r * 0.35
+					var outer := center + d * r * (0.9 + 0.7 * t)
+					c.draw_colored_polygon(PackedVector2Array([inner + side, outer, inner - side]), Color(_fx_color.lightened(0.3), 0.55 * fade))
+			for p in _fx_parts:
+				var pos: Vector2 = center + Vector2.from_angle(p[0]) * r * (0.25 + 1.1 * p[1] * t)
+				var s: float = p[2] * (1.0 - t * 0.6)
+				_spark(c, pos, s * (1.6 if big else 1.2), Color(_fx_color.lightened(0.45), fade))
+		"fail", "merge_fail":
+			c.draw_circle(center, r * 0.95, Color(1.0, 0.15, 0.15, 0.6 * maxf(0.0, 1.0 - t * 1.6)), true, -1.0, true)
+			# Cracks from the centre, then grey smoke rising.
+			var crack := Color(1.0, 0.35, 0.3, 0.9 * maxf(0.0, 1.0 - t * 1.4))
+			for i in 7:
+				var a := i * TAU / 7 + 0.4
+				var mid := center + Vector2.from_angle(a + 0.25) * r * 0.35
+				c.draw_polyline(PackedVector2Array([center, mid, center + Vector2.from_angle(a) * r * 0.75]), crack, 4.0, true)
+			for p in _fx_parts:
+				var pos: Vector2 = center + Vector2.from_angle(p[0]) * r * (0.2 + 0.8 * p[1] * t) + Vector2(0, -50.0 * t)
+				c.draw_circle(pos, p[2] * (2.0 + 3.0 * t), Color(0.3, 0.3, 0.36, 0.65 * fade), true, -1.0, true)
+	_draw_fx_text(c, center, t)
+
+
+## The result word over the effect: pops in, rises a little, fades out.
+func _draw_fx_text(c: Control, center: Vector2, t: float) -> void:
+	if _fx_text == "":
+		return
+	var font := LobbyUi.bold()
+	var fs := 40 if _fx_kind == "milestone" else 34
+	var w := font.get_string_size(_fx_text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var pop := minf(t * 6.0, 1.0)
+	var alpha := clampf((1.0 - t) * 2.5, 0.0, 1.0) * pop
+	var at := center + Vector2(-w / 2.0, 12.0 - 40.0 * t)
+	var col := Color.WHITE.lerp(_fx_color, 0.35) if _fx_kind != "fail" else Color(1.0, 0.5, 0.45)
+	c.draw_string_outline(font, at, _fx_text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 10, Color(0.05, 0.03, 0.1, alpha))
+	c.draw_string(font, at, _fx_text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(col, alpha))
+
+
+static func _spark(c: Control, at: Vector2, s: float, color: Color) -> void:
+	c.draw_colored_polygon(PackedVector2Array([at + Vector2(0, -s * 2), at + Vector2(s * 0.45, 0), at + Vector2(0, s * 2), at + Vector2(-s * 0.45, 0)]), color)
+	c.draw_colored_polygon(PackedVector2Array([at + Vector2(-s * 2, 0), at + Vector2(0, s * 0.45), at + Vector2(s * 2, 0), at + Vector2(0, -s * 0.45)]), color)
+
+
+func _shake(node: Control) -> void:
+	var base := node.position
+	var tw := create_tween()
+	for i in 6:
+		tw.tween_property(node, "position", base + Vector2(14 if i % 2 == 0 else -14, 0) * (1.0 - i / 6.0), 0.05)
+	tw.tween_property(node, "position", base, 0.05)
+
+
+# ── Ghép đá ─────────────────────────────────────────────────────────────────
+
+func _build_merge_page() -> Control:
+	var row := Ui.hbox(16)
+	var left := LobbyUi.panel(14, 18)
+	left.custom_minimum_size.x = 640
+	row.add_child(left)
+	var lcol := Ui.vbox(12)
+	left.add_child(lcol)
+	lcol.add_child(LobbyUi.text("Chọn cấp đá", 26, Color.WHITE, true))
+	_merge_levels = GridContainer.new()
+	_merge_levels.columns = 4
+	_merge_levels.add_theme_constant_override("h_separation", 10)
+	_merge_levels.add_theme_constant_override("v_separation", 10)
+	lcol.add_child(Ui.scroll(_merge_levels))
+
+	var right := LobbyUi.panel(24, 18)
+	right.size_flags_horizontal = SIZE_EXPAND_FILL
+	row.add_child(right)
+	var rcol := Ui.vbox(18)
+	rcol.alignment = BoxContainer.ALIGNMENT_CENTER
+	right.add_child(rcol)
+	var title := LobbyUi.text("Ghép đá: 2–4 viên cùng cấp → 1 viên cấp trên", 24, Color.WHITE, true)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rcol.add_child(title)
+	var formula := HBoxContainer.new()
+	formula.alignment = BoxContainer.ALIGNMENT_CENTER
+	formula.add_theme_constant_override("separation", 26)
+	rcol.add_child(formula)
+	_merge_from = LobbyUi.icon(Art.stone_icon(1), 120)
+	formula.add_child(_merge_from)
+	_merge_times = LobbyUi.text("×4", 40, LobbyUi.GOLD, true)
+	_merge_times.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	formula.add_child(_merge_times)
+	formula.add_child(LobbyUi.icon("arrow_right", 56))
+	_merge_to_holder = Control.new()
+	_merge_to_holder.custom_minimum_size = Vector2(150, 150)
+	_merge_to_holder.size_flags_vertical = SIZE_SHRINK_CENTER
+	formula.add_child(_merge_to_holder)
+	_merge_to = LobbyUi.icon(Art.stone_icon(2), 150)
+	_merge_to.size = Vector2(150, 150)
+	_merge_to_holder.add_child(_merge_to)
+	_merge_fx = Control.new()
+	_merge_fx.size = Vector2(150, 150)
+	_merge_fx.mouse_filter = MOUSE_FILTER_IGNORE
+	_merge_fx.draw.connect(_draw_fx.bind(_merge_fx))
+	_merge_to_holder.add_child(_merge_fx)
+	_merge_text = LobbyUi.text("", 28, Color.WHITE, true)
+	_merge_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rcol.add_child(_merge_text)
+	var counts := HBoxContainer.new()
+	counts.alignment = BoxContainer.ALIGNMENT_CENTER
+	counts.add_theme_constant_override("separation", 10)
+	rcol.add_child(counts)
+	counts.add_child(LobbyUi.text("Số viên:", 22, DIM))
+	_merge_count_tabs = Ui.tab_row(["2 viên", "3 viên", "4 viên"], 22, func(i: int):
+		_merge_count = UpgradeModel.MERGE_MIN + i
+		_render_merge(), 56)
+	for b in _merge_count_tabs:
+		b.size_flags_horizontal = SIZE_FILL
+		b.custom_minimum_size.x = 130
+		counts.add_child(b)
+	_merge_chance = LobbyUi.text("", 26, LobbyUi.GOLD, true)
+	_merge_chance.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rcol.add_child(_merge_chance)
+	var note := LobbyUi.text("Thất bại: mất hết số đá đã bỏ vào", 20, WARN)
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rcol.add_child(note)
+	_merge_go = LobbyUi.start_button("GHÉP")
+	_merge_go.custom_minimum_size = Vector2(360, 84)
+	_merge_go.add_theme_font_size_override("font_size", 34)
+	_merge_go.size_flags_horizontal = SIZE_SHRINK_CENTER
+	_merge_go.pressed.connect(_on_merge)
+	rcol.add_child(_merge_go)
+	_merge_reason = LobbyUi.text("", 19, Ui.TEXT_DIM)
+	_merge_reason.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_merge_reason.custom_minimum_size.y = 26
+	rcol.add_child(_merge_reason)
+	return row
+
+
+func _render_merge() -> void:
+	if _merge_levels == null:
+		return
+	var owned := _owned()
+	Ui.clear(_merge_levels)
+	for lv in range(1, UpgradeModel.STONE_LEVELS):
+		var have := int(owned.get(lv, 0))
+		var b := Button.new()
+		b.custom_minimum_size = Vector2(140, 150)
+		b.focus_mode = FOCUS_NONE
+		if lv == _merge_level:
+			LobbyUi.style_button(b, Color(0.16, 0.3, 0.56, 0.95), 14, 6, LobbyUi.GOLD, 3)
+		else:
+			LobbyUi.style_button(b, Color(0.08, 0.11, 0.26, 0.85), 14, 6, Color(1, 1, 1, 0.08), 2)
+		b.pressed.connect(func():
+			_merge_level = lv
+			_render_merge.call_deferred())
+		var col := Ui.vbox(0)
+		col.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		col.offset_top = 8
+		col.mouse_filter = MOUSE_FILTER_IGNORE
+		b.add_child(col)
+		var icon := LobbyUi.icon(Art.stone_icon(lv), 72)
+		icon.size_flags_horizontal = SIZE_SHRINK_CENTER
+		col.add_child(icon)
+		var name_label := LobbyUi.text("Cấp %d" % lv, 20, Color.WHITE, true)
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_label.mouse_filter = MOUSE_FILTER_IGNORE
+		col.add_child(name_label)
+		var count := LobbyUi.text("Có %s" % Fmt.thousands(have), 18, LobbyUi.GOLD if have >= UpgradeModel.MERGE_MIN else Ui.TEXT_DIM)
+		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		count.mouse_filter = MOUSE_FILTER_IGNORE
+		col.add_child(count)
+		if have < UpgradeModel.MERGE_MIN:
+			b.modulate = Color(1, 1, 1, 0.55)
+		_merge_levels.add_child(b)
+	Ui.select_tab(_merge_count_tabs, _merge_count - UpgradeModel.MERGE_MIN)
+	_merge_from.texture = Art.stone_icon(_merge_level)
+	_merge_to.texture = Art.stone_icon(_merge_level + 1)
+	_merge_text.text = UpgradeModel.merge_text(_merge_level, _merge_count)
+	_merge_times.text = "×%d" % _merge_count
+	_merge_chance.text = "Tỉ lệ thành công %s" % BattleStats.format_chance(UpgradeModel.merge_chance(PlayerState.catalog, _merge_count))
+	var reason := _merge_reason_text()
+	_merge_go.disabled = reason != ""
+	_merge_reason.text = reason
+
+
+func _merge_reason_text() -> String:
+	if _acting:
+		return "Đang ghép..."
+	if PlayerState.stones == null:
+		return "Đang tải đá..."
+	var why := UpgradeModel.merge_blocked(_merge_level, _merge_count, _owned())
+	if why != "":
+		return why
+	if not PlayerState.stones_ready():
+		return "Đang cập nhật đá..."
+	return ""
+
+
+func _on_merge() -> void:
+	if _merge_reason_text() != "":
+		return
+	var lv := _merge_level
+	var count := _merge_count
+	_acting = true
+	_render_merge()
+	var res: Dictionary = await PlayerState.merge_stones(lv, count)
+	if not is_inside_tree():
+		return
+	if not res.ok:
+		_acting = false
+		Ui.toast(overlay, ErrorText.merge(res) if res.code != "BUSY" else "Đang xử lý việc khác, hãy đợi", 3.0)
+		_render()
+		return
+	var success: bool = res.data is Dictionary and bool(res.data.get("success", false))
+	if success:
+		_play_fx("merge_ok", Color(1.0, 0.85, 0.4), _merge_fx, "THÀNH CÔNG!")
+		Ui.toast(overlay, "Ghép thành công! +1 %s" % UpgradeModel.stone_name(lv + 1), 2.5)
+	else:
+		_play_fx("merge_fail", BAD, _merge_fx, "THẤT BẠI")
+		_shake(_merge_to_holder)
+		Ui.toast(overlay, "Ghép thất bại — mất %d × %s" % [count, UpgradeModel.stone_name(lv)], 3.0)
+	await get_tree().create_timer(1.0).timeout
+	if not is_inside_tree():
+		return
+	_acting = false
+	_render()

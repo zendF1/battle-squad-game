@@ -5,6 +5,7 @@ extends Control
 
 const Ui := preload("res://ui/ui.gd")
 
+var title: Label
 var body: VBoxContainer
 var message: Label # an inline error/status line under the body
 var _buttons: HBoxContainer # row 0
@@ -12,7 +13,7 @@ var _rows: VBoxContainer # row 0, then the rows add_button() / add_row_label() a
 
 
 ## Builds the dialog and adds it to `host` (the screen root): `var m := Modal.new(); m.open(...)`.
-func open(host: Node, title: String, width: int = 720) -> void:
+func open(host: Node, title_text: String, width: int = 720) -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	mouse_filter = MOUSE_FILTER_STOP
 	var dim := ColorRect.new()
@@ -27,7 +28,8 @@ func open(host: Node, title: String, width: int = 720) -> void:
 	center.add_child(card)
 	var col := Ui.vbox(18)
 	card.add_child(col)
-	col.add_child(Ui.label(title, 32))
+	title = Ui.label(title_text, 32)
+	col.add_child(title)
 	body = Ui.vbox(14)
 	col.add_child(body)
 	message = Ui.label("", 22)
