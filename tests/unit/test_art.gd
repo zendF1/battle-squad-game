@@ -646,12 +646,15 @@ func test_hug_guns() -> void:
 	near((xf * Vector2(20, 5) - xf * Vector2(0, 5)).length(), (pose["preview"] * Vector2(40, 4) - pose["preview"] * Vector2(0, 4)).length(), 1e-3, "as long")
 
 
-## Tanko's cannon is hug art in every tier (art_source/weapons/hug/cannon_<tier>.png; basic the
-## iron one desaturated): all 58 world px long, held in the middle, the muzzle the centre of the bore
-## opening (the dragon's: its open mouth), keyed clean.
+## Tanko's cannon is hug art in every tier (art_source/weapons/hug/cannon_<tier>.png on magenta;
+## basic the iron one desaturated): a short, very thick riveted cannon, all 52 world px long (the
+## back end stays above his soles aiming straight up), held in the middle, the muzzle the centre of
+## the bore opening (the dragon's: its open mouth), keyed clean: no magenta left, the sparkle and the
+## dragon's detached ember sparks dropped (one piece).
 func test_hug_cannon() -> void:
 	var H := load("res://tools/import_hug_guns.gd")
 	var iron_img := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("cannon", "iron")))
+	var rp := Art.ready_pose("tanko")
 	for tier in Art.GUN_TIERS["cannon"]:
 		var m := Art.hug_meta("cannon", tier)
 		check(not m.is_empty(), "the %s cannon's hug art" % tier)
@@ -661,35 +664,40 @@ func test_hug_cannon() -> void:
 		check(img != null and Vector2(img.get_size()) == m["size"], "cannon hug_%s.png at its size" % tier)
 		if img == null:
 			continue
+		eq(m["size"].x, Art.hug_meta("cannon", "iron")["size"].x, "cannon %s as wide as the iron one (drawn at its length)" % tier)
 		var used: Rect2i = H.tube_points(img)["rect"]
-		near(float(used.size.x) / 2.0, 58.0, 1.0, "cannon %s 58 world px long" % tier)
+		near(float(used.size.x) / 2.0, 52.0, 1.0, "cannon %s 52 world px long" % tier)
+		check(used.size.y > used.size.x * 0.45, "cannon %s short and very thick (%s)" % [tier, used])
 		near(m["pivot"].x, used.get_center().x, 1.0, "cannon %s hold: the middle of the gun" % tier)
 		check(m["pivot"].y > used.position.y + used.size.y * 0.3 and m["pivot"].y < used.end.y - used.size.y * 0.3, "cannon %s hold: in the tube's height" % tier)
-		check(m["muzzle"].x > used.end.x - used.size.x * 0.12 and m["muzzle"].x < used.end.x - 2.0, "cannon %s muzzle: inside the right end (%s, gun %s)" % [tier, m["muzzle"], used])
+		check(m["muzzle"].x > used.end.x - used.size.x * 0.15 and m["muzzle"].x < used.end.x - 6.0, "cannon %s muzzle: in the bore, not the rim's tip (%s, gun %s)" % [tier, m["muzzle"], used])
 		check(absf(m["muzzle"].y - m["pivot"].y) < used.size.y * 0.15, "cannon %s muzzle: near the tube's axis" % tier)
-		if tier != "dragon": # the bore: dark, inside the rim
-			var bore := img.get_pixelv(Vector2i(m["muzzle"]))
-			check(bore.a > 0.9 and bore.v < 0.35, "cannon %s muzzle: in the dark bore (%s)" % [tier, bore])
-		else: # the open mouth: between the upper teeth and the jaw
+		var bore := img.get_pixelv(Vector2i(m["muzzle"]))
+		check(bore.a > 0.9, "cannon %s muzzle: the bore is part of the gun, not a hole (%s)" % [tier, bore])
+		if tier == "dragon": # the open mouth: between the upper teeth and the jaw
 			var above := 0
 			var below := 0
-			for dy in range(1, 12):
+			for dy in range(1, 14):
 				if img.get_pixelv(Vector2i(m["muzzle"]) - Vector2i(0, dy)).a > 0.5:
 					above += 1
 				if img.get_pixelv(Vector2i(m["muzzle"]) + Vector2i(0, dy)).a > 0.5:
 					below += 1
 			check(above > 0 and below > 0, "cannon dragon muzzle: in the mouth, the head above and the jaw below")
-		check(img.get_pixel(0, 0).a == 0.0, "cannon %s the backdrop keyed out" % tier)
-		var green := 0
+		check(img.get_pixel(0, 0).a == 0.0 and img.get_pixel(img.get_width() - 1, 0).a == 0.0, "cannon %s the backdrop keyed out" % tier)
+		var pink := 0
 		for y in img.get_height():
 			for x in img.get_width():
 				var c := img.get_pixel(x, y)
-				if c.a > 0.1 and c.g > 0.6 and c.g > maxf(c.r, c.b) + 0.3:
-					green += 1
-		eq(green, 0, "cannon %s no green-screen pixels left" % tier)
-		check(used.size.y < used.size.x * 0.45, "cannon %s the sparkle dropped (%s)" % [tier, used])
+				if c.a > 0.1 and minf(c.r, c.b) > c.g + 0.15 and c.h > 0.75 and c.h < 0.9:
+					pink += 1
+		eq(pink, 0, "cannon %s no magenta / purple px left" % tier)
+		eq(_pieces(img, 0.1), 1, "cannon %s one piece: the sparkle and stray sparks dropped" % tier)
 		var h := Art.hug_gun("cannon", tier)
 		check(h["hug"] and h["tier"] == tier and h["path"] == Art.hug_gun_path("cannon", tier), "cannon %s: its own hug art" % tier)
+		# Aiming straight up the back end is at or above Tanko's soles (the pose's origin).
+		if not rp.is_empty():
+			var back: Vector2 = rp["socket"] * Transform2D(-PI / 2.0, Vector2.ZERO) * rp["preview"] * (Vector2(used.position.x, m["pivot"].y))
+			check(back.y <= 0.0, "cannon %s at 90°: the back end above the ground (%s)" % [tier, back])
 	# basic: the iron picture desaturated (the old basic.png's recolour), the same shape and points.
 	eq(Art.hug_meta("cannon", "basic"), Art.hug_meta("cannon", "iron"), "basic: the iron cannon's size / hold / muzzle")
 	var basic := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("cannon", "basic")))
@@ -705,6 +713,31 @@ func test_hug_cannon() -> void:
 				sat += Vector3(c.s, ic.s, 1.0)
 	check(same, "basic: the iron cannon's shape")
 	near(sat.x / sat.y, 0.55, 0.05, "basic: desaturated like the old basic.png")
+
+
+## The 8-connected pieces of img's pixels with alpha above a.
+func _pieces(img: Image, a: float) -> int:
+	var w := img.get_width()
+	var h := img.get_height()
+	var seen := PackedByteArray()
+	seen.resize(w * h)
+	var n := 0
+	for s in w * h:
+		if seen[s] != 0 or img.get_pixel(s % w, s / w).a <= a:
+			continue
+		n += 1
+		var stack: Array[int] = [s]
+		seen[s] = 1
+		while not stack.is_empty():
+			var i: int = stack.pop_back()
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					var x := i % w + dx
+					var y := i / w + dy
+					if x >= 0 and y >= 0 and x < w and y < h and seen[y * w + x] == 0 and img.get_pixel(x, y).a > a:
+						seen[y * w + x] = 1
+						stack.append(y * w + x)
+	return n
 
 
 ## Flora's seed launcher is hug art in every tier (art_source/weapons/hug/seed_launcher_<tier>.png
@@ -1122,7 +1155,7 @@ func test_hug_gun_icons() -> void:
 		var rise: float = mid.call(xa) - mid.call(xb)
 		var slope := rise / float(xb - xa)
 		near(rad_to_deg(atan(slope)), -float(held["icons"]["tiltDeg"]), 4.0, "%s %s icon: the tube turned %s° (muzzle up)" % [kind, tier, held["icons"]["tiltDeg"]])
-		check(u.size.y < u.size.x * 0.6, "%s %s icon: a long thick tube, no grips below it (%s)" % [kind, tier, u])
+		check(u.size.y < u.size.x * (0.7 if kind == "cannon" else 0.6), "%s %s icon: a long thick tube (the cannon short and very thick), no grips below it (%s)" % [kind, tier, u])
 
 
 ## tools/import_frames.gd -- <character_id> | <config.json>: which configs, the frame pattern and

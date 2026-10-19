@@ -4,16 +4,18 @@ thêm silver, gold, titan, diamond).
 - súng nằm ngang, nòng sang PHẢI, không có tay cầm, nền một màu đặc: xanh lá HOẶC hồng tím (magenta)
   đều được, tool lấy màu ở 4 góc làm màu nền (dấu ✦ của AI tool tự xoá)
 - có ảnh: bazooka_iron.png (ô liu), bazooka_mithril.png (pha lê xanh), bazooka_dragon.png (rồng đỏ cam);
-  cannon_iron.png (thân xám, nòng ô liu), cannon_steel.png (thân cam, ô liu), cannon_mithril.png (xanh
-  nhạt), cannon_dragon.png (đỏ vàng, nòng là đầu rồng: điểm bắn ở miệng rồng);
-  nền magenta: seed_launcher_iron.png (nắp xám, ống ô liu, lá ngắm, hạt xanh), seed_launcher_steel.png
+  nền magenta: đại pháo ngắn, rất dày, tán đinh: cannon_iron.png (khoá nòng + vòng xám, nòng ô liu),
+  cannon_steel.png (khoá nòng + vòng cam, nòng ô liu), cannon_mithril.png (xanh băng hoa văn sương
+  giá, vòng bạc), cannon_dragon.png (đỏ thẫm vòng vàng, nòng là đầu rồng ngậm lửa: điểm bắn ở miệng
+  rồng; mấy tia lửa bay rời bên ngoài miệng bị xoá); seed_launcher_iron.png (nắp xám, ống ô liu, lá ngắm, hạt xanh), seed_launcher_steel.png
   (nắp hồng đỏ, ống bạc), seed_launcher_mithril.png (xanh trời hoa văn vàng, pha lê ngọc phát sáng),
   seed_launcher_dragon.png (đỏ thẫm vòng vàng, đầu rồng ngậm hạt lửa)
 - cấp chỉ khác màu không cần ảnh: hug.json "bazooka_basic" / "bazooka_steel" = {"from": "iron",
   "recolour": {...}} (đổi màu ảnh iron: basic nhạt màu như basic.png cũ, steel ô liu đậm hơn như steel.png
   cũ); đủ 5 cấp bazooka. Chạy lại tool với bazooka_iron là làm lại cả basic, steel. "cannon_basic" =
   cannon_iron nhạt màu y như basic.png cũ của cannon; "seed_launcher_basic" cũng vậy với seed_launcher_iron.
-- đại pháo dài 58 px trong trận (bazooka 57), mọi cấp như nhau; muzzle từng ảnh = tâm lỗ nòng
+- đại pháo dài 52 px trong trận (bazooka 57), dày ~25 px, mọi cấp như nhau (đầu rồng tính vào độ dài):
+  dài hơn thì ngắm thẳng lên đuôi súng chui xuống dưới chân Tanko; muzzle từng ảnh = tâm lỗ nòng
 - súng hạt của Flora dài 45 px (điểm ôm của Flora thấp: dài hơn thì ngắm thẳng lên đuôi súng chui
   xuống đất), mọi cấp như nhau (đầu rồng tính vào độ dài); muzzle = giữa hạt / pha lê / hạt lửa
 - nền magenta: viền hồng tự khử (phần đỏ + lam vượt lục bị trừ đi, màu đỏ của súng giữ nguyên);

@@ -420,14 +420,15 @@ The JSON files are read with `FileAccess` (an export that filters resources must
 
 **Hug guns** (the big gun a drawn ready pose hugs, `ui/art.gd` `hug_gun()`, Rookie's pose above):
 `<kind>/hug_<tier>.png` (bazooka: `hug_basic`, `hug_iron`, `hug_steel`, `hug_mithril` 118x41,
-`hug_dragon` 118x42, 7–9 KB; cannon: `hug_basic`, `hug_iron`, `hug_steel` 120x45, `hug_mithril` 120x46,
-`hug_dragon` 120x51, 7–11 KB; seed launcher: `hug_basic`, `hug_iron`, `hug_steel`, `hug_mithril`
+`hug_dragon` 118x42, 7–9 KB; cannon: `hug_basic`, `hug_iron`, `hug_steel`, `hug_mithril` 108x54,
+`hug_dragon` 108x57, 10–13 KB; seed launcher: `hug_basic`, `hug_iron`, `hug_steel`, `hug_mithril`
 94x42, `hug_dragon` 94x44, 6–8 KB) cut from `art_source/weapons/hug/<kind>_<tier>.png` (the gun alone,
 horizontal, muzzle right, no hand grips, a flat backdrop, green or magenta (the key is the corners'
 colour): `bazooka_iron`, `bazooka_mithril` (blue
-crystal), `bazooka_dragon` (red / orange dragon); `cannon_iron` (grey body, olive barrel),
-`cannon_steel` (orange body, olive), `cannon_mithril` (light blue), `cannon_dragon` (red / yellow, a
-dragon's head for a muzzle); on magenta `seed_launcher_iron` (grey back cap, olive tube, a leaf sight,
+crystal), `bazooka_dragon` (red / orange dragon); on magenta the short, very thick riveted
+cannons `cannon_iron` (gunmetal grey breech and bands, olive barrel), `cannon_steel` (orange breech and
+bands, olive barrel), `cannon_mithril` (ice blue with frost engravings, silver bands), `cannon_dragon`
+(crimson with gold riveted bands, a dragon's head muzzle with fire in its mouth); `seed_launcher_iron` (grey back cap, olive tube, a leaf sight,
 a green seed pod), `seed_launcher_steel` (pink-red cap, silver tube, pale pod), `seed_launcher_mithril`
 (sky blue with gold swirls, a glowing turquoise crystal), `seed_launcher_dragon` (deep red with gold
 bands, a dragon's head with a fiery seed in its mouth)) by
@@ -447,12 +448,15 @@ guns' `basic` (saturation 0.55, value 0.94, as the held guns' `basic.png` is mad
 `bazooka_steel` = iron with the olive (hue 45–135°) shifted −4.5°, saturation × 1.25, value × 0.975, the
 red warhead kept (fitted from the old held bazooka `steel.png` against `iron.png` on matching pixels);
 `cannon_basic` = iron × the same `basic` (the old held cannon `basic.png` against `iron.png`: saturation
-× 0.553, value × 0.934). The cannon is 58 world px long (every tier; the bazooka 57): chunkier than the
-bazooka, a big gun on Tanko, but no longer, or its butt would sink into the ground aiming straight up
-(Tanko's hug point is lower than Rookie's: hold → soles about 26 world px). Its `muzzle` is set per
-picture: the centre of the bore opening (not the rim's outer tip), the dragon's open mouth;
-`cannon_dragon` keys a 20 px pocket of backdrop between the teeth like `bazooka_dragon` (`holeMin` 15,
-`holePure` 0, `despill`). The seed launcher is 45 world px long (every tier, the dragon's head
+× 0.553, value × 0.934). The cannon is 52 world px long (every tier, the dragon's head counted; the
+bazooka 57) and about 25 thick: short and very thick, a big heavy gun on Tanko that still leaves his
+face clear at 0°; no longer, or its back end would sink below his soles aiming straight up (his hug
+point is 119.43 pose px above the soles = 52.25 world px of half-length; 52 leaves it 0.6 pose px
+above). Held in the middle; its `muzzle` the centre of the bore opening (inside the muzzle ring; the
+dark bore is part of the gun), the dragon's open mouth; magenta keyed with `despill` `hueRange`
+270–320 like the seed launcher; `cannon_dragon` `holeMin` 15 / `holePure` 0 (the pockets between the
+teeth and round the horns), the fire in its mouth is solid art inside the outline (no glow), the small
+ember sparks floating past the mouth are dropped as stray pieces. The seed launcher is 45 world px long (every tier, the dragon's head
 counted): Flora's hug point is lower still (104.96 pose px above her soles = 45.9 world px of tube),
 so aiming straight up its back end stays just above the ground; held in the middle, its `muzzle` the
 middle of what sits in the bore (the pod, the crystal, the dragon's seed), `seed_launcher_basic` = iron
@@ -583,7 +587,7 @@ tint and mark on top. Particles stay within 120 per impact and 48 per projectile
 |---|---|---|---|
 | `<slot>_<tier>.png` | 128x128 (1.5–3 KB) | one per slot × tier, transparent, dark outline. Slots `weapon`, `armor`, `helmet`, `pants`, `boots`, `gloves`; tiers `iron` (Sắt, grey), `steel` (Thép, blue steel), `mithril` (teal), `dragon` (Rồng, red + gold) for shop items, `silver` (Bạc), `gold` (Vàng), `titan`, `diamond` (Kim cương) for crafted ones. A normal item's tier comes from its name / id (`screens/home/equipment_model.gd` `tier()`); an unknown tier draws as iron | Shop → Trang bị, Túi đồ, Nhân vật slots and list, piece popup, Prep gear row |
 | `weapon_<tier>.png` | 128x128 (10–15 KB) | cut from the blaster guns (`tools/import_guns.gd`, tilted 14°, muzzle up); weapons are guns: the generic blaster per tier (retired generic weapons, crafted Silver/Gold/Titan/Diamond Blaster); also the empty weapon slot's shape | as above |
-| `weapon_<kind>_<iron\|steel\|mithril\|dragon>.png` | 128x128 (9–15 KB) | cut from that kind's held guns (`tools/import_guns.gd`, as above; the bazooka's and the cannon's from their hug art, `tools/import_hug_guns.gd`, the same look); each character's gun in the shop tiers: `bazooka` (Rookie), `cannon` (Tanko, đại pháo), `rifle` (Spark, súng điện), `launcher` (Flora, súng hạt). The kind comes from the item's `characterId` (`equipment_model.gd` `weapon_kind()`); a missing or not yet imported file falls back to `weapon_<tier>.png` | as above |
+| `weapon_<kind>_<iron\|steel\|mithril\|dragon>.png` | 128x128 (9–17 KB) | cut from that kind's held guns (`tools/import_guns.gd`, as above; the bazooka's and the cannon's from their hug art, `tools/import_hug_guns.gd`, the same look); each character's gun in the shop tiers: `bazooka` (Rookie), `cannon` (Tanko, đại pháo), `rifle` (Spark, súng điện), `launcher` (Flora, súng hạt). The kind comes from the item's `characterId` (`equipment_model.gd` `weapon_kind()`); a missing or not yet imported file falls back to `weapon_<tier>.png` | as above |
 | `slot_<slot>.png` | 128x128 (1 KB) | the slot's shape in plain white; the UI tints it faint blue for an empty slot | Nhân vật slots, Prep gear row |
 | `hex_empty.png`, `hex_filled.png`, `hex_selected.png` | 132x152 (7 KB) | pointy-top hexagon (radius 70) centred: empty (dark, faint rim), filled (blue, light rim), selected (gold rim + glow); stretched to the slot size | Nhân vật slots (shown at 0.85), piece popup, Prep gear row |
 | `badge.png` | 52x32 | the "+N" pill (dark, gold rim); 9-patch, texture margins 15 all (`EQUIP_BADGE_MARGINS`) | upgrade level on every equipment icon |

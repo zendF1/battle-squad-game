@@ -24,7 +24,7 @@ metadata/_edit_group_ = true
 texture_filter = 2
 scale = Vector2(2.285714, 2.285714)
 centered = false
-offset = Vector2(-60, -22.4)
+offset = Vector2(-54, -27.1)
 script = ExtResource("gun_script")
 kind = "cannon"
 
