@@ -46,25 +46,34 @@ Total about 3.8 MB of PNG (the full-body pictures about 0.45 MB of it).
 1. **Bỏ ảnh vào** `art_source/characters/<id>/`:
    - `side_run/frame_1.png`, `frame_2.png` … `frame_N.png`: một vòng chạy, nhìn sang phải, nền trong
      suốt, chân chạm đất ở mọi frame (`frame_1` là dáng đứng thẳng nhất: dùng làm dáng đứng yên).
-   - `side_ready/ready_v1.png`: dáng sẵn sàng bắn (quỳ / ngắm), nhìn sang phải, tay không cầm súng
-     (nền ô caro vẽ sẵn cũng được, tool tự xoá).
-2. **Chạy** (trong thư mục `battle-squad-game`, editor mở cũng được):
+   - `side_ready/ready_v1.png`: dáng ngắm = nhân vật **quỳ**, nhìn sang phải, **hai tay chụm giữa
+     ngực, KHÔNG cầm súng**, nền **xanh lá đặc** (một màu; dấu ✦ của AI ở góc tool tự xoá).
+2. **Súng ôm** (vẽ riêng, mỗi súng một ảnh): `art_source/weapons/hug/<loại>_<cấp>.png` (vd.
+   `cannon_iron.png`, loại = `bazooka` `cannon` `shock_rifle` `seed_launcher` `blaster`): súng nằm
+   ngang, **nòng sang phải**, **không có tay cầm**, nền xanh lá đặc.
+3. **Chạy** (trong thư mục `battle-squad-game`, editor mở cũng được):
    ```
    /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_frames.gd -- <id>
+   /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_hug_guns.gd
    ```
-   Nó ghi `assets/characters/<id>/side/` (PNG + `side.json`, `gun_anchors.json`), không bao giờ ghi
-   đè cảnh `.tscn`. Chưa có `ready_v1.png` thì chỉ nhập ảnh chạy (súng rút kiểu cũ, chưa có dáng ngắm).
-3. Quay lại editor, đợi nó import xong các PNG.
-4. **Mở** `scenes/character/poses/<id>_ready.tscn`: `Body` tự đổi sang dáng ngắm mới (trước khi có ảnh
+   Lệnh 1 ghi `assets/characters/<id>/side/` (PNG + `side.json`, `gun_anchors.json`), lệnh 2 ghi
+   `assets/weapons/<loại>/hug_<cấp>.png` + `assets/weapons/hug.json`; không bao giờ ghi đè cảnh `.tscn`.
+   Chưa có `ready_v1.png` thì chỉ nhập ảnh chạy (súng rút kiểu cũ, chưa có dáng ngắm).
+4. Quay lại editor, đợi nó import xong các PNG.
+5. **Mở** `scenes/character/poses/<id>_ready.tscn`: `Body` tự đổi sang dáng quỳ mới (trước khi có ảnh
    nó là frame đứng cũ, chỉ để xem).
-5. **Kéo `GunSocket`** (bấm vào khẩu súng) vào tay; xoay / co giãn nếu cần. Gốc của socket (chỗ
-   báng súng) để trong nắm tay: súng xoay quanh điểm đó khi ngắm.
-6. **`Ctrl+S`**, rồi **`F5`** vào trận để xem: nhân vật tự dùng ảnh góc ngang (có `side.json` là dùng).
+6. **Kéo / co giãn `GunSocket`** (bấm vào khẩu súng) cho súng che kín hai nắm tay; gốc của socket là
+   điểm ôm (giữa hai nắm tay): súng xoay quanh điểm đó khi ngắm (-45°, 0°, 45°, 90°). Trong trận súng
+   hiện **đúng như trong editor** ở 0° (cả `Preview` kéo lệch / co giãn không đều cũng giữ nguyên).
+   (Tanko / Spark / Flora: thay `Preview` bằng ảnh súng ôm `hug_iron.png` của loại súng đó, `offset`
+   = −`hold` trong `hug.json`, như cảnh của Rookie.)
+7. **`Ctrl+S`**, rồi **`F5`** vào trận để xem: nhân vật tự dùng ảnh góc ngang (có `side.json` là dùng).
 
 `art_source/characters/<id>/side_run/import.json` là cấu hình chép từ Rookie (chiều cao 60 px trong
-trận, cách xoá viền, `poses.ready.scale` = cỡ dáng ngắm so với ảnh chạy, …). Nếu dáng ngắm lệch cỡ /
-lệch chỗ so với dáng đứng thì chỉnh `scale` / thêm `alignX`; muốn vẽ tay đè lên súng như Rookie thì
-thêm `hands` (xem cấu hình của Rookie, mục "Rookie's ready pose" bên dưới), rồi chạy lại lệnh ở bước 2.
+trận, cách xoá viền, `poses.ready.scale` = cỡ dáng quỳ so với ảnh chạy, …). Nếu dáng quỳ lệch cỡ /
+lệch chỗ so với dáng đứng thì chỉnh `scale` (mũ / đầu rộng bằng ảnh chạy) / `alignX`, đặt `gun.grip`
+= điểm giữa hai nắm tay (px của ảnh), và đổi `background` sang kiểu nền xanh như Rookie
+(`"key": "corners"`), rồi chạy lại lệnh ở bước 3.
 
 ## Re-baking the placeholder art
 
@@ -123,7 +132,8 @@ colour, `maxChroma`}, `stabilise` {`rows` (0 top .. 1 soles: the torso band matc
 (`frames`: source indices, or `"idle"` + `count` to reuse the idle PNG with a code `motion`; `fps`,
 `loop`, `motion`, `swing`, per-frame `angle` / `flash`, `front`), `gun` {`fists` (the near fist
 centre per source frame, source px), `carry` (source px from the pivot), `follow` (0..1),
-`swingDeg`}, `hand` {`frame`, `center`, `radius`, `feather`}. Then
+`swingDeg`}, `hand` {`frame`, `center`, `radius`, `feather`}, optional `canvas` [x, y, w, h] (source px
+always inside the shared canvas) and `poses` (the ready pose, above). Then
 
 ```
 $GODOT --headless --path . -s tools/import_frames.gd -- <id>          # one character (its side*/import.json)
@@ -182,41 +192,56 @@ false while it is behind the body; the aim angle blends in towards the last fram
 the gun does the code transition on top of the drawn body. A broken set (a missing PNG) is skipped
 with a warning and the code transition plays.
 
-**Rookie's ready pose (a drawn ready-to-shoot frame, placed by hand)**: `side/ready_0.png` is the
-kneeling pose cut from `art_source/characters/rookie/side_ready/ready_v1.png` (`import.json`
-`poses.ready`: the checkerboard and the "AI" watermark drawn into its pixels are removed by a flood
-fill from the border plus the enclosed checkerboard pieces; scaled so the cap and the face are as
-wide as in the run frames, the belt buckle over the idle frame's, the knee and the boot on the same
-ground). Its hands are cut out into `ready_hand_front.png` (the fist) and `ready_hand_back.png` (the
-hand resting on the arm; the arm under it is filled in), drawn over the gun. In `side.json`:
-`"draw": ["ready_0"]`, `"fire"` (it with the recoil, played for the shot instead of `shoot`),
-`"gunDraw"` all 0 s (idle ↔ ready switch at once, no transition; back to idle `fireHoldSec` after
-the shot or at once on a cancel) and `"readyPose"` {`anims`, `hands`, `scene`}.
+**Rookie's ready pose (kneeling, hugging a big gun)**: `side/ready_0.png` is the kneeling pose cut
+from `art_source/characters/rookie/side_ready/ready_v1.png` (882x1024: kneeling, facing right, both
+fists together in front of the chest, no gun, on a flat green backdrop). `import.json`
+`poses.ready`: `background` `{"key": "corners", tolerance, soft, holeMin, spill}` keys the backdrop
+out (`tools/import_frames.gd` `key_background()`: the key is the median corner colour; the backdrop is
+what is near it and touches the border plus big enclosed pure-key holes; alpha ramps over `soft`, the
+colour is un-blended from the key and the key channel is capped in the `spill` px next to it: no green
+rim), then `clean()` with the pose's own `alphaCut` / `keepPieces` drops the small detached pieces
+(the AI "✦" sparkle), trimmed, scaled by `scale` so the cap and the head are as wide as in the run
+frames (the kneeling figure is nearly as tall as the standing one: its head is drawn bigger), the
+belt buckle over the idle frame's (`alignX`), the knee and the boot on the same ground. `gun.grip` is
+the hug point (the middle of the two fists, pose px): the fallback seat in `gun_anchors.json`
+`"draw"` / `"fire"` / `"ready"`. `canvas` pins the shared canvas to the earlier one, so the run frames'
+PNGs did not change. No hand cut-outs. In `side.json`: `"draw": ["ready_0"]`, `"fire"` (it with the
+recoil, played for the shot instead of `shoot`), `"gunDraw"` all 0 s (idle ↔ ready switch at once, no
+transition; back to idle `fireHoldSec` after the shot or at once on a cancel) and `"readyPose"`
+{`anims`, `scene`}.
 
 | File | Size | Notes |
 |---|---|---|
-| `rookie/side/ready_0.png` | 112x130 | the ready pose, no hands (same canvas / pivot as the run frames) |
-| `rookie/side/ready_hand_front.png` | 19x20 | the front fist, drawn over the gun's grip |
-| `rookie/side/ready_hand_back.png` | 22x16 | the back hand, drawn over the gun |
+| `rookie/side/ready_0.png` | 112x130 | the kneeling ready pose, fists on the chest, no gun (same canvas / pivot as the run frames) |
 
-**Placing the gun in the ready pose (editor)**: each character with a ready pose has its own pose
+**The hug gun**: on the ready pose the character hugs a big gun against the middle of the chest
+(`weapons/<kind>/hug_<tier>.png`, below), drawn in front of the body over the fists and arms (no hand
+sprites, no grip hand), turned round the hug point to the snapped direction (`aim_snap.gd`: -45, 0,
+45, 90 above level towards the facing side; facing left is mirrored; the shot, the aim line, the
+power and the network keep the real angle). Which gun (`ui/art.gd` `hug_gun()`): the equipped
+weapon's hug art (its kind / tier, `screens/home/equipment_model.gd` `gun()`) → the kind's hug art in
+another tier (iron first) → the weapon's held gun sprite turned round its own centre; no weapon (bots,
+the starter gun) = the kind's `basic` → its iron hug art. A gun other than the Preview's is drawn as
+long as the Preview's, its pivot (hold / centre) on the Preview gun's. The shot kicks the gun back
+along its axis (`character.gd` `HUG_KICK` = 5 % of its length × the fire frame's flash 1 / 0.35 / 0)
+on top of the body's `recoil` motion; the muzzle flash is at the turned muzzle.
+
+**Placing the hug gun in the ready pose (editor)**: each character with a ready pose has its own pose
 scene, `scenes/character/poses/<id>_ready.tscn` (side.json `readyPose.scene`; all four exist:
 Tanko's, Spark's and Flora's are used once their side view with a ready pose is imported, their
 `Body` (`pose_body.gd`, editor only) shows the imported ready frame by itself, or the baked idle frame
-until then; their `Hand*` sprites get the cut-out hands, if the config cuts any, the first time the
-scene is opened after the import). It is the character's `Flip` space at the match's scale (the root is the feet;
-`Body` = the ready frame, locked). One `GunSocket` (Node2D): its `Preview` child is the character's
-own gun (Rookie: the iron bazooka) with its grip (weapons.json `grip`) on the socket's origin. Select
-`GunSocket` (click the gun: the socket is grouped, so the click picks the socket) and move / rotate /
-scale it until the gun sits in the hands, `Ctrl+S`, `F5`: in the match whatever gun the character
-holds (its kind in any tier, or a generic / crafted blaster) sits on that socket and turns with the
-aim round the socket's origin (keep the origin in the fist). `HandFront` / `HandBack` (Sprite2D,
-drawn over the gun) can be moved the same way. The gun only ever points one of 7 directions (-45, 0,
-45 on each side, 90 straight up; `scenes/character/aim_snap.gd`, visual only: the shot keeps the real
-angle), so check the socket at level, at 45 and straight up. The root's metadata `aim_down` / `aim_up`
-is left over and no longer read: it limits nothing. No JSON to edit;
-`tools/import_frames.gd` never writes the scene. Without the scene (or a node) the gun sits at
-`gun_anchors.json` `"ready".grip` (the fist's centre), level, and the hands where they were drawn.
+until then). It is the character's `Flip` space at the match's scale (the root is the feet, locked;
+`Body` = the ready frame, locked). One `GunSocket` (Node2D, grouped: a click on the gun selects it):
+its origin is the hug point the gun turns round; its `Preview` child (Sprite2D) is the gun at 0°,
+horizontal, facing right, centred on its hold (`offset` = −`hold` of `weapons/hug.json`; Rookie's has
+`pose_gun.gd`: it shows the `kind` / `tier` hug gun as soon as the editor has imported it, since a
+scene can only name an imported picture). Move / scale / rotate `GunSocket` (or the `Preview` inside
+it, even non-uniformly) until the gun covers the fists, `Ctrl+S`, `F5`: **the match draws the gun
+exactly as the Preview shows it at 0°** (the Preview's position / scale / offset and the socket's,
+`ui/art.gd` `ready_pose()` / `gun_transform()`), and turns the whole socket round its origin. Check it
+at level, 45 and straight up. No JSON to edit; `tools/import_frames.gd` never writes the scene. Without
+the scene (or a node) the gun sits on `gun_anchors.json` `"ready".grip` (the hug point), the
+character's iron hug gun at the weapons' scale, level.
 
 ### characters/ (baked frames, scene: `scenes/character/character.tscn`)
 
@@ -288,6 +313,8 @@ weapons/
   shock_rifle/    basic iron steel mithril dragon          (Spark's)
   seed_launcher/  basic iron steel mithril dragon          (Flora's)
   blaster/        basic iron steel mithril dragon silver gold titan diamond   (generic + crafted)
+  hug.json                          size + hold + muzzle of every hug gun
+  <kind>/hug_<tier>.png             the hug guns of the ready pose (today: bazooka/hug_iron.png)
 ```
 
 | File | Size | Notes |
@@ -316,6 +343,25 @@ Prep and Nhân vật show it in hand, `ui/character_view.gd`), lying diagonally 
 "+N" under it (`screens/home/pedestal_gun.gd`, a soft glow in the tier's colour); the match shows the one each player brought (`weaponItemId`), and its
 shots look like that gun (`fx/` below).
 The JSON files are read with `FileAccess` (an export that filters resources must keep `*.json`).
+
+**Hug guns** (the big gun a drawn ready pose hugs, `ui/art.gd` `hug_gun()`, Rookie's pose above):
+`<kind>/hug_<tier>.png` (bazooka/hug_iron.png: 118x41) cut from
+`art_source/weapons/hug/<kind>_<tier>.png` (the gun alone, horizontal, muzzle right, no hand grips, a
+flat green backdrop) by
+
+```
+$GODOT --headless --path . -s tools/import_hug_guns.gd                    # every picture there
+$GODOT --headless --path . -s tools/import_hug_guns.gd -- bazooka_iron    # some
+```
+
+(`art_source/weapons/hug/hug.json`: `length` world px, 57 = about 1.5 × Rookie's kneeling body width;
+the keying options; per gun `length`, `hold`, `muzzle` overrides in source px). It keys the backdrop
+out like the ready pose (`key_background()`), drops the detached pieces (the "✦" sparkle), trims,
+finds the hold (the middle of the gun at the tube's height: the median of the columns' middles, so a
+sight does not lift it) and the muzzle (the right end on that axis) and scales once to `length` ×
+2 texture px per world px. `hug.json` `{"source", "pxPerUnit": 0.7, "guns": {kind: {tier: {"size",
+"hold", "muzzle"}}}}` (px in the PNG; the guns not imported in a run are kept). New PNGs get an
+`.import`; let the editor import them.
 
 ### env/
 

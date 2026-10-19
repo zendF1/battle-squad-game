@@ -100,22 +100,6 @@
 			"draw",
 			"fire"
 		],
-		"hands": {
-			"HandFront": {
-				"stem": "ready_hand_front",
-				"center": [
-					100.5,
-					62.0
-				]
-			},
-			"HandBack": {
-				"stem": "ready_hand_back",
-				"center": [
-					77.0,
-					59.0
-				]
-			}
-		},
 		"scene": "res://scenes/character/poses/rookie_ready.tscn"
 	}
 }

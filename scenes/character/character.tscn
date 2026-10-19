@@ -43,6 +43,3 @@ texture_filter = 2
 [node name="Flash" type="Sprite2D" parent="Flip/Gun" unique_id=1285905763]
 visible = false
 texture_filter = 2
-
-[node name="ReadyHands" type="Node2D" parent="Flip" unique_id=483665852]
-visible = false

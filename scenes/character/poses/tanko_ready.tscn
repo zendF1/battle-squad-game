@@ -6,8 +6,6 @@
 
 [node name="TankoReady" type="Node2D" unique_id=494138480]
 metadata/_edit_lock_ = true
-metadata/aim_down = -30.0
-metadata/aim_up = 60.0
 
 [node name="Body" type="Sprite2D" parent="." unique_id=931677227]
 texture_filter = 2
@@ -28,9 +26,3 @@ scale = Vector2(2.285714, 2.285714)
 texture = ExtResource("gun_cannon")
 centered = false
 offset = Vector2(-23.1, -33.6)
-
-[node name="HandFront" type="Sprite2D" parent="." unique_id=1172882737]
-texture_filter = 2
-
-[node name="HandBack" type="Sprite2D" parent="." unique_id=246584185]
-texture_filter = 2

@@ -1,0 +1,22 @@
+{
+	"source": "art_source/weapons/hug/hug.json",
+	"pxPerUnit": 0.7,
+	"guns": {
+		"bazooka": {
+			"iron": {
+				"size": [
+					118,
+					41
+				],
+				"hold": [
+					59.0,
+					21.7
+				],
+				"muzzle": [
+					115.8,
+					21.7
+				]
+			}
+		}
+	}
+}

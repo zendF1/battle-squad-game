@@ -317,14 +317,15 @@ func test_side_view_faces_left_round_the_feet() -> void:
 	holder.free()
 
 
-## Every character has a ready pose scene (scenes/character/poses/<id>_ready.tscn) laid out like
-## Rookie's: one GunSocket (grouped) with a Preview of the character's iron gun, its grip on the
-## socket's origin, Body locked, HandFront / HandBack (the root's aim_down / aim_up metadata is no
-## longer read). Tanko, Spark and
-## Flora's Body follows the art (pose_body.gd): the baked idle frame until a side view's ready
-## frame is imported, the socket on that frame's hand.
+## Every character has a ready pose scene (scenes/character/poses/<id>_ready.tscn): a locked root
+## → Body (locked) → one GunSocket (grouped) with a Preview (not centred); no hand sprites, no aim
+## metadata. Rookie's Preview is its iron hug gun (pose_gun.gd: the picture once imported) with its
+## hold on the socket's origin at the weapons' scale, the socket on the hug point between the fists;
+## Tanko's, Spark's and Flora's keep their iron gun (grip on the origin) and their Body follows the
+## art (pose_body.gd): the baked idle frame until a side view's ready frame is imported.
 func test_ready_pose_scenes() -> void:
 	var PoseBody := load("res://scenes/character/poses/pose_body.gd")
+	var PoseGun := load("res://scenes/character/poses/pose_gun.gd")
 	for id in Art.CHARACTERS:
 		var path := "res://scenes/character/poses/%s_ready.tscn" % id
 		check(ResourceLoader.exists(path), path)
@@ -332,20 +333,30 @@ func test_ready_pose_scenes() -> void:
 			continue
 		var root: Node = load(path).instantiate()
 		check(root is Node2D and root.get_meta("_edit_lock_", false), "%s root a locked Node2D" % id)
-		var sockets := root.get_children().filter(func(n): return str(n.name).begins_with("GunSocket"))
-		eq(sockets.size(), 1, "%s one GunSocket" % id)
+		check(not root.has_meta("aim_down") and not root.has_meta("aim_up"), "%s no aim metadata" % id)
+		var names: Array = root.get_children().map(func(n): return str(n.name))
+		eq(names, ["Body", "GunSocket"], "%s Body and one GunSocket, no hand sprites" % id)
 		var sock := root.get_node_or_null("GunSocket") as Node2D
 		check(sock != null and sock.get_meta("_edit_group_", false), "%s GunSocket grouped" % id)
 		var preview := root.get_node_or_null("GunSocket/Preview") as Sprite2D
+		check(preview != null and not preview.centered, "%s GunSocket/Preview, not centred" % id)
 		var kind := str(Art.CHARACTER_GUNS[id])
-		check(preview != null and preview.texture != null and preview.texture.resource_path == Art.gun_path(kind, "iron"), "%s Preview is its iron %s" % [id, kind])
-		if preview != null:
+		var gs := float(Art.gun(kind, "iron")["scale"])
+		if preview != null and id == "rookie":
+			eq(preview.get_script(), PoseGun, "rookie Preview shows the hug gun once imported")
+			eq([str(preview.get("kind")), str(preview.get("tier"))], ["bazooka", "iron"], "rookie Preview: the iron bazooka")
+			check(preview.texture == null or preview.texture.resource_path == Art.hug_gun_path("bazooka", "iron"), "rookie Preview picture")
+			near(preview.offset.distance_to(-Art.hug_meta("bazooka", "iron")["pivot"]), 0.0, 0.01, "rookie the hold on the socket's origin")
+			near(preview.scale.x, gs, 1e-4, "rookie hug gun at the weapons' scale")
+			var look := Art.side_view("rookie")
+			var hug: Vector2 = (Art.gun_anchor("rookie", "draw", 0)["grip"] - look["pivot"]) * float(look["scale"])
+			check(sock.position.distance_to(hug) < 0.05, "rookie socket on the hug point (%s vs %s)" % [sock.position, hug])
+		elif preview != null:
+			check(preview.texture != null and preview.texture.resource_path == Art.gun_path(kind, "iron"), "%s Preview is its iron %s" % [id, kind])
 			near(preview.offset.distance_to(-Art.gun(kind, "iron")["grip"]), 0.0, 0.01, "%s the grip on the socket's origin" % id)
-			near(preview.scale.x, float(Art.gun(kind, "iron")["scale"]), 1e-4, "%s gun at the match scale" % id)
-			check(not preview.centered, "%s Preview not centred" % id)
+			near(preview.scale.x, gs, 1e-4, "%s gun at the match scale" % id)
 		var body := root.get_node_or_null("Body") as Sprite2D
 		check(body != null and body.get_meta("_edit_lock_", false), "%s Body locked" % id)
-		check(root.get_node_or_null("HandFront") is Sprite2D and root.get_node_or_null("HandBack") is Sprite2D, "%s hand sprites" % id)
 		if id != "rookie" and body != null:
 			eq(body.get_script(), PoseBody, "%s Body follows the art" % id)
 			eq(str(body.get("character_id")), id, "%s Body's character" % id)
@@ -359,16 +370,15 @@ func test_ready_pose_scenes() -> void:
 		# The config the importer fills it from names this scene.
 		var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://art_source/characters/%s/side_run/import.json" % id))
 		check(cfg is Dictionary and str(cfg.get("poses", {}).get("ready", {}).get("scene", "")) == path, "%s import.json names %s" % [id, path])
+		check(cfg is Dictionary and not cfg.get("poses", {}).get("ready", {}).has("hands"), "%s no hand cut-outs" % id)
 		if cfg is Dictionary:
 			eq(str(cfg.get("out", "")), Art.side_dir(id), "%s import.json writes its side view" % id)
 	var rookie: Dictionary = PoseBody.source("rookie")
 	eq(rookie["path"], Art.side_dir("rookie") + "ready_0.png", "an imported ready frame is the body")
 	near(float(rookie["scale"]), float(Art.side_view("rookie")["scale"]), 1e-4, "at the side view's scale")
-	eq(rookie["hands"].size(), 2, "with its hands")
 	eq(PoseBody.source("nope"), {}, "unknown id")
 	# After an import (here: Rookie's art in Tanko's scene) the body is the ready frame where the
-	# match draws it and the empty hand sprites get the cut-out hands where they were drawn (Rookie's
-	# own scene has them at the same place).
+	# match draws it (Rookie's own scene has it at the same place).
 	var scene: Node = load("res://scenes/character/poses/tanko_ready.tscn").instantiate()
 	var body: Sprite2D = scene.get_node("Body")
 	body.character_id = "rookie"
@@ -377,17 +387,127 @@ func test_ready_pose_scenes() -> void:
 	for prop in ["texture", "offset", "centered"]:
 		eq(body.get(prop), mine.get_node("Body").get(prop), "synced body %s" % prop)
 	check(body.scale.is_equal_approx(mine.get_node("Body").scale), "synced body scale")
-	for hname in ["HandFront", "HandBack"]:
-		var h: Sprite2D = scene.get_node(hname)
-		var want: Sprite2D = mine.get_node(hname)
-		eq(h.texture, want.texture, "%s picture" % hname)
-		check(h.position.distance_to(want.position) < 0.02 and h.scale.is_equal_approx(want.scale), "%s at %s (Rookie's %s)" % [hname, h.position, want.position])
-	var moved: Sprite2D = scene.get_node("HandFront")
-	moved.position = Vector2(1, 2)
-	body.sync()
-	eq(moved.position, Vector2(1, 2), "a hand with a picture is left where it was put")
+	# An empty Preview takes no picture before the hug gun is imported; one with a picture keeps it.
+	var pv: Sprite2D = mine.get_node("GunSocket/Preview")
+	var had := pv.texture
+	pv.sync()
+	check(pv.texture == had or (pv.texture != null and pv.texture.resource_path == Art.hug_gun_path("bazooka", "iron")), "Preview sync")
+	var tex := Art.texture(Art.gun_path("bazooka", "iron"))
+	pv.texture = tex
+	pv.sync()
+	eq(pv.texture, tex, "a Preview with a picture is left as it is")
 	scene.free()
 	mine.free()
+
+
+## The hug guns (tools/import_hug_guns.gd → assets/weapons/<kind>/hug_<tier>.png + hug.json) and
+## the ready pose's choice: the weapon's hug art → its kind's in another tier → its gun sprite
+## turned round its centre.
+func test_hug_guns() -> void:
+	var data := Art.hug_data()
+	check(FileAccess.file_exists("res://" + str(data.get("source", ""))), "hug guns imported from art_source/weapons/hug")
+	near(float(data.get("pxPerUnit", 0.0)), float(Art.guns_data()["pxPerUnit"]), 1e-6, "at the held guns' scale")
+	var meta := Art.hug_meta("bazooka", "iron")
+	check(not meta.is_empty(), "the iron bazooka's hug art")
+	var img := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("bazooka", "iron")))
+	check(img != null and Vector2(img.get_size()) == meta["size"], "hug_iron.png at its size")
+	if img != null:
+		var used: Rect2i = load("res://tools/import_hug_guns.gd").tube_points(img)["rect"]
+		near(meta["pivot"].x, used.get_center().x, 1.0, "hold: the middle of the gun")
+		check(meta["pivot"].y > used.position.y + used.size.y * 0.3 and meta["pivot"].y < used.end.y - used.size.y * 0.3, "hold: in the tube's height")
+		near(meta["muzzle"].x, float(used.end.x), 1.0, "muzzle: the warhead's tip")
+		near(meta["muzzle"].y, meta["pivot"].y, 0.01, "muzzle: on the tube's axis")
+		near(float(used.size.x) / 2.0, 57.0, 1.0, "57 world px long")
+		var corner := img.get_pixel(0, 0)
+		check(corner.a == 0.0, "the backdrop keyed out")
+		var green := 0
+		for y in img.get_height():
+			for x in img.get_width():
+				var c := img.get_pixel(x, y)
+				if c.a > 0.1 and c.g > 0.6 and c.g > maxf(c.r, c.b) + 0.3:
+					green += 1
+		eq(green, 0, "no green-screen pixels left")
+	var h := Art.hug_gun("bazooka", "iron")
+	check(h["hug"] and h["tier"] == "iron" and h["texture"] != null, "own tier")
+	h = Art.hug_gun("bazooka", "dragon")
+	check(h["hug"] and h["tier"] == "iron", "another tier's hug art")
+	h = Art.hug_gun("bazooka", Art.GUN_BASIC)
+	check(h["hug"] and h["tier"] == "iron", "no weapon (basic): the iron hug art")
+	h = Art.hug_gun("blaster", "gold")
+	check(not h["hug"] and h["kind"] == "blaster" and h["tier"] == "gold", "no hug art: the gun sprite")
+	eq(h["pivot"], h["size"] * 0.5, "turned round its centre, not the grip")
+	eq(Art.pose_gun_meta(Art.hug_gun_path("bazooka", "iron")), meta, "a hug picture's meta")
+	eq(Art.pose_gun_meta(Art.gun_path("cannon", "iron"))["pivot"], Art.hug_gun("cannon", "iron")["size"] * 0.5, "a gun sprite's: its centre")
+	eq(Art.pose_gun_meta("res://assets/icons/coin.png"), {}, "any other picture")
+	check(Art.all_paths().has(Art.HUG_DATA) and Art.all_paths().has(Art.hug_gun_path("bazooka", "iron")), "listed")
+	# WYSIWYG: the Preview's own gun drawn as the Preview; another one with its pivot there, as long.
+	var pose := {"preview": Transform2D(0.3, Vector2(2.0, 3.0), 0.0, Vector2(5, -7)) * Transform2D(0.0, Vector2(-10, -4)),
+		"pivot": Vector2(10, 4), "length": 40.0}
+	var own := {"pivot": Vector2(10, 4), "size": Vector2(40, 8)}
+	check(Art.gun_transform(pose, own).is_equal_approx(pose["preview"]), "the Preview's gun as shown")
+	var other := {"pivot": Vector2(5, 5), "size": Vector2(20, 10)}
+	var xf := Art.gun_transform(pose, other)
+	check((xf * Vector2(5, 5)).is_equal_approx(pose["preview"] * Vector2(10, 4)), "pivot on the Preview gun's pivot")
+	near((xf * Vector2(20, 5) - xf * Vector2(0, 5)).length(), (pose["preview"] * Vector2(40, 4) - pose["preview"] * Vector2(0, 4)).length(), 1e-3, "as long")
+
+
+## tools/import_frames.gd key_background() on a tiny green-screen picture: the corner colour is the
+## key; the backdrop goes (an enclosed pure-green hole too), the dark figure stays with no green rim,
+## an enclosed greenish highlight stays as it is; clean() then drops a detached sparkle.
+func test_key_background() -> void:
+	var I := load("res://tools/import_frames.gd")
+	var key := Color8(58, 243, 41)
+	var img := Image.create(40, 30, false, Image.FORMAT_RGBA8)
+	img.fill(key)
+	img.set_pixel(39, 29, Color8(62, 240, 44)) # backdrop noise
+	img.fill_rect(Rect2i(4, 4, 20, 20), Color8(20, 20, 24)) # the figure (its outline colour)
+	for y in range(4, 24):
+		img.set_pixel(3, y, Color8(39, 131, 33)) # half outline, half backdrop
+	img.fill_rect(Rect2i(8, 8, 6, 6), key) # an enclosed backdrop hole (36 px)
+	img.fill_rect(Rect2i(16, 16, 3, 3), Color8(120, 150, 80)) # the art's own green
+	img.fill_rect(Rect2i(32, 22, 2, 2), Color8(100, 248, 90)) # a light sparkle on the backdrop
+	eq(I.corner_colour(img, 4).to_html(false), key.to_html(false), "the key: the corners' colour")
+	var cleared: int = I.key_background(img, {"key": "corners", "corner": 4, "tolerance": 45, "soft": 45, "holeMin": 20, "spill": 2})
+	check(cleared > 40 * 30 - 20 * 20 - 30, "the backdrop cleared (%d px)" % cleared)
+	near(img.get_pixel(0, 0).a, 0.0, 1e-6, "backdrop")
+	near(img.get_pixel(39, 29).a, 0.0, 1e-6, "backdrop noise")
+	near(img.get_pixel(10, 10).a, 0.0, 1e-6, "the enclosed hole")
+	eq(img.get_pixel(5, 5), Color8(20, 20, 24), "the figure stays")
+	eq(img.get_pixel(17, 17), Color8(120, 150, 80), "the art's own green stays")
+	var rim := img.get_pixel(3, 10)
+	check(rim.a > 0.5 and rim.g <= maxf(rim.r, rim.b) + 1e-6, "the half-backdrop rim kept, despilled (%s)" % rim)
+	var spark := img.get_pixel(32, 22)
+	check(spark.a > 0.0 and spark.a < 1.0, "the sparkle half keyed (%f)" % spark.a)
+	I.clean(img, {"alphaCut": 24, "keepPieces": 0.02, "defringe": {"band": 0}})
+	near(img.get_pixel(32, 22).a, 0.0, 1e-6, "clean(): the detached sparkle dropped")
+	eq(img.get_pixel(5, 5), Color8(20, 20, 24), "clean(): the figure stays")
+
+
+## tools/import_hug_guns.gd -- <kind>_<tier> ...: which pictures, the name split and the tube's
+## hold / muzzle.
+func test_import_hug_guns_arguments() -> void:
+	var H := load("res://tools/import_hug_guns.gd")
+	var dir := "res://art_source/weapons/hug/"
+	eq(H.split_name("bazooka_iron"), {"kind": "bazooka", "tier": "iron"}, "kind_tier")
+	eq(H.split_name("shock_rifle_dragon"), {"kind": "shock_rifle", "tier": "dragon"}, "a kind with an underscore")
+	eq(H.split_name("blaster_gold"), {"kind": "blaster", "tier": "gold"}, "a crafted tier")
+	eq(H.split_name("bazooka_gold"), {}, "not one of the kind's tiers")
+	eq(H.split_name("ray_iron"), {}, "unknown kind")
+	eq(H.split_name("bazooka"), {}, "no tier")
+	var all: Dictionary = H.sources_for([], dir)
+	check(all["guns"].has({"kind": "bazooka", "tier": "iron", "name": "bazooka_iron"}), "no argument: every picture")
+	eq(all["unknown"], [], "no argument: nothing unknown")
+	eq(H.sources_for(["bazooka_iron.png"], dir), {"guns": [{"kind": "bazooka", "tier": "iron", "name": "bazooka_iron"}], "unknown": []}, "a name")
+	eq(H.sources_for(["cannon_iron", "nope"], dir)["unknown"], ["cannon_iron", "nope"], "no picture / not a gun")
+	# A tube 30 px long, 6 px thick, with a sight on top: the hold is the tube's middle.
+	var img := Image.create(40, 20, false, Image.FORMAT_RGBA8)
+	img.fill_rect(Rect2i(5, 8, 30, 6), Color.WHITE)
+	img.fill_rect(Rect2i(24, 4, 4, 4), Color.WHITE)
+	var tp: Dictionary = H.tube_points(img)
+	eq(tp["rect"], Rect2i(5, 4, 30, 10), "the gun's bounds")
+	eq(tp["hold"], Vector2(20, 11), "hold: the middle, at the tube's height (not lifted by the sight)")
+	eq(tp["muzzle"], Vector2(35, 11), "muzzle: the right end on the axis")
+	eq(H.tube_points(Image.create(4, 4, false, Image.FORMAT_RGBA8)), {}, "empty")
 
 
 ## tools/import_frames.gd -- <character_id> | <config.json>: which configs, the frame pattern and

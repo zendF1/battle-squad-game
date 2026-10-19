@@ -295,95 +295,129 @@ func test_drawn_draw_frames() -> void:
 		DirAccess.remove_absolute(d)
 
 
-## Rookie's drawn ready pose: side.json draw = ready_0 (the kneeling pose), fire = it with the
-## recoil, gunDraw all 0 s; its gun is placed in scenes/character/poses/rookie_ready.tscn.
+## Rookie's drawn ready pose: side.json draw = ready_0 (kneeling, the fists together on the chest,
+## no gun), fire = it with the recoil, gunDraw all 0 s; the hug gun is placed in
+## scenes/character/poses/rookie_ready.tscn. No hand cut-outs.
 func test_rookie_ready_pose_assets() -> void:
 	var Art := preload("res://ui/art.gd")
 	var dir := Art.side_dir("rookie")
 	check(FileAccess.file_exists(dir + "ready_0.png"), "ready_0.png")
-	check(FileAccess.file_exists(dir + "ready_hand_front.png") and FileAccess.file_exists(dir + "ready_hand_back.png"), "the hand PNGs")
+	check(not FileAccess.file_exists(dir + "ready_hand_front.png") and not FileAccess.file_exists(dir + "ready_hand_back.png"), "no hand PNGs")
 	check(ResourceLoader.exists("res://scenes/character/poses/rookie_ready.tscn"), "the pose scene")
 	var look := Art.side_view("rookie")
 	check(bool(look["draw_frames"]) and bool(look["fire_frames"]), "draw and fire frames")
 	eq(look["frames"].get_frame_count("draw"), 1, "one ready frame")
 	eq(look["frames"].get_frame_count("fire"), 3, "three fire frames")
 	eq(look["motions"]["fire"], "recoil", "the fire recoils")
-	eq(look["ready"]["anims"], ["draw", "fire"], "the ready pose's anims")
+	eq(look["ready"], {"anims": ["draw", "fire"], "scene": "res://scenes/character/poses/rookie_ready.tscn"}, "readyPose: anims and scene, no hands")
 	for key in ["drawSec", "fastDrawSec", "holsterSec"]:
 		near(float(look["gun_draw"].get(key, -1.0)), 0.0, 1e-9, "gunDraw %s 0" % key)
 	for anim in ["draw", "fire"]:
 		eq(look["anchors"].get(anim, []).size(), look["frames"].get_frame_count(anim), "%s anchors per frame" % anim)
-	# The scene: one socket (its Preview Rookie's bazooka, grip on the socket's origin), the two
-	# hands; no aim range (the gun snaps to its 7 directions, scenes/character/aim_snap.gd).
+	# The scene: one socket on the hug point, its Preview the iron hug bazooka at the weapons' scale.
 	var rp := Art.ready_pose("rookie")
-	check(rp["socket"] is Transform2D, "a socket")
-	eq(rp["hands"].size(), 2, "two hands")
-	for h in rp["hands"]:
-		check(h["texture"] != null, "%s has its picture" % h["name"])
-	check(not rp.has("aim"), "no aim range: the aim_down / aim_up metadata limits nothing")
+	for key in ["socket", "preview", "pivot", "length"]:
+		check(rp.has(key), "ready_pose %s" % key)
+	check(not rp.has("hands") and not rp.has("aim"), "no hands, no aim range")
+	var meta := Art.hug_meta("bazooka", "iron")
+	eq(rp["pivot"], meta["pivot"], "turned round the hug gun's hold")
+	near(float(rp["length"]), float(meta["size"].x), 1e-6, "the hug gun's length")
 	var root: Node = load("res://scenes/character/poses/rookie_ready.tscn").instantiate()
-	var preview := root.get_node_or_null("GunSocket/Preview") as Sprite2D
-	check(preview != null, "GunSocket/Preview")
-	if preview != null:
-		near(preview.offset.distance_to(-Art.gun("bazooka", "iron")["grip"]), 0.0, 0.01, "the grip on the socket's origin")
-	for kind in Art.GUN_KINDS:
-		check(root.get_node_or_null("GunSocket_" + kind) == null, "no per-kind socket (%s)" % kind)
-	check(root.get_node_or_null("HandFront") is Sprite2D and root.get_node_or_null("HandBack") is Sprite2D, "the hand sprites")
+	var sock: Node2D = root.get_node("GunSocket")
+	var preview: Sprite2D = root.get_node("GunSocket/Preview")
+	check(rp["socket"].is_equal_approx(sock.transform), "the socket as placed")
+	check(rp["preview"].is_equal_approx(preview.transform * Transform2D(0.0, preview.offset)), "the Preview as placed (its offset too)")
 	root.free()
-	# Same ground and body place as idle: the soles' row on the pivot row, the belt over the pivot.
+	# Same ground and body place as idle: the soles' row on the pivot row, one canvas.
 	var idle := Image.load_from_file(ProjectSettings.globalize_path(dir + "idle_0.png"))
 	var ready := Image.load_from_file(ProjectSettings.globalize_path(dir + "ready_0.png"))
 	var pivot: Vector2 = look["pivot"]
 	eq(ready.get_size(), idle.get_size(), "one canvas")
 	near(float(_sole_row(ready)), float(_sole_row(idle)), 1.0, "on the idle's ground")
 	near(float(_sole_row(ready)) + 1.0, pivot.y, 1.0, "soles on the pivot row")
-	# The grip (the front fist) is ahead of the body and at chest height.
+	# As big as standing Rookie: the cap as wide (± 10 %), not as tall.
+	near(float(_widest_top(ready)), float(_widest_top(idle)), _widest_top(idle) * 0.1, "the cap as wide as the idle's")
+	# The hug point (the fallback seat, the socket) between the fists, at chest height.
 	var grip: Vector2 = look["anchors"]["draw"][0]["grip"]
-	check(grip.x > pivot.x + 30.0 and grip.y < pivot.y - 40.0, "the grip in the front fist (%s)" % grip)
+	check(grip.x > pivot.x + 5.0 and grip.y < pivot.y - 40.0, "the hug point on the chest (%s)" % grip)
+	check(ready.get_pixelv(Vector2i(grip.round())).a > 0.9, "on the fists")
+	var green := 0
+	for y in ready.get_height():
+		for x in ready.get_width():
+			var c := ready.get_pixel(x, y)
+			if c.a > 0.1 and c.g > 0.6 and c.g > maxf(c.r, c.b) + 0.3:
+				green += 1
+	eq(green, 0, "no green-screen pixels left")
 
 
-## In the match Rookie switches to the ready pose at once, fires from it and is back to idle
-## (gun away) after the shot or a cancel.
+## In the match Rookie switches to the ready pose at once, hugging the gun over the fists, turned
+## round the hug point to the snapped directions (mirrored to the left), fires from it with a kick
+## back along the gun and is back to idle (gun away) after the shot or a cancel.
 func test_rookie_ready_switches_at_once() -> void:
+	var Art := preload("res://ui/art.gd")
 	var c: Node2D = CharacterScene.instantiate()
 	c.character_id = "rookie"
 	c.holster = true
 	var holder := Node2D.new()
 	holder.add_child(c)
 	c._ready()
+	var flip: Node2D = c.get_node("Flip")
 	var gun: Node2D = c.get_node("Flip/Gun")
-	var over: Node2D = c.get_node("Flip/ReadyHands")
+	var sprite: Sprite2D = c.get_node("Flip/Gun/Sprite")
 	var hand: Sprite2D = c.get_node("Flip/Gun/Hand")
 	var dt := 1.0 / 60.0
+	check(c.get_node_or_null("Flip/ReadyHands") == null, "no ready hands node")
 	eq(c.animation(), "idle", "idle")
-	check(not gun.visible and not over.visible, "no gun, no hands over it")
+	check(not gun.visible, "no gun")
 	c.draw_gun()
 	eq(c.gun_state(), "aiming", "drawn at once: no drawing state")
 	eq(c.animation(), "draw", "the ready frame")
-	check(gun.visible and is_equal_approx(gun.modulate.a, 1.0) and is_equal_approx(gun.scale.x, 1.0), "the gun out at full size")
-	check(over.visible and over.get_child_count() == 2 and not hand.visible, "the ready hands over the gun, not the grip hand")
-	var rp := preload("res://ui/art.gd").ready_pose("rookie")
+	check(gun.visible and is_equal_approx(gun.modulate.a, 1.0), "the gun out")
+	check(not hand.visible, "no grip hand: the gun covers the fists")
+	eq(gun.get_index(), flip.get_child_count() - 1, "in front of the body")
+	var hug := Art.hug_gun("bazooka", "iron")
+	eq(sprite.texture, hug["texture"], "the iron hug gun (no weapon: the starter's kind)")
+	var rp := Art.ready_pose("rookie")
 	var sock: Transform2D = rp["socket"]
 	check(gun.position.distance_to(sock.origin) < 0.01, "the gun on its socket")
-	check(over.get_index() > gun.get_index(), "the hands drawn on top")
-	var seat_angle: float = rad_to_deg(gun.rotation)
-	c.aim(30.0)
-	near(rad_to_deg(gun.rotation), seat_angle - 45.0, 0.01, "turned with the aim round the grip, snapped to 45")
-	var at_grip := gun.position
+	# WYSIWYG: at level, facing right, drawn exactly as the Preview in the scene.
+	c.aim(0.0)
+	check((flip.transform * gun.transform * sprite.transform).is_equal_approx(sock * rp["preview"]), "drawn as the Preview shows it")
+	var rel: Vector2 = (gun.transform * sprite.transform * hug["muzzle"]) - sock.origin # the muzzle from the hug point at 0°
+	check(rel.x > 50.0 and absf(rel.y) < 1.0, "level: the muzzle ahead, on the hug point's height (%s)" % rel)
+	# 4 directions × 2 sides: the hold stays on the hug point, the muzzle turns round it.
+	for f in [1, -1]:
+		c.facing = f
+		c._apply_motion()
+		for e in [-45.0, 0.0, 45.0, 90.0]:
+			c.aim(e if f > 0 else 180.0 - e)
+			var to_flip := flip.transform * gun.transform * sprite.transform
+			var pivot_at: Vector2 = to_flip * hug["pivot"]
+			var want_pivot := flip.transform * sock.origin
+			check(pivot_at.distance_to(want_pivot) < 0.01, "side %d at %d: the hold on the hug point (%s vs %s)" % [f, e, pivot_at, want_pivot])
+			var want := flip.transform * (sock.origin + rel.rotated(deg_to_rad(-e)))
+			check(c.muzzle_position().distance_to(want) < 0.05, "side %d at %d: the muzzle at %s (%s)" % [f, e, want, c.muzzle_position()])
+			near(rad_to_deg(gun.rotation), -e, 0.01, "side %d at %d: the socket turned" % [f, e])
+			check(to_flip.y.y > 0.0 or e == 90.0, "side %d at %d: not upside down" % [f, e])
+	c.facing = 1
+	c._apply_motion()
 	c.aim(85.0)
-	near(rad_to_deg(gun.rotation), seat_angle - 90.0, 0.01, "85 snaps straight up: the scene's aim_up no longer limits it")
-	eq(gun.position, at_grip, "the pivot stays in the fist")
+	near(rad_to_deg(gun.rotation), -90.0, 0.01, "85 snaps straight up")
 	c.aim(-80.0)
-	near(rad_to_deg(gun.rotation), seat_angle + 45.0, 0.01, "and down to -45, no lower")
+	near(rad_to_deg(gun.rotation), 45.0, 0.01, "and down to -45, no lower")
 	c.aim(10.0)
-	near(rad_to_deg(gun.rotation), seat_angle, 0.01, "10 snaps level")
-	c.aim(30.0)
+	near(rad_to_deg(gun.rotation), 0.0, 0.01, "10 snaps level")
 	var predicted: Vector2 = c.fire_muzzle_position()
 	near(c.shoot(), 0.0, 1e-9, "fires at once")
 	eq(c.gun_state(), "firing", "firing")
 	eq(c.animation(), "fire", "the recoil on the ready frame")
 	check(c.get_node("Flip/Gun/Flash").visible, "muzzle flash")
 	check(c.muzzle_position().distance_to(predicted) < 0.5, "leaves where predicted")
+	near(rad_to_deg(gun.rotation), 0.0, 0.01, "no turn kick: still level")
+	var kick: float = sprite.transform.basis_xform(Vector2(float(hug["size"].x), 0.0)).length() * c.HUG_KICK
+	near(gun.position.x, sock.origin.x - kick, 0.01, "kicked back along the gun by %f" % kick)
+	near(gun.position.y, sock.origin.y, 0.01, "along its axis")
+	check((c.get_node("Flip/Gun/Flash") as Node2D).position.distance_to(sprite.transform * hug["muzzle"]) < 0.01, "the flash at the gun's muzzle")
 	for i in 20:
 		c._process(dt)
 	eq(c.gun_state(), "firing", "held after the recoil")
@@ -391,7 +425,7 @@ func test_rookie_ready_switches_at_once() -> void:
 		c._process(dt)
 	eq(c.gun_state(), "holstered", "away after fireHoldSec")
 	eq(c.animation(), "idle", "back to idle at once")
-	check(not gun.visible and not over.visible, "gun and ready hands gone")
+	check(not gun.visible, "gun gone")
 	# A drag cancelled: back to idle at once.
 	c.draw_gun()
 	c.clear_aim()
@@ -406,18 +440,47 @@ func test_rookie_ready_switches_at_once() -> void:
 	for i in 30:
 		c._process(dt)
 	eq(c.animation(), "idle", "then idle")
-	# Any gun held (Rookie's bazooka in each tier, a blaster) sits on the one socket.
-	for kt in [["bazooka", "basic"], ["bazooka", "iron"], ["bazooka", "dragon"], ["blaster", "gold"]]:
-		var kind: String = kt[0]
-		c.set_weapon(kind, kt[1])
+	# The gun hugged: the weapon's hug art → its kind's in another tier → its gun sprite round its
+	# centre, as long as the Preview's gun, its pivot on the hug point.
+	var drawn := func() -> float: return sprite.transform.basis_xform(Vector2(sprite.texture.get_width(), 0.0)).length()
+	var preview_xf: Transform2D = sock * rp["preview"]
+	var hug_len := preview_xf.basis_xform(Vector2(float(rp["length"]), 0.0)).length()
+	for kt in [["bazooka", "basic"], ["bazooka", "iron"], ["bazooka", "dragon"], ["blaster", "gold"], ["", ""]]:
+		c.set_weapon(kt[0], kt[1])
+		c._apply_gun() # out of the tree: set_weapon() only stores it
 		c.draw_gun()
 		c.aim(0.0)
-		check(gun.position.distance_to(sock.origin) < 0.01, "%s %s on the socket" % kt)
+		var want := Art.hug_gun(kt[0] if kt[0] != "" else "bazooka", kt[1] if kt[1] != "" else Art.GUN_BASIC)
+		eq(sprite.texture, want["texture"], "%s %s: its pose gun" % kt)
+		check(kt[0] == "blaster" or want["hug"], "%s %s: hug art" % kt)
+		near(drawn.call(), hug_len, 0.05, "%s %s: as long as the Preview's gun" % kt)
+		check((gun.transform * sprite.transform * want["pivot"]).distance_to(sock.origin) < 0.01, "%s %s: its pivot on the hug point" % kt)
 		var m: Vector2 = c.muzzle_position()
-		check(m.x > gun.global_position.x + 10.0, "%s: the muzzle ahead of the grip" % kind)
-		check(absf(rad_to_deg(gun.global_rotation)) < 10.0 and m.y < gun.global_position.y, "%s: level at 0 degrees, the barrel over the grip" % kind)
+		check(m.x > gun.global_position.x + 10.0, "%s %s: the muzzle ahead" % kt)
 		c.clear_aim()
+	c.set_weapon("blaster", "gold")
+	c._apply_gun()
+	c.draw_gun()
+	eq(sprite.texture, Art.gun("blaster", "gold")["texture"], "no blaster hug art: the blaster sprite")
+	c.clear_aim()
+	check(not gun.visible, "put away")
 	holder.free()
+
+
+## The widest row in the top fifth of the figure (the cap's brim), px.
+func _widest_top(img: Image) -> int:
+	var used := img.get_used_rect()
+	var best := 0
+	for y in range(used.position.y, used.position.y + used.size.y / 5):
+		var x0 := -1
+		var x1 := -1
+		for x in img.get_width():
+			if img.get_pixel(x, y).a > 0.5:
+				if x0 < 0:
+					x0 = x
+				x1 = x
+		best = maxi(best, x1 - x0 + 1 if x0 >= 0 else 0)
+	return best
 
 
 ## The lowest row with a mostly opaque pixel (the soles).

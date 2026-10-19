@@ -1,0 +1,11 @@
+{
+	"_doc": "tools/import_hug_guns.gd reads this: every <kind>_<tier>.png here (the gun alone, horizontal, muzzle RIGHT, no hand grips, flat green backdrop) → assets/weapons/<kind>/hug_<tier>.png + assets/weapons/hug.json. length: world px long in the match (57: about 1.5 × Rookie's kneeling body width); per gun (guns.<kind>_<tier>) length, hold [x, y] and muzzle [x, y] (source px) may be set. See the tool's header and assets/README.md.",
+	"length": 57,
+	"texPxPerWorldPx": 2.0,
+	"worldPxPerUnit": 0.35,
+	"pad": 2,
+	"background": {"key": "corners", "corner": 8, "tolerance": 45, "soft": 45, "holeMin": 200, "spill": 3},
+	"alphaCut": 24,
+	"keepPieces": 0.02,
+	"guns": {}
+}

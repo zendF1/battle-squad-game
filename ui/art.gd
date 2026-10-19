@@ -79,6 +79,11 @@ const CHARACTER_GUNS := {"rookie": "bazooka", "tanko": "cannon", "spark": "shock
 ## The last fallback: Rookie's starter bazooka.
 const DEFAULT_GUN_KIND := "bazooka"
 const GUNS_DATA := ROOT + "weapons/weapons.json"
+## The hug guns: the big guns a drawn ready pose hugs against the chest (hug_gun()):
+## assets/weapons/<kind>/hug_<tier>.png, horizontal, muzzle right, no hand grips (made by
+## tools/import_hug_guns.gd); hug.json gives each one's size, hold point (where the pose turns it)
+## and muzzle (px in the image).
+const HUG_DATA := ROOT + "weapons/hug.json"
 
 # ── Icons (96x96, drawn shapes) ─────────────────────────────────────────────
 
@@ -173,6 +178,7 @@ const UI_BOXES := {
 static var _warned := {}
 static var _textures := {} # path -> Texture2D
 static var _guns_data: Variant = null # parsed weapons.json ({} when missing)
+static var _hug_data: Variant = null # parsed hug.json ({} when missing)
 static var _looks := {} # character id -> character_look()
 static var _sides := {} # side view dir -> parse_side() ({} = none)
 static var _ready_poses := {} # character id -> ready_pose()
@@ -208,6 +214,10 @@ static func full_json_path(id: String) -> String:
 
 static func gun_path(kind: String, tier: String) -> String:
 	return ROOT + "weapons/%s/%s.png" % [kind, tier]
+
+
+static func hug_gun_path(kind: String, tier: String) -> String:
+	return ROOT + "weapons/%s/hug_%s.png" % [kind, tier]
 
 
 static func gun_anchors_path(id: String) -> String:
@@ -265,7 +275,7 @@ static func ui_path(box_name: String) -> String:
 
 ## Every file this script names (the test checks they all exist).
 static func all_paths() -> Array[String]:
-	var out: Array[String] = [SHADOW, HAND, GUNS_DATA, FULL_ANIMS]
+	var out: Array[String] = [SHADOW, HAND, GUNS_DATA, HUG_DATA, FULL_ANIMS]
 	for id in CHARACTERS:
 		out.append(portrait_path(id))
 		if has_side_view(id):
@@ -305,6 +315,8 @@ static func all_paths() -> Array[String]:
 	for kind in GUN_KINDS:
 		for tier in GUN_TIERS[kind]:
 			out.append(gun_path(kind, tier))
+			if not hug_meta(kind, tier).is_empty():
+				out.append(hug_gun_path(kind, tier))
 	return out
 
 
@@ -441,8 +453,8 @@ static func character_frames(id: String) -> SpriteFrames:
 ## figure, texture px), extent {back, front, top} (texture px from the pivot), motions {anim:
 ## SIDE_MOTIONS name}, anchors {anim: [gun anchor...]} (texture px), hand (Texture2D drawn over
 ## the gun's grip, null: HAND), hand_scale, draw_frames (frames has DRAW_ANIM), fire_frames (and
-## FIRE_ANIM), ready (side.json "readyPose": {anims, hands {name: {texture, center}}, scene}; {}
-## without: see ready_pose()), gun_draw (side.json "gunDraw": gun_draw.gd TIMINGS overrides)}.
+## FIRE_ANIM), ready (side.json "readyPose": {anims, scene}; {} without: see ready_pose()),
+## gun_draw (side.json "gunDraw": gun_draw.gd TIMINGS overrides)}.
 ## Order: side view → baked frames → rookie's → empty.
 static func character_look(id: String) -> Dictionary:
 	id = known_character(id)
@@ -548,22 +560,16 @@ static func parse_side(dir: String) -> Dictionary:
 				frames.add_frame(anim, tex)
 			var motion := str(spec.get("motion", ""))
 			motions[anim] = motion if SIDE_MOTIONS.has(motion) else ""
-	# "readyPose": the drawn ready pose's anims, its hands (drawn over the gun) and the scene the
-	# gun is placed in by hand (ready_pose()).
+	# "readyPose": the drawn ready pose's anims and the scene its hug gun is placed in by hand
+	# (ready_pose()).
 	var ready := {}
 	var rp = data.get("readyPose")
 	if rp is Dictionary and frames.has_animation(DRAW_ANIM):
-		var hands := {}
-		if rp.get("hands") is Dictionary:
-			for hname in rp["hands"]:
-				var h = rp["hands"][hname]
-				if h is Dictionary and h.get("center") is Array:
-					hands[str(hname)] = {"texture": _png_texture(dir + str(h.get("stem", "")) + ".png"), "center": _vec2(h["center"])}
 		var ra: Array = []
 		for anim in rp.get("anims", []):
 			if frames.has_animation(str(anim)):
 				ra.append(str(anim))
-		ready = {"anims": ra, "hands": hands, "scene": str(rp.get("scene", ""))}
+		ready = {"anims": ra, "scene": str(rp.get("scene", ""))}
 	var scale := PX_PER_UNIT / ppu
 	var ext = data.get("extent", {})
 	var height := float(data.get("height", 0.0))
@@ -592,12 +598,6 @@ static func side_paths(id: String) -> Array[String]:
 					out.append(dir + str(stem) + ".png")
 	if str(data.get("hand", "")) != "":
 		out.append(dir + str(data["hand"]))
-	var rp = data.get("readyPose")
-	if rp is Dictionary and rp.get("hands") is Dictionary:
-		for hname in rp["hands"]:
-			var h = rp["hands"][hname]
-			if h is Dictionary and str(h.get("stem", "")) != "":
-				out.append(dir + str(h["stem"]) + ".png")
 	return out
 
 
@@ -772,20 +772,79 @@ static func _parse_anchors(path: String) -> Dictionary:
 	return out
 
 
-## How a character's drawn ready pose holds the gun (look["ready"], side.json "readyPose"), in the
+## The gun a drawn ready pose hugs (character.gd, the pose scenes): {kind, tier, texture, path,
+## pivot (where the pose turns it: a hug gun's hold point, an old gun sprite's centre), muzzle,
+## size (px in the texture), hug (true: hug art)}. Order: the kind's hug art in that tier → in its
+## other tiers (iron first, then GUN_TIERS order) → the held gun sprite of gun(kind, tier)
+## pivoted at its own centre (not the grip). Hug art not imported yet is read from the PNG.
+static func hug_gun(kind: String, tier: String) -> Dictionary:
+	var tiers: Array = [tier, "iron"]
+	for t in GUN_TIERS.get(kind, []):
+		if not tiers.has(t):
+			tiers.append(t)
+	for t in tiers:
+		var meta := hug_meta(kind, str(t))
+		if meta.is_empty() or not FileAccess.file_exists(hug_gun_path(kind, str(t))):
+			continue
+		var tex := _png_texture(hug_gun_path(kind, str(t)))
+		if tex == null:
+			continue
+		meta.merge({"kind": kind, "tier": str(t), "texture": tex, "path": hug_gun_path(kind, str(t)), "hug": true}, true)
+		return meta
+	var g := gun(kind, tier)
+	var size: Vector2 = g["texture"].get_size()
+	return {"kind": g["kind"], "tier": g["tier"], "texture": g["texture"], "path": gun_path(g["kind"], g["tier"]),
+		"pivot": size * 0.5, "muzzle": g["muzzle"], "size": size, "hug": false}
+
+
+## hug.json's entry of a hug gun: {pivot (its hold), muzzle, size} (Vector2 px), {} when it has none.
+static func hug_meta(kind: String, tier: String) -> Dictionary:
+	var guns = hug_data().get("guns")
+	var e = guns.get(kind, {}).get(tier) if guns is Dictionary and guns.get(kind) is Dictionary else null
+	if not e is Dictionary or not e.get("hold") is Array or not e.get("muzzle") is Array or not e.get("size") is Array:
+		return {}
+	return {"pivot": _vec2(e["hold"]), "muzzle": _vec2(e["muzzle"]), "size": _vec2(e["size"])}
+
+
+## hug.json parsed ({} when missing or invalid).
+static func hug_data() -> Dictionary:
+	if _hug_data == null:
+		_hug_data = _load_json(HUG_DATA) if FileAccess.file_exists(HUG_DATA) else {}
+	return _hug_data
+
+
+## The pose gun a texture path is (a hug gun hug_<tier>.png or a held gun <tier>.png under
+## weapons/<kind>/): hug_gun()'s {pivot, muzzle, size}; {} for any other path.
+static func pose_gun_meta(path: String) -> Dictionary:
+	var rel := path.trim_prefix(ROOT + "weapons/")
+	if rel == path or rel.get_slice_count("/") != 2 or rel.get_extension() != "png":
+		return {}
+	var kind := rel.get_slice("/", 0)
+	var stem := rel.get_slice("/", 1).get_basename()
+	if stem.begins_with("hug_"):
+		return hug_meta(kind, stem.trim_prefix("hug_"))
+	var g := gun_meta(kind, stem)
+	if g.is_empty() or not guns_data().get("guns", {}).get(kind, {}).get(stem, {}).get("size") is Array:
+		return {}
+	var size := _vec2(guns_data()["guns"][kind][stem]["size"])
+	return {"pivot": size * 0.5, "muzzle": g["muzzle"], "size": size}
+
+
+## How a character's drawn ready pose holds its gun (look["ready"], side.json "readyPose"), in the
 ## character's Flip coordinates (the feet at 0, facing right; scenes/character/character.gd):
-## {anims (the ready pose's animations), socket (Transform2D: where the held gun's grip sits and
-## its turn / size, whatever gun the character holds: the gun sprite is drawn at the gun's scale
-## with its grip on the socket), hands [{name, texture, transform}] (drawn over the gun)}; {} when
-## the character has no ready pose. The gun turns on it to the 7 aim directions like everywhere
-## (scenes/character/aim_snap.gd). Placed by hand in the character's pose scene (side.json
-## readyPose.scene: scenes/character/poses/<id>_ready.tscn; assets/README.md): one GunSocket (Node2D, its Preview
-## child the character's gun) and Hand* (Sprite2D). The root's old metadata aim_down / aim_up is
-## no longer read: nothing limits the turn but the snap.
-## Without the scene (or a node, or a Hand* with no picture): the gun anchors' grip, level, and the
-## hands where they were drawn. Every character has its scene (Tanko, Spark, Flora before their
-## side view: its Body shows the baked idle frame, scenes/character/poses/pose_body.gd); it is used
-## once the character's side.json has a readyPose (tools/import_frames.gd -- <id>).
+## {anims (the ready pose's animations), socket (Transform2D: the GunSocket, its origin the hug
+## point the gun turns round, its turn / size), preview (Transform2D: the Preview's texture px →
+## socket space, its offset included), pivot (the point of the Preview's gun that the pose turns
+## round, texture px), length (that gun's length, px)}; {} when the character has no ready pose.
+## WYSIWYG: gun_transform() draws any gun exactly as the Preview shows its own. Placed by hand in
+## the character's pose scene (side.json readyPose.scene: scenes/character/poses/<id>_ready.tscn;
+## assets/README.md): root → Body (the ready frame) → GunSocket (Node2D) → Preview (Sprite2D, the
+## hug gun at 0°, horizontal, facing right); a Preview with no picture yet (pose_gun.gd: the hug
+## art not imported yet) stands for its kind / tier's hug_gun(). Without the scene (or a node): the
+## gun anchors' hug point, the character's iron hug gun at the weapons' scale, level. Every
+## character has its scene (Tanko, Spark, Flora before their side view: its Body shows the baked
+## idle frame, scenes/character/poses/pose_body.gd); it is used once the character's side.json has
+## a readyPose (tools/import_frames.gd -- <id>).
 static func ready_pose(id: String) -> Dictionary:
 	id = known_character(id)
 	if _ready_poses.has(id):
@@ -800,11 +859,13 @@ static func ready_pose(id: String) -> Dictionary:
 	var pivot: Vector2 = look["pivot"]
 	var anims: Array = rp["anims"]
 	var grip: Vector2 = gun_anchor(id, str(anims[0]) if not anims.is_empty() else DRAW_ANIM, 0)["grip"]
+	var kind := str(CHARACTER_GUNS.get(id, DEFAULT_GUN_KIND))
+	var own := hug_gun(kind, "iron")
+	var gs := float(gun(kind, GUN_BASIC)["scale"])
 	var socket := Transform2D(0.0, (grip - pivot) * k)
-	var hands: Array = []
-	for hname in rp["hands"]:
-		var h: Dictionary = rp["hands"][hname]
-		hands.append({"name": hname, "texture": h["texture"], "transform": Transform2D(0.0, Vector2(k, k), 0.0, (h["center"] - pivot) * k)})
+	var preview := Transform2D(0.0, Vector2(gs, gs), 0.0, Vector2.ZERO) * Transform2D(0.0, -own["pivot"])
+	var gun_pivot: Vector2 = own["pivot"]
+	var length := float(own["size"].x)
 	var path := str(rp.get("scene", ""))
 	if path != "" and ResourceLoader.exists(path):
 		var ps = load(path)
@@ -813,21 +874,36 @@ static func ready_pose(id: String) -> Dictionary:
 			var sock := root.get_node_or_null("GunSocket") as Node2D
 			if sock != null:
 				socket = sock.transform
-				var preview := sock.get_node_or_null("Preview") as Node2D
-				if preview != null: # a Preview moved inside its socket counts too
-					var gs := float(gun(str(CHARACTER_GUNS.get(id, DEFAULT_GUN_KIND)), GUN_BASIC)["scale"])
-					socket = socket * preview.transform * Transform2D(0.0, Vector2(gs, gs), 0.0, Vector2.ZERO).affine_inverse()
-			for h in hands: # a Hand* sprite with no picture yet is not placed: the drawn place
-				var node := root.get_node_or_null(str(h["name"])) as Sprite2D
-				if node != null and node.texture != null:
-					h["transform"] = node.transform
-					h["texture"] = node.texture
+				var pv := sock.get_node_or_null("Preview") as Sprite2D
+				if pv != null:
+					var meta := {}
+					if pv.texture != null:
+						meta = pose_gun_meta(pv.texture.resource_path)
+						if meta.is_empty(): # some other picture: turned round its offset point
+							meta = {"pivot": -pv.offset, "size": pv.texture.get_size()}
+					else: # not imported yet (pose_gun.gd): its kind / tier's hug gun
+						var stand := hug_gun(str(pv.get("kind")) if pv.get("kind") != null else kind, str(pv.get("tier")) if pv.get("tier") != null else "iron")
+						meta = {"pivot": stand["pivot"], "size": stand["size"]}
+					var corner := Vector2.ZERO
+					if pv.centered and pv.texture != null:
+						corner = -pv.texture.get_size() * 0.5
+					preview = pv.transform * Transform2D(0.0, pv.offset + corner)
+					gun_pivot = meta["pivot"]
+					length = float(meta["size"].x)
 		elif root == null:
 			push_warning("art: %s is not a scene, the ready pose uses its defaults" % path)
 		if root != null:
 			root.free()
-	out.merge({"anims": anims, "socket": socket, "hands": hands})
+	out.merge({"anims": anims, "socket": socket, "preview": preview, "pivot": gun_pivot, "length": maxf(1.0, length)})
 	return out
+
+
+## The ready pose's (ready_pose()) gun g (hug_gun()) in socket space: texture px → socket px. The
+## Preview's own gun is drawn exactly as the Preview shows it; any other is scaled to the same
+## length with its pivot on the Preview gun's pivot.
+static func gun_transform(pose: Dictionary, g: Dictionary) -> Transform2D:
+	var r := float(pose["length"]) / maxf(1.0, float(g["size"].x))
+	return pose["preview"] * Transform2D(0.0, Vector2(r, r), 0.0, pose["pivot"]) * Transform2D(0.0, -g["pivot"])
 
 
 ## The anchor of frame i of anim (the last frame's when i is past the end; a fixed hold in

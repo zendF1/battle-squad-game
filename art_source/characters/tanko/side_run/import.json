@@ -97,17 +97,12 @@
 			"loop": false
 		},
 		"fire": {
-			"_doc": "the shot from the ready pose: its frame with the recoil",
+			"_doc": "the shot from the ready pose: its frame with the recoil (the hugged gun kicks back along its axis by the flash)",
 			"frames": "draw",
 			"count": 3,
 			"fps": 9,
 			"loop": false,
 			"motion": "recoil",
-			"angle": [
-				-10,
-				-4,
-				-1
-			],
 			"flash": [
 				1,
 				0.35,
@@ -133,35 +128,23 @@
 	},
 	"poses": {
 		"ready": {
-			"_doc": "pose px: kneeling / ready to shoot, facing right, empty hands (the gun is placed by hand in `scene`). background: a checkerboard drawn into the pixels is removed. scale: source px per pose px (Rookie's 0.285 for a 2048 px pose next to 1280x720 run frames: the face as wide as in the run frames). Without alignX the pose's middle sits on the hips; without hands the hands stay in the body (under the gun); without gun the fallback seat is the pose's middle.",
+			"_doc": "pose px: kneeling, facing right, both fists together in front of the chest, NO gun, on a flat green backdrop (keyed out: `background`; small detached pieces such as an AI sparkle go, keepPieces). scale: source px per pose px (Rookie's 0.555 for an 882x1024 pose next to 1280x720 run frames: the cap and the head as wide as in the run frames). Without alignX the pose's middle sits on the hips; set gun.grip [x, y] (pose px) to the middle of the fists: the hug point (else the pose's middle). The hug gun is placed by hand in `scene`.",
 			"src": "../side_ready/ready_v1.png",
-			"workScale": 0.5,
+			"workScale": 1.0,
 			"background": {
-				"minLum": 200,
-				"maxChroma": 24,
-				"tones": [
-					[
-						230,
-						244
-					],
-					[
-						248,
-						255
-					]
-				],
-				"holeMin": 100,
-				"holeTones": 0.15
+				"key": "corners",
+				"corner": 8,
+				"tolerance": 45,
+				"soft": 45,
+				"holeMin": 200,
+				"spill": 3
 			},
+			"alphaCut": 24,
+			"keepPieces": 0.02,
 			"defringe": {
-				"band": 2,
-				"outline": [
-					24,
-					22,
-					30
-				],
-				"maxChroma": 56
+				"band": 0
 			},
-			"scale": 0.285,
+			"scale": 0.555,
 			"scene": "res://scenes/character/poses/tanko_ready.tscn"
 		}
 	}
