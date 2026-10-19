@@ -9,7 +9,7 @@ extends RefCounted
 ##   limit is used up (GET /shop/purchases);
 ## - base stats (máu, phòng thủ, sát thương vũ khí, năng lượng di chuyển): `baseStats` of GET
 ##   /player/characters, which the server sends for every character, owned or not;
-## - what no API sends (the weapon's explosion radius and wind, the skill's numbers): WEAPONS and
+## - what no API sends (the weapon's explosion radius, crater and wind, the skill's numbers): WEAPONS and
 ##   SKILL_INFO below, copied from the server's configs/weapons.yaml, configs/skills.yaml and
 ##   internal/game/match (match.go shootSkill / endTurn, status_effect.go). Keep them in step.
 
@@ -46,40 +46,47 @@ const TINTS := {
 const NEUTRAL_TINT := Color(0.35, 0.45, 0.7)
 
 ## The starter weapon of each character (server configs/characters.yaml weaponId →
-## configs/weapons.yaml): explosion radius (px) and how much the wind pushes the shot
-## (windInfluence / projectileWeight, server match/shooting.go).
+## configs/weapons.yaml): explosion radius (px, the damage area), terrain damage (the crater:
+## radius terrainDamage × CRATER_PX_PER_TERRAIN_DAMAGE, server match/damage.go) and how much the
+## wind pushes the shot (windInfluence / projectileWeight, server match/shooting.go).
 const WEAPONS := {
-	"rookie": {"weaponId": "basic_rocket", "explosionRadius": 40, "windInfluence": 1.0, "projectileWeight": 1.0},
-	"tanko": {"weaponId": "cannon_ball", "explosionRadius": 50, "windInfluence": 0.5, "projectileWeight": 1.5},
-	"spark": {"weaponId": "electric_orb", "explosionRadius": 35, "windInfluence": 1.2, "projectileWeight": 0.8},
-	"flora": {"weaponId": "seed_bomb", "explosionRadius": 40, "windInfluence": 1.0, "projectileWeight": 0.9},
+	"rookie": {"weaponId": "basic_rocket", "explosionRadius": 40, "terrainDamage": 50, "windInfluence": 1.0, "projectileWeight": 1.0},
+	"tanko": {"weaponId": "cannon_ball", "explosionRadius": 60, "terrainDamage": 130, "windInfluence": 0.5, "projectileWeight": 1.5},
+	"spark": {"weaponId": "electric_orb", "explosionRadius": 30, "terrainDamage": 25, "windInfluence": 1.3, "projectileWeight": 0.8},
+	"flora": {"weaponId": "seed_bomb", "explosionRadius": 40, "terrainDamage": 30, "windInfluence": 1.0, "projectileWeight": 0.9},
 }
+
+## Server match.craterPxPerTerrainDamage: crater radius (px) per point of weapon terrain damage.
+const CRATER_PX_PER_TERRAIN_DAMAGE := 0.8
 
 ## The skill's effect in words, with the server's numbers (configs/skills.yaml damageMultiplier;
-## match.go: triple_shot ±10°, heavy_bomb radius ×1.5, healing_bloom 450 HP; status_effect.go:
-## the net caps the move energy at 50 for one turn).
+## match.go: triple_shot ±10°, heavy_bomb blast ×2 and crater ×2.5, healing_bloom 650 HP;
+## status_effect.go: the net caps the move energy at 50 for one turn).
 const SKILL_INFO := {
 	"rookie": "Bắn 3 quả rocket một lúc, lệch nhau 10°, mỗi quả 125% sát thương.",
-	"tanko": "Một quả bom lớn: 130% sát thương, vụ nổ rộng gấp 1,5 lần.",
-	"spark": "Quả cầu điện 90% sát thương; trúng địch thì trùm lưới: lượt sau địch chỉ còn tối đa 50 năng lượng di chuyển.",
-	"flora": "Không cần ngắm: hồi ngay 450 máu cho bản thân (tăng theo sức mạnh kỹ năng), rồi hết lượt.",
+	"tanko": "Một quả bom khoét đất: 110% sát thương, vụ nổ rộng gấp 2 lần và hố to gấp 2,5 lần. Địch trúng giữa hố rơi xuống đáy và mất thêm máu vì cú rơi.",
+	"spark": "Quả cầu điện 130% sát thương; trúng địch thì trùm lưới: lượt sau địch chỉ còn tối đa 50 năng lượng di chuyển.",
+	"flora": "Không cần ngắm: hồi ngay 650 máu cho bản thân (tăng theo sức mạnh kỹ năng), rồi hết lượt.",
 }
 
-## "Lối chơi", written from the numbers above and the base stats.
+## "Lối chơi": what the character is good at, how to play it and its weakness (no numbers: the
+## stat rows show them).
 const PLAYSTYLE := {
-	"rookie": "Toàn diện và dễ chơi nhất: 1.500 máu, bazooka 480 sát thương, nổ rộng 40 và chịu gió bình thường. Hợp để tập căn góc và lực; khi đầy năng lượng, Bắn 3 tia phủ rộng cả vùng, khó né và dễ kết liễu đối thủ.",
-	"tanko": "Trâu và đánh đau nhất: 1.950 máu, 80 phòng thủ, đại pháo 600 sát thương nổ rộng 50. Đạn nặng nên gió chỉ đẩy bằng 1/3 bình thường, vẫn bắn chuẩn khi trời gió lớn. Đứng vững ở tuyến đầu và để dành Bom lớn cho mục tiêu đứng sát nhau.",
-	"spark": "Mỏng máu nhất (1.350 máu, 40 phòng thủ) nhưng giỏi khống chế. Đạn điện nhẹ, bị gió đẩy mạnh nhất (gấp 1,5 lần) nên cần tính gió kỹ. Dùng Lưới điện lên đối thủ nguy hiểm để họ không chạy thoát hay tìm được chỗ nấp ở lượt sau.",
-	"flora": "Bền bỉ nhờ hồi máu: 1.425 máu và súng hạt 360 sát thương, nổ rộng 40. Sát thương thấp nhất nên hãy bắn chắc tay, tránh đấu máu sớm. Khi đầy năng lượng, Hồi máu trả lại 450 máu ngay lập tức để lật kèo trận dài.",
+	"rookie": "Không nổi bật hẳn mặt nào nhưng cũng chẳng có điểm yếu rõ ràng: máu, sát thương và tầm di chuyển đều vừa phải, đạn chịu gió bình thường. Hợp để tập căn góc và lực; khi đầy năng lượng, Bắn 3 tia phủ rộng một vùng, khó né và dễ kết liễu đối thủ. Đổi lại, Rookie đánh không đau bằng Spark và không lì bằng Flora.",
+	"tanko": "Chuyên phá địa hình: đại pháo khoét hố sâu hơn hẳn mọi người, phá chỗ nấp và đào đất ngay dưới chân đối thủ. Đạn nặng ít bị gió đẩy nên vẫn bắn chuẩn khi trời gió lớn; để dành Bom đào bắn thẳng vào địch, họ sẽ rơi xuống đáy hố và mất thêm máu. Bù lại mỗi phát gây ít sát thương và Tanko đi được ngắn nhất, khó thoát khỏi chỗ đứng xấu.",
+	"spark": "Đánh đau nhất: chỉ vài phát trúng là hạ được đối thủ, còn Lưới điện vừa gây sát thương lớn hơn vừa giữ chân họ ở lượt sau. Spark chạy xa nhất nên dễ đổi chỗ tìm góc bắn hoặc né khỏi tầm ngắm. Điểm yếu là máu và phòng thủ mỏng nhất, đạn nhẹ bị gió đẩy mạnh nên phải tính gió thật kỹ.",
+	"flora": "Lì đòn nhất: máu và phòng thủ cao nhất, lại tự Hồi máu khi đầy năng lượng nên càng đánh lâu càng có lợi. Hãy đứng vững, bắn chắc tay và kéo trận dài để đối thủ cạn máu trước. Bù lại sát thương thấp và đạn gần như không khoét đất, nên khó kết thúc trận nhanh.",
 }
 
-## The rows of the info popup: label, the baseStats field (or "explosionRadius": WEAPONS).
+## The rows of the info popup: label, the baseStats field (or "explosionRadius" /
+## "craterRadius": WEAPONS).
 const STAT_ROWS := [
 	{"key": "maxHp", "label": "Máu"},
 	{"key": "weaponDamage", "label": "Sát thương"},
 	{"key": "defense", "label": "Phòng thủ"},
 	{"key": "moveEnergy", "label": "Năng lượng di chuyển"},
 	{"key": "explosionRadius", "label": "Bán kính nổ"},
+	{"key": "craterRadius", "label": "Phá địa hình"},
 ]
 
 
@@ -148,14 +155,24 @@ static func other_prices(c: Dictionary) -> Array:
 
 
 ## One stat of a character: baseStats (GET /player/characters data) for the server's fields,
-## WEAPONS for explosionRadius; null when unknown.
+## WEAPONS for explosionRadius and craterRadius (px, rounded); null when unknown.
 static func stat_value(data: Variant, id: String, key: String) -> Variant:
 	if key == "explosionRadius":
 		return WEAPONS[id]["explosionRadius"] if WEAPONS.has(id) else null
+	if key == "craterRadius":
+		return crater_radius(id) if WEAPONS.has(id) else null
 	var all = data.get("baseStats") if data is Dictionary else null
 	var s = all.get(id) if all is Dictionary else null
 	var v = s.get(key) if s is Dictionary else null
 	return int(v) if v is int or v is float else null
+
+
+## The crater radius (px) of the character's normal shot on normal ground (server
+## match.weaponCraterRadius: the blast radius for a weapon without terrain damage).
+static func crater_radius(id: String) -> int:
+	var w: Dictionary = WEAPONS.get(id, {})
+	var td := float(w.get("terrainDamage", 0))
+	return roundi(td * CRATER_PX_PER_TERRAIN_DAMAGE) if td > 0.0 else int(w.get("explosionRadius", 0))
 
 
 ## value / max as a bar length 0..1 (0 for no max).
@@ -165,8 +182,8 @@ static func bar_ratio(value: float, max_value: float) -> float:
 
 ## The stat rows of the info popup: [{key, label, value, text, ratio}], ratio against the
 ## highest value of that stat over all the characters. A stat the data lacks for this character
-## is left out ([] when the base stats are not loaded: only the explosion radius would be left,
-## so nothing is shown).
+## is left out ([] when the base stats are not loaded: only the weapon rows would be left, so
+## nothing is shown).
 static func stat_rows(data: Variant, id: String) -> Array:
 	var out: Array = []
 	if BattleStats.base_of(data, id).is_empty():

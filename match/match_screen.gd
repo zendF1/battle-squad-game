@@ -38,6 +38,7 @@ const WEAPON := "weapon"
 const SKILL := "skill"
 const RESYNC_RETRY := 3.0 # re-ask for MatchStateSync if none arrived
 const TURN_SECONDS := 20
+const DEFAULT_MAX_ENERGY := 100 # maxMoveEnergy from a server that does not send it
 const MIN_AIM_SEC := 0.15 # a PlayerAiming with less left (held back by a replay) is not shown
 
 var _me := ""
@@ -67,6 +68,7 @@ var _players_layer: Node2D
 var _fx_layer: Node2D
 var _aim: AimInput
 var _shot_player: ShotPlayer
+var _shot_timeline: ShotTimeline = null # the shot being replayed (its projectiles' blast radii)
 var _hud: Hud
 
 var _hold_dir := 0
@@ -221,8 +223,15 @@ func _set_current(player_id: String, move_energy: int, continuing: bool = false)
 	_show_wind()
 	for id in _views:
 		_views[id].set_active(id == player_id and not _ended)
-	_hud.set_energy(move_energy if _is_my_turn() else 0)
+	_hud.set_energy(move_energy if _is_my_turn() else 0, _max_energy())
 	_refresh_controls()
+
+
+## My full move energy (BattlePlayerState.maxMoveEnergy: the character's base + bonuses), the
+## energy bar's maximum; 100 from a server that does not send it.
+func _max_energy() -> int:
+	var v = _players.get(_me, {}).get("maxMoveEnergy")
+	return int(v) if (v is int or v is float) and v > 0 else DEFAULT_MAX_ENERGY
 
 
 func _is_my_turn() -> bool:
@@ -307,7 +316,10 @@ func _apply(event: String, data: Variant) -> void:
 			_hud.set_time(TURN_SECONDS)
 			for view in _views.values():
 				view.clear_aim() # guns put away
-			_set_current(str(data.get("currentPlayerId", "")), int(data.get("moveEnergy", 0)))
+			var current := str(data.get("currentPlayerId", ""))
+			if _players.has(current) and data.has("maxMoveEnergy"):
+				_players[current]["maxMoveEnergy"] = data["maxMoveEnergy"]
+			_set_current(current, int(data.get("moveEnergy", 0)))
 		"TurnTimerTick":
 			_hud.set_time(int(data.get("timeLeft", 0)))
 		"PlayerMoved":
@@ -323,6 +335,7 @@ func _apply(event: String, data: Variant) -> void:
 			_hud.pause_timer() # resumed by the next TurnTimerTick / TurnStarted
 			_snap_to_server(shooter)
 			var timeline := ShotTimeline.new(data)
+			_shot_timeline = timeline
 			var lead_in := _show_shooting(shooter, timeline)
 			# The shot looks like the shooter's gun (visuals only): the kind and tier of the weapon
 			# it brought (weaponItemId), its character's basic gun when none (bots).
@@ -422,7 +435,8 @@ func _on_shot_event(e: Dictionary) -> void:
 			_mask.destroy_circle(p.x, p.y, radius)
 			_terrain_view.refresh()
 			var fx := ExplosionFx.new()
-			fx.radius = radius
+			# The burst covers the crater and the damage area (the blast radius can be the larger)
+			fx.radius = maxf(radius, _shot_timeline.blast_radius(str(e.get("projectileId", ""))) if _shot_timeline != null else 0.0)
 			fx.kind = str(_shot_player.style.get("kind", ""))
 			fx.tier = str(_shot_player.style.get("tier", ""))
 			fx.skill = bool(_shot_player.style.get("skill", false))

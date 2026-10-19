@@ -18,6 +18,15 @@ func _init(payload: Dictionary) -> void:
 	duration = float(payload.get("duration", 0.0))
 
 
+## The blast (damage) radius of the projectile with this id, 0 when unknown. It can be larger
+## than its explode event's radius, which is the crater.
+func blast_radius(projectile_id: String) -> float:
+	for p in projectiles:
+		if str(p.get("projectileId", "")) == projectile_id:
+			return float(p.get("explosionRadius", 0.0))
+	return 0.0
+
+
 func projectile_end(i: int) -> float:
 	var path: Array = projectiles[i].get("path", [])
 	return 0.0 if path.is_empty() else float(path[-1]["time"])

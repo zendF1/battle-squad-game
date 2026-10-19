@@ -224,7 +224,11 @@ func set_wind(direction: int, power: float) -> void:
 	_wind.text = "%.1f" % power
 
 
-func set_energy(value: int) -> void:
+## value of max_value (the player's maxMoveEnergy: it differs per character); max_value <= 0
+## keeps the current maximum.
+func set_energy(value: int, max_value: int = 0) -> void:
+	if max_value > 0:
+		_energy.max_value = max_value
 	_energy.value = value
 
 

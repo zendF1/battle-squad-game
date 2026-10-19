@@ -16,7 +16,7 @@ const NO_AIM_POWER := 50.0
 
 const BY_CHARACTER := {
 	"rookie": {"id": "triple_shot", "name": "Bắn 3 tia", "needs_aim": true, "offsets": [-10.0, 0.0, 10.0]},
-	"tanko": {"id": "heavy_bomb", "name": "Bom lớn", "needs_aim": true, "offsets": [0.0]},
+	"tanko": {"id": "heavy_bomb", "name": "Bom đào", "needs_aim": true, "offsets": [0.0]},
 	"spark": {"id": "shock_field", "name": "Lưới điện", "needs_aim": true, "offsets": [0.0]},
 	"flora": {"id": "healing_bloom", "name": "Hồi máu", "needs_aim": false, "offsets": []},
 }

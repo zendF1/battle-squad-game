@@ -11,12 +11,12 @@ const OFFERS := [
 	{"offerId": "medkit", "itemId": "flora", "offerType": "item", "priceCurrency": "coin", "priceAmount": 10, "quantity": 1},
 ]
 
-## The server's baseStats (configs/characters.yaml + weapons.yaml after the big-number balance).
+## The server's baseStats (configs/characters.yaml + weapons.yaml after the character identities).
 const DATA := {"characters": [], "baseStats": {
 	"rookie": {"maxHp": 1500, "defense": 50, "damageBonus": 0, "moveEnergy": 100, "skillPowerBonus": 0, "terrainDamageBonus": 0, "weaponDamage": 480},
-	"tanko": {"maxHp": 1950, "defense": 80, "damageBonus": 0, "moveEnergy": 100, "skillPowerBonus": 0, "terrainDamageBonus": 0, "weaponDamage": 600},
-	"spark": {"maxHp": 1350, "defense": 40, "damageBonus": 0, "moveEnergy": 100, "skillPowerBonus": 0, "terrainDamageBonus": 0, "weaponDamage": 440},
-	"flora": {"maxHp": 1425.0, "defense": 50.0, "damageBonus": 0.0, "moveEnergy": 100.0, "skillPowerBonus": 0.0, "terrainDamageBonus": 0.0, "weaponDamage": 360.0},
+	"tanko": {"maxHp": 1650, "defense": 60, "damageBonus": 0, "moveEnergy": 80, "skillPowerBonus": 0, "terrainDamageBonus": 0, "weaponDamage": 420},
+	"spark": {"maxHp": 1250, "defense": 30, "damageBonus": 0, "moveEnergy": 120, "skillPowerBonus": 0, "terrainDamageBonus": 0, "weaponDamage": 620},
+	"flora": {"maxHp": 1900.0, "defense": 90.0, "damageBonus": 0.0, "moveEnergy": 100.0, "skillPowerBonus": 0.0, "terrainDamageBonus": 0.0, "weaponDamage": 380.0},
 }}
 
 
@@ -50,7 +50,7 @@ func test_buy_button() -> void:
 
 
 func test_bar_ratio() -> void:
-	near(Model.bar_ratio(1500, 1950), 1500.0 / 1950.0, 0.0001, "against the max")
+	near(Model.bar_ratio(1500, 1900), 1500.0 / 1900.0, 0.0001, "against the max")
 	eq(Model.bar_ratio(1950, 1950), 1.0, "the max is full")
 	eq(Model.bar_ratio(5, 0), 0.0, "no max")
 	eq(Model.bar_ratio(-3, 10), 0.0, "never negative")
@@ -58,18 +58,31 @@ func test_bar_ratio() -> void:
 
 func test_stat_rows() -> void:
 	var rows := Model.stat_rows(DATA, "tanko")
-	eq(rows.map(func(r): return r["key"]), ["maxHp", "weaponDamage", "defense", "moveEnergy", "explosionRadius"], "rows")
-	eq(rows.map(func(r): return r["value"]), [1950, 600, 80, 100, 50], "tanko's server numbers")
-	eq(rows.map(func(r): return r["ratio"]), [1.0, 1.0, 1.0, 1.0, 1.0], "tanko tops every stat")
-	eq(rows[0]["text"], "1.950", "thousands")
+	eq(rows.map(func(r): return r["key"]), ["maxHp", "weaponDamage", "defense", "moveEnergy", "explosionRadius", "craterRadius"], "rows")
+	eq(rows.map(func(r): return r["value"]), [1650, 420, 60, 80, 60, 104], "tanko's server numbers")
+	eq(rows[0]["text"], "1.650", "thousands")
+	# Every bar is normalised to the best character at that stat
+	near(rows[0]["ratio"], 1650.0 / 1900.0, 0.0001, "hp against flora")
+	near(rows[1]["ratio"], 420.0 / 620.0, 0.0001, "damage against spark")
+	near(rows[2]["ratio"], 60.0 / 90.0, 0.0001, "defense against flora")
+	near(rows[3]["ratio"], 80.0 / 120.0, 0.0001, "move energy against spark")
+	eq(rows[4]["ratio"], 1.0, "tanko has the widest blast")
+	eq(rows[5]["ratio"], 1.0, "tanko digs the most")
 	var spark := Model.stat_rows(DATA, "spark")
-	near(spark[0]["ratio"], 1350.0 / 1950.0, 0.0001, "hp against tanko")
-	near(spark[1]["ratio"], 440.0 / 600.0, 0.0001, "damage against tanko")
-	near(spark[2]["ratio"], 40.0 / 80.0, 0.0001, "defense against tanko")
-	near(spark[4]["ratio"], 35.0 / 50.0, 0.0001, "radius against tanko")
-	eq(Model.stat_rows(DATA, "flora")[0]["value"], 1425, "json floats as ints")
+	eq(spark.map(func(r): return r["value"]), [1250, 620, 30, 120, 30, 20], "spark's server numbers")
+	eq(spark[1]["ratio"], 1.0, "spark hits hardest")
+	eq(spark[3]["ratio"], 1.0, "spark moves furthest")
+	near(spark[5]["ratio"], 20.0 / 104.0, 0.0001, "crater against tanko")
+	var flora := Model.stat_rows(DATA, "flora")
+	eq(flora[0]["value"], 1900, "json floats as ints")
+	eq([flora[0]["ratio"], flora[2]["ratio"]], [1.0, 1.0], "flora has the most hp and defense")
 	eq(Model.stat_rows({"characters": []}, "tanko"), [], "no baseStats: nothing")
 	eq(Model.stat_rows(null, "tanko"), [], "not loaded")
+
+
+func test_crater_radius() -> void:
+	eq(Model.ids().map(func(id): return Model.crater_radius(id)), [40, 104, 20, 24], "terrain damage × 0.8")
+	eq(Model.crater_radius("nobody"), 0, "unknown")
 
 
 func test_data_for_every_character() -> void:
@@ -83,11 +96,14 @@ func test_data_for_every_character() -> void:
 		check(info["weapon"]["name"] != "", "%s weapon name" % id)
 		check(info["skill"]["name"] != "" and info["skill"]["text"] != "", "%s skill" % id)
 		check(str(info["playstyle"]).length() > 60, "%s playstyle" % id)
-		eq(Model.stat_rows(DATA, id).size(), 5, "%s stats" % id)
+		eq(Model.stat_rows(DATA, id).size(), 6, "%s stats" % id)
+		var words := str(info["playstyle"]).replace(info["skill"]["name"], "") # "Bắn 3 tia" is a name
+		check(RegEx.create_from_string("[0-9]").search(words) == null, "%s playstyle has no numbers" % id)
 		check(Art.hug_gun(info["weapon"]["kind"], info["weapon"]["tier"])["hug"], "%s hug art" % id)
-	eq(Model.info("tanko")["role"], "Pháo thủ hạng nặng", "role")
+	eq(Model.ids().map(func(id): return Model.info(id)["role"]), ["Cân bằng", "Phá địa hình", "Sát thương", "Bền bỉ"], "roles")
 	eq(Model.info("tanko")["weapon"]["name"], "Đại pháo", "weapon name")
 	eq(Model.info("tanko")["weapon"]["wind"], "Gió đẩy ×0,3", "heavy shot")
-	eq(Model.info("spark")["weapon"]["wind"], "Gió đẩy ×1,5", "light shot")
+	eq(Model.info("spark")["weapon"]["wind"], "Gió đẩy ×1,6", "light shot")
+	eq(Model.info("tanko")["skill"]["name"], "Bom đào", "digging bomb")
 	eq(Model.info("rookie")["skill"]["energy"], "Cần 100 năng lượng (+20 mỗi lượt)", "energy")
 	eq(Model.tint("nobody"), Model.NEUTRAL_TINT, "unknown: neutral")

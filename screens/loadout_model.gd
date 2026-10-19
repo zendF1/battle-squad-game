@@ -12,12 +12,13 @@ const SETTINGS_PATH := "user://loadout.cfg"
 const DEFAULT_CHARACTER := "rookie" # always owned
 const NOT_OWNED := "Chưa sở hữu"
 
-## Server configs/characters.yaml: id, name, role (Vietnamese).
+## Server configs/characters.yaml: id, name, role (the Vietnamese label of its role id: balanced,
+## demolisher, striker, sustain).
 const CHARACTERS := [
 	{"id": "rookie", "name": "Rookie", "role": "Cân bằng"},
-	{"id": "tanko", "name": "Tanko", "role": "Pháo thủ hạng nặng"},
-	{"id": "spark", "name": "Spark", "role": "Khống chế"},
-	{"id": "flora", "name": "Flora", "role": "Hỗ trợ"},
+	{"id": "tanko", "name": "Tanko", "role": "Phá địa hình"},
+	{"id": "spark", "name": "Spark", "role": "Sát thương"},
+	{"id": "flora", "name": "Flora", "role": "Bền bỉ"},
 ]
 
 var character_id := DEFAULT_CHARACTER

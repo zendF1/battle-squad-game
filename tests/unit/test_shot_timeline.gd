@@ -21,6 +21,16 @@ func _timeline(path: Array):
 	})
 
 
+func test_blast_radius_by_projectile() -> void:
+	var tl = ShotTimeline.new({"projectiles": [
+		{"projectileId": "a", "explosionRadius": 30.0, "craterRadius": 20.0, "path": []},
+		{"projectileId": "b", "explosionRadius": 120, "path": []},
+	]})
+	eq(tl.blast_radius("a"), 30.0, "first")
+	eq(tl.blast_radius("b"), 120.0, "json int")
+	eq(tl.blast_radius("zzz"), 0.0, "unknown")
+
+
 func test_sample_interpolates_straight_flight() -> void:
 	var tl = _timeline([_step(0, 0, 0, 10, 0), _step(1, 10, 0, 10, 0)])
 	var p: Vector2 = tl.sample(0, 0.5)
