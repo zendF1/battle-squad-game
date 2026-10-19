@@ -7,9 +7,12 @@ extends Node2D
 ## The gun is holstered except to shoot (scenes/character/character.gd holster): aim() /
 ## draw_gun() draw it, shoot() fires it (returning the wait while it is drawn), clear_aim() puts
 ## it away. aim_sweep() shows a remote player aiming (server PlayerAiming): the gun drawn and
-## swung onto the aim over its duration (match/aim/aim_sweep.gd), held there until the shot.
+## swung onto the aim over its duration (match/aim/aim_sweep.gd), held there until the shot. The
+## gun only ever shows one of 7 directions (scenes/character/aim_snap.gd), so a sweep steps
+## between them.
 
 const AimSweep := preload("res://match/aim/aim_sweep.gd")
+const AimSnap := preload("res://scenes/character/aim_snap.gd")
 const Status := preload("res://match/status_effects.gd")
 const CharacterScene := preload("res://scenes/character/character.tscn")
 const Art := preload("res://ui/art.gd")
@@ -148,17 +151,18 @@ func face(dir: float) -> void:
 	_sprite.face(dir)
 
 
-## Aim angle in degrees (0 right, 90 up, 180 left): face the side it shoots to.
+## Aim angle in degrees (0 right, 90 up, 180 left): face the side it shoots to (AimSnap.side():
+## straight up / down keeps the facing).
 func face_angle(angle: float) -> void:
-	if absf(angle - 90.0) > 1.0:
-		_sprite.face(1.0 if angle < 90.0 else -1.0)
+	_sprite.face(AimSnap.side(angle, _sprite.facing))
 
 
 func facing() -> int:
 	return _sprite.facing
 
 
-## Points the gun at an aim angle (degrees, 0 right, 90 up), within the arm's reach; draws it.
+## Points the gun at an aim angle (degrees, 0 right, 90 up), snapped to the nearest of its 7
+## directions (visual only); draws it.
 ## Ends an aim_sweep().
 func aim(angle: float) -> void:
 	_sweep = {}
@@ -166,8 +170,9 @@ func aim(angle: float) -> void:
 
 
 ## A remote player aims at angle (degrees, the Shoot convention) for duration seconds before its
-## shot: faces that side, draws the gun at level and swings it onto the aim within the pose's
-## reach, then holds it there until aim(), shoot(), clear_aim() or death. While still walking
+## shot: faces that side, draws the gun at level and swings it onto the aim (the swing's angle
+## snapped: the gun steps between its directions and ends on the aim's), then holds it there
+## until aim(), shoot(), clear_aim() or death. While still walking
 ## (a move just before) it faces and draws once the walk is over.
 func aim_sweep(angle: float, duration: float) -> void:
 	if _dead:
@@ -185,9 +190,9 @@ func _apply_sweep() -> void:
 		return # the walk faces the body; the gun comes out once it stops
 	var angle := float(_sweep["angle"])
 	face_angle(angle)
-	var reach: Vector2 = _sprite.aim_range()
+	# The curve runs on the real angle; the character snaps what it shows (AimSnap).
 	_sprite.aim(AimSweep.angle_at(float(_sweep["t"]), float(_sweep["duration"]), angle, _sprite.facing,
-		float(_sweep["wobble"]), reach.x, reach.y))
+		float(_sweep["wobble"])))
 
 
 ## Draws the gun at level (a drag started, no angle yet).

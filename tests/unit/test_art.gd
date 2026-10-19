@@ -181,14 +181,16 @@ func test_gun_anchors_cover_every_frame() -> void:
 	eq(Art.gun_anchor("tanko", "die", 99), Art.gun_anchor("tanko", "die", 3), "past the end → last frame")
 
 
-func test_character_aim_stays_in_the_arm_reach() -> void:
+func test_character_aim_snaps_to_its_directions() -> void:
 	var C := load("res://scenes/character/character.gd")
-	near(C.aim_elevation(30.0, 1), 30.0, 0.001, "30° facing right")
-	near(C.aim_elevation(150.0, -1), 30.0, 0.001, "150° facing left is 30° up")
-	near(C.aim_elevation(90.0, 1), C.AIM_UP, 0.001, "straight up: clamped")
-	near(C.aim_elevation(-90.0, -1), C.AIM_DOWN, 0.001, "straight down: clamped")
-	near(C.aim_elevation(-10.0, 1), -10.0, 0.001, "a little below level")
-	near(C.aim_elevation(190.0, -1), -10.0, 0.001, "a little below level, facing left")
+	near(C.aim_elevation(30.0, 1), 45.0, 0.001, "30° facing right shows 45")
+	near(C.aim_elevation(150.0, -1), 45.0, 0.001, "150° facing left is 45 up")
+	near(C.aim_elevation(90.0, 1), 90.0, 0.001, "straight up reachable")
+	near(C.aim_elevation(90.0, -1), 90.0, 0.001, "straight up reachable facing left")
+	near(C.aim_elevation(-90.0, -1), -45.0, 0.001, "straight down shows -45")
+	near(C.aim_elevation(-10.0, 1), 0.0, 0.001, "a little below level shows level")
+	near(C.aim_elevation(190.0, -1), 0.0, 0.001, "a little below level, facing left")
+	near(C.aim_elevation(-30.0, 1), -45.0, 0.001, "-30 shows -45")
 	var text := FileAccess.get_file_as_string("res://scenes/character/character.tscn")
 	for node in ['name="Gun" type="Node2D" parent="Flip"', 'name="Sprite" type="Sprite2D" parent="Flip/Gun"', 'name="Hand" type="Sprite2D" parent="Flip/Gun"', 'name="Flash" type="Sprite2D" parent="Flip/Gun"']:
 		check(text.contains(node), "character.tscn has " + node)
@@ -317,7 +319,8 @@ func test_side_view_faces_left_round_the_feet() -> void:
 
 ## Every character has a ready pose scene (scenes/character/poses/<id>_ready.tscn) laid out like
 ## Rookie's: one GunSocket (grouped) with a Preview of the character's iron gun, its grip on the
-## socket's origin, Body locked, HandFront / HandBack, the aim range on the root. Tanko, Spark and
+## socket's origin, Body locked, HandFront / HandBack (the root's aim_down / aim_up metadata is no
+## longer read). Tanko, Spark and
 ## Flora's Body follows the art (pose_body.gd): the baked idle frame until a side view's ready
 ## frame is imported, the socket on that frame's hand.
 func test_ready_pose_scenes() -> void:
@@ -329,8 +332,6 @@ func test_ready_pose_scenes() -> void:
 			continue
 		var root: Node = load(path).instantiate()
 		check(root is Node2D and root.get_meta("_edit_lock_", false), "%s root a locked Node2D" % id)
-		near(float(root.get_meta("aim_down", 0.0)), -30.0, 1e-6, "%s aim_down" % id)
-		near(float(root.get_meta("aim_up", 0.0)), 60.0, 1e-6, "%s aim_up" % id)
 		var sockets := root.get_children().filter(func(n): return str(n.name).begins_with("GunSocket"))
 		eq(sockets.size(), 1, "%s one GunSocket" % id)
 		var sock := root.get_node_or_null("GunSocket") as Node2D

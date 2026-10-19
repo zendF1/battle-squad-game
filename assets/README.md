@@ -211,8 +211,10 @@ own gun (Rookie: the iron bazooka) with its grip (weapons.json `grip`) on the so
 scale it until the gun sits in the hands, `Ctrl+S`, `F5`: in the match whatever gun the character
 holds (its kind in any tier, or a generic / crafted blaster) sits on that socket and turns with the
 aim round the socket's origin (keep the origin in the fist). `HandFront` / `HandBack` (Sprite2D,
-drawn over the gun) can be moved the same way. The root's metadata `aim_down` / `aim_up` (Inspector →
-Metadata, degrees) limit how far the gun turns on this pose. No JSON to edit;
+drawn over the gun) can be moved the same way. The gun only ever points one of 7 directions (-45, 0,
+45 on each side, 90 straight up; `scenes/character/aim_snap.gd`, visual only: the shot keeps the real
+angle), so check the socket at level, at 45 and straight up. The root's metadata `aim_down` / `aim_up`
+is left over and no longer read: it limits nothing. No JSON to edit;
 `tools/import_frames.gd` never writes the scene. Without the scene (or a node) the gun sits at
 `gun_anchors.json` `"ready".grip` (the fist's centre), level, and the hands where they were drawn.
 

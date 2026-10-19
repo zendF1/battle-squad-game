@@ -16,9 +16,10 @@ extends Node2D
 ## set_weapon(kind, tier) picks it (ui/art.gd gun(); the character's basic gun until then). Each
 ## frame's gun anchor (assets/characters/<id>/gun_anchors.json) places its grip, angle, front /
 ## behind the body and the muzzle flash, so the gun follows every animation. aim() turns it to
-## an aim angle (within the arm's reach) until clear_aim(); muzzle_position() is where shots
-## start (visual only). hands_free shows no gun (the bare hand stays); weapon() still tells the
-## gun set. aim_range() is the reach (the ready pose's, when aimed from it).
+## an aim angle until clear_aim(), snapped to one of 7 directions (scenes/character/aim_snap.gd:
+## -45, 0, 45 each side and 90 up; visual only, the shot keeps the real angle); muzzle_position()
+## is where shots start (visual only). hands_free shows no gun (the bare hand stays); weapon()
+## still tells the gun set.
 ##
 ## holster (the match, match/views/player_view.gd): the gun is out only to shoot
 ## (scenes/character/gun_draw.gd): holstered in idle and walk (no gun, no hand over its grip: the
@@ -31,7 +32,8 @@ extends Node2D
 ## with the recoil, "gunDraw" all 0 s) switches to it and back at once. Its gun is placed by hand
 ## in the character's pose scene (ui/art.gd ready_pose(): scenes/character/poses/<id>_ready.tscn,
 ## one GunSocket): whatever gun it holds sits on the socket and turns with the aim round the
-## socket's origin (the grip), within the scene's aim_down..aim_up; the pose's hands are drawn
+## socket's origin (the grip), to the same 7 directions (the scene's aim_down / aim_up metadata no
+## longer limits it); the pose's hands are drawn
 ## over it (Flip/ReadyHands, the scene's Hand* sprites) instead of the grip hand.
 ## Used by the lobby and Prep (ui/character_view.gd) and the match
 ## (match/views/player_view.gd).
@@ -45,14 +47,12 @@ extends Node2D
 const Art := preload("res://ui/art.gd")
 const FullBody := preload("res://scenes/character/full_body.gd")
 const GunDraw := preload("res://scenes/character/gun_draw.gd")
+const AimSnap := preload("res://scenes/character/aim_snap.gd")
 
 const HURT_FLASH_SEC := 0.45
 const HURT_TINT := Color(1, 0.35, 0.35)
 const DEAD_TINT := Color(0.55, 0.55, 0.6)
 const DEAD_SHADOW := 1.45 # the shadow widens under a body lying down
-## How far the arm turns the gun: degrees above (+) / below (-) level, towards the facing side.
-const AIM_UP := 70.0
-const AIM_DOWN := -35.0
 ## The muzzle flash (fx/common/muzzle.png) size in frame px at full flash, and its tint.
 const FLASH_PX := 84.0
 const FLASH_TINT := Color(1.0, 0.92, 0.65)
@@ -97,7 +97,7 @@ var _weapon_kind := "" # "" = the character's basic gun
 var _weapon_tier := ""
 var _gun := {} # Art.gun() of the gun shown
 var _aiming := false
-var _aim_up := 0.0 # degrees above level towards the facing side, clamped
+var _aim_up := 0.0 # degrees above level towards the facing side, snapped (AimSnap.elevation())
 var _full: FullBody # the skinned full-body picture, null otherwise
 var _full_id := ""
 var _look := {} # Art.character_look()
@@ -251,7 +251,8 @@ func _apply_gun() -> void:
 
 
 ## Turns the gun to an aim angle in degrees (0 right, 90 up, 180 left), measured towards the side
-## the character faces and clamped to the arm's reach (AIM_DOWN..AIM_UP). Face the aim side first.
+## the character faces and snapped to -45, 0, 45 or 90 above level (AimSnap). Face the aim side
+## first (AimSnap.side()); an angle behind it is held at 90 up or -45.
 ## With holster on it draws the gun (not while walking: walk first).
 func aim(angle: float) -> void:
 	_aim_up = aim_elevation(angle, facing)
@@ -288,21 +289,9 @@ func gun_state() -> String:
 
 
 ## An aim angle (0 right, 90 up, 180 left) as degrees above level towards the facing side (1
-## right, -1 left), clamped to AIM_DOWN..AIM_UP: the gun turns by minus this.
+## right, -1 left), snapped to -45, 0, 45 or 90 (AimSnap.elevation()): the gun turns by minus this.
 static func aim_elevation(angle: float, facing_dir: int) -> float:
-	var up := angle if facing_dir > 0 else 180.0 - angle
-	return clampf(wrapf(up, -180.0, 180.0), AIM_DOWN, AIM_UP)
-
-
-## How far the gun turns while aiming, in degrees above level towards the facing side: (down, up).
-## The arm's reach (AIM_DOWN..AIM_UP), within the drawn ready pose's aim_down..aim_up when the
-## gun is aimed from it (holster on and a side view with one: Rookie).
-func aim_range() -> Vector2:
-	var r := Vector2(AIM_DOWN, AIM_UP)
-	if holster and _full == null and not _look.get("ready", {}).get("anims", []).is_empty():
-		var a: Vector2 = Art.ready_pose(character_id).get("aim", r)
-		r = Vector2(maxf(r.x, a.x), minf(r.y, a.y))
-	return r
+	return AimSnap.elevation(angle, facing_dir)
 
 
 ## Back to the animation's own hold; with holster on, the gun is put away.
@@ -385,7 +374,6 @@ func _gun_pose(anim: String, frame: int, k: float) -> Dictionary:
 		# the frame's kick: the anchor angle) round the socket's origin.
 		var rp := Art.ready_pose(character_id)
 		var sock: Transform2D = rp["socket"]
-		up = clampf(up, rp["aim"].x, rp["aim"].y)
 		var turn := Transform2D(deg_to_rad(deg - up), sock.origin)
 		return {"xf": turn * Transform2D(sock.x, sock.y, Vector2.ZERO), "front": true, "flash": float(a["flash"])}
 	var pos: Vector2 = (grip - _look.get("pivot", Art.FRAME_PIVOT)) * float(_look.get("scale", 1.0))

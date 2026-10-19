@@ -694,7 +694,8 @@ func _popup(id: String, text: String, color: Color) -> void:
 # ── Visual only (no game state) ──────────────────────────────────────────────
 
 ## My character draws its gun when a drag starts (power 0: no direction yet, so no turn), then
-## turns to the side I aim at and points the gun there.
+## turns to the side I aim at and points the gun there (snapped to its 7 directions, AimSnap; the
+## aim line and the Shoot keep the real angle).
 func _face_aim(angle: float, power: float) -> void:
 	if not _views.has(_me):
 		return
@@ -725,11 +726,10 @@ func _show_shooting(shooter: String, timeline) -> float:
 	var start: Vector2 = timeline.sample(0, 0.0)
 	var d: Vector2 = timeline.sample(0, 0.05) - start
 	var near := start.distance_to(view.position) <= ShotPlayer.SPAWN_NEAR
-	if near:
-		if absf(d.x) > 0.5:
-			view.face(d.x)
-		if d.length() > 0.01:
-			view.aim(rad_to_deg(atan2(-d.y, d.x)))
+	if near and d.length() > 0.01:
+		var angle := rad_to_deg(atan2(-d.y, d.x))
+		view.face_angle(angle) # the gun shows the snapped direction (AimSnap), the shell flies the real one
+		view.aim(angle)
 	if not near:
 		view.shoot(false)
 		return 0.0

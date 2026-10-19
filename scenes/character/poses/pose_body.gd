@@ -8,8 +8,8 @@ extends Sprite2D
 ## when the scene opens and every second while it is open. Hand* sprites of the scene that have no
 ## picture yet get the side view's ready hands where they were drawn (side.json readyPose.hands),
 ## so they show up after an import; a hand with a picture is never touched (placed by hand).
-## In the game it does nothing (ui/art.gd ready_pose() reads only GunSocket, Hand* and the root's
-## metadata).
+## In the game it does nothing (ui/art.gd ready_pose() reads only GunSocket and Hand*; the root's
+## aim_down / aim_up metadata is no longer read).
 
 const Art := preload("res://ui/art.gd")
 

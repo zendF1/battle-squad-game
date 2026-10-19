@@ -776,11 +776,12 @@ static func _parse_anchors(path: String) -> Dictionary:
 ## character's Flip coordinates (the feet at 0, facing right; scenes/character/character.gd):
 ## {anims (the ready pose's animations), socket (Transform2D: where the held gun's grip sits and
 ## its turn / size, whatever gun the character holds: the gun sprite is drawn at the gun's scale
-## with its grip on the socket), hands [{name, texture, transform}] (drawn over the gun), aim
-## (Vector2 [down, up] degrees: the gun's turn range there)}; {} when the character has no ready
-## pose. Placed by hand in the character's pose scene (side.json readyPose.scene:
-## scenes/character/poses/<id>_ready.tscn; assets/README.md): one GunSocket (Node2D, its Preview
-## child the character's gun), Hand* (Sprite2D) and the root's metadata aim_down / aim_up.
+## with its grip on the socket), hands [{name, texture, transform}] (drawn over the gun)}; {} when
+## the character has no ready pose. The gun turns on it to the 7 aim directions like everywhere
+## (scenes/character/aim_snap.gd). Placed by hand in the character's pose scene (side.json
+## readyPose.scene: scenes/character/poses/<id>_ready.tscn; assets/README.md): one GunSocket (Node2D, its Preview
+## child the character's gun) and Hand* (Sprite2D). The root's old metadata aim_down / aim_up is
+## no longer read: nothing limits the turn but the snap.
 ## Without the scene (or a node, or a Hand* with no picture): the gun anchors' grip, level, and the
 ## hands where they were drawn. Every character has its scene (Tanko, Spark, Flora before their
 ## side view: its Body shows the baked idle frame, scenes/character/poses/pose_body.gd); it is used
@@ -804,13 +805,11 @@ static func ready_pose(id: String) -> Dictionary:
 	for hname in rp["hands"]:
 		var h: Dictionary = rp["hands"][hname]
 		hands.append({"name": hname, "texture": h["texture"], "transform": Transform2D(0.0, Vector2(k, k), 0.0, (h["center"] - pivot) * k)})
-	var aim := Vector2(-30.0, 60.0)
 	var path := str(rp.get("scene", ""))
 	if path != "" and ResourceLoader.exists(path):
 		var ps = load(path)
 		var root: Node = ps.instantiate() if ps is PackedScene else null
 		if root is Node2D:
-			aim = Vector2(float(root.get_meta("aim_down", aim.x)), float(root.get_meta("aim_up", aim.y)))
 			var sock := root.get_node_or_null("GunSocket") as Node2D
 			if sock != null:
 				socket = sock.transform
@@ -827,7 +826,7 @@ static func ready_pose(id: String) -> Dictionary:
 			push_warning("art: %s is not a scene, the ready pose uses its defaults" % path)
 		if root != null:
 			root.free()
-	out.merge({"anims": anims, "socket": socket, "hands": hands, "aim": aim})
+	out.merge({"anims": anims, "socket": socket, "hands": hands})
 	return out
 
 

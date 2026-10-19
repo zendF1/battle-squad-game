@@ -6,9 +6,11 @@ extends RefCounted
 ##
 ##   hold ─▶ swing (ease-out cubic, a little past the aim) ─▶ correct back (a hair short) ─▶ settle on it ─▶ rest
 ##
-## It is on the aim SETTLE_SEC before the duration ends (the shot follows), and stays within the
-## pose's reach: an aim past it is clamped, and an overshoot that would leave the reach comes
-## from the short side instead.
+## It is on the aim SETTLE_SEC before the duration ends (the shot follows), and stays within
+## lo..hi (default -90..90, level to straight up or down): an aim past it is clamped, and an
+## overshoot that would leave it comes from the short side instead. The curve is the real angle;
+## the gun shows it snapped to its 7 directions (scenes/character/aim_snap.gd, applied by
+## character.gd aim()), so it steps between them and ends on the aim's direction.
 
 const SETTLE_SEC := 0.2 # the gun rests on the aim this long before the shot
 const MIN_SWEEP_PART := 0.6 # a short aim still sweeps over at least this part of it

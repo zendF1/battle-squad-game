@@ -1,6 +1,7 @@
 extends "res://tests/test_case.gd"
 ## A remote player's visible aim (server PlayerAiming): the sweep curve (match/aim/aim_sweep.gd),
-## PlayerView.aim_sweep() and match_screen's handling of the event.
+## PlayerView.aim_sweep() (the gun stepping between its snapped directions) and match_screen's
+## handling of the event.
 
 const AimSweep := preload("res://match/aim/aim_sweep.gd")
 const PlayerView := preload("res://match/views/player_view.gd")
@@ -104,7 +105,7 @@ func test_view_sweep_draws_and_lands_on_the_aim() -> void:
 	_drive(v, 1.1)
 	var gun: Node2D = c.get_node("Flip/Gun")
 	var anchor: Dictionary = Art.gun_anchor("tanko", "idle", 0)
-	near(rad_to_deg(gun.rotation), float(anchor["angle"]) - 40.0, 0.01, "on the aim (40 above level, to the left)")
+	near(rad_to_deg(gun.rotation), float(anchor["angle"]) - 45.0, 0.01, "on the aim's direction (140: 45 above level, to the left)")
 	_drive(v, 1.0)
 	eq(v.gun_state(), "aiming", "held until the shot")
 	near(v.shoot(), 0.0, 1e-9, "the shot leaves at once: the gun is out")
@@ -112,18 +113,42 @@ func test_view_sweep_draws_and_lands_on_the_aim() -> void:
 	v.get_parent().free()
 
 
-func test_view_sweep_rookie_ready_pose_within_reach() -> void:
+## Rookie's ready pose: the sweep steps the gun through its snapped directions (never in between)
+## and ends straight up for an 85° aim (the scene's aim_up no longer limits it).
+func test_view_sweep_rookie_ready_pose_steps_to_up() -> void:
 	var v := _view("rookie")
 	var c: Node2D = v.get_child(1)
+	var gun: Node2D = c.get_node("Flip/Gun")
 	v.aim_sweep(85.0, 1.2)
 	eq(c.animation(), "draw", "the ready pose at once")
 	eq(v.gun_state(), "aiming", "drawn at once")
-	var reach: Vector2 = c.aim_range()
-	var rp := Art.ready_pose("rookie")
-	eq(reach, rp["aim"], "the ready pose's reach")
-	_drive(v, 1.2)
 	var seat := float(Art.gun_anchor("rookie", "draw", 0)["angle"])
-	near(rad_to_deg(c.get_node("Flip/Gun").rotation), seat - reach.y, 0.01, "rests on the edge of its reach")
+	var seen := {}
+	var t := 0.0
+	while t < 1.2 - 1e-9:
+		var up := seat - rad_to_deg(gun.rotation)
+		var snapped := false
+		for e in [-45.0, 0.0, 45.0, 90.0]:
+			if absf(up - e) < 0.01:
+				snapped = true
+				seen[e] = true
+		check(snapped, "a snapped direction at %f s (%f)" % [t, up])
+		_drive(v, DT)
+		t += DT
+	check(seen.has(0.0) and seen.has(45.0) and seen.has(90.0), "steps level → 45 → up (%s)" % [seen.keys()])
+	near(rad_to_deg(gun.rotation), seat - 90.0, 0.01, "rests straight up")
+	v.get_parent().free()
+
+
+## Below level on the left: the sweep ends on 225 (-45 to the left), no lower.
+func test_view_sweep_down_left() -> void:
+	var v := _view("tanko")
+	var c: Node2D = v.get_child(1)
+	v.aim_sweep(240.0, 1.5)
+	eq(v.facing(), -1, "faces left")
+	_drive(v, 1.5)
+	var anchor: Dictionary = Art.gun_anchor("tanko", "idle", 0)
+	near(rad_to_deg(c.get_node("Flip/Gun").rotation), float(anchor["angle"]) + 45.0, 0.01, "-45 to the left")
 	v.get_parent().free()
 
 

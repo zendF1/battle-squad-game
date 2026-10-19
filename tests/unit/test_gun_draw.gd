@@ -155,7 +155,12 @@ func test_character_holster() -> void:
 	check(start_scale < 1.0, "smaller in the low carry")
 	c.aim(40.0)
 	var anchor: Dictionary = preload("res://ui/art.gd").gun_anchor("tanko", "idle", 0)
-	near(rad_to_deg(gun.rotation), float(anchor["angle"]) - 40.0, 0.01, "turned to the aim")
+	near(rad_to_deg(gun.rotation), float(anchor["angle"]) - 45.0, 0.01, "turned to the aim, snapped to 45")
+	c.aim(90.0)
+	near(rad_to_deg(gun.rotation), float(anchor["angle"]) - 90.0, 0.01, "straight up")
+	c.aim(-90.0)
+	near(rad_to_deg(gun.rotation), float(anchor["angle"]) + 45.0, 0.01, "straight down shows -45")
+	c.aim(40.0)
 	c.set_walking(true)
 	eq(c.gun_state(), "holstering", "walking with the gun out puts it away first")
 	eq(c.animation(), "idle", "no walk swing until holstered")
@@ -309,13 +314,13 @@ func test_rookie_ready_pose_assets() -> void:
 	for anim in ["draw", "fire"]:
 		eq(look["anchors"].get(anim, []).size(), look["frames"].get_frame_count(anim), "%s anchors per frame" % anim)
 	# The scene: one socket (its Preview Rookie's bazooka, grip on the socket's origin), the two
-	# hands, the aim range.
+	# hands; no aim range (the gun snaps to its 7 directions, scenes/character/aim_snap.gd).
 	var rp := Art.ready_pose("rookie")
 	check(rp["socket"] is Transform2D, "a socket")
 	eq(rp["hands"].size(), 2, "two hands")
 	for h in rp["hands"]:
 		check(h["texture"] != null, "%s has its picture" % h["name"])
-	check(rp["aim"].x < 0.0 and rp["aim"].y > 30.0, "an aim range (%s)" % rp["aim"])
+	check(not rp.has("aim"), "no aim range: the aim_down / aim_up metadata limits nothing")
 	var root: Node = load("res://scenes/character/poses/rookie_ready.tscn").instantiate()
 	var preview := root.get_node_or_null("GunSocket/Preview") as Sprite2D
 	check(preview != null, "GunSocket/Preview")
@@ -363,13 +368,15 @@ func test_rookie_ready_switches_at_once() -> void:
 	check(over.get_index() > gun.get_index(), "the hands drawn on top")
 	var seat_angle: float = rad_to_deg(gun.rotation)
 	c.aim(30.0)
-	near(rad_to_deg(gun.rotation), seat_angle - 30.0, 0.01, "turned with the aim round the grip")
+	near(rad_to_deg(gun.rotation), seat_angle - 45.0, 0.01, "turned with the aim round the grip, snapped to 45")
 	var at_grip := gun.position
 	c.aim(85.0)
-	near(rad_to_deg(gun.rotation), seat_angle - rp["aim"].y, 0.01, "the turn is limited to the scene's aim_up")
+	near(rad_to_deg(gun.rotation), seat_angle - 90.0, 0.01, "85 snaps straight up: the scene's aim_up no longer limits it")
 	eq(gun.position, at_grip, "the pivot stays in the fist")
 	c.aim(-80.0)
-	near(rad_to_deg(gun.rotation), seat_angle - rp["aim"].x, 0.01, "and aim_down")
+	near(rad_to_deg(gun.rotation), seat_angle + 45.0, 0.01, "and down to -45, no lower")
+	c.aim(10.0)
+	near(rad_to_deg(gun.rotation), seat_angle, 0.01, "10 snaps level")
 	c.aim(30.0)
 	var predicted: Vector2 = c.fire_muzzle_position()
 	near(c.shoot(), 0.0, 1e-9, "fires at once")
