@@ -93,8 +93,8 @@ func test_gun_sprites_match_their_metadata() -> void:
 	for kind in Art.GUN_KINDS:
 		check(Art.GUN_TIERS[kind].has(Art.GUN_BASIC), "%s has a basic gun" % kind)
 		if not data["guns"].has(kind):
-			# A kind with no held sprites (the bazooka) is its hug art in every tier.
-			check(kind == "bazooka", "%s: only the bazooka has no held sprites" % kind)
+			# A kind with no held sprites (the bazooka, the cannon) is its hug art in every tier.
+			check(kind == "bazooka" or kind == "cannon", "%s: only the bazooka and the cannon have no held sprites" % kind)
 			for tier in Art.GUN_TIERS[kind]:
 				check(not Art.hug_meta(kind, tier).is_empty() and FileAccess.file_exists(Art.hug_gun_path(kind, tier)), "%s %s hug art" % [kind, tier])
 				check(not FileAccess.file_exists(Art.gun_path(kind, tier)), "no old %s %s sprite" % [kind, tier])
@@ -146,14 +146,14 @@ func test_weapon_icons_present() -> void:
 
 
 func test_gun_fallbacks() -> void:
-	eq(Art.gun_meta("cannon", "gold"), {}, "no crafted cannon")
+	eq(Art.gun_meta("shock_rifle", "gold"), {}, "no crafted shock rifle")
 	eq(Art.gun_meta("ray_gun", "iron"), {}, "unknown kind")
 	var placeholder_ok := func(g: Dictionary) -> bool: return g["texture"] != null and g["grip"] is Vector2
-	if not ResourceLoader.exists(Art.gun_path("cannon", "basic")):
-		check(placeholder_ok.call(Art.gun("cannon", "gold")), "not imported yet: still a texture")
+	if not ResourceLoader.exists(Art.gun_path("shock_rifle", "basic")):
+		check(placeholder_ok.call(Art.gun("shock_rifle", "gold")), "not imported yet: still a texture")
 		return
-	var g := Art.gun("cannon", "gold")
-	eq([g["kind"], g["tier"]], ["cannon", "basic"], "missing tier → the kind's basic")
+	var g := Art.gun("shock_rifle", "gold")
+	eq([g["kind"], g["tier"]], ["shock_rifle", "basic"], "missing tier → the kind's basic")
 	g = Art.gun("ray_gun", "iron")
 	eq([g["kind"], g["tier"]], [Art.FALLBACK_GUN_KIND, "basic"], "unknown kind → the blaster's basic")
 	check(not g["hug"], "a held sprite")
@@ -161,16 +161,18 @@ func test_gun_fallbacks() -> void:
 	eq([g["kind"], g["tier"]], ["blaster", "diamond"], "crafted blaster")
 	eq(g["scale"], Art.PX_PER_UNIT / float(Art.guns_data()["pxPerUnit"]), "texture px → character px from weapons.json pxPerUnit")
 	eq(Art.gun_scale(), g["scale"], "gun_scale()")
-	# The bazooka has no held sprites: wherever a gun is shown (the pedestal) it is the hug art.
-	for tier in Art.GUN_TIERS["bazooka"]:
-		g = Art.gun("bazooka", tier)
-		var h := Art.hug_meta("bazooka", tier)
-		check(g["hug"] and g["kind"] == "bazooka" and g["tier"] == tier, "bazooka %s: its hug art" % tier)
-		eq(g["texture"], Art.hug_gun("bazooka", tier)["texture"], "bazooka %s: the hug texture" % tier)
-		eq([g["grip"], g["muzzle"]], [h["pivot"], h["muzzle"]], "bazooka %s: grip = the hold, the hug muzzle" % tier)
-		near(float(g["scale"]), Art.PX_PER_UNIT / float(Art.hug_data()["pxPerUnit"]), 1e-6, "bazooka %s: hug.json pxPerUnit" % tier)
-	g = Art.gun("bazooka", "gold")
-	eq([g["kind"], g["tier"], g["hug"]], ["bazooka", "basic", true], "bazooka in a tier it lacks → its basic hug art")
+	# The bazooka and the cannon have no held sprites: wherever a gun is shown (the pedestal) it is
+	# the hug art.
+	for kind in ["bazooka", "cannon"]:
+		for tier in Art.GUN_TIERS[kind]:
+			g = Art.gun(kind, tier)
+			var h := Art.hug_meta(kind, tier)
+			check(g["hug"] and g["kind"] == kind and g["tier"] == tier, "%s %s: its hug art" % [kind, tier])
+			eq(g["texture"], Art.hug_gun(kind, tier)["texture"], "%s %s: the hug texture" % [kind, tier])
+			eq([g["grip"], g["muzzle"]], [h["pivot"], h["muzzle"]], "%s %s: grip = the hold, the hug muzzle" % [kind, tier])
+			near(float(g["scale"]), Art.PX_PER_UNIT / float(Art.hug_data()["pxPerUnit"]), 1e-6, "%s %s: hug.json pxPerUnit" % [kind, tier])
+		g = Art.gun(kind, "gold")
+		eq([g["kind"], g["tier"], g["hug"]], [kind, "basic", true], "%s in a tier it lacks → its basic hug art" % kind)
 
 
 func test_gun_anchors_cover_every_frame() -> void:
@@ -442,15 +444,25 @@ func test_ready_pose_scenes() -> void:
 		check(preview != null and not preview.centered, "%s GunSocket/Preview, not centred" % id)
 		var kind := str(Art.CHARACTER_GUNS[id])
 		var gs := float(Art.gun(kind, "iron")["scale"])
-		if preview != null and id == "rookie":
-			eq(preview.get_script(), PoseGun, "rookie Preview shows the hug gun once imported")
-			eq([str(preview.get("kind")), str(preview.get("tier"))], ["bazooka", "iron"], "rookie Preview: the iron bazooka")
-			check(preview.texture == null or preview.texture.resource_path == Art.hug_gun_path("bazooka", "iron"), "rookie Preview picture")
-			near(preview.offset.distance_to(-Art.hug_meta("bazooka", "iron")["pivot"]), 0.0, 0.01, "rookie the hold on the socket's origin")
-			near(preview.scale.x, gs, 1e-4, "rookie hug gun at the weapons' scale")
-			var look := Art.side_view("rookie")
-			var hug: Vector2 = (Art.gun_anchor("rookie", "draw", 0)["grip"] - look["pivot"]) * float(look["scale"])
-			check(sock.position.distance_to(hug) < 0.05, "rookie socket on the hug point (%s vs %s)" % [sock.position, hug])
+		if preview != null and not Art.hug_meta(kind, "iron").is_empty():
+			# Rookie's bazooka, Tanko's cannon: the iron hug gun (none until the editor imports it:
+			# pose_gun.gd puts it there), its hold on the socket's origin.
+			eq(preview.get_script(), PoseGun, "%s Preview shows the hug gun once imported" % id)
+			eq([str(preview.get("kind")), str(preview.get("tier"))], [kind, "iron"], "%s Preview: the iron %s" % [id, kind])
+			check(preview.texture == null or preview.texture.resource_path == Art.hug_gun_path(kind, "iron"), "%s Preview picture" % id)
+			check(not PoseGun.stand_in(preview), "%s no stand-in" % id)
+			near(preview.offset.distance_to(-Art.hug_meta(kind, "iron")["pivot"]), 0.0, 0.01, "%s the hold on the socket's origin" % id)
+			near(preview.scale.x, gs, 1e-4, "%s hug gun at the weapons' scale" % id)
+			near(gs, Art.hug_scale(), 1e-6, "%s the %s is its hug art (hug.json's scale)" % [id, kind])
+			var look := Art.side_view(id)
+			var hug: Vector2 = (Art.gun_anchor(id, "draw", 0)["grip"] - look["pivot"]) * float(look["scale"])
+			check(sock.position.distance_to(hug) < 0.05, "%s socket on the hug point (%s vs %s)" % [id, sock.position, hug])
+			# The match draws it as the Preview shows it: the hold on the socket, as long as hug_iron.
+			var rp := Art.ready_pose(id)
+			check(rp["socket"].is_equal_approx(sock.transform), "%s ready_pose(): the socket" % id)
+			eq(rp["pivot"], Art.hug_meta(kind, "iron")["pivot"], "%s ready_pose(): turned round the hold" % id)
+			near(float(rp["length"]), Art.hug_meta(kind, "iron")["size"].x, 0.01, "%s ready_pose(): the hug gun's length" % id)
+			check((rp["preview"] * rp["pivot"]).length() < 0.01, "%s ready_pose(): the hold on the hug point" % id)
 		elif preview != null and Art.has_side_view(id):
 			# No hug art for the kind yet: its iron gun sprite stands in, its centre (where the match
 			# turns that sprite: Art.hug_gun()) on the socket's origin, on the hug point.
@@ -510,17 +522,24 @@ func test_ready_pose_scenes() -> void:
 	var had := pv.texture
 	pv.sync()
 	check(pv.texture == had or (pv.texture != null and pv.texture.resource_path == Art.hug_gun_path("bazooka", "iron")), "Preview sync")
-	var tex := Art.texture(Art.gun_path("cannon", "iron"))
+	var tex := Art.texture(Art.gun_path("seed_launcher", "iron"))
 	pv.texture = tex
 	pv.sync()
 	eq(pv.texture, tex, "a Preview with a picture is left as it is")
 	check(not PoseGun.stand_in(pv), "another kind's gun is no stand-in")
-	# A stand-in (its kind's gun sprite) waits for its kind's hug art: none for the cannon yet.
+	# A stand-in (its kind's gun sprite) waits for its kind's hug art: none for the seed launcher yet.
+	var flora: Node = load("res://scenes/character/poses/flora_ready.tscn").instantiate()
+	var fl: Sprite2D = flora.get_node("GunSocket/Preview")
+	var stand := fl.texture
+	check(PoseGun.stand_in(fl), "Flora's iron seed launcher stands in")
+	fl.sync()
+	check(fl.texture == stand or (fl.texture.resource_path == Art.hug_gun_path("seed_launcher", "iron") and fl.offset == -Art.hug_meta("seed_launcher", "iron")["pivot"]), "a stand-in gives way only to its hug gun")
+	# Tanko's Preview: the hug cannon (empty until the editor imports it; sync() fills it then).
 	var tk: Sprite2D = scene.get_node("GunSocket/Preview")
-	var stand := tk.texture
-	check(PoseGun.stand_in(tk), "Tanko's iron cannon stands in")
 	tk.sync()
-	check(tk.texture == stand or (tk.texture.resource_path == Art.hug_gun_path("cannon", "iron") and tk.offset == -Art.hug_meta("cannon", "iron")["pivot"]), "a stand-in gives way only to its hug gun")
+	check(tk.texture == null or tk.texture.resource_path == Art.hug_gun_path("cannon", "iron"), "Tanko's Preview: the hug cannon or nothing yet")
+	near(tk.offset.distance_to(-Art.hug_meta("cannon", "iron")["pivot"]), 0.0, 0.01, "Tanko's Preview: its hold on the socket")
+	flora.free()
 	scene.free()
 	mine.free()
 
@@ -602,7 +621,7 @@ func test_hug_guns() -> void:
 	check(not hug["hug"] and hug["kind"] == "blaster" and hug["tier"] == "gold", "no hug art: the gun sprite")
 	eq(hug["pivot"], hug["size"] * 0.5, "turned round its centre, not the grip")
 	eq(Art.pose_gun_meta(Art.hug_gun_path("bazooka", "iron")), meta, "a hug picture's meta")
-	eq(Art.pose_gun_meta(Art.gun_path("cannon", "iron"))["pivot"], Art.hug_gun("cannon", "iron")["size"] * 0.5, "a gun sprite's: its centre")
+	eq(Art.pose_gun_meta(Art.gun_path("seed_launcher", "iron"))["pivot"], Art.hug_gun("seed_launcher", "iron")["size"] * 0.5, "a gun sprite's: its centre")
 	eq(Art.pose_gun_meta("res://assets/icons/coin.png"), {}, "any other picture")
 	check(Art.all_paths().has(Art.HUG_DATA), "hug.json listed")
 	for tier in Art.GUN_TIERS["bazooka"]:
@@ -616,6 +635,76 @@ func test_hug_guns() -> void:
 	var xf := Art.gun_transform(pose, other)
 	check((xf * Vector2(5, 5)).is_equal_approx(pose["preview"] * Vector2(10, 4)), "pivot on the Preview gun's pivot")
 	near((xf * Vector2(20, 5) - xf * Vector2(0, 5)).length(), (pose["preview"] * Vector2(40, 4) - pose["preview"] * Vector2(0, 4)).length(), 1e-3, "as long")
+
+
+## Tanko's cannon is hug art in every tier (art_source/weapons/hug/cannon_<tier>.png; basic the
+## iron one desaturated): all 58 world px long, held in the middle, the muzzle the centre of the bore
+## opening (the dragon's: its open mouth), keyed clean.
+func test_hug_cannon() -> void:
+	var H := load("res://tools/import_hug_guns.gd")
+	var iron_img := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("cannon", "iron")))
+	for tier in Art.GUN_TIERS["cannon"]:
+		var m := Art.hug_meta("cannon", tier)
+		check(not m.is_empty(), "the %s cannon's hug art" % tier)
+		if m.is_empty():
+			continue
+		var img := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("cannon", tier)))
+		check(img != null and Vector2(img.get_size()) == m["size"], "cannon hug_%s.png at its size" % tier)
+		if img == null:
+			continue
+		var used: Rect2i = H.tube_points(img)["rect"]
+		near(float(used.size.x) / 2.0, 58.0, 1.0, "cannon %s 58 world px long" % tier)
+		near(m["pivot"].x, used.get_center().x, 1.0, "cannon %s hold: the middle of the gun" % tier)
+		check(m["pivot"].y > used.position.y + used.size.y * 0.3 and m["pivot"].y < used.end.y - used.size.y * 0.3, "cannon %s hold: in the tube's height" % tier)
+		check(m["muzzle"].x > used.end.x - used.size.x * 0.12 and m["muzzle"].x < used.end.x - 2.0, "cannon %s muzzle: inside the right end (%s, gun %s)" % [tier, m["muzzle"], used])
+		check(absf(m["muzzle"].y - m["pivot"].y) < used.size.y * 0.15, "cannon %s muzzle: near the tube's axis" % tier)
+		if tier != "dragon": # the bore: dark, inside the rim
+			var bore := img.get_pixelv(Vector2i(m["muzzle"]))
+			check(bore.a > 0.9 and bore.v < 0.35, "cannon %s muzzle: in the dark bore (%s)" % [tier, bore])
+		else: # the open mouth: between the upper teeth and the jaw
+			var above := 0
+			var below := 0
+			for dy in range(1, 12):
+				if img.get_pixelv(Vector2i(m["muzzle"]) - Vector2i(0, dy)).a > 0.5:
+					above += 1
+				if img.get_pixelv(Vector2i(m["muzzle"]) + Vector2i(0, dy)).a > 0.5:
+					below += 1
+			check(above > 0 and below > 0, "cannon dragon muzzle: in the mouth, the head above and the jaw below")
+		check(img.get_pixel(0, 0).a == 0.0, "cannon %s the backdrop keyed out" % tier)
+		var green := 0
+		for y in img.get_height():
+			for x in img.get_width():
+				var c := img.get_pixel(x, y)
+				if c.a > 0.1 and c.g > 0.6 and c.g > maxf(c.r, c.b) + 0.3:
+					green += 1
+		eq(green, 0, "cannon %s no green-screen pixels left" % tier)
+		check(used.size.y < used.size.x * 0.45, "cannon %s the sparkle dropped (%s)" % [tier, used])
+		var h := Art.hug_gun("cannon", tier)
+		check(h["hug"] and h["tier"] == tier and h["path"] == Art.hug_gun_path("cannon", tier), "cannon %s: its own hug art" % tier)
+	# basic: the iron picture desaturated (the old basic.png's recolour), the same shape and points.
+	eq(Art.hug_meta("cannon", "basic"), Art.hug_meta("cannon", "iron"), "basic: the iron cannon's size / hold / muzzle")
+	var basic := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("cannon", "basic")))
+	var same := true
+	var sat := Vector3.ZERO # basic, iron, count
+	for y in basic.get_height():
+		for x in basic.get_width():
+			var ic := iron_img.get_pixel(x, y)
+			var c := basic.get_pixel(x, y)
+			if absf(c.a - ic.a) > 0.01:
+				same = false
+			if ic.a > 0.9 and ic.s > 0.15:
+				sat += Vector3(c.s, ic.s, 1.0)
+	check(same, "basic: the iron cannon's shape")
+	near(sat.x / sat.y, 0.55, 0.05, "basic: desaturated like the old basic.png")
+
+
+## [[kind, tier]] for every kind × tier.
+func _kind_tiers(kinds: Array, tiers: Array) -> Array:
+	var out := []
+	for k in kinds:
+		for t in tiers:
+			out.append([k, t])
+	return out
 
 
 ## tools/import_frames.gd key_background() on a tiny green-screen picture: the corner colour is the
@@ -770,15 +859,15 @@ func test_import_hug_guns_arguments() -> void:
 		check(all["guns"].has({"kind": "bazooka", "tier": tier, "name": "bazooka_" + tier, "source": "bazooka_" + tier}), "no argument: every picture (%s)" % tier)
 	eq(all["unknown"], [], "no argument: nothing unknown")
 	eq(H.sources_for(["bazooka_iron.png"], dir), {"guns": [{"kind": "bazooka", "tier": "iron", "name": "bazooka_iron", "source": "bazooka_iron"}], "unknown": []}, "a name")
-	eq(H.sources_for(["cannon_iron", "nope"], dir)["unknown"], ["cannon_iron", "nope"], "no picture / not a gun")
+	eq(H.sources_for(["shock_rifle_iron", "nope"], dir)["unknown"], ["shock_rifle_iron", "nope"], "no picture / not a gun")
 	# Guns made from another tier's picture (hug.json from + recolour).
 	var cfg = JSON.parse_string(FileAccess.get_file_as_string(dir + "hug.json"))
 	var derived: Dictionary = H.derived_of(cfg)
-	eq(derived, {"bazooka_basic": "bazooka_iron", "bazooka_steel": "bazooka_iron"}, "hug.json: basic and steel from the iron picture")
+	eq(derived, {"bazooka_basic": "bazooka_iron", "bazooka_steel": "bazooka_iron", "cannon_basic": "cannon_iron"}, "hug.json: the bazooka's basic and steel, the cannon's basic from the iron picture")
 	eq(H.derived_of({"guns": {"bazooka_steel": {"from": "gold"}, "bazooka_iron": {"from": "iron"}, "ray_iron": {"from": "steel"}, "bazooka_basic": {"length": 50}}}), {}, "not a tier of the kind / itself / not a gun / no from")
 	all = H.sources_for([], dir, derived)
 	check(all["guns"].has({"kind": "bazooka", "tier": "steel", "name": "bazooka_steel", "source": "bazooka_iron"}), "no argument: the derived guns too")
-	eq(all["guns"].size(), 5, "every bazooka tier (%s)" % [all["guns"]])
+	eq(all["guns"].size(), 10, "every bazooka and cannon tier (%s)" % [all["guns"]])
 	var named: Dictionary = H.sources_for(["bazooka_iron"], dir, derived)
 	eq(named["guns"].map(func(g): return g["name"]), ["bazooka_iron", "bazooka_basic", "bazooka_steel"], "naming a picture takes the guns made from it")
 	eq(H.sources_for(["bazooka_steel"], dir, derived)["guns"], [{"kind": "bazooka", "tier": "steel", "name": "bazooka_steel", "source": "bazooka_iron"}], "a derived gun by name")
@@ -811,10 +900,13 @@ func test_hug_gun_icons() -> void:
 	var cfg: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://art_source/weapons/hug/hug.json"))
 	check(not held["guns"].has("bazooka") and not held["icons"]["files"].has("weapon_bazooka_<tier>"), "guns_v1.json: no bazooka sprites / icons")
 	check(Array(held["cells"].keys()).all(func(k): return not str(k).begins_with("bazooka/")), "guns_v1.json: no bazooka cells")
+	check(not held["guns"].has("cannon") and not held["icons"]["files"].has("weapon_cannon_<tier>"), "guns_v1.json: no cannon sprites / icons")
+	check(Array(held["cells"].keys()).all(func(k): return not str(k).begins_with("cannon/")), "guns_v1.json: no cannon cells")
 	var ic: Dictionary = H.icon_config(cfg, held)
 	for key in ["size", "margin", "tiltDeg"]:
 		eq(ic[key], held["icons"][key], "hug icons: the held guns' %s" % key)
-	eq(ic["files"], {"weapon_bazooka_<tier>": {"gun": "bazooka", "tiers": Art.EQUIP_KIND_TIERS}}, "hug.json: the bazooka's icons in the shop tiers")
+	eq(ic["files"], {"weapon_bazooka_<tier>": {"gun": "bazooka", "tiers": Art.EQUIP_KIND_TIERS},
+		"weapon_cannon_<tier>": {"gun": "cannon", "tiers": Art.EQUIP_KIND_TIERS}}, "hug.json: the bazooka's and the cannon's icons in the shop tiers")
 	eq(H.icon_config({"icons": {"margin": 3}}, held)["margin"], 3, "hug.json overrides")
 	eq(H.icon_config({}, {})["files"], {}, "no icons")
 	# icon_canvases(): every tier the same tube length, the holds on the same canvas px.
@@ -832,10 +924,12 @@ func test_hug_gun_icons() -> void:
 	var rb := _opaque_rect(cv["dragon"])
 	check(absi(ra.size.x - rb.size.x) <= 1 and absi(ra.size.y - rb.size.y) <= 1 and absi(ra.position.x - rb.position.x) <= 1, "the same tube at the same place (%s vs %s)" % [ra, rb])
 	# The icons: the new gun (no hand grips), turned muzzle up-right like the others.
-	for tier in Art.EQUIP_KIND_TIERS:
-		var img := Image.load_from_file(ProjectSettings.globalize_path(Art.equipment_weapon_path("bazooka", tier)))
+	for kt in _kind_tiers(["bazooka", "cannon"], Art.EQUIP_KIND_TIERS):
+		var kind: String = kt[0]
+		var tier: String = kt[1]
+		var img := Image.load_from_file(ProjectSettings.globalize_path(Art.equipment_weapon_path(kind, tier)))
 		if img == null:
-			check(false, "bazooka %s icon loads" % tier)
+			check(false, "%s %s icon loads" % [kind, tier])
 			continue
 		var u := img.get_used_rect()
 		var mid := func(x: int) -> float:
@@ -848,8 +942,8 @@ func test_hug_gun_icons() -> void:
 			return sum / maxf(1.0, n)
 		var rise: float = mid.call(u.position.x + 6) - mid.call(u.end.x - 12)
 		var slope := rise / float(u.size.x - 18)
-		near(rad_to_deg(atan(slope)), -float(held["icons"]["tiltDeg"]), 4.0, "bazooka %s icon: the tube turned %s° (muzzle up)" % [tier, held["icons"]["tiltDeg"]])
-		check(u.size.y < u.size.x * 0.6, "bazooka %s icon: a long thin tube, no grips below it (%s)" % [tier, u])
+		near(rad_to_deg(atan(slope)), -float(held["icons"]["tiltDeg"]), 4.0, "%s %s icon: the tube turned %s° (muzzle up)" % [kind, tier, held["icons"]["tiltDeg"]])
+		check(u.size.y < u.size.x * 0.6, "%s %s icon: a long thick tube, no grips below it (%s)" % [kind, tier, u])
 
 
 ## tools/import_frames.gd -- <character_id> | <config.json>: which configs, the frame pattern and

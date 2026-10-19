@@ -40,8 +40,8 @@ extends Node2D
 ## same canvas) is drawn over the gun (Flip/ArmFront, made here, mirrored with the body), so the
 ## fists hold the gun at every direction; shown only while the gun is hugged. Such a character
 ## never holds its gun outside the ready pose: on any other animation (hurt just after a shot,
-## idle with holster off) the gun is put away (holds_gun() false), so Rookie's bazooka, which has
-## no held sprite, is only ever the hug art.
+## idle with holster off) the gun is put away (holds_gun() false), so Rookie's bazooka and Tanko's
+## cannon, which have no held sprites, are only ever the hug art.
 ## Used by the lobby and Prep (ui/character_view.gd) and the match
 ## (match/views/player_view.gd).
 ##

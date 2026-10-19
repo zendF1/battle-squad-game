@@ -547,10 +547,11 @@ func test_rookie_ready_switches_at_once() -> void:
 	holder.free()
 
 
-## Flora and Tanko kneel on their ready pose too: no hug art for the seed launcher / cannon yet, so
-## they hug its gun sprite turned round its centre, that centre on the hug point at every direction
-## (drawn as the pose scene's Preview shows its iron one), the front arm over it, idle again after.
-func test_flora_tanko_hug_their_gun_sprite() -> void:
+## Flora and Tanko kneel on their ready pose too: Tanko hugs his hug cannon round its hold, Flora
+## (no hug art for the seed launcher yet) its gun sprite turned round its centre; that point on the
+## hug point at every direction (drawn as the pose scene's Preview shows its iron one), the muzzle
+## flash at the gun's muzzle, the front arm over it, idle again after.
+func test_flora_tanko_hug_their_gun() -> void:
 	var Art := preload("res://ui/art.gd")
 	for id in ["flora", "tanko"]:
 		var kind := str(Art.CHARACTER_GUNS[id])
@@ -569,8 +570,8 @@ func test_flora_tanko_hug_their_gun_sprite() -> void:
 		c.draw_gun()
 		eq(c.animation(), "draw", "%s the ready frame" % id)
 		var hug := Art.hug_gun(kind, "iron")
-		check(not hug["hug"], "%s no %s hug art yet" % [id, kind])
-		eq(sprite.texture, hug["texture"], "%s hugs the iron %s sprite" % [id, kind])
+		eq(bool(hug["hug"]), id == "tanko", "%s %s hug art: only the cannon's" % [id, kind])
+		eq(sprite.texture, hug["texture"], "%s hugs the iron %s" % [id, kind])
 		check(not c.get_node("Flip/Gun/Hand").visible, "%s no grip hand" % id)
 		check(arm.visible and arm.texture == Art.side_view(id)["ready"]["arm_front"] and arm.get_index() == gun.get_index() + 1, "%s the front arm over the gun" % id)
 		var rp := Art.ready_pose(id)
@@ -581,9 +582,23 @@ func test_flora_tanko_hug_their_gun_sprite() -> void:
 			c._apply_motion()
 			for e in [-45.0, 0.0, 45.0, 90.0]:
 				c.aim(e if f > 0 else 180.0 - e)
-				var centre: Vector2 = flip.transform * gun.transform * sprite.transform * (hug["size"] * 0.5)
-				check(centre.distance_to(flip.transform * rp["socket"].origin) < 0.01, "%s side %d at %d: the centre on the hug point" % [id, f, e])
+				var centre: Vector2 = flip.transform * gun.transform * sprite.transform * hug["pivot"]
+				check(centre.distance_to(flip.transform * rp["socket"].origin) < 0.01, "%s side %d at %d: the hold / centre on the hug point" % [id, f, e])
 				check(c.muzzle_position().distance_to(c.global_position) > 10.0, "%s side %d at %d: a muzzle" % [id, f, e])
+				if hug["hug"]:
+					var muzzle: Vector2 = c.global_transform * (flip.transform * gun.transform * sprite.transform * hug["muzzle"])
+					check(c.muzzle_position().distance_to(muzzle) < 0.01, "%s side %d at %d: the flash at the hug gun's muzzle" % [id, f, e])
+		if id == "tanko": # every cannon tier its own hug art, as long, its hold on the hug point
+			c.facing = 1
+			c._apply_motion()
+			for tier in Art.GUN_TIERS["cannon"]:
+				c.set_weapon("cannon", tier)
+				c._apply_gun()
+				c.aim(0.0)
+				var want := Art.hug_gun("cannon", tier)
+				check(want["hug"] and want["tier"] == tier and sprite.texture == want["texture"], "tanko %s cannon: its hug art" % tier)
+				near(sprite.transform.basis_xform(Vector2(float(want["size"].x), 0.0)).length(), rp["preview"].basis_xform(Vector2(float(rp["length"]), 0.0)).length(), 0.05, "tanko %s cannon: as long as the Preview's" % tier)
+				check((gun.transform * sprite.transform * want["pivot"]).distance_to(rp["socket"].origin) < 0.01, "tanko %s cannon: its hold on the hug point" % tier)
 		c.clear_aim()
 		eq(c.animation(), "idle", "%s idle again" % id)
 		check(not gun.visible and not arm.visible, "%s gun and front arm away" % id)

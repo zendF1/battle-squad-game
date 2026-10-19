@@ -10,7 +10,8 @@
 	"icons": {
 		"_doc": "the equipment icons cut from the hug art (size / margin / tiltDeg: the held guns' art_source/weapons/guns_v1.json icons unless set here): <name with <tier>>.png in assets/icons/equipment/, one scale per group",
 		"files": {
-			"weapon_bazooka_<tier>": {"gun": "bazooka", "tiers": ["iron", "steel", "mithril", "dragon"]}
+			"weapon_bazooka_<tier>": {"gun": "bazooka", "tiers": ["iron", "steel", "mithril", "dragon"]},
+			"weapon_cannon_<tier>": {"gun": "cannon", "tiers": ["iron", "steel", "mithril", "dragon"]}
 		}
 	},
 	"guns": {
@@ -18,6 +19,13 @@
 		"bazooka_basic": {"from": "iron", "recolour": {"saturation": 0.55, "value": 0.94},
 			"_doc": "the starter bazooka: the iron one desaturated, guns_v1.json recolours.basic (old basic.png = iron.png × that)"},
 		"bazooka_steel": {"from": "iron", "recolour": {"hueRange": [45, 135], "hue": -4.5, "saturation": 1.25, "value": 0.975},
-			"_doc": "the olive of the old steel.png vs iron.png fitted on matching pixels (hue -4.5°, saturation ×1.25, value ×0.975; the red warhead unchanged)"}
+			"_doc": "the olive of the old steel.png vs iron.png fitted on matching pixels (hue -4.5°, saturation ×1.25, value ×0.975; the red warhead unchanged)"},
+		"cannon_iron": {"length": 58, "muzzle": [941, 270], "_doc": "Tanko's cannon (grey body, olive barrel): a little longer than the bazooka's 57 and thicker, a big heavy gun on a broader man (any longer and its butt sinks into the ground aiming straight up: the hold is lower on Tanko); every cannon tier the same length. muzzle (all tiers): the centre of the bore opening, not the rim's tip"},
+		"cannon_basic": {"from": "iron", "recolour": {"saturation": 0.55, "value": 0.94},
+			"_doc": "the starter cannon: the iron one desaturated, guns_v1.json recolours.basic (old cannon/basic.png = iron.png × that: fitted saturation ×0.553, value ×0.934)"},
+		"cannon_steel": {"length": 58, "muzzle": [938, 284]},
+		"cannon_mithril": {"length": 58, "muzzle": [921, 278]},
+		"cannon_dragon": {"length": 58, "muzzle": [935, 292], "background": {"holeMin": 15, "holePure": 0}, "despill": true,
+			"_doc": "the muzzle is the dragon's open mouth, not the snout's tip; a 20 px pocket of backdrop between the upper teeth and the throat, enclosed by the outline: keyed as a hole, no green left (the dragon has no green)"}
 	}
 }

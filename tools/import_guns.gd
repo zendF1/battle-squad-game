@@ -6,8 +6,8 @@ extends SceneTree
 ##   $GODOT --headless --path . -s tools/import_guns.gd [-- <config.json>]
 ##
 ## The sheet: one gun per cell, side view, muzzle right, on white; rows = kinds, columns = tiers.
-## Only the cells the config lists are cut: not the bazooka row (Rookie's bazooka is hug art, its
-## icons made by tools/import_hug_guns.gd with icons() below).
+## Only the cells the config lists are cut: not the bazooka and cannon rows (Rookie's bazooka and
+## Tanko's cannon are hug art, their icons made by tools/import_hug_guns.gd with icons() below).
 ## It writes assets/weapons/<kind>/<tier>.png, assets/weapons/weapons.json (the format ui/art.gd
 ## gun() reads, plus "source": the config) and assets/icons/equipment/weapon_*.png. A new PNG gets
 ## an .import (mipmaps for the icons); an existing .import is never touched. Let the editor import

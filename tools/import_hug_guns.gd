@@ -22,7 +22,8 @@ extends SceneTree
 ## PNG), keeping the entries of the guns not imported this run.
 ##
 ## The equipment icons of hug.json "icons" {files {<name with <tier>>: {gun, tiers}}} (today
-## weapon_bazooka_<tier>: Rookie's bazooka has no held sprites) are made from these pictures too,
+## weapon_bazooka_<tier> and weapon_cannon_<tier>: Rookie's bazooka and Tanko's cannon have no held
+## sprites) are made from these pictures too,
 ## the same look as the held guns' icons (size / margin / tiltDeg from art_source/weapons/guns_v1.json
 ## "icons" unless hug.json sets them; tools/import_guns.gd icons()), written to
 ## assets/icons/equipment/ whenever a run imports a gun of that kind.
@@ -63,7 +64,7 @@ func _initialize() -> void:
 	var old = JSON.parse_string(FileAccess.get_file_as_string(DATA)) if FileAccess.file_exists(DATA) else null
 	var data := {"source": CONFIG.trim_prefix("res://"),
 		"pxPerUnit": snappedf(float(cfg.get("texPxPerWorldPx", 2.0)) * float(cfg.get("worldPxPerUnit", 0.35)), 0.0001),
-		"guns": old["guns"] if old is Dictionary and old.get("guns") is Dictionary else {}}
+		"guns": kept_guns(old)}
 	var done := {} # <kind>_<tier> -> prepared(): the icons reuse them
 	var kinds: Array = []
 	for g in found["guns"]:
@@ -80,6 +81,23 @@ func _initialize() -> void:
 	_icons(cfg, kinds, done, derived_of(cfg))
 	print("import_hug_guns: wrote %d files, %.1f KB" % [_written, _bytes / 1024.0])
 	quit(1 if not found["unknown"].is_empty() else 0)
+
+
+## The entries of an earlier assets/weapons/hug.json (parsed) kept for the guns not imported this
+## run: {kind: {tier: {size, hold, muzzle}}}, sizes back to whole px (JSON numbers parse as
+## floats: written again they would read 118.0).
+static func kept_guns(old: Variant) -> Dictionary:
+	var guns = old.get("guns") if old is Dictionary else null
+	if not guns is Dictionary:
+		return {}
+	for kind in guns:
+		if not guns[kind] is Dictionary:
+			continue
+		for tier in guns[kind]:
+			var e = guns[kind][tier]
+			if e is Dictionary and e.get("size") is Array:
+				e["size"] = e["size"].map(func(v): return int(v) if (v is float or v is int) else v)
+	return guns
 
 
 ## The guns hug.json makes from another tier's picture: {<kind>_<tier>: <kind>_<from tier>} (only

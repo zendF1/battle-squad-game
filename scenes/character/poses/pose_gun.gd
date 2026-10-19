@@ -48,7 +48,7 @@ func sync() -> void:
 
 
 ## The Preview shows its kind's held gun sprite (assets/weapons/<kind>/<tier>.png) for a kind with
-## no hug art yet (Flora's seed launcher, Tanko's cannon: the gun the match hugs until then,
+## no hug art yet (Flora's seed launcher: the gun the match hugs until then,
 ## ui/art.gd hug_gun(), turned round its centre): a stand-in for the hug gun.
 static func stand_in(preview: Sprite2D) -> bool:
 	return preview.texture != null and preview.texture.resource_path == Art.gun_path(str(preview.get("kind")), str(preview.get("tier")))
