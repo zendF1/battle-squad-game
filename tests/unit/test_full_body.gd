@@ -112,13 +112,17 @@ func test_character_prefers_the_full_body_picture() -> void:
 		# A character with a drawn ready pose holds its gun only in that pose (Rookie: put away at idle).
 		eq(c.holds_gun(), Art.ready_pose(id).is_empty(), "%s lobby_full off: the gun in hand unless it has a ready pose" % id)
 		holder.free()
+	# The match (no full-body picture): the frames; the gun in hand for a look without a drawn
+	# ready pose (every real character kneels to hold it: tests/fixtures/code_draw_look.gd).
+	var restore: Callable = preload("res://tests/fixtures/code_draw_look.gd").install("spark")
 	var m: Node2D = CharacterScene.instantiate()
 	var holder := Node.new()
-	m.character_id = "spark" # Rookie, Flora and Tanko hold their gun only in the ready pose
+	m.character_id = "spark"
 	holder.add_child(m)
 	m._ready()
 	check(m.full() == null and m.holds_gun(), "the match: frames with the gun")
 	holder.free()
+	restore.call()
 
 
 func test_character_view_uses_the_full_body_picture() -> void:

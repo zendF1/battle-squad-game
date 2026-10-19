@@ -7,6 +7,7 @@ const AimSweep := preload("res://match/aim/aim_sweep.gd")
 const PlayerView := preload("res://match/views/player_view.gd")
 const MatchScreen := preload("res://match/match_screen.gd")
 const Art := preload("res://ui/art.gd")
+const CodeDrawLook := preload("res://tests/fixtures/code_draw_look.gd")
 
 const DT := 1.0 / 60.0
 
@@ -91,9 +92,10 @@ func _drive(v: Node2D, sec: float) -> void:
 		t += DT
 
 
-## The code gun draw (Spark's baked frames): faces the aim side, draws, swings onto the aim and
-## holds it until the shot.
+## The code gun draw (a look without a drawn ready pose: tests/fixtures/code_draw_look.gd): faces
+## the aim side, draws, swings onto the aim and holds it until the shot.
 func test_view_sweep_draws_and_lands_on_the_aim() -> void:
+	var restore: Callable = CodeDrawLook.install("spark")
 	var v := _view("spark")
 	var c: Node2D = v.get_child(1)
 	v.face(1.0)
@@ -111,6 +113,7 @@ func test_view_sweep_draws_and_lands_on_the_aim() -> void:
 	near(v.shoot(), 0.0, 1e-9, "the shot leaves at once: the gun is out")
 	check(not v.is_sweeping(), "the shot ends the sweep")
 	v.get_parent().free()
+	restore.call()
 
 
 ## Rookie's ready pose: the sweep steps the gun through its snapped directions (never in between)
@@ -142,6 +145,7 @@ func test_view_sweep_rookie_ready_pose_steps_to_up() -> void:
 
 ## Below level on the left: the sweep ends on 225 (-45 to the left), no lower.
 func test_view_sweep_down_left() -> void:
+	var restore: Callable = CodeDrawLook.install("spark")
 	var v := _view("spark")
 	var c: Node2D = v.get_child(1)
 	v.aim_sweep(240.0, 1.5)
@@ -150,9 +154,11 @@ func test_view_sweep_down_left() -> void:
 	var anchor: Dictionary = Art.gun_anchor("spark", "idle", 0)
 	near(rad_to_deg(c.get_node("Flip/Gun").rotation), float(anchor["angle"]) + 45.0, 0.01, "-45 to the left")
 	v.get_parent().free()
+	restore.call()
 
 
 func test_view_sweep_ends_on_holster_or_death() -> void:
+	var restore: Callable = CodeDrawLook.install("spark")
 	var v := _view("spark")
 	v.aim_sweep(60.0, 1.5)
 	_drive(v, 0.5)
@@ -168,6 +174,7 @@ func test_view_sweep_ends_on_holster_or_death() -> void:
 	v.aim_sweep(60.0, 1.5)
 	check(not v.is_sweeping(), "the dead do not aim")
 	v.get_parent().free()
+	restore.call()
 
 
 ## match_screen without its scene: just the state PlayerAiming reads.

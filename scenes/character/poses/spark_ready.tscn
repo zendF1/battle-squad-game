@@ -1,23 +1,24 @@
 [gd_scene format=3 uid="uid://d034du2hfkyg8"]
 
 [ext_resource type="Script" uid="uid://gb65mylmx08w" path="res://scenes/character/poses/pose_body.gd" id="body_script"]
-[ext_resource type="Texture2D" uid="uid://d2kbxpt3fy3gx" path="res://assets/characters/spark/idle_0.png" id="body"]
 [ext_resource type="Texture2D" uid="uid://difb1wmte4dyi" path="res://assets/weapons/shock_rifle/iron.png" id="gun_shock_rifle"]
+[ext_resource type="Script" uid="uid://dnolkf6sro25w" path="res://scenes/character/poses/pose_gun.gd" id="gun_script"]
+[ext_resource type="Script" uid="uid://dfc30bbpkyp5p" path="res://scenes/character/poses/pose_arm.gd" id="arm_script"]
 
 [node name="SparkReady" type="Node2D"]
 metadata/_edit_lock_ = true
 
 [node name="Body" type="Sprite2D" parent="."]
 texture_filter = 2
-texture = ExtResource("body")
+scale = Vector2(2.285714, 2.285714)
 centered = false
-offset = Vector2(-256, -360)
+offset = Vector2(-40.14, -130.84)
 script = ExtResource("body_script")
 character_id = "spark"
 metadata/_edit_lock_ = true
 
 [node name="GunSocket" type="Node2D" parent="."]
-position = Vector2(49.6, -77.2)
+position = Vector2(60.75, -128.05)
 metadata/_edit_group_ = true
 
 [node name="Preview" type="Sprite2D" parent="GunSocket"]
@@ -25,4 +26,15 @@ texture_filter = 2
 scale = Vector2(2.285714, 2.285714)
 texture = ExtResource("gun_shock_rifle")
 centered = false
-offset = Vector2(-23.2, -28.4)
+offset = Vector2(-37.5, -19.5)
+script = ExtResource("gun_script")
+kind = "shock_rifle"
+
+[node name="ArmFront" type="Sprite2D" parent="."]
+texture_filter = 2
+scale = Vector2(2.285714, 2.285714)
+centered = false
+offset = Vector2(-40.14, -130.84)
+script = ExtResource("arm_script")
+character_id = "spark"
+metadata/_edit_lock_ = true

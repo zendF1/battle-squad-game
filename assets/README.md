@@ -41,15 +41,16 @@ Total about 3.8 MB of PNG (the full-body pictures about 0.45 MB of it).
 
 ## Thêm ảnh góc ngang cho nhân vật
 
-Ảnh trong trận của Spark (Rookie, Flora, Tanko đã có; cấu hình của họ làm mẫu). Mỗi nhân vật `<id>`
-= `tanko`, `spark`, `flora` có sẵn thư mục chờ ảnh và cảnh dáng ngắm; không cần sửa code.
+Ảnh trong trận của từng nhân vật: Rookie, Tanko, Flora và Spark đều đã có (cấu hình của họ làm mẫu
+khi thay ảnh / thêm nhân vật). Mỗi nhân vật `<id>` có thư mục ảnh và cảnh dáng ngắm; không cần sửa code.
 
 1. **Bỏ ảnh vào** `art_source/characters/<id>/`:
    - `side_run/frame_1.png`, `frame_2.png` … `frame_N.png`: một vòng chạy, nhìn sang phải, nền trong
      suốt, chân chạm đất ở mọi frame.
    - `side_idle/idle_v1.png`: dáng **đứng yên** = nhân vật đứng thẳng, hai chân chạm đất, nhìn sang
-     phải, không cầm súng, cùng nét vẽ và cỡ ảnh với ảnh chạy, nền trong suốt (chưa có thì dáng đứng yên
-     là một frame chạy: `anims.idle.fallback`, `frame_1`; Tanko `frame_7`).
+     phải, không cầm súng, cùng nét vẽ và cỡ ảnh với ảnh chạy, nền trong suốt hoặc **trắng** (Spark:
+     `poses.stand.background` xoá phần trắng nối với mép ảnh; chưa có thì dáng đứng yên là một frame
+     chạy: `anims.idle.fallback`, `frame_1`; Tanko `frame_7`).
    - `side_ready/ready_v1.png`: dáng ngắm = nhân vật **quỳ**, nhìn sang phải, **hai tay chụm giữa
      ngực, KHÔNG cầm súng**, nền **xanh lá đặc** (một màu; dấu ✦ của AI ở góc tool tự xoá).
 2. **Súng ôm** (vẽ riêng, mỗi súng một ảnh): `art_source/weapons/hug/<loại>_<cấp>.png` (vd.
@@ -78,8 +79,8 @@ Total about 3.8 MB of PNG (the full-body pictures about 0.45 MB of it).
    hiện **đúng như trong editor** ở 0° (cả `Preview` kéo lệch / co giãn không đều cũng giữ nguyên).
    (Tanko đã có súng ôm `cannon/hug_iron.png`, Flora `seed_launcher/hug_iron.png`: `Preview` trống,
    `offset` = −`hold`, editor import xong thì `pose_gun.gd` hiện ảnh. Một `Preview` đang là súng cầm
-   cũ của loại đó (`<loại>/iron.png`) là ảnh tạm: có súng ôm thì `pose_gun.gd` tự thay. Spark: thay
-   `Preview` bằng `hug_iron.png` như cảnh của Rookie.)
+   cũ của loại đó (`<loại>/iron.png`) là ảnh tạm: có súng ôm thì `pose_gun.gd` tự thay. Spark: `Preview`
+   là súng điện cũ `shock_rifle/iron.png` (chưa có súng ôm `shock_rifle_<cấp>.png`), tâm ảnh trên điểm ôm.)
 7. **`Ctrl+S`**, rồi **`F5`** vào trận để xem: nhân vật tự dùng ảnh góc ngang (có `side.json` là dùng).
 
 **Tay ôm súng (tự cắt, không cần vẽ thêm)**: cánh tay gần (tay áo từ vai tới nắm tay + cả hai nắm
@@ -105,10 +106,14 @@ lệch chỗ so với dáng đứng thì chỉnh `scale` (mũ / đầu rộng b�
 để đầu cùng cỡ với Rookie (cùng px ảnh nguồn mỗi px trong trận), `alignX` = tai trên tai của dáng
 đứng, `anims.idle.fallback` = frame gọn nhất khi chưa có `side_idle/idle_v1.png` (Tanko: `[6]`);
 `poses.stand` (dáng đứng yên, `idle_v1.png`): `scale` = mũ / đầu rộng bằng ảnh chạy (Rookie 1.02,
-Flora 0.985, Tanko 1.0), `alignX` = tai trên tai của `frame_1` (Tanko: `frame_7` dời theo stabilise),
-không có `background` (ảnh đã trong suốt: xoá viền như ảnh chạy),
+Flora 0.985, Tanko 1.0; Spark 0.97: đầu rộng hơn ảnh chạy 4 % để dáng đứng cao gần bằng, đầu không
+tụt khi đứng <-> chạy; dáng quỳ của Spark cùng `scale` / `alignX` vì vẽ cùng cỡ đầu), `alignX` = tai trên
+tai của `frame_1` (Tanko: `frame_7` dời theo stabilise), không có `background` (ảnh đã trong suốt: xoá
+viền như ảnh chạy; Spark nền trắng: `{"key": [255, 255, 255], "tolerance": 12, "soft": 36, "holeMin":
+100000000}`: chỉ xoá trắng nối với mép ảnh, nét viền đen chặn lại, chỗ sáng / trắng bên trong người giữ
+nguyên, nền trắng không bị khử màu viền),
 `anims.walk.fps` theo bước chân (lệnh in "walk soles": chân chạm đất lùi bao nhiêu px mỗi frame →
-fps = 90 / số đó; Flora 13, Tanko 15, Rookie 20), `background` `holeMin` 15 / `holePure` 0 /
+fps = 90 / số đó; Flora 13, Tanko 15, Spark 15, Rookie 20), `background` `holeMin` 15 / `holePure` 0 /
 `spillFrom` `"keyed"` khi còn viền xanh ở khe tóc (xem `ready_0.png` phóng to).
 
 ## Re-baking the placeholder art
@@ -135,10 +140,10 @@ skipped.
 
 A character with `side/side.json` is drawn in the match (and the fallback outside it) from these
 frames instead of the baked ones below (`ui/art.gd` `character_look()`: side view → baked frames →
-Rookie's → empty). Today: **Rookie, Flora, Tanko** (the same files: Flora's `flora/side/` 89x128,
-walk at 13 fps; Tanko's `tanko/side/` 93x126, walk at 15 fps; every idle is its own standing
-picture; heads the size of Rookie's, Tanko a little shorter and broader; no `hand.png`,
-both hold their gun only hugged). Facing left is the same frames mirrored round the feet
+Rookie's → empty). Today: **every character** (the same files: Flora's `flora/side/` 89x128,
+walk at 13 fps; Tanko's `tanko/side/` 93x126, walk at 15 fps; Spark's `spark/side/` 94x134, walk at
+15 fps; every idle is its own standing picture; heads the size of Rookie's, Tanko a little shorter
+and broader, Spark a little taller (the spiky hair); no `hand.png`, they hold their gun only hugged). Facing left is the same frames mirrored round the feet
 (`Flip` scale x -1): no separate files, no jump on a turn, the gun anchors and the muzzle mirror
 with them and the gun stays the right way up.
 
@@ -184,7 +189,7 @@ $GODOT --headless --path . -s tools/import_frames.gd                  # every ch
 ```
 
 and let the editor import the PNGs. `frames` may be a pattern (`"frame_*.png"`: every match in natural
-order) and an anim's `frames` `"all"` (every source frame); the Spark template uses both (Flora's and Tanko's configs too).
+order) and an anim's `frames` `"all"` (every source frame); every character's config uses both.
 A config whose source frames are not there yet is skipped; a pose whose picture is missing is left out
 with the animations showing it and `gunDraw`. It writes PNG and JSON only. Per frame it clears alpha below `alphaCut`, keeps only the big
 connected pieces (the stray pixels near the canvas edges go), turns the white halo round the black
@@ -244,7 +249,9 @@ out (`tools/import_frames.gd` `key_background()`: the key is the median corner c
 what is near it and touches the border plus big enclosed pure-key holes; alpha ramps over `soft`, the
 colour is un-blended from the key and the key channel is capped in the `spill` px next to it: no green
 rim; `"spillFrom": "keyed"` measures that band from every keyed pixel, the partly keyed ones too:
-Flora's and Tanko's, whose thin wedges of backdrop between hair strands kept a green tip), then `clean()` with the pose's own `alphaCut` / `keepPieces` drops the small detached pieces
+Flora's and Tanko's, whose thin wedges of backdrop between hair strands kept a green tip; a white or
+grey key has no spill: nothing is capped, Spark's standing picture `poses.stand.background` `{"key":
+[255, 255, 255]}` with a `holeMin` too big for any enclosed white to go), then `clean()` with the pose's own `alphaCut` / `keepPieces` drops the small detached pieces
 (the AI "✦" sparkle), trimmed, scaled by `scale` so the cap and the head are as wide as in the run
 frames (the kneeling figure is nearly as tall as the standing one: its head is drawn bigger), the
 belt buckle over `frame_1`'s (`alignX`), the knee and the boot on the same ground. `gun.grip` is
@@ -288,9 +295,8 @@ along its axis (`character.gd` `HUG_KICK` = 5 % of its length × the fire frame'
 on top of the body's `recoil` motion; the muzzle flash is at the turned muzzle.
 
 **Placing the hug gun in the ready pose (editor)**: each character with a ready pose has its own pose
-scene, `scenes/character/poses/<id>_ready.tscn` (side.json `readyPose.scene`; all four exist:
-Rookie's, Flora's and Tanko's are used; Spark's once its side view with a ready pose is imported. A
-`Body` with `pose_body.gd` (editor only: Flora, Tanko, Spark) shows the ready frame by itself once
+scene, `scenes/character/poses/<id>_ready.tscn` (side.json `readyPose.scene`; all four exist and are
+used. A `Body` with `pose_body.gd` (editor only: Flora, Tanko, Spark) shows the ready frame by itself once
 the editor has imported it, or the baked idle frame while there is no side view). It is the character's `Flip` space at the match's scale (the root is the feet, locked;
 `Body` = the ready frame, locked). One `GunSocket` (Node2D, grouped: a click on the gun selects it):
 its origin is the hug point the gun turns round; its `Preview` child (Sprite2D) is the gun at 0°,
@@ -298,11 +304,12 @@ horizontal, facing right, centred on its hold (`offset` = −`hold` of `weapons/
 `pose_gun.gd`: it shows the `kind` / `tier` hug gun as soon as the editor has imported it, since a
 scene can only name an imported picture (Tanko's and Flora's: empty, the offset already −`hold` of
 the hug cannon / seed launcher, until then); a Preview showing its kind's held iron gun sprite is a
-stand-in `pose_gun.gd` swaps for the hug gun once the kind has one, none today). Move / scale / rotate `GunSocket` (or the `Preview` inside
+stand-in `pose_gun.gd` swaps for the hug gun once the kind has one: Spark's iron shock rifle, its
+centre on the hug point, `offset` = −size / 2). Move / scale / rotate `GunSocket` (or the `Preview` inside
 it, even non-uniformly) until the gun covers the fists, `Ctrl+S`, `F5`: **the match draws the gun
 exactly as the Preview shows it at 0°** (the Preview's position / scale / offset and the socket's,
 `ui/art.gd` `ready_pose()` / `gun_transform()`), and turns the whole socket round its origin. Check it
-at level, 45 and straight up. Rookie's, Flora's and Tanko's scenes also have `ArmFront` after `GunSocket` (locked, the Body's
+at level, 45 and straight up. Every scene also has `ArmFront` after `GunSocket` (locked, the Body's
 scale / offset; `pose_arm.gd` shows `ready_arm_front.png` once imported): the front arm over the gun,
 as in the match. No JSON to edit; `tools/import_frames.gd` never writes the scene. Without
 the scene (or a node) the gun sits on `gun_anchors.json` `"ready".grip` (the hug point), the
@@ -327,8 +334,9 @@ equipped weapon.
 | `shadow.png` | 160x38 | ground shadow under every character, centred on the feet |
 | `hand.png` | 32x32 (0.5 KB) | the hand drawn over the gun's grip, centred on the grip (shared) |
 
-`<id>` is `spark` (about 13–24 KB per frame; Rookie, Flora and Tanko have a side view instead, only
-their `portrait.png` is baked). **Every frame**: canvas
+No character has these frames today (every one has a side view: only its `portrait.png` is baked); they
+are what `tools/bake_art.gd` draws for a character without a side view and the match's fallback when a
+side view is missing or broken (about 13–24 KB per frame). **Every frame**: canvas
 512x400, transparent, **feet at pixel (256, 360)** (bottom centre, the same pixel in every frame),
 facing right, drawn at 1.6 px per art unit (the character is about 150 units = 240 px tall).
 The game flips it for facing left. The match (`match/views/player_view.gd`, 0.35 px per unit,
@@ -405,7 +413,7 @@ else its hug art (a kind with no held sprites: the bazooka, the cannon, the seed
 to the kind's `basic`, a missing kind to `blaster/basic`. Lobby, Prep and the Nhân vật page show the weapon the
 character wears: with the full-body pictures (no gun hand) the worn gun rests on the pedestal at the
 character's left on all three (Prep: scaled to its small stage, without the label; with the frames fallback
-Prep and Nhân vật show it in hand, `ui/character_view.gd`, except Rookie, Tanko and Flora: theirs only in the ready pose), lying diagonally with the muzzle up-left, its name and
+Prep and Nhân vật show it in hand, `ui/character_view.gd`, except a character with a ready pose, every one today: theirs only in that pose), lying diagonally with the muzzle up-left, its name and
 "+N" under it (`screens/home/pedestal_gun.gd`, a soft glow in the tier's colour); the match shows the one each player brought (`weaponItemId`), and its
 shots look like that gun (`fx/` below).
 The JSON files are read with `FileAccess` (an export that filters resources must keep `*.json`).

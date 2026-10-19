@@ -235,9 +235,9 @@ func test_character_hands_free_hides_the_gun() -> void:
 
 ## A side view (assets/characters/<id>/side/, tools/import_frames.gd): every frame on one
 ## canvas, the soles on the pivot row, the hips of the run / idle frames centred on the pivot (no
-## left / right jitter; a kneeling ready pose only over it). Rookie, Flora and Tanko have one.
+## left / right jitter; a kneeling ready pose only over it). Every character has one.
 func test_side_view_frames_share_one_pivot() -> void:
-	for id in ["rookie", "flora", "tanko"]:
+	for id in ["rookie", "flora", "tanko", "spark"]:
 		check(Art.has_side_view(id), "%s has a side view" % id)
 	for id in Art.CHARACTERS:
 		if not Art.has_side_view(id):
@@ -298,7 +298,7 @@ func test_side_view_frames_share_one_pivot() -> void:
 ## frames (the head the same size), inside the extent the HP bar / name tag sit over, and its head
 ## over the walk frames' (no jump idle <-> walk).
 func test_side_view_idle_stands() -> void:
-	for id in ["rookie", "flora", "tanko"]:
+	for id in ["rookie", "flora", "tanko", "spark"]:
 		var dir := Art.side_dir(id)
 		var data = JSON.parse_string(FileAccess.get_file_as_string(dir + "side.json"))
 		var idle := Image.load_from_file(ProjectSettings.globalize_path(dir + "idle_0.png"))
@@ -407,12 +407,12 @@ func test_side_view_faces_left_round_the_feet() -> void:
 ## → Body (locked) → one GunSocket (grouped) with a Preview (not centred); no hand sprites, no aim
 ## metadata. Rookie's Preview is its iron hug gun (pose_gun.gd: the picture once imported) with its
 ## hold on the socket's origin at the weapons' scale, the socket on the hug point between the fists.
-## Flora's and Tanko's (side views, no hug art for their kind yet): their iron gun sprite as a
-## stand-in (pose_gun.gd: replaced by the hug gun once there is one), its centre on the hug point;
-## their Body follows the art (pose_body.gd): the side view's ready frame once imported. Spark's
-## keeps its iron gun (grip on the origin) and the baked idle frame as the body. Rookie's, Flora's
-## and Tanko's have an ArmFront after GunSocket (drawn over the gun; pose_arm.gd: the front arm
-## once imported) at the Body's place; Spark's none until its side.json has a front arm cut.
+## Flora's seed launcher and Tanko's cannon the same (their hug art). Spark's (side view, no hug art
+## for the shock rifle yet): the iron shock rifle sprite as a stand-in (pose_gun.gd: replaced by the
+## hug gun once there is one), its centre on the hug point. Their Body follows the art
+## (pose_body.gd): the side view's ready frame once imported (a character without a side view: the
+## baked idle frame). Every one has an ArmFront after GunSocket (drawn over the gun; pose_arm.gd:
+## the front arm once imported) at the Body's place.
 func test_ready_pose_scenes() -> void:
 	var PoseBody := load("res://scenes/character/poses/pose_body.gd")
 	var PoseGun := load("res://scenes/character/poses/pose_gun.gd")
@@ -427,7 +427,7 @@ func test_ready_pose_scenes() -> void:
 		check(not root.has_meta("aim_down") and not root.has_meta("aim_up"), "%s no aim metadata" % id)
 		var names: Array = root.get_children().map(func(n): return str(n.name))
 		var has_arm: bool = PoseArm.arm_path(id) != ""
-		check(has_arm or not ["rookie", "flora", "tanko"].has(id), "%s has a front arm cut" % id)
+		check(has_arm, "%s has a front arm cut" % id)
 		eq(names, ["Body", "GunSocket", "ArmFront"] if has_arm else ["Body", "GunSocket"], "%s Body, one GunSocket (and the ArmFront over it with a front arm cut), no hand sprites" % id)
 		var arm := root.get_node_or_null("ArmFront") as Sprite2D
 		var body0 := root.get_node_or_null("Body") as Sprite2D
@@ -775,6 +775,34 @@ func test_hug_seed_launcher() -> void:
 				sat += Vector3(c.s, ic.s, 1.0)
 	check(same, "basic: the iron seed launcher's shape")
 	near(sat.x / sat.y, 0.55, 0.05, "basic: desaturated like the old basic.png")
+
+
+## tools/import_frames.gd key_background() on white (Spark's standing picture): only the white
+## reached from the border goes, walled by the dark outline, its lightest grey rim half keyed (the
+## soft edge; clean()'s defringe darkens the rest); the white enclosed by the figure (a highlight)
+## stays with a big holeMin; a white key has no spill, so a red next to it keeps its red.
+func test_key_background_white() -> void:
+	var I := load("res://tools/import_frames.gd")
+	eq(I.key_channels(Color.WHITE), [], "white: no spill channel")
+	eq(I.key_channels(Color8(200, 200, 205)), [], "light grey: none either")
+	eq(I.key_channels(Color8(58, 243, 41)), [1], "green screen: green")
+	var img := Image.create(30, 30, false, Image.FORMAT_RGBA8)
+	img.fill(Color.WHITE)
+	img.set_pixel(0, 29, Color8(252, 251, 252)) # the faint noise of the white
+	img.fill_rect(Rect2i(5, 5, 20, 20), Color8(20, 20, 24)) # the outline
+	img.fill_rect(Rect2i(6, 6, 18, 18), Color8(220, 40, 30)) # a red inside, 3 px from the cleared white
+	img.fill_rect(Rect2i(12, 12, 3, 3), Color.WHITE) # an enclosed highlight
+	for y in range(5, 25):
+		img.set_pixel(4, y, Color8(238, 238, 238)) # the lightest rim of the outline's anti-aliasing
+	var cleared: int = I.key_background(img, {"key": [255, 255, 255], "tolerance": 12, "soft": 36, "holeMin": 100000000})
+	check(cleared >= 30 * 30 - 21 * 20, "the white round the figure cleared (%d px)" % cleared)
+	near(img.get_pixel(0, 0).a, 0.0, 1e-6, "the white")
+	near(img.get_pixel(0, 29).a, 0.0, 1e-6, "its noise")
+	eq(img.get_pixel(13, 13), Color.WHITE, "the enclosed highlight stays")
+	eq(img.get_pixel(5, 5), Color8(20, 20, 24), "the outline stays")
+	eq(img.get_pixel(6, 10), Color8(220, 40, 30), "the red next to it keeps its red (no spill band)")
+	var rim := img.get_pixel(4, 10)
+	check(rim.a > 0.2 and rim.a < 0.8 and rim.r < 238.0 / 255.0, "the rim half keyed, un-blended from white (%s)" % rim)
 
 
 ## tools/import_frames.gd key_background() on magenta: the spill is the part of red and blue above
@@ -1132,11 +1160,11 @@ func test_import_frames_arguments() -> void:
 	check(not short.has("draw") and not short.has("fire"), "no ready picture: no draw / fire")
 	check(short.has("shoot") and short.has("die"), "the idle reuses stay")
 	var spark = JSON.parse_string(FileAccess.get_file_as_string(cfg_of.call("spark")))
-	eq(str(spark["frames"]), "frame_*.png", "the template takes every frame_N.png")
+	eq(str(spark["frames"]), "frame_*.png", "Spark takes every frame_N.png")
 	eq(I.resolve_anims(spark["anims"], 5, ["ready"])["walk"]["frames"], [0, 1, 2, 3, 4], "walk: all the frames")
-	eq(I.resolve_anims(spark["anims"], 5, ["ready"]).keys(), rookie["anims"].keys(), "the template's anims are Rookie's")
-	# Flora's and Tanko's, filled for their 8 run frames: every anim.
-	for id in ["flora", "tanko"]:
+	eq(I.resolve_anims(spark["anims"], 5, ["ready"]).keys(), rookie["anims"].keys(), "Spark's anims are Rookie's")
+	# Flora's, Tanko's and Spark's, filled for their 8 run frames: every anim.
+	for id in ["flora", "tanko", "spark"]:
 		var c = JSON.parse_string(FileAccess.get_file_as_string(cfg_of.call(id)))
 		eq(I.resolve_anims(c["anims"], 8, ["ready"]).keys(), rookie["anims"].keys(), "%s: every anim" % id)
 		eq(I.resolve_anims(c["anims"], 8, ["ready"])["walk"]["frames"], range(8), "%s: the walk over the 8 frames" % id)
@@ -1146,7 +1174,12 @@ func test_import_frames_arguments() -> void:
 		var c = JSON.parse_string(FileAccess.get_file_as_string(cfg_of.call(id)))
 		eq(c["anims"]["idle"]["frames"], ["stand"], "%s idles on the standing picture" % id)
 		eq(str(c["poses"]["stand"]["src"]), "../side_idle/idle_v1.png", "%s: the standing picture's file" % id)
-		check(not c["poses"]["stand"].has("background"), "%s: the standing picture is already transparent (no keying)" % id)
+		if id == "spark": # on white: only the white reached from the border keyed, no enclosed white, no despill
+			var bg: Dictionary = c["poses"]["stand"].get("background", {})
+			eq(bg.get("key"), [255.0, 255.0, 255.0], "spark: the standing picture's white keyed out")
+			check(float(bg.get("holeMin", 0)) > 1e6, "spark: no enclosed white keyed (the highlights stay)")
+		else:
+			check(not c["poses"]["stand"].has("background"), "%s: the standing picture is already transparent (no keying)" % id)
 		var both: Dictionary = I.resolve_anims(c["anims"], 8, ["stand", "ready"])
 		eq(both["idle"]["frames"], ["stand"], "%s: idle on the stand pose" % id)
 		check(not both["idle"].has("fallback"), "%s: the fallback is not passed on" % id)
@@ -1154,8 +1187,7 @@ func test_import_frames_arguments() -> void:
 		var old: Dictionary = I.resolve_anims(c["anims"], 8, ["ready"])
 		eq(old["idle"]["frames"].map(func(i): return int(i)), [6] if id == "tanko" else [0], "%s: no standing picture: the old idle run frame" % id)
 		eq(old.keys(), both.keys(), "%s: the same anims either way" % id)
-		if id != "spark":
-			check(FileAccess.file_exists("res://art_source/characters/%s/side_idle/idle_v1.png" % id), "%s: idle_v1.png there" % id)
-			check(c["poses"]["stand"].has("alignX") and float(c["poses"]["stand"]["scale"]) > 0.9 and float(c["poses"]["stand"]["scale"]) < 1.1, "%s: the stand pose placed, near the run frames' size" % id)
+		check(FileAccess.file_exists("res://art_source/characters/%s/side_idle/idle_v1.png" % id), "%s: idle_v1.png there" % id)
+		check(c["poses"]["stand"].has("alignX") and float(c["poses"]["stand"]["scale"]) > 0.9 and float(c["poses"]["stand"]["scale"]) < 1.1, "%s: the stand pose placed, near the run frames' size" % id)
 	eq(I.ready_pose_name({"idle": {"frames": ["stand"]}}), "", "no draw anim: no ready pose")
 	check(not DirAccess.dir_exists_absolute("res://art_source/characters/rookie/side_idle") or not FileAccess.file_exists("res://art_source/characters/rookie/side_idle/import.json"), "side_idle is no config of its own")

@@ -49,8 +49,8 @@ func sync() -> void:
 
 ## The Preview shows its kind's held gun sprite (assets/weapons/<kind>/<tier>.png) for a kind with
 ## no hug art yet (the gun the match hugs until then, ui/art.gd hug_gun(), turned round its
-## centre): a stand-in for the hug gun. No pose scene has one today (every drawn ready pose's kind
-## has hug art); kept for the next character's gun.
+## centre): a stand-in for the hug gun. Spark's scene has one (the iron shock rifle: no shock rifle
+## hug art yet).
 static func stand_in(preview: Sprite2D) -> bool:
 	return preview.texture != null and preview.texture.resource_path == Art.gun_path(str(preview.get("kind")), str(preview.get("tier")))
 

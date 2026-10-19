@@ -41,7 +41,9 @@ const FULL_ANIMS := ROOT + "characters/lobby_full_anims.json"
 ## with a ready pose: the gun is held only there) and gun_anchors.json, made from hand-drawn frames by tools/import_frames.gd) when it has one,
 ## else the code-baked frames above (<id>.tres, gun_anchors.json, FRAME_SIZE / FRAME_PIVOT).
 ## character_look() picks one: side view → baked frames → rookie's side view → rookie's baked
-## frames → empty animations.
+## frames → empty animations. Every character has its side view now; the baked frames stay the
+## fallback of a missing / broken one and the art of a new character without drawn frames
+## (tools/bake_art.gd draws them for a character without a side view).
 const SIDE_VIEW := "side"
 ## side.json `motion` names scenes/character/character.gd plays on top of the frames.
 const SIDE_MOTIONS := ["", "breathe", "recoil", "knockback", "fall"]
@@ -868,9 +870,9 @@ static func pose_gun_meta(path: String) -> Dictionary:
 ## hug gun at 0°, horizontal, facing right); a Preview with no picture yet (pose_gun.gd: the hug
 ## art not imported yet) stands for its kind / tier's hug_gun(). Without the scene (or a node): the
 ## gun anchors' hug point, the character's iron hug gun at the weapons' scale, level. Every
-## character has its scene (Tanko, Spark, Flora before their side view: its Body shows the baked
-## idle frame, scenes/character/poses/pose_body.gd); it is used once the character's side.json has
-## a readyPose (tools/import_frames.gd -- <id>).
+## character has its scene and a side view with a readyPose (tools/import_frames.gd -- <id>); a
+## character without one (the code-baked frames, no readyPose) has no ready pose: the code draw,
+## its scene's Body showing the baked idle frame (scenes/character/poses/pose_body.gd).
 static func ready_pose(id: String) -> Dictionary:
 	id = known_character(id)
 	if _ready_poses.has(id):

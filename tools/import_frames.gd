@@ -796,7 +796,8 @@ static func corner_colour(img: Image, corner: int = 8) -> Color:
 ## alphaCut clears: their green rim is farther than `spill` from a fully cleared pixel). The key
 ## may be any flat colour: a green screen's spill is its green (capped at the larger of red / blue),
 ## a magenta (or other two-channel) backdrop's is the part of its two channels above the third
-## (key_channels(): both lowered by it, so a pink rim turns grey, a red keeps its red). `glow`
+## (key_channels(): both lowered by it, so a pink rim turns grey, a red keeps its red); a white (or
+## grey) backdrop has no spill: nothing is despilled (Spark's standing picture on white). `glow`
 ## {colour [r, g, b], fit (RGB distance, default 40), alpha (× the glow's alpha, default 1; 0 keys
 ## it away), max (default 0.95)}: a soft glow the art painted into the backdrop (a glowing crystal)
 ## is un-mixed from it: a pixel on the line from the key to that colour (no farther than `fit`, less
@@ -870,7 +871,7 @@ static func key_background(img: Image, bg: Dictionary) -> int:
 	gone.resize(n)
 	var from_keyed := str(bg.get("spillFrom", "cleared")) == "keyed"
 	var chans := key_channels(key)
-	var kc: int = chans[0] # the key's strongest channel
+	var kc: int = chans[0] if not chans.is_empty() else -1 # the key's strongest channel (-1: white / grey, no spill)
 	var kc2: int = chans[1] if chans.size() > 1 else -1 # a magenta key's other one
 	for i in n:
 		var glowing := not glow_a.is_empty() and glow_a[i] >= 0.0
@@ -914,10 +915,10 @@ static func key_background(img: Image, bg: Dictionary) -> int:
 			if excess > 0:
 				px[o + kc] -= excess
 				px[o + kc2] -= excess
-		elif from_keyed:
+		elif from_keyed and kc >= 0:
 			px[o + kc] = mini(px[o + kc], maxi(px[o + (kc + 1) % 3], px[o + (kc + 2) % 3]))
 	# Despill the band next to the cleared (or keyed) pixels: the key's channel no stronger than the others.
-	var band := int(bg.get("spill", 3))
+	var band := int(bg.get("spill", 3)) if kc >= 0 else 0
 	if band > 0:
 		var front := PackedInt32Array()
 		var seen := gone.duplicate()
@@ -950,9 +951,13 @@ static func key_background(img: Image, bg: Dictionary) -> int:
 
 ## The channels (0 r, 1 g, 2 b) a key colour's spill shows in: [its strongest] (a green screen:
 ## [1]), or [strongest, second] when the second is at least half the strongest and the third is
-## not (a magenta backdrop: [0, 2]).
+## not (a magenta backdrop: [0, 2]); none for a white or grey key (no channel more than a fifth of
+## the strongest above another: no colour to spill).
 static func key_channels(key: Color) -> Array:
 	var c := [key.r, key.g, key.b]
+	var top := maxf(c[0], maxf(c[1], c[2]))
+	if top - minf(c[0], minf(c[1], c[2])) <= 0.2 * top:
+		return []
 	var k := 0 if c[0] >= c[1] and c[0] >= c[2] else (1 if c[1] >= c[2] else 2)
 	var a := (k + 1) % 3
 	var b := (k + 2) % 3

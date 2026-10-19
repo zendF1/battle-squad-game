@@ -1,0 +1,105 @@
+{
+	"size": [
+		94,
+		134
+	],
+	"pivot": [
+		40.14,
+		130.84
+	],
+	"pxPerUnit": 0.7,
+	"height": 124.53,
+	"extent": {
+		"back": 39.14,
+		"front": 46.86,
+		"top": 129.84
+	},
+	"anims": {
+		"idle": {
+			"frames": [
+				"idle_0"
+			],
+			"fps": 1.0,
+			"loop": true,
+			"motion": "breathe"
+		},
+		"walk": {
+			"frames": [
+				"walk_0",
+				"walk_1",
+				"walk_2",
+				"walk_3",
+				"walk_4",
+				"walk_5",
+				"walk_6",
+				"walk_7"
+			],
+			"fps": 15.0,
+			"loop": true,
+			"motion": ""
+		},
+		"shoot": {
+			"frames": [
+				"idle_0",
+				"idle_0",
+				"idle_0"
+			],
+			"fps": 9.0,
+			"loop": false,
+			"motion": "recoil"
+		},
+		"hurt": {
+			"frames": [
+				"idle_0",
+				"idle_0",
+				"idle_0"
+			],
+			"fps": 7.0,
+			"loop": false,
+			"motion": "knockback"
+		},
+		"die": {
+			"frames": [
+				"idle_0",
+				"idle_0",
+				"idle_0",
+				"idle_0"
+			],
+			"fps": 8.0,
+			"loop": false,
+			"motion": "fall"
+		},
+		"draw": {
+			"frames": [
+				"ready_0"
+			],
+			"fps": 1.0,
+			"loop": false,
+			"motion": ""
+		},
+		"fire": {
+			"frames": [
+				"ready_0",
+				"ready_0",
+				"ready_0"
+			],
+			"fps": 9.0,
+			"loop": false,
+			"motion": "recoil"
+		}
+	},
+	"gunDraw": {
+		"drawSec": 0.0,
+		"fastDrawSec": 0.0,
+		"holsterSec": 0.0,
+		"fadeIn": 0.0
+	},
+	"readyPose": {
+		"anims": [
+			"draw",
+			"fire"
+		],
+		"scene": "res://scenes/character/poses/spark_ready.tscn",
+		"armFront": "ready_arm_front"
+	}
+}

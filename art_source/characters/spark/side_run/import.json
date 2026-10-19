@@ -1,5 +1,5 @@
 {
-	"_doc": "tools/import_frames.gd: Spark's in-match side view, a template copied from Rookie's (art_source/characters/rookie/side_run/import.json): the run cycle frame_1.png .. frame_N.png here (any size, transparent background, facing right), the standing idle ../side_idle/idle_v1.png (poses.stand; without it the idle is frame_1) and the ready pose ../side_ready/ready_v1.png. Run: $GODOT --headless --path . -s tools/import_frames.gd -- spark. Rookie's numbers tuned for his pictures: retune height, poses.ready.scale and add alignX / hands / gun / hand (see Rookie's config) when this character's pictures need them. See assets/README.md.",
+	"_doc": "tools/import_frames.gd: Spark's in-match side view from the AI-made run cycle (frame_1..8.png, 1280x720, facing right), the standing idle (poses.stand: ../side_idle/idle_v1.png, 1024x765 on a white background) and the ready pose (poses.ready: ../side_ready/ready_v1.png, 1024x765, kneeling, hugging the gun). Source px unless noted. height: the run frames at Rookie's source px per world px (the heads drawn the same size: 62.26 = 60 x his figure 552 / Rookie's 532 source px; the spiky hair makes him a little taller); idle: the standing picture (poses.stand); walk 15 fps: the planted foot moves back ~6 world px a frame (Rookie ~4.7 at 20 fps), 90 px/s walk. See assets/README.md.",
 	"id": "spark",
 	"out": "res://assets/characters/spark/side/",
 	"frames": "frame_*.png",
@@ -25,7 +25,7 @@
 		0.74,
 		0.8
 	],
-	"height": 60,
+	"height": 62.26,
 	"oversample": 2,
 	"worldPxPerUnit": 0.35,
 	"pad": 3,
@@ -44,7 +44,7 @@
 		},
 		"walk": {
 			"frames": "all",
-			"fps": 20,
+			"fps": 15,
 			"loop": true,
 			"swing": true
 		},
@@ -132,12 +132,26 @@
 	},
 	"poses": {
 		"stand": {
-			"_doc": "pose px: standing upright, facing right, transparent background, the same size as the run frames (cleaned like them). scale: source px per pose px (the head as wide as in the run frames); add alignX [pose x, source x] (the ear on frame_1's) so the head does not jump idle <-> walk <-> ready; without it the figure's middle sits on the hips. See Rookie's config.",
+			"_doc": "pose px (1024x765): standing upright, facing right, on a WHITE background (keyed out: `background` key white, only the white reached from the picture's border through near-white pixels, the dark outline the wall; holeMin so big no enclosed white goes: the highlights inside the figure stay; a white key has no spill: nothing despilled; then cleaned like the run frames: alphaCut / keepPieces / defringe). scale: source px per pose px (0.97: the hair and the face 4 % wider than in the run frames, the figure about as tall: the head does not drop idle <-> walk; the ready pose uses the same scale and alignX, its head drawn the same: no jump idle <-> ready); alignX: the ear on frame_1's; the soles on the soles' row.",
 			"src": "../side_idle/idle_v1.png",
-			"scale": 1.0
+			"background": {
+				"key": [
+					255,
+					255,
+					255
+				],
+				"tolerance": 12,
+				"soft": 36,
+				"holeMin": 100000000
+			},
+			"scale": 0.97,
+			"alignX": [
+				470,
+				571.9
+			]
 		},
 		"ready": {
-			"_doc": "pose px: kneeling, facing right, both fists together in front of the chest, NO gun, on a flat green backdrop (keyed out: `background`; small detached pieces such as an AI sparkle go, keepPieces). scale: source px per pose px (Rookie's 0.555 for an 882x1024 pose next to 1280x720 run frames: the cap and the head as wide as in the run frames). Without alignX the pose's middle sits on the hips; set gun.grip [x, y] (pose px) to the middle of the fists: the hug point (else the pose's middle). The hug gun is placed by hand in `scene`.",
+			"_doc": "pose px (1024x765): kneeling, facing right, both gloved fists together on the chest, NO gun, on a flat green backdrop (keyed out: `background`, holeMin / holePure / spillFrom keyed as Flora's; the AI sparkle bottom right goes with the detached pieces, keepPieces). scale / alignX: the standing idle's (the same picture size, the head drawn the same: it does not jump on the switch). The hug gun is placed in `scene` (its GunSocket on the fists: the gun turns round it).",
 			"src": "../side_ready/ready_v1.png",
 			"workScale": 1.0,
 			"background": {
@@ -145,16 +159,131 @@
 				"corner": 8,
 				"tolerance": 45,
 				"soft": 45,
-				"holeMin": 200,
-				"spill": 3
+				"holeMin": 15,
+				"spill": 3,
+				"holePure": 0,
+				"spillFrom": "keyed"
 			},
 			"alphaCut": 24,
 			"keepPieces": 0.02,
 			"defringe": {
 				"band": 0
 			},
-			"scale": 0.555,
-			"scene": "res://scenes/character/poses/spark_ready.tscn"
+			"scale": 0.97,
+			"scene": "res://scenes/character/poses/spark_ready.tscn",
+			"alignX": [
+				470,
+				571.9
+			],
+			"gun": {
+				"_doc": "the fallback seat (no scene): the hug point, the middle of the two fists (pose px), level",
+				"grip": [
+					568,
+					390
+				],
+				"angle": 0
+			},
+			"armFront": {
+				"stem": "ready_arm_front",
+				"polygon": [
+					[
+						385,
+						295
+					],
+					[
+						470,
+						295
+					],
+					[
+						478,
+						345
+					],
+					[
+						520,
+						360
+					],
+					[
+						540,
+						345
+					],
+					[
+						596,
+						345
+					],
+					[
+						596,
+						435
+					],
+					[
+						385,
+						435
+					]
+				],
+				"seeds": [
+					[
+						420,
+						340
+					],
+					[
+						440,
+						375
+					],
+					[
+						490,
+						400
+					],
+					[
+						470,
+						420
+					],
+					[
+						530,
+						384
+					],
+					[
+						540,
+						400
+					],
+					[
+						565,
+						365
+					],
+					[
+						580,
+						372
+					],
+					[
+						570,
+						410
+					],
+					[
+						560,
+						405
+					],
+					[
+						565,
+						416
+					],
+					[
+						590,
+						410
+					],
+					[
+						588,
+						404
+					]
+				],
+				"darkMax": 80,
+				"grow": 6,
+				"feather": 1,
+				"_doc": "the near arm drawn OVER the hugged gun (assets/characters/spark/side/ready_arm_front.png, same canvas as ready_0), pose px: polygon round the bare near shoulder and upper arm, the elbow and the forearm, the green fingerless glove and both fists; seeds: one point inside each piece the outline walls in (the far shoulder and forearm right of the fists stay under the gun). See Rookie's config for the keys."
+			}
 		}
-	}
+	},
+	"canvas": [
+		385,
+		73,
+		386,
+		566
+	]
 }
