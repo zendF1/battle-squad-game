@@ -436,8 +436,8 @@ folder each; the **tier** is the intensity, from one table (`ShotLook.TIERS`) an
 
 ```
 fx/
-  common/          smoke.png, debris.png, muzzle.png
-  bazooka/         projectile.png (the bomb), trail.png, impact_0..5.png (fire explosion)   ← also every fallback
+  common/          bomb.png, smoke.png, debris.png, muzzle.png
+  bazooka/         projectile.png (a rocket), trail.png, impact_0..5.png (fire explosion)   ← its impact is every fallback
   cannon/          projectile.png, trail.png, impact_0..5.png
   shock_rifle/     projectile.png, trail.png, impact_0..5.png
   seed_launcher/   projectile.png, trail.png, impact_0..5.png
@@ -447,12 +447,13 @@ fx/
 
 | File | Size | Notes |
 |---|---|---|
-| `common/muzzle.png` | 64x64 (5 KB) | a flash star: the bomb's fuse spark, the guns' muzzle flash |
+| `common/bomb.png` | 48x48 (2 KB) | the round bomb: ball centred, flying towards +x, fuse behind; 2 px per world px. What an air strike drops (with the basic bazooka's trail and fire explosion) and the fallback projectile of a kind whose own file is missing |
+| `common/muzzle.png` | 64x64 (5 KB) | a flash star: the bomb's fuse spark, the rocket's flickering exhaust flame (stretched), the guns' muzzle flash |
 | `common/smoke.png` | 128x128 (21 KB) | soft puff, light grey (tinted and faded in code) |
 | `common/debris.png` | 24x24 (1 KB) | light grey chunk (tinted dirt/grass in code) |
-| `bazooka/projectile.png` | 48x48 (2 KB) | the bomb: ball centred, flying towards +x, fuse behind; 2 px per world px. Fallback projectile of every kind |
+| `bazooka/projectile.png` | 88x40 (3 KB) | a rocket in the hug bazooka's colours (red warhead with two white stripes, olive body, three tail fins, dark nozzle, a short exhaust flame), thick dark outline, cel shaded; flying towards +x, its middle centred, 2 px per world px (44x20 world px). The game turns it to the flight direction (every projectile is) |
 | `<kind>/projectile.png` | 64x64 (1–6 KB) | centred, flying towards +x, 2 px per world px: `cannon/` heavy iron ball, `shock_rifle/` cyan plasma orb with arcs, `seed_launcher/` seed pod with a leaf, `blaster/` an energy bolt drawn **white** (the game colours it with the tier) |
-| `<kind>/trail.png` | 32x32 (0.5–2 KB) | the trail particle: bazooka warm puff, cannon grey smoke, shock rifle cyan spark, seed launcher pink petal, blaster white spark (tinted) |
+| `<kind>/trail.png` | 32x32 (0.5–2 KB) | the trail particle: bazooka a lumpy white-grey exhaust puff (coloured in code from fire to grey smoke over its life, `ShotLook.KINDS` trail `hot` / `cool`), cannon grey smoke, shock rifle cyan spark, seed launcher pink petal, blaster white spark (tinted) |
 | `<kind>/impact_0..5.png` | 256x256 (10–71 KB) | the burst, centred, drawn for a radius-60 crater (scaled to the real radius times the tier's scale), played over 0.5 s: bazooka fire explosion, cannon heavy dark-orange blast with soot (drawn 1.2x, more debris), shock rifle electric burst, seed launcher green flash with petals, blaster white energy burst (tinted). A missing file falls back to the bazooka's |
 | `tiers/glow.png` | 64x64 (2 KB) | soft round glow, white: projectile halo, impact flash, the lobby gun's glow |
 | `tiers/sparkle.png` | 32x32 (1 KB) | four-point star, white: mithril / silver trails, impact sparkles (diamond's linger) |

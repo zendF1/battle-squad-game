@@ -31,39 +31,43 @@ const DIRT := [Color(0.42, 0.28, 0.16), Color(0.3, 0.2, 0.12), Color(0.36, 0.6, 
 ## gun kind -> look.
 ## color: the kind's own accent (basic tier; the tiers blend their colour into it);
 ## line / line_width: the line trail (null: none); trail: trail particles (assets/fx/<kind>/trail.png,
-##   one every `every` world px, life s, size start/end world px, alpha, drift down px/s, jitter
-##   sideways px, spin rad/s; tint: particles take the accent colour by this much);
-## spin: the projectile turns (rad/s); fuse: the bomb's fuse spark; flicker: the projectile pulses;
+##   one every `every` world px, born `back` world px behind the centre (default 0), life s, size
+##   start/end world px, alpha, drift down px/s, jitter sideways px, spin rad/s; tint: particles
+##   take the accent colour by this much; optional hot / cool: each particle's colour goes from
+##   hot to cool over the first cool_at of its life, e.g. exhaust fire turning into grey smoke);
+## spin: the projectile turns (rad/s) on top of facing its flight; fuse: the bomb's fuse spark;
+## exhaust: a flickering flame at the rocket's nozzle; flicker: the projectile pulses;
 ## body_tint: how much the projectile itself takes the accent colour (0: its own colours; the
 ##   blaster bolt is drawn white and takes it fully);
 ## impact: scale of the burst frames, smoke puffs and colour, bits (count, speed, size, gravity
 ##   factor, colours, image: "debris" or "trail" = the kind's trail particle), frame_tint.
 const KINDS := {
-	"bazooka": {"color": Color(1.0, 0.72, 0.32), "line": Color(1.0, 0.85, 0.55), "line_width": 6.0,
-		"trail": {"every": 13.0, "life": 0.35, "size": [5.0, 11.0], "alpha": 0.55, "drift": -16.0, "jitter": 2.0, "spin": 1.5, "tint": 0.3},
-		"spin": 0.0, "fuse": true, "flicker": false, "body_tint": 0.0,
+	"bazooka": {"color": Color(1.0, 0.72, 0.32), "line": Color(1.0, 0.8, 0.4), "line_width": 5.0,
+		"trail": {"every": 7.0, "back": 12.0, "life": 0.5, "size": [5.0, 15.0], "alpha": 0.7, "drift": -14.0, "jitter": 2.5, "spin": 1.5, "tint": 0.3,
+			"hot": Color(1.0, 0.82, 0.35), "cool": Color(0.62, 0.6, 0.62), "cool_at": 0.35},
+		"spin": 0.0, "fuse": false, "exhaust": true, "flicker": false, "body_tint": 0.0,
 		"impact": {"scale": 1.0, "smoke": 7, "smoke_color": Color(0.55, 0.52, 0.55, 0.85), "bits": 12,
 			"speed": [180.0, 420.0], "bit_size": [2.0, 4.0], "gravity": 1.0, "colors": DIRT, "bit_image": "debris"}},
 	"cannon": {"color": Color(1.0, 0.6, 0.25), "line": Color(0.75, 0.74, 0.76), "line_width": 4.0,
 		"trail": {"every": 7.0, "life": 0.45, "size": [9.0, 20.0], "alpha": 0.7, "drift": -18.0, "jitter": 0.0, "spin": 0.0, "tint": 0.15},
-		"spin": 0.0, "fuse": false, "flicker": false, "body_tint": 0.0,
+		"spin": 0.0, "fuse": false, "exhaust": false, "flicker": false, "body_tint": 0.0,
 		"impact": {"scale": 1.2, "smoke": 11, "smoke_color": Color(0.38, 0.36, 0.38, 0.9), "bits": 24,
 			"speed": [220.0, 520.0], "bit_size": [2.5, 5.0], "gravity": 1.0, "colors": DIRT, "bit_image": "debris"}},
 	"shock_rifle": {"color": Color(0.55, 0.95, 1.0), "line": Color(0.55, 0.95, 1.0), "line_width": 7.0,
 		"trail": {"every": 6.0, "life": 0.3, "size": [9.0, 3.0], "alpha": 1.0, "drift": 0.0, "jitter": 9.0, "spin": 0.0, "tint": 0.6},
-		"spin": 0.0, "fuse": false, "flicker": true, "body_tint": 0.0,
+		"spin": 0.0, "fuse": false, "exhaust": false, "flicker": true, "body_tint": 0.0,
 		"impact": {"scale": 1.0, "smoke": 2, "smoke_color": Color(0.55, 0.8, 0.95, 0.5), "bits": 16,
 			"speed": [200.0, 480.0], "bit_size": [3.0, 5.0], "gravity": 0.25,
 			"colors": [Color(1.0, 1.0, 0.7), Color(0.6, 0.95, 1.0)], "bit_image": "trail"}},
 	"seed_launcher": {"color": Color(0.6, 1.0, 0.5), "line": null, "line_width": 0.0,
 		"trail": {"every": 8.0, "life": 0.6, "size": [8.0, 6.0], "alpha": 0.95, "drift": 22.0, "jitter": 6.0, "spin": 9.0, "tint": 0.2},
-		"spin": 9.0, "fuse": false, "flicker": false, "body_tint": 0.0,
+		"spin": 9.0, "fuse": false, "exhaust": false, "flicker": false, "body_tint": 0.0,
 		"impact": {"scale": 1.0, "smoke": 3, "smoke_color": Color(0.6, 0.85, 0.55, 0.55), "bits": 16,
 			"speed": [140.0, 360.0], "bit_size": [4.0, 6.0], "gravity": 0.35,
 			"colors": [Color(1, 1, 1), Color(0.65, 1.0, 0.6), Color(1.0, 0.9, 0.6)], "bit_image": "trail"}},
 	"blaster": {"color": Color(1.0, 0.42, 0.5), "line": Color(1.0, 0.6, 0.65), "line_width": 5.0,
 		"trail": {"every": 7.0, "life": 0.28, "size": [7.0, 2.0], "alpha": 0.9, "drift": 0.0, "jitter": 4.0, "spin": 0.0, "tint": 1.0},
-		"spin": 0.0, "fuse": false, "flicker": true, "body_tint": 1.0,
+		"spin": 0.0, "fuse": false, "exhaust": false, "flicker": true, "body_tint": 1.0,
 		"impact": {"scale": 1.0, "smoke": 2, "smoke_color": Color(0.8, 0.7, 0.85, 0.45), "bits": 14,
 			"speed": [200.0, 460.0], "bit_size": [3.0, 5.0], "gravity": 0.3,
 			"colors": [Color(1, 1, 1), Color(1.0, 0.85, 0.9)], "bit_image": "trail", "frame_tint": 1.0}},
@@ -120,7 +124,8 @@ const PARTICLE_GROUPS := ["smoke", "bits", "sparkles", "embers", "coins", "shard
 
 ## Who fires, how: the gun the shooter brought (match player dict: weaponItemId, characterId;
 ## catalog for the weapon's entry; no weapon / a bot → its character's gun, basic), whether it is
-## a skill shot, and the item (only for an item shot). Air strikes drop plain bombs.
+## a skill shot, and the item (only for an item shot). Air strikes drop plain bombs (the basic
+## bazooka's trail and fire explosion; projectile_view.gd ITEM_LOOKS draws the round bomb).
 static func style_for(player: Dictionary, action_mode: String, item_id: String, catalog: Variant = null) -> Dictionary:
 	var g := EquipmentModel.player_gun(player, catalog)
 	var it := item_id if action_mode == "item" else ""

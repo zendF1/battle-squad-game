@@ -47,6 +47,7 @@ func play(timeline, lead_in: float = 0.0) -> void:
 		view.tier = str(style.get("tier", ""))
 		view.skill = bool(style.get("skill", false))
 		view.item = str(style.get("item", ""))
+		view.heading = timeline.start_velocity(i)
 		view.position = timeline.sample(i, 0.0) + _spawn_offsets[i]
 		view.visible = _t >= 0.0
 		layer.add_child(view)

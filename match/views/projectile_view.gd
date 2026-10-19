@@ -1,7 +1,9 @@
 extends Node2D
 ## A shell in flight (moved by shot_player.gd), drawn the way the shooter's GUN fires it
-## (match/views/shot_look.gd: `kind` = the bullet and its trail, `tier` = how grand):
-## - bazooka: the bomb (fuse spark from assets/fx/common/muzzle.png) with a warm line trail;
+## (match/views/shot_look.gd: `kind` = the bullet and its trail, `tier` = how grand), always
+## turned to its flight direction (the image flies towards +x; `heading` faces it before it moves):
+## - bazooka: a rocket with a flickering exhaust flame (assets/fx/common/muzzle.png) at its nozzle,
+##   a short fiery line and puffs that start as fire and turn into grey smoke;
 ## - cannon: a heavy iron ball with a grey smoke trail;
 ## - shock_rifle: a flickering plasma orb with an electric trail and sparks;
 ## - seed_launcher: a spinning seed pod with a petal trail;
@@ -9,9 +11,10 @@ extends Node2D
 ## The tier blends its colour into the trail, adds a glow halo (steel up) and its overlay
 ## particles (assets/fx/tiers/: mithril / silver sparkles, dragon / titan embers, gold coins,
 ## diamond crystal shards in rainbow colours). Images via ui/art.gd (assets/fx/<kind>/, falling
-## back to the bomb). A skill shot is drawn larger and brighter; an item shot is tinted and marked
-## by the item on top (ITEM_LOOKS). Set kind / tier / skill / item before adding it. Visuals
-## only: the server path moves it.
+## back to the round bomb, assets/fx/common/bomb.png). A skill shot is drawn larger and brighter;
+## an item shot is tinted and marked by the item on top (ITEM_LOOKS; an air strike drops the round
+## bomb with its fuse spark instead). Set kind / tier / skill / item / heading before adding it.
+## Visuals only: the server path moves it.
 
 const Art := preload("res://ui/art.gd")
 const ShotLook := preload("res://match/views/shot_look.gd")
@@ -19,10 +22,13 @@ const ShotLook := preload("res://match/views/shot_look.gd")
 const TRAIL := 10 # positions kept for the line trail
 const BOMB_PX := 2.0 # projectile image px per world px
 const SPARK := Vector2(-11, -3) # the bomb's fuse tip, world px from its centre (flying +x)
+const EXHAUST := Vector2(-13, 0) # the rocket's exhaust flame, world px from its centre (flying +x)
 ## Overlay trail particles drawn behind the projectile with its halo; coins and shards fly over it.
 const GLOWING_FX := ["sparkle", "ember"]
-## item id -> tint of the projectile and its trail, and a mark drawn over it ("" none).
+## item id -> tint of the projectile and its trail, a mark drawn over it ("" none) and whether it
+## is the round bomb whatever the gun (bomb).
 const ITEM_LOOKS := {
+	"air_strike": {"tint": Color.WHITE, "mark": "", "bomb": true},
 	"freeze_bomb": {"tint": Color(0.62, 0.86, 1.0), "mark": "frost"},
 	"spider_net": {"tint": Color(0.95, 0.95, 1.0), "mark": "web"},
 	"drill_bomb": {"tint": Color(0.72, 0.72, 0.78), "mark": "spiral"},
@@ -34,6 +40,9 @@ var kind := ShotLook.DEFAULT_KIND
 var tier := ShotLook.DEFAULT_TIER
 var skill := false
 var item := ""
+## The flight direction before the first move (shot_player.gd: the path's start velocity);
+## zero: +x.
+var heading := Vector2.ZERO
 
 var _k: Dictionary # ShotLook.KINDS[kind]
 var _tl: Dictionary # ShotLook.TIERS[tier]
@@ -54,6 +63,8 @@ var _spark: Texture2D
 var _glow: Texture2D
 var _tint := Color.WHITE
 var _mark := ""
+var _fuse := false
+var _exhaust := false
 var _glow_layer: Node2D # behind the projectile: the halo and the glowing overlay particles
 var _rng := RandomNumberGenerator.new()
 
@@ -66,7 +77,13 @@ func _ready() -> void:
 	_tl = ShotLook.TIERS[tier]
 	_accent = ShotLook.accent(kind, tier)
 	_accent2 = ShotLook.accent2(kind, tier)
-	_tex = Art.shot(kind, "projectile", Art.fx("bomb"))
+	var look: Dictionary = ITEM_LOOKS.get(item, {})
+	var bomb := bool(look.get("bomb", false))
+	_tex = Art.fx("bomb") if bomb else Art.shot(kind, "projectile", Art.fx("bomb"))
+	_fuse = bomb or bool(_k["fuse"])
+	_exhaust = not bomb and bool(_k["exhaust"])
+	if heading.length_squared() > 0.0:
+		_dir = heading.normalized()
 	_spark = Art.fx("muzzle")
 	_trail_tex = Art.shot(kind, "trail", Art.fx("smoke"))
 	var fx: Dictionary = _tl["trail_fx"]
@@ -76,7 +93,6 @@ func _ready() -> void:
 	_glow = Art.tier_fx("glow")
 	if _glow == null:
 		_glow = _spark
-	var look: Dictionary = ITEM_LOOKS.get(item, {})
 	_tint = look.get("tint", Color.WHITE)
 	_mark = look.get("mark", "")
 	_rng.randomize()
@@ -101,7 +117,7 @@ func _process(delta: float) -> void:
 		if _trail.size() > TRAIL:
 			_trail.remove_at(0)
 	_since_particle += moved
-	_particles = _emit(_particles, _k["trail"], delta, p, "_since_particle", ShotLook.TRAIL_KIND_CAP)
+	_particles = _emit(_particles, _k["trail"], delta, p - _dir * float(_k["trail"].get("back", 0.0)) * _scale_k(), "_since_particle", ShotLook.TRAIL_KIND_CAP)
 	if _tier_tex != null:
 		_since_tier += moved
 		_tier_particles = _emit(_tier_particles, _tl["trail_fx"], delta, p, "_since_tier", ShotLook.TRAIL_TIER_CAP)
@@ -125,6 +141,11 @@ func _emit(list: Array, spec: Dictionary, delta: float, at: Vector2, counter: St
 	if list.size() > cap:
 		list = list.slice(list.size() - cap)
 	return list
+
+
+## The projectile's drawn rotation (rad): its flight direction plus the kind's spin.
+func draw_angle() -> float:
+	return _dir.angle() + _t * float(_k["spin"])
 
 
 func _scale_k() -> float:
@@ -152,16 +173,20 @@ func _draw() -> void:
 	if _tier_tex != null and not _tier_glows:
 		_draw_particles(self, _tier_particles, _tl["trail_fx"], _tier_tex, _tier_color(), scale_k, _tl["prismatic"])
 	# The projectile.
-	var rot := _dir.angle() + _t * float(_k["spin"])
+	var rot := draw_angle()
 	var pulse := 1.0 + (0.12 * sin(_t * 45.0) if _k["flicker"] else 0.0)
 	draw_set_transform(Vector2.ZERO, rot, Vector2.ONE * scale_k * pulse)
 	var size := _tex.get_size() / BOMB_PX
 	var body := Color.WHITE.lerp(_accent, float(_k["body_tint"])) * _tint
+	if _exhaust: # behind the rocket: a flame stretched along the flight, flickering in length
+		var flicker := 0.8 + 0.12 * sin(_t * 47.0) + 0.08 * sin(_t * 113.0)
+		var flame := Vector2(20.0 * flicker, 11.0)
+		draw_texture_rect(_spark, Rect2(EXHAUST - Vector2(flame.x * 0.65, flame.y / 2), flame), false, Color(1, 1, 1, 0.9) * _tint)
 	draw_texture_rect(_tex, Rect2(-size / 2, size), false, body)
 	if float(_k["body_tint"]) == 0.0 and float(_tl["glow"]) > 0.0: # a sheen in the tier's colour on a solid shell
 		var sheen: Color = ShotLook.prism(_t * 2.0) if _tl["prismatic"] else _accent
 		draw_texture_rect(_glow, Rect2(-size * 0.4, size * 0.8), false, Color(sheen, 0.35 * float(_tl["glow"])))
-	if _k["fuse"]:
+	if _fuse:
 		var flicker := 0.75 + 0.25 * sin(_t * 40.0)
 		var spark := Vector2(14, 14) * flicker
 		draw_texture_rect(_spark, Rect2(SPARK - spark / 2, spark), false)
@@ -192,20 +217,24 @@ func _draw_glow() -> void:
 		_glow_layer.draw_texture_rect(_glow, Rect2(-Vector2(h, h), Vector2(h, h) * 2), false, Color(1, 1, 1, 0.35 * pulse))
 
 
-## Draws trail particles (spec: life, size, alpha, drift, spin) with tex in color (prismatic:
-## each its own rainbow colour) on ci.
+## Draws trail particles (spec: life, size, alpha, drift, spin, optional hot / cool / cool_at)
+## with tex in color (prismatic: each its own rainbow colour), times its hot-to-cool colour, on ci.
 func _draw_particles(ci: CanvasItem, list: Array, spec: Dictionary, tex: Texture2D, color: Color, scale_k: float, prismatic: bool) -> void:
 	if list.is_empty() or tex == null:
 		return
 	var sizes: Array = spec["size"]
 	var life: float = spec["life"]
 	var alpha := float(spec.get("alpha", 1.0))
+	var hot = spec.get("hot")
+	var cool_at := maxf(0.001, float(spec.get("cool_at", 1.0)))
 	for q in list:
 		var f: float = q[1] / life
 		var r: float = lerpf(sizes[0], sizes[1], f) * scale_k
 		var side := Vector2(-_dir.y, _dir.x) * float(q[3])
 		var at: Vector2 = q[0] - global_position + side + Vector2(0, float(spec.get("drift", 0.0)) * q[1])
 		var c: Color = ShotLook.prism(q[2] / TAU + _t) if prismatic else color
+		if hot != null:
+			c *= Color(hot).lerp(spec["cool"], minf(1.0, f / cool_at))
 		ci.draw_set_transform(at, q[2] + q[1] * float(spec.get("spin", 0.0)), Vector2.ONE)
 		ci.draw_texture_rect(tex, Rect2(-Vector2(r, r), Vector2(r, r) * 2), false, Color(c, alpha * (1.0 - f)))
 	ci.draw_set_transform(Vector2.ZERO)

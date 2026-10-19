@@ -142,9 +142,11 @@ const EXPLOSION_FRAMES := 6
 ## The explosion frames are drawn for a crater of this radius (px in the frame).
 const EXPLOSION_RADIUS := 60.0
 ## Each gun kind's own shot (assets/fx/<kind>/, kind = GUN_KINDS): projectile.png (flying +x,
-## 2 px per world px), trail.png (32x32 trail particle) and impact_0..N.png (the burst).
-## bazooka/ (the bomb and the fire explosion) is also the fallback of a missing file of another
-## kind. Effects every kind uses (smoke, debris, muzzle flash) are in assets/fx/common/; the
+## 2 px per world px, centred, drawn turned to the flight; the bazooka's is a rocket),
+## trail.png (32x32 trail particle) and impact_0..N.png (the burst). A missing projectile falls
+## back to the round bomb (FX "bomb", assets/fx/common/bomb.png, also what an air strike drops),
+## a missing impact to bazooka/'s fire explosion, a missing trail to the smoke puff.
+## Effects every kind uses (bomb, smoke, debris, muzzle flash) are in assets/fx/common/; the
 ## shared tier overlays (match/views/shot_look.gd TIERS: glow, sparkles, embers, coins, shards,
 ## shockwave ring, lens flare, ground cracks) in assets/fx/tiers/, all drawn white-ish and tinted
 ## in code except the coin and the crack.
@@ -153,7 +155,7 @@ const SHOT_PARTS := ["projectile", "trail"]
 const DEFAULT_SHOT_KIND := "bazooka"
 const TIER_FX := ["glow", "sparkle", "ember", "coin", "shard", "ring", "flare", "crack"]
 const FX := {
-	"bomb": ROOT + "fx/bazooka/projectile.png",
+	"bomb": ROOT + "fx/common/bomb.png",
 	"smoke": ROOT + "fx/common/smoke.png",
 	"debris": ROOT + "fx/common/debris.png",
 	"muzzle": ROOT + "fx/common/muzzle.png",
@@ -320,19 +322,12 @@ static func all_paths() -> Array[String]:
 	return out
 
 
-## The texture at path, or a small grey placeholder when the file is missing. Loaded textures
-## stay cached: a texture only passed to a draw call must outlive the frame.
+## The texture at path (the PNG itself while the editor has not imported it yet), or a small grey
+## placeholder when the file is missing. Loaded textures stay cached: a texture only passed to a
+## draw call must outlive the frame.
 static func texture(path: String) -> Texture2D:
-	var cached: Texture2D = _textures.get(path)
-	if cached != null:
-		return cached
-	if ResourceLoader.exists(path):
-		var t = load(path)
-		if t is Texture2D:
-			_textures[path] = t
-			return t
-	_warn(path)
-	return placeholder()
+	var t := _png_texture(path)
+	return t if t != null else placeholder()
 
 
 static func placeholder() -> Texture2D:

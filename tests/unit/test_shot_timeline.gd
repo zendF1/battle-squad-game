@@ -34,6 +34,12 @@ func test_sample_follows_velocity_curve() -> void:
 	near(tl.sample(0, 0.5).y, -2.5, 1e-6, "apex")
 
 
+func test_start_velocity() -> void:
+	var tl = _timeline([_step(0, 0, 0, 30, -40), _step(1, 10, 0, 10, 0)])
+	eq(tl.start_velocity(0), Vector2(30, -40), "the first step's velocity")
+	eq(_timeline([]).start_velocity(0), Vector2.ZERO, "empty path")
+
+
 func test_sample_clamps_outside_path() -> void:
 	var tl = _timeline([_step(0, 0, 0, 10, 0), _step(1, 10, 0, 10, 0)])
 	eq(tl.sample(0, -1.0), Vector2(0, 0), "before start")
@@ -93,6 +99,7 @@ func test_multi_projectile_shot_moves_each_view_on_its_path() -> void:
 	var player = r[0]
 	var seen: Dictionary = r[1]
 	eq(player.layer.get_child_count(), 3, "three projectile views")
+	eq(player._views[1].heading, Vector2(20, 0), "a view faces its path's start velocity")
 	player._process(0.25)
 	eq(player._views[1].position, Vector2(5, 0), "second view on its own path")
 	eq(player._views[2].position, Vector2(7.5, 0), "third view on its own path")

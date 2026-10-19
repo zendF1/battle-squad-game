@@ -258,9 +258,10 @@ func _bake_fx() -> void:
 	_save(await _render(FxPainter.MUZZLE_SIZE, func(ci: CanvasItem) -> void: FxPainter.muzzle(ci, Vector2(FxPainter.MUZZLE_SIZE))), Art.FX["muzzle"])
 	for kind in Art.SHOT_KINDS:
 		_save(await _render(FxPainter.SHOT_TRAIL_SIZE, func(ci: CanvasItem) -> void: FxPainter.shot_trail(ci, Vector2(FxPainter.SHOT_TRAIL_SIZE), kind)), Art.shot_path(kind, "trail"))
+		var psize := FxPainter.shot_projectile_size(kind)
+		_save(await _render(psize, func(ci: CanvasItem) -> void: FxPainter.shot_projectile(ci, Vector2(psize), kind)), Art.shot_path(kind, "projectile"))
 		if kind == Art.DEFAULT_SHOT_KIND:
-			continue # the bomb and the explosion above
-		_save(await _render(FxPainter.SHOT_PROJECTILE_SIZE, func(ci: CanvasItem) -> void: FxPainter.shot_projectile(ci, Vector2(FxPainter.SHOT_PROJECTILE_SIZE), kind)), Art.shot_path(kind, "projectile"))
+			continue # its impact is the explosion above
 		for i in Art.EXPLOSION_FRAMES:
 			_save(await _render(FxPainter.EXPLOSION_SIZE, func(ci: CanvasItem) -> void: FxPainter.shot_impact(ci, Vector2(FxPainter.EXPLOSION_SIZE), kind, i)), Art.shot_path(kind, "impact_%d" % i))
 	for fx_name in Art.TIER_FX:

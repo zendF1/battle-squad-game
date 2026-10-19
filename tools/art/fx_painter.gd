@@ -1,7 +1,8 @@
 extends RefCounted
-## Code-drawn effects (bake source only): the bomb, the explosion frames, a smoke puff, a debris
-## chunk, a muzzle/fuse flash, the character ground shadow, each gun kind's own shot (the bazooka's
-## bomb and fire explosion, the cannon's iron ball, the shock rifle's plasma orb, the seed
+## Code-drawn effects (bake source only): the bomb (assets/fx/common/, an air strike's drop and
+## the fallback projectile), the explosion frames, a smoke puff, a debris chunk, a muzzle/fuse
+## flash, the character ground shadow, each gun kind's own shot (the bazooka's rocket with its
+## exhaust puff and fire explosion, the cannon's iron ball, the shock rifle's plasma orb, the seed
 ## launcher's pod, the blaster's energy bolt: projectile, trail particle, impact frames) and the
 ## shared tier overlays (glow, sparkle, ember, coin, shard, shockwave ring, lens flare, ground
 ## cracks). tools/bake_art.gd saves them under assets/fx/<kind>/, assets/fx/common/ and
@@ -25,10 +26,23 @@ const DEBRIS_SIZE := Vector2i(24, 24)
 const MUZZLE_SIZE := Vector2i(64, 64)
 ## The ground shadow, in character art units (drawn at the character PX_PER_UNIT).
 const SHADOW_UNITS := Vector2(100, 24)
-## Per-gun shots (ui/art.gd SHOT_KINDS; the bazooka's projectile and impact are the bomb and the
-## explosion above): the projectile (flying towards +x, 2 px per world px), a trail particle and
-## the impact frames.
+## Per-gun shots (ui/art.gd SHOT_KINDS; the bazooka's impact is the explosion above): the
+## projectile (flying towards +x, 2 px per world px), a trail particle and the impact frames.
 const SHOT_PROJECTILE_SIZE := Vector2i(64, 64)
+## The bazooka's rocket canvas (44 x 20 world px) and its layout, px from the canvas centre
+## along the flight (+x): the exhaust flame ends near -40, the nozzle runs from ROCKET_NOZZLE_TO
+## to ROCKET_NOZZLE_FROM, the olive body to ROCKET_COLLAR_FROM, then the collar, the warhead and
+## its nose from ROCKET_NOSE_FROM to the tip.
+const ROCKET_SIZE := Vector2i(88, 40)
+const ROCKET_TIP := 40.0
+const ROCKET_NOSE_FROM := 27.0
+const ROCKET_COLLAR_FROM := 13.0
+const ROCKET_NOZZLE_FROM := -17.0
+const ROCKET_NOZZLE_TO := -23.0
+## [base, light, dark] of the hug bazooka (assets/weapons/bazooka/hug_iron.png).
+const ROCKET_OLIVE := [Color8(0x76, 0x88, 0x52), Color8(0xa1, 0xb4, 0x74), Color8(0x4b, 0x56, 0x38)]
+const ROCKET_RED := [Color8(0xb9, 0x2c, 0x28), Color8(0xe2, 0x59, 0x52), Color8(0x82, 0x1c, 0x19)]
+const ROCKET_STEEL := [Color8(0x4a, 0x4e, 0x55), Color8(0x7c, 0x82, 0x8c), Color8(0x2c, 0x2f, 0x35)]
 const SHOT_TRAIL_SIZE := Vector2i(32, 32)
 ## The tier overlays (ui/art.gd TIER_FX) and their canvas sizes.
 const TIER_FX_SIZES := {
@@ -139,12 +153,19 @@ static func shadow(ci: CanvasItem, size: Vector2) -> void:
 
 # ── Per-gun shots ───────────────────────────────────────────────────────────
 
-## The projectile of a gun kind ("cannon", "shock_rifle", "seed_launcher", "blaster"), centred,
-## flying towards +x.
+## The canvas of a gun kind's projectile: the bazooka's rocket is long and flat, the rest square.
+static func shot_projectile_size(kind: String) -> Vector2i:
+	return ROCKET_SIZE if kind == "bazooka" else SHOT_PROJECTILE_SIZE
+
+
+## The projectile of a gun kind ("bazooka", "cannon", "shock_rifle", "seed_launcher", "blaster"),
+## centred, flying towards +x, on a shot_projectile_size(kind) canvas.
 static func shot_projectile(ci: CanvasItem, size: Vector2, kind: String) -> void:
 	var c := size / 2
 	var glow := preload("res://tools/art/env_painter.gd").glow_texture()
 	match kind:
+		"bazooka":
+			rocket(ci, size)
 		"cannon": # a heavy iron cannonball (world radius 10)
 			var r := 20.0
 			ci.draw_circle(c, r + 2.5, OUTLINE, true, -1.0, true)
@@ -191,6 +212,106 @@ static func shot_projectile(ci: CanvasItem, size: Vector2, kind: String) -> void
 			ci.draw_texture_rect(glow, Rect2(c + Vector2(15, 0) - Vector2(14, 14), Vector2(28, 28)), false, Color(1, 1, 1, 0.8))
 
 
+## The bazooka's rocket, flying towards +x, its middle at the canvas centre, in the hug bazooka's
+## colours (assets/weapons/bazooka/hug_iron.png): a red pointed warhead with two white stripes,
+## a dark collar, a short olive body, three tail fins (top, bottom and the one facing us), a
+## dark nozzle and a short exhaust flame behind it; thick dark outline, cel shading (light top
+## band, dark bottom band). 2 px per world px.
+static func rocket(ci: CanvasItem, size: Vector2) -> void:
+	var c := size / 2
+	var glow := preload("res://tools/art/env_painter.gd").glow_texture()
+	var ow := 5.0 # outline width (both sides of the edge: about 2.5 px outside)
+	# Profiles (half height at x, px from the middle): body, collar, warhead, nozzle.
+	var body := func(_x: float) -> float: return 7.5
+	var collar := func(_x: float) -> float: return 9.0
+	var head := func(x: float) -> float:
+		var t := clampf((x - ROCKET_NOSE_FROM) / (ROCKET_TIP - ROCKET_NOSE_FROM), 0.0, 1.0)
+		return 9.5 * (1.0 - pow(t, 1.7)) + 0.8 * t
+	var nozzle := func(x: float) -> float: return lerpf(5.5, 7.0, (ROCKET_NOZZLE_FROM - x) / (ROCKET_NOZZLE_FROM - ROCKET_NOZZLE_TO))
+	var parts := [ # [from x, to x, profile, base, light, dark]
+		[ROCKET_NOZZLE_TO, ROCKET_NOZZLE_FROM + 1.0, nozzle, ROCKET_STEEL[0], ROCKET_STEEL[1], ROCKET_STEEL[2]],
+		[ROCKET_NOZZLE_FROM, ROCKET_COLLAR_FROM + 1.0, body, ROCKET_OLIVE[0], ROCKET_OLIVE[1], ROCKET_OLIVE[2]],
+		[ROCKET_COLLAR_FROM + 3.5, ROCKET_TIP, head, ROCKET_RED[0], ROCKET_RED[1], ROCKET_RED[2]],
+		[ROCKET_COLLAR_FROM, ROCKET_COLLAR_FROM + 3.5, collar, ROCKET_STEEL[0], ROCKET_STEEL[1], ROCKET_STEEL[2]],
+	]
+	var fin_top := PackedVector2Array([Vector2(-5, -7), Vector2(-13, -15), Vector2(-18.5, -15.5), Vector2(-16.5, -7)])
+	var fin_bottom := PackedVector2Array()
+	for p in fin_top:
+		fin_bottom.append(Vector2(p.x, -p.y))
+	var fin_mid := PackedVector2Array([Vector2(-7, -1.0), Vector2(-17.5, -2.2), Vector2(-17.5, 2.2), Vector2(-7, 1.0)])
+	# The exhaust flame (behind everything, no outline): a soft glow, then orange, yellow, white.
+	var nz := c + Vector2(ROCKET_NOZZLE_TO, 0)
+	ci.draw_texture_rect(glow, Rect2(nz + Vector2(-17, -10), Vector2(24, 20)), false, Color(1.0, 0.6, 0.15, 0.75))
+	for layer in [[16.0, 6.0, Color(1.0, 0.5, 0.12)], [11.5, 4.3, Color(1.0, 0.82, 0.25)], [6.5, 2.6, Color(1.0, 0.98, 0.8)]]:
+		ci.draw_colored_polygon(_flame(nz + Vector2(1, 0), layer[0], layer[1]), layer[2])
+	# One outline behind all the parts, so the joints show no inner gaps.
+	for fin in [fin_top, fin_bottom]:
+		_outline(ci, _at(c, fin), OUTLINE, ow)
+	for p in parts:
+		_outline(ci, _hull(c, p[0], p[1], p[2], -1.0, 1.0), OUTLINE, ow)
+	for fin in [fin_top, fin_bottom]: # the side fins, darker olive with a light leading edge
+		var f := _at(c, fin)
+		ci.draw_colored_polygon(f, ROCKET_OLIVE[2])
+		ci.draw_line(f[0].lerp(f[1], 0.15), f[1].lerp(f[2], 0.3), ROCKET_OLIVE[0], 2.0, true)
+	for p in parts:
+		ci.draw_colored_polygon(_hull(c, p[0], p[1], p[2], -1.0, 1.0), p[3])
+		ci.draw_colored_polygon(_hull(c, p[0], p[1], p[2], -0.92, -0.38), p[4]) # light top band
+		ci.draw_colored_polygon(_hull(c, p[0], p[1], p[2], 0.45, 1.0), p[5]) # dark bottom band
+	# Two white stripes round the warhead, shaded like it.
+	for x0 in [ROCKET_COLLAR_FROM + 5.5, ROCKET_COLLAR_FROM + 9.0]:
+		ci.draw_colored_polygon(_hull(c, x0, x0 + 2.0, head, -1.0, 1.0), Color(1, 1, 1))
+		ci.draw_colored_polygon(_hull(c, x0, x0 + 2.0, head, 0.45, 1.0), Color(0.82, 0.8, 0.86))
+	ci.draw_circle(c + Vector2(ROCKET_TIP - 9.0, -4.2), 1.6, Color(1, 1, 1, 0.75), true, -1.0, true) # a glint
+	# The fin facing us, over the body.
+	var fm := _at(c, fin_mid)
+	ci.draw_colored_polygon(fm, ROCKET_OLIVE[2])
+	_outline(ci, fm, OUTLINE, 1.4)
+	ci.draw_line(fm[0] + Vector2(-1, 0.3), fm[1] + Vector2(1, 0.6), ROCKET_OLIVE[1], 1.0, true)
+	# Thin dark seams between the parts.
+	for x in [ROCKET_NOZZLE_FROM, ROCKET_COLLAR_FROM, ROCKET_COLLAR_FROM + 3.5]:
+		var r := 9.0 if x != ROCKET_NOZZLE_FROM else 7.5
+		ci.draw_line(c + Vector2(x, -r), c + Vector2(x, r), OUTLINE, 1.5, true)
+
+
+## A closed outline of a polygon.
+static func _outline(ci: CanvasItem, pts: PackedVector2Array, color: Color, width: float) -> void:
+	var ring := pts.duplicate()
+	ring.append(pts[0])
+	ci.draw_polyline(ring, color, width, true)
+
+
+## A polygon's points moved to c.
+static func _at(c: Vector2, pts: PackedVector2Array) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for p in pts:
+		out.append(c + p)
+	return out
+
+
+## The band v0..v1 (-1 top edge, 1 bottom edge) of a horizontal hull from x0 to x1 (px from c)
+## whose half height at x is profile(x).
+static func _hull(c: Vector2, x0: float, x1: float, profile: Callable, v0: float, v1: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	var n := 12
+	for i in n + 1:
+		var x := lerpf(x0, x1, float(i) / n)
+		pts.append(c + Vector2(x, v0 * float(profile.call(x))))
+	for i in n + 1:
+		var x := lerpf(x1, x0, float(i) / n)
+		pts.append(c + Vector2(x, v1 * float(profile.call(x))))
+	return pts
+
+
+## A flame tongue from `base` back towards -x: `length` long, `r` half wide at the base.
+static func _flame(base: Vector2, length: float, r: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in 17:
+		var a := -PI / 2 + PI * i / 16.0 # top edge, the back point, bottom edge
+		var k := maxf(0.0, cos(a))
+		pts.append(base + Vector2(-length * pow(k, 0.6), sin(a) * r * (1.0 - 0.7 * k * k * k)))
+	return pts
+
+
 ## A horizontal capsule centred at c: half length hl (to the cap centres), radius r.
 static func _capsule(ci: CanvasItem, c: Vector2, hl: float, r: float, color: Color) -> void:
 	var pts := PackedVector2Array()
@@ -201,15 +322,18 @@ static func _capsule(ci: CanvasItem, c: Vector2, hl: float, r: float, color: Col
 	ci.draw_colored_polygon(pts, color)
 
 
-## A trail particle: the bazooka a warm fire puff, the cannon a grey smoke puff, the shock rifle
-## a cyan spark, the seed launcher a petal, the blaster a white energy spark (tinted in game).
+## A trail particle: the bazooka a lumpy exhaust puff drawn white-grey (the game colours it from
+## fire to smoke over its life), the cannon a grey smoke puff, the shock rifle a cyan spark, the
+## seed launcher a petal, the blaster a white energy spark (tinted in game).
 static func shot_trail(ci: CanvasItem, size: Vector2, kind: String) -> void:
 	var c := size / 2
 	var glow := preload("res://tools/art/env_painter.gd").glow_texture()
 	match kind:
 		"bazooka":
-			ci.draw_texture_rect(glow, Rect2(Vector2.ZERO, size), false, Color(1.0, 0.7, 0.35, 0.8))
-			ci.draw_texture_rect(glow, Rect2(c - Vector2(8, 9), Vector2(16, 16)), false, Color(1.0, 0.95, 0.7, 0.85))
+			for b in [[Vector2(0, 2), 13.0, 0.8], [Vector2(-5, -3), 9.5, 0.75], [Vector2(5, -2), 9.0, 0.7], [Vector2(1, -6), 8.0, 0.65]]:
+				var r: float = b[1] * 1.2
+				ci.draw_texture_rect(glow, Rect2(c + b[0] - Vector2(r, r), Vector2(r, r) * 2), false, Color(0.86, 0.86, 0.88, b[2]))
+			ci.draw_texture_rect(glow, Rect2(c + Vector2(-8, -10), Vector2(13, 13)), false, Color(1, 1, 1, 0.7))
 		"cannon":
 			ci.draw_texture_rect(glow, Rect2(Vector2.ZERO, size), false, Color(0.75, 0.75, 0.78, 0.9))
 			ci.draw_texture_rect(glow, Rect2(c - Vector2(9, 11), Vector2(16, 16)), false, Color(0.95, 0.95, 0.97, 0.6))

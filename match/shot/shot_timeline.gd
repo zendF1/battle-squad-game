@@ -49,6 +49,13 @@ func sample(i: int, t: float) -> Vector2:
 	return _vec(path[-1]["position"])
 
 
+## Projectile i's velocity where its path starts (px/s), zero for an empty path.
+func start_velocity(i: int) -> Vector2:
+	var path: Array = projectiles[i].get("path", [])
+	var v = path[0].get("velocity") if not path.is_empty() else null
+	return _vec(v) if v is Dictionary and v.has("x") and v.has("y") else Vector2.ZERO
+
+
 ## Returns the events with t <= time that were not returned before, in timeline order.
 func pop_due(time: float) -> Array:
 	var due := []
