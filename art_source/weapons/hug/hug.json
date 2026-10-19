@@ -17,11 +17,14 @@
 		}
 	},
 	"guns": {
-		"bazooka_dragon": {"background": {"holeMin": 15, "holePure": 0}, "despill": true, "_doc": "a shaded 22 px sliver of backdrop between the collar and the head, enclosed by the outline: keyed as a hole, no green left (the dragon has no green)"},
+		"bazooka_iron": {"despill": {"hueRange": [270, 335]},
+			"_doc": "Rookie's bazooka (v2: one shape in four tiers, magenta backdrop: a long tube, a flared exhaust cone at the back, four bands, a box sight, the warhead out of the front): 57 world px long in every tier (aiming straight up its back end sits on his soles), held in the tube's middle, muzzle (all tiers) the warhead's tip; despill hueRange: the purple-tinted outline px next to the backdrop (up to hue 335: the dragon's dark crimson outline) turn dark, the art's reds are 345+"},
 		"bazooka_basic": {"from": "iron", "recolour": {"saturation": 0.55, "value": 0.94},
 			"_doc": "the starter bazooka: the iron one desaturated, guns_v1.json recolours.basic (old basic.png = iron.png × that)"},
-		"bazooka_steel": {"from": "iron", "recolour": {"hueRange": [45, 135], "hue": -4.5, "saturation": 1.25, "value": 0.975},
-			"_doc": "the olive of the old steel.png vs iron.png fitted on matching pixels (hue -4.5°, saturation ×1.25, value ×0.975; the red warhead unchanged)"},
+		"bazooka_steel": {"despill": {"hueRange": [270, 335]}},
+		"bazooka_mithril": {"despill": {"hueRange": [270, 335]}},
+		"bazooka_dragon": {"hold": [512, 383], "background": {"holeMin": 15, "holePure": 0}, "despill": {"hueRange": [270, 335]},
+			"_doc": "the length includes the dragon's head and the warhead in its mouth (its tube 3 % shorter than the other tiers'); hold: the tube's middle (iron's), not the gun's (the head sticks out in front); the muzzle: the warhead's tip in the mouth; the pockets of backdrop between the horns, under the fin and between the teeth keyed as holes"},
 		"cannon_iron": {"length": 52, "muzzle": [908, 383], "despill": {"hueRange": [270, 320]},
 			"_doc": "Tanko's cannon (v2: a short, very thick riveted cannon; gunmetal grey breech / bands, olive barrel), magenta backdrop: 52 world px long in every tier (about 25 thick; any longer and its back end sinks below his soles aiming straight up: his hug point is 119.43 pose px = 52.25 world px of half-length above them), held in the tube's middle; muzzle (all tiers): the centre of the bore inside the muzzle ring (the dark bore is part of the gun); despill hueRange: the purple-tinted outline px next to the backdrop"},
 		"cannon_basic": {"from": "iron", "recolour": {"saturation": 0.55, "value": 0.94},

@@ -58,7 +58,7 @@ khi thay ảnh / thêm nhân vật). Mỗi nhân vật `<id>` có thư mục ả
    ngang, **nòng sang phải**, **không có tay cầm**, nền một màu đặc: xanh lá hoặc **hồng tím
    (magenta)** đều được (tool lấy màu ở 4 góc; quầng sáng của pha lê / hạt lửa trên nền khai báo
    `"glow"`, xem dưới). Cấp nào chỉ khác màu (vd.
-   `basic`, `steel` của bazooka, `basic` của cannon, seed_launcher và shock_rifle) không cần ảnh: khai báo trong `hug.json` `"<loại>_<cấp>": {"from":
+   `basic` của bazooka, cannon, seed_launcher và shock_rifle) không cần ảnh: khai báo trong `hug.json` `"<loại>_<cấp>": {"from":
    "iron", "recolour": {...}}` là tool tự đổi màu từ ảnh cấp đó.
 3. **Chạy** (trong thư mục `battle-squad-game`, editor mở cũng được):
    ```
@@ -419,14 +419,19 @@ shots look like that gun (`fx/` below).
 The JSON files are read with `FileAccess` (an export that filters resources must keep `*.json`).
 
 **Hug guns** (the big gun a drawn ready pose hugs, `ui/art.gd` `hug_gun()`, Rookie's pose above):
-`<kind>/hug_<tier>.png` (bazooka: `hug_basic`, `hug_iron`, `hug_steel`, `hug_mithril` 118x41,
-`hug_dragon` 118x42, 7–9 KB; cannon: `hug_basic`, `hug_iron`, `hug_steel`, `hug_mithril` 108x54,
+`<kind>/hug_<tier>.png` (bazooka: `hug_basic`, `hug_iron`, `hug_steel`, `hug_mithril` 118x37,
+`hug_dragon` 118x51, 6–10 KB; cannon: `hug_basic`, `hug_iron`, `hug_steel`, `hug_mithril` 108x54,
 `hug_dragon` 108x57, 10–13 KB; seed launcher: `hug_basic`, `hug_iron`, `hug_steel`, `hug_mithril`
 94x42, `hug_dragon` 94x44, 6–8 KB; shock rifle: `hug_basic`, `hug_iron`, `hug_steel`, `hug_mithril`
 114x39, `hug_dragon` 114x43, 8–10 KB) cut from `art_source/weapons/hug/<kind>_<tier>.png` (the gun alone,
 horizontal, muzzle right, no hand grips, a flat backdrop, green or magenta (the key is the corners'
-colour): `bazooka_iron`, `bazooka_mithril` (blue
-crystal), `bazooka_dragon` (red / orange dragon); on magenta the short, very thick riveted
+colour): on magenta the bazooka, one shape in four tiers (a long tube, a flared exhaust cone at the
+back, four bands, a box sight on top, the warhead sticking out of the front): `bazooka_iron` (olive
+tube, gunmetal bands and cone, a red warhead with white stripes), `bazooka_steel` (dark green tube,
+riveted polished steel bands and cone, a dark red warhead with silver stripes), `bazooka_mithril` (sky
+blue with wave engravings, silver bands, a turquoise crystal warhead), `bazooka_dragon` (red tube, gold
+bands and cone, a dragon's head at the muzzle with a fin and horns, an orange scaled warhead in its
+mouth); the short, very thick riveted
 cannons `cannon_iron` (gunmetal grey breech and bands, olive barrel), `cannon_steel` (orange breech and
 bands, olive barrel), `cannon_mithril` (ice blue with frost engravings, silver bands), `cannon_dragon`
 (crimson with gold riveted bands, a dragon's head muzzle with fire in its mouth); `seed_launcher_iron` (grey back cap, olive tube, a leaf sight,
@@ -445,13 +450,19 @@ $GODOT --headless --path . -s tools/import_hug_guns.gd -- bazooka_iron    # some
 
 (`art_source/weapons/hug/hug.json`: `length` world px, 57 = about 1.5 × Rookie's kneeling body width;
 the keying options; per gun `length`, `hold`, `muzzle` overrides in source px, `background` key options
-over the shared ones and `despill` (no key colour left anywhere: `bazooka_dragon`, a shaded pocket of
-backdrop between its collar and head, `holeMin` 15 / `holePure` 0), and `from` + `recolour` for a tier
+over the shared ones and `despill` (true: no key colour left anywhere, for art with none of it;
+`{"hueRange": [lo, hi]}`: only those hues), and `from` + `recolour` for a tier
 made from another tier's picture: the same shape, hold and muzzle, recoloured by `tools/import_guns.gd`
 `recolour()` (the held guns' specs, plus `hue` shift and `hueRange`). `bazooka_basic` = iron × the held
 guns' `basic` (saturation 0.55, value 0.94, as the held guns' `basic.png` is made from `iron.png`);
-`bazooka_steel` = iron with the olive (hue 45–135°) shifted −4.5°, saturation × 1.25, value × 0.975, the
-red warhead kept (fitted from the old held bazooka `steel.png` against `iron.png` on matching pixels);
+`bazooka_steel` has its own picture. The bazooka is 57 world px long in every tier (the dragon's head
+and the warhead in its mouth counted: its tube 3 % shorter than the others'), held in the tube's middle
+(`bazooka_dragon` `hold` [512, 383]: the head left out, the tube in the same fists as iron's), the
+muzzle the warhead's tip; aiming straight up its back end sits on Rookie's soles. `despill`
+`{"hueRange": [270, 335]}` on every bazooka tier: the purple-tinted outline pixels next to the magenta
+(the dragon's dark crimson outline up to hue 335) turn dark, the art's reds (345+) untouched;
+`bazooka_dragon` keys the pockets between the horns, under the fin and between the teeth as holes
+(`holeMin` 15, `holePure` 0).
 `cannon_basic` = iron × the same `basic` (the old held cannon `basic.png` against `iron.png`: saturation
 × 0.553, value × 0.934). The cannon is 52 world px long (every tier, the dragon's head counted; the
 bazooka 57) and about 25 thick: short and very thick, a big heavy gun on Tanko that still leaves his
@@ -547,7 +558,7 @@ fx/
 | `common/muzzle.png` | 64x64 (5 KB) | a flash star: the bomb's fuse spark, the rocket's flickering exhaust flame (stretched), the guns' muzzle flash |
 | `common/smoke.png` | 128x128 (21 KB) | soft puff, light grey (tinted and faded in code) |
 | `common/debris.png` | 24x24 (1 KB) | light grey chunk (tinted dirt/grass in code) |
-| `bazooka/projectile.png` | 88x40 (3 KB) | a rocket in the hug bazooka's colours (red warhead with two white stripes, olive body, three tail fins, dark nozzle, a short exhaust flame), thick dark outline, cel shaded; flying towards +x, its middle centred, 2 px per world px (44x20 world px). The game turns it to the flight direction (every projectile is) |
+| `bazooka/projectile.png` | 88x40 (3 KB) | a rocket in the hug bazooka's colours (`fx_painter.gd` `ROCKET_*`, sampled from the cel-shaded `bazooka_iron.png`: red warhead with two white stripes, olive body, three tail fins, dark nozzle, a short exhaust flame), thick dark outline, cel shaded; flying towards +x, its middle centred, 2 px per world px (44x20 world px). The game turns it to the flight direction (every projectile is) |
 | `<kind>/projectile.png` | 64x64 (1–6 KB) | centred, flying towards +x, 2 px per world px: `cannon/` heavy iron ball, `shock_rifle/` cyan plasma orb with arcs, `seed_launcher/` seed pod with a leaf, `blaster/` an energy bolt drawn **white** (the game colours it with the tier) |
 | `<kind>/trail.png` | 32x32 (0.5–2 KB) | the trail particle: bazooka a lumpy white-grey exhaust puff (coloured in code from fire to grey smoke over its life, `ShotLook.KINDS` trail `hot` / `cool`), cannon grey smoke, shock rifle cyan spark, seed launcher pink petal, blaster white spark (tinted) |
 | `<kind>/impact_0..5.png` | 256x256 (10–71 KB) | the burst, centred, drawn for a radius-60 crater (scaled to the real radius times the tier's scale), played over 0.5 s: bazooka fire explosion, cannon heavy dark-orange blast with soot (drawn 1.2x, more debris), shock rifle electric burst, seed launcher green flash with petals, blaster white energy burst (tinted). A missing file falls back to the bazooka's |

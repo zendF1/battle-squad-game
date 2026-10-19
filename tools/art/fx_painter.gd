@@ -39,10 +39,13 @@ const ROCKET_NOSE_FROM := 27.0
 const ROCKET_COLLAR_FROM := 13.0
 const ROCKET_NOZZLE_FROM := -17.0
 const ROCKET_NOZZLE_TO := -23.0
-## [base, light, dark] of the hug bazooka (assets/weapons/bazooka/hug_iron.png).
-const ROCKET_OLIVE := [Color8(0x76, 0x88, 0x52), Color8(0xa1, 0xb4, 0x74), Color8(0x4b, 0x56, 0x38)]
-const ROCKET_RED := [Color8(0xb9, 0x2c, 0x28), Color8(0xe2, 0x59, 0x52), Color8(0x82, 0x1c, 0x19)]
-const ROCKET_STEEL := [Color8(0x4a, 0x4e, 0x55), Color8(0x7c, 0x82, 0x8c), Color8(0x2c, 0x2f, 0x35)]
+## [base, light, dark] of the hug bazooka (assets/weapons/bazooka/hug_iron.png, sampled from its
+## cel-shaded picture art_source/weapons/hug/bazooka_iron.png): the olive tube, the red warhead, the
+## gunmetal bands and cone; its white stripes [base, shadow].
+const ROCKET_OLIVE := [Color8(0x6d, 0x80, 0x48), Color8(0x93, 0xad, 0x64), Color8(0x4b, 0x5b, 0x34)]
+const ROCKET_RED := [Color8(0xc0, 0x35, 0x2e), Color8(0xee, 0x82, 0x80), Color8(0x8b, 0x28, 0x23)]
+const ROCKET_STEEL := [Color8(0x51, 0x5c, 0x62), Color8(0x79, 0x87, 0x90), Color8(0x37, 0x40, 0x49)]
+const ROCKET_STRIPE := [Color8(0xe4, 0xeb, 0xf1), Color8(0x97, 0xa0, 0xa9)]
 const SHOT_TRAIL_SIZE := Vector2i(32, 32)
 ## The tier overlays (ui/art.gd TIER_FX) and their canvas sizes.
 const TIER_FX_SIZES := {
@@ -259,8 +262,8 @@ static func rocket(ci: CanvasItem, size: Vector2) -> void:
 		ci.draw_colored_polygon(_hull(c, p[0], p[1], p[2], 0.45, 1.0), p[5]) # dark bottom band
 	# Two white stripes round the warhead, shaded like it.
 	for x0 in [ROCKET_COLLAR_FROM + 5.5, ROCKET_COLLAR_FROM + 9.0]:
-		ci.draw_colored_polygon(_hull(c, x0, x0 + 2.0, head, -1.0, 1.0), Color(1, 1, 1))
-		ci.draw_colored_polygon(_hull(c, x0, x0 + 2.0, head, 0.45, 1.0), Color(0.82, 0.8, 0.86))
+		ci.draw_colored_polygon(_hull(c, x0, x0 + 2.0, head, -1.0, 1.0), ROCKET_STRIPE[0])
+		ci.draw_colored_polygon(_hull(c, x0, x0 + 2.0, head, 0.45, 1.0), ROCKET_STRIPE[1])
 	ci.draw_circle(c + Vector2(ROCKET_TIP - 9.0, -4.2), 1.6, Color(1, 1, 1, 0.75), true, -1.0, true) # a glint
 	# The fin facing us, over the body.
 	var fm := _at(c, fin_mid)
