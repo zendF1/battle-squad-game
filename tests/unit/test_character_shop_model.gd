@@ -105,5 +105,7 @@ func test_data_for_every_character() -> void:
 	eq(Model.info("tanko")["weapon"]["wind"], "Gió đẩy ×0,3", "heavy shot")
 	eq(Model.info("spark")["weapon"]["wind"], "Gió đẩy ×1,6", "light shot")
 	eq(Model.info("tanko")["skill"]["name"], "Bom đào", "digging bomb")
+	check(Model.info("tanko")["skill"]["text"].contains("gấp 2 lần") and Model.info("tanko")["skill"]["text"].contains("gấp 1,8 lần"),
+		"server heavy_bomb: blast ×2, crater ×1.8")
 	eq(Model.info("rookie")["skill"]["energy"], "Cần 100 năng lượng (+20 mỗi lượt)", "energy")
 	eq(Model.tint("nobody"), Model.NEUTRAL_TINT, "unknown: neutral")

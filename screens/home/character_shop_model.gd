@@ -60,11 +60,11 @@ const WEAPONS := {
 const CRATER_PX_PER_TERRAIN_DAMAGE := 0.8
 
 ## The skill's effect in words, with the server's numbers (configs/skills.yaml damageMultiplier;
-## match.go: triple_shot ±10°, heavy_bomb blast ×2 and crater ×2.5, healing_bloom 650 HP;
+## match.go: triple_shot ±10°, heavy_bomb blast ×2 and crater ×1.8, healing_bloom 650 HP;
 ## status_effect.go: the net caps the move energy at 50 for one turn).
 const SKILL_INFO := {
 	"rookie": "Bắn 3 quả rocket một lúc, lệch nhau 10°, mỗi quả 125% sát thương.",
-	"tanko": "Một quả bom khoét đất: 110% sát thương, vụ nổ rộng gấp 2 lần và hố to gấp 2,5 lần. Địch trúng giữa hố rơi xuống đáy và mất thêm máu vì cú rơi.",
+	"tanko": "Một quả bom khoét đất: 110% sát thương, vụ nổ rộng gấp 2 lần và hố to gấp 1,8 lần. Địch trúng giữa hố rơi xuống đáy và mất thêm máu vì cú rơi.",
 	"spark": "Quả cầu điện 130% sát thương; trúng địch thì trùm lưới: lượt sau địch chỉ còn tối đa 50 năng lượng di chuyển.",
 	"flora": "Không cần ngắm: hồi ngay 650 máu cho bản thân (tăng theo sức mạnh kỹ năng), rồi hết lượt.",
 }
