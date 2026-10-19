@@ -1,0 +1,17 @@
+{
+	"_doc": "tools/import_equipment.gd reads this: one sheet per tier, <tier>.png here (ui/art.gd EQUIP_TIERS), every sheet the same layout: the items in one row, left → right as items, on a solid magenta backdrop (the corners' colour) → assets/icons/equipment/<slot>_<tier>.png. background: tools/import_frames.gd key_background() options (holeMin: the smallest enclosed pocket of backdrop keyed as a hole); despill.hueRange: the purple-tinted outline px next to the backdrop turn grey / black (the art has no purple); split: anchor (a big piece is ≥ anchor × the largest), gap (big pieces whose x ranges overlap or are at most this many empty px columns apart are one item: a pair of gloves / boots), join (a small piece touching an item's box grown by this many px is part of it; others, the ✦ sparkle, are dropped), cuts (optional: the x of the item boundaries in sheet px); size / margin: the icon and its free border (the weapon icons' 128 / 6); sparkles: stars [[x, y, r]] in icon px per tier (the old painted icons' positions), colour [r, g, b, a], slots. See the tool's header and assets/README.md.",
+	"items": ["helmet", "armor", "gloves", "pants", "boots"],
+	"background": {"key": "corners", "corner": 8, "tolerance": 45, "soft": 45, "holeMin": 15, "holePure": 0.5, "spill": 3},
+	"despill": {"hueRange": [270, 320]},
+	"alphaCut": 24,
+	"split": {"anchor": 0.05, "gap": 2, "join": 8},
+	"size": 128,
+	"margin": 6,
+	"sparkles": {
+		"nudge": 14,
+		"silver": {"stars": [[100, 30, 9]], "colour": [255, 255, 255, 217]},
+		"gold": {"stars": [[100, 30, 12], [28, 98, 7]]},
+		"diamond": {"stars": [[102, 28, 14], [26, 30, 8], [100, 100, 7]]},
+		"dragon": {"stars": [[102, 28, 9]], "colour": [255, 217, 102, 242], "slots": ["armor", "gloves", "pants", "boots"]}
+	}
+}

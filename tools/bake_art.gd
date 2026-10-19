@@ -9,7 +9,8 @@ extends SceneTree
 ## overwrites the PNGs (and the characters' SpriteFrames .tres and gun_anchors.json, the guns'
 ## weapons.json), prints every file it wrote and quits. A character with a side view
 ## (assets/characters/<id>/side/, tools/import_frames.gd) gets only its portrait, no frames; the
-## guns and the weapon icons are not baked while they are imported art (tools/import_guns.gd). Then import them once
+## guns and the weapon icons are not baked while they are imported art (tools/import_guns.gd), nor
+## the other equipment icons (tools/import_equipment.gd). Then import them once
 ## (editor, or `$GODOT --headless --path . --import`) so the .import files exist. An existing
 ## .import file is never touched, so import settings changed in the editor survive a re-bake.
 ##
@@ -25,6 +26,7 @@ const IconPainter := preload("res://tools/art/icon_painter.gd")
 const UiPainter := preload("res://tools/art/ui_painter.gd")
 const EquipmentPainter := preload("res://tools/art/equipment_painter.gd")
 const WeaponPainter := preload("res://tools/art/weapon_painter.gd")
+const ImportEquipment := preload("res://tools/import_equipment.gd")
 
 const GROUPS := ["characters", "weapons", "env", "terrain", "fx", "icons", "ui", "equipment"]
 ## Shown much smaller than drawn (icons on buttons, effects, clouds): mipmapped. The characters
@@ -286,14 +288,19 @@ func _guns_imported() -> bool:
 	return Art.guns_data().has("source")
 
 
-## The weapon icons are skipped while the guns are imported art (they are cut from it).
+## The weapon icons are skipped while the guns are imported art (they are cut from it), the other
+## slots' icons while they are imported art (tools/import_equipment.gd imported_slots()); the slot
+## silhouettes, the hexagon frames and the badge are always baked.
 func _bake_equipment() -> void:
 	var guns_imported := _guns_imported()
 	if guns_imported:
 		print("  weapon icons: imported art (tools/import_guns.gd): not baked")
+	var imported := ImportEquipment.imported_slots()
+	if not imported.is_empty():
+		print("  %s icons: imported art (tools/import_equipment.gd): not baked" % ", ".join(imported))
 	for slot in Art.EQUIP_SLOTS:
 		for tier in Art.EQUIP_TIERS:
-			if slot == "weapon" and guns_imported:
+			if (slot == "weapon" and guns_imported) or imported.has(slot):
 				continue
 			_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint(ci, slot, tier)), Art.equipment_icon_path(slot, tier))
 		_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint_slot(ci, slot)), Art.equipment_slot_path(slot))

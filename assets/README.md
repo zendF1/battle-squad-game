@@ -5,7 +5,7 @@ code (`tools/art/*.gd`) and baked by `tools/bake_art.gd`. `ui/art.gd` is the one
 ids to these paths; a missing file never crashes (a character falls back to rookie, an icon to
 `icons/unknown.png`, anything else to a small grey square, with a warning).
 
-Total about 3.8 MB of PNG (the full-body pictures about 0.45 MB of it).
+Total about 4.0 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-drawn equipment icons about 1 MB).
 
 ## Replacing art
 
@@ -34,6 +34,10 @@ Total about 3.8 MB of PNG (the full-body pictures about 0.45 MB of it).
   weapons): Rookie's bazooka, Tanko's cannon, Flora's seed launcher and Spark's shock rifle are only hug art (`art_source/weapons/hug/`, `tools/import_hug_guns.gd`, which writes their icons too). A hand-replaced gun works too: overwrite the PNG and, when the grip or muzzle
   moved, its entry in `weapons/weapons.json`. Any canvas size works (the grip pivot places it);
   `pxPerUnit` (texture px per art unit, every gun) sets the drawn size.
+- **Equipment icons** (armor, helmet, pants, boots, gloves): imported from AI-drawn sheets, one per
+  tier (`art_source/equipment/<tier>.png`, the five items in one row on magenta) by
+  `tools/import_equipment.gd` (config `art_source/equipment/equipment.json`, below): replace a sheet
+  and re-run it. It writes `icons/equipment/<slot>_<tier>.png`; `tools/bake_art.gd` no longer bakes them.
 - **9-patches** (`ui/`): keep the corners inside the texture margins listed below
   (`ui/art.gd` `UI_BOXES`), or change the margins there.
 - Import settings: icons, effects and clouds are imported with mipmaps (they are shown smaller
@@ -116,6 +120,17 @@ nguyên, nền trắng không bị khử màu viền),
 fps = 90 / số đó; Flora 13, Tanko 15, Spark 15, Rookie 20), `background` `holeMin` 15 / `holePure` 0 /
 `spillFrom` `"keyed"` khi còn viền xanh ở khe tóc (xem `ready_0.png` phóng to).
 
+## Thay icon trang bị (mũ, áo giáp, găng tay, quần, giày)
+
+Mỗi cấp một ảnh AI `art_source/equipment/<cấp>.png` (iron, steel, mithril, dragon, silver, gold, titan,
+diamond): 5 món trên một hàng, trái → phải **mũ, áo giáp, găng tay (một đôi), quần, giày (một đôi)**, nền
+**hồng tím (magenta) đặc**, cùng bố cục ở mọi cấp (cách vẽ: `art_source/equipment/README.txt`). Chạy
+```
+/Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_equipment.gd
+```
+là ghi lại `assets/icons/equipment/<món>_<cấp>.png` (cùng tên: Túi đồ, Shop, Nhân vật, Chuẩn bị tự đổi);
+đợi editor import xong.
+
 ## Re-baking the placeholder art
 
 Run windowed (a headless run has no renderer), from the project folder:
@@ -132,7 +147,9 @@ its size and quits. Then let the editor import them
 replaced art too: only re-bake the groups you have not replaced. Exception: while
 `weapons/weapons.json` has a `"source"` (the guns are imported art, `tools/import_guns.gd`), the
 `weapons` group and the weapon icons of `equipment` (`weapon_<tier>`, `weapon_<kind>_<tier>`) are
-skipped.
+skipped; while `art_source/equipment/` has its sheets, so are the other slots' icons of `equipment`
+(`<slot>_<tier>`, `tools/import_equipment.gd`): the group then bakes only the slot silhouettes, the
+hexagon frames and the badge.
 
 ## Files
 
@@ -607,11 +624,11 @@ tint and mark on top. Particles stay within 120 per impact and 48 per projectile
 | `medkit`, `teleport`, `power_shot`, `drill_bomb`, `spider_net`, `freeze_bomb`, `air_strike`, `wind_stopper` | item cards (Prep, Profile inventory, Shop) and match item buttons; the file name is the item id |
 | `unknown` | fallback for a missing icon or an unknown item |
 
-### icons/equipment/ (`tools/art/equipment_painter.gd`, paths in `ui/art.gd` EQUIP_*)
+### icons/equipment/ (`tools/import_equipment.gd`, the guns' tools, `tools/art/equipment_painter.gd`; paths in `ui/art.gd` EQUIP_*)
 
 | File | Size | Notes | Used by |
 |---|---|---|---|
-| `<slot>_<tier>.png` | 128x128 (1.5–3 KB) | one per slot × tier, transparent, dark outline. Slots `weapon`, `armor`, `helmet`, `pants`, `boots`, `gloves`; tiers `iron` (Sắt, grey), `steel` (Thép, blue steel), `mithril` (teal), `dragon` (Rồng, red + gold) for shop items, `silver` (Bạc), `gold` (Vàng), `titan`, `diamond` (Kim cương) for crafted ones. A normal item's tier comes from its name / id (`screens/home/equipment_model.gd` `tier()`); an unknown tier draws as iron | Shop → Trang bị, Túi đồ, Nhân vật slots and list, piece popup, Prep gear row |
+| `<slot>_<tier>.png` | 128x128 (20–30 KB) | one per slot × tier, transparent (no backing), dark outline. Slots `armor`, `helmet`, `pants`, `boots`, `gloves` (`weapon`: the next rows); tiers `iron` (Sắt, grey + brown leather), `steel` (Thép, blue steel), `mithril` (teal), `dragon` (Rồng, red dragon scales + gold, horns) for shop items, `silver` (Bạc, engraved silver), `gold` (Vàng, gold + red), `titan` (dark gunmetal, orange studs), `diamond` (Kim cương, icy crystal) for crafted ones. Cut from the AI-drawn sheets `art_source/equipment/<tier>.png` by `tools/import_equipment.gd` (config `equipment.json`): magenta keyed (the corners' colour, soft edge, pink rim despilled; enclosed pockets of backdrop between the legs, in the straps, between fingers keyed too), the ✦ sparkle and stray specks dropped, the sheet split into its items by their connected pieces grouped in columns (left → right helmet, armor, gloves, pants, boots; a pair of gloves / boots is one item); every tier of a slot at one scale and place (the union of the 8 tiers fitted into 128 − 2 × 6 px, the weapon icons' margin; outline about 2–3 px like theirs), Lanczos once; then the old painted icons' white sparkles per tier (silver 1, gold 2, diamond 3, dragon 1 gold-tinted but not on the helmet; titan and the shop tiers none), nudged up to 14 px off the art (`tools/art/equipment_painter.gd` still draws them all: `tools/bake_art.gd` bakes them only while there are no sheets). A normal item's tier comes from its name / id (`screens/home/equipment_model.gd` `tier()`); an unknown tier draws as iron | Shop → Trang bị, Túi đồ, Nhân vật slots and list, piece popup, Prep gear row |
 | `weapon_<tier>.png` | 128x128 (10–15 KB) | cut from the blaster guns (`tools/import_guns.gd`, tilted 14°, muzzle up); weapons are guns: the generic blaster per tier (retired generic weapons, crafted Silver/Gold/Titan/Diamond Blaster); also the empty weapon slot's shape | as above |
 | `weapon_<kind>_<iron\|steel\|mithril\|dragon>.png` | 128x128 (9–17 KB) | cut from that kind's hug art (`tools/import_hug_guns.gd`, the same look as the blaster's from `tools/import_guns.gd`: tilted 14°, muzzle up); each character's gun in the shop tiers: `bazooka` (Rookie), `cannon` (Tanko, đại pháo), `rifle` (Spark, súng điện), `launcher` (Flora, súng hạt). The kind comes from the item's `characterId` (`equipment_model.gd` `weapon_kind()`); a missing or not yet imported file falls back to `weapon_<tier>.png` | as above |
 | `slot_<slot>.png` | 128x128 (1 KB) | the slot's shape in plain white; the UI tints it faint blue for an empty slot | Nhân vật slots, Prep gear row |

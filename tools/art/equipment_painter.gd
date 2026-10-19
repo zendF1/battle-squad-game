@@ -6,7 +6,9 @@ extends RefCounted
 ## a white silhouette per slot for empty slots (tinted in the UI), the hexagon slot frames
 ## (empty, filled, selected) and the dark "+N" badge. tools/bake_art.gd saves them under
 ## assets/icons/equipment/ (paths in ui/art.gd). The weapon icons are superseded by the imported guns
-## (tools/import_guns.gd): bake_art.gd skips them while assets/weapons/weapons.json has a "source".
+## (tools/import_guns.gd): bake_art.gd skips them while assets/weapons/weapons.json has a "source";
+## the armor / helmet / pants / boots / gloves icons by the AI-drawn sheets (tools/import_equipment.gd):
+## skipped while art_source/equipment/ has them (the silhouettes, frames and badge are still baked here).
 
 const Art := preload("res://ui/art.gd")
 
