@@ -6,6 +6,8 @@ extends SceneTree
 ##   $GODOT --headless --path . -s tools/import_guns.gd [-- <config.json>]
 ##
 ## The sheet: one gun per cell, side view, muzzle right, on white; rows = kinds, columns = tiers.
+## Only the cells the config lists are cut: not the bazooka row (Rookie's bazooka is hug art, its
+## icons made by tools/import_hug_guns.gd with icons() below).
 ## It writes assets/weapons/<kind>/<tier>.png, assets/weapons/weapons.json (the format ui/art.gd
 ## gun() reads, plus "source": the config) and assets/icons/equipment/weapon_*.png. A new PNG gets
 ## an .import (mipmaps for the icons); an existing .import is never touched. Let the editor import
@@ -132,26 +134,38 @@ func _import(cfg_path: String) -> void:
 	_write_text(OUT + "weapons.json", JSON.stringify(data, "\t", false) + "\n")
 	# 3. The equipment icons.
 	var ic: Dictionary = cfg.get("icons", {})
-	var size := int(ic.get("size", 128))
-	var box := float(size - 2 * int(ic.get("margin", 6)))
 	for pattern in ic.get("files", {}):
 		var f: Dictionary = ic["files"][pattern]
-		var kind := str(f["gun"])
-		var turned := {}
-		var u := Rect2i()
+		var out := icons(canvases[str(f["gun"])], f["tiers"], ic)
 		for tier in f["tiers"]:
-			var img := rotated(canvases[kind][tier], deg_to_rad(float(ic.get("tiltDeg", 0.0))))
-			turned[tier] = img
-			var r := img.get_used_rect()
-			u = r if u.size == Vector2i.ZERO else u.merge(r)
-		var s := minf(box / u.size.x, box / u.size.y)
-		var dst := Vector2i(maxi(1, roundi(u.size.x * s)), maxi(1, roundi(u.size.y * s)))
-		for tier in f["tiers"]:
-			var part: Image = turned[tier].get_region(u)
-			var small := scaled(part, dst)
-			var icon := Image.create(size, size, false, Image.FORMAT_RGBA8)
-			icon.blit_rect(small, Rect2i(Vector2i.ZERO, dst), (Vector2i(size, size) - dst) / 2)
-			_save(icon, ICONS + str(pattern).replace("<tier>", str(tier)) + ".png", true)
+			_save(out[tier], ICONS + str(pattern).replace("<tier>", str(tier)) + ".png", true)
+
+
+## The equipment icons of one file group (`icons` size, margin, tiltDeg): {tier: Image size² px}
+## from canvases {tier: Image (straight alpha, every tier at the same resolution and lined up on
+## the same point)}: each turned tiltDeg (muzzle up), the union of the group's tiers fitted into
+## size − 2 × margin (one scale per group, the same region of every tier), centred, Lanczos once.
+## tools/import_hug_guns.gd makes the hug guns' icons with it too.
+static func icons(canvases: Dictionary, tiers: Array, ic: Dictionary) -> Dictionary:
+	var size := int(ic.get("size", 128))
+	var box := float(size - 2 * int(ic.get("margin", 6)))
+	var turned := {}
+	var u := Rect2i()
+	for tier in tiers:
+		var img := rotated(canvases[tier], deg_to_rad(float(ic.get("tiltDeg", 0.0))))
+		turned[tier] = img
+		var r := img.get_used_rect()
+		u = r if u.size == Vector2i.ZERO else u.merge(r)
+	var s := minf(box / u.size.x, box / u.size.y)
+	var dst := Vector2i(maxi(1, roundi(u.size.x * s)), maxi(1, roundi(u.size.y * s)))
+	var out := {}
+	for tier in tiers:
+		var part: Image = turned[tier].get_region(u)
+		var small := scaled(part, dst)
+		var icon := Image.create(size, size, false, Image.FORMAT_RGBA8)
+		icon.blit_rect(small, Rect2i(Vector2i.ZERO, dst), (Vector2i(size, size) - dst) / 2)
+		out[tier] = icon
+	return out
 
 
 ## Points (sheet px) of the enclosed near-white areas in rect: near-white pixels (min channel within

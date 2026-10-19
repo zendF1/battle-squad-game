@@ -5,6 +5,8 @@ extends Control
 ## its shadow with a soft glow in its tier's colour (stronger and twinkling for the high tiers,
 ## match/views/shot_look.gd TIERS), its name and "+N" under it. The lobby calls set_gun() on
 ## equip / unequip and when the character changes.
+## The gun is ui/art.gd gun(): the held sprite, or the hug art for a kind without held sprites
+## (Rookie's bazooka: the long tube, hug_<tier>.png), leaned and fitted the same way.
 ## The rect: the gun fitted into the top BOX (its foot on the bottom edge), the name line LABEL_GAP
 ## px under it, centred (it may be wider than the rect).
 

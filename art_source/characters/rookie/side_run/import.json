@@ -178,7 +178,7 @@
 		"swingDeg": 4
 	},
 	"hand": {
-		"_doc": "the fist drawn over the gun's grip, cut from this frame (circle, soft edge)",
+		"_doc": "the fist drawn over the gun's grip, cut from this frame (circle, soft edge) into hand.png; not cut while the ready pose is there (Rookie holds his gun only in it, hugged by his own fists)",
 		"frame": 3,
 		"center": [
 			737,

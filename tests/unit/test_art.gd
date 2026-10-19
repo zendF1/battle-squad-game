@@ -92,6 +92,14 @@ func test_gun_sprites_match_their_metadata() -> void:
 	check(FileAccess.file_exists("res://" + str(data.get("source", ""))), "guns imported from art_source/weapons (tools/import_guns.gd)")
 	for kind in Art.GUN_KINDS:
 		check(Art.GUN_TIERS[kind].has(Art.GUN_BASIC), "%s has a basic gun" % kind)
+		if not data["guns"].has(kind):
+			# A kind with no held sprites (the bazooka) is its hug art in every tier.
+			check(kind == "bazooka", "%s: only the bazooka has no held sprites" % kind)
+			for tier in Art.GUN_TIERS[kind]:
+				check(not Art.hug_meta(kind, tier).is_empty() and FileAccess.file_exists(Art.hug_gun_path(kind, tier)), "%s %s hug art" % [kind, tier])
+				check(not FileAccess.file_exists(Art.gun_path(kind, tier)), "no old %s %s sprite" % [kind, tier])
+				check(not Art.all_paths().has(Art.gun_path(kind, tier)), "%s %s sprite not listed" % [kind, tier])
+			continue
 		for tier in Art.GUN_TIERS[kind]:
 			var path := Art.gun_path(kind, tier)
 			var img := Image.load_from_file(ProjectSettings.globalize_path(path))
@@ -147,10 +155,22 @@ func test_gun_fallbacks() -> void:
 	var g := Art.gun("cannon", "gold")
 	eq([g["kind"], g["tier"]], ["cannon", "basic"], "missing tier → the kind's basic")
 	g = Art.gun("ray_gun", "iron")
-	eq([g["kind"], g["tier"]], ["bazooka", "basic"], "unknown kind → Rookie's basic bazooka")
+	eq([g["kind"], g["tier"]], [Art.FALLBACK_GUN_KIND, "basic"], "unknown kind → the blaster's basic")
+	check(not g["hug"], "a held sprite")
 	g = Art.gun("blaster", "diamond")
 	eq([g["kind"], g["tier"]], ["blaster", "diamond"], "crafted blaster")
 	eq(g["scale"], Art.PX_PER_UNIT / float(Art.guns_data()["pxPerUnit"]), "texture px → character px from weapons.json pxPerUnit")
+	eq(Art.gun_scale(), g["scale"], "gun_scale()")
+	# The bazooka has no held sprites: wherever a gun is shown (the pedestal) it is the hug art.
+	for tier in Art.GUN_TIERS["bazooka"]:
+		g = Art.gun("bazooka", tier)
+		var h := Art.hug_meta("bazooka", tier)
+		check(g["hug"] and g["kind"] == "bazooka" and g["tier"] == tier, "bazooka %s: its hug art" % tier)
+		eq(g["texture"], Art.hug_gun("bazooka", tier)["texture"], "bazooka %s: the hug texture" % tier)
+		eq([g["grip"], g["muzzle"]], [h["pivot"], h["muzzle"]], "bazooka %s: grip = the hold, the hug muzzle" % tier)
+		near(float(g["scale"]), Art.PX_PER_UNIT / float(Art.hug_data()["pxPerUnit"]), 1e-6, "bazooka %s: hug.json pxPerUnit" % tier)
+	g = Art.gun("bazooka", "gold")
+	eq([g["kind"], g["tier"], g["hug"]], ["bazooka", "basic", true], "bazooka in a tier it lacks → its basic hug art")
 
 
 func test_gun_anchors_cover_every_frame() -> void:
@@ -170,7 +190,7 @@ func test_gun_anchors_cover_every_frame() -> void:
 				if look["side"]:
 					if anim != "die": # die turns the gun level with the fallen body
 						check(absf(a["angle"]) <= 20.0, "%s %s_%d gun kept near level (%.1f°)" % [id, anim, i, a["angle"]])
-					continue # the side view draws its own hand (hand.png) over the grip
+					continue # the side view draws a hand (hand.png, or none with a ready pose) over the grip
 				# The hand is drawn in the frame at the grip: an opaque pixel there.
 				var img := Image.load_from_file(ProjectSettings.globalize_path(Art.frame_path(id, anim, i)))
 				if img != null:
@@ -257,6 +277,8 @@ func test_side_view_frames_share_one_pivot() -> void:
 		var walk: Array = data["anims"]["walk"]["frames"]
 		check(walk.size() >= 4 and bool(data["anims"]["walk"]["loop"]), "%s walk loops over its frames" % id)
 		check(look["hand"] != null or not data.has("hand"), "%s hand.png" % id)
+		if data.has("readyPose"): # the gun is held only in the ready pose, by the pose's own fists
+			check(not data.has("hand") and not FileAccess.file_exists(Art.side_dir(id) + "hand.png"), "%s with a ready pose: no hand.png" % id)
 
 
 ## The rect of the pixels at least half opaque.
@@ -407,7 +429,7 @@ func test_ready_pose_scenes() -> void:
 	var had := pv.texture
 	pv.sync()
 	check(pv.texture == had or (pv.texture != null and pv.texture.resource_path == Art.hug_gun_path("bazooka", "iron")), "Preview sync")
-	var tex := Art.texture(Art.gun_path("bazooka", "iron"))
+	var tex := Art.texture(Art.gun_path("cannon", "iron"))
 	pv.texture = tex
 	pv.sync()
 	eq(pv.texture, tex, "a Preview with a picture is left as it is")
@@ -673,6 +695,57 @@ func test_import_hug_guns_arguments() -> void:
 	eq(tp["hold"], Vector2(20, 11), "hold: the middle, at the tube's height (not lifted by the sight)")
 	eq(tp["muzzle"], Vector2(35, 11), "muzzle: the right end on the axis")
 	eq(H.tube_points(Image.create(4, 4, false, Image.FORMAT_RGBA8)), {}, "empty")
+
+
+## Rookie's weapon icons come from the hug art (tools/import_hug_guns.gd, hug.json "icons"), drawn
+## like the other weapon icons (art_source/weapons/guns_v1.json "icons": size, margin, tilt);
+## import_guns.gd no longer cuts the old bazooka from guns_v1.png.
+func test_hug_gun_icons() -> void:
+	var H := load("res://tools/import_hug_guns.gd")
+	var G := load("res://tools/import_guns.gd")
+	var held: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(G.CONFIG))
+	var cfg: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://art_source/weapons/hug/hug.json"))
+	check(not held["guns"].has("bazooka") and not held["icons"]["files"].has("weapon_bazooka_<tier>"), "guns_v1.json: no bazooka sprites / icons")
+	check(Array(held["cells"].keys()).all(func(k): return not str(k).begins_with("bazooka/")), "guns_v1.json: no bazooka cells")
+	var ic: Dictionary = H.icon_config(cfg, held)
+	for key in ["size", "margin", "tiltDeg"]:
+		eq(ic[key], held["icons"][key], "hug icons: the held guns' %s" % key)
+	eq(ic["files"], {"weapon_bazooka_<tier>": {"gun": "bazooka", "tiers": Art.EQUIP_KIND_TIERS}}, "hug.json: the bazooka's icons in the shop tiers")
+	eq(H.icon_config({"icons": {"margin": 3}}, held)["margin"], 3, "hug.json overrides")
+	eq(H.icon_config({}, {})["files"], {}, "no icons")
+	# icon_canvases(): every tier the same tube length, the holds on the same canvas px.
+	var a := Image.create(40, 20, false, Image.FORMAT_RGBA8)
+	a.fill_rect(Rect2i(5, 8, 30, 6), Color.WHITE)
+	var b := Image.create(80, 40, false, Image.FORMAT_RGBA8)
+	b.fill_rect(Rect2i(10, 16, 60, 12), Color.RED)
+	var pics := {}
+	for t in [["iron", a], ["dragon", b]]:
+		var tp: Dictionary = H.tube_points(t[1])
+		pics[t[0]] = {"image": t[1], "rect": t[1].get_used_rect(), "tube": tp, "hold": tp["hold"]}
+	var cv: Dictionary = H.icon_canvases(pics, ["iron", "dragon"])
+	eq(cv["iron"].get_size(), cv["dragon"].get_size(), "one canvas size")
+	var ra := _opaque_rect(cv["iron"])
+	var rb := _opaque_rect(cv["dragon"])
+	check(absi(ra.size.x - rb.size.x) <= 1 and absi(ra.size.y - rb.size.y) <= 1 and absi(ra.position.x - rb.position.x) <= 1, "the same tube at the same place (%s vs %s)" % [ra, rb])
+	# The icons: the new gun (no hand grips), turned muzzle up-right like the others.
+	for tier in Art.EQUIP_KIND_TIERS:
+		var img := Image.load_from_file(ProjectSettings.globalize_path(Art.equipment_weapon_path("bazooka", tier)))
+		if img == null:
+			check(false, "bazooka %s icon loads" % tier)
+			continue
+		var u := img.get_used_rect()
+		var mid := func(x: int) -> float:
+			var sum := 0.0
+			var n := 0
+			for y in img.get_height():
+				if img.get_pixel(x, y).a > 0.5:
+					sum += y
+					n += 1
+			return sum / maxf(1.0, n)
+		var rise: float = mid.call(u.position.x + 6) - mid.call(u.end.x - 12)
+		var slope := rise / float(u.size.x - 18)
+		near(rad_to_deg(atan(slope)), -float(held["icons"]["tiltDeg"]), 4.0, "bazooka %s icon: the tube turned %s° (muzzle up)" % [tier, held["icons"]["tiltDeg"]])
+		check(u.size.y < u.size.x * 0.6, "bazooka %s icon: a long thin tube, no grips below it (%s)" % [tier, u])
 
 
 ## tools/import_frames.gd -- <character_id> | <config.json>: which configs, the frame pattern and

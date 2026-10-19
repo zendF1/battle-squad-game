@@ -13,9 +13,10 @@ extends SceneTree
 ## whose picture is missing is left out with the animations that show it (and `gunDraw`), so the
 ## run frames alone already make a side view. It writes the config's `out` folder
 ## (assets/characters/<id>/side/), PNG and JSON only (never a scene: the pose scenes are placed by
-## hand): <anim>_<i>.png, hand.png, side.json and gun_anchors.json (formats in assets/README.md,
-## read by ui/art.gd side_view()). A new PNG gets an .import without mipmaps; an existing .import
-## is never touched. Let the editor import them.
+## hand): <anim>_<i>.png, hand.png (`hand`: only without a ready pose), side.json and
+## gun_anchors.json (formats in assets/README.md, read by ui/art.gd side_view()). A new PNG gets
+## an .import without mipmaps; an existing .import is never touched (nor an old file deleted).
+## Let the editor import them.
 ##
 ## `frames` lists the source files in cycle order, or is a pattern ("frame_*.png": every match,
 ## natural order: frame_1, frame_2 .. frame_10). An anim's `frames` "all" is every source frame;
@@ -319,8 +320,10 @@ func _import(cfg_path: String) -> void:
 			"top": snappedf(pivot_out.y - used.position.y, 0.01)},
 		"anims": side_anims,
 	}
+	# The fist over a held gun's grip; a character with a ready pose holds its gun only there (hugged,
+	# its own fists over it: scenes/character/character.gd), so it has none.
 	var hand: Dictionary = cfg.get("hand", {})
-	if not hand.is_empty():
+	if not hand.is_empty() and poses.is_empty():
 		_save(_cut_hand(frames[mini(int(hand["frame"]), frames.size() - 1)]["image"], _v(hand["center"]), float(hand["radius"]), float(hand.get("feather", 2.0)), s), out_dir + "hand.png")
 		side["hand"] = "hand.png"
 	if cfg.has("gunDraw") and (not cfg.has("poses") or not poses.is_empty()): # the ready pose's timings

@@ -30,7 +30,8 @@ Total about 3.8 MB of PNG (the full-body pictures about 0.45 MB of it).
 - **Guns**: imported from a hand-made sheet (`art_source/weapons/guns_v1.png`) by
   `tools/import_guns.gd` (config `art_source/weapons/guns_v1.json`, below): edit the config or the
   sheet and re-run it. It writes `weapons/<kind>/<tier>.png`, `weapons/weapons.json` and the weapon
-  equipment icons. A hand-replaced gun works too: overwrite the PNG and, when the grip or muzzle
+  equipment icons, for every kind but the bazooka: Rookie's bazooka is only hug art
+  (`art_source/weapons/hug/`, `tools/import_hug_guns.gd`, which writes its icons too). A hand-replaced gun works too: overwrite the PNG and, when the grip or muzzle
   moved, its entry in `weapons/weapons.json`. Any canvas size works (the grip pivot places it);
   `pxPerUnit` (texture px per art unit, every gun) sets the drawn size.
 - **9-patches** (`ui/`): keep the corners inside the texture margins listed below
@@ -59,7 +60,10 @@ Total about 3.8 MB of PNG (the full-body pictures about 0.45 MB of it).
    /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_hug_guns.gd
    ```
    Lệnh 1 ghi `assets/characters/<id>/side/` (PNG + `side.json`, `gun_anchors.json`), lệnh 2 ghi
-   `assets/weapons/<loại>/hug_<cấp>.png` + `assets/weapons/hug.json`; không bao giờ ghi đè cảnh `.tscn`.
+   `assets/weapons/<loại>/hug_<cấp>.png` + `assets/weapons/hug.json` (và icon trang bị
+   `assets/icons/equipment/weapon_<…>_<cấp>.png` của các súng khai báo trong `hug.json` `"icons"`, hiện
+   là bazooka); không bao giờ ghi đè cảnh `.tscn`. Nhân vật có dáng ngắm chỉ cầm súng ở dáng đó: không
+   cần `hand.png` (tool không cắt).
    Chưa có `ready_v1.png` thì chỉ nhập ảnh chạy (súng rút kiểu cũ, chưa có dáng ngắm).
 4. Quay lại editor, đợi nó import xong các PNG.
 5. **Mở** `scenes/character/poses/<id>_ready.tscn`: `Body` tự đổi sang dáng quỳ mới (trước khi có ảnh
@@ -124,8 +128,7 @@ with them and the gun stays the right way up.
 |---|---|---|
 | `rookie/side/walk_0..7.png` | 112x130 (15–17 KB each) | the run cycle, loops at **20 fps** (the planted foot moves back about 4.5 world px a frame, so at the 90 px/s walk the feet barely slide) |
 | `rookie/side/idle_0.png` | 112x130 | walk frame 0 (the most upright one); idle breathes in code (a ~1.5 % vertical stretch over 2.4 s) |
-| `rookie/side/hand.png` | 13x13 | the fist drawn over the gun's grip (cut from source frame 4 by the importer, same style as the frames) |
-| `rookie/side/side.json` | 1 KB | `size`, `pivot` (the feet, texture px: the same in every frame), `pxPerUnit` (0.7 = 2 texture px per world px at the match's 0.35 px per unit), `height` (figure px), `extent` {`back`, `front`, `top`} px from the pivot, `hand`, `anims` {name: {`frames` (PNG names, without .png, in this folder), `fps`, `loop`, `motion`}} for `idle`, `walk`, `shoot`, `hurt`, `die` |
+| `rookie/side/side.json` | 1 KB | `size`, `pivot` (the feet, texture px: the same in every frame), `pxPerUnit` (0.7 = 2 texture px per world px at the match's 0.35 px per unit), `height` (figure px), `extent` {`back`, `front`, `top`} px from the pivot, `hand` (a side view without a ready pose: `hand.png`, the fist the importer cuts for the grip of a held gun; Rookie has none), `anims` {name: {`frames` (PNG names, without .png, in this folder), `fps`, `loop`, `motion`}} for `idle`, `walk`, `shoot`, `hurt`, `die` |
 | `rookie/side/gun_anchors.json` | 2 KB | the baked format (below), px in these frames: the grip follows the near fist in the walk (damped, so the gun is carried at the hip and sways a little), tilted ±4° with the swing |
 
 `motion` (`scenes/character/character.gd` `motion_pose()`, on `Flip` round the feet, mirrored with the
@@ -149,7 +152,7 @@ colour, `maxChroma`}, `stabilise` {`rows` (0 top .. 1 soles: the torso band matc
 (`frames`: source indices, or `"idle"` + `count` to reuse the idle PNG with a code `motion`; `fps`,
 `loop`, `motion`, `swing`, per-frame `angle` / `flash`, `front`), `gun` {`fists` (the near fist
 centre per source frame, source px), `carry` (source px from the pivot), `follow` (0..1),
-`swingDeg`}, `hand` {`frame`, `center`, `radius`, `feather`}, optional `canvas` [x, y, w, h] (source px
+`swingDeg`}, `hand` {`frame`, `center`, `radius`, `feather`} (cut into `hand.png` only while there is no ready pose), optional `canvas` [x, y, w, h] (source px
 always inside the shared canvas) and `poses` (the ready pose, above). Then
 
 ```
@@ -177,7 +180,9 @@ no `hand.png` over its grip, only the character's own drawn arms. A drag-to-aim 
 → drawing → aiming), the release fires it (firing: the usual recoil and muzzle flash) and it goes
 away (holstering → holstered); a cancel holsters at once, walking with it out holsters first, and a
 drag during holstering reverses from where it is. Remote and bot shots draw it fast first and their
-shell appears as it is out (the replay waits that long). While the gun is out the body holds the
+shell appears as it is out (the replay waits that long). A character with a drawn ready pose (Rookie,
+below) holds its gun only in that pose: on any other animation (hurt just after a shot, idle with
+`holster` off) the gun is put away, never held in a hand. While the gun is out the body holds the
 idle frame (no walk swing). Air strikes keep it holstered. The timings and the pose are one table,
 `gun_draw.gd` `TIMINGS` (any side view may override keys in its `side.json` `"gunDraw": {...}`):
 
@@ -342,7 +347,7 @@ pixels under it, so a large arm move stretches the body with it.
 ```
 weapons/
   weapons.json                      grip + muzzle of every sprite, pxPerUnit
-  bazooka/        basic iron steel mithril dragon          (Rookie's guns)
+  bazooka/        hug_basic hug_iron hug_steel hug_mithril hug_dragon   (Rookie's: hug art only, below)
   cannon/         basic iron steel mithril dragon          (Tanko's)
   shock_rifle/    basic iron steel mithril dragon          (Spark's)
   seed_launcher/  basic iron steel mithril dragon          (Flora's)
@@ -353,7 +358,7 @@ weapons/
 
 | File | Size | Notes |
 |---|---|---|
-| `<kind>/<tier>.png` | bazooka 82x37, cannon 80x45, shock_rifle 75x39, seed_launcher 69x45, blaster 68x36 (4–6 KB, 29 files) | side view facing right, transparent, cut from `art_source/weapons/guns_v1.png` by `tools/import_guns.gd`; one canvas per kind with every tier's grip on the same px. Baked at 2 texture px per match world px (like Rookie's side frames): the iron gun is 38 (bazooka), 37 (cannon), 34 (shock rifle), 32 (seed launcher), 31 (blaster) world px long next to a ~60 px character, its pistol grip about the size of `rookie/side/hand.png`. Kind = silhouette (sheet row), tier = look (sheet column: iron, steel, mithril, dragon); `basic` = iron desaturated (the character's starter gun); the blaster is the shock-rifle row, its crafted tiers palette swaps of the mithril one (silver cool grey-white, gold warm gold, titan dark gunmetal purple, diamond icy white-cyan with sparkles) |
+| `<kind>/<tier>.png` | cannon 80x45, shock_rifle 75x39, seed_launcher 69x45, blaster 68x36 (4–6 KB, 24 files; no bazooka) | side view facing right, transparent, cut from `art_source/weapons/guns_v1.png` by `tools/import_guns.gd`; one canvas per kind with every tier's grip on the same px. Baked at 2 texture px per match world px (like Rookie's side frames): the iron gun is 37 (cannon), 34 (shock rifle), 32 (seed launcher), 31 (blaster) world px long next to a ~60 px character, its pistol grip about the size of a side view's `hand.png`. Kind = silhouette (sheet row; the bazooka row is not cut any more), tier = look (sheet column: iron, steel, mithril, dragon); `basic` = iron desaturated (the character's starter gun); the blaster is the shock-rifle row, its crafted tiers palette swaps of the mithril one (silver cool grey-white, gold warm gold, titan dark gunmetal purple, diamond icy white-cyan with sparkles) |
 | `weapons.json` | 4 KB | `{"source": "art_source/weapons/guns_v1.json", "pxPerUnit": 0.7, "guns": {kind: {tier: {"size": [w, h], "grip": [x, y], "muzzle": [x, y]}}}}`, px in the image. `pxPerUnit` = texture px per art unit (the gun is drawn at 1.6 / pxPerUnit character px per texture px: 0.7 = 2 texture px per match world px). `grip` is the pivot (placed on the frame's anchor: the fist's centre on the pistol grip / rear handle), `muzzle` is where the flash starts (the barrel opening, the rocket / barrel tip, the dragon's mouth; visual only). `source` marks imported art (`tools/bake_art.gd` then skips the guns) |
 
 **Importing the gun sheet** (`$GODOT --headless --path . -s tools/import_guns.gd`, ~20 s): per cell of
@@ -369,11 +374,12 @@ existing one is kept.
 
 Which gun: `screens/home/equipment_model.gd` `gun()` maps a weapon item to {kind, tier}
 (`rookie_weapon_lv30` → bazooka/mithril, `crafted_weapon_gold` → blaster/gold, `normal_weapon_lv10` →
-blaster/iron, no weapon → the character's kind/basic). A missing tier falls back to the kind's `basic`, a
-missing kind to `bazooka/basic` (`ui/art.gd` `gun()`). Lobby, Prep and the Nhân vật page show the weapon the
+blaster/iron, no weapon → the character's kind/basic). `ui/art.gd` `gun()`: the kind / tier's held sprite,
+else its hug art (a kind with no held sprites: the bazooka, its hold as the grip); a missing tier falls back
+to the kind's `basic`, a missing kind to `blaster/basic`. Lobby, Prep and the Nhân vật page show the weapon the
 character wears: with the full-body pictures (no gun hand) the worn gun rests on the pedestal at the
 character's left on all three (Prep: scaled to its small stage, without the label; with the frames fallback
-Prep and Nhân vật show it in hand, `ui/character_view.gd`), lying diagonally with the muzzle up-left, its name and
+Prep and Nhân vật show it in hand, `ui/character_view.gd`, except Rookie: his only in the ready pose), lying diagonally with the muzzle up-left, its name and
 "+N" under it (`screens/home/pedestal_gun.gd`, a soft glow in the tier's colour); the match shows the one each player brought (`weaponItemId`), and its
 shots look like that gun (`fx/` below).
 The JSON files are read with `FileAccess` (an export that filters resources must keep `*.json`).
@@ -395,18 +401,28 @@ over the shared ones and `despill` (no key colour left anywhere: `bazooka_dragon
 backdrop between its collar and head, `holeMin` 15 / `holePure` 0), and `from` + `recolour` for a tier
 made from another tier's picture: the same shape, hold and muzzle, recoloured by `tools/import_guns.gd`
 `recolour()` (the held guns' specs, plus `hue` shift and `hueRange`). `bazooka_basic` = iron × the held
-guns' `basic` (saturation 0.55, value 0.94, as `bazooka/basic.png` is made from `iron.png`);
+guns' `basic` (saturation 0.55, value 0.94, as the held guns' `basic.png` is made from `iron.png`);
 `bazooka_steel` = iron with the olive (hue 45–135°) shifted −4.5°, saturation × 1.25, value × 0.975, the
-red warhead kept (fitted from the held `steel.png` against `iron.png` on matching pixels). Naming a
+red warhead kept (fitted from the old held bazooka `steel.png` against `iron.png` on matching pixels). Naming a
 picture on the command line also re-makes the tiers made from it). It keys the backdrop
 out like the ready pose (`key_background()`), drops the detached pieces (the "✦" sparkle), trims,
 finds the hold (the middle of the gun at the tube's height: the median of the columns' middles, so a
 sight does not lift it) and the muzzle (the right end on that axis) and scales once to `length` ×
 2 texture px per world px. `hug.json` `{"source", "pxPerUnit": 0.7, "guns": {kind: {tier: {"size",
 "hold", "muzzle"}}}}` (px in the PNG; the guns not imported in a run are kept). New PNGs get an
-`.import`; let the editor import them (until then the game reads the PNG). The held sprites
-`bazooka/<tier>.png` stay: the pedestal gun of the lobby, Prep and the Nhân vật page, the gun in hand off
-the ready pose (e.g. `hurt` while it is out) and the last fallback of `gun()` are drawn from them.
+`.import`; let the editor import them (until then the game reads the PNG). The bazooka has no held
+sprites (`bazooka/<tier>.png` were the old gun with two hand grips, cut from `guns_v1.png`): wherever a
+gun is shown it is the hug art. The pedestal gun of the lobby, Prep and the Nhân vật page is
+`hug_<tier>.png` (`gun()`), the same lean and fit as the other guns; Rookie never holds it outside
+the ready pose (put away, above); another character with a bazooka (the server lets only Rookie equip
+one) would hold the hug gun by its middle.
+
+**Its icons** (hug.json `icons` {`files` {`weapon_bazooka_<tier>`: {gun, tiers}}}): each tier's picture
+keyed and cleaned as above, scaled at source resolution so every tier's tube is as long as the first's,
+lined up on the hold, then turned, fitted and scaled exactly like the held guns' icons
+(`tools/import_guns.gd` `icons()`, with `guns_v1.json`'s `size` 128, `margin` 6, `tiltDeg` −14 unless
+hug.json sets them): `icons/equipment/weapon_bazooka_<iron|steel|mithril|dragon>.png`, rewritten by every
+run that imports a bazooka.
 
 ### env/
 
@@ -506,7 +522,7 @@ tint and mark on top. Particles stay within 120 per impact and 48 per projectile
 |---|---|---|---|
 | `<slot>_<tier>.png` | 128x128 (1.5–3 KB) | one per slot × tier, transparent, dark outline. Slots `weapon`, `armor`, `helmet`, `pants`, `boots`, `gloves`; tiers `iron` (Sắt, grey), `steel` (Thép, blue steel), `mithril` (teal), `dragon` (Rồng, red + gold) for shop items, `silver` (Bạc), `gold` (Vàng), `titan`, `diamond` (Kim cương) for crafted ones. A normal item's tier comes from its name / id (`screens/home/equipment_model.gd` `tier()`); an unknown tier draws as iron | Shop → Trang bị, Túi đồ, Nhân vật slots and list, piece popup, Prep gear row |
 | `weapon_<tier>.png` | 128x128 (10–15 KB) | cut from the blaster guns (`tools/import_guns.gd`, tilted 14°, muzzle up); weapons are guns: the generic blaster per tier (retired generic weapons, crafted Silver/Gold/Titan/Diamond Blaster); also the empty weapon slot's shape | as above |
-| `weapon_<kind>_<iron\|steel\|mithril\|dragon>.png` | 128x128 (10–15 KB) | cut from that kind's held guns (`tools/import_guns.gd`, as above); each character's gun in the shop tiers: `bazooka` (Rookie), `cannon` (Tanko, đại pháo), `rifle` (Spark, súng điện), `launcher` (Flora, súng hạt). The kind comes from the item's `characterId` (`equipment_model.gd` `weapon_kind()`); a missing or not yet imported file falls back to `weapon_<tier>.png` | as above |
+| `weapon_<kind>_<iron\|steel\|mithril\|dragon>.png` | 128x128 (9–15 KB) | cut from that kind's held guns (`tools/import_guns.gd`, as above; the bazooka's from its hug art, `tools/import_hug_guns.gd`, the same look); each character's gun in the shop tiers: `bazooka` (Rookie), `cannon` (Tanko, đại pháo), `rifle` (Spark, súng điện), `launcher` (Flora, súng hạt). The kind comes from the item's `characterId` (`equipment_model.gd` `weapon_kind()`); a missing or not yet imported file falls back to `weapon_<tier>.png` | as above |
 | `slot_<slot>.png` | 128x128 (1 KB) | the slot's shape in plain white; the UI tints it faint blue for an empty slot | Nhân vật slots, Prep gear row |
 | `hex_empty.png`, `hex_filled.png`, `hex_selected.png` | 132x152 (7 KB) | pointy-top hexagon (radius 70) centred: empty (dark, faint rim), filled (blue, light rim), selected (gold rim + glow); stretched to the slot size | Nhân vật slots (shown at 0.85), piece popup, Prep gear row |
 | `badge.png` | 52x32 | the "+N" pill (dark, gold rim); 9-patch, texture margins 15 all (`EQUIP_BADGE_MARGINS`) | upgrade level on every equipment icon |

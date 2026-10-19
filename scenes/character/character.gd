@@ -38,7 +38,10 @@ extends Node2D
 ## to the same 7 directions; the shot kicks it back along its axis (HUG_KICK × the frame's flash).
 ## Its near arm (side.json readyPose.armFront: the sleeve and both fists cut from the ready frame,
 ## same canvas) is drawn over the gun (Flip/ArmFront, made here, mirrored with the body), so the
-## fists hold the gun at every direction; shown only while the gun is hugged.
+## fists hold the gun at every direction; shown only while the gun is hugged. Such a character
+## never holds its gun outside the ready pose: on any other animation (hurt just after a shot,
+## idle with holster off) the gun is put away (holds_gun() false), so Rookie's bazooka, which has
+## no held sprite, is only ever the hug art.
 ## Used by the lobby and Prep (ui/character_view.gd) and the match
 ## (match/views/player_view.gd).
 ##
@@ -383,9 +386,12 @@ func _muzzle_for(anim: String) -> Vector2:
 func _update_gun() -> void:
 	if _gun_node == null or _gun.is_empty() or _full != null:
 		return
-	var out := not holster or _gun_draw.armed()
-	_gun_node.visible = out
 	var anim := str(_sprite.animation)
+	# A character with a drawn ready pose shows its gun only on it (hugged): out on any other
+	# animation (hurt just after a shot, idle with holster off) it is put away, never held.
+	var posed: bool = not _look.get("ready", {}).is_empty()
+	var out: bool = (not holster or _gun_draw.armed()) and (not posed or _is_ready_anim(anim))
+	_gun_node.visible = out
 	# On the ready pose the character hugs the hug gun over its fists: no grip hand.
 	var in_pose := out and not hands_free and _is_ready_anim(anim)
 	_set_pose_look(in_pose)

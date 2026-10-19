@@ -7,6 +7,12 @@
 	"background": {"key": "corners", "corner": 8, "tolerance": 45, "soft": 45, "holeMin": 200, "spill": 3},
 	"alphaCut": 24,
 	"keepPieces": 0.02,
+	"icons": {
+		"_doc": "the equipment icons cut from the hug art (size / margin / tiltDeg: the held guns' art_source/weapons/guns_v1.json icons unless set here): <name with <tier>>.png in assets/icons/equipment/, one scale per group",
+		"files": {
+			"weapon_bazooka_<tier>": {"gun": "bazooka", "tiers": ["iron", "steel", "mithril", "dragon"]}
+		}
+	},
 	"guns": {
 		"bazooka_dragon": {"background": {"holeMin": 15, "holePure": 0}, "despill": true, "_doc": "a shaded 22 px sliver of backdrop between the collar and the head, enclosed by the outline: keyed as a hole, no green left (the dragon has no green)"},
 		"bazooka_basic": {"from": "iron", "recolour": {"saturation": 0.55, "value": 0.94},

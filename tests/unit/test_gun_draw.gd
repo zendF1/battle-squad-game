@@ -195,6 +195,7 @@ func test_character_holster() -> void:
 ## Out of the match (holster off) the gun is always in hand, as before.
 func test_character_without_holster_keeps_the_gun() -> void:
 	var c: Node2D = CharacterScene.instantiate()
+	c.character_id = "tanko"
 	var holder := Node.new()
 	holder.add_child(c)
 	c._ready()
@@ -236,7 +237,7 @@ func test_drawn_draw_frames() -> void:
 	var dir := OS.get_temp_dir().path_join("bsq_draw_test_%d/" % Time.get_ticks_usec())
 	DirAccess.make_dir_recursive_absolute(dir)
 	var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(src + "side.json"))
-	for f in ["idle_0.png", "walk_0.png", "walk_3.png", "hand.png", "gun_anchors.json"]:
+	for f in ["idle_0.png", "walk_0.png", "walk_3.png", "gun_anchors.json"]:
 		DirAccess.copy_absolute(src + f, dir + f)
 	for anim in data["anims"]:
 		data["anims"][anim]["frames"] = ["idle_0"] if anim != "walk" else ["walk_0", "walk_3", "walk_0", "walk_3"]
@@ -256,7 +257,7 @@ func test_drawn_draw_frames() -> void:
 	# A broken set (a missing PNG) is skipped: the side view still loads, no draw frames.
 	var dir2 := dir.trim_suffix("/") + "_broken/"
 	DirAccess.make_dir_recursive_absolute(dir2)
-	for f in ["idle_0.png", "walk_0.png", "walk_3.png", "hand.png", "gun_anchors.json"]:
+	for f in ["idle_0.png", "walk_0.png", "walk_3.png", "gun_anchors.json"]:
 		DirAccess.copy_absolute(src + f, dir2 + f)
 	data["anims"]["draw"] = {"frames": ["idle_0", "nope"]}
 	fa = FileAccess.open(dir2 + "side.json", FileAccess.WRITE)
@@ -494,6 +495,18 @@ func test_rookie_ready_switches_at_once() -> void:
 	for i in 30:
 		c._process(dt)
 	eq(c.animation(), "idle", "then idle")
+	# Hit just after a shot (the gun still out): put away, never held outside the ready pose; the
+	# bazooka has no held sprite, so even the sprite behind it is the hug art.
+	c.shoot()
+	check(gun.visible, "firing: hugged")
+	c.play("hurt")
+	check(not gun.visible and not c.holds_gun() and not arm.visible, "hurt just after the shot: the gun put away")
+	eq(sprite.texture, hug["texture"], "never the old held bazooka")
+	check(Art.gun("bazooka", Art.GUN_BASIC)["hug"], "the bazooka's gun is its hug art")
+	c.play("idle")
+	for i in 30:
+		c._process(dt)
+	eq(c.gun_state(), "holstered", "then away")
 	# The gun hugged: the weapon's hug art (every bazooka tier has its own) → its kind's in another
 	# tier → its gun sprite round its centre, as long as the Preview's gun, its pivot on the hug point.
 	var drawn := func() -> float: return sprite.transform.basis_xform(Vector2(sprite.texture.get_width(), 0.0)).length()

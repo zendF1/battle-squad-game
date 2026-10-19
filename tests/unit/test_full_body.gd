@@ -108,10 +108,13 @@ func test_character_prefers_the_full_body_picture() -> void:
 		check(r.size.y > 200.0 and r.size.y < 260.0, "%s about 150 units tall: %.0f" % [id, r.size.y])
 		c.lobby_full = false
 		c._apply_frames() # not in the tree: the setter only stores it
-		check(c.full() == null and c.get_node("Flip/Sprite").visible and c.holds_gun(), "%s lobby_full off: the frames with the gun" % id)
+		check(c.full() == null and c.get_node("Flip/Sprite").visible, "%s lobby_full off: the frames" % id)
+		# A character with a drawn ready pose holds its gun only in that pose (Rookie: put away at idle).
+		eq(c.holds_gun(), Art.ready_pose(id).is_empty(), "%s lobby_full off: the gun in hand unless it has a ready pose" % id)
 		holder.free()
 	var m: Node2D = CharacterScene.instantiate()
 	var holder := Node.new()
+	m.character_id = "tanko" # Rookie holds his gun only in the ready pose
 	holder.add_child(m)
 	m._ready()
 	check(m.full() == null and m.holds_gun(), "the match: frames with the gun")

@@ -1,5 +1,5 @@
 {
-	"_doc": "tools/import_guns.gd reads this: cuts guns_v1.png (4 rows = kinds, 4 columns = tiers iron, steel, mithril, dragon; side view, muzzle right, white background) into assets/weapons/<kind>/<tier>.png + weapons.json and the weapon equipment icons. Points are sheet px. See the tool's header and assets/README.md.",
+	"_doc": "tools/import_guns.gd reads this: cuts guns_v1.png (4 rows = kinds, 4 columns = tiers iron, steel, mithril, dragon; side view, muzzle right, white background) into assets/weapons/<kind>/<tier>.png + weapons.json and the weapon equipment icons. The bazooka row (the 2nd) is not cut: Rookie's bazooka is the hug art (art_source/weapons/hug/, tools/import_hug_guns.gd: its gun and its weapon_bazooka_<tier> icons). Points are sheet px. See the tool's header and assets/README.md.",
 	"sheet": "guns_v1.png",
 	"tolerance": 0.1,
 	"holeTolerance": 0.04,
@@ -12,10 +12,6 @@
 		"seed_launcher/steel": {"rect": [775, 34, 559, 362], "grip": [890, 275], "muzzle": [1295, 175]},
 		"seed_launcher/mithril": {"rect": [1438, 34, 540, 362], "grip": [1535, 265], "muzzle": [1935, 180]},
 		"seed_launcher/dragon": {"rect": [2082, 34, 517, 362], "grip": [2165, 270], "muzzle": [2540, 200]},
-		"bazooka/iron": {"rect": [60, 448, 643, 300], "grip": [245, 660], "muzzle": [680, 562], "keep": [[603, 544], [566, 553]]},
-		"bazooka/steel": {"rect": [745, 448, 642, 300], "grip": [930, 660], "muzzle": [1365, 562], "keep": [[1288, 539], [1252, 556]]},
-		"bazooka/mithril": {"rect": [1411, 448, 607, 300], "grip": [1605, 660], "muzzle": [2000, 562]},
-		"bazooka/dragon": {"rect": [2054, 448, 624, 300], "grip": [2255, 660], "muzzle": [2658, 562]},
 		"cannon/iron": {"rect": [77, 798, 600, 340], "grip": [255, 1055], "muzzle": [628, 950]},
 		"cannon/steel": {"rect": [770, 798, 581, 340], "grip": [940, 1050], "muzzle": [1295, 950]},
 		"cannon/mithril": {"rect": [1419, 798, 574, 340], "grip": [1585, 1055], "muzzle": [1945, 950]},
@@ -26,10 +22,6 @@
 		"shock_rifle/dragon": {"rect": [2073, 1189, 616, 330], "grip": [2255, 1430], "muzzle": [2635, 1340]}
 	},
 	"guns": {
-		"bazooka": {"length": 38, "tiers": {
-			"basic": {"cell": "bazooka/iron", "recolour": "basic"},
-			"iron": {"cell": "bazooka/iron"}, "steel": {"cell": "bazooka/steel"},
-			"mithril": {"cell": "bazooka/mithril"}, "dragon": {"cell": "bazooka/dragon"}}},
 		"cannon": {"length": 37, "tiers": {
 			"basic": {"cell": "cannon/iron", "recolour": "basic"},
 			"iron": {"cell": "cannon/iron"}, "steel": {"cell": "cannon/steel"},
@@ -79,7 +71,6 @@
 		"margin": 6,
 		"tiltDeg": -14,
 		"files": {
-			"weapon_bazooka_<tier>": {"gun": "bazooka", "tiers": ["iron", "steel", "mithril", "dragon"]},
 			"weapon_cannon_<tier>": {"gun": "cannon", "tiers": ["iron", "steel", "mithril", "dragon"]},
 			"weapon_rifle_<tier>": {"gun": "shock_rifle", "tiers": ["iron", "steel", "mithril", "dragon"]},
 			"weapon_launcher_<tier>": {"gun": "seed_launcher", "tiers": ["iron", "steel", "mithril", "dragon"]},

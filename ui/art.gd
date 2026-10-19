@@ -37,8 +37,8 @@ const HAND := ROOT + "characters/hand.png"
 ## missing or broken. The match keeps the side-view frames.
 const LOBBY_VIEW := "lobby"
 const FULL_ANIMS := ROOT + "characters/lobby_full_anims.json"
-## The match draws a character's side view: <id>/side/ (side.json + its frames, hand.png and
-## gun_anchors.json, made from hand-drawn frames by tools/import_frames.gd) when it has one,
+## The match draws a character's side view: <id>/side/ (side.json + its frames, hand.png (none
+## with a ready pose: the gun is held only there) and gun_anchors.json, made from hand-drawn frames by tools/import_frames.gd) when it has one,
 ## else the code-baked frames above (<id>.tres, gun_anchors.json, FRAME_SIZE / FRAME_PIVOT).
 ## character_look() picks one: side view → baked frames → rookie's side view → rookie's baked
 ## frames → empty animations.
@@ -57,7 +57,8 @@ const FIRE_ANIM := "fire"
 
 ## The gun a character holds is a separate sprite: assets/weapons/<kind>/<tier>.png, side view,
 ## facing right; weapons.json gives each sprite's grip pivot and muzzle point (px in the image)
-## and the px per art unit it is drawn at. The frames of each character carry, per animation
+## and the px per art unit it is drawn at. A kind with no held sprites (the bazooka: Rookie only
+## hugs it, in its drawn ready pose) is its hug art (hug_<tier>.png, below) wherever a gun is shown. The frames of each character carry, per animation
 ## frame, where the hand holds it (assets/characters/<id>/gun_anchors.json: grip px in the frame,
 ## angle in degrees, in front of or behind the body, muzzle flash 0..1).
 ## Kind = silhouette, tier = look. `basic` is a character's starter gun (no weapon equipped).
@@ -76,13 +77,16 @@ const GUN_TIERS := {
 }
 ## The gun each character's own weapons are (its basic gun when no weapon is equipped).
 const CHARACTER_GUNS := {"rookie": "bazooka", "tanko": "cannon", "spark": "shock_rifle", "flora": "seed_launcher"}
-## The last fallback: Rookie's starter bazooka.
+## A character's gun when it has none of its own: Rookie's bazooka.
 const DEFAULT_GUN_KIND := "bazooka"
+## gun()'s last fallback: the generic blaster's basic sprite.
+const FALLBACK_GUN_KIND := "blaster"
 const GUNS_DATA := ROOT + "weapons/weapons.json"
 ## The hug guns: the big guns a drawn ready pose hugs against the chest (hug_gun()):
 ## assets/weapons/<kind>/hug_<tier>.png, horizontal, muzzle right, no hand grips (made by
 ## tools/import_hug_guns.gd); hug.json gives each one's size, hold point (where the pose turns it)
-## and muzzle (px in the image).
+## and muzzle (px in the image). A kind with hug art but no held sprites (the bazooka) is drawn
+## from it everywhere (gun(): the pedestal too).
 const HUG_DATA := ROOT + "weapons/hug.json"
 
 # ── Icons (96x96, drawn shapes) ─────────────────────────────────────────────
@@ -316,7 +320,8 @@ static func all_paths() -> Array[String]:
 	out.append(EQUIP_BADGE)
 	for kind in GUN_KINDS:
 		for tier in GUN_TIERS[kind]:
-			out.append(gun_path(kind, tier))
+			if not gun_meta(kind, tier).is_empty():
+				out.append(gun_path(kind, tier))
 			if not hug_meta(kind, tier).is_empty():
 				out.append(hug_gun_path(kind, tier))
 	return out
@@ -718,24 +723,40 @@ static func _imported(path: String) -> bool:
 # ── Guns ────────────────────────────────────────────────────────────────────
 
 ## The sprite of a gun: {kind, tier, texture, grip, muzzle (px in the texture), scale (texture
-## px → character frame px)}. Falls back to the kind's basic, then to Rookie's basic bazooka
-## (a missing file, one not imported yet or no weapons.json entry), then to the placeholder.
+## px → character frame px), hug (true: hug art)}. Per kind / tier: its held sprite (weapons.json),
+## else its hug art (hug.json: a kind with no held sprites, the bazooka; grip = the hold, the
+## middle of the tube); falls back to the kind's basic, then to the blaster's basic
+## (FALLBACK_GUN_KIND; a missing file, one not imported yet or no entry), then to the placeholder.
 static func gun(kind: String, tier: String) -> Dictionary:
-	for kt in [[kind, tier], [kind, GUN_BASIC], [DEFAULT_GUN_KIND, GUN_BASIC]]:
+	for kt in [[kind, tier], [kind, GUN_BASIC], [FALLBACK_GUN_KIND, GUN_BASIC]]:
 		var meta := gun_meta(kt[0], kt[1])
 		var path := gun_path(kt[0], kt[1])
-		if meta.is_empty() or not ResourceLoader.exists(path):
-			continue
-		var t := texture(path)
-		if t == placeholder():
-			continue
-		var data := guns_data()
-		var ppu := float(data.get("pxPerUnit", PX_PER_UNIT))
-		return {"kind": kt[0], "tier": kt[1], "texture": t, "grip": meta["grip"], "muzzle": meta["muzzle"],
-			"scale": PX_PER_UNIT / ppu if ppu > 0.0 else 1.0}
+		if not meta.is_empty() and ResourceLoader.exists(path):
+			var t := texture(path)
+			if t != placeholder():
+				return {"kind": kt[0], "tier": kt[1], "texture": t, "grip": meta["grip"], "muzzle": meta["muzzle"],
+					"scale": gun_scale(), "hug": false}
+		var hm := hug_meta(kt[0], kt[1])
+		if not hm.is_empty() and FileAccess.file_exists(hug_gun_path(kt[0], kt[1])):
+			var ht := _png_texture(hug_gun_path(kt[0], kt[1]))
+			if ht != null:
+				return {"kind": kt[0], "tier": kt[1], "texture": ht, "grip": hm["pivot"], "muzzle": hm["muzzle"],
+					"scale": hug_scale(), "hug": true}
 	_warn(gun_path(kind, tier))
-	return {"kind": DEFAULT_GUN_KIND, "tier": GUN_BASIC, "texture": placeholder(), "grip": Vector2(4, 8),
-		"muzzle": Vector2(16, 8), "scale": 1.0}
+	return {"kind": FALLBACK_GUN_KIND, "tier": GUN_BASIC, "texture": placeholder(), "grip": Vector2(4, 8),
+		"muzzle": Vector2(16, 8), "scale": 1.0, "hug": false}
+
+
+## A held gun sprite's texture px → character frame px (weapons.json pxPerUnit).
+static func gun_scale() -> float:
+	var ppu := float(guns_data().get("pxPerUnit", PX_PER_UNIT))
+	return PX_PER_UNIT / ppu if ppu > 0.0 else 1.0
+
+
+## A hug gun's texture px → character frame px (hug.json pxPerUnit; the held guns' without it).
+static func hug_scale() -> float:
+	var ppu := float(hug_data().get("pxPerUnit", 0.0))
+	return PX_PER_UNIT / ppu if ppu > 0.0 else gun_scale()
 
 
 ## weapons.json's entry of a sprite: {grip, muzzle} (Vector2 px), {} when it has none.
@@ -797,8 +818,9 @@ static func hug_gun(kind: String, tier: String) -> Dictionary:
 		return meta
 	var g := gun(kind, tier)
 	var size: Vector2 = g["texture"].get_size()
-	return {"kind": g["kind"], "tier": g["tier"], "texture": g["texture"], "path": gun_path(g["kind"], g["tier"]),
-		"pivot": size * 0.5, "muzzle": g["muzzle"], "size": size, "hug": false}
+	return {"kind": g["kind"], "tier": g["tier"], "texture": g["texture"],
+		"path": hug_gun_path(g["kind"], g["tier"]) if g["hug"] else gun_path(g["kind"], g["tier"]),
+		"pivot": size * 0.5, "muzzle": g["muzzle"], "size": size, "hug": bool(g["hug"])}
 
 
 ## hug.json's entry of a hug gun: {pivot (its hold), muzzle, size} (Vector2 px), {} when it has none.
@@ -865,7 +887,7 @@ static func ready_pose(id: String) -> Dictionary:
 	var grip: Vector2 = gun_anchor(id, str(anims[0]) if not anims.is_empty() else DRAW_ANIM, 0)["grip"]
 	var kind := str(CHARACTER_GUNS.get(id, DEFAULT_GUN_KIND))
 	var own := hug_gun(kind, "iron")
-	var gs := float(gun(kind, GUN_BASIC)["scale"])
+	var gs := hug_scale() if own["hug"] else gun_scale()
 	var socket := Transform2D(0.0, (grip - pivot) * k)
 	var preview := Transform2D(0.0, Vector2(gs, gs), 0.0, Vector2.ZERO) * Transform2D(0.0, -own["pivot"])
 	var gun_pivot: Vector2 = own["pivot"]

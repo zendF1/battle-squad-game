@@ -11,3 +11,7 @@ Chạy (trong thư mục battle-squad-game):
   /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_hug_guns.gd
 Ghi assets/weapons/<loại>/hug_<cấp>.png + assets/weapons/hug.json. Độ dài mặc định: hug.json "length"
 (57 px trong trận); chỉnh cỡ / chỗ trong editor ở scenes/character/poses/<id>_ready.tscn (GunSocket).
+Cũng ghi icon trang bị assets/icons/equipment/weapon_bazooka_<iron|steel|mithril|dragon>.png từ chính các
+ảnh này (hug.json "icons"; nghiêng, lề, cỡ như icon các súng khác trong guns_v1.json "icons").
+Bazooka chỉ còn ảnh ôm này: súng trên bệ ở Sảnh / Chuẩn bị / Nhân vật cũng là hug_<cấp>.png; ảnh
+bazooka cũ có 2 tay cầm (assets/weapons/bazooka/<cấp>.png, cắt từ guns_v1.png) đã xoá.

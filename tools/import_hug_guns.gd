@@ -21,6 +21,12 @@ extends SceneTree
 ## assets/weapons/hug.json {source, pxPerUnit, guns {kind: {tier: {size, hold, muzzle}}}} (px in the
 ## PNG), keeping the entries of the guns not imported this run.
 ##
+## The equipment icons of hug.json "icons" {files {<name with <tier>>: {gun, tiers}}} (today
+## weapon_bazooka_<tier>: Rookie's bazooka has no held sprites) are made from these pictures too,
+## the same look as the held guns' icons (size / margin / tiltDeg from art_source/weapons/guns_v1.json
+## "icons" unless hug.json sets them; tools/import_guns.gd icons()), written to
+## assets/icons/equipment/ whenever a run imports a gun of that kind.
+##
 ## A gun with no picture of its own can be made from another tier's (hug.json guns.<kind>_<tier>
 ## {from: <tier>, recolour}): that tier's picture, keyed and cleaned the same way, then recoloured
 ## (tools/import_guns.gd recolour(): HSV multipliers / hue shift, optionally only a hue range;
@@ -29,7 +35,7 @@ extends SceneTree
 ## are named.
 ##
 ## hug.json: {length (world px, default for every gun), texPxPerWorldPx, worldPxPerUnit, pad,
-## background (key_background() options), alphaCut, keepPieces, guns {<kind>_<tier>: {length,
+## background (key_background() options), alphaCut, keepPieces, icons, guns {<kind>_<tier>: {length,
 ## hold [x, y], muzzle [x, y] (source px), background (key options over the shared ones, e.g. a
 ## smaller holeMin for a small enclosed pocket of backdrop), despill (true: despill() the whole gun,
 ## for art with none of the key's colour), from (a tier: its picture), recolour}}}.
@@ -58,14 +64,20 @@ func _initialize() -> void:
 	var data := {"source": CONFIG.trim_prefix("res://"),
 		"pxPerUnit": snappedf(float(cfg.get("texPxPerWorldPx", 2.0)) * float(cfg.get("worldPxPerUnit", 0.35)), 0.0001),
 		"guns": old["guns"] if old is Dictionary and old.get("guns") is Dictionary else {}}
+	var done := {} # <kind>_<tier> -> prepared(): the icons reuse them
+	var kinds: Array = []
 	for g in found["guns"]:
-		var meta := _import(cfg, g["kind"], g["tier"], g["source"])
+		done[g["name"]] = prepared(cfg, g["kind"], g["tier"], g["source"])
+		var meta := _import(cfg, g["kind"], g["tier"], g["source"], done[g["name"]]) if not done[g["name"]].is_empty() else {}
 		if meta.is_empty():
 			continue
+		if not kinds.has(g["kind"]):
+			kinds.append(g["kind"])
 		if not data["guns"].get(g["kind"]) is Dictionary:
 			data["guns"][g["kind"]] = {}
 		data["guns"][g["kind"]][g["tier"]] = meta
 	_write_text(DATA, JSON.stringify(data, "\t", false) + "\n")
+	_icons(cfg, kinds, done, derived_of(cfg))
 	print("import_hug_guns: wrote %d files, %.1f KB" % [_written, _bytes / 1024.0])
 	quit(1 if not found["unknown"].is_empty() else 0)
 
@@ -172,10 +184,11 @@ static func tube_points(img: Image) -> Dictionary:
 	return {"rect": rect, "hold": Vector2((x0 + x1 + 1) * 0.5, cy), "muzzle": Vector2(x1 + 1, cy)}
 
 
-## One gun (from the picture `source`: its own, or the tier it is derived from): keyed, cleaned,
-## recoloured (a derived gun), trimmed, scaled, written; its hug.json entry {size, hold, muzzle}
-## (px in the PNG), {} on an error.
-func _import(cfg: Dictionary, kind: String, tier: String, source: String = "") -> Dictionary:
+## One gun's picture made ready (from the picture `source`: its own, or the tier it is derived
+## from): keyed, cleaned, recoloured (a derived gun): {image (straight alpha, source px), rect (its
+## opaque bounds), tube (tube_points()), hold, muzzle (source px), length (world px), keyed (backdrop
+## px), removed (stray px)}; {} on an error. _import() and the icons start from it.
+static func prepared(cfg: Dictionary, kind: String, tier: String, source: String = "") -> Dictionary:
 	var name := "%s_%s" % [kind, tier]
 	if source == "":
 		source = name
@@ -204,24 +217,122 @@ func _import(cfg: Dictionary, kind: String, tier: String, source: String = "") -
 	if tp.is_empty():
 		push_error("import_hug_guns: %s is empty after keying" % name)
 		return {}
-	var rect: Rect2i = img.get_used_rect()
-	var hold: Vector2 = _v(own["hold"]) if own.get("hold") is Array else tp["hold"]
-	var muzzle: Vector2 = _v(own["muzzle"]) if own.get("muzzle") is Array else tp["muzzle"]
+	return {"image": img, "rect": img.get_used_rect(), "tube": tp,
+		"hold": _v(own["hold"]) if own.get("hold") is Array else tp["hold"],
+		"muzzle": _v(own["muzzle"]) if own.get("muzzle") is Array else tp["muzzle"],
+		"length": float(own.get("length", cfg.get("length", 57.0))), "keyed": bg, "removed": removed}
+
+
+## One gun (prepared()): trimmed, scaled, written; its hug.json entry {size, hold, muzzle} (px in
+## the PNG), {} on an error.
+func _import(cfg: Dictionary, kind: String, tier: String, source: String = "", p: Dictionary = {}) -> Dictionary:
+	var name := "%s_%s" % [kind, tier]
+	if source == "":
+		source = name
+	if p.is_empty():
+		p = prepared(cfg, kind, tier, source)
+	if p.is_empty():
+		return {}
+	var img: Image = p["image"]
+	var tp: Dictionary = p["tube"]
+	var rect: Rect2i = p["rect"]
+	var hold: Vector2 = p["hold"]
+	var muzzle: Vector2 = p["muzzle"]
 	var tex_per_world := float(cfg.get("texPxPerWorldPx", 2.0))
-	var s := float(own.get("length", cfg.get("length", 57.0))) * tex_per_world / float(tp["rect"].size.x) # PNG px per source px
+	var s := float(p["length"]) * tex_per_world / float(tp["rect"].size.x) # PNG px per source px
 	var pad := ceili(float(cfg.get("pad", 2)) / s)
 	var from := rect.grow(pad)
 	var canvas := Image.create(from.size.x, from.size.y, false, Image.FORMAT_RGBA8)
 	canvas.blit_rect(img, rect, rect.position - from.position)
 	var dst := Vector2i(maxi(1, roundi(from.size.x * s)), maxi(1, roundi(from.size.y * s)))
 	var k := Vector2(dst) / Vector2(from.size)
-	_save(ImportGuns.scaled(canvas, dst), OUT + "%s/hug_%s.png" % [kind, tier])
+	_save(ImportGuns.scaled(canvas, dst), OUT + "%s/hug_%s.png" % [kind, tier], false)
 	var hold_out := (hold - Vector2(from.position)) * k
 	var muzzle_out := (muzzle - Vector2(from.position)) * k
 	print("  %s%s %dx%d: backdrop %d px, removed %d stray px, gun %s, hold %s, muzzle %s source px → %s px, %.1f world px long (×%.4f)" % [
-		name, " (from %s)" % source if source != name else "", img.get_width(), img.get_height(), bg, removed, rect, hold, muzzle, dst, tp["rect"].size.x * k.x / tex_per_world, s])
+		name, " (from %s)" % source if source != name else "", img.get_width(), img.get_height(), p["keyed"], p["removed"], rect, hold, muzzle, dst, tp["rect"].size.x * k.x / tex_per_world, s])
 	return {"size": [dst.x, dst.y], "hold": [snappedf(hold_out.x, 0.1), snappedf(hold_out.y, 0.1)],
 		"muzzle": [snappedf(muzzle_out.x, 0.1), snappedf(muzzle_out.y, 0.1)]}
+
+
+## The icon settings (hug.json "icons" over the held guns' art_source/weapons/guns_v1.json "icons":
+## size, margin, tiltDeg; the same look as the other weapon icons) and hug.json's icon files
+## {<name with <tier>>: {gun (a kind), tiers}}.
+static func icon_config(cfg: Dictionary, held_cfg: Dictionary) -> Dictionary:
+	var out := {}
+	var held = held_cfg.get("icons")
+	for key in ["size", "margin", "tiltDeg"]:
+		if held is Dictionary and held.has(key):
+			out[key] = held[key]
+	var own = cfg.get("icons")
+	if own is Dictionary:
+		for key in own:
+			if not str(key).begins_with("_"):
+				out[key] = own[key]
+	if not out.get("files") is Dictionary:
+		out["files"] = {}
+	return out
+
+
+## The canvases a file group's icons are made from (tools/import_guns.gd icons() wants every tier at
+## the same resolution, lined up): {tier: Image}; each prepared() picture trimmed and scaled at
+## source resolution (Lanczos) so its tube is as long as the first tier's (a tier swap does not
+## resize the icon's gun), its hold point at the same canvas px.
+static func icon_canvases(pics: Dictionary, tiers: Array) -> Dictionary:
+	var ref_len := float(pics[tiers[0]]["tube"]["rect"].size.x)
+	var parts := {} # tier -> {image, at (top-left from the hold)}
+	var u := Rect2()
+	for tier in tiers:
+		var p: Dictionary = pics[tier]
+		var img: Image = p["image"]
+		var rect: Rect2i = p["rect"].grow(2).intersection(Rect2i(Vector2i.ZERO, img.get_size()))
+		var n := ref_len / float(p["tube"]["rect"].size.x)
+		var part := img.get_region(rect)
+		var dst := Vector2i(maxi(1, roundi(rect.size.x * n)), maxi(1, roundi(rect.size.y * n)))
+		if dst != rect.size:
+			part = ImportGuns.scaled(part, dst)
+		var k := Vector2(dst) / Vector2(rect.size)
+		var at: Vector2 = (Vector2(rect.position) - p["hold"]) * k
+		parts[tier] = {"image": part, "at": at}
+		var r := Rect2(at, Vector2(dst))
+		u = r if u.size == Vector2.ZERO else u.merge(r)
+	var size := Vector2i(ceili(u.size.x) + 1, ceili(u.size.y) + 1)
+	var out := {}
+	for tier in tiers:
+		var canvas := Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
+		var part: Image = parts[tier]["image"]
+		canvas.blit_rect(part, Rect2i(Vector2i.ZERO, part.get_size()), Vector2i((parts[tier]["at"] - u.position).round()))
+		out[tier] = canvas
+	return out
+
+
+## The equipment icons of the kinds imported this run (icon_config() files): every tier of a file
+## group prepared (done: name -> prepared() of this run's guns, reused), icon_canvases(),
+## tools/import_guns.gd icons(), written to assets/icons/equipment/ (a new PNG gets an .import with
+## mipmaps, as the other icons).
+func _icons(cfg: Dictionary, kinds: Array, done: Dictionary, derived: Dictionary) -> void:
+	var held = JSON.parse_string(FileAccess.get_file_as_string(ImportGuns.CONFIG)) if FileAccess.file_exists(ImportGuns.CONFIG) else {}
+	var ic := icon_config(cfg, held if held is Dictionary else {})
+	for pattern in ic["files"]:
+		var f = ic["files"][pattern]
+		if not f is Dictionary or not kinds.has(str(f.get("gun", ""))) or not f.get("tiers") is Array or f["tiers"].is_empty():
+			continue
+		var kind := str(f["gun"])
+		var got := {}
+		for tier in f["tiers"]:
+			var name := "%s_%s" % [kind, tier]
+			if not done.has(name):
+				var source := str(derived.get(name, name))
+				done[name] = prepared(cfg, kind, str(tier), source) if FileAccess.file_exists(SRC + source + ".png") else {}
+			if done[name].is_empty():
+				push_error("import_hug_guns: icons %s: no %s picture" % [pattern, name])
+				break
+			got[tier] = done[name]
+		if got.size() != f["tiers"].size():
+			continue
+		var icons := ImportGuns.icons(icon_canvases(got, f["tiers"]), f["tiers"], ic)
+		for tier in f["tiers"]:
+			_save(icons[tier], ImportGuns.ICONS + str(pattern).replace("<tier>", str(tier)) + ".png", true)
 
 
 ## The key's channel (0 r, 1 g, 2 b) capped at the larger of the other two on every pixel, in place
@@ -245,12 +356,12 @@ static func _v(a: Array) -> Vector2:
 	return Vector2(float(a[0]), float(a[1])) if a.size() >= 2 else Vector2.ZERO
 
 
-func _save(img: Image, path: String) -> void:
+func _save(img: Image, path: String, mipmaps: bool) -> void:
 	var abs_path := ProjectSettings.globalize_path(path)
 	DirAccess.make_dir_recursive_absolute(abs_path.get_base_dir())
 	if not FileAccess.file_exists(abs_path + ".import"):
 		var f := FileAccess.open(abs_path + ".import", FileAccess.WRITE)
-		f.store_string('[remap]\n\nimporter="texture"\ntype="CompressedTexture2D"\n\n[params]\n\ncompress/mode=0\nmipmaps/generate=false\n')
+		f.store_string('[remap]\n\nimporter="texture"\ntype="CompressedTexture2D"\n\n[params]\n\ncompress/mode=0\nmipmaps/generate=%s\n' % ("true" if mipmaps else "false"))
 		f.close()
 	var err := img.save_png(abs_path)
 	if err != OK:

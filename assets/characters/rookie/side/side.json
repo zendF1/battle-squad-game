@@ -88,7 +88,6 @@
 			"motion": "recoil"
 		}
 	},
-	"hand": "hand.png",
 	"gunDraw": {
 		"drawSec": 0.0,
 		"fastDrawSec": 0.0,
