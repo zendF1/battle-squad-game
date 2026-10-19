@@ -93,8 +93,9 @@ func test_gun_sprites_match_their_metadata() -> void:
 	for kind in Art.GUN_KINDS:
 		check(Art.GUN_TIERS[kind].has(Art.GUN_BASIC), "%s has a basic gun" % kind)
 		if not data["guns"].has(kind):
-			# A kind with no held sprites (the bazooka, the cannon) is its hug art in every tier.
-			check(kind == "bazooka" or kind == "cannon", "%s: only the bazooka and the cannon have no held sprites" % kind)
+			# A kind with no held sprites (the bazooka, the cannon, the seed launcher) is its hug art
+			# in every tier.
+			check(["bazooka", "cannon", "seed_launcher"].has(kind), "%s: only the bazooka, the cannon and the seed launcher have no held sprites" % kind)
 			for tier in Art.GUN_TIERS[kind]:
 				check(not Art.hug_meta(kind, tier).is_empty() and FileAccess.file_exists(Art.hug_gun_path(kind, tier)), "%s %s hug art" % [kind, tier])
 				check(not FileAccess.file_exists(Art.gun_path(kind, tier)), "no old %s %s sprite" % [kind, tier])
@@ -161,9 +162,9 @@ func test_gun_fallbacks() -> void:
 	eq([g["kind"], g["tier"]], ["blaster", "diamond"], "crafted blaster")
 	eq(g["scale"], Art.PX_PER_UNIT / float(Art.guns_data()["pxPerUnit"]), "texture px → character px from weapons.json pxPerUnit")
 	eq(Art.gun_scale(), g["scale"], "gun_scale()")
-	# The bazooka and the cannon have no held sprites: wherever a gun is shown (the pedestal) it is
-	# the hug art.
-	for kind in ["bazooka", "cannon"]:
+	# The bazooka, the cannon and the seed launcher have no held sprites: wherever a gun is shown
+	# (the pedestal) it is the hug art.
+	for kind in ["bazooka", "cannon", "seed_launcher"]:
 		for tier in Art.GUN_TIERS[kind]:
 			g = Art.gun(kind, tier)
 			var h := Art.hug_meta(kind, tier)
@@ -522,18 +523,26 @@ func test_ready_pose_scenes() -> void:
 	var had := pv.texture
 	pv.sync()
 	check(pv.texture == had or (pv.texture != null and pv.texture.resource_path == Art.hug_gun_path("bazooka", "iron")), "Preview sync")
-	var tex := Art.texture(Art.gun_path("seed_launcher", "iron"))
+	var tex := Art.texture(Art.gun_path("shock_rifle", "iron"))
 	pv.texture = tex
 	pv.sync()
 	eq(pv.texture, tex, "a Preview with a picture is left as it is")
 	check(not PoseGun.stand_in(pv), "another kind's gun is no stand-in")
-	# A stand-in (its kind's gun sprite) waits for its kind's hug art: none for the seed launcher yet.
+	# A stand-in (its kind's gun sprite) waits for its kind's hug art: none for the shock rifle.
+	var sr := Sprite2D.new()
+	sr.set_script(PoseGun)
+	sr.set("kind", "shock_rifle")
+	sr.texture = tex
+	check(PoseGun.stand_in(sr), "a Preview showing its kind's gun sprite stands in")
+	sr.sync()
+	eq(sr.texture, tex, "a stand-in gives way only to its hug gun")
+	sr.free()
+	# Flora's Preview: the hug seed launcher (empty until the editor imports it).
 	var flora: Node = load("res://scenes/character/poses/flora_ready.tscn").instantiate()
 	var fl: Sprite2D = flora.get_node("GunSocket/Preview")
-	var stand := fl.texture
-	check(PoseGun.stand_in(fl), "Flora's iron seed launcher stands in")
 	fl.sync()
-	check(fl.texture == stand or (fl.texture.resource_path == Art.hug_gun_path("seed_launcher", "iron") and fl.offset == -Art.hug_meta("seed_launcher", "iron")["pivot"]), "a stand-in gives way only to its hug gun")
+	check(fl.texture == null or fl.texture.resource_path == Art.hug_gun_path("seed_launcher", "iron"), "Flora's Preview: the hug seed launcher or nothing yet")
+	near(fl.offset.distance_to(-Art.hug_meta("seed_launcher", "iron")["pivot"]), 0.0, 0.01, "Flora's Preview: its hold on the socket")
 	# Tanko's Preview: the hug cannon (empty until the editor imports it; sync() fills it then).
 	var tk: Sprite2D = scene.get_node("GunSocket/Preview")
 	tk.sync()
@@ -621,7 +630,7 @@ func test_hug_guns() -> void:
 	check(not hug["hug"] and hug["kind"] == "blaster" and hug["tier"] == "gold", "no hug art: the gun sprite")
 	eq(hug["pivot"], hug["size"] * 0.5, "turned round its centre, not the grip")
 	eq(Art.pose_gun_meta(Art.hug_gun_path("bazooka", "iron")), meta, "a hug picture's meta")
-	eq(Art.pose_gun_meta(Art.gun_path("seed_launcher", "iron"))["pivot"], Art.hug_gun("seed_launcher", "iron")["size"] * 0.5, "a gun sprite's: its centre")
+	eq(Art.pose_gun_meta(Art.gun_path("shock_rifle", "iron"))["pivot"], Art.hug_gun("shock_rifle", "iron")["size"] * 0.5, "a gun sprite's: its centre")
 	eq(Art.pose_gun_meta("res://assets/icons/coin.png"), {}, "any other picture")
 	check(Art.all_paths().has(Art.HUG_DATA), "hug.json listed")
 	for tier in Art.GUN_TIERS["bazooka"]:
@@ -696,6 +705,141 @@ func test_hug_cannon() -> void:
 				sat += Vector3(c.s, ic.s, 1.0)
 	check(same, "basic: the iron cannon's shape")
 	near(sat.x / sat.y, 0.55, 0.05, "basic: desaturated like the old basic.png")
+
+
+## Flora's seed launcher is hug art in every tier (art_source/weapons/hug/seed_launcher_<tier>.png
+## on magenta; basic the iron one desaturated): all 45 world px long (the back end stays above her
+## soles aiming straight up), held in the middle, the muzzle in what sits in the bore (pod /
+## crystal / the dragon's seed), keyed clean: no magenta left, the glows un-mixed into their own
+## colour.
+func test_hug_seed_launcher() -> void:
+	var H := load("res://tools/import_hug_guns.gd")
+	var iron_img := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("seed_launcher", "iron")))
+	var rp := Art.ready_pose("flora")
+	for tier in Art.GUN_TIERS["seed_launcher"]:
+		var m := Art.hug_meta("seed_launcher", tier)
+		check(not m.is_empty(), "the %s seed launcher's hug art" % tier)
+		if m.is_empty():
+			continue
+		var img := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("seed_launcher", tier)))
+		check(img != null and Vector2(img.get_size()) == m["size"], "seed launcher hug_%s.png at its size" % tier)
+		if img == null:
+			continue
+		eq(m["size"].x, Art.hug_meta("seed_launcher", "iron")["size"].x, "seed launcher %s as wide as the iron one (drawn at its length)" % tier)
+		var solid := img.duplicate() as Image # the gun without its glow (alpha > 127 only)
+		var used: Rect2i = H.tube_points(solid)["rect"]
+		near(float(used.size.x) / 2.0, 45.0, 1.0, "seed launcher %s 45 world px long" % tier)
+		near(m["pivot"].x, used.get_center().x, 1.0, "seed launcher %s hold: the middle of the gun" % tier)
+		check(m["pivot"].y > used.position.y + used.size.y * 0.3 and m["pivot"].y < used.end.y - used.size.y * 0.3, "seed launcher %s hold: in the tube's height" % tier)
+		check(m["muzzle"].x > used.end.x - used.size.x * 0.2 and m["muzzle"].x < used.end.x - 4.0, "seed launcher %s muzzle: in the bore, not the tip (%s, gun %s)" % [tier, m["muzzle"], used])
+		check(absf(m["muzzle"].y - m["pivot"].y) < used.size.y * 0.15, "seed launcher %s muzzle: near the tube's axis" % tier)
+		var bore := img.get_pixelv(Vector2i(m["muzzle"]))
+		check(bore.a > 0.9, "seed launcher %s muzzle: on the pod / crystal / seed (%s)" % [tier, bore])
+		check(img.get_pixel(0, 0).a == 0.0 and img.get_pixel(img.get_width() - 1, 0).a == 0.0, "seed launcher %s the backdrop keyed out" % tier)
+		var pink := 0
+		for y in img.get_height():
+			for x in img.get_width():
+				var c := img.get_pixel(x, y)
+				if c.a > 0.1 and minf(c.r, c.b) > c.g + 0.15 and c.h > 0.75 and c.h < 0.9:
+					pink += 1
+		eq(pink, 0, "seed launcher %s no magenta / purple px left" % tier)
+		check(used.size.y < used.size.x * 0.5, "seed launcher %s the sparkle dropped (%s)" % [tier, used])
+		var h := Art.hug_gun("seed_launcher", tier)
+		check(h["hug"] and h["tier"] == tier and h["path"] == Art.hug_gun_path("seed_launcher", tier), "seed launcher %s: its own hug art" % tier)
+		# Aiming straight up the back end is at or above Flora's soles (the pose's origin).
+		if not rp.is_empty():
+			var back: Vector2 = rp["socket"] * Transform2D(-PI / 2.0, Vector2.ZERO) * rp["preview"] * (Vector2(used.position.x, m["pivot"].y))
+			check(back.y <= 0.0, "seed launcher %s at 90°: the back end above the ground (%s)" % [tier, back])
+	# The glows: a soft rim of their own colour (partly transparent, no key tint) past the solid gun.
+	for t in [["mithril", Color8(90, 255, 230)], ["dragon", Color8(250, 200, 40)]]:
+		var img := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("seed_launcher", t[0])))
+		var soft := 0
+		for y in img.get_height():
+			for x in img.get_width():
+				var c := img.get_pixel(x, y)
+				if c.a > 0.05 and c.a < 0.45 and absf(c.h - t[1].h) < 0.08:
+					soft += 1
+		check(soft > 10, "seed launcher %s: a soft glow of its own colour (%d px)" % [t[0], soft])
+	# basic: the iron picture desaturated (the old basic.png's recolour), the same shape and points.
+	eq(Art.hug_meta("seed_launcher", "basic"), Art.hug_meta("seed_launcher", "iron"), "basic: the iron seed launcher's size / hold / muzzle")
+	var basic := Image.load_from_file(ProjectSettings.globalize_path(Art.hug_gun_path("seed_launcher", "basic")))
+	var same := true
+	var sat := Vector3.ZERO
+	for y in basic.get_height():
+		for x in basic.get_width():
+			var ic := iron_img.get_pixel(x, y)
+			var c := basic.get_pixel(x, y)
+			if absf(c.a - ic.a) > 0.01:
+				same = false
+			if ic.a > 0.9 and ic.s > 0.15:
+				sat += Vector3(c.s, ic.s, 1.0)
+	check(same, "basic: the iron seed launcher's shape")
+	near(sat.x / sat.y, 0.55, 0.05, "basic: desaturated like the old basic.png")
+
+
+## tools/import_frames.gd key_background() on magenta: the spill is the part of red and blue above
+## green (a pink rim turns grey, a red keeps its red), a glow painted into the backdrop is un-mixed
+## into its own colour; import_hug_guns.gd despill() with two channels / a hue range, fade_outside().
+func test_key_background_magenta() -> void:
+	var I := load("res://tools/import_frames.gd")
+	var H := load("res://tools/import_hug_guns.gd")
+	eq(I.key_channels(Color8(245, 5, 239)), [0, 2], "magenta: red and blue")
+	eq(I.key_channels(Color8(9, 243, 9)), [1], "green screen: green")
+	var key := Color8(245, 5, 239)
+	var img := Image.create(40, 30, false, Image.FORMAT_RGBA8)
+	img.fill(key)
+	img.fill_rect(Rect2i(4, 4, 20, 20), Color8(20, 20, 24)) # the outline
+	img.fill_rect(Rect2i(8, 8, 12, 12), Color8(200, 40, 50)) # a red inside
+	for y in range(4, 24):
+		img.set_pixel(3, y, Color8(130, 12, 128)) # half outline, half backdrop
+		img.set_pixel(24, y, Color8(60, 15, 62)) # a pink-tinted outline px next to the backdrop
+	# A glow (cyan) painted into the backdrop right of the figure: the key blended toward it.
+	var g := Color8(90, 255, 230)
+	for x in range(25, 34):
+		var t := 0.7 * (1.0 - float(x - 25) / 9.0)
+		for y in range(8, 20):
+			img.set_pixel(x, y, key.lerp(g, t))
+	var opts := {"key": "corners", "corner": 2, "tolerance": 45, "soft": 45, "holeMin": 20, "spill": 2}
+	var plain: Image = img.duplicate()
+	I.key_background(plain, opts)
+	var tinted := plain.get_pixel(26, 12)
+	check(tinted.a > 0.9 and tinted.r > g.r + 0.2, "without glow: the glow stays an opaque key blend (%s)" % tinted)
+	opts["glow"] = {"colour": [90, 255, 230]}
+	I.key_background(img, opts)
+	near(img.get_pixel(0, 0).a, 0.0, 1e-6, "backdrop")
+	var rim := img.get_pixel(3, 10)
+	check(rim.a > 0.3 and minf(rim.r, rim.b) <= rim.g + 1.0 / 255.0, "the half-backdrop rim kept, no pink (%s)" % rim)
+	var edge := img.get_pixel(24, 10)
+	check(minf(edge.r, edge.b) <= edge.g + 1.0 / 255.0, "the tinted outline px despilled (%s)" % edge)
+	eq(img.get_pixel(10, 10), Color8(200, 40, 50), "the red inside stays")
+	var glow := img.get_pixel(26, 12)
+	check(glow.a > 0.3 and glow.a < 0.9, "glow: partly transparent (%f)" % glow.a)
+	check(absf(glow.r - g.r) < 0.06 and absf(glow.g - g.g) < 0.06 and absf(glow.b - g.b) < 0.06, "glow: its own colour, no key tint (%s)" % glow)
+	check(img.get_pixel(32, 12).a < glow.a, "glow: fading out")
+	var away: Image = plain.duplicate()
+	away.fill(key)
+	for x in range(25, 34):
+		for y in range(8, 20):
+			away.set_pixel(x, y, key.lerp(g, 0.7 * (1.0 - float(x - 25) / 9.0)))
+	opts["glow"] = {"colour": [90, 255, 230], "alpha": 0.0}
+	I.key_background(away, opts)
+	near(away.get_pixel(26, 12).a, 0.0, 1e-6, "glow alpha 0: keyed away")
+	# despill() with a second channel: a pink tint loses the part above green; a hue range keeps reds.
+	var sp := Image.create(3, 1, false, Image.FORMAT_RGBA8)
+	sp.set_pixel(0, 0, Color8(120, 20, 110))
+	sp.set_pixel(1, 0, Color8(200, 40, 70))
+	sp.set_pixel(2, 0, Color8(90, 200, 220))
+	var sq: Image = sp.duplicate()
+	eq(H.despill(sp, 0, 2), 2, "the purple and the crimson")
+	eq([sp.get_pixel(0, 0), sp.get_pixel(1, 0), sp.get_pixel(2, 0)], [Color8(30, 20, 20), Color8(170, 40, 40), Color8(90, 200, 220)], "lowered by the part above green; the cyan kept")
+	eq(H.despill(sq, 0, 2, Vector2(270, 320)), 1, "hues 270-320: only the purple")
+	eq(sq.get_pixel(1, 0), Color8(200, 40, 70), "the crimson kept")
+	# fade_outside(): alpha faded to nothing over the band round a rect.
+	var f := Image.create(20, 1, false, Image.FORMAT_RGBA8)
+	f.fill(Color.WHITE)
+	H.fade_outside(f, Rect2i(0, 0, 10, 1), 4)
+	eq([f.get_pixel(9, 0).a, f.get_pixel(14, 0).a], [1.0, 0.0], "inside kept, past the band gone")
+	check(f.get_pixel(11, 0).a > 0.4 and f.get_pixel(11, 0).a < 0.9, "in the band: faded (%f)" % f.get_pixel(11, 0).a)
 
 
 ## [[kind, tier]] for every kind × tier.
@@ -863,11 +1007,11 @@ func test_import_hug_guns_arguments() -> void:
 	# Guns made from another tier's picture (hug.json from + recolour).
 	var cfg = JSON.parse_string(FileAccess.get_file_as_string(dir + "hug.json"))
 	var derived: Dictionary = H.derived_of(cfg)
-	eq(derived, {"bazooka_basic": "bazooka_iron", "bazooka_steel": "bazooka_iron", "cannon_basic": "cannon_iron"}, "hug.json: the bazooka's basic and steel, the cannon's basic from the iron picture")
+	eq(derived, {"bazooka_basic": "bazooka_iron", "bazooka_steel": "bazooka_iron", "cannon_basic": "cannon_iron", "seed_launcher_basic": "seed_launcher_iron"}, "hug.json: the bazooka's basic and steel, the cannon's and the seed launcher's basic from the iron picture")
 	eq(H.derived_of({"guns": {"bazooka_steel": {"from": "gold"}, "bazooka_iron": {"from": "iron"}, "ray_iron": {"from": "steel"}, "bazooka_basic": {"length": 50}}}), {}, "not a tier of the kind / itself / not a gun / no from")
 	all = H.sources_for([], dir, derived)
 	check(all["guns"].has({"kind": "bazooka", "tier": "steel", "name": "bazooka_steel", "source": "bazooka_iron"}), "no argument: the derived guns too")
-	eq(all["guns"].size(), 10, "every bazooka and cannon tier (%s)" % [all["guns"]])
+	eq(all["guns"].size(), 15, "every bazooka, cannon and seed launcher tier (%s)" % [all["guns"]])
 	var named: Dictionary = H.sources_for(["bazooka_iron"], dir, derived)
 	eq(named["guns"].map(func(g): return g["name"]), ["bazooka_iron", "bazooka_basic", "bazooka_steel"], "naming a picture takes the guns made from it")
 	eq(H.sources_for(["bazooka_steel"], dir, derived)["guns"], [{"kind": "bazooka", "tier": "steel", "name": "bazooka_steel", "source": "bazooka_iron"}], "a derived gun by name")
@@ -902,11 +1046,14 @@ func test_hug_gun_icons() -> void:
 	check(Array(held["cells"].keys()).all(func(k): return not str(k).begins_with("bazooka/")), "guns_v1.json: no bazooka cells")
 	check(not held["guns"].has("cannon") and not held["icons"]["files"].has("weapon_cannon_<tier>"), "guns_v1.json: no cannon sprites / icons")
 	check(Array(held["cells"].keys()).all(func(k): return not str(k).begins_with("cannon/")), "guns_v1.json: no cannon cells")
+	check(not held["guns"].has("seed_launcher") and not held["icons"]["files"].has("weapon_launcher_<tier>"), "guns_v1.json: no seed launcher sprites / icons")
+	check(Array(held["cells"].keys()).all(func(k): return not str(k).begins_with("seed_launcher/")), "guns_v1.json: no seed launcher cells")
 	var ic: Dictionary = H.icon_config(cfg, held)
 	for key in ["size", "margin", "tiltDeg"]:
 		eq(ic[key], held["icons"][key], "hug icons: the held guns' %s" % key)
 	eq(ic["files"], {"weapon_bazooka_<tier>": {"gun": "bazooka", "tiers": Art.EQUIP_KIND_TIERS},
-		"weapon_cannon_<tier>": {"gun": "cannon", "tiers": Art.EQUIP_KIND_TIERS}}, "hug.json: the bazooka's and the cannon's icons in the shop tiers")
+		"weapon_cannon_<tier>": {"gun": "cannon", "tiers": Art.EQUIP_KIND_TIERS},
+		"weapon_launcher_<tier>": {"gun": "seed_launcher", "tiers": Art.EQUIP_KIND_TIERS}}, "hug.json: the bazooka's, the cannon's and the seed launcher's icons in the shop tiers")
 	eq(H.icon_config({"icons": {"margin": 3}}, held)["margin"], 3, "hug.json overrides")
 	eq(H.icon_config({}, {})["files"], {}, "no icons")
 	# icon_canvases(): every tier the same tube length, the holds on the same canvas px.
@@ -924,7 +1071,7 @@ func test_hug_gun_icons() -> void:
 	var rb := _opaque_rect(cv["dragon"])
 	check(absi(ra.size.x - rb.size.x) <= 1 and absi(ra.size.y - rb.size.y) <= 1 and absi(ra.position.x - rb.position.x) <= 1, "the same tube at the same place (%s vs %s)" % [ra, rb])
 	# The icons: the new gun (no hand grips), turned muzzle up-right like the others.
-	for kt in _kind_tiers(["bazooka", "cannon"], Art.EQUIP_KIND_TIERS):
+	for kt in _kind_tiers(["bazooka", "cannon", "launcher"], Art.EQUIP_KIND_TIERS): # equipment kinds
 		var kind: String = kt[0]
 		var tier: String = kt[1]
 		var img := Image.load_from_file(ProjectSettings.globalize_path(Art.equipment_weapon_path(kind, tier)))
@@ -940,8 +1087,12 @@ func test_hug_gun_icons() -> void:
 					sum += y
 					n += 1
 			return sum / maxf(1.0, n)
-		var rise: float = mid.call(u.position.x + 6) - mid.call(u.end.x - 12)
-		var slope := rise / float(u.size.x - 18)
+		# The tube's middle line near both ends (the seed launcher's: inside its back cap and before
+		# the flared muzzle / the pod).
+		var xa := u.position.x + (6 if kind != "launcher" else int(u.size.x * 0.1))
+		var xb := u.end.x - 12 if kind != "launcher" else u.position.x + int(u.size.x * 0.7)
+		var rise: float = mid.call(xa) - mid.call(xb)
+		var slope := rise / float(xb - xa)
 		near(rad_to_deg(atan(slope)), -float(held["icons"]["tiltDeg"]), 4.0, "%s %s icon: the tube turned %s° (muzzle up)" % [kind, tier, held["icons"]["tiltDeg"]])
 		check(u.size.y < u.size.x * 0.6, "%s %s icon: a long thick tube, no grips below it (%s)" % [kind, tier, u])
 

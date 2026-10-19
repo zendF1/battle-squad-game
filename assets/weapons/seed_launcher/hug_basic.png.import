@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cj0rumu824vv4"
-path="res://.godot/imported/basic.png-3b23b2f0ec69647ca3a45c5701ffcee6.ctex"
+uid="uid://bcmjqhrs5vm5b"
+path="res://.godot/imported/hug_basic.png-54ef058aa5a528468eaa6803302dd670.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/weapons/seed_launcher/basic.png"
-dest_files=["res://.godot/imported/basic.png-3b23b2f0ec69647ca3a45c5701ffcee6.ctex"]
+source_file="res://assets/weapons/seed_launcher/hug_basic.png"
+dest_files=["res://.godot/imported/hug_basic.png-54ef058aa5a528468eaa6803302dd670.ctex"]
 
 [params]
 

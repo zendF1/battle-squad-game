@@ -793,7 +793,16 @@ static func corner_colour(img: Image, corner: int = 8) -> Color:
 ## key's strongest channel is capped at the larger of the other two (no green rim on the dark
 ## outline); `spillFrom` "keyed" measures that band from every backdrop pixel, the partly keyed
 ## ones too (a thin wedge of backdrop between hair strands, a small pocket whose middle only
-## alphaCut clears: their green rim is farther than `spill` from a fully cleared pixel). Returns
+## alphaCut clears: their green rim is farther than `spill` from a fully cleared pixel). The key
+## may be any flat colour: a green screen's spill is its green (capped at the larger of red / blue),
+## a magenta (or other two-channel) backdrop's is the part of its two channels above the third
+## (key_channels(): both lowered by it, so a pink rim turns grey, a red keeps its red). `glow`
+## {colour [r, g, b], fit (RGB distance, default 40), alpha (× the glow's alpha, default 1; 0 keys
+## it away), max (default 0.95)}: a soft glow the art painted into the backdrop (a glowing crystal)
+## is un-mixed from it: a pixel on the line from the key to that colour (no farther than `fit`, less
+## than `max` of the way), reached from the backdrop through such pixels, is that colour at the
+## alpha of how far along it is (faded in over the soft edge), so no key tint is left in it; the
+## spill band is measured from it too. Returns
 ## how many pixels it cleared (alpha 0). Pure: only img changes.
 static func key_background(img: Image, bg: Dictionary) -> int:
 	img.convert(Image.FORMAT_RGBA8)
@@ -855,18 +864,39 @@ static func key_background(img: Image, bg: Dictionary) -> int:
 					stack[top] = j
 					top += 1
 		backdrop.append(1 if border or (size >= hole_min and pure >= size * hole_pure) else 0)
+	var glow_a := _glow(px, w, h, dist, label, backdrop, key, tol, bg.get("glow"))
 	var cleared := 0
 	var gone := PackedByteArray()
 	gone.resize(n)
 	var from_keyed := str(bg.get("spillFrom", "cleared")) == "keyed"
-	var kc := 0 if kr >= kg and kr >= kb else (1 if kg >= kb else 2) # the key's strongest channel
+	var chans := key_channels(key)
+	var kc: int = chans[0] # the key's strongest channel
+	var kc2: int = chans[1] if chans.size() > 1 else -1 # a magenta key's other one
 	for i in n:
-		if label[i] == 0 or backdrop[label[i]] == 0:
+		var glowing := not glow_a.is_empty() and glow_a[i] >= 0.0
+		if (label[i] == 0 or backdrop[label[i]] == 0) and not glowing:
 			continue
 		if from_keyed:
 			gone[i] = 1
 		var o := i * 4
 		var a := clampf((dist[i] - tol) / soft, 0.0, 1.0)
+		if glowing: # the glow's colour at its own alpha (faded in over the soft edge)
+			var mix := glow_a[i]
+			var keep := a * mix * float(bg["glow"].get("alpha", 1.0)) if dist[i] < tol + soft else mix * float(bg["glow"].get("alpha", 1.0))
+			if keep <= 0.0 or mix <= 0.0:
+				px[o] = 0
+				px[o + 1] = 0
+				px[o + 2] = 0
+				px[o + 3] = 0
+				gone[i] = 1
+				cleared += 1
+				continue
+			px[o] = clampi(roundi((px[o] - (1.0 - mix) * kr) / mix), 0, 255)
+			px[o + 1] = clampi(roundi((px[o + 1] - (1.0 - mix) * kg) / mix), 0, 255)
+			px[o + 2] = clampi(roundi((px[o + 2] - (1.0 - mix) * kb) / mix), 0, 255)
+			px[o + 3] = roundi(px[o + 3] * clampf(keep, 0.0, 1.0))
+			gone[i] = 1 # the spill band starts at the glow too (the outline's tinted rim next to it)
+			continue
 		if a <= 0.0:
 			px[o] = 0
 			px[o + 1] = 0
@@ -879,7 +909,12 @@ static func key_background(img: Image, bg: Dictionary) -> int:
 		px[o + 1] = clampi(roundi((px[o + 1] - (1.0 - a) * kg) / a), 0, 255)
 		px[o + 2] = clampi(roundi((px[o + 2] - (1.0 - a) * kb) / a), 0, 255)
 		px[o + 3] = roundi(px[o + 3] * a)
-		if from_keyed: # a partly keyed pixel is despilled too (it starts the band)
+		if from_keyed and kc2 >= 0: # a partly keyed pixel is despilled too (it starts the band)
+			var excess := mini(px[o + kc], px[o + kc2]) - px[o + 3 - kc - kc2]
+			if excess > 0:
+				px[o + kc] -= excess
+				px[o + kc2] -= excess
+		elif from_keyed:
 			px[o + kc] = mini(px[o + kc], maxi(px[o + (kc + 1) % 3], px[o + (kc + 2) % 3]))
 	# Despill the band next to the cleared (or keyed) pixels: the key's channel no stronger than the others.
 	var band := int(bg.get("spill", 3))
@@ -899,12 +934,79 @@ static func key_background(img: Image, bg: Dictionary) -> int:
 					seen[j] = 1
 					next.append(j)
 					var o: int = j * 4
+					if kc2 >= 0: # magenta: the part of both key channels above the third
+						var excess := mini(px[o + kc], px[o + kc2]) - px[o + 3 - kc - kc2]
+						if excess > 0:
+							px[o + kc] -= excess
+							px[o + kc2] -= excess
+						continue
 					var cap := maxi(px[o + (kc + 1) % 3], px[o + (kc + 2) % 3])
 					if px[o + kc] > cap:
 						px[o + kc] = cap
 			front = next
 	img.set_data(w, h, false, Image.FORMAT_RGBA8, px)
 	return cleared
+
+
+## The channels (0 r, 1 g, 2 b) a key colour's spill shows in: [its strongest] (a green screen:
+## [1]), or [strongest, second] when the second is at least half the strongest and the third is
+## not (a magenta backdrop: [0, 2]).
+static func key_channels(key: Color) -> Array:
+	var c := [key.r, key.g, key.b]
+	var k := 0 if c[0] >= c[1] and c[0] >= c[2] else (1 if c[1] >= c[2] else 2)
+	var a := (k + 1) % 3
+	var b := (k + 2) % 3
+	var second := a if c[a] >= c[b] else b
+	var third := 3 - k - second
+	if c[second] >= 0.5 * c[k] and c[third] < 0.5 * c[k]:
+		return [k, second]
+	return [k]
+
+
+## key_background() `glow`: per pixel how far along the line from the key to the glow colour it is
+## (0..1; -1: not glow), for the pixels on that line (within `fit`, below `max`) reached from the
+## backdrop pieces through such pixels (4-connected) and the backdrop pixels themselves that are on
+## it beyond the pure key (d ≥ tolerance); empty without a glow colour.
+static func _glow(px: PackedByteArray, w: int, h: int, dist: PackedFloat32Array, label: PackedInt32Array, backdrop: PackedByteArray, key: Color, tol: float, cfg: Variant) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	if not cfg is Dictionary or not cfg.get("colour") is Array or cfg["colour"].size() < 3:
+		return out
+	var k := Vector3(key.r, key.g, key.b) * 255.0
+	var line := Vector3(float(cfg["colour"][0]), float(cfg["colour"][1]), float(cfg["colour"][2])) - k
+	var len2 := maxf(1.0, line.length_squared())
+	var fit := float(cfg.get("fit", 40.0))
+	var top := float(cfg.get("max", 0.95))
+	var n := w * h
+	out.resize(n)
+	out.fill(-1.0)
+	var on := PackedFloat32Array()
+	on.resize(n)
+	for i in n:
+		var o := i * 4
+		var d := Vector3(px[o], px[o + 1], px[o + 2]) - k
+		var t := clampf(d.dot(line) / len2, 0.0, 1.0)
+		on[i] = t if t < top and (d - line * t).length() <= fit else -1.0
+	var stack := PackedInt32Array()
+	for i in n:
+		if label[i] != 0 and backdrop[label[i]] == 1:
+			if on[i] >= 0.0 and dist[i] >= tol:
+				out[i] = on[i]
+			stack.append(i)
+	var seen := PackedByteArray()
+	seen.resize(n)
+	for i in stack:
+		seen[i] = 1
+	while not stack.is_empty():
+		var i: int = stack[stack.size() - 1]
+		stack.resize(stack.size() - 1)
+		var x := i % w
+		var y := i / w
+		for j in [i - 1 if x > 0 else -1, i + 1 if x < w - 1 else -1, i - w if y > 0 else -1, i + w if y < h - 1 else -1]:
+			if j >= 0 and seen[j] == 0 and on[j] >= 0.0:
+				seen[j] = 1
+				out[j] = on[j]
+				stack.append(j)
+	return out
 
 
 ## A background drawn into the pixels (a fake transparency checkerboard, a watermark on it)

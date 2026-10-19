@@ -1,5 +1,5 @@
 {
-	"_doc": "tools/import_guns.gd reads this: cuts guns_v1.png (4 rows = kinds, 4 columns = tiers iron, steel, mithril, dragon; side view, muzzle right, white background) into assets/weapons/<kind>/<tier>.png + weapons.json and the weapon equipment icons. The bazooka and cannon rows (the 2nd and 3rd) are not cut: Rookie's bazooka and Tanko's cannon are hug art (art_source/weapons/hug/, tools/import_hug_guns.gd: their guns and their weapon_bazooka_<tier> / weapon_cannon_<tier> icons). Points are sheet px. See the tool's header and assets/README.md.",
+	"_doc": "tools/import_guns.gd reads this: cuts guns_v1.png (4 rows = kinds, 4 columns = tiers iron, steel, mithril, dragon; side view, muzzle right, white background) into assets/weapons/<kind>/<tier>.png + weapons.json and the weapon equipment icons. The seed launcher, bazooka and cannon rows (the 1st, 2nd and 3rd) are not cut: Flora's seed launcher, Rookie's bazooka and Tanko's cannon are hug art (art_source/weapons/hug/, tools/import_hug_guns.gd: their guns and their weapon_launcher_<tier> / weapon_bazooka_<tier> / weapon_cannon_<tier> icons). Points are sheet px. See the tool's header and assets/README.md.",
 	"sheet": "guns_v1.png",
 	"tolerance": 0.1,
 	"holeTolerance": 0.04,
@@ -8,10 +8,6 @@
 	"worldPxPerUnit": 0.35,
 	"pad": 2,
 	"cells": {
-		"seed_launcher/iron": {"rect": [105, 34, 555, 362], "grip": [210, 265], "muzzle": [618, 175]},
-		"seed_launcher/steel": {"rect": [775, 34, 559, 362], "grip": [890, 275], "muzzle": [1295, 175]},
-		"seed_launcher/mithril": {"rect": [1438, 34, 540, 362], "grip": [1535, 265], "muzzle": [1935, 180]},
-		"seed_launcher/dragon": {"rect": [2082, 34, 517, 362], "grip": [2165, 270], "muzzle": [2540, 200]},
 		"shock_rifle/iron": {"rect": [80, 1189, 605, 330], "grip": [270, 1430], "muzzle": [666, 1308]},
 		"shock_rifle/steel": {"rect": [766, 1189, 586, 330], "grip": [955, 1430], "muzzle": [1332, 1310], "keep": [[1016, 1290], [1078, 1308]]},
 		"shock_rifle/mithril": {"rect": [1417, 1189, 586, 330], "grip": [1610, 1430], "muzzle": [1960, 1320], "keep": [[1712, 1305], [1637, 1308]]},
@@ -22,10 +18,6 @@
 			"basic": {"cell": "shock_rifle/iron", "recolour": "basic"},
 			"iron": {"cell": "shock_rifle/iron"}, "steel": {"cell": "shock_rifle/steel"},
 			"mithril": {"cell": "shock_rifle/mithril"}, "dragon": {"cell": "shock_rifle/dragon"}}},
-		"seed_launcher": {"length": 32, "tiers": {
-			"basic": {"cell": "seed_launcher/iron", "recolour": "basic"},
-			"iron": {"cell": "seed_launcher/iron"}, "steel": {"cell": "seed_launcher/steel"},
-			"mithril": {"cell": "seed_launcher/mithril"}, "dragon": {"cell": "seed_launcher/dragon"}}},
 		"blaster": {"length": 31, "tiers": {
 			"basic": {"cell": "shock_rifle/iron", "recolour": "basic"},
 			"iron": {"cell": "shock_rifle/iron"}, "steel": {"cell": "shock_rifle/steel"},
@@ -64,7 +56,6 @@
 		"tiltDeg": -14,
 		"files": {
 			"weapon_rifle_<tier>": {"gun": "shock_rifle", "tiers": ["iron", "steel", "mithril", "dragon"]},
-			"weapon_launcher_<tier>": {"gun": "seed_launcher", "tiers": ["iron", "steel", "mithril", "dragon"]},
 			"weapon_<tier>": {"gun": "blaster", "tiers": ["iron", "steel", "mithril", "dragon", "silver", "gold", "titan", "diamond"]}
 		}
 	}

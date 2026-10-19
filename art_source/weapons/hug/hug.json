@@ -1,5 +1,5 @@
 {
-	"_doc": "tools/import_hug_guns.gd reads this: every <kind>_<tier>.png here (the gun alone, horizontal, muzzle RIGHT, no hand grips, flat green backdrop) → assets/weapons/<kind>/hug_<tier>.png + assets/weapons/hug.json. length: world px long in the match (57: about 1.5 × Rookie's kneeling body width); per gun (guns.<kind>_<tier>) length, hold [x, y], muzzle [x, y] (source px) background (key options over the shared ones) and despill (true: no key colour left anywhere, for art with none) may be set; a gun with no picture is made from another tier's: from (the tier) + recolour (tools/import_guns.gd recolour(): saturation / value multipliers, hue shift in degrees, hueRange [lo, hi] limits it to those hues). See the tool's header and assets/README.md.",
+	"_doc": "tools/import_hug_guns.gd reads this: every <kind>_<tier>.png here (the gun alone, horizontal, muzzle RIGHT, no hand grips, flat backdrop: green or magenta, the corners' colour) → assets/weapons/<kind>/hug_<tier>.png + assets/weapons/hug.json. length: world px long in the match (57: about 1.5 × Rookie's kneeling body width); per gun (guns.<kind>_<tier>) length, hold [x, y], muzzle [x, y] (source px) background (key options over the shared ones; glow: a soft glow painted into the backdrop un-mixed from it) and despill (true: no key colour left anywhere, for art with none; {hueRange}: only on those hues) may be set; a gun with no picture is made from another tier's: from (the tier) + recolour (tools/import_guns.gd recolour(): saturation / value multipliers, hue shift in degrees, hueRange [lo, hi] limits it to those hues). See the tool's header and assets/README.md.",
 	"length": 57,
 	"texPxPerWorldPx": 2.0,
 	"worldPxPerUnit": 0.35,
@@ -11,7 +11,8 @@
 		"_doc": "the equipment icons cut from the hug art (size / margin / tiltDeg: the held guns' art_source/weapons/guns_v1.json icons unless set here): <name with <tier>>.png in assets/icons/equipment/, one scale per group",
 		"files": {
 			"weapon_bazooka_<tier>": {"gun": "bazooka", "tiers": ["iron", "steel", "mithril", "dragon"]},
-			"weapon_cannon_<tier>": {"gun": "cannon", "tiers": ["iron", "steel", "mithril", "dragon"]}
+			"weapon_cannon_<tier>": {"gun": "cannon", "tiers": ["iron", "steel", "mithril", "dragon"]},
+			"weapon_launcher_<tier>": {"gun": "seed_launcher", "tiers": ["iron", "steel", "mithril", "dragon"]}
 		}
 	},
 	"guns": {
@@ -26,6 +27,15 @@
 		"cannon_steel": {"length": 58, "muzzle": [938, 284]},
 		"cannon_mithril": {"length": 58, "muzzle": [921, 278]},
 		"cannon_dragon": {"length": 58, "muzzle": [935, 292], "background": {"holeMin": 15, "holePure": 0}, "despill": true,
-			"_doc": "the muzzle is the dragon's open mouth, not the snout's tip; a 20 px pocket of backdrop between the upper teeth and the throat, enclosed by the outline: keyed as a hole, no green left (the dragon has no green)"}
+			"_doc": "the muzzle is the dragon's open mouth, not the snout's tip; a 20 px pocket of backdrop between the upper teeth and the throat, enclosed by the outline: keyed as a hole, no green left (the dragon has no green)"},
+		"seed_launcher_iron": {"length": 45, "muzzle": [918, 512], "despill": {"hueRange": [270, 320]},
+			"_doc": "Flora's seed launcher (grey back cap, olive tube, leaf sight, green seed pod), magenta backdrop: 45 world px long in every tier (any longer and its back end sinks below her soles aiming straight up: her hug point is 104.96 scene px = 45.9 world px of tube high), held in the tube's middle; muzzle (all tiers): the middle of what sits in the bore (pod / crystal / seed); despill hueRange: the purple-tinted outline px next to the backdrop turn black, the art has no purple (the steel cap's pink is hue 335+)"},
+		"seed_launcher_basic": {"from": "iron", "recolour": {"saturation": 0.55, "value": 0.94},
+			"_doc": "the starter seed launcher: the iron one desaturated, guns_v1.json recolours.basic (old seed_launcher/basic.png = iron.png × that: fitted saturation ×0.552, value ×0.936)"},
+		"seed_launcher_steel": {"length": 45, "muzzle": [918, 512], "despill": {"hueRange": [270, 320]}},
+		"seed_launcher_mithril": {"length": 45, "muzzle": [920, 505], "background": {"glow": {"colour": [90, 255, 230]}}, "despill": {"hueRange": [270, 320]},
+			"_doc": "the crystal's soft glow painted into the magenta: un-mixed into a clean cyan glow (key_background glow), measured without it, faded out over the pad"},
+		"seed_launcher_dragon": {"length": 45, "muzzle": [920, 508], "background": {"holeMin": 15, "holePure": 0, "glow": {"colour": [250, 200, 40]}}, "despill": {"hueRange": [270, 320]},
+			"_doc": "the length includes the head (the tube 1 % shorter than the other tiers'); muzzle: the fiery seed in the open mouth; small pockets of backdrop between the horn and the tube and between the teeth keyed as holes; the seed's glow un-mixed into a clean yellow-orange one"}
 	}
 }

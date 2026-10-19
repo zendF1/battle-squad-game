@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dtx6wsetn74do"
-path="res://.godot/imported/dragon.png-5544cb1bef390b8e92a9fd51db6d12c8.ctex"
+uid="uid://cn6d0nv6t7yk6"
+path="res://.godot/imported/hug_dragon.png-61375dde544cb33559f1aa8a5f7c5e48.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/weapons/seed_launcher/dragon.png"
-dest_files=["res://.godot/imported/dragon.png-5544cb1bef390b8e92a9fd51db6d12c8.ctex"]
+source_file="res://assets/weapons/seed_launcher/hug_dragon.png"
+dest_files=["res://.godot/imported/hug_dragon.png-61375dde544cb33559f1aa8a5f7c5e48.ctex"]
 
 [params]
 

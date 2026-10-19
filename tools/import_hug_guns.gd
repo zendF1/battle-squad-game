@@ -3,14 +3,14 @@ extends SceneTree
 ## (scenes/character/poses/<id>_ready.tscn, ui/art.gd hug_gun()). One picture per gun,
 ## art_source/weapons/hug/<kind>_<tier>.png (kind = ui/art.gd GUN_KINDS, tier = one of its
 ## GUN_TIERS): the gun alone, horizontal, the muzzle (warhead) pointing RIGHT, no hand grips, on a
-## flat backdrop (a solid green screen). Reproducible: everything it does is in
-## art_source/weapons/hug/hug.json. Runs headless (only Image is used):
+## flat backdrop (a solid green screen, or magenta: the corners' colour is the key). Reproducible:
+## everything it does is in art_source/weapons/hug/hug.json. Runs headless (only Image is used):
 ##
 ##   $GODOT --headless --path . -s tools/import_hug_guns.gd                      # every picture there
 ##   $GODOT --headless --path . -s tools/import_hug_guns.gd -- bazooka_iron ...  # some of them
 ##
 ## Per picture: the backdrop keyed out (tools/import_frames.gd key_background(): the corner colour,
-## soft edge, no green rim), the small detached pieces dropped (clean(): an AI sparkle), trimmed;
+## soft edge, no green / pink rim), the small detached pieces dropped (clean(): an AI sparkle), trimmed;
 ## the hold point (where the pose's GunSocket turns it: by default the middle of the tube, the
 ## centre of its bounding box with the median column middle as its height, so a sight on top does
 ## not lift it) and the muzzle (the right end at the tube's middle height; both may be set per gun
@@ -22,8 +22,8 @@ extends SceneTree
 ## PNG), keeping the entries of the guns not imported this run.
 ##
 ## The equipment icons of hug.json "icons" {files {<name with <tier>>: {gun, tiers}}} (today
-## weapon_bazooka_<tier> and weapon_cannon_<tier>: Rookie's bazooka and Tanko's cannon have no held
-## sprites) are made from these pictures too,
+## weapon_bazooka_<tier>, weapon_cannon_<tier> and weapon_launcher_<tier>: Rookie's bazooka, Tanko's
+## cannon and Flora's seed launcher have no held sprites) are made from these pictures too,
 ## the same look as the held guns' icons (size / margin / tiltDeg from art_source/weapons/guns_v1.json
 ## "icons" unless hug.json sets them; tools/import_guns.gd icons()), written to
 ## assets/icons/equipment/ whenever a run imports a gun of that kind.
@@ -38,8 +38,10 @@ extends SceneTree
 ## hug.json: {length (world px, default for every gun), texPxPerWorldPx, worldPxPerUnit, pad,
 ## background (key_background() options), alphaCut, keepPieces, icons, guns {<kind>_<tier>: {length,
 ## hold [x, y], muzzle [x, y] (source px), background (key options over the shared ones, e.g. a
-## smaller holeMin for a small enclosed pocket of backdrop), despill (true: despill() the whole gun,
-## for art with none of the key's colour), from (a tier: its picture), recolour}}}.
+## smaller holeMin for a small enclosed pocket of backdrop; glow: a soft glow painted into the
+## backdrop un-mixed from it), despill (true: despill() the whole gun, for art with none of the
+## key's colour; {hueRange [lo, hi]}: only the pixels of those hues, a magenta key's specks next to
+## the art's reds), from (a tier: its picture), recolour}}}.
 
 const ImportFrames := preload("res://tools/import_frames.gd")
 const ImportGuns := preload("res://tools/import_guns.gd")
@@ -204,8 +206,10 @@ static func tube_points(img: Image) -> Dictionary:
 
 ## One gun's picture made ready (from the picture `source`: its own, or the tier it is derived
 ## from): keyed, cleaned, recoloured (a derived gun): {image (straight alpha, source px), rect (its
-## opaque bounds), tube (tube_points()), hold, muzzle (source px), length (world px), keyed (backdrop
-## px), removed (stray px)}; {} on an error. _import() and the icons start from it.
+## opaque bounds), tube (tube_points(): of the solid gun, a kept glow left out), canvas (a gun with
+## a kept glow: the source px its PNG is cut from, else an empty rect), hold, muzzle (source px),
+## length (world px), keyed (backdrop px), removed (stray px)}; {} on an error. _import() and the
+## icons start from it.
 static func prepared(cfg: Dictionary, kind: String, tier: String, source: String = "") -> Dictionary:
 	var name := "%s_%s" % [kind, tier]
 	if source == "":
@@ -224,21 +228,61 @@ static func prepared(cfg: Dictionary, kind: String, tier: String, source: String
 	var key: Dictionary = (cfg["background"] if cfg.get("background") is Dictionary else {"key": "corners"}).duplicate()
 	if own.get("background") is Dictionary: # this picture's own key options over the shared ones
 		key.merge(own["background"], true)
-	var kc := ImportFrames.corner_colour(img, int(key.get("corner", 8)))
-	var bg := ImportFrames.key_background(img, key)
-	if bool(own.get("despill", false)):
-		despill(img, 0 if kc.r >= kc.g and kc.r >= kc.b else (1 if kc.g >= kc.b else 2))
-	var removed := ImportFrames.clean(img, {"alphaCut": cfg.get("alphaCut", 24), "keepPieces": cfg.get("keepPieces", 0.02), "defringe": {"band": 0}})
+	var src := img.duplicate() as Image
+	var k := _keyed(img, key, own, cfg)
 	if source != name and own.get("recolour") is Dictionary:
 		ImportGuns.recolour(img, own["recolour"])
 	var tp := tube_points(img)
 	if tp.is_empty():
 		push_error("import_hug_guns: %s is empty after keying" % name)
 		return {}
-	return {"image": img, "rect": img.get_used_rect(), "tube": tp,
+	var length := float(own.get("length", cfg.get("length", 57.0)))
+	var canvas := Rect2i()
+	if key.get("glow") is Dictionary and float(key["glow"].get("alpha", 1.0)) > 0.0:
+		# A kept glow is not the gun: measured without it (the tube as long as the other tiers'),
+		# faded out over the pad round the solid gun, the canvas the solid gun + the pad.
+		var bare_key := key.duplicate(true)
+		bare_key["glow"]["alpha"] = 0.0
+		var solid := tube_points(_keyed(src, bare_key, own, cfg)["image"])
+		if not solid.is_empty():
+			tp = solid
+			var pad_src := ceili(float(cfg.get("pad", 2)) / (length * float(cfg.get("texPxPerWorldPx", 2.0)) / float(tp["rect"].size.x)))
+			fade_outside(img, tp["rect"], pad_src)
+			canvas = tp["rect"].grow(pad_src)
+	return {"image": img, "rect": img.get_used_rect(), "tube": tp, "canvas": canvas,
 		"hold": _v(own["hold"]) if own.get("hold") is Array else tp["hold"],
 		"muzzle": _v(own["muzzle"]) if own.get("muzzle") is Array else tp["muzzle"],
-		"length": float(own.get("length", cfg.get("length", 57.0))), "keyed": bg, "removed": removed}
+		"length": length, "keyed": k["keyed"], "removed": k["removed"]}
+
+
+## A picture keyed in place (key_background() with the key options, despill, clean()): {image,
+## keyed (backdrop px), removed (stray px)}.
+static func _keyed(img: Image, key: Dictionary, own: Dictionary, cfg: Dictionary) -> Dictionary:
+	var kc := ImportFrames.corner_colour(img, int(key.get("corner", 8)))
+	var bg := ImportFrames.key_background(img, key)
+	var ds = own.get("despill", false)
+	if ds is Dictionary or (ds is bool and ds):
+		var chans := ImportFrames.key_channels(kc)
+		var hues = ds.get("hueRange") if ds is Dictionary else null
+		despill(img, chans[0], chans[1] if chans.size() > 1 else -1, _v(hues) if hues is Array else Vector2(-1, -1))
+	var removed := ImportFrames.clean(img, {"alphaCut": cfg.get("alphaCut", 24), "keepPieces": cfg.get("keepPieces", 0.02), "defringe": {"band": 0}})
+	return {"image": img, "keyed": bg, "removed": removed}
+
+
+## Alpha outside rect faded to nothing over `band` px (the farther of the x / y distances), in
+## place: a glow round the gun ends softly at the canvas edge.
+static func fade_outside(img: Image, rect: Rect2i, band: int) -> void:
+	var w := img.get_width()
+	var px := img.get_data()
+	for o in range(0, px.size(), 4):
+		if px[o + 3] == 0:
+			continue
+		var x := (o / 4) % w
+		var y := (o / 4) / w
+		var d := maxi(maxi(rect.position.x - x, x - (rect.end.x - 1)), maxi(rect.position.y - y, y - (rect.end.y - 1)))
+		if d > 0:
+			px[o + 3] = roundi(px[o + 3] * clampf(1.0 - float(d) / float(maxi(1, band)), 0.0, 1.0))
+	img.set_data(w, img.get_height(), false, Image.FORMAT_RGBA8, px)
 
 
 ## One gun (prepared()): trimmed, scaled, written; its hug.json entry {size, hold, muzzle} (px in
@@ -259,7 +303,7 @@ func _import(cfg: Dictionary, kind: String, tier: String, source: String = "", p
 	var tex_per_world := float(cfg.get("texPxPerWorldPx", 2.0))
 	var s := float(p["length"]) * tex_per_world / float(tp["rect"].size.x) # PNG px per source px
 	var pad := ceili(float(cfg.get("pad", 2)) / s)
-	var from := rect.grow(pad)
+	var from: Rect2i = p["canvas"] if p.get("canvas", Rect2i()) != Rect2i() else rect.grow(pad)
 	var canvas := Image.create(from.size.x, from.size.y, false, Image.FORMAT_RGBA8)
 	canvas.blit_rect(img, rect, rect.position - from.position)
 	var dst := Vector2i(maxi(1, roundi(from.size.x * s)), maxi(1, roundi(from.size.y * s)))
@@ -355,12 +399,27 @@ func _icons(cfg: Dictionary, kinds: Array, done: Dictionary, derived: Dictionary
 
 ## The key's channel (0 r, 1 g, 2 b) capped at the larger of the other two on every pixel, in place
 ## (hug.json "despill": a gun with none of the key's colour in its art: no backdrop tint left in
-## a pocket the key could not reach). Returns how many pixels changed.
-static func despill(img: Image, channel: int) -> int:
+## a pocket the key could not reach); with a second channel (a magenta key: 0 and 2,
+## tools/import_frames.gd key_channels()) both are lowered by the part of them above the third
+## instead (a pink tint turns grey). hues [lo, hi] (degrees, lo ≥ 0): only the pixels of those
+## hues (a magenta key: its purple / magenta specks, not the art's reds and crimsons). Returns how
+## many pixels changed.
+static func despill(img: Image, channel: int, second: int = -1, hues: Vector2 = Vector2(-1, -1)) -> int:
 	var px := img.get_data()
 	var changed := 0
 	for o in range(0, px.size(), 4):
 		if px[o + 3] == 0:
+			continue
+		if hues.x >= 0.0:
+			var h := Color8(px[o], px[o + 1], px[o + 2]).h * 360.0
+			if h < hues.x or h > hues.y:
+				continue
+		if second >= 0:
+			var excess := mini(px[o + channel], px[o + second]) - px[o + 3 - channel - second]
+			if excess > 0:
+				px[o + channel] -= excess
+				px[o + second] -= excess
+				changed += 1
 			continue
 		var cap := maxi(px[o + (channel + 1) % 3], px[o + (channel + 2) % 3])
 		if px[o + channel] > cap:

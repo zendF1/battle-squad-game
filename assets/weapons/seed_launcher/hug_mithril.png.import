@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c42hqs67xqixn"
-path="res://.godot/imported/iron.png-f255b1ad543ebf8d227a3a69f9497e2e.ctex"
+uid="uid://pqitn2ptncv3"
+path="res://.godot/imported/hug_mithril.png-28e9bdd44caf747c20d7f853ed620170.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/weapons/seed_launcher/iron.png"
-dest_files=["res://.godot/imported/iron.png-f255b1ad543ebf8d227a3a69f9497e2e.ctex"]
+source_file="res://assets/weapons/seed_launcher/hug_mithril.png"
+dest_files=["res://.godot/imported/hug_mithril.png-28e9bdd44caf747c20d7f853ed620170.ctex"]
 
 [params]
 
