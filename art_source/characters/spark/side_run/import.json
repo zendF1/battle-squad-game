@@ -1,5 +1,5 @@
 {
-	"_doc": "tools/import_frames.gd: Spark's in-match side view, a template copied from Rookie's (art_source/characters/rookie/side_run/import.json): the run cycle frame_1.png .. frame_N.png here (any size, transparent background, facing right) and the ready pose ../side_ready/ready_v1.png. Run: $GODOT --headless --path . -s tools/import_frames.gd -- spark. Rookie's numbers tuned for his pictures: retune height, poses.ready.scale and add alignX / hands / gun / hand (see Rookie's config) when this character's pictures need them. See assets/README.md.",
+	"_doc": "tools/import_frames.gd: Spark's in-match side view, a template copied from Rookie's (art_source/characters/rookie/side_run/import.json): the run cycle frame_1.png .. frame_N.png here (any size, transparent background, facing right), the standing idle ../side_idle/idle_v1.png (poses.stand; without it the idle is frame_1) and the ready pose ../side_ready/ready_v1.png. Run: $GODOT --headless --path . -s tools/import_frames.gd -- spark. Rookie's numbers tuned for his pictures: retune height, poses.ready.scale and add alignX / hands / gun / hand (see Rookie's config) when this character's pictures need them. See assets/README.md.",
 	"id": "spark",
 	"out": "res://assets/characters/spark/side/",
 	"frames": "frame_*.png",
@@ -31,7 +31,11 @@
 	"pad": 3,
 	"anims": {
 		"idle": {
+			"_doc": "the standing picture (poses.stand); without it the run frame 0 (frame_1.png)",
 			"frames": [
+				"stand"
+			],
+			"fallback": [
 				0
 			],
 			"fps": 1,
@@ -127,6 +131,11 @@
 		"fadeIn": 0
 	},
 	"poses": {
+		"stand": {
+			"_doc": "pose px: standing upright, facing right, transparent background, the same size as the run frames (cleaned like them). scale: source px per pose px (the head as wide as in the run frames); add alignX [pose x, source x] (the ear on frame_1's) so the head does not jump idle <-> walk <-> ready; without it the figure's middle sits on the hips. See Rookie's config.",
+			"src": "../side_idle/idle_v1.png",
+			"scale": 1.0
+		},
 		"ready": {
 			"_doc": "pose px: kneeling, facing right, both fists together in front of the chest, NO gun, on a flat green backdrop (keyed out: `background`; small detached pieces such as an AI sparkle go, keepPieces). scale: source px per pose px (Rookie's 0.555 for an 882x1024 pose next to 1280x720 run frames: the cap and the head as wide as in the run frames). Without alignX the pose's middle sits on the hips; set gun.grip [x, y] (pose px) to the middle of the fists: the hug point (else the pose's middle). The hug gun is placed by hand in `scene`.",
 			"src": "../side_ready/ready_v1.png",

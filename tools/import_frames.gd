@@ -40,14 +40,17 @@ extends SceneTree
 ##   6. scale once (Lanczos, premultiplied colour) so the figure is `height` world px tall ×
 ##      `oversample` texture px per world px; pxPerUnit = worldPxPerUnit × oversample.
 ## Animations (`anims`): `frames` are source frame indices (written as <anim>_<i>.png) or "idle"
-## (reuse idle's PNGs, `count` entries: the code motion makes them move); fps, loop, motion
+## (reuse idle's PNGs, `count` entries: the code motion makes them move); `fallback`: the frames
+## used when none of `frames` is there (a pose whose picture is missing); fps, loop, motion
 ## (scenes/character/character.gd: breathe, recoil, knockback, fall). Gun anchors: the grip
 ## follows the near fist (`gun.fists`, source px per frame) by `follow` from a carry point
 ## (`gun.carry`, source px from the pivot) and, in an anim with `swing`, tilts by up to
 ## `swingDeg` with the arm (forward = muzzle up); shoot /
 ## hurt angles and the shoot flash per frame from the anim; `front` false behind the body.
-## A frame name may be a pose's (`poses`: a single drawn frame such as the ready pose; the anim's
-## `stem` names its PNG), and `frames` may name another anim to reuse its PNG. A pose is cleaned at
+## A frame name may be a pose's (`poses`: a single drawn frame such as the standing idle or the
+## ready pose; the anim's `stem` names its PNG), and `frames` may name another anim to reuse its PNG.
+## The ready pose is the one the `draw` anim shows; any other pose (the standing idle, `stand`) is
+## a body frame like the run frames: counted in the extent, no readyPose. A pose is cleaned at
 ## `workScale`: its `background` drawn into the pixels removed first (a flat colour, `key`: a solid
 ## green screen, key_background(); else a light checkerboard, remove_background()), then like a frame
 ## (its own `alphaCut` / `keepPieces` / `defringe`: the small detached pieces such as an AI sparkle
@@ -59,9 +62,9 @@ extends SceneTree
 ## `seeds` inside `polygon`, pose px, the dark outline the barrier, grown over the outline) into its
 ## own PNG `stem` (default <pose>_arm_front) on the same canvas / pivot / scale, drawn over the hugged
 ## gun (the body keeps the arm too). side.json gets `readyPose` {anims, scene, armFront (that stem,
-## with the cut)} and gun_anchors.json the pose's fallback `gun` seat (the draw anchors' grip:
-## `gun.grip`, the hug point between the fists, else the pose figure's middle); the gun itself is
-## placed by hand in the pose's scene (never written here).
+## with the cut)} and gun_anchors.json the ready pose's fallback `gun` seat (the draw anchors' grip:
+## `gun.grip`, the hug point between the fists); the gun itself is placed by hand in the pose's scene
+## (never written here). A pose without `gun.grip` holds the gun at the carry point (`gun.carry`).
 
 const CutSheet := preload("res://tools/cut_sheet.gd")
 const SRC := "res://art_source/characters/"
@@ -130,8 +133,8 @@ static func frame_files(frames: Variant, dir: String) -> Array:
 
 
 ## cfg.anims for n source frames and the poses that loaded: "all" is every frame, indices past
-## the last frame and missing poses are dropped, then an anim with no frame left and one reusing
-## a dropped anim. Same order as cfg.anims.
+## the last frame and missing poses are dropped (none left: its `fallback` frames, filtered the
+## same way), then an anim with no frame left and one reusing a dropped anim. Same order as cfg.anims.
 static func resolve_anims(anims: Dictionary, n: int, poses: Array) -> Dictionary:
 	var out := {}
 	for anim in anims:
@@ -139,8 +142,12 @@ static func resolve_anims(anims: Dictionary, n: int, poses: Array) -> Dictionary
 		var fs = spec.get("frames")
 		if str(fs) == "all":
 			fs = range(n)
+		var there := func(i): return poses.has(i) if i is String else int(i) >= 0 and int(i) < n
 		if fs is Array:
-			fs = fs.filter(func(i): return poses.has(i) if i is String else int(i) >= 0 and int(i) < n)
+			fs = fs.filter(there)
+			if fs.is_empty() and spec.get("fallback") is Array:
+				fs = spec["fallback"].filter(there)
+			spec.erase("fallback")
 			if fs.is_empty():
 				continue
 		elif not out.has(str(fs)) and str(fs) != "idle":
@@ -151,6 +158,12 @@ static func resolve_anims(anims: Dictionary, n: int, poses: Array) -> Dictionary
 		if not out[anim]["frames"] is Array and not out.has(str(out[anim]["frames"])):
 			out.erase(anim)
 	return out
+
+
+## The ready pose of resolved anims: the pose the `draw` anim shows ("" without one).
+static func ready_pose_name(anims: Dictionary) -> String:
+	var fs = anims.get("draw", {}).get("frames")
+	return str(fs[0]) if fs is Array and not fs.is_empty() and fs[0] is String else ""
 
 
 func _import(cfg_path: String) -> void:
@@ -249,10 +262,11 @@ func _import(cfg_path: String) -> void:
 						outs[i] = _scaled_pose(poses[i]["image"], poses[i], origin, src_size, out_size)
 				elif not outs.has(int(i)):
 					outs[int(i)] = _scaled(frames[int(i)], origin, src_size, out_size)
-	# The extent is the run / idle figure's (poses are not counted: the motions use it).
+	# The extent is the run / idle figure's (the ready pose is not counted: the motions use it).
+	var ready_name := ready_pose_name(anims)
 	var used := Rect2i()
 	for i in outs:
-		if i is String:
+		if str(i) == ready_name and i is String:
 			continue
 		var r: Rect2i = outs[i].get_used_rect()
 		used = r if used.size == Vector2i.ZERO else used.merge(r)
@@ -279,10 +293,10 @@ func _import(cfg_path: String) -> void:
 	# Write the frames and the description.
 	var side_anims := {}
 	var anchors := {}
-	var idle_src: int = int(anims["idle"]["frames"][0])
+	var idle_src: Variant = anims["idle"]["frames"][0] # a source index or a pose name
 	var pose_hold := func(pname: String) -> Dictionary:
 		var seat: Dictionary = poses[pname]["cfg"].get("gun", {})
-		var grip: Vector2 = to_out.call(_pose_to_src(poses[pname], _v(seat["grip"]) if seat.has("grip") else poses[pname]["center"]))
+		var grip: Vector2 = to_out.call(_pose_to_src(poses[pname], _v(seat["grip"])) if seat.has("grip") else carry)
 		return {"grip": [snappedf(grip.x, 0.01), snappedf(grip.y, 0.01)], "angle": float(seat.get("angle", 0.0)), "front": true, "flash": 0.0}
 	for anim in anims:
 		var spec: Dictionary = anims[anim]
@@ -332,9 +346,11 @@ func _import(cfg_path: String) -> void:
 			if not str(key).begins_with("_"):
 				side["gunDraw"][key] = cfg["gunDraw"][key]
 	var anchors_out := {"frameSize": side["size"], "pivot": side["pivot"], "anims": anchors}
-	# A pose's scene (one GunSocket for the held gun, edited in the editor: ui/art.gd ready_pose())
-	# and its fallback seat (the hug point).
+	# The ready pose's scene (one GunSocket for the held gun, edited in the editor: ui/art.gd
+	# ready_pose()) and its fallback seat (the hug point).
 	for pname in poses:
+		if pname != ready_name:
+			continue
 		var pc: Dictionary = poses[pname]["cfg"]
 		var pose_anims: Array = []
 		for anim in anims:

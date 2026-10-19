@@ -46,7 +46,10 @@ Total about 3.8 MB of PNG (the full-body pictures about 0.45 MB of it).
 
 1. **Bỏ ảnh vào** `art_source/characters/<id>/`:
    - `side_run/frame_1.png`, `frame_2.png` … `frame_N.png`: một vòng chạy, nhìn sang phải, nền trong
-     suốt, chân chạm đất ở mọi frame (`frame_1` là dáng đứng thẳng nhất: dùng làm dáng đứng yên).
+     suốt, chân chạm đất ở mọi frame.
+   - `side_idle/idle_v1.png`: dáng **đứng yên** = nhân vật đứng thẳng, hai chân chạm đất, nhìn sang
+     phải, không cầm súng, cùng nét vẽ và cỡ ảnh với ảnh chạy, nền trong suốt (chưa có thì dáng đứng yên
+     là một frame chạy: `anims.idle.fallback`, `frame_1`; Tanko `frame_7`).
    - `side_ready/ready_v1.png`: dáng ngắm = nhân vật **quỳ**, nhìn sang phải, **hai tay chụm giữa
      ngực, KHÔNG cầm súng**, nền **xanh lá đặc** (một màu; dấu ✦ của AI ở góc tool tự xoá).
 2. **Súng ôm** (vẽ riêng, mỗi súng một ảnh): `art_source/weapons/hug/<loại>_<cấp>.png` (vd.
@@ -98,7 +101,10 @@ lệch chỗ so với dáng đứng thì chỉnh `scale` (mũ / đầu rộng b�
 = điểm giữa hai nắm tay (px của ảnh), và đổi `background` sang kiểu nền xanh như Rookie
 (`"key": "corners"`), rồi chạy lại lệnh ở bước 3. Flora / Tanko là mẫu cho ảnh 1024x765: `height`
 để đầu cùng cỡ với Rookie (cùng px ảnh nguồn mỗi px trong trận), `alignX` = tai trên tai của dáng
-đứng, `anims.idle.frames` = frame gọn nhất khi vòng chạy không có dáng đứng (Tanko: `[6]`),
+đứng, `anims.idle.fallback` = frame gọn nhất khi chưa có `side_idle/idle_v1.png` (Tanko: `[6]`);
+`poses.stand` (dáng đứng yên, `idle_v1.png`): `scale` = mũ / đầu rộng bằng ảnh chạy (Rookie 1.02,
+Flora 0.985, Tanko 1.0), `alignX` = tai trên tai của `frame_1` (Tanko: `frame_7` dời theo stabilise),
+không có `background` (ảnh đã trong suốt: xoá viền như ảnh chạy),
 `anims.walk.fps` theo bước chân (lệnh in "walk soles": chân chạm đất lùi bao nhiêu px mỗi frame →
 fps = 90 / số đó; Flora 13, Tanko 15, Rookie 20), `background` `holeMin` 15 / `holePure` 0 /
 `spillFrom` `"keyed"` khi còn viền xanh ở khe tóc (xem `ready_0.png` phóng to).
@@ -128,8 +134,8 @@ skipped.
 A character with `side/side.json` is drawn in the match (and the fallback outside it) from these
 frames instead of the baked ones below (`ui/art.gd` `character_look()`: side view → baked frames →
 Rookie's → empty). Today: **Rookie, Flora, Tanko** (the same files: Flora's `flora/side/` 89x128,
-walk at 13 fps, idle = run frame 1; Tanko's `tanko/side/` 93x126, walk at 15 fps, idle = run frame 7,
-the most upright one; heads the size of Rookie's, Tanko a little shorter and broader; no `hand.png`,
+walk at 13 fps; Tanko's `tanko/side/` 93x126, walk at 15 fps; every idle is its own standing
+picture; heads the size of Rookie's, Tanko a little shorter and broader; no `hand.png`,
 both hold their gun only hugged). Facing left is the same frames mirrored round the feet
 (`Flip` scale x -1): no separate files, no jump on a turn, the gun anchors and the muzzle mirror
 with them and the gun stays the right way up.
@@ -137,7 +143,7 @@ with them and the gun stays the right way up.
 | File | Size | Notes |
 |---|---|---|
 | `rookie/side/walk_0..7.png` | 112x130 (15–17 KB each) | the run cycle, loops at **20 fps** (the planted foot moves back about 4.5 world px a frame, so at the 90 px/s walk the feet barely slide) |
-| `rookie/side/idle_0.png` | 112x130 | walk frame 0 (the most upright one); idle breathes in code (a ~1.5 % vertical stretch over 2.4 s) |
+| `rookie/side/idle_0.png` | 112x130 | the standing picture (`art_source/characters/rookie/side_idle/idle_v1.png`, `import.json` `poses.stand`: scaled so the cap and the face are as wide as in the run frames, the ear over `frame_1`'s, the soles on the pivot row; the same canvas, so the run / ready PNGs did not change, and inside the run frames' `extent`); idle breathes in code (a ~1.5 % vertical stretch over 2.4 s); shoot / hurt / die reuse it |
 | `rookie/side/side.json` | 1 KB | `size`, `pivot` (the feet, texture px: the same in every frame), `pxPerUnit` (0.7 = 2 texture px per world px at the match's 0.35 px per unit), `height` (figure px), `extent` {`back`, `front`, `top`} px from the pivot, `hand` (a side view without a ready pose: `hand.png`, the fist the importer cuts for the grip of a held gun; Rookie has none), `anims` {name: {`frames` (PNG names, without .png, in this folder), `fps`, `loop`, `motion`}} for `idle`, `walk`, `shoot`, `hurt`, `die` |
 | `rookie/side/gun_anchors.json` | 2 KB | the baked format (below), px in these frames: the grip follows the near fist in the walk (damped, so the gun is carried at the hip and sways a little), tilted ±4° with the swing |
 
@@ -163,7 +169,11 @@ colour, `maxChroma`}, `stabilise` {`rows` (0 top .. 1 soles: the torso band matc
 `loop`, `motion`, `swing`, per-frame `angle` / `flash`, `front`), `gun` {`fists` (the near fist
 centre per source frame, source px), `carry` (source px from the pivot), `follow` (0..1),
 `swingDeg`}, `hand` {`frame`, `center`, `radius`, `feather`} (cut into `hand.png` only while there is no ready pose), optional `canvas` [x, y, w, h] (source px
-always inside the shared canvas) and `poses` (the ready pose, above). Then
+always inside the shared canvas) and `poses` (single drawn frames placed into the run frames' space
+by `scale` / `alignX`, the soles on the soles' row: `stand`, the standing idle from
+`../side_idle/idle_v1.png`, transparent, cleaned like the run frames, counted in the `extent`, used
+by `anims.idle` `"frames": ["stand"]` with `"fallback"` (the run frame while that picture is missing);
+`ready`, the ready pose, below: the one the `draw` anim shows). Then
 
 ```
 $GODOT --headless --path . -s tools/import_frames.gd -- <id>          # one character (its side*/import.json)
@@ -235,7 +245,7 @@ rim; `"spillFrom": "keyed"` measures that band from every keyed pixel, the partl
 Flora's and Tanko's, whose thin wedges of backdrop between hair strands kept a green tip), then `clean()` with the pose's own `alphaCut` / `keepPieces` drops the small detached pieces
 (the AI "✦" sparkle), trimmed, scaled by `scale` so the cap and the head are as wide as in the run
 frames (the kneeling figure is nearly as tall as the standing one: its head is drawn bigger), the
-belt buckle over the idle frame's (`alignX`), the knee and the boot on the same ground. `gun.grip` is
+belt buckle over `frame_1`'s (`alignX`), the knee and the boot on the same ground. `gun.grip` is
 the hug point (the middle of the two fists, pose px): the fallback seat in `gun_anchors.json`
 `"draw"` / `"fire"` / `"ready"`. `canvas` pins the shared canvas to the earlier one, so the run frames'
 PNGs did not change. No hand cut-outs. In `side.json`: `"draw": ["ready_0"]`, `"fire"` (it with the

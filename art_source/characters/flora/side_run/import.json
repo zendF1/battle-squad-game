@@ -1,5 +1,5 @@
 {
-	"_doc": "tools/import_frames.gd: Flora's in-match side view from the AI-made run cycle (frame_1..8.png, 1280x720, facing right) and the ready pose (poses.ready: ../side_ready/ready_v1.png, 1024x765, kneeling, hugging the gun). Source px unless noted. height: the run frames at Rookie's source px per world px (the heads drawn the same size: 59.77 = 60 x her figure 530 / his 532 source px); idle: frame_1 (the most upright); walk 13 fps: the planted foot moves back ~7 world px a frame (Rookie ~4.7 at 20 fps), 90 px/s walk. See assets/README.md.",
+	"_doc": "tools/import_frames.gd: Flora's in-match side view from the AI-made run cycle (frame_1..8.png, 1280x720, facing right) and the ready pose (poses.ready: ../side_ready/ready_v1.png, 1024x765, kneeling, hugging the gun). Source px unless noted. height: the run frames at Rookie's source px per world px (the heads drawn the same size: 59.77 = 60 x her figure 530 / his 532 source px); idle: the standing picture ../side_idle/idle_v1.png (poses.stand); walk 13 fps: the planted foot moves back ~7 world px a frame (Rookie ~4.7 at 20 fps), 90 px/s walk. See assets/README.md.",
 	"id": "flora",
 	"out": "res://assets/characters/flora/side/",
 	"frames": "frame_*.png",
@@ -31,7 +31,11 @@
 	"pad": 3,
 	"anims": {
 		"idle": {
+			"_doc": "the standing picture (poses.stand); without it the run frame 0 (frame_1.png)",
 			"frames": [
+				"stand"
+			],
+			"fallback": [
 				0
 			],
 			"fps": 1,
@@ -127,8 +131,17 @@
 		"fadeIn": 0
 	},
 	"poses": {
+		"stand": {
+			"_doc": "pose px (1280x720): standing upright, facing right, transparent background (cleaned like the run frames). scale: source px per pose px (the bandana, the flower and the face as wide as in the run frames); alignX: the ear on frame_1's (the head does not jump idle <-> walk <-> ready); the soles on the soles' row.",
+			"src": "../side_idle/idle_v1.png",
+			"scale": 0.985,
+			"alignX": [
+				570,
+				586.45
+			]
+		},
 		"ready": {
-			"_doc": "pose px (1024x765): kneeling, facing right, both fists together on the chest, NO gun, on a flat green backdrop (keyed out: `background`, holeMin / holePure / spillFrom keyed: no green tip left in the wedges of backdrop between the hair strands; the AI sparkle bottom right goes with the detached pieces, keepPieces). scale: source px per pose px (the bandana, the flower and the face as wide as in the run frames); alignX: the ear on the idle frame's (the head does not jump on the switch). The hug gun is placed in `scene` (its GunSocket on the fists: the gun turns round it).",
+			"_doc": "pose px (1024x765): kneeling, facing right, both fists together on the chest, NO gun, on a flat green backdrop (keyed out: `background`, holeMin / holePure / spillFrom keyed: no green tip left in the wedges of backdrop between the hair strands; the AI sparkle bottom right goes with the detached pieces, keepPieces). scale: source px per pose px (the bandana, the flower and the face as wide as in the run frames); alignX: the ear on frame_1's (the head does not jump on the switch; the standing idle's ear is lined up with it too). The hug gun is placed in `scene` (its GunSocket on the fists: the gun turns round it).",
 			"src": "../side_ready/ready_v1.png",
 			"workScale": 1.0,
 			"background": {

@@ -290,6 +290,58 @@ func test_side_view_frames_share_one_pivot() -> void:
 			check(not data.has("hand") and not FileAccess.file_exists(Art.side_dir(id) + "hand.png"), "%s with a ready pose: no hand.png" % id)
 
 
+## The idle frame (idle_0.png) is the standing picture (art_source/characters/<id>/side_idle/
+## idle_v1.png), not a run frame: its own pixels, on the shared canvas, about as tall as the run
+## frames (the head the same size), inside the extent the HP bar / name tag sit over, and its head
+## over the walk frames' (no jump idle <-> walk).
+func test_side_view_idle_stands() -> void:
+	for id in ["rookie", "flora", "tanko"]:
+		var dir := Art.side_dir(id)
+		var data = JSON.parse_string(FileAccess.get_file_as_string(dir + "side.json"))
+		var idle := Image.load_from_file(ProjectSettings.globalize_path(dir + "idle_0.png"))
+		check(idle != null, "%s idle_0.png loads" % id)
+		if idle == null:
+			continue
+		var pivot := Vector2(float(data["pivot"][0]), float(data["pivot"][1]))
+		eq(Vector2(idle.get_size()), Vector2(float(data["size"][0]), float(data["size"][1])), "%s idle_0 on the shared canvas" % id)
+		var ir := _opaque_rect(idle)
+		var hs: Array = []
+		var heads: Array = []
+		for stem in data["anims"]["walk"]["frames"]:
+			var w := Image.load_from_file(ProjectSettings.globalize_path(dir + str(stem) + ".png"))
+			check(w.get_data() != idle.get_data(), "%s idle_0 is not %s" % [id, stem])
+			var wr := _opaque_rect(w)
+			hs.append(wr.size.y)
+			heads.append(_head_middle(w, wr))
+		hs.sort()
+		var med: float = hs[hs.size() / 2]
+		check(absf(ir.size.y - med) <= 0.06 * med, "%s idle about as tall as the run frames (%d vs %d px)" % [id, ir.size.y, med])
+		check(pivot.y - ir.position.y <= float(data["extent"]["top"]) + 0.5, "%s idle inside the extent's top" % id)
+		check(ir.position.x >= pivot.x - float(data["extent"]["back"]) - 0.5 and ir.end.x <= pivot.x + float(data["extent"]["front"]) + 0.5, "%s idle inside the extent" % id)
+		heads.sort()
+		var hm: float = heads[heads.size() / 2]
+		var h := _head_middle(idle, ir)
+		check(absf(h - hm) <= 4.0, "%s idle head over the walk's (%.1f vs %.1f px)" % [id, h, hm])
+
+
+## The middle x of the top 12 % of the figure's rows (the cap / bandana / helmet).
+func _head_middle(img: Image, r: Rect2i) -> float:
+	var sum := 0.0
+	var n := 0
+	for y in range(r.position.y, r.position.y + int(r.size.y * 0.12)):
+		var x0 := -1
+		var x1 := -1
+		for x in img.get_width():
+			if img.get_pixel(x, y).a > 0.5:
+				x1 = x
+				if x0 < 0:
+					x0 = x
+		if x0 >= 0:
+			sum += (x0 + x1 + 1) * 0.5
+			n += 1
+	return sum / maxi(1, n)
+
+
 ## The rect of the pixels at least half opaque.
 func _opaque_rect(img: Image) -> Rect2i:
 	var r := Rect2i()
@@ -838,10 +890,27 @@ func test_import_frames_arguments() -> void:
 	eq(str(spark["frames"]), "frame_*.png", "the template takes every frame_N.png")
 	eq(I.resolve_anims(spark["anims"], 5, ["ready"])["walk"]["frames"], [0, 1, 2, 3, 4], "walk: all the frames")
 	eq(I.resolve_anims(spark["anims"], 5, ["ready"]).keys(), rookie["anims"].keys(), "the template's anims are Rookie's")
-	# Flora's and Tanko's, filled for their 8 run frames: every anim; Tanko idles on his most upright frame.
+	# Flora's and Tanko's, filled for their 8 run frames: every anim.
 	for id in ["flora", "tanko"]:
 		var c = JSON.parse_string(FileAccess.get_file_as_string(cfg_of.call(id)))
 		eq(I.resolve_anims(c["anims"], 8, ["ready"]).keys(), rookie["anims"].keys(), "%s: every anim" % id)
 		eq(I.resolve_anims(c["anims"], 8, ["ready"])["walk"]["frames"], range(8), "%s: the walk over the 8 frames" % id)
 		check(c["poses"]["ready"].has("alignX") and c["poses"]["ready"].has("armFront") and c["poses"]["ready"]["gun"].has("grip"), "%s: the pose placed, its arm cut and hug point set" % id)
-	eq(JSON.parse_string(FileAccess.get_file_as_string(cfg_of.call("tanko")))["anims"]["idle"]["frames"].map(func(i): return int(i)), [6], "Tanko idles on frame_7")
+	# The idle is the standing picture (poses.stand), the run frame it was before as the fallback.
+	for id in ["rookie", "flora", "tanko", "spark"]:
+		var c = JSON.parse_string(FileAccess.get_file_as_string(cfg_of.call(id)))
+		eq(c["anims"]["idle"]["frames"], ["stand"], "%s idles on the standing picture" % id)
+		eq(str(c["poses"]["stand"]["src"]), "../side_idle/idle_v1.png", "%s: the standing picture's file" % id)
+		check(not c["poses"]["stand"].has("background"), "%s: the standing picture is already transparent (no keying)" % id)
+		var both: Dictionary = I.resolve_anims(c["anims"], 8, ["stand", "ready"])
+		eq(both["idle"]["frames"], ["stand"], "%s: idle on the stand pose" % id)
+		check(not both["idle"].has("fallback"), "%s: the fallback is not passed on" % id)
+		eq(I.ready_pose_name(both), "ready", "%s: the draw anim's pose is the ready pose" % id)
+		var old: Dictionary = I.resolve_anims(c["anims"], 8, ["ready"])
+		eq(old["idle"]["frames"].map(func(i): return int(i)), [6] if id == "tanko" else [0], "%s: no standing picture: the old idle run frame" % id)
+		eq(old.keys(), both.keys(), "%s: the same anims either way" % id)
+		if id != "spark":
+			check(FileAccess.file_exists("res://art_source/characters/%s/side_idle/idle_v1.png" % id), "%s: idle_v1.png there" % id)
+			check(c["poses"]["stand"].has("alignX") and float(c["poses"]["stand"]["scale"]) > 0.9 and float(c["poses"]["stand"]["scale"]) < 1.1, "%s: the stand pose placed, near the run frames' size" % id)
+	eq(I.ready_pose_name({"idle": {"frames": ["stand"]}}), "", "no draw anim: no ready pose")
+	check(not DirAccess.dir_exists_absolute("res://art_source/characters/rookie/side_idle") or not FileAccess.file_exists("res://art_source/characters/rookie/side_idle/import.json"), "side_idle is no config of its own")
