@@ -277,3 +277,33 @@ func test_worn_gun_label_and_player_gun() -> void:
 	eq(M.player_gun({"characterId": "flora", "weaponItemId": "crafted_weapon_titan"}), {"kind": "blaster", "tier": "titan"}, "match player's weapon")
 	eq(M.player_gun({"characterId": "flora", "weaponItemId": null}), {"kind": "seed_launcher", "tier": "basic"}, "bot: basic gun")
 	eq(M.player_gun({"characterId": "spark"}), {"kind": "shock_rifle", "tier": "basic"}, "no weaponItemId")
+
+
+func test_sell_rate_parsing() -> void:
+	eq(M.parse_catalog(CATALOG)["sellRate"], 0.25, "missing sellRate (older server) → 0.25")
+	var with_rate := CATALOG.duplicate()
+	with_rate["sellRate"] = 0.4
+	eq(M.parse_catalog(with_rate)["sellRate"], 0.4, "server rate kept")
+	with_rate["sellRate"] = 1
+	eq(M.parse_catalog(with_rate)["sellRate"], 1.0, "1 (int) is allowed")
+	for bad in [0, 0.0, -0.5, 1.5, "0.3", null]:
+		eq(M.parse_sell_rate(bad), 0.25, "invalid %s → 0.25" % str(bad))
+
+
+func test_sell_price() -> void:
+	var c = M.parse_catalog(CATALOG)
+	eq(M.sell_price(M.item_of(c, "normal_armor_lv40"), c), {"currency": "coin", "amount": 2000}, "8000 × 0.25")
+	eq(M.sell_price(M.item_of(c, "rookie_weapon_lv20"), c), {"currency": "coin", "amount": 375}, "1500 × 0.25")
+	eq(M.sell_price({"priceCoin": 250}, c), {"currency": "coin", "amount": 62}, "62.5 rounds down")
+	eq(M.sell_price({"priceCoin": 3}, c), {"currency": "coin", "amount": 0}, "0.75 rounds down to 0: not sellable")
+	eq(M.sell_price(M.item_of(c, "normal_helmet_lv10"), c), {"currency": "gem", "amount": 7}, "gem-priced: 30 × 0.25 = 7.5 → 7 gem")
+	eq(M.sell_price(M.item_of(c, "crafted_gloves_diamond"), c)["amount"], 0, "crafted costs nothing: 0")
+	eq(M.sell_price(M.item_of_piece(c, {"itemId": "gone", "slot": "armor"}), c)["amount"], 0, "unknown item: 0")
+	var rated := CATALOG.duplicate()
+	rated["sellRate"] = 0.3
+	eq(M.sell_price({"priceCoin": 1001}, M.parse_catalog(rated)), {"currency": "coin", "amount": 300}, "300.3 rounds down")
+	rated["sellRate"] = 0.29
+	eq(M.sell_price({"priceCoin": 100}, M.parse_catalog(rated))["amount"], 29, "float error does not drop a coin (server adds 1e-9 too)")
+	eq(M.sell_price({"priceCoin": 1000}, null), {"currency": "coin", "amount": 250}, "no catalog: the default rate")
+	eq(M.amount_text({"currency": "coin", "amount": 2500}), "2.500 xu", "coin text")
+	eq(M.amount_text({"currency": "gem", "amount": 7}), "7 kim cương", "gem text")

@@ -60,3 +60,14 @@ func test_equipment_messages() -> void:
 	eq(ErrorText.equip(_err(409, "EQUIP_EQUIPPED")), "Trang bị đang được mặc, hãy tháo ra trước", "equipped")
 	for code in ["EQUIP_LOCKED", "EQUIP_MAX_UPGRADE", "EQUIP_NO_STONES", "EQUIP_INSUFFICIENT_STONES", "EQUIP_INSUFFICIENT_MATERIALS", "EQUIP_GEM_SLOT_INVALID", "EQUIP_GEM_NOT_OWNED"]:
 		check(not ErrorText.equip(_err(400, code)).begins_with("Thao tác thất bại"), code + " mapped")
+
+
+func test_equipment_remove() -> void:
+	eq(ErrorText.equipment_remove({"status": 400, "code": "EQUIP_NOT_SELLABLE"}, true), "Trang bị này không bán được, chỉ vứt được", "not sellable")
+	eq(ErrorText.equipment_remove({"status": 409, "code": "EQUIP_LOCKED"}, true), "Trang bị đã từng mặc nên không bán được, chỉ vứt được", "locked")
+	eq(ErrorText.equipment_remove({"status": 409, "code": "EQUIP_EQUIPPED"}, false), "Trang bị đang được mặc, hãy tháo ra trước", "worn")
+	eq(ErrorText.equipment_remove({"status": 403, "code": "EQUIP_NOT_OWNED"}, true), "Trang bị không còn trong túi", "gone")
+	eq(ErrorText.equipment_remove({"status": 409, "code": "EQUIP_MODIFIED"}, true), "Trang bị vừa được thay đổi, hãy thử lại", "EQUIP codes reused")
+	eq(ErrorText.equipment_remove({"status": 500, "code": "X", "message": "boom"}, true), "Bán thất bại: boom", "sell fallback")
+	eq(ErrorText.equipment_remove({"status": 500, "code": "X", "message": "boom"}, false), "Vứt thất bại: boom", "discard fallback")
+	eq(ErrorText.equipment_remove({"status": 0}, true), ErrorText.OFFLINE, "offline")

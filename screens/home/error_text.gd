@@ -48,6 +48,13 @@ const EQUIP := {
 	"EQUIP_GEM_SLOT_INVALID": "Ô ngọc không hợp lệ",
 	"EQUIP_GEM_NOT_OWNED": "Bạn không sở hữu viên ngọc này",
 }
+## POST /player/equipment/sell and dismantle ("Vứt"); other codes as EQUIP.
+const EQUIP_REMOVE := {
+	"EQUIP_NOT_SELLABLE": "Trang bị này không bán được, chỉ vứt được",
+	"EQUIP_LOCKED": "Trang bị đã từng mặc nên không bán được, chỉ vứt được",
+	"EQUIP_EQUIPPED": "Trang bị đang được mặc, hãy tháo ra trước",
+	"EQUIP_NOT_OWNED": "Trang bị không còn trong túi",
+}
 
 
 ## POST /shop/purchase failure. currency is the offer's priceCurrency ("coin" | "gem").
@@ -78,6 +85,18 @@ static func equip(res: Dictionary) -> String:
 	if int(res.get("status", 0)) == 0:
 		return OFFLINE
 	return EQUIP.get(str(res.get("code", "")), "Thao tác thất bại: %s" % res.get("message", ""))
+
+
+## POST /player/equipment/sell (sell = true) or dismantle failure, or the unequip before it.
+static func equipment_remove(res: Dictionary, sell: bool) -> String:
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	var code := str(res.get("code", ""))
+	if EQUIP_REMOVE.has(code):
+		return EQUIP_REMOVE[code]
+	if EQUIP.has(code):
+		return EQUIP[code]
+	return "%s thất bại: %s" % ["Bán" if sell else "Vứt", res.get("message", "")]
 
 
 ## POST /iap/verify failure.

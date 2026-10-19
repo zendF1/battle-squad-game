@@ -1,9 +1,10 @@
 extends Control
 ## "Túi đồ": everything the player owns, in two tabs.
 ## - "Trang bị": the owned pieces (PlayerState.equipment + the catalog) as a grid of cards (icon
-##   with "+N", name, slot and required level, "Đang mặc · Tanko"), worn ones first then by
-##   required level; slot filter chips on top. A tap opens the piece popup (equipment_ui.gd) for
-##   the character chosen in the lobby: Mặc cho / Chuyển cho <nhân vật>, Tháo, Đóng.
+##   with "+N", name, slot and required level, "Đang mặc · Tanko", a small padlock on pieces
+##   ever worn: they cannot be sold), worn ones first then by required level; slot filter chips
+##   on top. A tap opens the piece popup (equipment_ui.gd) for the character chosen in the
+##   lobby: Mặc cho / Chuyển cho <nhân vật>, Tháo, Đóng, Bán, Vứt.
 ## - "Vật phẩm": the eight battle items with their GET /player/inventory counts.
 ## Each tab loads the first time it is shown; failures show inline with "Thử lại".
 
@@ -201,6 +202,10 @@ func _gear_card(piece: Dictionary, who: String) -> Control:
 	col.offset_bottom = -10
 	col.mouse_filter = MOUSE_FILTER_IGNORE
 	b.add_child(col)
+	if bool(piece.get("isLocked", false)):
+		var lock := EquipmentUi.lock_mark(22)
+		lock.position = Vector2(CARD.x - 14 - 22, 12)
+		b.add_child(lock)
 	var icon := EquipmentUi.item_icon(item, piece, 96)
 	icon.size_flags_horizontal = SIZE_SHRINK_CENTER
 	col.add_child(icon)

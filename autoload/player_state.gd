@@ -17,8 +17,9 @@ extends Node
 ## retried by the next need_equipment()) and the owned pieces (GET /player/equipment, coalesced
 ## like the characters; stale after a buy, an equip / unequip and when Home is shown again after
 ## a match). buy_equipment() runs POST /shop/equipment/buy {itemId, idempotencyKey} like buy();
-## equip() / unequip() / move_equipment() run one action at a time (equip_busy) and reload the
-## pieces and the characters (their stats include the equipment) whatever the answer.
+## equip() / unequip() / move_equipment() / sell_equipment() / discard_equipment() run one action
+## at a time (equip_busy) and reload the pieces and the characters (their stats include the
+## equipment) whatever the answer.
 
 signal changed # profile, loading or error changed
 signal assets_dirty # inventory, characters or purchases changed on the server
@@ -75,6 +76,12 @@ var _equipment_gate := Coalescer.new()
 var _profile_gate := Coalescer.new()
 var _characters_gate := Coalescer.new()
 var _known_ids := {} # purchaseIds / transactionIds this client has seen (replay detection)
+## The REST client: the Api autoload, or a stand-in set by the tests.
+var api: Object = null
+
+
+func _api() -> Object:
+	return api if api != null else Api
 
 
 func is_loaded() -> bool:
@@ -120,7 +127,7 @@ func refresh() -> void:
 	changed.emit()
 	while true:
 		var t := _profile_gate.ticket()
-		var res: Dictionary = await Api.get_json("/player/profile")
+		var res: Dictionary = await _api().get_json("/player/profile")
 		if not _profile_gate.finish(t):
 			continue # a newer refresh was asked meanwhile: this answer may be stale
 		if res.ok and res.data is Dictionary:
@@ -150,7 +157,7 @@ func load_characters() -> void:
 	while true:
 		var t := _characters_gate.ticket()
 		var player := Session.player_id
-		var res: Dictionary = await Api.get_json("/player/characters")
+		var res: Dictionary = await _api().get_json("/player/characters")
 		if not _characters_gate.finish(t):
 			continue
 		var data = res.data if res.ok else null
@@ -221,7 +228,7 @@ func _pay(path: String, keys: IdempotencyKeys, id: String, id_field: String, aft
 	var body: Dictionary = make_body.call(keys.key_for(target))
 	busy_id = id
 	busy_changed.emit()
-	var res: Dictionary = await Api.post_json(path, body)
+	var res: Dictionary = await _api().post_json(path, body)
 	keys.settle(target, res.status)
 	busy_id = ""
 	var out := res.duplicate()
@@ -279,7 +286,7 @@ func load_catalog() -> void:
 	catalog_loading = true
 	catalog_error = ""
 	equipment_changed.emit()
-	var res: Dictionary = await Api.get_json("/equipment/catalog")
+	var res: Dictionary = await _api().get_json("/equipment/catalog")
 	catalog_loading = false
 	var parsed = EquipmentModel.parse_catalog(res.data) if res.ok else null
 	if parsed != null:
@@ -298,7 +305,7 @@ func load_equipment() -> void:
 	while true:
 		var t := _equipment_gate.ticket()
 		var player := Session.player_id
-		var res: Dictionary = await Api.get_json("/player/equipment")
+		var res: Dictionary = await _api().get_json("/player/equipment")
 		if not _equipment_gate.finish(t):
 			continue
 		var parsed = EquipmentModel.parse_owned(res.data) if res.ok else null
@@ -350,6 +357,39 @@ func move_equipment(equipment_id: String, character_id: String) -> Dictionary:
 		["/player/equipment/equip", {"equipmentId": equipment_id, "characterId": character_id}, []]])
 
 
+## POST /player/equipment/sell {equipmentId}: the piece is gone, its gems back in the bag, part of
+## its upgrade stones refunded, floor(price × sellRate) credited. Only a piece never worn
+## (isLocked false) sells, so there is no unequip step. On success the wallet takes the answer's
+## balance at once and refreshes.
+func sell_equipment(equipment_id: String) -> Dictionary:
+	var res := await _equip_steps(equipment_id, _remove_steps("/player/equipment/sell", equipment_id, false))
+	if res.ok:
+		var data: Dictionary = res.data if res.data is Dictionary else {}
+		var currency := str(data.get("currency", ""))
+		var balance = data.get("balance")
+		if not profile.is_empty() and currency in ["coin", "gem"] and (balance is int or balance is float):
+			profile[currency] = int(balance)
+			changed.emit()
+		refresh()
+	return res
+
+
+## POST /player/equipment/dismantle {equipmentId} ("Vứt"): the piece is gone, its gems back in the
+## bag, part of its upgrade stones refunded, nothing credited; allowed for locked pieces. worn:
+## someone wears it, so it is taken off first (like move_equipment(): EQUIP_NOT_EQUIPPED counts as
+## done; "unequipped": true when the dismantle then failed).
+func discard_equipment(equipment_id: String, worn: bool) -> Dictionary:
+	return await _equip_steps(equipment_id, _remove_steps("/player/equipment/dismantle", equipment_id, worn))
+
+
+func _remove_steps(path: String, equipment_id: String, worn: bool) -> Array:
+	var steps: Array = []
+	if worn:
+		steps.append(["/player/equipment/unequip", {"equipmentId": equipment_id}, ["EQUIP_NOT_EQUIPPED"]])
+	steps.append([path, {"equipmentId": equipment_id}, []])
+	return steps
+
+
 ## The owned pieces are loaded and no load or action is running: buttons built from them are
 ## current.
 func equipment_ready() -> bool:
@@ -373,7 +413,7 @@ func _equip_steps(equipment_id: String, steps: Array) -> Dictionary:
 	var res := {}
 	var done := 0
 	for step in steps:
-		res = await Api.post_json(step[0], step[1])
+		res = await _api().post_json(step[0], step[1])
 		var allowed: Array = step[2] if step.size() > 2 else []
 		if not res.ok and not allowed.has(str(res.get("code", ""))):
 			break

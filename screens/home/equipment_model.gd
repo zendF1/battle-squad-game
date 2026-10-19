@@ -60,6 +60,8 @@ const STATS := [
 	{"key": "statMoveEnergy", "label": "Di chuyển", "unit": "", "point": "mobility", "total": "moveEnergy"},
 ]
 const MINUS := "−"
+## Share of the buy price POST /player/equipment/sell gives back when the catalog has no sellRate.
+const DEFAULT_SELL_RATE := 0.25
 
 
 static func slot_name(slot: String) -> String:
@@ -81,8 +83,9 @@ static func character_name(id: String) -> String:
 # ── Parsing ─────────────────────────────────────────────────────────────────
 
 ## The GET /equipment/catalog data → {items: {itemId: item}, order: [itemId...], upgradeRates,
-## setBonuses, stones}, or null when it has no items array. Inactive items are kept (an owned
-## piece still needs its name and stats) and flagged by isActive.
+## setBonuses, stones, sellRate}, or null when it has no items array. Inactive items are kept (an
+## owned piece still needs its name and stats) and flagged by isActive. sellRate: the share of the
+## buy price selling gives back (DEFAULT_SELL_RATE when missing or outside (0, 1]).
 static func parse_catalog(data: Variant) -> Variant:
 	if not data is Dictionary or not data.get("items") is Array:
 		return null
@@ -95,7 +98,15 @@ static func parse_catalog(data: Variant) -> Variant:
 	var out := {"items": items, "order": order}
 	for k in ["upgradeRates", "setBonuses", "stones"]:
 		out[k] = data[k] if data.get(k) is Array else []
+	out["sellRate"] = parse_sell_rate(data.get("sellRate"))
 	return out
+
+
+## A catalog sellRate, DEFAULT_SELL_RATE when it is not a number in (0, 1] (an older server).
+static func parse_sell_rate(v: Variant) -> float:
+	if (v is int or v is float) and float(v) > 0.0 and float(v) <= 1.0:
+		return float(v)
+	return DEFAULT_SELL_RATE
 
 
 ## The GET /player/equipment data (a bare array, newest first) → the pieces, or null.
@@ -504,6 +515,21 @@ static func price(item: Dictionary) -> Dictionary:
 	if coin > 0:
 		return {"currency": "coin", "amount": coin}
 	return {"currency": "gem", "amount": int(_num(item, "priceGem"))}
+
+
+## What selling an item gives back: floor(price × the catalog's sellRate) in the currency it costs
+## ({currency, amount}, like price()); amount 0 when it cannot be sold (crafted or unknown items
+## cost nothing, or the share rounds down to 0).
+static func sell_price(item: Dictionary, catalog: Variant) -> Dictionary:
+	var rate := parse_sell_rate(catalog.get("sellRate") if catalog is Dictionary else null)
+	var p := price(item)
+	# + 1e-9 like the server (equipment/logic.go), so 0.29 × 100 is 29, not 28.
+	return {"currency": p["currency"], "amount": maxi(int(floor(float(p["amount"]) * rate + 1e-9)), 0)}
+
+
+## "62 xu", "1.250 kim cương".
+static func amount_text(p: Dictionary) -> String:
+	return "%s %s" % [Fmt.thousands(int(p["amount"])), "kim cương" if p["currency"] == "gem" else "xu"]
 
 
 ## "Mua Bazooka Sắt với giá 500 xu?"
