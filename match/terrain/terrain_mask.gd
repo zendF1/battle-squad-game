@@ -81,13 +81,17 @@ func is_solid(x: float, y: float) -> bool:
 
 
 ## Terrain.DestroyCircle: clears destructible solid pixels within radius of (cx, cy).
-func destroy_circle(cx: float, cy: float, radius: float) -> void:
+## floor_y > 0 keeps the rows y >= floor_y (Terrain.DestroyCircleAbove: the explode event's floor).
+func destroy_circle(cx: float, cy: float, radius: float, floor_y: float = 0.0) -> void:
 	version += 1
 	var icx := roundi(cx)
 	var icy := roundi(cy)
 	var ir := roundi(radius)
 	var r2 := radius * radius
-	for y in range(maxi(icy - ir, 0), mini(icy + ir, height - 1) + 1):
+	var max_y := height - 1
+	if floor_y > 0.0:
+		max_y = mini(max_y, ceili(floor_y) - 1)
+	for y in range(maxi(icy - ir, 0), mini(icy + ir, max_y) + 1):
 		var dy := float(y - icy)
 		var row := y * width
 		for x in range(maxi(icx - ir, 0), mini(icx + ir, width - 1) + 1):

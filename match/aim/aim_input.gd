@@ -9,6 +9,11 @@ extends Node2D
 ## pointer and the preview is the drop from the top of the map at that x (the server fires it at
 ## Items.TARGET_X_ANGLE / TARGET_X_POWER from y 0). Release emits fire_column(x); the cancel zone
 ## still cancels.
+##
+## line_mode (the laser skill, SkillView.AIM_LINE): the same slingshot, but the angle is not
+## clamped to the upper half (the beam may point down) and the preview is one straight line from
+## the shot origin to the map edge (beam_end(), the server's beamEnd); power still only decides
+## whether the drag fires (MIN_POWER).
 
 signal aim_changed(angle: float, power: float)
 signal aim_cleared # a drag ended without a shot (cancelled, or aiming was turned off)
@@ -35,6 +40,12 @@ var preview_offsets: Array = [0.0]:
 	set(value):
 		preview_offsets = value
 		_ensure_lines()
+		if _dragging:
+			_update(_pointer)
+
+var line_mode := false:
+	set(value):
+		line_mode = value
 		if _dragging:
 			_update(_pointer)
 
@@ -92,8 +103,16 @@ func _update(pointer: Vector2) -> void:
 		_update_column(pointer)
 		return
 	var d := pointer - _start
-	_angle = clampf(rad_to_deg(atan2(d.y, -d.x)), 0.0, 180.0)
 	_power = clampf(d.length() / 2.0, 0.0, 100.0)
+	if line_mode:
+		_angle = rad_to_deg(atan2(d.y, -d.x)) # -180..180: any direction
+		var origin: Vector2 = Trajectory.shot_origin(shooter_pos, terrain)
+		for i in _lines.size():
+			_lines[i].points = PackedVector2Array([origin, beam_end(origin, _angle, terrain)]) if i == 0 and _power > 0.0 else PackedVector2Array()
+		queue_redraw()
+		aim_changed.emit(_angle, _power)
+		return
+	_angle = clampf(rad_to_deg(atan2(d.y, -d.x)), 0.0, 180.0)
 	for i in _lines.size():
 		if i < preview_offsets.size():
 			_lines[i].points = Trajectory.predict(Trajectory.shot_origin(shooter_pos, terrain), _angle + float(preview_offsets[i]), _power, wind_dir, wind_power, terrain)
@@ -128,6 +147,26 @@ func _release() -> void:
 	_reset(not shoot)
 	if shoot:
 		fire.emit(angle, power)
+
+
+## Where a straight beam from origin at angle (degrees, Shoot convention) leaves the map
+## rectangle (server beamEnd); 2000 px away without terrain.
+static func beam_end(origin: Vector2, angle: float, terrain = null) -> Vector2:
+	var dir := Vector2(cos(deg_to_rad(angle)), -sin(deg_to_rad(angle)))
+	if terrain == null:
+		return origin + dir * 2000.0
+	var w := float(terrain.width)
+	var h := float(terrain.height)
+	var s := INF
+	if dir.x > 1e-9:
+		s = minf(s, (w - origin.x) / dir.x)
+	elif dir.x < -1e-9:
+		s = minf(s, -origin.x / dir.x)
+	if dir.y > 1e-9:
+		s = minf(s, (h - origin.y) / dir.y)
+	elif dir.y < -1e-9:
+		s = minf(s, -origin.y / dir.y)
+	return origin + dir * maxf(s, 0.0)
 
 
 ## cleared: emit aim_cleared when a slingshot drag was running.

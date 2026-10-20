@@ -1,21 +1,56 @@
 extends RefCounted
 ## Read-only view of a ShotResolved payload (server: internal/game/match/model.go). Positions
 ## between recorded path samples use cubic Hermite interpolation with the recorded velocities,
-## so the projectile curve stays smooth at any frame rate.
+## so the projectile curve stays smooth at any frame rate. Path times are seconds since the shot:
+## a projectile leaving later (bomb chain, missiles) starts at launch_time() > 0. Fields an older
+## server does not send fall back: no kind = a normal shell, no launchDelay = its first path
+## sample's time, no skillEnergies = {}.
 
 var shooter_id := ""
+var action_mode := ""
+var skill_id := ""
 var projectiles: Array = []
 var events: Array = []
 var duration := 0.0
+## {playerId: skill energy after the shot} (players hit by an enemy gained some); {} when absent.
+var skill_energies := {}
 
 var _cursor := 0
 
 
 func _init(payload: Dictionary) -> void:
 	shooter_id = str(payload.get("shooterId", ""))
-	projectiles = payload.get("projectiles", [])
-	events = payload.get("events", [])
+	action_mode = str(payload.get("actionMode", ""))
+	skill_id = str(payload.get("skillId", "")) if payload.get("skillId") != null else ""
+	var p = payload.get("projectiles", [])
+	projectiles = p if p is Array else []
+	var e = payload.get("events", [])
+	events = e if e is Array else []
 	duration = float(payload.get("duration", 0.0))
+	var energies = payload.get("skillEnergies")
+	if energies is Dictionary:
+		skill_energies = energies
+
+
+## What projectile i is (server ProjectileResult.kind): "flare", "missile", "bomb", "seed", or ""
+## for a normal shell.
+func kind(i: int) -> String:
+	var k = projectiles[i].get("kind")
+	return str(k) if k is String else ""
+
+
+## When projectile i leaves (s since the shot): launchDelay, else its first path sample's time.
+func launch_time(i: int) -> float:
+	var d = projectiles[i].get("launchDelay")
+	if d is float or d is int:
+		return float(d)
+	var path: Array = projectiles[i].get("path", [])
+	return float(path[0]["time"]) if not path.is_empty() else 0.0
+
+
+## The events of one type, in timeline order.
+func events_of(type: String) -> Array:
+	return events.filter(func(ev): return ev is Dictionary and str(ev.get("type", "")) == type)
 
 
 ## The blast (damage) radius of the projectile with this id, 0 when unknown. It can be larger

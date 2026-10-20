@@ -97,15 +97,15 @@ func test_data_for_every_character() -> void:
 		check(info["skill"]["name"] != "" and info["skill"]["text"] != "", "%s skill" % id)
 		check(str(info["playstyle"]).length() > 60, "%s playstyle" % id)
 		eq(Model.stat_rows(DATA, id).size(), 6, "%s stats" % id)
-		var words := str(info["playstyle"]).replace(info["skill"]["name"], "") # "Bắn 3 tia" is a name
+		var words := str(info["playstyle"]).replace(info["skill"]["name"], "") # a skill name is not a number
 		check(RegEx.create_from_string("[0-9]").search(words) == null, "%s playstyle has no numbers" % id)
 		check(Art.hug_gun(info["weapon"]["kind"], info["weapon"]["tier"])["hug"], "%s hug art" % id)
 	eq(Model.ids().map(func(id): return Model.info(id)["role"]), ["Cân bằng", "Phá địa hình", "Sát thương", "Bền bỉ"], "roles")
 	eq(Model.info("tanko")["weapon"]["name"], "Đại pháo", "weapon name")
 	eq(Model.info("tanko")["weapon"]["wind"], "Gió đẩy ×0,3", "heavy shot")
 	eq(Model.info("spark")["weapon"]["wind"], "Gió đẩy ×1,6", "light shot")
-	eq(Model.info("tanko")["skill"]["name"], "Bom đào", "digging bomb")
-	check(Model.info("tanko")["skill"]["text"].contains("gấp 2 lần") and Model.info("tanko")["skill"]["text"].contains("gấp 1,8 lần"),
-		"server heavy_bomb: blast ×2, crater ×1.8")
-	eq(Model.info("rookie")["skill"]["energy"], "Cần 100 năng lượng (+20 mỗi lượt)", "energy")
+	eq(Model.info("tanko")["skill"]["name"], "Bom liên hoàn", "bomb chain")
+	check(Model.info("tanko")["skill"]["text"].contains("3 quả") and Model.info("tanko")["skill"]["text"].contains("+1 mỗi cấp súng"),
+		"bomb chain at rank 0: 3 bombs, +1 per gun rank")
+	eq(Model.info("rookie")["skill"]["energy"], "Cần 100 năng lượng (+20 mỗi lượt, +10 khi bị trúng đòn)", "energy")
 	eq(Model.tint("nobody"), Model.NEUTRAL_TINT, "unknown: neutral")

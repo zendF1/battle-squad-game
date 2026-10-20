@@ -39,7 +39,7 @@ func test_info_before_characters_load() -> void:
 	var info := LobbyModel.character_info("rookie", null)
 	eq(info["name"], "Rookie", "name")
 	eq(info["role"], "Cân bằng", "role")
-	eq(info["skill"], "Bắn 3 tia", "skill")
+	eq(info["skill"], "Mưa tên lửa", "skill")
 	eq(info["owned"], null, "unknown")
 	eq(info["stats"], [], "no stats")
 	eq(LobbyModel.level_text(info), "", "no level line")

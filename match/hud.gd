@@ -10,14 +10,16 @@ extends Control
 ##   its weapon's +14 / +16 back aura: the match's aura lives here, not on the small sprites), no
 ##   card, name or title (the title plates are over each sprite's name); it slides and fades in on
 ##   each turn change (mine, opponents', bots: no aura);
-## - bottom left: the move buttons and the move energy (Thể lực);
+## - bottom left: the move buttons and the move energy (Thể lực), and over them a notice while
+##   moving is blocked ("Bị cầm chân", set_move_notice());
 ## - bottom centre: the aim readout over the items in hand, a row of slots (icon + count);
 ## - bottom right: the character's skill as a round slot (its icon, the energy as a ring, off
 ##   until charged).
 ## There is no end-turn button (a turn ends with a shot or the clock) and no weapon button (the
 ## normal shot is the default). A special (the skill or a shot item) once tapped stays armed for
 ## the turn (match/action_lock.gd: the other shot slots go off). A turn change also shows a short
-## centre banner ("Lượt của bạn" / "Lượt của X").
+## centre banner ("Lượt của bạn" / "Lượt của X"); a lost turn (stun / freeze) shows a longer one
+## under it ("Choáng — mất lượt", announce_skip()).
 
 signal move_pressed(dir: int)
 signal move_released
@@ -59,6 +61,10 @@ var _wind_bar: Control
 var _aim: Label
 var _aim_panel: PanelContainer
 var _energy: ProgressBar
+var _move_notice: Label
+var _skip_banner: PanelContainer
+var _skip_label: Label
+var _skip_tween: Tween
 var _left: Button
 var _right: Button
 var _skill: Button
@@ -239,7 +245,14 @@ func _build_portrait() -> void:
 
 ## Bottom left: the move buttons and the energy.
 func _build_bottom_left() -> void:
-	var row: HBoxContainer = _pin(_ignore(Ui.hbox(16)), 0, 1, Vector2(MARGIN, -MARGIN))
+	var col: VBoxContainer = _pin(_ignore(Ui.vbox(8)), 0, 1, Vector2(MARGIN, -MARGIN))
+	col.name = "BottomLeftColumn"
+	_move_notice = LobbyUi.text("", 24, Color(0.75, 1.0, 0.55), true)
+	_move_notice.name = "MoveNotice"
+	_move_notice.visible = false
+	col.add_child(_move_notice)
+	var row: HBoxContainer = _ignore(Ui.hbox(16))
+	col.add_child(row)
 	row.name = "BottomLeft"
 	_left = _hold_button("arrow_left", -1)
 	row.add_child(_left)
@@ -413,6 +426,36 @@ func set_column(x: float) -> void:
 	_aim.text = "Không kích x=%d" % roundi(x)
 
 
+## The notice over the move buttons ("" hides it), e.g. "Bị cầm chân" while rooted.
+func set_move_notice(text: String) -> void:
+	_move_notice.text = text
+	_move_notice.visible = text != ""
+
+
+func move_notice() -> String:
+	return _move_notice.text if _move_notice.visible else ""
+
+
+## A lost turn: a red banner under the turn banner, held for `hold` s ("" hides it).
+func announce_skip(text: String, hold: float = 1.8) -> void:
+	_skip_label.text = text
+	if _skip_tween:
+		_skip_tween.kill()
+	if text == "":
+		_skip_banner.modulate.a = 0.0
+		return
+	_skip_banner.modulate.a = 1.0
+	if not is_inside_tree():
+		return
+	_skip_tween = create_tween()
+	_skip_tween.tween_interval(hold)
+	_skip_tween.tween_property(_skip_banner, "modulate:a", 0.0, 0.4)
+
+
+func skip_text() -> String:
+	return _skip_label.text if _skip_banner.modulate.a > 0.0 else ""
+
+
 func set_controls_enabled(enabled: bool) -> void:
 	_left.disabled = not enabled
 	_right.disabled = not enabled
@@ -561,6 +604,23 @@ func _build_banner() -> void:
 	_banner_label = LobbyUi.text("", 56, Color.WHITE, true)
 	_banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_banner.add_child(_banner_label)
+	var skip_center := CenterContainer.new() # under the turn banner
+	skip_center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	skip_center.anchor_top = 0.3
+	skip_center.anchor_bottom = 0.72
+	skip_center.mouse_filter = MOUSE_FILTER_IGNORE
+	add_child(skip_center)
+	_skip_banner = _ignore(PanelContainer.new())
+	_skip_banner.name = "SkipBanner"
+	_skip_banner.modulate.a = 0.0
+	var box := LobbyUi.box(Color(0.32, 0.05, 0.08, 0.9), 26, 14, Color(1.0, 0.5, 0.4, 0.9), 3)
+	box.content_margin_left = 44
+	box.content_margin_right = 44
+	_skip_banner.add_theme_stylebox_override("panel", box)
+	skip_center.add_child(_skip_banner)
+	_skip_label = LobbyUi.text("", 40, Color(1.0, 0.92, 0.85), true)
+	_skip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_skip_banner.add_child(_skip_label)
 
 
 ## The centre banner: pops in, holds, fades out.

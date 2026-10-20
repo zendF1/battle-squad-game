@@ -6,6 +6,10 @@ extends Node
 ## only: the path and its events are unchanged). play(timeline, lead_in) holds the whole replay
 ## (projectiles hidden, no events) for lead_in seconds first, e.g. while the shooter draws its
 ## gun: everything shifts together, the timeline's order is unchanged.
+## A projectile leaving later (ShotTimeline.launch_time(), the bomb chain, the missiles) stays
+## hidden until then; its muzzle blend starts when it leaves. A skill shot's `skill_view`
+## (match/views/skills/skill_view.gd, set before play()) may restyle or replace each projectile
+## view (projectile_view()) and draws its extras every frame (process()); end() when it stops.
 
 signal event_due(event: Dictionary)
 signal finished
@@ -19,11 +23,15 @@ var layer: Node2D
 var style := {}
 ## Where the shooter's gun muzzle is (layer coordinates), or null; used by the next play() only.
 var muzzle: Variant = null
+## The skill's SkillView for a skill shot (begun by the caller), or null; used by the next play().
+var skill_view = null
 
 var _timeline
 var _t := 0.0
 var _views: Array = []
 var _spawn_offsets: Array = [] # per projectile: muzzle - path start (or zero)
+var _launch: Array = [] # per projectile: when it leaves
+var _skill_view = null
 
 
 func is_playing() -> bool:
@@ -35,37 +43,55 @@ func play(timeline, lead_in: float = 0.0) -> void:
 	_timeline = timeline
 	_t = -maxf(0.0, lead_in)
 	_spawn_offsets.clear()
+	_launch.clear()
+	_skill_view = skill_view
+	skill_view = null
 	for i in timeline.projectiles.size():
+		var launch: float = timeline.launch_time(i)
+		_launch.append(launch)
 		var offset := Vector2.ZERO
 		if muzzle is Vector2:
-			offset = muzzle - timeline.sample(i, 0.0)
+			offset = muzzle - timeline.sample(i, launch)
 			if offset.length() > SPAWN_NEAR:
 				offset = Vector2.ZERO
 		_spawn_offsets.append(offset)
-		var view := ProjectileView.new()
+		var view: Node2D = ProjectileView.new()
 		view.kind = str(style.get("kind", ""))
 		view.tier = str(style.get("tier", ""))
 		view.skill = bool(style.get("skill", false))
 		view.item = str(style.get("item", ""))
 		view.heading = timeline.start_velocity(i)
-		view.position = timeline.sample(i, 0.0) + _spawn_offsets[i]
-		view.visible = _t >= 0.0
+		if _skill_view != null:
+			var other = _skill_view.projectile_view(i, timeline.projectiles[i], view)
+			if other != view:
+				view.free()
+				view = other
+		view.position = timeline.sample(i, launch) + _spawn_offsets[i]
+		view.visible = _t >= launch
 		layer.add_child(view)
 		_views.append(view)
 	muzzle = null
 
 
-## How far projectile i is drawn off its path at time t: the muzzle offset easing out.
+## When projectile i leaves (s since the shot).
+func launch_time(i: int) -> float:
+	return _launch[i] if i < _launch.size() else 0.0
+
+
+## How far projectile i is drawn off its path at time t: the muzzle offset easing out from its
+## launch.
 func spawn_offset(i: int, t: float) -> Vector2:
 	if i >= _spawn_offsets.size():
 		return Vector2.ZERO
+	t -= launch_time(i)
 	var k := clampf(1.0 - t / SPAWN_BLEND, 0.0, 1.0)
 	return _spawn_offsets[i] * k * k
 
 
 ## How fast projectile i's drawn offset changes at time t (px/s): the muzzle offset's ease.
 func spawn_offset_rate(i: int, t: float) -> Vector2:
-	if i >= _spawn_offsets.size() or t >= SPAWN_BLEND:
+	t -= launch_time(i)
+	if i >= _spawn_offsets.size() or t >= SPAWN_BLEND or t < 0.0:
 		return Vector2.ZERO
 	var k := clampf(1.0 - t / SPAWN_BLEND, 0.0, 1.0)
 	return _spawn_offsets[i] * (-2.0 * k / SPAWN_BLEND)
@@ -78,6 +104,10 @@ func stop() -> void:
 			view.queue_free()
 	_views.clear()
 	_timeline = null
+	if _skill_view != null:
+		var v = _skill_view
+		_skill_view = null
+		v.end()
 
 
 func _process(delta: float) -> void:
@@ -90,13 +120,18 @@ func _process(delta: float) -> void:
 		var view = _views[i]
 		if view == null:
 			continue
+		if _t < launch_time(i):
+			continue # not launched yet
 		view.visible = true
 		if _t >= _timeline.projectile_end(i):
 			view.queue_free()
 			_views[i] = null
 		else:
 			view.position = _timeline.sample(i, _t) + spawn_offset(i, _t)
-			view.set_tangent(_timeline.velocity(i, _t) + spawn_offset_rate(i, _t)) # the nose follows the curve
+			if view.has_method("set_tangent"):
+				view.set_tangent(_timeline.velocity(i, _t) + spawn_offset_rate(i, _t)) # the nose follows the curve
+	if _skill_view != null:
+		_skill_view.process(_t)
 	var timeline = _timeline
 	for event in timeline.pop_due(_t):
 		event_due.emit(event)

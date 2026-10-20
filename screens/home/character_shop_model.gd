@@ -10,8 +10,8 @@ extends RefCounted
 ## - base stats (máu, phòng thủ, sát thương vũ khí, năng lượng di chuyển): `baseStats` of GET
 ##   /player/characters, which the server sends for every character, owned or not;
 ## - what no API sends (the weapon's explosion radius, crater and wind, the skill's numbers): WEAPONS and
-##   SKILL_INFO below, copied from the server's configs/weapons.yaml, configs/skills.yaml and
-##   internal/game/match (match.go shootSkill / endTurn, status_effect.go). Keep them in step.
+##   the skill's describe() (match/views/skills/), copied from the server's configs/weapons.yaml and
+##   internal/game/match (skill_*.go). Keep them in step.
 
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const ShopModel := preload("res://screens/home/shop_model.gd")
@@ -31,9 +31,9 @@ const OWNED_TEXT := "Đã sở hữu"
 const NOT_FOR_SALE_TEXT := "Chưa mở bán"
 const BUY_TEXT := "Mua"
 
-## Skill energy: a skill needs Skills.FULL_ENERGY, a player gains this much at the end of each
-## of their turns (server match.go endTurn).
-const SKILL_ENERGY_PER_TURN := 20
+## Skill energy: a skill needs Skills.FULL_ENERGY, a player gains Skills.ENERGY_PER_TURN at the end
+## of each of their turns and Skills.ENERGY_ON_HIT when an enemy hits them.
+const SKILL_ENERGY_PER_TURN := Skills.ENERGY_PER_TURN
 
 ## Each character's colour (its body colour, tools/art/character_painter.gd LOOKS): the card's
 ## backdrop glow.
@@ -59,23 +59,13 @@ const WEAPONS := {
 ## Server match.craterPxPerTerrainDamage: crater radius (px) per point of weapon terrain damage.
 const CRATER_PX_PER_TERRAIN_DAMAGE := 0.8
 
-## The skill's effect in words, with the server's numbers (configs/skills.yaml damageMultiplier;
-## match.go: triple_shot ±10°, heavy_bomb blast ×2 and crater ×1.8, healing_bloom 650 HP;
-## status_effect.go: the net caps the move energy at 50 for one turn).
-const SKILL_INFO := {
-	"rookie": "Bắn 3 quả rocket một lúc, lệch nhau 10°, mỗi quả 125% sát thương.",
-	"tanko": "Một quả bom khoét đất: 110% sát thương, vụ nổ rộng gấp 2 lần và hố to gấp 1,8 lần. Địch trúng giữa hố rơi xuống đáy và mất thêm máu vì cú rơi.",
-	"spark": "Quả cầu điện 130% sát thương; trúng địch thì trùm lưới: lượt sau địch chỉ còn tối đa 50 năng lượng di chuyển.",
-	"flora": "Không cần ngắm: hồi ngay 650 máu cho bản thân (tăng theo sức mạnh kỹ năng), rồi hết lượt.",
-}
-
 ## "Lối chơi": what the character is good at, how to play it and its weakness (no numbers: the
 ## stat rows show them).
 const PLAYSTYLE := {
-	"rookie": "Không nổi bật hẳn mặt nào nhưng cũng chẳng có điểm yếu rõ ràng: máu, sát thương và tầm di chuyển đều vừa phải, đạn chịu gió bình thường. Hợp để tập căn góc và lực; khi đầy năng lượng, Bắn 3 tia phủ rộng một vùng, khó né và dễ kết liễu đối thủ. Đổi lại, Rookie đánh không đau bằng Spark và không lì bằng Flora.",
-	"tanko": "Chuyên phá địa hình: đại pháo khoét hố sâu hơn hẳn mọi người, phá chỗ nấp và đào đất ngay dưới chân đối thủ. Đạn nặng ít bị gió đẩy nên vẫn bắn chuẩn khi trời gió lớn; để dành Bom đào bắn thẳng vào địch, họ sẽ rơi xuống đáy hố và mất thêm máu. Bù lại mỗi phát gây ít sát thương và Tanko đi được ngắn nhất, khó thoát khỏi chỗ đứng xấu.",
-	"spark": "Đánh đau nhất: chỉ vài phát trúng là hạ được đối thủ, còn Lưới điện vừa gây sát thương lớn hơn vừa giữ chân họ ở lượt sau. Spark chạy xa nhất nên dễ đổi chỗ tìm góc bắn hoặc né khỏi tầm ngắm. Điểm yếu là máu và phòng thủ mỏng nhất, đạn nhẹ bị gió đẩy mạnh nên phải tính gió thật kỹ.",
-	"flora": "Lì đòn nhất: máu và phòng thủ cao nhất, lại tự Hồi máu khi đầy năng lượng nên càng đánh lâu càng có lợi. Hãy đứng vững, bắn chắc tay và kéo trận dài để đối thủ cạn máu trước. Bù lại sát thương thấp và đạn gần như không khoét đất, nên khó kết thúc trận nhanh.",
+	"rookie": "Không nổi bật hẳn mặt nào nhưng cũng chẳng có điểm yếu rõ ràng: máu, sát thương và tầm di chuyển đều vừa phải, đạn chịu gió bình thường. Hợp để tập căn góc và lực; khi đầy năng lượng, Mưa tên lửa trút xuống cả một vùng quanh pháo hiệu, khó né và đốt máu đối thủ ở lượt sau. Đổi lại, Rookie đánh không đau bằng Spark và không lì bằng Flora.",
+	"tanko": "Chuyên phá địa hình: đại pháo khoét hố sâu hơn hẳn mọi người, phá chỗ nấp và đào đất ngay dưới chân đối thủ. Đạn nặng ít bị gió đẩy nên vẫn bắn chuẩn khi trời gió lớn; để dành Bom liên hoàn bắn thẳng vào địch: từng quả đào sâu thêm, địch rơi xuống đáy hố, trúng tiếp và bị cầm chân. Bù lại mỗi phát gây ít sát thương và Tanko đi được ngắn nhất, khó thoát khỏi chỗ đứng xấu.",
+	"spark": "Đánh đau nhất: chỉ vài phát trúng là hạ được đối thủ, còn Tia laze xuyên địa hình, trúng mọi địch trên đường và làm họ mất lượt sau. Spark chạy xa nhất nên dễ đổi chỗ tìm góc bắn hoặc né khỏi tầm ngắm. Điểm yếu là máu và phòng thủ mỏng nhất, đạn nhẹ bị gió đẩy mạnh nên phải tính gió thật kỹ.",
+	"flora": "Lì đòn nhất: máu và phòng thủ cao nhất, lại có Hoa hồi xuân hồi máu cả đội, máu dư thành khiên, nên càng đánh lâu càng có lợi. Hãy đứng vững, bắn chắc tay và kéo trận dài để đối thủ cạn máu trước. Bù lại sát thương thấp và đạn gần như không khoét đất, nên khó kết thúc trận nhanh.",
 }
 
 ## The rows of the info popup: label, the baseStats field (or "explosionRadius" /
@@ -227,7 +217,7 @@ static func info(id: String) -> Dictionary:
 		"tint": tint(id),
 		"weapon": {"kind": kind, "tier": Art.GUN_BASIC, "name": str(EquipmentModel.GUN_NAMES.get(kind, EquipmentModel.GUN_NAMES["blaster"])),
 			"wind": "Gió đẩy %s" % factor_text(wind_factor(id))},
-		"skill": {"name": str(skill.get("name", "")), "text": str(SKILL_INFO.get(id, "")),
-			"energy": "Cần %d năng lượng (+%d mỗi lượt)" % [Skills.FULL_ENERGY, SKILL_ENERGY_PER_TURN]},
+		"skill": {"name": str(skill.get("name", "")), "text": Skills.describe(id, 0),
+			"energy": "Cần %d năng lượng (+%d mỗi lượt, +%d khi bị trúng đòn)" % [Skills.FULL_ENERGY, SKILL_ENERGY_PER_TURN, Skills.ENERGY_ON_HIT]},
 		"playstyle": str(PLAYSTYLE.get(id, "")),
 	}

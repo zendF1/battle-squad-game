@@ -3,8 +3,11 @@ extends Node2D
 ## team ring, the character (scenes/character/character.tscn: its art and animations) holding the
 ## gun of the weapon it brought (weaponItemId → EquipmentModel.gun()), the HP bar, the name,
 ## above it the small plate of the title it wears (the payload's "title", TitleModel; none for
-## bots: nothing drawn, no gap) and above that the markers of its active status effects
-## (match/status_effects.gd); the turn arrow rises over the plate too.
+## bots: nothing drawn, no gap) and above that the markers of its armed shot modifiers
+## (match/status_effects.gd); the turn arrow rises over the plate too. Right of the HP bar, small
+## round icons for its control / damage effects (burn, root, stun, freeze, net) and its shield
+## (match/views/status_icons.gd); the shield also shows on the HP bar as a light-blue segment after
+## the HP (the bar then spans HP + shield when they pass the max HP).
 ## Walking is read from the position changes (prediction or tweens), so callers only move it.
 ## Idle, the character stands breathing with the gun in its hand in a low carry, 45° down-forward
 ## (scenes/character/character.gd holster + idle_gun); walking slings it across the back: aim() /
@@ -17,6 +20,7 @@ extends Node2D
 const AimSweep := preload("res://match/aim/aim_sweep.gd")
 const AimSnap := preload("res://scenes/character/aim_snap.gd")
 const Status := preload("res://match/status_effects.gd")
+const StatusIcons := preload("res://match/views/status_icons.gd")
 const CharacterScene := preload("res://scenes/character/character.tscn")
 const Art := preload("res://ui/art.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -32,6 +36,9 @@ const TEAM_COLORS := {1: Color(0.25, 0.55, 1.0), 2: Color(1.0, 0.35, 0.3)}
 const ALLY := Color(0.3, 0.6, 1.0)
 const ENEMY := Color(1.0, 0.35, 0.3)
 const HP_BAR_WIDTH := 50.0
+const ICON_SIZE := 22.0 # the status icons right of the HP bar
+const ICON_GAP := 2.0
+const SHIELD_COLOR := Color(0.62, 0.9, 1.0)
 const ART_TOP := 56.0 # px above the feet the art reaches (at least; a taller side view raises it)
 const WALK_HOLD := 0.12 # s a walk animation lasts after the last x change
 const TITLE_H := 34.0 # the title plate over the name
@@ -43,6 +50,8 @@ var team_id := 1
 var is_me := false
 var hp := 0
 var max_hp := 1
+var shield := 0
+var _icons: Array = [] # Status.icons() of the effects
 var color := ALLY
 
 var _tween: Tween
@@ -113,6 +122,7 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	add_child(_status)
 	set_status(p.get("statusEffects"))
 	set_hp(int(p.get("hp", 0)), int(p.get("maxHp", 1)))
+	set_shield(int(p.get("shield", 0)) if (p.get("shield") is int or p.get("shield") is float) else 0)
 	if not bool(p.get("isAlive", true)):
 		set_dead()
 
@@ -144,9 +154,34 @@ func set_hp(value: int, max_value: int = -1) -> void:
 	queue_redraw()
 
 
-## effects: the player's statusEffects list (null or [] clears the markers).
+## effects: the player's statusEffects list (null or [] clears the markers and icons).
 func set_status(effects: Variant) -> void:
 	_status.text = Status.marker_text(effects)
+	_icons = Status.icons(effects)
+	queue_redraw()
+
+
+## The shield (absorbs damage before HP), drawn on the HP bar and as an icon.
+func set_shield(value: int) -> void:
+	shield = maxi(0, value)
+	queue_redraw()
+
+
+## The icons drawn right of the HP bar: the effect ids (Status.ICONS order), then "shield".
+func status_icons() -> Array:
+	var out := _icons.duplicate()
+	if shield > 0:
+		out.append("shield")
+	return out
+
+
+## The HP bar's fills as fractions of its width: {hp, shield} (the shield segment follows the HP;
+## when HP + shield pass the max HP the bar spans HP + shield).
+func bar_fractions() -> Dictionary:
+	var total := float(maxi(max_hp, hp + shield))
+	if total <= 0.0:
+		return {"hp": 0.0, "shield": 0.0}
+	return {"hp": clampf(hp / total, 0.0, 1.0), "shield": clampf(shield / total, 0.0, 1.0)}
 
 
 ## The worn title shown over the name ({} = none).
@@ -294,13 +329,24 @@ func _draw() -> void:
 	# HP bar: dark rounded back, a fill green → yellow → red, a light top line.
 	var bar := Rect2(-HP_BAR_WIDTH / 2, -_art_top - 12, HP_BAR_WIDTH, 8)
 	draw_rect(bar.grow(2), Color(0.02, 0.03, 0.1, 0.85))
-	var frac := clampf(float(hp) / max_hp, 0.0, 1.0)
-	var fill := Color(1.0, 0.3, 0.25).lerp(Color(1.0, 0.85, 0.2), clampf(frac * 2.0, 0.0, 1.0))
-	fill = fill.lerp(Color(0.3, 0.9, 0.35), clampf(frac * 2.0 - 1.0, 0.0, 1.0))
+	var health := clampf(float(hp) / max_hp, 0.0, 1.0) # the colour follows the HP share of the max
+	var fill := Color(1.0, 0.3, 0.25).lerp(Color(1.0, 0.85, 0.2), clampf(health * 2.0, 0.0, 1.0))
+	fill = fill.lerp(Color(0.3, 0.9, 0.35), clampf(health * 2.0 - 1.0, 0.0, 1.0))
+	var fr := bar_fractions()
+	var frac: float = fr["hp"]
 	if frac > 0.0:
 		var f := Rect2(bar.position, Vector2(bar.size.x * frac, bar.size.y))
 		draw_rect(f, fill)
 		draw_rect(Rect2(f.position, Vector2(f.size.x, 2)), fill.lightened(0.4))
+	if float(fr["shield"]) > 0.0:
+		var sh := Rect2(bar.position + Vector2(bar.size.x * frac, 0), Vector2(bar.size.x * float(fr["shield"]), bar.size.y))
+		draw_rect(sh, SHIELD_COLOR)
+		draw_rect(Rect2(sh.position, Vector2(sh.size.x, 3)), Color(1, 1, 1, 0.95))
+		draw_line(sh.position, sh.position + Vector2(0, sh.size.y), Color(1, 1, 1, 0.9), 1.5)
+	var icons := status_icons()
+	for i in icons.size():
+		var c := Vector2(bar.end.x + 4.0 + ICON_SIZE / 2.0 + i * (ICON_SIZE + ICON_GAP), bar.get_center().y)
+		StatusIcons.draw(self, str(icons[i]), c, ICON_SIZE)
 	if _active:
 		var y := -_art_top - 48 - _title_rise - absf(sin(_t * 4.0)) * 6.0
 		var arrow := PackedVector2Array([Vector2(-10, y - 12), Vector2(10, y - 12), Vector2(0, y)])

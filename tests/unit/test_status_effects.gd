@@ -11,10 +11,10 @@ func test_has_needs_turns_left() -> void:
 
 
 func test_marker_text() -> void:
-	eq(Status.marker_text([{"effectId": "net", "durationTurn": 1}]), "Lưới", "net")
-	eq(Status.marker_text([{"effectId": "freeze", "durationTurn": 1}, {"effectId": "power_shot", "durationTurn": 1}]), "Băng · x1.5", "two")
+	eq(Status.marker_text([{"effectId": "net", "durationTurn": 1}]), "", "net is an icon now")
+	eq(Status.marker_text([{"effectId": "freeze", "durationTurn": 1}, {"effectId": "power_shot", "durationTurn": 1}]), "x1.5", "only the shot modifier")
 	eq(Status.marker_text([{"effectId": "heal", "durationTurn": 1}]), "", "heal shows nothing")
-	eq(Status.marker_text([{"effectId": "net", "durationTurn": 0}]), "", "expired")
+	eq(Status.marker_text([{"effectId": "power_shot", "durationTurn": 0}]), "", "expired")
 	eq(Status.marker_text([{"effectId": "drill_bomb", "durationTurn": 1}, {"effectId": "drill_bomb", "durationTurn": 2}]), "Khoan", "once")
 	eq(Status.marker_text(null), "", "null")
 	for id in ["spider_net", "freeze_bomb", "air_strike"]:
@@ -37,3 +37,33 @@ func test_tick_drops_expired() -> void:
 	eq(Status.tick(effects), [{"effectId": "freeze", "durationTurn": 1}], "one turn less")
 	eq(effects[1]["durationTurn"], 2, "input untouched")
 	eq(Status.tick(null), [], "null")
+
+
+func test_icons_in_order() -> void:
+	var effects := [{"effectId": "net", "durationTurn": 1}, {"effectId": "power_shot", "durationTurn": 1},
+		{"effectId": "burn", "durationTurn": 1}, {"effectId": "stun", "durationTurn": 0}, {"effectId": "root", "durationTurn": 1},
+		{"effectId": "burn", "durationTurn": 2}]
+	eq(Status.icons(effects), ["burn", "root", "net"], "ICONS order, active, once")
+	eq(Status.icons(null), [], "null")
+
+
+func test_skip_and_root() -> void:
+	eq(Status.skip_effect([{"effectId": "stun", "durationTurn": 1}]), "stun", "stun")
+	eq(Status.skip_effect([{"effectId": "freeze", "durationTurn": 1}, {"effectId": "stun", "durationTurn": 1}]), "stun", "stun first")
+	eq(Status.skip_effect([{"effectId": "freeze", "durationTurn": 1}]), "freeze", "freeze")
+	eq(Status.skip_effect([{"effectId": "root", "durationTurn": 1}]), "", "root does not skip")
+	check(Status.blocks_move([{"effectId": "root", "durationTurn": 1}]), "root blocks moving")
+	check(Status.blocks_move([{"effectId": "freeze", "durationTurn": 1}]), "freeze blocks moving")
+	check(not Status.blocks_move([{"effectId": "net", "durationTurn": 1}]), "net only slows")
+	eq(Status.SKIP_TEXT["stun"], "Choáng — mất lượt", "stun banner")
+	eq(Status.ROOT_TEXT, "Bị cầm chân", "root notice")
+
+
+func test_remove_cleansed() -> void:
+	var effects := [{"effectId": "burn", "durationTurn": 1}, {"effectId": "power_shot", "durationTurn": 1}, {"effectId": "root", "durationTurn": 1}]
+	eq(Status.remove(effects, ["burn", "root"]), [{"effectId": "power_shot", "durationTurn": 1}], "cleansed")
+	eq(effects.size(), 3, "input untouched")
+	eq(Status.remove(effects, null).size(), 3, "no ids: unchanged")
+	eq(Status.remove(null, ["burn"]), [], "null")
+	for id in Status.BAD:
+		check(Status.ICONS.has(id), "bad effect %s has an icon" % id)

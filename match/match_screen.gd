@@ -7,6 +7,11 @@ extends Node2D
 ## onto the aim (PlayerView.aim_sweep); its ShotResolved fires it, a turn change puts it away.
 ## Items: instant ones (medkit, wind_stopper) go out as UseItem through the same commit path as
 ## a shot but leave the turn open; shot items arm the next Shoot (actionMode "item").
+## Skills: each character's skill has a SkillView (match/views/skills/): its aim mode (an arc, a
+## straight line, or none: fired on tap) and, for a skill ShotResolved, the replay visuals on top
+## of the default handling here. Status effects: stun and freeze lose the whole turn (controls off,
+## a banner; the server ends it), root keeps the move controls off ("Bị cầm chân"); burn ticks at
+## turn start (PlayerDamaged type burn); the shield shows on the HP bar and absorbs damage first.
 ## See docs/superpowers/specs/2026-10-15-godot-client-roadmap-design.md.
 
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
@@ -25,6 +30,7 @@ const Skills := preload("res://match/skills.gd")
 const Items := preload("res://match/items.gd")
 const Status := preload("res://match/status_effects.gd")
 const ActionLock := preload("res://match/action_lock.gd")
+const SkillView := preload("res://match/views/skills/skill_view.gd")
 
 const ACTION_INTERVAL := 0.25 # server drops actions closer than 150 ms
 const MOVE_ACK_GAP := 0.16 # Shoot/EndTurn/UseItem wait this long after the last answer to a Move
@@ -70,6 +76,8 @@ var _fx_layer: Node2D
 var _aim: AimInput
 var _shot_player: ShotPlayer
 var _shot_timeline: ShotTimeline = null # the shot being replayed (its projectiles' blast radii)
+var _skill_view = null # the SkillView of the skill shot being replayed, or null
+var _skip := "" # the current player loses this turn: "stun" / "freeze" (TurnStarted.skipped), "" none
 var _hud: Hud
 
 var _hold_dir := 0
@@ -136,7 +144,7 @@ func _process(delta: float) -> void:
 	# lose it and send Reconnect in the middle of the replay.
 	if not _is_my_turn() or _commit_sent or _turn_resolved:
 		return
-	if _hold_dir != 0 and _can_act():
+	if _hold_dir != 0 and _can_act() and not _is_rooted():
 		_moves.hold(_hold_dir, delta)
 	# Runs while a Shoot/EndTurn waits too, so the rest of the walk (and a re-send of an
 	# unanswered Move) still goes out before it; _commit_action waits for them.
@@ -190,6 +198,7 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 		var last_seq = snap.get("lastMoveSeq")
 		_moves.apply_snapshot(_pos(_me), energy, int(last_seq) if (last_seq is int or last_seq is float) else -1)
 	_hud.set_time(int(snap.get("turnTimeLeft", TURN_SECONDS)))
+	_skip = Status.skip_effect(_players.get(current, {}).get("statusEffects")) # a lost turn goes on
 	if continuing and _turn_resolved:
 		_hud.pause_timer() # this turn's shot is resolving: the server clock waits for TurnStarted
 	_set_current(current, energy, continuing)
@@ -242,7 +251,12 @@ func _is_my_turn() -> bool:
 
 func _can_act() -> bool:
 	return _is_my_turn() and not _shot_player.is_playing() and not _committing and not _turn_resolved \
-		and not _moves.needs_resync()
+		and not _moves.needs_resync() and _skip == ""
+
+
+## Root (and stun / freeze) keeps me from walking and teleporting this turn.
+func _is_rooted() -> bool:
+	return Status.blocks_move(_players.get(_me, {}).get("statusEffects"))
 
 
 func _is_frozen() -> bool:
@@ -258,11 +272,13 @@ func _is_frozen() -> bool:
 func _refresh_controls() -> void:
 	var can := _can_act()
 	var me: Dictionary = _players.get(_me, {})
-	# The server takes no Shoot from a frozen player (only EndTurn and UseItem).
-	var frozen := Status.has(me.get("statusEffects"), "freeze")
+	# Stunned / frozen: the whole turn is lost (_can_act is false); rooted: no walking or teleport.
+	var frozen := _skip != "" and _is_my_turn()
+	var rooted := _is_my_turn() and _is_rooted()
 	var can_shoot := can and not frozen
 	var may_shoot := _is_my_turn() and not _turn_resolved and not frozen # armed mode may stay
-	_hud.set_controls_enabled(can)
+	_hud.set_controls_enabled(can and not rooted)
+	_hud.set_move_notice(Status.ROOT_TEXT if rooted and _skip == "" else "")
 	var skill := _my_skill()
 	var energy := int(me.get("skillEnergy", 0))
 	var armed_ok := _armed == WEAPON or (_armed == SKILL and may_shoot and not skill.is_empty() and Skills.is_ready(energy))
@@ -275,11 +291,16 @@ func _refresh_controls() -> void:
 	var buttons: Array = []
 	for it in Items.hand(me.get("items")):
 		var usable := can if Items.is_instant(it["id"]) else ActionLock.slot_enabled(_armed, it["id"], can_shoot)
+		if it["id"] == "teleport" and rooted:
+			usable = false
 		buttons.append({"id": it["id"], "count": it["count"], "name": Items.label(it["id"]), "enabled": usable})
 	_hud.set_actions(skill, energy, skill_usable, _armed, buttons)
-	var offsets: Array = skill["offsets"] if _armed == SKILL else [0.0]
+	var aim_mode := str(skill.get("aim", SkillView.AIM_ARC)) if _armed == SKILL else SkillView.AIM_ARC
+	var offsets: Array = skill["offsets"] if _armed == SKILL and aim_mode == SkillView.AIM_ARC else [0.0]
 	if _aim.preview_offsets != offsets:
 		_aim.preview_offsets = offsets
+	if _aim.line_mode != (aim_mode == SkillView.AIM_LINE):
+		_aim.line_mode = aim_mode == SkillView.AIM_LINE
 	_aim.target_column = Items.needs_target_x(_armed)
 	_aim.enabled = can_shoot
 	if can:
@@ -324,7 +345,12 @@ func _apply(event: String, data: Variant) -> void:
 			var current := str(data.get("currentPlayerId", ""))
 			if _players.has(current) and data.has("maxMoveEnergy"):
 				_players[current]["maxMoveEnergy"] = data["maxMoveEnergy"]
+			# A lost turn (stun / freeze): the server sends skipped; an older one does not, then
+			# the effects tell.
+			var skipped = data.get("skipped")
+			_skip = str(skipped) if skipped is String else Status.skip_effect(_players.get(current, {}).get("statusEffects"))
 			_set_current(current, int(data.get("moveEnergy", 0)))
+			_announce_skip(current)
 		"TurnTimerTick":
 			_hud.set_time(int(data.get("timeLeft", 0)))
 		"PlayerMoved":
@@ -336,23 +362,41 @@ func _apply(event: String, data: Variant) -> void:
 			var shooter := str(data.get("shooterId", ""))
 			if _players.has(shooter) and data.has("skillEnergy"):
 				_players[shooter]["skillEnergy"] = int(data["skillEnergy"]) # 0 after a skill
+			var energies = data.get("skillEnergies") # every player's (+10 when an enemy hit them)
+			if energies is Dictionary:
+				for id in energies:
+					if _players.has(id):
+						_players[id]["skillEnergy"] = int(energies[id])
 			_turn_resolved = true # the server takes no more actions until TurnStarted
 			_hud.pause_timer() # resumed by the next TurnTimerTick / TurnStarted
 			_snap_to_server(shooter)
 			var timeline := ShotTimeline.new(data)
 			_shot_timeline = timeline
-			var lead_in := _show_shooting(shooter, timeline)
 			# The shot looks like the shooter's gun (visuals only): the kind and tier of the weapon
 			# it brought (weaponItemId), its character's basic gun when none (bots).
 			_shot_player.style = ShotLook.style_for(_players.get(shooter, {}), str(data.get("actionMode", "")),
 				str(data.get("itemId", "")), PlayerState.catalog)
+			_skill_view = null
+			if timeline.action_mode == SKILL:
+				_skill_view = Skills.view_for_skill(timeline.skill_id)
+				_skill_view.begin({"layer": _fx_layer, "timeline": timeline, "style": _shot_player.style,
+					"views": _views, "players": _players, "shooter": shooter, "terrain": _mask})
+				_shot_player.skill_view = _skill_view
+			var lead_in := _show_shooting(shooter, timeline)
 			_shot_player.play(timeline, lead_in)
 			_refresh_controls()
-		"PlayerDamaged": # lava at turn start (shot damage comes in ShotResolved)
+		"PlayerDamaged": # lava / burn at turn start (shot damage comes in ShotResolved)
 			for e in data:
-				_set_hp(str(e.get("playerId", "")), int(e.get("hp", 0)))
+				var id := str(e.get("playerId", ""))
+				_set_hp(id, int(e.get("hp", 0)))
+				if e.get("shield") is int or e.get("shield") is float:
+					_set_shield(id, int(e["shield"]))
+				var amount := int(e.get("damage", 0))
+				if amount > 0:
+					var burn := str(e.get("type", "")) == "burn"
+					_popup(id, DamagePopup.damage_text(amount), Color(1.0, 0.55, 0.15) if burn else Color(1, 0.3, 0.3))
 				if not bool(e.get("isAlive", true)):
-					_kill(str(e.get("playerId", "")))
+					_kill(id)
 		"ItemUsed":
 			_on_item_used(data)
 		"MatchEnded":
@@ -390,6 +434,8 @@ func _on_item_used(d: Dictionary) -> void:
 			_players[id] = p
 			_views[id].set_hp(int(p.get("hp", 0)), int(p.get("maxHp", -1)))
 			_views[id].set_status(p.get("statusEffects"))
+			if p.get("shield") is int or p.get("shield") is float:
+				_views[id].set_shield(int(p["shield"]))
 			if not bool(p.get("isAlive", true)):
 				_views[id].set_dead()
 	_hud.set_wind(int(_wind.get("direction", 0)), float(_wind.get("power", 0.0)))
@@ -437,7 +483,7 @@ func _on_shot_event(e: Dictionary) -> void:
 		"explode":
 			var p := _vec(e["position"])
 			var radius := float(e.get("radius", 0.0))
-			_mask.destroy_circle(p.x, p.y, radius)
+			_mask.destroy_circle(p.x, p.y, radius, float(e.get("floor", 0.0))) # floor: the bomb chain keeps the bottom
 			_terrain_view.refresh()
 			var fx := ExplosionFx.new()
 			# The burst covers the crater and the damage area (the blast radius can be the larger)
@@ -446,6 +492,8 @@ func _on_shot_event(e: Dictionary) -> void:
 			fx.tier = str(_shot_player.style.get("tier", ""))
 			fx.skill = bool(_shot_player.style.get("skill", false))
 			fx.position = p
+			if _skill_view != null:
+				_skill_view.explosion(e, fx)
 			_fx_layer.add_child(fx)
 			var server_version := int(e.get("terrainVersion", _mask.version))
 			if server_version != _mask.version:
@@ -453,6 +501,8 @@ func _on_shot_event(e: Dictionary) -> void:
 				GameSocket.send("Reconnect", {}) # terrain drifted: ask for MatchStateSync
 		"damage":
 			_set_hp(id, int(e.get("hp", 0)))
+			if e.get("shield") is int or e.get("shield") is float:
+				_set_shield(id, int(e["shield"]))
 			var crit := bool(e.get("critical", false))
 			_popup(id, DamagePopup.damage_text(int(e.get("amount", 0))), Color(1, 0.85, 0.2) if crit else Color(1, 0.3, 0.3))
 		"heal":
@@ -460,6 +510,18 @@ func _on_shot_event(e: Dictionary) -> void:
 			var amount := int(e.get("amount", 0))
 			if amount > 0:
 				_popup(id, DamagePopup.heal_text(amount), Color(0.4, 1, 0.5))
+		"shield":
+			if e.get("shield") is int or e.get("shield") is float:
+				_set_shield(id, int(e["shield"]))
+			var gained := int(e.get("amount", 0))
+			if gained > 0:
+				_popup(id, shield_text(gained), Color(0.62, 0.9, 1.0), Vector2(0, -28))
+		"cleanse":
+			if _players.has(id):
+				_players[id]["statusEffects"] = Status.remove(_players[id].get("statusEffects"), e.get("effectIds"))
+				_views[id].set_status(_players[id]["statusEffects"])
+				if id == _me:
+					_refresh_controls()
 		"fall":
 			var to := _vec(e["to"])
 			_set_pos(id, to)
@@ -481,9 +543,18 @@ func _on_shot_event(e: Dictionary) -> void:
 			var text := Skills.status_label(str(e.get("effectId", "")))
 			if text != "":
 				_popup(id, text, Color(0.7, 0.85, 1))
+	# beam, flare, rain (and the rest): the skill draws them
+	if _skill_view != null:
+		_skill_view.on_event(e)
+
+
+## "+120 khiên": a shield gain's floating number.
+static func shield_text(amount: int) -> String:
+	return DamagePopup.heal_text(amount) + " khiên"
 
 
 func _on_shot_finished() -> void:
+	_skill_view = null
 	for view in _views.values():
 		view.clear_aim()
 	while not _deferred.is_empty() and not _shot_player.is_playing():
@@ -675,6 +746,24 @@ func _set_pos(id: String, p: Vector2) -> void:
 		_players[id]["position"] = {"x": p.x, "y": p.y}
 
 
+func _set_shield(id: String, shield: int) -> void:
+	if not _players.has(id):
+		return
+	_players[id]["shield"] = shield
+	_views[id].set_shield(shield)
+
+
+## A lost turn's banner: "Choáng — mất lượt" for me, "X: Choáng — mất lượt" for another player.
+func _announce_skip(id: String) -> void:
+	if _skip == "" or _ended:
+		_hud.announce_skip("")
+		return
+	var text := str(Status.SKIP_TEXT.get(_skip, ""))
+	if id != _me:
+		text = "%s: %s" % [str(_players.get(id, {}).get("displayName", "")), text]
+	_hud.announce_skip(text)
+
+
 func _set_hp(id: String, hp: int) -> void:
 	if not _players.has(id):
 		return
@@ -694,13 +783,13 @@ func _kill(id: String) -> void:
 	_views[id].set_dead()
 
 
-func _popup(id: String, text: String, color: Color) -> void:
+func _popup(id: String, text: String, color: Color, offset: Vector2 = Vector2.ZERO) -> void:
 	if not _views.has(id):
 		return
 	var label := DamagePopup.new()
 	label.text = text
 	label.add_theme_color_override("font_color", color)
-	label.position = _views[id].position + Vector2(0, -140)
+	label.position = _views[id].position + Vector2(0, -140) + offset
 	_fx_layer.add_child(label)
 
 
@@ -733,8 +822,14 @@ func _show_shooting(shooter: String, timeline) -> float:
 	if not _views.has(shooter):
 		return 0.0
 	if timeline.projectiles.is_empty():
-		_views[shooter].clear_aim() # nothing leaves the gun (e.g. a healing skill): put it away
-		return 0.0
+		# Nothing leaves the gun: a skill may still point it (the laser along its beam)
+		var beam: float = _skill_view.aim_angle(timeline) if _skill_view != null else NAN
+		if is_nan(beam):
+			_views[shooter].clear_aim()
+			return 0.0
+		_views[shooter].face_angle(beam)
+		_views[shooter].aim(beam)
+		return _views[shooter].shoot()
 	var view = _views[shooter]
 	var start: Vector2 = timeline.sample(0, 0.0)
 	var d: Vector2 = timeline.sample(0, 0.05) - start
