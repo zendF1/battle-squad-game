@@ -241,6 +241,13 @@ static func player_gun(player: Dictionary, catalog: Variant = null) -> Dictionar
 	return gun(weapon_id, item_of(catalog, weapon_id) if weapon_id != "" else {}, str(player.get("characterId", "")))
 
 
+## The upgrade level of the weapon a match player brought (weaponUpgradeLevel: 0 for none and
+## bots; missing from an older server → 0), clamped to 0..16: its back aura (back_aura.gd).
+static func player_weapon_level(player: Dictionary) -> int:
+	var v = player.get("weaponUpgradeLevel")
+	return clampi(int(v), 0, 16) if v is int or v is float else 0
+
+
 ## A stand-in catalog entry for a weapon id the catalog does not give: {itemId, slot, category,
 ## characterId?, tier?}.
 static func weapon_from_id(item_id: String) -> Dictionary:

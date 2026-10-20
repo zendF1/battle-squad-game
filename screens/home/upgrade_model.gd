@@ -111,8 +111,11 @@ static func milestone_text(catalog: Variant, level: int) -> String:
 
 ## The piece popup's "Mốc nâng cấp" rows for a piece at `level`, +6 / +10 / +14 / +16:
 ## [{level, tier, color, bonus (fraction), bonus_text "+10% chỉ số", aura "Hào quang xanh da
-## trời", reached}]; bonuses from the catalog's upgradeMilestones (defaults before it loads).
-static func milestone_rows(catalog: Variant, level: int) -> Array:
+## trời", back_aura, reached}]; bonuses from the catalog's upgradeMilestones (defaults before it
+## loads). back_aura: for a weapon, the ring its +14 / +16 adds behind the wearer's back
+## (scenes/character/back_aura.gd), "· hào quang tím sau lưng" / "· hào quang đỏ sau lưng"; ""
+## for the other rows and for armour.
+static func milestone_rows(catalog: Variant, level: int, weapon: bool = false) -> Array:
 	var out: Array = []
 	for t in range(1, MILESTONE_FROM.size()):
 		var lv: int = MILESTONE_FROM[t]
@@ -120,8 +123,20 @@ static func milestone_rows(catalog: Variant, level: int) -> Array:
 		var tier := color_tier(lv)
 		out.append({"level": lv, "tier": tier, "color": TIER_COLORS[tier], "bonus": bonus,
 			"bonus_text": "+%s chỉ số" % BattleStats.format_chance(bonus * 100.0),
-			"aura": "Hào quang " + TIER_WORDS[tier], "reached": level >= lv})
+			"aura": "Hào quang " + TIER_WORDS[tier], "back_aura": back_aura_text(lv) if weapon else "",
+			"reached": level >= lv})
 	return out
+
+
+## "· hào quang tím sau lưng" at +14, "· hào quang đỏ sau lưng" at +16 (a weapon's back aura), ""
+## for the other milestones.
+static func back_aura_text(milestone: int) -> String:
+	match milestone:
+		14:
+			return "· hào quang tím sau lưng"
+		16:
+			return "· hào quang đỏ sau lưng"
+	return ""
 
 
 ## "Cấp nâng cấp +7 / 16"

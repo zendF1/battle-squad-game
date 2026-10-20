@@ -38,6 +38,11 @@ Total about 4.0 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   tier (`art_source/equipment/<tier>.png`, the five items in one row on magenta) by
   `tools/import_equipment.gd` (config `art_source/equipment/equipment.json`, below): replace a sheet
   and re-run it. It writes `icons/equipment/<slot>_<tier>.png`; `tools/bake_art.gd` no longer bakes them.
+- **Weapon back auras** (`fx/back_aura_purple.png` +14, `fx/back_aura_red.png` +16: the ring turning
+  behind the figure on the lobby stage, Prep and Nhân vật, `scenes/character/back_aura.gd`): AI-drawn
+  on black, `art_source/fx/back_aura_<colour>.png`, keyed by `tools/import_back_aura.gd` (config
+  `art_source/fx/back_aura.json`: the "✦" watermark disc, black → alpha, the red's dark outlines):
+  replace a picture and re-run it.
 - **9-patches** (`ui/`): keep the corners inside the texture margins listed below
   (`ui/art.gd` `UI_BOXES`), or change the margins there.
 - Import settings: icons, effects and clouds are imported with mipmaps (they are shown smaller

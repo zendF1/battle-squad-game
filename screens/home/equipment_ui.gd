@@ -252,7 +252,7 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 		info.add_child(cmp)
 	if who != character_id and not check["ok"]:
 		info.add_child(LobbyUi.text("%s: %s" % [char_name, check["reason"]], 21, LOSS, true))
-	cols.add_child(milestone_list(PlayerState.catalog, level))
+	cols.add_child(milestone_list(PlayerState.catalog, level, str(item.get("slot", piece.get("slot", ""))) == "weapon"))
 
 	var piece_id := str(piece.get("equipmentId", ""))
 	var piece_name := EquipmentModel.display_name(item)
@@ -357,14 +357,15 @@ static func sell_block(piece: Dictionary, item: Dictionary, catalog: Variant) ->
 
 
 ## "Mốc nâng cấp": the +6 / +10 / +14 / +16 rows (UpgradeModel.milestone_rows) for a piece at
-## `level`, each a small hexagon with its aura, "+6", "+10% chỉ số" in its colour; reached rows
-## bright with a check, the others dimmed (UNREACHED_ALPHA).
-static func milestone_list(catalog: Variant, level: int) -> VBoxContainer:
+## `level`, each a small hexagon with its aura, "+6", "+10% chỉ số" in its colour (a weapon's +14 /
+## +16 add "· hào quang tím / đỏ sau lưng", smaller); reached rows bright with a check, the others
+## dimmed (UNREACHED_ALPHA).
+static func milestone_list(catalog: Variant, level: int, weapon: bool = false) -> VBoxContainer:
 	var col := Ui.vbox(4)
 	col.name = "Milestones"
 	col.custom_minimum_size.x = 330
 	col.add_child(LobbyUi.text("Mốc nâng cấp", 22, Ui.TEXT_DIM, true))
-	for r in UpgradeModel.milestone_rows(catalog, level):
+	for r in UpgradeModel.milestone_rows(catalog, level, weapon):
 		var row := Ui.hbox(12)
 		row.custom_minimum_size.y = 42
 		row.set_meta("reached", r["reached"])
@@ -381,9 +382,15 @@ static func milestone_list(catalog: Variant, level: int) -> VBoxContainer:
 		lv.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(lv)
 		var bonus := LobbyUi.text(r["bonus_text"], 22, r["color"], true)
-		bonus.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bonus.size_flags_horizontal = Control.SIZE_EXPAND_FILL if r["back_aura"] == "" else Control.SIZE_FILL
 		bonus.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(bonus)
+		if r["back_aura"] != "":
+			var extra := LobbyUi.text(r["back_aura"], 18, r["color"])
+			extra.name = "BackAura"
+			extra.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			extra.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			row.add_child(extra)
 		row.add_child(check_mark(26, GOOD) if r["reached"] else Control.new())
 		col.add_child(row)
 	return col

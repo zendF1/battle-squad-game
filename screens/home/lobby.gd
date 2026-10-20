@@ -320,6 +320,7 @@ func _add_stage() -> void:
 	_art.size = Vector2(375, 400)
 	_art.idle = true
 	_art.hands_free = true
+	_art.back_aura = true # the worn weapon's +14 / +16 ring, behind the body and the pedestal gun
 	stage.add_child(_art)
 
 	_gun_stand = PedestalGun.new()

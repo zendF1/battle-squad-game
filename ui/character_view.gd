@@ -10,14 +10,24 @@ extends Control
 ## on the 375x400 stage, which has no gun in hand (holds_gun() false: the screens put the gun
 ## beside it, screens/home/pedestal_gun.gd) and breathes in place instead of hopping; without
 ## one the side-view frames (hopping). Order: full.png → frames.
+## back_aura (the screens with a loadout: lobby stage, Prep, Nhân vật; not the shop cards): the
+## worn weapon's +14 / +16 ring turning behind the figure (scenes/character/back_aura.gd), centred
+## on the torso, sized to frame it, behind the body (and whatever the screen draws after this
+## view, the pedestal gun), updated with the gun on every equipment change (equip, unequip,
+## transfer, upgrade).
 
 const Art := preload("res://ui/art.gd")
 const CharacterScene := preload("res://scenes/character/character.tscn")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
+const BackAura := preload("res://scenes/character/back_aura.gd")
 
 ## The art box in units the rect is fitted to (the art is about 150 units tall).
 const UNITS := Vector2(150, 160)
 const HOP := 5.0 # units
+## The back aura's centre above the feet and its ring picture's width, as shares of the figure's
+## height (the ring's hole sits behind the chest, the ring frames the body).
+const AURA_CENTRE := 0.57
+const AURA_SIZE := 1.08
 
 @export var character_id := Art.DEFAULT_CHARACTER:
 	set(value):
@@ -40,7 +50,16 @@ const HOP := 5.0 # units
 		set_process(value)
 		_layout()
 
+## The worn weapon's +14 / +16 back aura behind the figure.
+@export var back_aura := false:
+	set(value):
+		back_aura = value
+		if is_node_ready():
+			_show_worn_gun()
+			_layout()
+
 var _character: Node2D
+var _aura: BackAura
 var _t := 0.0
 
 
@@ -50,6 +69,8 @@ func _ready() -> void:
 	_character.character_id = character_id
 	_character.hands_free = hands_free
 	_character.lobby_full = true
+	_aura = BackAura.new()
+	add_child(_aura) # before the character: drawn behind it
 	add_child(_character)
 	set_process(idle)
 	resized.connect(_layout)
@@ -58,10 +79,31 @@ func _ready() -> void:
 	_layout()
 
 
-## The gun of the weapon the character wears (its basic gun when none or not loaded).
+## The gun of the weapon the character wears (its basic gun when none or not loaded), and its
+## back aura (back_aura on).
 func _show_worn_gun() -> void:
 	var g := EquipmentModel.worn_gun(PlayerState.equipment, PlayerState.catalog, character_id)
 	_character.set_weapon(g["kind"], g["tier"])
+	_aura.level = worn_weapon_level(PlayerState.equipment, character_id) if back_aura else 0
+	_layout()
+
+
+## The upgrade level of the weapon the character wears, 0 when none (or not loaded).
+static func worn_weapon_level(owned: Variant, id: String) -> int:
+	var piece: Dictionary = EquipmentModel.worn(owned, id).get("weapon", {})
+	return maxi(0, int(piece.get("upgradeLevel", 0)))
+
+
+## The back aura node (aura() tells which ring shows).
+func aura() -> BackAura:
+	return _aura
+
+
+## The figure's height in this view's px (the full-body picture, else the side-view frames).
+func figure_height() -> float:
+	var full := Art.lobby_full(_character.character_id) if _character.full() != null else {}
+	var h: float = float(full["height"]) * float(full["scale"]) if not full.is_empty() else _character.art_height()
+	return h * _character.scale.y
 
 
 func _process(delta: float) -> void:
@@ -90,6 +132,11 @@ func _layout() -> void:
 	var feet := Vector2(size.x / 2, size.y - 8 * k)
 	_character.scale = Vector2.ONE * (k / Art.PX_PER_UNIT)
 	_character.position = feet - Vector2(0, lift * k)
+	if _aura.aura() != "":
+		var h := figure_height()
+		_aura.position = _character.position - Vector2(0, h * AURA_CENTRE)
+		if not is_equal_approx(_aura.diameter, h * AURA_SIZE):
+			_aura.diameter = h * AURA_SIZE
 	var shadow: Sprite2D = _character.shadow()
 	shadow.position = Vector2(0, lift * Art.PX_PER_UNIT) # stays on the ground
 	shadow.scale = Vector2.ONE * (1.0 - lift * 0.03)

@@ -161,6 +161,7 @@ func _build_character_panel() -> Control:
 	_art.offset_right = 112
 	_art.offset_top = 0
 	_art.offset_bottom = 246 # feet on the pedestal
+	_art.back_aura = true # the worn weapon's +14 / +16 ring, behind the body and the pedestal gun
 	stage.add_child(_art)
 	_gun_stand = PedestalGun.new() # beside the full-body picture (it holds no gun), as on the lobby
 	_gun_stand.scale = Vector2.ONE * GUN_STAND_SCALE

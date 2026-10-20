@@ -1,0 +1,12 @@
+{
+	"_doc": "tools/import_back_aura.gd: the AI-drawn back aura rings (black background, no alpha) → assets/fx/back_aura_<colour>.png. Edit and re-run.",
+	"size": 512,
+	"alphaFloor": 0.035,
+	"alphaGamma": 1.25,
+	"alphaBoost": 1.7,
+	"edgeFade": 12,
+	"auras": {
+		"purple": {"source": "back_aura_purple.png", "watermark": {"centre": [905, 905], "inner": 34, "outer": 48}},
+		"red": {"source": "back_aura_red.png", "outline": 2, "outlineAlpha": 0.85, "watermark": {"centre": [905, 905], "inner": 34, "outer": 48}}
+	}
+}
