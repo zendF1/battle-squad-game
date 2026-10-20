@@ -1,6 +1,6 @@
 extends RefCounted
 ## Equipment widgets shared by the Shop (Trang bị), Túi đồ, the Nhân vật page and Prep: an item
-## icon with its "+N" badge and, from +6, its milestone aura (upgrade_aura.gd), the slot filter
+## icon with, from +6, its milestone border aura (upgrade_aura.gd), the hexagon frame, the slot filter
 ## chips, stat lines, and the piece popup (its upgraded stats compared with what the character
 ## wears in that slot, who wears it, Mặc / Tháo / Chuyển cho <nhân vật> / Đóng, and below them
 ## Nâng cấp (opens the upgrade page on the piece), Bán (+N xu, never-worn pieces only) / Vứt, each
@@ -27,29 +27,39 @@ const LEVEL := Color(1.0, 0.8, 0.22)
 static var open_upgrade: Callable
 
 
-## The icon of a catalog item at px, with the "+N" badge of `piece` ({} = no badge) over its
-## bottom edge and, from +6, the milestone aura behind it (spilling a little outside the box).
+## The icon of a catalog item at px; from +6 (`piece`'s upgradeLevel, {} = none) the milestone
+## aura runs round a rounded square inside the icon's box (kept inside: lists scroll). No "+N":
+## the aura and the name colour show the level; the number is in the piece popup.
 static func item_icon(item: Dictionary, piece: Dictionary = {}, px: int = 72) -> Control:
 	var box := Control.new()
 	box.custom_minimum_size = Vector2(px, px)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if not piece.is_empty() and UpgradeModel.milestone_tier(int(piece.get("upgradeLevel", 0))) > 0:
-		box.add_child(UpgradeAura.around(px, int(piece.get("upgradeLevel", 0))))
+	var level := int(piece.get("upgradeLevel", 0))
+	if UpgradeModel.milestone_tier(level) > 0:
+		box.add_child(UpgradeAura.inside(Vector2(px, px), level, maxf(4.0, px * 0.07), px * 0.2))
 	var icon := LobbyUi.icon(Art.equipment_icon(str(item.get("slot", "")), EquipmentModel.tier(item), EquipmentModel.weapon_kind(item)), px)
 	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	box.add_child(icon)
-	if not piece.is_empty():
-		var b := badge(EquipmentModel.level_text(piece), maxi(14, px / 5))
-		b.anchor_left = 0.5
-		b.anchor_right = 0.5
-		b.anchor_top = 1.0
-		b.anchor_bottom = 1.0
-		b.grow_horizontal = Control.GROW_DIRECTION_BOTH
-		b.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		b.offset_top = 4
-		b.offset_bottom = 4
-		box.add_child(b)
 	return box
+
+
+## A hexagon frame of `size` (tinted in the milestone colour of `level`) with its border aura
+## running round it; `content` (an icon, or null) centred in it, `lift` px up.
+static func hex_frame(size: Vector2, level: int, content: Control = null, lift: float = 0.0) -> TextureRect:
+	var frame := TextureRect.new()
+	frame.texture = Art.equipment_frame("hex_filled")
+	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	frame.stretch_mode = TextureRect.STRETCH_SCALE
+	frame.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	frame.custom_minimum_size = size
+	frame.size = size
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.self_modulate = UpgradeModel.frame_tint(level)
+	frame.add_child(UpgradeAura.around_frame(size, level))
+	if content != null:
+		content.position = (size - content.custom_minimum_size) / 2.0 - Vector2(0, lift)
+		frame.add_child(content)
+	return frame
 
 
 ## A small padlock (a piece ever worn is locked: it cannot be sold), px square, drawn in code.
@@ -64,18 +74,6 @@ static func lock_mark(px: int = 22, color: Color = Color(1, 1, 1, 0.6)) -> Contr
 		c.draw_arc(Vector2(w * 0.5, top), w * 0.24, PI, TAU, 12, color, maxf(2.0, w * 0.11), true)
 		c.draw_rect(Rect2(w * 0.14, top, w * 0.72, w * 0.52), color))
 	return c
-
-
-## The "+N" pill (assets/icons/equipment/badge.png).
-static func badge(text_value: String, font_size: int = 18) -> PanelContainer:
-	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", Art.equipment_badge_box(1))
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var l := LobbyUi.text(text_value, font_size, Color.WHITE, true)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	p.add_child(l)
-	return p
 
 
 ## A small coloured tag ("Đang mặc · Tanko", "Cần Lv 7").
@@ -151,8 +149,11 @@ static func delta_row(item: Dictionary, worn: Dictionary, font_size: int = 19) -
 # ── Popup ───────────────────────────────────────────────────────────────────
 
 ## The popup of an owned piece for `character_id` (the character on the Nhân vật stage, or the
-## lobby's): icon, name, slot, required level, who wears it, its stats with the change against
-## what the character wears in that slot, and the actions: Mặc / Chuyển cho / Tháo / Đóng, then a
+## lobby's), the one place that shows the "+N": the name "+N" in the milestone colour; the
+## hexagon with the icon and its aura beside slot · category · required level, who wears it,
+## "Cấp nâng cấp +N / 16" and its bar; below, its upgraded stats (with "+24% từ nâng cấp" and
+## the change against what the character wears in that slot) beside "Mốc nâng cấp" (+6 / +10 /
+## +14 / +16 with their bonus, reached ones bright with a check, the others dimmed); and the actions: Mặc / Chuyển cho / Tháo / Đóng, then a
 ## second row with Bán (+ floor(price × sellRate)) and Vứt. A piece ever worn is locked
 ## (isLocked) and crafted / unknown items cost nothing: no Bán, the reason instead. The actions stay locked while the owned pieces reload
 ## (PlayerState.equipment_ready()); Mặc / Chuyển cho also while the can-wear check lacks the
@@ -170,39 +171,52 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 	var worn_stats := EquipmentModel.piece_item(PlayerState.catalog, worn) if worn_other else {}
 	var check := EquipmentModel.can_wear(item, character_id, PlayerState.characters)
 
+	var level := int(piece.get("upgradeLevel", 0))
 	var m := Modal.new()
 	m.open(overlay, "%s %s" % [EquipmentModel.display_name(item), EquipmentModel.level_text(piece)], 880)
-	if UpgradeModel.milestone_tier(int(piece.get("upgradeLevel", 0))) > 0:
-		m.title.add_theme_color_override("font_color", UpgradeModel.name_color(piece))
-	var row := Ui.hbox(24)
-	m.body.add_child(row)
-	var left := Ui.vbox(8)
-	row.add_child(left)
-	var frame := TextureRect.new()
-	frame.texture = Art.equipment_frame("hex_filled")
-	frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	frame.custom_minimum_size = Vector2(150, 172)
-	frame.self_modulate = UpgradeModel.frame_tint(int(piece.get("upgradeLevel", 0)))
-	left.add_child(frame)
-	var icon := item_icon(item, piece, 104)
-	icon.position = Vector2((150 - 104) / 2.0, (172 - 104) / 2.0 - 8)
-	frame.add_child(icon)
-
-	var info := Ui.vbox(8)
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(info)
+	m.title.add_theme_color_override("font_color", UpgradeModel.name_color(piece))
+	# Top: the hexagon with the icon and its aura | slot · category · required level, the wearer,
+	# "Cấp nâng cấp +N / 16" and its bar.
+	var top := Ui.hbox(22)
+	m.body.add_child(top)
+	top.add_child(hex_frame(Vector2(132, 152), level, item_icon(item, {}, 92), 6))
+	var head := Ui.vbox(6)
+	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.alignment = BoxContainer.ALIGNMENT_CENTER
+	top.add_child(head)
 	var meta := Ui.hbox(12)
-	info.add_child(meta)
+	head.add_child(meta)
 	meta.add_child(LobbyUi.text(EquipmentModel.slot_name(str(item.get("slot", ""))), 22, Color(0.8, 0.88, 1.0), true))
+	meta.add_child(LobbyUi.text("·", 22, Ui.TEXT_DIM))
+	meta.add_child(LobbyUi.text(EquipmentModel.category_name(item), 22,
+		Color(0.75, 0.6, 1.0) if str(item.get("category", "")) == "crafted" else Color(0.8, 0.88, 1.0), true))
+	meta.add_child(LobbyUi.text("·", 22, Ui.TEXT_DIM))
 	meta.add_child(LobbyUi.text("Lv yêu cầu %d" % maxi(int(item.get("requiredLevel", 1)), 1), 22, LEVEL, true))
-	if str(item.get("category", "")) == "crafted":
-		meta.add_child(LobbyUi.text("Chế tạo", 22, Color(0.75, 0.6, 1.0), true))
-	info.add_child(LobbyUi.text("Đang mặc: %s" % EquipmentModel.character_name(who) if who != "" else "Chưa mặc", 22,
+	head.add_child(LobbyUi.text("Đang mặc: %s" % EquipmentModel.character_name(who) if who != "" else "Chưa mặc", 22,
 		WORN if who != "" else Ui.TEXT_DIM, true))
+	var level_label := LobbyUi.text(UpgradeModel.level_line(level), 24, UpgradeModel.milestone_color(level) if level >= 6 else LEVEL, true)
+	level_label.name = "LevelLine"
+	head.add_child(level_label)
+	head.add_child(level_bar(level))
+
+	# Below: the stats | the milestones.
+	var cols := Ui.hbox(28)
+	m.body.add_child(cols)
+	var info := Ui.vbox(6)
+	info.custom_minimum_size.x = 440
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cols.add_child(info)
+	var stats_head := Ui.hbox(12)
+	info.add_child(stats_head)
+	var sh := LobbyUi.text("Chỉ số", 22, Ui.TEXT_DIM, true)
+	sh.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stats_head.add_child(sh)
+	var share := UpgradeModel.upgrade_share_text(PlayerState.catalog, level)
+	if share != "":
+		stats_head.add_child(LobbyUi.text(share, 20, GOOD, true))
 	var stats := GridContainer.new()
 	stats.columns = 3
-	stats.add_theme_constant_override("h_separation", 18)
+	stats.add_theme_constant_override("h_separation", 16)
 	stats.add_theme_constant_override("v_separation", 2)
 	info.add_child(stats)
 	var deltas := {}
@@ -211,10 +225,10 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 		deltas[d["key"]] = d
 	var lines := EquipmentModel.stat_lines(stats_item, mult)
 	for l in lines:
-		var k := LobbyUi.text(l["label"], 22, Color(0.8, 0.88, 1.0))
-		k.custom_minimum_size.x = 150
+		var k := LobbyUi.text(l["label"], 21, Color(0.8, 0.88, 1.0))
+		k.custom_minimum_size.x = 130
 		stats.add_child(k)
-		stats.add_child(LobbyUi.text(l["text"], 22, Color.WHITE, true))
+		stats.add_child(LobbyUi.text(l["text"], 21, Color.WHITE, true))
 		var d: Dictionary = deltas.get(l["key"], {})
 		stats.add_child(_delta_label(d if worn_other else {}))
 	if worn_other:
@@ -223,12 +237,15 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 			var d: Dictionary = deltas[key]
 			if lines.any(func(l): return l["key"] == key):
 				continue
-			stats.add_child(LobbyUi.text(d["label"], 22, Color(0.8, 0.88, 1.0)))
-			stats.add_child(LobbyUi.text("—", 22, Ui.TEXT_DIM))
+			stats.add_child(LobbyUi.text(d["label"], 21, Color(0.8, 0.88, 1.0)))
+			stats.add_child(LobbyUi.text("—", 21, Ui.TEXT_DIM))
 			stats.add_child(_delta_label(d))
-		info.add_child(LobbyUi.text("So với %s %s đang mặc" % [EquipmentModel.display_name(worn_item), EquipmentModel.level_text(worn)], 19, Ui.TEXT_DIM))
+		var cmp := LobbyUi.text("So với %s %s đang mặc" % [EquipmentModel.display_name(worn_item), EquipmentModel.level_text(worn)], 19, Ui.TEXT_DIM)
+		cmp.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		info.add_child(cmp)
 	if who != character_id and not check["ok"]:
-		info.add_child(LobbyUi.text("%s: %s" % [char_name, check["reason"]], 22, LOSS, true))
+		info.add_child(LobbyUi.text("%s: %s" % [char_name, check["reason"]], 21, LOSS, true))
+	cols.add_child(milestone_list(PlayerState.catalog, level))
 
 	var piece_id := str(piece.get("equipmentId", ""))
 	var piece_name := EquipmentModel.display_name(item)
@@ -302,6 +319,71 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 	return m
 
 
+## "Mốc nâng cấp": the +6 / +10 / +14 / +16 rows (UpgradeModel.milestone_rows) for a piece at
+## `level`, each a small hexagon with its aura, "+6", "+10% chỉ số" in its colour; reached rows
+## bright with a check, the others dimmed (UNREACHED_ALPHA).
+static func milestone_list(catalog: Variant, level: int) -> VBoxContainer:
+	var col := Ui.vbox(4)
+	col.name = "Milestones"
+	col.custom_minimum_size.x = 330
+	col.add_child(LobbyUi.text("Mốc nâng cấp", 22, Ui.TEXT_DIM, true))
+	for r in UpgradeModel.milestone_rows(catalog, level):
+		var row := Ui.hbox(12)
+		row.custom_minimum_size.y = 42
+		row.set_meta("reached", r["reached"])
+		row.modulate = Color(1, 1, 1, 1.0 if r["reached"] else UpgradeModel.UNREACHED_ALPHA)
+		var hex := hex_frame(Vector2(32, 37), int(r["level"]))
+		var holder := Control.new()
+		holder.custom_minimum_size = Vector2(40, 42)
+		holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		holder.add_child(hex)
+		hex.position = Vector2(4, 2)
+		row.add_child(holder)
+		var lv := LobbyUi.text("+%d" % int(r["level"]), 22, r["color"], true)
+		lv.custom_minimum_size.x = 50
+		lv.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(lv)
+		var bonus := LobbyUi.text(r["bonus_text"], 22, r["color"], true)
+		bonus.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bonus.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(bonus)
+		row.add_child(check_mark(26, GOOD) if r["reached"] else Control.new())
+		col.add_child(row)
+	return col
+
+
+## The upgrade level as a bar out of +16 with ticks at the milestones, filled in the level's
+## milestone colour (gold below +6).
+static func level_bar(level: int, width: float = 0.0) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size = Vector2(width, 14)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fill := UpgradeModel.milestone_color(level) if level >= 6 else LEVEL
+	var k := clampf(float(level) / UpgradeModel.MAX_LEVEL, 0.0, 1.0)
+	c.draw.connect(func() -> void:
+		var r := Rect2(Vector2.ZERO, c.size)
+		c.draw_style_box(LobbyUi.box(Color(1, 1, 1, 0.1), 7, 0), r)
+		if k > 0.0:
+			c.draw_style_box(LobbyUi.box(fill, 7, 0), Rect2(r.position, Vector2(maxf(r.size.x * k, 14.0), r.size.y)))
+		for t in range(1, UpgradeModel.MILESTONE_FROM.size() - 1):
+			var x := r.size.x * float(UpgradeModel.MILESTONE_FROM[t]) / UpgradeModel.MAX_LEVEL
+			c.draw_line(Vector2(x, 1), Vector2(x, r.size.y - 1), Color(0, 0, 0, 0.45), 2.0))
+	return c
+
+
+## A check mark (✓) px square, drawn in code.
+static func check_mark(px: int = 24, color: Color = GOOD) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size = Vector2(px, px)
+	c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.draw.connect(func() -> void:
+		var w := float(px)
+		c.draw_polyline(PackedVector2Array([Vector2(w * 0.12, w * 0.52), Vector2(w * 0.4, w * 0.8), Vector2(w * 0.9, w * 0.2)]),
+			color, maxf(2.5, w * 0.14), true))
+	return c
+
+
 ## What the popup's buttons depend on: the owned pieces, the characters, the catalog, a running
 ## action.
 static func _data_version() -> Array:
@@ -370,11 +452,12 @@ static func _confirm_remove(m: Modal, overlay: Control, piece: Dictionary, item:
 	if not PlayerState.equipment_ready():
 		m.set_message("Đang cập nhật trang bị, hãy đợi")
 		return
-	var piece_name := "%s %s" % [EquipmentModel.display_name(item), EquipmentModel.level_text(piece)]
+	# The confirmation (part of the popup) names the level; the toasts after it do not.
+	var piece_name := EquipmentModel.display_name(item)
 	var who := EquipmentModel.wearer(piece)
 	m.set_meta("acting", true)
 	var c := Modal.new()
-	c.open(overlay, ("Bán %s?" if sell else "Vứt %s?") % piece_name, 760)
+	c.open(overlay, ("Bán %s %s?" if sell else "Vứt %s %s?") % [piece_name, EquipmentModel.level_text(piece)], 760)
 	if sell:
 		c.add_text("Nhận %s" % EquipmentModel.amount_text(refund), 28).add_theme_color_override("font_color", LEVEL)
 	else:

@@ -1,9 +1,9 @@
 extends Control
 ## "Túi đồ": everything the player owns, in two tabs.
-## - "Trang bị": the owned pieces (PlayerState.equipment + the catalog) as a grid of cards (icon
-##   with "+N", name, slot and required level, "Đang mặc · Tanko", a small padlock on pieces
-##   ever worn: they cannot be sold), worn ones first then by required level; slot filter chips
-##   on top. A tap opens the piece popup (equipment_ui.gd) for the character chosen in the
+## - "Trang bị": the owned pieces (PlayerState.equipment + the catalog) as a grid of cards showing
+##   only the icon and the name in the milestone colour inside the milestone border aura (worn
+##   pieces on a green-edged card), worn ones first then by required level; slot filter chips
+##   on top. A tap opens the piece popup with everything else (equipment_ui.gd) for the character chosen in the
 ##   lobby: Mặc cho / Chuyển cho <nhân vật>, Tháo, Đóng, Bán, Vứt.
 ## - "Vật phẩm": the eight battle items with their GET /player/inventory counts.
 ## - "Nguyên liệu": the upgrade stones owned (PlayerState.stones): icon, level, power, count;
@@ -25,6 +25,7 @@ const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
 const ShopTab := preload("res://screens/home/shop_tab.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
+const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
 const Fmt := preload("res://core/fmt.gd")
 
 const SUB_TABS := ["Trang bị", "Vật phẩm", "Nguyên liệu"]
@@ -33,7 +34,7 @@ const ITEMS := 1
 const MATERIALS := 2
 ## The Nâng cấp page's Ghép đá tab (upgrade_page.gd MERGE).
 const UPGRADE_MERGE := 1
-const CARD := Vector2(232, 236)
+const CARD := Vector2(208, 196)
 
 ## Where dialogs and toasts go (Home); defaults to this page.
 var overlay: Control
@@ -196,57 +197,41 @@ func _render_gear() -> void:
 		_gear_flow.add_child(empty)
 		return
 	for p in pieces:
-		_gear_flow.add_child(_gear_card(p, who))
+		_gear_flow.add_child(_gear_card(p))
 
 
-func _gear_card(piece: Dictionary, who: String) -> Control:
+## A piece card: only its icon and its name in the milestone colour, inside the border aura (worn
+## pieces on a green-edged card); everything else is in the popup a tap opens.
+func _gear_card(piece: Dictionary) -> Control:
 	var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
-	var worn_by := EquipmentModel.wearer(piece)
 	var b := Button.new()
 	b.custom_minimum_size = CARD
 	b.focus_mode = FOCUS_NONE
 	LobbyUi.style_button(b, Ui.CARD_BG, 16, 8, Color(1, 1, 1, 0.1), 2)
-	if worn_by != "":
+	if EquipmentModel.wearer(piece) != "":
 		LobbyUi.style_button(b, Color(0.1, 0.2, 0.36, 0.9), 16, 8, Color(0.35, 0.8, 0.45, 0.8), 2)
 	b.pressed.connect(func(): EquipmentUi.open_piece(overlay, piece, _who()))
-	var col := Ui.vbox(4)
+	# The milestone aura runs round the card's border, inside it (the grid scrolls).
+	b.add_child(UpgradeAura.inside(CARD, int(piece.get("upgradeLevel", 0)), 11.0, 11.0))
+	var col := Ui.vbox(6)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	col.offset_left = 12
-	col.offset_right = -12
-	col.offset_top = 12
-	col.offset_bottom = -10
+	col.offset_left = 16
+	col.offset_right = -16
+	col.offset_top = 14
+	col.offset_bottom = -16
 	col.mouse_filter = MOUSE_FILTER_IGNORE
 	b.add_child(col)
-	if bool(piece.get("isLocked", false)):
-		var lock := EquipmentUi.lock_mark(22)
-		lock.position = Vector2(CARD.x - 14 - 22, 12)
-		b.add_child(lock)
-	var icon := EquipmentUi.item_icon(item, piece, 96)
+	var icon := EquipmentUi.item_icon(item, {}, 112)
 	icon.size_flags_horizontal = SIZE_SHRINK_CENTER
 	col.add_child(icon)
-	var gap := Control.new()
-	gap.custom_minimum_size.y = 6
-	gap.mouse_filter = MOUSE_FILTER_IGNORE
-	col.add_child(gap)
-	var title := LobbyUi.text(EquipmentModel.display_name(item), 24, UpgradeModel.name_color(piece), true)
+	var title := LobbyUi.text(EquipmentModel.display_name(item), 23, UpgradeModel.name_color(piece), true)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.clip_text = true
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	title.mouse_filter = MOUSE_FILTER_IGNORE
+	LobbyUi.outline(title, 5) # readable over the aura's streaks
 	col.add_child(title)
-	var sub := LobbyUi.text("%s · %s" % [EquipmentModel.slot_name(str(item.get("slot", ""))), EquipmentModel.required_text(item)], 19, Color(0.8, 0.88, 1.0))
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.mouse_filter = MOUSE_FILTER_IGNORE
-	col.add_child(sub)
-	var note: Control
-	if worn_by != "":
-		note = EquipmentUi.tag(EquipmentModel.worn_text(piece), Color(0.2, 0.55, 0.3, 0.95))
-	else:
-		var check := EquipmentModel.can_wear(item, who, PlayerState.characters)
-		note = EquipmentUi.tag(check["reason"], Color(0.6, 0.2, 0.2, 0.9)) if not check["ok"] else Control.new()
-	note.size_flags_horizontal = SIZE_SHRINK_CENTER
-	note.mouse_filter = MOUSE_FILTER_IGNORE
-	col.add_child(note)
 	return b
 
 

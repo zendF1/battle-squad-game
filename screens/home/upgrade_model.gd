@@ -30,10 +30,12 @@ const MILESTONE_COLORS := [
 	Color(1, 1, 1),
 	Color(0.36, 0.8, 1.0), # sky blue
 	Color(1.0, 0.6, 0.16), # orange
-	Color(0.76, 0.46, 1.0), # purple
-	Color(1.0, 0.26, 0.22), # red
+	Color(0.66, 0.32, 1.0), # purple (violet, not lavender)
+	Color(1.0, 0.1, 0.1), # red (#FF1A1A, no pink)
 ]
 const MILESTONE_WORDS := ["", "xanh da trời", "cam", "tím", "đỏ"]
+## How dim the piece popup draws a milestone not reached yet.
+const UNREACHED_ALPHA := 0.4
 
 
 # ── Milestones ──────────────────────────────────────────────────────────────
@@ -97,6 +99,34 @@ static func milestone_hint(catalog: Variant, level: int) -> String:
 		return "Đạt mốc " + milestone_text(catalog, level + 1)
 	var next := next_milestone(level + 1)
 	return "Mốc tiếp theo " + milestone_text(catalog, next) if next > 0 else ""
+
+
+## The piece popup's "Mốc nâng cấp" rows for a piece at `level`, +6 / +10 / +14 / +16:
+## [{level, tier, color, bonus (fraction), bonus_text "+10% chỉ số", aura "Hào quang xanh da
+## trời", reached}]; bonuses from the catalog's upgradeMilestones (defaults before it loads).
+static func milestone_rows(catalog: Variant, level: int) -> Array:
+	var out: Array = []
+	for t in range(1, MILESTONE_FROM.size()):
+		var lv: int = MILESTONE_FROM[t]
+		var bonus := milestone_bonus(catalog, lv)
+		out.append({"level": lv, "tier": t, "color": MILESTONE_COLORS[t], "bonus": bonus,
+			"bonus_text": "+%s chỉ số" % BattleStats.format_chance(bonus * 100.0),
+			"aura": "Hào quang " + MILESTONE_WORDS[t], "reached": level >= lv})
+	return out
+
+
+## "Cấp nâng cấp +7 / 16"
+static func level_line(level: int) -> String:
+	return "Cấp nâng cấp +%d / %d" % [clampi(level, 0, MAX_LEVEL), MAX_LEVEL]
+
+
+## The share of a piece's stats the upgrade adds: "+24% từ nâng cấp" (upgrade multiplier − 1,
+## milestones included), "" at +0.
+static func upgrade_share_text(catalog: Variant, level: int) -> String:
+	if level <= 0:
+		return ""
+	var pct := (EquipmentModel.upgrade_multiplier(level, EquipmentModel.milestones(catalog)) - 1.0) * 100.0
+	return "+%s từ nâng cấp" % BattleStats.format_chance(pct)
 
 
 # ── Rates and chance ────────────────────────────────────────────────────────

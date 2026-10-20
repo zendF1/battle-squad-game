@@ -2,8 +2,9 @@ extends Control
 ## "Nhân vật" (lobby "Nhân vật" and the avatar): the character's gear and stats, laid out like
 ## equipment_sc.png.
 ## - Left: six hexagon slots in a honeycomb (Mũ, Áo, Găng tay, Quần, Giày, Vũ khí): the worn
-##   piece's icon with its "+N", or the slot's silhouette; a tap filters the right panel to that
-##   slot (again: all slots). Under them, what the gear adds to the battle stats.
+##   piece's icon with its milestone aura and tinted frame (no "+N"), or the slot's silhouette.
+##   A tap on a worn piece filters the right panel to its slot and opens its popup; on an empty
+##   slot it filters (again: all slots). Under them, what the gear adds to the battle stats.
 ## - Centre: the character on the pedestal with its name and level, ◀ ▶ / swipe cycle the four
 ##   characters and change the lobby's choice too (`selected`).
 ## - Right: tabs "Trang bị" (the owned pieces of the tapped slot, or all: worn ones first, each
@@ -64,8 +65,7 @@ var _slot_buttons := {} # slot -> Button
 var _slot_frames := {} # slot -> TextureRect
 var _slot_icons := {} # slot -> TextureRect
 var _slot_names := {} # slot -> Label
-var _slot_badges := {} # slot -> PanelContainer
-var _slot_auras := {} # slot -> UpgradeAura behind the worn piece's icon
+var _slot_auras := {} # slot -> UpgradeAura on the hexagon of the worn piece
 var _bonus: Label
 var _art: CharacterView
 var _gun_stand: PedestalGun
@@ -169,7 +169,7 @@ func _build_slots() -> void:
 		frame.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		b.add_child(frame)
 		var aura := UpgradeAura.new()
-		aura.center_on(Rect2((HEX.x - 80) / 2, 20, 80, 80))
+		aura.fit_frame(Rect2(Vector2.ZERO, HEX)) # on the hexagon's edge
 		b.add_child(aura)
 		_slot_auras[slot] = aura
 		var icon := LobbyUi.icon(Art.equipment_slot_icon(slot), 70)
@@ -182,21 +182,10 @@ func _build_slots() -> void:
 		name_label.size = Vector2(HEX.x, 24)
 		name_label.mouse_filter = MOUSE_FILTER_IGNORE
 		b.add_child(name_label)
-		var badge := EquipmentUi.badge("+0", 16)
-		badge.anchor_left = 0.5
-		badge.anchor_right = 0.5
-		badge.anchor_top = 1.0
-		badge.anchor_bottom = 1.0
-		badge.grow_horizontal = GROW_DIRECTION_BOTH
-		badge.grow_vertical = GROW_DIRECTION_BEGIN
-		badge.offset_top = -18
-		badge.offset_bottom = -18
-		b.add_child(badge)
 		_slot_buttons[slot] = b
 		_slot_frames[slot] = frame
 		_slot_icons[slot] = icon
 		_slot_names[slot] = name_label
-		_slot_badges[slot] = badge
 	_bonus = LobbyUi.text("", 19, Color(0.75, 0.9, 1.0))
 	_bonus.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_bonus.anchor_top = 0.5
@@ -208,8 +197,19 @@ func _build_slots() -> void:
 	add_child(_bonus)
 
 
+## A worn piece: the list shows its slot and its popup opens; an empty slot toggles the filter.
 func _on_slot(slot: String) -> void:
-	_slot = "" if _slot == slot else slot
+	var piece: Dictionary = EquipmentModel.worn(PlayerState.equipment, _character).get(slot, {})
+	if piece.is_empty():
+		_filter("" if _slot == slot else slot)
+		return
+	_filter(slot)
+	EquipmentUi.open_piece(overlay, piece, _character)
+
+
+## The right panel's slot filter ("" = all slots), on the Trang bị tab.
+func _filter(slot: String) -> void:
+	_slot = slot
 	_show_sub(GEAR)
 	_render()
 
@@ -231,13 +231,11 @@ func _render_slots() -> void:
 			icon.modulate = Color.WHITE
 			icon.position = Vector2((HEX.x - 80) / 2, 20)
 			icon.size = Vector2(80, 80)
-			_slot_badges[slot].get_child(0).text = EquipmentModel.level_text(piece)
 		else:
 			icon.texture = Art.equipment_slot_icon(slot)
 			icon.modulate = Color(0.75, 0.85, 1.0, 0.3)
 			icon.position = Vector2((HEX.x - 56) / 2, 26)
 			icon.size = Vector2(56, 56)
-		_slot_badges[slot].visible = filled
 		_slot_names[slot].visible = not filled
 	var entry = EquipmentModel.character_entry(PlayerState.characters, _character)
 	var lines := EquipmentModel.bonus_lines(BattleStats.of(entry)) if entry != null else []
@@ -327,8 +325,7 @@ func _render_stage() -> void:
 	_stage_name.text = info["name"]
 	_stage_level.text = LobbyModel.level_text(info)
 	var g := EquipmentModel.worn_gun(PlayerState.equipment, PlayerState.catalog, _character)
-	var label := EquipmentModel.worn_gun_label(PlayerState.equipment, PlayerState.catalog, _character)
-	_gun_stand.set_gun(g["kind"], g["tier"], label["name"], label["level"])
+	_gun_stand.set_gun(g["kind"], g["tier"])
 	_gun_stand.modulate = _art.modulate
 	_gun_stand.visible = not _art.holds_gun()
 
@@ -369,7 +366,7 @@ func _build_right() -> void:
 	_list_all = Ui.button("Tất cả", 20)
 	_list_all.custom_minimum_size = Vector2(120, 46)
 	_list_all.focus_mode = FOCUS_NONE
-	_list_all.pressed.connect(func(): _on_slot(_slot))
+	_list_all.pressed.connect(func(): _filter(""))
 	head.add_child(_list_all)
 	_list_status = LoadStatus.new()
 	gear.add_child(_list_status)

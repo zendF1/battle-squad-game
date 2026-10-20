@@ -3,36 +3,25 @@ extends Control
 ## on the pedestal beside the character (the lobby, and the Nhân vật page and Prep while the
 ## character is its full-body picture, which holds no gun), leaning with the muzzle up-left, floating a little over
 ## its shadow with a soft glow in its tier's colour (stronger and twinkling for the high tiers,
-## match/views/shot_look.gd TIERS), its name and "+N" under it. The lobby calls set_gun() on
-## equip / unequip and when the character changes.
+## match/views/shot_look.gd TIERS); no name under it (players know their gun). The lobby calls
+## set_gun() on equip / unequip and when the character changes.
 ## The gun is ui/art.gd gun(): the held sprite, or the hug art for a kind without held sprites
 ## (Rookie's bazooka, Tanko's cannon, Flora's seed launcher, Spark's shock rifle: hug_<tier>.png), leaned and fitted the same way.
-## The rect: the gun fitted into the top BOX (its foot on the bottom edge), the name line LABEL_GAP
-## px under it, centred (it may be wider than the rect).
+## The rect: the gun fitted into the top BOX (its foot on the bottom edge).
 
 const Art := preload("res://ui/art.gd")
-const LobbyUi := preload("res://ui/lobby_ui.gd")
 const ShotLook := preload("res://match/views/shot_look.gd")
 
 const GUN_SCALE := 0.9 # gun image px → px here (1.44 px per art unit), less when it does not fit BOX
 const BOX := Vector2(125, 112) # the leaning gun stays inside this
 const TILT := 0.6 # radians, the gun mirrored (muzzle left): lying diagonally, the muzzle up-left
-const LABEL_GAP := 12.0
 const FLOAT := 3.0 # px up and down
 const SPARKLES := 3 # twinkles around a high-tier gun (rank >= 3)
 ## Its rect on the 560x590 stage of the lobby and the Nhân vật page (character feet at (280,
 ## 522), the pedestal's centre at y 528): left of the legs, its foot on the pedestal's top face
-## (y 545), the muzzle up-left under the arms, clear of the ◀ arrow; the label on the pedestal's
-## front rim. FEET: the character's feet there (to place it on a smaller stage, scaled).
+## (y 545), the muzzle up-left under the arms, clear of the ◀ arrow. FEET: the character's feet there (to place it on a smaller stage, scaled).
 const STAGE_RECT := Rect2(62, 433, 125, 150)
 const FEET := Vector2(280, 522)
-
-## The name and "+N" line under the gun (off on Prep's small stage: its gear row names the weapon).
-var show_label := true:
-	set(value):
-		show_label = value
-		if _name != null:
-			_name.get_parent().visible = value
 
 static var _used := {} # texture -> the drawn part of the image (Rect2)
 
@@ -40,42 +29,21 @@ var _gun := {} # Art.gun()
 var _glow_color := Color.WHITE
 var _glow := 0.0 # 0..1
 var _rank := 0
-var _name: Label
-var _level: Label
 var _t := 0.0
 
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_IGNORE
 	texture_filter = TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 8)
-	row.mouse_filter = MOUSE_FILTER_IGNORE
-	row.anchor_left = 0.5
-	row.anchor_right = 0.5
-	row.offset_left = -150
-	row.offset_right = 150
-	row.offset_top = BOX.y + LABEL_GAP
-	add_child(row)
-	_name = LobbyUi.text("", 19, Color.WHITE, true)
-	row.add_child(_name)
-	_level = LobbyUi.text("", 18, LobbyUi.GOLD, true)
-	row.add_child(_level)
-	row.visible = show_label
 
 
-## Shows the gun kind × tier (ui/art.gd gun(), with its fallbacks), named `title`, "+N" level
-## ("" hides it).
-func set_gun(kind: String, tier: String, title: String, level: String) -> void:
+## Shows the gun kind × tier (ui/art.gd gun(), with its fallbacks).
+func set_gun(kind: String, tier: String) -> void:
 	_gun = Art.gun(kind, tier)
 	var t: Dictionary = ShotLook.TIERS[ShotLook.known_tier(tier)]
 	_glow_color = ShotLook.accent(kind, tier)
 	_glow = 0.3 + 0.7 * float(t["glow"])
 	_rank = int(t["rank"])
-	_name.text = title
-	_level.text = level
-	_level.visible = level != ""
 	queue_redraw()
 
 

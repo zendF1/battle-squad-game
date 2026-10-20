@@ -7,7 +7,7 @@ extends Control
 ## the left, a placeholder chat box bottom-left and the mode card with "BẮT ĐẦU" bottom-right.
 ## Centre stage: the selected character's name and level over it, drawn big on a pedestal with
 ## its hands free; the gun it wears (its basic gun when none) rests on the pedestal at its left
-## with its name and "+N" under it (pedestal_gun.gd), updated on equip / unequip. ◀ ▶ or a swipe cycles
+## (pedestal_gun.gd, no name under it), updated on equip / unequip. ◀ ▶ or a swipe cycles
 ## the four characters. The character is the Loadout's (saved
 ## in the same settings file, so the Loadout opens with it) and the mode is remembered there
 ## too. "BẮT ĐẦU" puts the mode's QuickPlay base in Router.quick_play_base and opens the
@@ -428,8 +428,7 @@ func _render_gun() -> void:
 		return
 	var id := _model.character_id
 	var g := EquipmentModel.worn_gun(PlayerState.equipment, PlayerState.catalog, id)
-	var label := EquipmentModel.worn_gun_label(PlayerState.equipment, PlayerState.catalog, id)
-	_gun_stand.set_gun(g["kind"], g["tier"], label["name"], label["level"])
+	_gun_stand.set_gun(g["kind"], g["tier"])
 
 
 # ── Mode and start ──────────────────────────────────────────────────────────

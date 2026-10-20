@@ -69,6 +69,35 @@ func test_milestone_texts() -> void:
 	eq(U.milestone_text(custom, 6), "+6: +15% chỉ số, hào quang xanh da trời", "configured bonus")
 
 
+func test_milestone_rows() -> void:
+	var c := catalog()
+	var rows := U.milestone_rows(c, 3)
+	eq(rows.map(func(r): return r["level"]), [6, 10, 14, 16], "the four milestones")
+	eq(rows.map(func(r): return r["reached"]), [false, false, false, false], "none reached at +3")
+	eq(rows.map(func(r): return r["bonus_text"]), ["+10% chỉ số", "+20% chỉ số", "+40% chỉ số", "+100% chỉ số"], "bonuses")
+	eq(rows.map(func(r): return r["aura"]), ["Hào quang xanh da trời", "Hào quang cam", "Hào quang tím", "Hào quang đỏ"], "aura names")
+	eq(rows.map(func(r): return r["color"]), [U.milestone_color(6), U.milestone_color(10), U.milestone_color(14), U.milestone_color(16)], "colours")
+	eq(U.milestone_rows(c, 10).map(func(r): return r["reached"]), [true, true, false, false], "+10 reaches +6 and +10")
+	eq(U.milestone_rows(c, 13).map(func(r): return r["reached"]), [true, true, false, false], "+13")
+	eq(U.milestone_rows(c, 16).map(func(r): return r["reached"]), [true, true, true, true], "+16 reaches all")
+	var custom := catalog({"upgradeMilestones": [{"level": 6, "bonus": 0.15}, {"level": 10, "bonus": 0.25}, {"level": 14, "bonus": 0.5}, {"level": 16, "bonus": 1.2}]})
+	eq(U.milestone_rows(custom, 0).map(func(r): return r["bonus_text"]), ["+15% chỉ số", "+25% chỉ số", "+50% chỉ số", "+120% chỉ số"], "the catalog's bonuses")
+	eq(U.milestone_rows(null, 6)[0]["bonus_text"], "+10% chỉ số", "defaults before the catalog loads")
+	check(U.UNREACHED_ALPHA > 0.3 and U.UNREACHED_ALPHA < 0.5, "unreached rows dimmed to ~0.4")
+
+
+func test_popup_level_texts() -> void:
+	eq(U.level_line(3), "Cấp nâng cấp +3 / 16", "+3")
+	eq(U.level_line(0), "Cấp nâng cấp +0 / 16", "new piece")
+	eq(U.level_line(16), "Cấp nâng cấp +16 / 16", "max")
+	eq(U.level_line(20), "Cấp nâng cấp +16 / 16", "clamped")
+	var c := catalog()
+	eq(U.upgrade_share_text(c, 0), "", "nothing from +0")
+	eq(U.upgrade_share_text(c, 3), "+6% từ nâng cấp", "+3: 3 × 2%")
+	eq(U.upgrade_share_text(c, 10), "+50% từ nâng cấp", "+10: 20% + milestones 10% + 20%")
+	eq(U.upgrade_share_text(c, 16), "+202% từ nâng cấp", "+16: 32% + 170%")
+
+
 func test_percent_and_cap() -> void:
 	# internal/api/equipment/logic_test.go TestCalculateUpgradePercent cases.
 	near(U.percent(1, 1, 80), 80.0, 1e-9, "1 power at cost 1 caps at 80")

@@ -332,7 +332,10 @@ func _render_list() -> void:
 
 
 ## Scrolls the piece list so `row` shows (after a selection from outside the list).
-func _ensure_visible(row: Control) -> void:
+## Untyped: the row may be freed (the list re-rendered) before the deferred call lands.
+func _ensure_visible(row: Variant) -> void:
+	if not is_instance_valid(row):
+		return
 	for i in 2:
 		await get_tree().process_frame # the list's layout first
 	if is_instance_valid(row) and row.is_inside_tree():
@@ -441,7 +444,8 @@ func _render_center() -> void:
 	var level := int(piece.get("upgradeLevel", 0))
 	var maxed := level >= UpgradeModel.MAX_LEVEL
 	_frame.self_modulate = UpgradeModel.frame_tint(level)
-	var icon := EquipmentUi.item_icon(item, {"upgradeLevel": level}, BIG_ICON)
+	_frame.add_child(UpgradeAura.around_frame(FRAME, level)) # on the hexagon's edge
+	var icon := EquipmentUi.item_icon(item, {}, BIG_ICON)
 	icon.position = (FRAME - Vector2(BIG_ICON, BIG_ICON)) / 2.0 - Vector2(0, 6)
 	_frame.add_child(icon)
 
@@ -495,11 +499,11 @@ func _render_center() -> void:
 		hint_row.add_theme_constant_override("separation", 10)
 		_center.add_child(hint_row)
 		var dot := Control.new()
-		dot.custom_minimum_size = Vector2(52, 52)
+		dot.custom_minimum_size = Vector2(48, 52)
 		dot.mouse_filter = MOUSE_FILTER_IGNORE
-		var aura := UpgradeAura.around(40, target)
-		aura.position += Vector2(6, 6)
-		dot.add_child(aura)
+		var hex := EquipmentUi.hex_frame(Vector2(36, 42), target)
+		hex.position = Vector2(6, 5)
+		dot.add_child(hex)
 		hint_row.add_child(dot)
 		var hl := LobbyUi.text(hint_text, 20, UpgradeModel.milestone_color(target), true)
 		hint_row.add_child(hl)

@@ -45,7 +45,7 @@ var _char_skill: Label
 var _char_stats: GridContainer
 var _gear_frames := {} # slot -> TextureRect (the small hexagon)
 var _gear_icons := {} # slot -> TextureRect
-var _gear_auras := {} # slot -> UpgradeAura behind the icon
+var _gear_auras := {} # slot -> UpgradeAura on the hexagon
 
 var _slot_buttons: Array[Button] = []
 var _slot_icons: Array[TextureRect] = []
@@ -164,7 +164,6 @@ func _build_character_panel() -> Control:
 	stage.add_child(_art)
 	_gun_stand = PedestalGun.new() # beside the full-body picture (it holds no gun), as on the lobby
 	_gun_stand.scale = Vector2.ONE * GUN_STAND_SCALE
-	_gun_stand.show_label = false
 	_gun_stand.size = PedestalGun.STAGE_RECT.size
 	stage.add_child(_gun_stand)
 	stage.resized.connect(_place_gun_stand.bind(stage))
@@ -211,7 +210,7 @@ func _build_gear_row() -> Control:
 		frame.tooltip_text = EquipmentModel.slot_name(slot)
 		row.add_child(frame)
 		var aura := UpgradeAura.new()
-		aura.center_on(Rect2(9, 13, 34, 34))
+		aura.fit_frame(Rect2(0, 0, 52, 60)) # on the hexagon's edge
 		frame.add_child(aura)
 		_gear_auras[slot] = aura
 		var icon := LobbyUi.icon(Art.equipment_slot_icon(slot), 34)
@@ -242,10 +241,9 @@ func _render_gear() -> void:
 			_gear_frames[slot].texture = Art.equipment_frame("hex_filled")
 			icon.texture = Art.equipment_icon(slot, EquipmentModel.tier(item), EquipmentModel.weapon_kind(item))
 			icon.modulate = Color.WHITE
-			# "Bazooka Sắt +3" over "Sát thương +8 điểm (+40)" (points only until the characters load).
-			var tip := "%s %s" % [EquipmentModel.display_name(item), EquipmentModel.level_text(piece)]
-			var stats := EquipmentModel.stat_summary(EquipmentModel.piece_item(PlayerState.catalog, piece), BattleStats.multipliers(PlayerState.characters))
-			_gear_frames[slot].tooltip_text = tip + ("\n" + stats if stats != "" else "")
+			# "Bazooka Sắt" over "Sát thương +8 điểm (+40)" (points only until the characters load);
+			# the aura and frame tint show the level.
+			_gear_frames[slot].tooltip_text = EquipmentModel.piece_tooltip(PlayerState.catalog, piece, BattleStats.multipliers(PlayerState.characters))
 
 
 static func _centered(parent: Control, font_size: int, color: Color, heavy: bool = false) -> Label:
@@ -272,8 +270,7 @@ func _render_gun() -> void:
 		return
 	var id := _model.character_id
 	var g := EquipmentModel.worn_gun(PlayerState.equipment, PlayerState.catalog, id)
-	var label := EquipmentModel.worn_gun_label(PlayerState.equipment, PlayerState.catalog, id)
-	_gun_stand.set_gun(g["kind"], g["tier"], label["name"], label["level"])
+	_gun_stand.set_gun(g["kind"], g["tier"])
 	_gun_stand.modulate = _art.modulate
 	_gun_stand.visible = not _art.holds_gun()
 

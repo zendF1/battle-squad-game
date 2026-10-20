@@ -49,7 +49,6 @@ const KIND_OF_TYPE := {"bazooka": "bazooka", "cannon": "cannon", "shock rifle": 
 const GUN_OF_KIND := {"bazooka": "bazooka", "cannon": "cannon", "rifle": "shock_rifle", "launcher": "seed_launcher", "": "blaster"}
 ## A gun kind's name (ui/art.gd GUN_KINDS), for the basic gun of a character with no weapon.
 const GUN_NAMES := {"bazooka": "Bazooka", "cannon": "Đại pháo", "shock_rifle": "Súng điện", "seed_launcher": "Súng hạt", "blaster": "Súng"}
-const BASIC_WORD := "cơ bản"
 ## key: the catalog field; point: the statMultipliers / stats.equipmentPoints key ("" for crit);
 ## unit "%" for the crit chance; total: the stats.fromEquipment field.
 const STATS := [
@@ -265,19 +264,23 @@ static func worn_gun(owned: Variant, catalog: Variant, character_id: String) -> 
 	return gun(str(piece.get("itemId", "")), item_of(catalog, str(piece.get("itemId", ""))), character_id)
 
 
-## The name and "+N" of the gun character_id holds outside a match ({name, level}): the worn
-## weapon's display_name() and level_text(), or its basic gun ("Bazooka cơ bản", level "").
-static func worn_gun_label(owned: Variant, catalog: Variant, character_id: String) -> Dictionary:
-	var piece: Dictionary = worn(owned, character_id).get("weapon", {})
-	if piece.is_empty():
-		var kind := str(gun("", {}, character_id)["kind"])
-		return {"name": "%s %s" % [GUN_NAMES.get(kind, GUN_NAMES["blaster"]), BASIC_WORD], "level": ""}
-	return {"name": display_name(item_of_piece(catalog, piece)), "level": level_text(piece)}
-
-
-## "+3" (the upgrade badge; "+0" for a new piece).
+## "+3" ("+0" for a new piece). Shown only in the piece popup and on the Nâng cấp page; elsewhere
+## the milestone aura and name colour are the level cue.
 static func level_text(piece: Dictionary) -> String:
 	return "+%d" % maxi(int(piece.get("upgradeLevel", 0)), 0)
+
+
+## "Thường" / "Chế tạo"
+static func category_name(item: Dictionary) -> String:
+	return "Chế tạo" if str(item.get("category", "")) == "crafted" else "Thường"
+
+
+## The Prep gear row tooltip of a worn piece: its name (no "+N") over its upgraded stat summary
+## ("Bazooka Sắt\nSát thương +8 điểm (+40)"; points only without `mult`).
+static func piece_tooltip(catalog: Variant, piece: Dictionary, mult: Dictionary = {}) -> String:
+	var tip := display_name(item_of_piece(catalog, piece))
+	var stats := stat_summary(piece_item(catalog, piece), mult)
+	return tip + ("\n" + stats if stats != "" else "")
 
 
 # ── Stats ───────────────────────────────────────────────────────────────────

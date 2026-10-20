@@ -266,12 +266,7 @@ func test_worn_gun() -> void:
 	eq(M.worn_gun(owned, null, "tanko"), {"kind": "blaster", "tier": "gold"}, "moved to tanko")
 
 
-func test_worn_gun_label_and_player_gun() -> void:
-	var catalog := {"items": {"rookie_weapon_lv40": {"itemId": "rookie_weapon_lv40", "slot": "weapon", "name": "Dragon Bazooka", "characterId": "rookie"}}}
-	var owned := [{"equipmentId": "a", "itemId": "rookie_weapon_lv40", "slot": "weapon", "isEquipped": true, "equippedOn": "rookie", "upgradeLevel": 7}]
-	eq(M.worn_gun_label(owned, catalog, "rookie"), {"name": "Bazooka Rồng", "level": "+7"}, "worn weapon: name and +N")
-	eq(M.worn_gun_label(owned, catalog, "tanko"), {"name": "Đại pháo cơ bản", "level": ""}, "no weapon: the basic gun")
-	eq(M.worn_gun_label(null, null, "spark"), {"name": "Súng điện cơ bản", "level": ""}, "pieces not loaded")
+func test_gun_names_and_player_gun() -> void:
 	for kind in preload("res://ui/art.gd").GUN_KINDS:
 		check(M.GUN_NAMES.has(kind), "gun %s has a name" % kind)
 	eq(M.player_gun({"characterId": "flora", "weaponItemId": "crafted_weapon_titan"}), {"kind": "blaster", "tier": "titan"}, "match player's weapon")
@@ -307,3 +302,15 @@ func test_sell_price() -> void:
 	eq(M.sell_price({"priceCoin": 1000}, null), {"currency": "coin", "amount": 250}, "no catalog: the default rate")
 	eq(M.amount_text({"currency": "coin", "amount": 2500}), "2.500 xu", "coin text")
 	eq(M.amount_text({"currency": "gem", "amount": 7}), "7 kim cương", "gem text")
+
+
+func test_labels_have_no_level() -> void:
+	var catalog := {"items": {"normal_armor_lv10": {"itemId": "normal_armor_lv10", "slot": "armor", "name": "Iron Vest", "statHp": 100.0}}}
+	var piece := {"equipmentId": "a", "itemId": "normal_armor_lv10", "slot": "armor", "upgradeLevel": 10}
+	var tip := M.piece_tooltip(catalog, piece)
+	eq(tip.get_slice("\n", 0), "Áo giáp Sắt", "Prep tooltip: the name, no +N")
+	check(not tip.contains("+10"), "no +N in the tooltip")
+	check(tip.get_slice("\n", 1).begins_with("Máu +150 điểm"), "upgraded stats under it")
+	eq(M.category_name({"category": "crafted"}), "Chế tạo", "crafted")
+	eq(M.category_name({"category": "normal"}), "Thường", "normal")
+	eq(M.category_name({}), "Thường", "no category")
