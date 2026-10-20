@@ -307,3 +307,111 @@ func test_preview_columns() -> void:
 		check(p["columns"].all(func(col): return col.keys() == ["level", "color"]), "columns: hexagon level and colour only")
 		var texts: Array = [p["fail"], p["note"]]
 		check(not texts.any(func(t): return t.contains("Mốc") or t.contains("Đạt mốc") or t.contains("hào quang")), "no milestone text")
+
+
+## The server's careful prices and bonuses (migration 025), per fromLevel.
+const CAREFUL_GEM := [2, 2, 3, 5, 5, 10, 10, 10, 15, 20, 30, 60, 80, 120, 180, 250]
+const CAREFUL_BONUS := [30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 40, 40, 40, 40, 50, 50]
+
+
+## A catalog as the server sends it with migration 025 (careful per row, the weapon multiplier).
+static func careful_catalog(mult: Variant = 3) -> Dictionary:
+	var c := catalog()
+	for r in c["upgradeRates"]:
+		r["carefulGemCost"] = CAREFUL_GEM[int(r["fromLevel"])]
+		r["carefulBonusPercent"] = float(CAREFUL_BONUS[int(r["fromLevel"])])
+	if mult != null:
+		c["weaponUpgradeCostMultiplier"] = float(mult)
+	return c
+
+
+## Parity with internal/api/equipment/logic_test.go TestCalculateFinalUpgradePercent.
+func test_careful_percent_matches_the_server() -> void:
+	eq(U.careful_percent(20.0, 40.0), 28.0, "+13→+14: 20% × 1.4")
+	eq(U.careful_percent(40.0, 30.0), 52.0, "+9→+10: 40% × 1.3")
+	eq(U.careful_percent(10.0, 50.0), 15.0, "+15→+16: 10% × 1.5")
+	eq(U.careful_percent(10.0, 40.0), 14.0, "below the cap: 10% × 1.4")
+	eq(U.careful_percent(100.0 / 3.0, 30.0), 43.33, "rounded to 2 decimals")
+	eq(U.careful_percent(80.0, 30.0), 100.0, "capped at 100")
+	eq(U.careful_percent(13.5, 30.0), 17.55, "weapon ×3 careful")
+	eq(U.careful_percent(56.0, 30.0), 72.8, "+6→+7 capped stones × 1.3")
+	eq(U.careful_percent(10.0, 0.0), 10.0, "no bonus")
+	eq(U.factor_text(40.0), "×1.4", "factor")
+	eq(U.factor_text(50.0), "×1.5", "factor 1.5")
+	eq(U.factor_text(25.0), "×1.25", "two decimals")
+	eq(U.factor_text(100.0), "×2", "whole factor")
+
+
+func test_careful_step_and_fallback() -> void:
+	var c := careful_catalog()
+	var old := catalog() # an older server: no careful fields, no weapon multiplier
+	for lv in 16:
+		var cf := U.careful(c, lv)
+		eq([cf["gem"], cf["bonus"], cf["offered"]], [CAREFUL_GEM[lv], float(CAREFUL_BONUS[lv]), true], "+%d step" % lv)
+		var fb := U.careful(old, lv)
+		eq([fb["gem"], fb["bonus"], fb["offered"]], [CAREFUL_GEM[lv], float(CAREFUL_BONUS[lv]), true], "+%d fallback" % lv)
+	eq(U.careful(c, 16)["offered"], false, "nothing at +16")
+	eq(U.careful(null, 3)["offered"], false, "no catalog, no rate")
+	c["upgradeRates"][13]["carefulGemCost"] = 0
+	eq(U.careful(c, 13)["offered"], false, "price 0: not offered")
+	c["upgradeRates"][12]["carefulBonusPercent"] = 0
+	eq(U.careful(c, 12)["offered"], false, "bonus 0: not offered")
+	eq(U.weapon_cost_multiplier(careful_catalog()), 3.0, "catalog multiplier")
+	eq(U.weapon_cost_multiplier(careful_catalog(2)), 2.0, "configured")
+	eq(U.weapon_cost_multiplier(old), 3.0, "fallback 3")
+	eq(U.weapon_cost_multiplier(careful_catalog(0.5)), 3.0, "below 1 falls back")
+	eq(M.parse_catalog({"items": [], "weaponUpgradeCostMultiplier": 2})["weaponUpgradeCostMultiplier"], 2.0, "parsed")
+	eq(U.cost_multiplier(c, "weapon"), 3.0, "weapon ×3")
+	eq(U.cost_multiplier(c, "armor"), 1.0, "armor ×1")
+	eq(U.piece_slot(c, {"slot": "weapon"}), "weapon", "the piece's slot")
+	eq(U.piece_slot(c, {"itemId": "normal_armor_lv10"}), "armor", "the item's slot")
+
+
+func test_careful_chance() -> void:
+	var c := careful_catalog()
+	# +13→+14 with 2 × level 9 (13122): 26.2% capped at 20%
+	var off := U.chance(c, 13, {9: 2}, "armor")
+	eq([off["percent"], off["stone"], off["careful"], off["gem"]], [20.0, 20.0, false, 0], "careful off")
+	eq(U.chance_text(off), "Tỉ lệ thành công 20% (tối đa 20%)", "off line")
+	var on := U.chance(c, 13, {9: 2}, "armor", true)
+	eq([on["percent"], on["stone"], on["careful"], on["gem"], on["bonus"]], [28.0, 20.0, true, 120, 40.0], "careful on")
+	check(on["wasted"], "the stones still go above the cap")
+	eq(U.chance_text(on), "Tỉ lệ thành công 28% (20% ×1.4)", "on line")
+	eq(U.careful_label(on["bonus"]), "Nâng cấp cẩn thận +40%", "toggle title")
+	eq(U.careful_confirm_text(on), "Dùng 120 kim cương cho Nâng cấp cẩn thận?\nTỉ lệ thành công 20% → 28%.\nKim cương bị trừ dù thành công hay thất bại.", "confirmation")
+	eq(U.chance(c, 15, {11: 1}, "armor", true)["percent"], 15.0, "+15→+16: 10% → 15%")
+	eq(U.chance(c, 9, {9: 1}, "armor", true)["percent"], 52.0, "+9→+10: 40% → 52%")
+	c["upgradeRates"][13]["carefulGemCost"] = 0
+	var none := U.chance(c, 13, {9: 2}, "armor", true)
+	eq([none["percent"], none["careful"], none["gem"]], [20.0, false, 0], "on but not offered: plain")
+
+
+## Parity with internal/api/equipment/careful_integration_test.go TestWeaponUpgradeCostsTripleStonePower.
+func test_weapon_costs_triple() -> void:
+	var c := careful_catalog()
+	near(U.chance(c, 8, {6: 2}, "armor")["percent"], 40.5, 1e-9, "armor: 486 × 100 / 1200")
+	near(U.chance(c, 8, {6: 2}, "weapon")["percent"], 13.5, 1e-9, "weapon: 486 × 100 / 3600")
+	eq(U.chance(c, 8, {6: 2}, "weapon")["cost"], 3600.0, "effective cost")
+	eq(U.chance(c, 6, {6: 2}, "weapon", true)["percent"], 72.8, "weapon careful: 90 → max 56 × 1.3")
+	eq(U.chance(c, 6, {6: 2}, "weapon", true)["gem"], 10, "the careful price is not multiplied")
+	near(U.chance(careful_catalog(2), 8, {6: 2}, "weapon")["percent"], 20.25, 1e-9, "multiplier 2")
+	check(not U.chance(c, 8, {7: 1}, "weapon")["wasted"], "729 is no waste for a weapon (20.25% < 45%)")
+	check(U.chance(c, 8, {7: 1}, "armor")["wasted"], "but is for armor")
+	# Tự chọn: a weapon at +8 needs 3600 × 45% = 1620 power
+	eq(U.needed_power(3600.0, 45), 1620, "weapon +8 need")
+	var pick := U.auto_pick(c, 8, {7: 3, 6: 2}, "weapon")
+	check(U.total_power(c, pick) >= 1620, "reaches the weapon cap")
+	eq(U.chance(c, 8, pick, "weapon")["percent"], 45.0, "at the cap")
+	eq(U.auto_pick(c, 8, {7: 3, 6: 2}, "armor"), {7: 1}, "armor needs one level-7 stone")
+
+
+func test_careful_blocked_reason() -> void:
+	var c := careful_catalog()
+	var piece := {"equipmentId": "e1", "itemId": "normal_armor_lv10", "upgradeLevel": 13}
+	eq(U.blocked_reason(c, piece, {9: 2}, {9: 2}, true, 119), "Thiếu kim cương cho Nâng cấp cẩn thận (cần 120)", "short of gems")
+	eq(U.blocked_reason(c, piece, {9: 2}, {9: 2}, true, 120), "", "exactly enough")
+	eq(U.blocked_reason(c, piece, {9: 2}, {9: 2}, false, 0), "", "careful off: gems do not matter")
+	eq(U.blocked_reason(c, piece, {9: 2}, {9: 2}, true, -1), "", "unknown balance: the server checks")
+	eq(U.blocked_reason(c, piece, {}, {9: 2}, true, 0), "Chưa chọn đá", "stones first")
+	eq(ErrorText.upgrade({"status": 400, "code": "EQUIP_CAREFUL_UNAVAILABLE"}), "Cấp này không có Nâng cấp cẩn thận", "unavailable")
+	eq(ErrorText.upgrade({"status": 400, "code": "SHOP_INSUFFICIENT_BALANCE"}), "Không đủ kim cương cho Nâng cấp cẩn thận", "no gems")

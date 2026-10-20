@@ -101,6 +101,8 @@ static func parse_catalog(data: Variant) -> Variant:
 	if data.get("mergeRatePerItem") is int or data.get("mergeRatePerItem") is float:
 		out["mergeRatePerItem"] = float(data["mergeRatePerItem"])
 	out["upgradeMilestones"] = parse_milestones(data.get("upgradeMilestones"))
+	if data.get("weaponUpgradeCostMultiplier") is int or data.get("weaponUpgradeCostMultiplier") is float:
+		out["weaponUpgradeCostMultiplier"] = float(data["weaponUpgradeCostMultiplier"])
 	return out
 
 

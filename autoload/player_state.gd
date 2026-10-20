@@ -476,20 +476,35 @@ func stones_ready() -> bool:
 	return stones != null and not stones_stale and not _stones_gate.running and stone_busy == ""
 
 
-## POST /player/equipment/upgrade {equipmentId, stones: [{stoneLevel, quantity}]} → {success,
-## newLevel, percent}. Every stone sent is consumed, whatever the roll. One stone action at a
-## time ({ok: false, code: "BUSY"}), and an equipment action (equip_busy): the pieces, the
-## characters and the stones reload afterwards whatever the answer.
-func upgrade(equipment_id: String, stone_list: Array) -> Dictionary:
+## POST /player/equipment/upgrade {equipmentId, stones: [{stoneLevel, quantity}], careful?,
+## expectedLevel?} → {success, newLevel, percent, careful, gemSpent, gemBalance?}. Every stone sent
+## is consumed, whatever the roll; careful also spends the step's gems (the wallet takes
+## gemBalance at once, then refreshes). expected_level (>= 0): the level shown, so a retry of an
+## attempt that already rolled is refused (EQUIP_MODIFIED) instead of rolling the next step. One
+## stone action at a time ({ok: false, code: "BUSY"}), and an equipment action (equip_busy): the
+## pieces, the characters and the stones reload afterwards whatever the answer.
+func upgrade(equipment_id: String, stone_list: Array, careful: bool = false, expected_level: int = -1) -> Dictionary:
 	if stone_busy != "":
 		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null}
 	if equipment_id == "" or equip_busy != "":
 		return await _equip_steps(equipment_id, []) # NO_EQUIPMENT / BUSY, nothing sent
 	stone_busy = "upgrade"
 	stones_changed.emit()
-	var res := await _equip_steps(equipment_id, [["/player/equipment/upgrade", {"equipmentId": equipment_id, "stones": stone_list}, []]])
+	var body := {"equipmentId": equipment_id, "stones": stone_list}
+	if careful:
+		body["careful"] = true
+	if expected_level >= 0:
+		body["expectedLevel"] = expected_level
+	var res := await _equip_steps(equipment_id, [["/player/equipment/upgrade", body, []]])
 	stone_busy = ""
 	stones_dirty()
+	if careful:
+		var data: Dictionary = res.data if res.ok and res.data is Dictionary else {}
+		var balance = data.get("gemBalance")
+		if not profile.is_empty() and (balance is int or balance is float):
+			profile["gem"] = int(balance)
+			changed.emit()
+		refresh() # the wallet's truth, also after a refusal or no answer
 	return res
 
 

@@ -162,6 +162,47 @@ func test_upgrade_sends_the_stones_and_reloads() -> void:
 	s.free()
 
 
+func test_careful_upgrade_sends_the_flag_and_takes_the_gems() -> void:
+	var api := FakeApi.new()
+	api.answers["/player/equipment/upgrade"] = FakeApi._ok({"success": false, "newLevel": 10, "percent": 28.0, "equipmentId": "e1",
+		"careful": true, "gemSpent": 120, "gemBalance": 3})
+	var s = _state(api)
+	s.profile["gem"] = 123
+	var seen := []
+	s.changed.connect(func(): seen.append(s.profile.get("gem")))
+	var stones := [{"stoneLevel": 9, "quantity": 2}]
+	var res: Dictionary = await s.upgrade("e1", stones, true, 13)
+	check(res.ok, "rolled")
+	eq(api.posts()[0][2], {"equipmentId": "e1", "stones": stones, "careful": true, "expectedLevel": 13}, "body")
+	check(seen.has(3), "the wallet takes gemBalance at once")
+	check(api.gets().has("/player/profile"), "the wallet refreshes")
+	s.free()
+
+
+func test_careful_refusal_refreshes_the_wallet() -> void:
+	var api := FakeApi.new()
+	api.answers["/player/equipment/upgrade"] = FakeApi.fail(400, "SHOP_INSUFFICIENT_BALANCE")
+	var s = _state(api)
+	var res: Dictionary = await s.upgrade("e1", [{"stoneLevel": 9, "quantity": 2}], true, 13)
+	eq(res.code, "SHOP_INSUFFICIENT_BALANCE", "refused")
+	eq(s.profile["gem"], 5, "no balance in a refusal: unchanged until the refresh lands")
+	check(api.gets().has("/player/profile"), "the wallet refreshes")
+	check(api.gets().has("/player/stones"), "stones reload")
+	s.free()
+
+
+func test_plain_upgrade_sends_the_level_without_careful() -> void:
+	var api := FakeApi.new()
+	api.answers["/player/equipment/upgrade"] = FakeApi._ok({"success": true, "newLevel": 4, "percent": 68.0, "equipmentId": "e1",
+		"careful": false, "gemSpent": 0})
+	var s = _state(api)
+	var res: Dictionary = await s.upgrade("e1", [{"stoneLevel": 4, "quantity": 1}], false, 3)
+	check(res.ok, "upgraded")
+	eq(api.posts()[0][2], {"equipmentId": "e1", "stones": [{"stoneLevel": 4, "quantity": 1}], "expectedLevel": 3}, "no careful key")
+	check(not api.gets().has("/player/profile"), "no gems spent: no wallet refresh")
+	s.free()
+
+
 func test_upgrade_failure_still_reloads_the_stones() -> void:
 	var api := FakeApi.new()
 	api.answers["/player/equipment/upgrade"] = FakeApi.fail(400, "EQUIP_INSUFFICIENT_STONES")
