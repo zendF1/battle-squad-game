@@ -1,7 +1,8 @@
 extends Control
 ## The stage's gun: the weapon the stage character wears (its basic gun when none), resting
 ## on the pedestal beside the character (the lobby, and the Nhân vật page and Prep while the
-## character is its full-body picture, which holds no gun), leaning with the muzzle up-left, floating a little over
+## character is its full-body picture, which holds no gun), at its right leaning a little with the muzzle up-right
+## (the image as drawn, not mirrored), floating a little over
 ## its shadow with a soft glow in its tier's colour (stronger and twinkling for the high tiers,
 ## match/views/shot_look.gd TIERS); no name under it (players know their gun). The lobby calls
 ## set_gun() on equip / unequip and when the character changes.
@@ -12,15 +13,16 @@ extends Control
 const Art := preload("res://ui/art.gd")
 const ShotLook := preload("res://match/views/shot_look.gd")
 
-const GUN_SCALE := 0.9 # gun image px → px here (1.44 px per art unit), less when it does not fit BOX
-const BOX := Vector2(125, 112) # the leaning gun stays inside this
-const TILT := 0.6 # radians, the gun mirrored (muzzle left): lying diagonally, the muzzle up-left
-const FLOAT := 3.0 # px up and down
+const GUN_SCALE := 1.5 # gun image px → px here at most (2.4 px per art unit), less when it does not fit BOX (the hug guns)
+const BOX := Vector2(262, 180) # the leaning gun stays inside this (twice the old 125-wide fit: every gun ~2x)
+const TILT := 0.28 # radians the muzzle end is raised by (the image's muzzle points right): leaning a little
+const FLOAT := 5.0 # px up and down
 const SPARKLES := 3 # twinkles around a high-tier gun (rank >= 3)
 ## Its rect on the 560x590 stage of the lobby and the Nhân vật page (character feet at (280,
-## 522), the pedestal's centre at y 528): left of the legs, its foot on the pedestal's top face
-## (y 545), the muzzle up-left under the arms, clear of the ◀ arrow. FEET: the character's feet there (to place it on a smaller stage, scaled).
-const STAGE_RECT := Rect2(62, 433, 125, 150)
+## 522), the pedestal's centre at y 528): its foot on the pedestal's top face (y 545) right of the
+## feet, the butt in front of the near boot, the muzzle out to the stage's right edge, below the
+## ▶ arrow and the body. FEET: the character's feet there (to place it on a smaller stage, scaled).
+const STAGE_RECT := Rect2(220, 365, 262, 218)
 const FEET := Vector2(280, 522)
 
 static var _used := {} # texture -> the drawn part of the image (Rect2)
@@ -79,7 +81,7 @@ func gun_polygon() -> PackedVector2Array:
 	var l := _layout()
 	var half: Vector2 = l["part"].size / 2 * float(l["k"])
 	for corner in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
-		var p: Vector2 = (half * corner * Vector2(-1, 1)).rotated(TILT) + l["centre"]
+		var p: Vector2 = (half * corner).rotated(-TILT) + l["centre"]
 		out.append(get_global_transform() * p)
 	return out
 
@@ -96,20 +98,20 @@ func _draw() -> void:
 	var h := part.size.y * k
 	var lift := (sin(_t * 2.2) * 0.5 + 0.5) * FLOAT
 	var centre: Vector2 = l["centre"] - Vector2(0, lift)
-	var xform := Vector2(-1, 1) # mirrored: the muzzle points left
 	# The shadow on the pedestal under its foot, smaller while it is up.
 	var shadow := Art.texture(Art.SHADOW)
-	var sw := bb.x * (0.75 - lift * 0.03)
-	draw_texture_rect(shadow, Rect2(Vector2(size.x / 2, BOX.y) - Vector2(sw / 2, 7), Vector2(sw, 14)), false, Color(1, 1, 1, 0.85))
+	var sw := bb.x * (0.75 - lift / FLOAT * 0.09)
+	var sh := bb.x * 0.11
+	draw_texture_rect(shadow, Rect2(Vector2(size.x / 2, BOX.y) - Vector2(sw, sh) / 2, Vector2(sw, sh)), false, Color(1, 1, 1, 0.85))
 	# The glow behind it, along the gun, breathing.
 	var glow := Art.tier_fx("glow")
 	if glow == null:
 		glow = Art.fx("muzzle")
 	var a := _glow * (0.75 + 0.25 * sin(_t * 3.0))
-	draw_set_transform(centre, TILT, xform)
+	draw_set_transform(centre, -TILT)
 	draw_texture_rect(glow, Rect2(-Vector2(w, h * 1.8) * 0.75, Vector2(w, h * 1.8) * 1.5), false, Color(_glow_color, a))
 	# The gun, its drawn part centred.
-	draw_set_transform(centre, TILT, xform * k)
+	draw_set_transform(centre, -TILT, Vector2(k, k))
 	draw_texture_rect_region(tex, Rect2(-part.size / 2, part.size), part)
 	draw_set_transform(Vector2.ZERO)
 	if _rank >= 3:
@@ -119,7 +121,7 @@ func _draw() -> void:
 				var ph := _t * 1.3 + i * 2.1
 				var tw := maxf(0.0, sin(ph * 2.0))
 				var at := centre + Vector2(cos(i * 2.4 + 0.6) * bb.x * 0.4, sin(i * 1.9) * bb.y * 0.4)
-				var r := 6.0 + 4.0 * tw
+				var r := bb.x * (0.05 + 0.03 * tw) # 6..10 px on a 125 px wide gun
 				draw_texture_rect(sparkle, Rect2(at - Vector2(r, r), Vector2(r, r) * 2), false, Color(_glow_color.lerp(Color.WHITE, 0.5), tw))
 
 
