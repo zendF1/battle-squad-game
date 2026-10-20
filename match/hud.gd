@@ -1,13 +1,25 @@
 extends Control
-## Match HUD: turn, timer, wind, weapon/skill/item row, move buttons + energy, aim readout, end turn,
-## result panel. In the lobby look (ui/lobby_ui.gd): translucent navy panels, rounded buttons,
-## yellow for the armed mode and for my turn. A turn change also shows a short centre banner.
-## Layout is containers only, so it adapts to wide phones (stretch aspect "expand").
+## Match HUD, in the lobby look (ui/lobby_ui.gd: translucent navy panels, rounded buttons, gold
+## for the armed slot and for my turn), each part pinned to its own corner so it adapts to wide
+## phones (stretch aspect "expand"; the viewport is at least 1600 × 900):
+## - top left: a small round Thoát (X) in the corner and the chat box beside it (a placeholder
+##   until match chat exists: a tap says so);
+## - top centre: the turn timer badge and the wind (strength bar from the middle) side by side;
+## - top right: whose turn it is: that player's lobby full-body figure (ui/character_view.gd, its
+##   weapon's +14 / +16 back aura: the match's aura lives here, not on the small sprites) over
+##   its name, with a reserved slot between them for a title plate (titles come later); it
+##   slides and fades in on each turn change (mine, opponents', bots: no aura);
+## - bottom left: the move buttons and the move energy (Thể lực);
+## - bottom centre: the aim readout over the items in hand, a row of slots (icon + count);
+## - bottom right: the character's skill as a round slot (its icon, the energy as a ring, off
+##   until charged).
+## There is no end-turn button (a turn ends with a shot or the clock) and no weapon button (the
+## normal shot is the default). A special (the skill or a shot item) once tapped stays armed for
+## the turn (match/action_lock.gd: the other shot slots go off). A turn change also shows a short
+## centre banner ("Lượt của bạn" / "Lượt của X").
 
 signal move_pressed(dir: int)
 signal move_released
-signal end_turn_pressed
-signal weapon_pressed
 signal skill_pressed
 signal item_pressed(item_id: String)
 signal leave_pressed
@@ -15,14 +27,28 @@ signal leave_pressed
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Art := preload("res://ui/art.gd")
+const CharacterView := preload("res://ui/character_view.gd")
+const FakeChat := preload("res://screens/home/fake_chat.gd")
+const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 
 const NAVY := Color(0.06, 0.09, 0.22, 0.78)
 const MODE_BG := Color(0.13, 0.2, 0.42, 0.9)
 const ENEMY_RED := Color(1.0, 0.42, 0.38)
+const ALLY_BLUE := Color(0.55, 0.8, 1.0)
+const RING_CHARGING := Color(0.45, 0.85, 1.0)
 const LOW_TIME := 5
+const MARGIN := 24
+const LEAVE_SIZE := 64
+const CHAT_SIZE := Vector2(380, 112)
+const PORTRAIT_ART := Vector2(190, 200) # the figure's box in the turn portrait
+const TITLE_SLOT_H := 30 # reserved for the title plate between the figure and the name
+const SKILL_SIZE := 132
+const ITEM_SIZE := 96
+const MOVE_SIZE := 110
+const PORTRAIT_SLIDE := 70.0 # px the portrait slides in from the right
+## The chat's line until match chat exists.
+const CHAT_LINE := {"channel": "Hệ thống", "name": "", "text": "Trận đấu bắt đầu!"}
 
-var _turn: Label
-var _turn_panel: PanelContainer
 var _timer: Label
 var _timer_panel: PanelContainer
 var _wind: Label
@@ -33,69 +59,157 @@ var _aim_panel: PanelContainer
 var _energy: ProgressBar
 var _left: Button
 var _right: Button
-var _end_turn: Button
-var _weapon: Button
 var _skill: Button
-var _actions: HBoxContainer
+var _skill_ring: Control
+var _skill_name: Label
+var _skill_box: VBoxContainer
+var _items: HBoxContainer
 var _item_buttons: Array[Button] = [] # reused; one per item left in hand
+var _portrait: PanelContainer
+var _portrait_art: CharacterView
+var _portrait_name: Label
+var _portrait_title: Control
+var _portrait_tween: Tween
+var _portrait_key := ""
 var _result: Control
 var _result_title: Label
 var _result_detail: Label
 var _banner: PanelContainer
 var _banner_label: Label
 var _banner_tween: Tween
+var _turn_text := ""
 var _time_left := 0.0
 var _timer_running := true
 var _wind_dir := 0
 var _wind_power := 0.0
 var _my_turn := false
 var _low := false
+var _skill_energy := 0.0 # 0..1 of the ring
+var _skill_ready := false
+var _skill_armed := false
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	mouse_filter = MOUSE_FILTER_IGNORE
 	theme = LobbyUi.theme()
+	_build_top_left()
+	_build_top_centre()
+	_build_portrait()
+	_build_bottom_left()
+	_build_bottom_centre()
+	_build_skill()
+	_set_turn_style(false)
+	_build_banner()
+	_build_result_panel()
 
-	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	margin.mouse_filter = MOUSE_FILTER_IGNORE
-	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 24)
-	add_child(margin)
 
-	var rows: VBoxContainer = _ignore(VBoxContainer.new())
-	rows.add_theme_constant_override("separation", 14)
-	margin.add_child(rows)
+func _process(delta: float) -> void:
+	if _timer_running:
+		_time_left = maxf(0.0, _time_left - delta)
+	_timer.text = "%d" % ceili(_time_left)
+	var low := _timer_running and ceili(_time_left) <= LOW_TIME
+	if low != _low:
+		_low = low
+		_timer.add_theme_color_override("font_color", Color(1.0, 0.4, 0.35) if low else Color.WHITE)
+	_aim_panel.visible = _aim.text != ""
 
-	# Top: leave, turn pill, timer badge, wind panel.
-	var top: HBoxContainer = _ignore(HBoxContainer.new())
-	top.add_theme_constant_override("separation", 16)
-	rows.add_child(top)
-	var leave := LobbyUi.pill_button("Thoát", 24, 60, "close")
-	leave.add_theme_stylebox_override("normal", LobbyUi.box(NAVY, 30, 18, LobbyUi.PANEL_BORDER, 2))
-	leave.custom_minimum_size = Vector2(150, 60)
+
+# ── Layout ──────────────────────────────────────────────────────────────────
+
+## Adds c pinned at (ax, ay) of the screen (0 left / top, 1 right / bottom, 0.5 centred),
+## growing away from that corner, moved by `off` px.
+func _pin(c: Control, ax: float, ay: float, off: Vector2) -> Control:
+	c.anchor_left = ax
+	c.anchor_right = ax
+	c.anchor_top = ay
+	c.anchor_bottom = ay
+	c.grow_horizontal = GROW_DIRECTION_END if ax == 0.0 else (GROW_DIRECTION_BEGIN if ax == 1.0 else GROW_DIRECTION_BOTH)
+	c.grow_vertical = GROW_DIRECTION_END if ay == 0.0 else (GROW_DIRECTION_BEGIN if ay == 1.0 else GROW_DIRECTION_BOTH)
+	c.offset_left = off.x
+	c.offset_right = off.x
+	c.offset_top = off.y
+	c.offset_bottom = off.y
+	add_child(c)
+	return c
+
+
+## Top left: the round Thoát in the corner, the chat box beside it.
+func _build_top_left() -> void:
+	var row: HBoxContainer = _pin(_ignore(Ui.hbox(12)), 0, 0, Vector2(MARGIN, MARGIN))
+	row.name = "TopLeft"
+	var leave := LobbyUi.round_button("close", LEAVE_SIZE, NAVY, 0.42)
+	leave.name = "Leave"
+	leave.tooltip_text = "Thoát"
+	leave.size_flags_vertical = SIZE_SHRINK_BEGIN
 	leave.pressed.connect(leave_pressed.emit)
-	top.add_child(leave)
-	top.add_child(_expand(_ignore(Control.new())))
-	_turn_panel = _ignore(PanelContainer.new())
-	_turn_panel.size_flags_vertical = SIZE_SHRINK_CENTER
-	top.add_child(_turn_panel)
-	_turn = LobbyUi.text("", 30, Color.WHITE, true)
-	_turn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_turn.custom_minimum_size = Vector2(280, 0)
-	_turn_panel.add_child(_turn)
+	row.add_child(leave)
+	row.add_child(_build_chat())
+
+
+## The chat placeholder: a line and an input-looking row; a tap says chat comes later.
+func _build_chat() -> Button:
+	var b := Button.new()
+	b.name = "Chat"
+	b.custom_minimum_size = CHAT_SIZE
+	LobbyUi.style_button(b, NAVY, 18, 0, LobbyUi.PANEL_BORDER, 2)
+	b.pressed.connect(func() -> void: Ui.toast(self, FakeChat.COMING_SOON))
+	var col := Ui.vbox(4)
+	col.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	col.offset_left = 12
+	col.offset_top = 8
+	col.offset_right = -12
+	col.offset_bottom = -8
+	b.add_child(col)
+	var lines := RichTextLabel.new()
+	lines.bbcode_enabled = true
+	lines.scroll_active = false
+	lines.autowrap_mode = TextServer.AUTOWRAP_OFF
+	lines.clip_contents = true
+	lines.size_flags_vertical = SIZE_EXPAND_FILL
+	lines.add_theme_font_size_override("normal_font_size", 18)
+	lines.add_theme_constant_override("outline_size", 4)
+	lines.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.08, 0.85))
+	lines.text = FakeChat.bbcode(CHAT_LINE)
+	col.add_child(lines)
+	var input := LobbyUi.panel(0, 12, Color(0, 0, 0, 0.35))
+	input.custom_minimum_size.y = 40
+	col.add_child(input)
+	var row := Ui.hbox(8)
+	input.add_child(row)
+	var hint := LobbyUi.text(FakeChat.PLACEHOLDER, 18, Ui.TEXT_DIM)
+	hint.size_flags_horizontal = SIZE_EXPAND_FILL
+	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 10)
+	pad.size_flags_horizontal = SIZE_EXPAND_FILL
+	pad.add_child(hint)
+	row.add_child(pad)
+	var send := LobbyUi.panel(0, 12, LobbyUi.ICON_COLORS["blue"])
+	send.custom_minimum_size = Vector2(50, 40)
+	var arrow := LobbyUi.icon("send", 26)
+	arrow.size_flags_horizontal = SIZE_SHRINK_CENTER
+	send.add_child(arrow)
+	row.add_child(send)
+	for c in [col, lines, input, row, pad, hint, send, arrow]:
+		c.mouse_filter = MOUSE_FILTER_IGNORE
+	return b
+
+
+## Top centre: the timer badge and the wind side by side.
+func _build_top_centre() -> void:
+	var row: HBoxContainer = _pin(_ignore(Ui.hbox(12)), 0.5, 0, Vector2(0, MARGIN))
+	row.name = "TopCentre"
 	_timer_panel = _ignore(PanelContainer.new())
 	_timer_panel.custom_minimum_size = Vector2(84, 84)
-	top.add_child(_timer_panel)
+	row.add_child(_timer_panel)
 	_timer = LobbyUi.text("", 40, Color.WHITE, true)
 	_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_timer.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_timer_panel.add_child(_timer)
-	top.add_child(_expand(_ignore(Control.new())))
 	var wind_panel: PanelContainer = _ignore(LobbyUi.panel(12, 18, NAVY))
 	wind_panel.size_flags_vertical = SIZE_SHRINK_CENTER
-	top.add_child(wind_panel)
+	row.add_child(wind_panel)
 	var wind_col := Ui.vbox(4)
 	wind_col.mouse_filter = MOUSE_FILTER_IGNORE
 	wind_panel.add_child(wind_col)
@@ -112,35 +226,50 @@ func _ready() -> void:
 	_wind_bar.custom_minimum_size = Vector2(200, 14)
 	_wind_bar.draw.connect(_draw_wind_bar)
 	wind_col.add_child(_wind_bar)
-	_set_turn_style(false)
 
-	rows.add_child(_expand_v(_ignore(Control.new())))
 
-	# Weapon / skill / items: toggle buttons whose pressed look always shows the controller's
-	# mode (set_actions), whatever a click did to them.
-	_actions = _ignore(HBoxContainer.new())
-	_actions.add_theme_constant_override("separation", 14)
-	_actions.alignment = BoxContainer.ALIGNMENT_END
-	rows.add_child(_actions)
-	_weapon = _mode_button("Vũ khí", "weapon")
-	_weapon.pressed.connect(weapon_pressed.emit)
-	_actions.add_child(_weapon)
-	_skill = _mode_button("", "skill")
-	_skill.pressed.connect(skill_pressed.emit)
-	_skill.visible = false
-	_actions.add_child(_skill)
+## Top right: the turn portrait (figure, title slot, name).
+func _build_portrait() -> void:
+	_portrait = _pin(_ignore(PanelContainer.new()), 1, 0, Vector2(-MARGIN, MARGIN))
+	_portrait.name = "Portrait"
+	_portrait.add_theme_stylebox_override("panel", LobbyUi.box(NAVY, 20, 8, LobbyUi.PANEL_BORDER, 2))
+	var col: VBoxContainer = _ignore(Ui.vbox(0))
+	_portrait.add_child(col)
+	var holder: Control = _ignore(Control.new())
+	holder.custom_minimum_size = PORTRAIT_ART
+	holder.clip_contents = true # the aura's rays stay inside the card
+	col.add_child(holder)
+	_portrait_art = CharacterView.new()
+	_portrait_art.name = "Figure"
+	_portrait_art.size = PORTRAIT_ART
+	_portrait_art.idle = true
+	_portrait_art.hands_free = true
+	_portrait_art.back_aura = true
+	_portrait_art.aura_level = 0
+	holder.add_child(_portrait_art)
+	_portrait_title = _ignore(Control.new()) # the title plate goes here (a later feature)
+	_portrait_title.name = "TitleSlot"
+	_portrait_title.custom_minimum_size = Vector2(0, TITLE_SLOT_H)
+	col.add_child(_portrait_title)
+	_portrait_name = LobbyUi.text("", 24, Color.WHITE, true)
+	_portrait_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_portrait_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_portrait_name.custom_minimum_size = Vector2(PORTRAIT_ART.x, 0)
+	col.add_child(_portrait_name)
+	_portrait.visible = false
 
-	# Bottom: move buttons and energy, aim readout, end turn.
-	var bottom: HBoxContainer = _ignore(HBoxContainer.new())
-	bottom.add_theme_constant_override("separation", 16)
-	rows.add_child(bottom)
+
+## Bottom left: the move buttons and the energy.
+func _build_bottom_left() -> void:
+	var row: HBoxContainer = _pin(_ignore(Ui.hbox(16)), 0, 1, Vector2(MARGIN, -MARGIN))
+	row.name = "BottomLeft"
 	_left = _hold_button("arrow_left", -1)
-	bottom.add_child(_left)
+	row.add_child(_left)
 	_right = _hold_button("arrow_right", 1)
-	bottom.add_child(_right)
+	row.add_child(_right)
 	var energy_panel: PanelContainer = _ignore(LobbyUi.panel(12, 18, NAVY))
 	energy_panel.size_flags_vertical = SIZE_SHRINK_CENTER
-	bottom.add_child(energy_panel)
+	row.add_child(energy_panel)
 	var energy_row := Ui.hbox(10)
 	energy_row.mouse_filter = MOUSE_FILTER_IGNORE
 	energy_panel.add_child(energy_row)
@@ -148,55 +277,124 @@ func _ready() -> void:
 	_energy = ProgressBar.new()
 	_energy.max_value = 100
 	_energy.show_percentage = false
-	_energy.custom_minimum_size = Vector2(220, 20)
+	_energy.custom_minimum_size = Vector2(200, 20)
 	_energy.size_flags_vertical = SIZE_SHRINK_CENTER
 	_energy.mouse_filter = MOUSE_FILTER_IGNORE
 	_energy.add_theme_stylebox_override("background", LobbyUi.box(Color(0.02, 0.03, 0.1, 0.85), 10, 0, Color(1, 1, 1, 0.15), 2))
 	_energy.add_theme_stylebox_override("fill", LobbyUi.box(Color(0.35, 0.85, 0.45), 10, 0))
 	energy_row.add_child(_energy)
-	bottom.add_child(_expand(_ignore(Control.new())))
-	_aim_panel = _ignore(LobbyUi.panel(12, 18, NAVY))
-	_aim_panel.size_flags_vertical = SIZE_SHRINK_CENTER
-	bottom.add_child(_aim_panel)
-	_aim = LobbyUi.text("", 28, Color.WHITE, true)
-	_aim.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+
+
+## Bottom centre: the aim readout over the item slots.
+func _build_bottom_centre() -> void:
+	var col: VBoxContainer = _pin(_ignore(Ui.vbox(10)), 0.5, 1, Vector2(0, -MARGIN))
+	col.name = "BottomCentre"
+	col.alignment = BoxContainer.ALIGNMENT_END
+	_aim_panel = _ignore(LobbyUi.panel(10, 18, NAVY))
+	_aim_panel.size_flags_horizontal = SIZE_SHRINK_CENTER
+	col.add_child(_aim_panel)
+	_aim = LobbyUi.text("", 26, Color.WHITE, true)
+	_aim.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_aim_panel.add_child(_aim)
-	_end_turn = Button.new()
-	_end_turn.text = "Hết lượt"
-	LobbyUi.set_icon(_end_turn, "end_turn", 34)
-	_end_turn.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_end_turn.add_theme_constant_override("h_separation", 10)
-	_end_turn.add_theme_font_size_override("font_size", 30)
-	_end_turn.add_theme_font_override("font", LobbyUi.bold())
-	_end_turn.custom_minimum_size = Vector2(220, 110)
-	LobbyUi.texture_button(_end_turn, "button_orange", 10)
-	_end_turn.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.35))
-	_end_turn.pressed.connect(end_turn_pressed.emit)
-	bottom.add_child(_end_turn)
-
-	_build_banner()
-	_build_result_panel()
+	_items = _ignore(Ui.hbox(14))
+	_items.name = "Items"
+	_items.alignment = BoxContainer.ALIGNMENT_CENTER
+	_items.size_flags_horizontal = SIZE_SHRINK_CENTER
+	col.add_child(_items)
 
 
-func _process(delta: float) -> void:
-	if _timer_running:
-		_time_left = maxf(0.0, _time_left - delta)
-	_timer.text = "%d" % ceili(_time_left)
-	var low := _timer_running and ceili(_time_left) <= LOW_TIME
-	if low != _low:
-		_low = low
-		_timer.add_theme_color_override("font_color", Color(1.0, 0.4, 0.35) if low else Color.WHITE)
-	_aim_panel.visible = _aim.text != ""
+## Bottom right: the round skill slot with its energy ring, its name under it.
+func _build_skill() -> void:
+	_skill_box = _pin(_ignore(Ui.vbox(4)), 1, 1, Vector2(-MARGIN, -MARGIN))
+	_skill_box.name = "Skill"
+	_skill_box.visible = false
+	_skill = Button.new()
+	_skill.name = "SkillSlot"
+	_skill.custom_minimum_size = Vector2(SKILL_SIZE, SKILL_SIZE)
+	_skill.size_flags_horizontal = SIZE_SHRINK_CENTER
+	_skill.toggle_mode = true
+	_skill.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_skill.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+	LobbyUi.set_icon(_skill, "skill", int(SKILL_SIZE * 0.46))
+	_slot_style(_skill, SKILL_SIZE / 2)
+	_skill.add_theme_color_override("icon_disabled_color", Color(1, 1, 1, 0.4))
+	_skill.pressed.connect(skill_pressed.emit)
+	_skill_box.add_child(_skill)
+	_skill_ring = _ignore(Control.new())
+	_skill_ring.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_skill_ring.draw.connect(_draw_skill_ring)
+	_skill.add_child(_skill_ring)
+	_skill_name = LobbyUi.text("", 20, Color.WHITE, true)
+	_skill_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_skill_box.add_child(_skill_name)
 
 
-func set_turn(mine: bool, player_name: String) -> void:
+# ── State ───────────────────────────────────────────────────────────────────
+
+## Whose turn: the banner when it changes, and the top-right portrait of `player` (a match player
+## dict: playerId, characterId, isBot, weaponUpgradeLevel) sliding in when the player changes.
+## ally: my team (an ally's name light blue, an enemy's red; mine gold).
+func set_turn(mine: bool, player_name: String, player: Dictionary = {}, ally: bool = true) -> void:
 	var text := "Lượt của bạn" if mine else "Lượt của %s" % player_name
-	var changed := text != _turn.text
-	_turn.text = text
+	var changed := text != _turn_text
+	_turn_text = text
 	_my_turn = mine
 	_set_turn_style(mine)
 	if changed:
 		_announce(text, mine)
+	_set_portrait(player, player_name, mine, ally)
+
+
+## The turn text ("Lượt của bạn" / "Lượt của X") the banner shows.
+func turn_text() -> String:
+	return _turn_text
+
+
+## The weapon upgrade level a match player's portrait shows the aura of: weaponUpgradeLevel (0
+## for a bot, for none and from an older server).
+static func portrait_level(player: Dictionary) -> int:
+	return 0 if bool(player.get("isBot", false)) else EquipmentModel.player_weapon_level(player)
+
+
+func _set_portrait(player: Dictionary, player_name: String, mine: bool, ally: bool) -> void:
+	if player.is_empty():
+		_portrait.visible = false
+		_portrait_key = ""
+		return
+	var id := Art.known_character(str(player.get("characterId", "")))
+	var key := "%s|%s" % [player.get("playerId", player_name), id]
+	_portrait_art.character_id = id
+	_portrait_art.aura_level = portrait_level(player)
+	_portrait_name.text = player_name
+	var accent := LobbyUi.GOLD if mine else (ALLY_BLUE if ally else ENEMY_RED)
+	_portrait_name.add_theme_color_override("font_color", accent)
+	_portrait.add_theme_stylebox_override("panel", LobbyUi.box(NAVY, 20, 8, Color(accent, 0.8), 3))
+	_portrait.visible = true
+	if key == _portrait_key:
+		return
+	_portrait_key = key
+	# Slides in from the right and fades in (the anchors keep it in the corner).
+	if _portrait_tween:
+		_portrait_tween.kill()
+	_portrait.modulate.a = 0.0
+	var right := -float(MARGIN)
+	_portrait.offset_left = right + PORTRAIT_SLIDE
+	_portrait.offset_right = right + PORTRAIT_SLIDE
+	if not is_inside_tree():
+		_portrait.modulate.a = 1.0
+		_portrait.offset_left = right
+		_portrait.offset_right = right
+		return
+	_portrait_tween = create_tween().set_parallel()
+	_portrait_tween.tween_property(_portrait, "modulate:a", 1.0, 0.25)
+	_portrait_tween.tween_property(_portrait, "offset_left", right, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_portrait_tween.tween_property(_portrait, "offset_right", right, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+## The turn portrait: {visible, character, aura ("red" / "purple" / ""), name, title_slot}.
+func portrait() -> Dictionary:
+	return {"visible": _portrait.visible, "character": _portrait_art.character_id, "aura": _portrait_art.aura().aura(),
+		"name": _portrait_name.text, "title_slot": _portrait_title}
 
 
 ## Sets the turn clock from a server value and resumes the local countdown.
@@ -243,26 +441,27 @@ func set_column(x: float) -> void:
 func set_controls_enabled(enabled: bool) -> void:
 	_left.disabled = not enabled
 	_right.disabled = not enabled
-	_end_turn.disabled = not enabled
 	if not enabled:
 		_aim.text = ""
 
 
-## The weapon/skill/item row. skill_label empty hides the skill button (unknown character). The
-## label carries the energy, so it is shown even while every button is disabled. armed is
-## "weapon", "skill" or the armed item id. items: [{"id", "label", "enabled"}], the items left.
-func set_actions(skill_label: String, weapon_enabled: bool, skill_enabled: bool, armed: String, items: Array = []) -> void:
-	_skill.visible = skill_label != ""
-	_skill.text = skill_label
-	_weapon.disabled = not weapon_enabled
+## The skill slot and the item slots. skill: Skills.for_character() ({} hides the slot: an
+## unknown character); energy 0..100 fills its ring; skill_enabled: it can be tapped. armed:
+## "weapon", "skill" or the armed item id (shown gold). items: [{"id", "count", "enabled",
+## "name"}], the items left.
+func set_actions(skill: Dictionary, energy: int, skill_enabled: bool, armed: String, items: Array = []) -> void:
+	_skill_box.visible = not skill.is_empty()
+	_skill_name.text = str(skill.get("name", ""))
+	_skill.tooltip_text = _skill_name.text
+	_skill_energy = clampf(energy / 100.0, 0.0, 1.0)
+	_skill_ready = energy >= 100
+	_skill_armed = armed == "skill"
 	_skill.disabled = not skill_enabled
-	_weapon.set_pressed_no_signal(armed == "weapon")
-	_skill.set_pressed_no_signal(armed == "skill")
+	_skill.set_pressed_no_signal(_skill_armed)
+	_skill_name.add_theme_color_override("font_color", LobbyUi.GOLD if _skill_ready else Color(1, 1, 1, 0.6))
+	_skill_ring.queue_redraw()
 	while _item_buttons.size() < items.size():
-		var b := _mode_button("", "unknown")
-		b.pressed.connect(func() -> void: item_pressed.emit(str(b.get_meta("item_id", ""))))
-		_actions.add_child(b)
-		_item_buttons.append(b)
+		_item_buttons.append(_item_slot())
 	for i in _item_buttons.size():
 		var b := _item_buttons[i]
 		b.visible = i < items.size()
@@ -271,10 +470,23 @@ func set_actions(skill_label: String, weapon_enabled: bool, skill_enabled: bool,
 		var it: Dictionary = items[i]
 		if b.get_meta("item_id", "") != it["id"]:
 			b.icon = Art.item_icon(str(it["id"]))
+		b.tooltip_text = str(it.get("name", it["id"]))
 		b.set_meta("item_id", it["id"])
-		b.text = str(it["label"])
+		(b.get_node("Count") as Label).text = "x%d" % int(it.get("count", 1))
 		b.disabled = not bool(it["enabled"])
 		b.set_pressed_no_signal(armed == it["id"])
+
+
+## The slots shown: {skill: {visible, disabled, armed, ring (0..1), name}, items: [{id, count,
+## disabled, armed}]}.
+func slots() -> Dictionary:
+	var items: Array = []
+	for b in _item_buttons:
+		if b.visible:
+			items.append({"id": str(b.get_meta("item_id", "")), "count": (b.get_node("Count") as Label).text,
+				"disabled": b.disabled, "armed": b.button_pressed})
+	return {"skill": {"visible": _skill_box.visible, "disabled": _skill.disabled, "armed": _skill.button_pressed,
+		"ring": _skill_energy, "name": _skill_name.text}, "items": items}
 
 
 func show_result(title: String, detail: String) -> void:
@@ -283,56 +495,67 @@ func show_result(title: String, detail: String) -> void:
 	_result.visible = true
 
 
+# ── Widgets ─────────────────────────────────────────────────────────────────
+
 func _hold_button(icon_name: String, dir: int) -> Button:
-	var b := LobbyUi.round_button(icon_name, 110, Color(0.2, 0.34, 0.66, 0.9), 0.42)
-	b.add_theme_stylebox_override("disabled", LobbyUi.box(Color(0.12, 0.15, 0.3, 0.55), 55, 0, Color(1, 1, 1, 0.25), 3))
+	var b := LobbyUi.round_button(icon_name, MOVE_SIZE, Color(0.2, 0.34, 0.66, 0.9), 0.42)
+	b.add_theme_stylebox_override("disabled", LobbyUi.box(Color(0.12, 0.15, 0.3, 0.55), MOVE_SIZE / 2, 0, Color(1, 1, 1, 0.25), 3))
 	b.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.35))
 	b.button_down.connect(move_pressed.emit.bind(dir))
 	b.button_up.connect(move_released.emit)
 	return b
 
 
-## A toggle with an icon: navy normally, gold with dark text while it is the armed mode.
-func _mode_button(text: String, icon_name: String) -> Button:
-	var b := Button.new()
-	b.text = text
-	LobbyUi.set_icon(b, icon_name, 38)
-	b.add_theme_constant_override("h_separation", 8)
-	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.add_theme_font_size_override("font_size", 26)
-	b.add_theme_font_override("font", LobbyUi.bold())
-	b.custom_minimum_size = Vector2(200, 72)
-	b.toggle_mode = true
-	LobbyUi.style_button(b, MODE_BG, 18, 10, Color(1, 1, 1, 0.18), 2)
-	var gold := LobbyUi.box(LobbyUi.GOLD, 18, 10, LobbyUi.GOLD_DARK, 3)
-	gold.border_width_bottom = 6
+## A slot's looks: navy normally, gold while armed, dim when off.
+func _slot_style(b: Button, radius: int) -> void:
+	LobbyUi.style_button(b, MODE_BG, radius, 6, Color(1, 1, 1, 0.3), 3)
+	var gold := LobbyUi.box(LobbyUi.GOLD, radius, 6, LobbyUi.GOLD_DARK, 4)
 	b.add_theme_stylebox_override("pressed", gold)
 	var gold_hover: StyleBoxFlat = gold.duplicate()
 	gold_hover.bg_color = LobbyUi.GOLD.lightened(0.12)
 	b.add_theme_stylebox_override("hover_pressed", gold_hover)
-	b.add_theme_stylebox_override("disabled", LobbyUi.box(Color(0.1, 0.13, 0.26, 0.55), 18, 10, Color(1, 1, 1, 0.08), 2))
-	for state in ["font_pressed_color", "font_hover_pressed_color"]:
-		b.add_theme_color_override(state, LobbyUi.TEXT_DARK)
-	b.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.4))
+	b.add_theme_stylebox_override("disabled", LobbyUi.box(Color(0.1, 0.13, 0.26, 0.6), radius, 6, Color(1, 1, 1, 0.1), 3))
+
+
+## An item slot: its icon, the count in the corner; toggled to show the armed one.
+func _item_slot() -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(ITEM_SIZE, ITEM_SIZE)
+	b.toggle_mode = true
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	b.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+	b.add_theme_constant_override("icon_max_width", int(ITEM_SIZE * 0.62))
+	b.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_slot_style(b, 20)
+	b.add_theme_color_override("icon_disabled_color", Color(1, 1, 1, 0.35))
+	var count := LobbyUi.text("", 20, Color.WHITE, true)
+	count.name = "Count"
+	count.mouse_filter = MOUSE_FILTER_IGNORE
+	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	count.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	count.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	count.offset_right = -8
+	count.offset_bottom = -4
+	b.add_child(count)
+	b.pressed.connect(func() -> void: item_pressed.emit(str(b.get_meta("item_id", ""))))
+	_items.add_child(b)
 	return b
 
 
+## The skill's energy as a ring round the slot: the track, the charge clockwise from the top
+## (light blue while charging, gold when full, white while armed).
+func _draw_skill_ring() -> void:
+	var c := _skill_ring.size / 2.0
+	var r := minf(c.x, c.y) - 6.0
+	_skill_ring.draw_arc(c, r, 0.0, TAU, 64, Color(0.02, 0.03, 0.1, 0.8), 8.0, true)
+	if _skill_energy <= 0.0:
+		return
+	var col := Color.WHITE if _skill_armed else (LobbyUi.GOLD if _skill_ready else RING_CHARGING)
+	var from := -PI / 2.0
+	_skill_ring.draw_arc(c, r, from, from + TAU * _skill_energy, maxi(8, int(64 * _skill_energy)), col, 7.0, true)
+
+
 func _set_turn_style(mine: bool) -> void:
-	if mine:
-		var box := LobbyUi.box(LobbyUi.GOLD, 26, 12, LobbyUi.GOLD_DARK, 3)
-		box.border_width_bottom = 6
-		box.content_margin_left = 26
-		box.content_margin_right = 26
-		_turn_panel.add_theme_stylebox_override("panel", box)
-		_turn.add_theme_color_override("font_color", LobbyUi.TEXT_DARK)
-		_turn.add_theme_constant_override("outline_size", 0)
-	else:
-		var box := LobbyUi.box(NAVY, 26, 12, Color(ENEMY_RED, 0.7), 3)
-		box.content_margin_left = 26
-		box.content_margin_right = 26
-		_turn_panel.add_theme_stylebox_override("panel", box)
-		_turn.add_theme_color_override("font_color", Color.WHITE)
-		_turn.add_theme_constant_override("outline_size", 5)
 	var badge := LobbyUi.box(NAVY, 42, 0, LobbyUi.GOLD if mine else Color(1, 1, 1, 0.3), 4)
 	_timer_panel.add_theme_stylebox_override("panel", badge)
 
@@ -381,6 +604,8 @@ func _announce(text: String, mine: bool) -> void:
 	_banner_label.add_theme_constant_override("outline_size", 0 if mine else 9)
 	if _banner_tween:
 		_banner_tween.kill()
+	if not is_inside_tree():
+		return
 	_banner.pivot_offset = _banner.size / 2
 	_banner.scale = Vector2(0.7, 0.7)
 	_banner.modulate.a = 1.0
@@ -421,14 +646,4 @@ func _build_result_panel() -> void:
 
 static func _ignore(c):
 	c.mouse_filter = MOUSE_FILTER_IGNORE
-	return c
-
-
-static func _expand(c):
-	c.size_flags_horizontal = SIZE_EXPAND_FILL
-	return c
-
-
-static func _expand_v(c):
-	c.size_flags_vertical = SIZE_EXPAND_FILL
 	return c

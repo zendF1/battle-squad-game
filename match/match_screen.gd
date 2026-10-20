@@ -24,6 +24,7 @@ const Hud := preload("res://match/hud.gd")
 const Skills := preload("res://match/skills.gd")
 const Items := preload("res://match/items.gd")
 const Status := preload("res://match/status_effects.gd")
+const ActionLock := preload("res://match/action_lock.gd")
 
 const ACTION_INTERVAL := 0.25 # server drops actions closer than 150 ms
 const MOVE_ACK_GAP := 0.16 # Shoot/EndTurn/UseItem wait this long after the last answer to a Move
@@ -106,8 +107,6 @@ func _ready() -> void:
 	_shot_player.finished.connect(_on_shot_finished)
 	_hud.move_pressed.connect(func(dir: int) -> void: _hold_dir = dir)
 	_hud.move_released.connect(func() -> void: _hold_dir = 0)
-	_hud.end_turn_pressed.connect(_on_end_turn)
-	_hud.weapon_pressed.connect(_on_weapon_pressed)
 	_hud.skill_pressed.connect(_on_skill_pressed)
 	_hud.item_pressed.connect(_on_item_pressed)
 	_aim.fire_column.connect(_on_fire_column)
@@ -218,7 +217,10 @@ func _set_current(player_id: String, move_energy: int, continuing: bool = false)
 		var view = _views[_me]
 		var to := _pos(_me)
 		view.move_to(to, 0.0 if _is_my_turn() else view.position.distance_to(to) / OTHER_WALK_SPEED)
-	_hud.set_turn(_is_my_turn(), str(_players.get(player_id, {}).get("displayName", "")))
+	var turn_player: Dictionary = _players.get(player_id, {})
+	var my_team := int(_players.get(_me, {}).get("teamId", -1))
+	_hud.set_turn(_is_my_turn(), str(turn_player.get("displayName", "")), turn_player,
+		my_team < 0 or int(turn_player.get("teamId", -2)) == my_team)
 	_hud.set_wind(int(_wind.get("direction", 0)), float(_wind.get("power", 0.0)))
 	_show_wind()
 	for id in _views:
@@ -251,6 +253,8 @@ func _is_frozen() -> bool:
 ## turn resolved, I am frozen, the skill is not charged, or the armed item is no longer in
 ## players[me].items. A temporary input lock (pending UseItem ack, commit wait, shot animation,
 ## resync) keeps the armed mode: the buttons are disabled meanwhile but the choice survives.
+## A special once armed (the skill or a shot item) is kept for the turn: the other shot slots
+## are off (ActionLock); instant items stay usable.
 func _refresh_controls() -> void:
 	var can := _can_act()
 	var me: Dictionary = _players.get(_me, {})
@@ -261,17 +265,18 @@ func _refresh_controls() -> void:
 	_hud.set_controls_enabled(can)
 	var skill := _my_skill()
 	var energy := int(me.get("skillEnergy", 0))
-	var skill_usable := can_shoot and not skill.is_empty() and Skills.is_ready(energy)
 	var armed_ok := _armed == WEAPON or (_armed == SKILL and may_shoot and not skill.is_empty() and Skills.is_ready(energy))
-	var buttons: Array = []
 	for it in Items.hand(me.get("items")):
-		var usable := can if Items.is_instant(it["id"]) else can_shoot
-		buttons.append({"id": it["id"], "label": Items.button_label(it["id"], it["count"]), "enabled": usable})
 		if it["id"] == _armed and may_shoot and not Items.is_instant(it["id"]):
 			armed_ok = true
 	if not armed_ok:
 		_armed = WEAPON
-	_hud.set_actions("" if skill.is_empty() else Skills.button_label(skill, energy), can, skill_usable, _armed, buttons)
+	var skill_usable := ActionLock.slot_enabled(_armed, SKILL, can_shoot and not skill.is_empty() and Skills.is_ready(energy))
+	var buttons: Array = []
+	for it in Items.hand(me.get("items")):
+		var usable := can if Items.is_instant(it["id"]) else ActionLock.slot_enabled(_armed, it["id"], can_shoot)
+		buttons.append({"id": it["id"], "count": it["count"], "name": Items.label(it["id"]), "enabled": usable})
+	_hud.set_actions(skill, energy, skill_usable, _armed, buttons)
 	var offsets: Array = skill["offsets"] if _armed == SKILL else [0.0]
 	if _aim.preview_offsets != offsets:
 		_aim.preview_offsets = offsets
@@ -531,17 +536,13 @@ func _on_fire_column(target_x: float) -> void:
 	await _fire(Items.shot_payload(_armed, 0.0, 0.0, target_x))
 
 
+## The armed special stays armed (ActionLock): a Shoot the server drops or never answers does not
+## give the normal shot back this turn; the next turn starts on it.
 func _fire(data: Dictionary) -> void:
-	_armed = WEAPON # back to the weapon after a fire, even if the server drops the Shoot
 	_hud.pause_timer() # the server stops the clock once it takes the shot
 	var sent: bool = await _commit_action("Shoot", data)
 	if not sent and not _turn_resolved:
 		_clear_my_aim() # never sent: the gun goes away
-
-
-func _on_weapon_pressed() -> void:
-	_armed = WEAPON
-	_refresh_controls()
 
 
 ## An aimed skill toggles skill mode; one without aim (healing_bloom) is used at once, through
@@ -552,15 +553,19 @@ func _on_skill_pressed() -> void:
 	if not _can_act() or _is_frozen() or skill.is_empty() or not charged:
 		_refresh_controls()
 		return
+	if ActionLock.locked(_armed):
+		_refresh_controls() # another special (or the skill itself) is armed: kept
+		return
 	if bool(skill["needs_aim"]):
-		_armed = WEAPON if _armed == SKILL else SKILL
+		_armed = ActionLock.press(_armed, SKILL)
 		_refresh_controls()
 		return
 	await _fire({"angle": Skills.NO_AIM_ANGLE, "power": Skills.NO_AIM_POWER, "actionMode": SKILL})
 
 
-## An instant item is used at once (UseItem; the turn goes on). A shot item toggles armed mode
-## (_refresh_controls drops it again if it cannot be fired).
+## An instant item is used at once (UseItem; the turn goes on). A shot item arms the next shot
+## for good this turn (ActionLock: no going back to the normal shot, no switch to another
+## special; _refresh_controls drops it if it can no longer be fired).
 func _on_item_pressed(item_id: String) -> void:
 	var items = _players.get(_me, {}).get("items")
 	if not _can_act() or not items is Array or not items.has(item_id):
@@ -572,14 +577,8 @@ func _on_item_pressed(item_id: String) -> void:
 	if _is_frozen(): # a shot item cannot be fired while frozen (instant ones can)
 		_refresh_controls()
 		return
-	_armed = WEAPON if _armed == item_id else item_id
+	_armed = ActionLock.press(_armed, item_id)
 	_refresh_controls()
-
-
-func _on_end_turn() -> void:
-	if not _can_act():
-		return
-	await _commit_action("EndTurn", {})
 
 
 ## Sends Shoot/EndTurn/UseItem once:

@@ -54,9 +54,17 @@ const AURA_SIZE := 1.08
 @export var back_aura := false:
 	set(value):
 		back_aura = value
-		if is_node_ready():
+		if _character != null:
 			_show_worn_gun()
 			_layout()
+
+## back_aura from this weapon upgrade level instead of the worn weapon's (-1: the worn one); the
+## match HUD's turn portrait, whose player is not always me.
+var aura_level := -1:
+	set(value):
+		aura_level = value
+		if _character != null:
+			_show_worn_gun()
 
 var _character: Node2D
 var _aura: BackAura
@@ -84,7 +92,8 @@ func _ready() -> void:
 func _show_worn_gun() -> void:
 	var g := EquipmentModel.worn_gun(PlayerState.equipment, PlayerState.catalog, character_id)
 	_character.set_weapon(g["kind"], g["tier"])
-	_aura.level = worn_weapon_level(PlayerState.equipment, character_id) if back_aura else 0
+	var lv := aura_level if aura_level >= 0 else worn_weapon_level(PlayerState.equipment, character_id)
+	_aura.level = lv if back_aura else 0
 	_layout()
 
 
@@ -138,6 +147,8 @@ func _layout() -> void:
 		if not is_equal_approx(_aura.diameter, h * AURA_SIZE):
 			_aura.diameter = h * AURA_SIZE
 	var shadow: Sprite2D = _character.shadow()
+	if shadow == null:
+		return # the character is not ready yet
 	shadow.position = Vector2(0, lift * Art.PX_PER_UNIT) # stays on the ground
 	shadow.scale = Vector2.ONE * (1.0 - lift * 0.03)
 	if not idle:
