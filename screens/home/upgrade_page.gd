@@ -9,7 +9,7 @@ extends Control
 ##   what a failure does ("Thất bại: về +6" / "giữ nguyên +3"), all centred in the panel; right, the player's stones by level (icon, power, owned, − n +),
 ##   "Tự chọn" (the least power reaching the cap, UpgradeModel.auto_pick; a weapon needs ×3 power) /
 ##   "Bỏ chọn", the success chance bar "Tỉ lệ thành công 64% (tối đa 64%)", the "Nâng cấp cẩn
-##   thận  [gem] 120" toggle (hidden when the step has none; off with "Thiếu kim cương" when the
+##   thận" toggle (hidden when the step has none; off with "Thiếu kim cương" when the
 ##   gems do not cover it; on: "Tỉ lệ thành công 28%" (the stones' chance × the step's bonus), the
 ##   bar shows the stone part in gold and the careful part in gem cyan, the button shows the gem
 ##   price and "Dùng 120 kim cương cho nâng cấp cẩn thận?" confirms; it stays on between rolls and
@@ -89,7 +89,6 @@ var _careful_btn: Button
 var _careful_check: TextureRect
 var _careful_title: Label
 var _careful_sub: Label
-var _careful_price: Label
 var _go_text: HBoxContainer # NÂNG CẤP [gem] 120 when careful is on
 var _go_price: Label
 var _chance: Label
@@ -354,8 +353,8 @@ func _build_upgrade_page() -> Control:
 	return row
 
 
-## The "Nâng cấp cẩn thận   [gem] 120" toggle: a check, the title (over a red "Thiếu kim cương"
-## when the gems do not cover it), the step's gem price on the right. _render_chance() fills it.
+## The "Nâng cấp cẩn thận" toggle: a check and the title (over a red "Thiếu kim cương" when the
+## gems do not cover it); the gem price shows on NÂNG CẤP. _render_chance() fills it.
 func _build_careful() -> Button:
 	_careful_btn = Button.new()
 	_careful_btn.name = "Careful"
@@ -389,13 +388,6 @@ func _build_careful() -> Button:
 	_careful_sub.visible = false
 	_careful_sub.mouse_filter = MOUSE_FILTER_IGNORE
 	texts.add_child(_careful_sub)
-	var gem := LobbyUi.icon("gem", 30)
-	gem.mouse_filter = MOUSE_FILTER_IGNORE
-	row.add_child(gem)
-	_careful_price = LobbyUi.text("", 24, Color.WHITE, true)
-	_careful_price.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_careful_price.mouse_filter = MOUSE_FILTER_IGNORE
-	row.add_child(_careful_price)
 	return _careful_btn
 
 
@@ -791,8 +783,6 @@ func _render_careful(piece: Dictionary, c: Dictionary) -> void:
 	_careful_sub.text = ("Thiếu kim cương — chạm để tắt" if on else "Thiếu kim cương") if short else ""
 	_careful_sub.visible = short
 	_careful_btn.custom_minimum_size.y = CAREFUL_H_SHORT if short else CAREFUL_H
-	_careful_price.text = Fmt.thousands(int(cf["gem"]))
-	_careful_price.add_theme_color_override("font_color", BAD if short else Color.WHITE)
 
 
 func _upgrade_reason(piece: Dictionary) -> String:
