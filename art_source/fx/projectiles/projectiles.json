@@ -1,0 +1,19 @@
+{
+	"_doc": "tools/import_projectiles.gd: the AI-drawn per-tier shells <kind>_<tier>.png here (facing right; solid: thick dark outline on flat white, glow: energy on pure black) → assets/fx/<kind>/projectile_<tier>.png. files.<kind>_<tier>: watermark {centre: [x, y], radius} overrides the found ✦ (false: none); alphaCurve (linear: soft glows, smoothstep: a dark solid part) and its numbers override the glow curve. Edit and re-run.",
+	"modes": {"bazooka": "solid", "cannon": "solid", "seed_launcher": "solid", "shock_rifle": "glow", "blaster": "glow"},
+	"scale": 4,
+	"whiteTolerance": 0.1,
+	"edgeSoft": 0.6,
+	"alphaCurve": "linear",
+	"alphaFloor": 0.035,
+	"alphaGamma": 1.0,
+	"alphaBoost": 1.0,
+	"alphaLo": 0.03,
+	"alphaHi": 0.25,
+	"trimAlpha": 0.03,
+	"margin": 6,
+	"watermarkBox": 0.16,
+	"files": {
+		"shock_rifle_dragon": {"alphaCurve": "smoothstep", "alphaLo": 0.03, "alphaHi": 0.22}
+	}
+}

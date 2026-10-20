@@ -495,6 +495,27 @@ static func shot(kind: String, part: String, fallback: Texture2D) -> Texture2D:
 	return t if t != null else fallback
 
 
+## A gun tier's own shell picture (match/views/projectile_view.gd): assets/fx/<kind>/
+## projectile_<tier>.png, for the normal tiers (PROJECTILE_TIERS) only, imported by
+## tools/import_projectiles.gd (art_source/fx/projectiles/<kind>_<tier>.png).
+const PROJECTILE_TIERS := GUN_NORMAL_TIERS
+
+
+static func tier_projectile_path(kind: String, tier: String) -> String:
+	return shot_path(kind, "projectile_%s" % tier)
+
+
+## The tier's own shell picture (the PNG itself while not imported yet), or null: an unknown kind,
+## basic or a crafted tier, or no file yet (the kind's projectile.png is drawn instead).
+static func tier_projectile(kind: String, tier: String) -> Texture2D:
+	if not SHOT_KINDS.has(kind) or not PROJECTILE_TIERS.has(tier):
+		return null
+	var path := tier_projectile_path(kind, tier)
+	if not _textures.has(path) and not ResourceLoader.exists(path) and not FileAccess.file_exists(path):
+		return null
+	return _png_texture(path)
+
+
 ## A shared tier overlay (TIER_FX), or null when its file is missing or not imported yet (the
 ## effect is then left out).
 static func tier_fx(fx_name: String) -> Texture2D:

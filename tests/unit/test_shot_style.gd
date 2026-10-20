@@ -185,3 +185,273 @@ func test_rocket_trail_turns_to_smoke() -> void:
 		if kind != "bazooka":
 			check(not ShotLook.KINDS[kind]["trail"].has("hot"), "%s trail unchanged" % kind)
 			check(not ShotLook.KINDS[kind]["exhaust"], "%s no exhaust" % kind)
+
+
+func _flier(kind: String, tier: String, skill: bool = false) -> Node2D:
+	var v: Node2D = ProjectileView.new()
+	v.kind = kind
+	v.tier = tier
+	v.skill = skill
+	v.heading = Vector2.RIGHT
+	v._ready() # not in the tree
+	return v
+
+
+## The four normal tiers fly with their own theme; basic and the crafted tiers keep their trail.
+func test_flight_themes_per_tier() -> void:
+	eq(ShotLook.THEMES.keys(), ["iron", "steel", "mithril", "dragon"], "themed tiers")
+	for tier in ["basic", "silver", "gold", "titan", "diamond", "mythic"]:
+		eq(ShotLook.tier_theme(tier), {}, "%s: no theme" % tier)
+		eq(ShotLook.trail_fx(tier), ShotLook.TIERS[ShotLook.known_tier(tier)]["trail_fx"], "%s keeps its trail" % tier)
+	var iron := ShotLook.trail_fx("iron")
+	check(iron["mode"] == "puff" and iron["tex"] == "smoke" and float(iron["size"][1]) > float(iron["size"][0]), "iron: grey smoke puffs that grow")
+	check(Color(iron["color"]).s < 0.15 and Color(iron["color2"]).s < 0.15, "iron smoke is grey")
+	var steel := ShotLook.trail_fx("steel")
+	check(steel["mode"] == "streak" and float(steel["shed"][0]) > 0.0 and float(steel["gravity"]) > 0.0, "steel: falling spark streaks shed off the shell")
+	check(Color(steel["color"]).v > 0.9 and Color(steel["color"]).h < 0.2, "steel sparks yellow-white")
+	var mithril := ShotLook.tier_theme("mithril")
+	eq(mithril["ribbon"]["style"], "light", "mithril: a light streak")
+	eq(mithril["trail"]["tex"], "shard", "mithril: ice glints")
+	check(Color(mithril["trail"]["color2"]).b > Color(mithril["trail"]["color2"]).r, "mithril glints icy blue")
+	var dragon := ShotLook.tier_theme("dragon")
+	eq(dragon["ribbon"]["style"], "fire", "dragon: a fire tail")
+	eq(ShotLook.trail_fx("dragon")["tex"], "ember", "dragon keeps its embers")
+	check(ShotLook.fire(1.0).v > 0.95 and ShotLook.fire(1.0).s < 0.3, "fire: a white-yellow core")
+	check(ShotLook.fire(0.5).r > ShotLook.fire(0.5).b * 3.0, "fire: orange-red in the middle")
+	check(ShotLook.fire(0.0).v < 0.3, "fire: dark smoke at the tail")
+	for tier in ShotLook.THEMES:
+		var fx := ShotLook.trail_fx(tier)
+		for key in ["tex", "tex2"]:
+			if fx.has(key):
+				check(ProjectileView.overlay_texture(str(fx[key])) != null, "%s %s loads" % [tier, fx[key]])
+		var rb: Dictionary = ShotLook.THEMES[tier]["ribbon"]
+		if not rb.is_empty():
+			check(int(rb["points"]) <= ShotLook.MAX_RIBBON_POINTS, "%s ribbon points capped" % tier)
+	for tier in ShotLook.TIERS:
+		var v := _flier("cannon", tier)
+		eq(v._tier_fx, ShotLook.trail_fx(tier), "%s view flies its trail" % tier)
+		eq(v._ribbon_spec.is_empty(), not ["mithril", "dragon"].has(tier), "%s ribbon" % tier)
+		v.free()
+
+
+## Flying fast and long, every kind × tier (skill too) stays within the trail caps; steel's sparks
+## move off the shell, the other particles stay where they were born.
+func test_trail_caps_every_kind_and_tier() -> void:
+	for kind in ShotLook.KINDS:
+		for tier in ShotLook.TIERS:
+			for skill in [false, true]:
+				var v := _flier(kind, tier, skill)
+				for i in 120:
+					v.position += Vector2(23.0, -4.0 + i * 0.1)
+					v._process(1.0 / 60.0)
+				var label := "%s %s skill=%s" % [kind, tier, skill]
+				check(v._particles.size() <= ShotLook.TRAIL_KIND_CAP, label + ": kind trail capped")
+				check(v._tier_particles.size() <= ShotLook.TRAIL_TIER_CAP, label + ": tier trail capped")
+				check(v._particles.size() + v._tier_particles.size() <= ShotLook.MAX_TRAIL_PARTICLES, label + ": total capped")
+				if not v._ribbon_spec.is_empty():
+					check(v._ribbon.size() <= int(v._ribbon_spec["points"]) and v._ribbon.size() >= 2, label + ": ribbon kept")
+				if ShotLook.tier_theme(tier).has("trail") or not ShotLook.TIERS[tier]["trail_fx"].is_empty():
+					check(v._tier_particles.size() > 0, label + ": sheds its tier particles")
+				var moving: int = v._tier_particles.filter(func(q): return q[4] != Vector2.ZERO).size()
+				if tier == "steel":
+					check(moving > 0, label + ": sparks thrown off")
+				else:
+					eq(moving, 0, label + ": particles stay put")
+				v.free()
+
+
+## A long jump (e.g. a teleport of the drawn shell) starts the ribbon again instead of filling it
+## with points on a straight line; the points keep their spacing.
+func test_ribbon_spacing() -> void:
+	var v := _flier("bazooka", "dragon")
+	var every := float(v._ribbon_spec["every"])
+	for i in 10:
+		v.position += Vector2(4.0, 0.0)
+		v._process(1.0 / 60.0)
+	for i in range(1, v._ribbon.size()):
+		near(v._ribbon[i].distance_to(v._ribbon[i - 1]), every, 0.01, "ribbon step %d" % i)
+	v.position += Vector2(5000.0, 0.0)
+	v._process(1.0 / 60.0)
+	check(v._ribbon.size() <= int(v._ribbon_spec["points"]), "a jump keeps the cap")
+	near(v._ribbon[-1].x, v.position.x, every, "the tail restarts at the shell")
+	v.free()
+
+
+## A tier's own shell picture: assets/fx/<kind>/projectile_<tier>.png for the normal tiers only;
+## missing → the kind's projectile.png, tinted as before.
+func test_tier_projectile_paths_and_fallback() -> void:
+	for kind in Art.SHOT_KINDS:
+		for tier in Art.PROJECTILE_TIERS:
+			eq(Art.tier_projectile_path(kind, tier), "res://assets/fx/%s/projectile_%s.png" % [kind, tier], "%s %s path" % [kind, tier])
+	eq(Art.PROJECTILE_TIERS, ["iron", "steel", "mithril", "dragon"], "normal tiers")
+	for tier in ["basic", "silver", "gold", "titan", "diamond"]:
+		eq(Art.tier_projectile("bazooka", tier), null, "%s keeps projectile.png" % tier)
+	eq(Art.tier_projectile("ray_gun", "iron"), null, "unknown kind")
+	for kind in Art.SHOT_KINDS:
+		for tier in Art.PROJECTILE_TIERS:
+			if FileAccess.file_exists(Art.tier_projectile_path(kind, tier)):
+				continue # the art is in: test_tier_projectile_drawn covers it
+			eq(Art.tier_projectile(kind, tier), null, "%s %s missing: none" % [kind, tier])
+			var v := _flier(kind, tier)
+			check(not v._tier_body and v._tex == Art.shot(kind, "projectile", Art.fx("bomb")), "%s %s: the kind's projectile.png" % [kind, tier])
+			check(v.body_size().is_equal_approx(v._tex.get_size() / ProjectileView.BOMB_PX), "%s %s: its size" % [kind, tier])
+			check(v.body_color().is_equal_approx(Color.WHITE.lerp(ShotLook.accent(kind, tier), float(ShotLook.KINDS[kind]["body_tint"]))), "%s %s: tinted as before" % [kind, tier])
+			v.free()
+
+
+## With its own picture the shell is drawn untinted (only an item's tint), as big as the kind's
+## projectile.png draws its shell whatever the picture's resolution (fitted, keeping its aspect).
+func test_tier_projectile_drawn() -> void:
+	var base := Vector2(44, 20)
+	check(ProjectileView.fit_size(Vector2(352, 160), base).is_equal_approx(base), "4x picture: same size")
+	check(ProjectileView.fit_size(Vector2(300, 300), base).is_equal_approx(Vector2(20, 20)), "square into a long rocket: fits the height")
+	check(ProjectileView.fit_size(Vector2(500, 100), base).is_equal_approx(Vector2(44, 8.8)), "longer: fits the length")
+	var pic := Image.create(8, 4, false, Image.FORMAT_RGBA8)
+	pic.fill(Color(1, 1, 1, 0))
+	pic.fill_rect(Rect2i(2, 1, 4, 2), Color.WHITE)
+	var drawn := ProjectileView.base_content(ImageTexture.create_from_image(pic))
+	check(drawn.is_equal_approx(Vector2(4, 2)), "the drawn part of a picture: %s" % drawn)
+	var own := ImageTexture.create_from_image(Image.create(352, 160, false, Image.FORMAT_RGBA8))
+	var path := Art.tier_projectile_path("blaster", "dragon")
+	var had: bool = Art._textures.has(path)
+	var before = Art._textures.get(path)
+	Art._textures[path] = own # as if the picture were in (loaded, cached)
+	var v := _flier("blaster", "dragon")
+	check(v._tier_body and v._tex == own, "the tier's picture")
+	var plain := Art.shot("blaster", "projectile", Art.fx("bomb"))
+	check(v.body_size().is_equal_approx(ProjectileView.fit_size(Vector2(352, 160), ProjectileView.base_content(plain) / ProjectileView.BOMB_PX)), "fitted into projectile.png's drawn part")
+	eq(v.body_color(), Color.WHITE, "untinted (the blaster's bolt tint is for projectile.png only)")
+	v.free()
+	var item: Node2D = ProjectileView.new()
+	item.kind = "blaster"
+	item.tier = "dragon"
+	item.item = "freeze_bomb"
+	item._ready()
+	eq(item.body_color(), ProjectileView.ITEM_LOOKS["freeze_bomb"]["tint"], "an item's tint still applies")
+	item.free()
+	var strike: Node2D = ProjectileView.new()
+	strike.kind = "blaster"
+	strike.tier = "dragon"
+	strike.item = "air_strike"
+	strike._ready()
+	check(not strike._tier_body and strike._tex == Art.fx("bomb"), "an air strike drops the bomb")
+	strike.free()
+	if had:
+		Art._textures[path] = before
+	else:
+		Art._textures.erase(path)
+
+
+## The importer's pure parts: the white flood key, the edge alpha, the watermark finder, the fit.
+func test_projectile_importer() -> void:
+	var Imp := preload("res://tools/import_projectiles.gd")
+	# A dark-outlined red box on white, with a white hole inside the outline (kept: not reached).
+	var img := Image.create(40, 30, false, Image.FORMAT_RGB8)
+	img.fill(Color.WHITE)
+	for y in range(8, 22):
+		for x in range(10, 30):
+			var outline := x < 12 or x >= 28 or y < 10 or y >= 20
+			img.set_pixel(x, y, Color(0.08, 0.06, 0.06) if outline else Color(0.9, 0.2, 0.15))
+	img.set_pixel(20, 15, Color.WHITE)
+	var k: Image = Imp.white_keyed(img, 0.1, 0.6)
+	eq(k.get_pixel(0, 0).a, 0.0, "the white background is transparent")
+	eq(k.get_pixel(5, 15).a, 0.0, "beside the object too")
+	near(k.get_pixel(20, 15).a, 1.0, 0.001, "white inside the outline is kept")
+	near(k.get_pixel(15, 15).a, 1.0, 0.001, "the body opaque")
+	var body := k.get_pixel(15, 15)
+	check(absf(body.r - 0.9) < 0.01 and absf(body.g - 0.2) < 0.01 and absf(body.b - 0.15) < 0.01, "its colour kept")
+	near(k.get_pixel(10, 15).a, 1.0, 0.01, "the dark outline at the edge stays opaque")
+	near(Imp.edge_alpha(Color(0.7, 0.7, 0.7), 0.6), 0.5, 0.001, "a light grey edge px is half transparent")
+	check(Imp.unmix_white(Color(0.5, 0.5, 0.5), 0.5).is_equal_approx(Color(0, 0, 0)), "un-mixed from white: black")
+	var r: Rect2i = Imp.content_rect(k, 0.03, 2)
+	eq(r, Rect2i(8, 6, 24, 18), "trimmed to the content plus the margin")
+	# A grey star in the bottom-right corner is found; the object reaching the corner is not one.
+	var wm := Image.create(200, 200, false, Image.FORMAT_RGB8)
+	wm.fill(Color.WHITE)
+	for y in range(182, 189):
+		for x in range(182, 189):
+			wm.set_pixel(x, y, Color(0.72, 0.72, 0.72))
+	var found: Dictionary = Imp.found_watermark(wm, Color.WHITE, 0.16)
+	check(not found.is_empty() and Vector2(found["centre"][0], found["centre"][1]).distance_to(Vector2(185.5, 185.5)) < 1.0, "the star's centre")
+	Imp.paint_disc(wm, Vector2(found["centre"][0], found["centre"][1]), float(found["radius"]), Color.WHITE)
+	eq(Imp.found_watermark(wm, Color.WHITE, 0.16), {}, "painted out")
+	var black := Image.create(200, 200, false, Image.FORMAT_RGB8)
+	black.fill(Color.BLACK)
+	for y in range(185, 190):
+		for x in range(180, 186):
+			black.set_pixel(x, y, Color(0.5, 0.5, 0.52))
+	check(not Imp.found_watermark(black, Color.BLACK, 0.16).is_empty(), "on black too")
+	for y in range(150, 200):
+		for x in range(150, 200):
+			black.set_pixel(x, y, Color(0.6, 0.6, 0.6))
+	eq(Imp.found_watermark(black, Color.BLACK, 0.16), {}, "something big in the corner: not a watermark")
+	eq(Imp.found_watermark(Image.create(50, 50, false, Image.FORMAT_RGB8), Color.BLACK, 0.16), {}, "nothing there")
+	check(Imp.fitted(Vector2(1000, 500), Vector2(352, 160)).is_equal_approx(Vector2(320, 160)), "scaled down to fit 4x")
+	check(Imp.fitted(Vector2(100, 50), Vector2(352, 160)).is_equal_approx(Vector2(100, 50)), "never up")
+	var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://art_source/fx/projectiles/projectiles.json"))
+	check(cfg is Dictionary, "the config parses")
+	for kind in Art.SHOT_KINDS:
+		check(["solid", "glow"].has(cfg["modes"].get(kind, "")), "%s has a mode" % kind)
+	eq(cfg["modes"]["shock_rifle"], "glow", "shock rifle on black")
+	eq(cfg["modes"]["cannon"], "solid", "cannon on white")
+	# Glow mode: a soft halo keeps its bright colour fading out (linear); a dark solid shell
+	# stays opaque in its own dark colour (smoothstep).
+	var lin := {"alphaCurve": "linear", "alphaFloor": 0.035, "alphaGamma": 1.0, "alphaBoost": 1.0}
+	var smooth := {"alphaCurve": "smoothstep", "alphaLo": 0.03, "alphaHi": 0.22}
+	eq(Imp.glow_alpha(0.02, lin), 0.0, "black: transparent")
+	check(Imp.glow_alpha(0.3, lin) <= 0.3 and Imp.glow_alpha(0.3, lin) > 0.2, "a halo px stays see-through")
+	near(Imp.glow_alpha(0.3, smooth), 1.0, 0.001, "the maroon shell opaque")
+	eq(Imp.glow_alpha(0.02, smooth), 0.0, "black: transparent (smoothstep)")
+	var px := Image.create(2, 1, false, Image.FORMAT_RGB8)
+	px.set_pixel(0, 0, Color(0.0, 0.3, 0.3)) # cyan haze
+	px.set_pixel(1, 0, Color(0.45, 0.05, 0.02)) # maroon shell
+	var halo: Image = Imp.black_keyed(px, lin)
+	check(halo.get_pixel(0, 0).g > 0.95 and halo.get_pixel(0, 0).a < 0.35, "the haze: bright cyan, faint")
+	var shell: Image = Imp.black_keyed(px, smooth)
+	check(shell.get_pixel(1, 0).a > 0.99 and absf(shell.get_pixel(1, 0).r - 0.45) < 0.01, "the shell: opaque, its own dark red")
+	eq(cfg["files"]["shock_rifle_dragon"]["alphaCurve"], "smoothstep", "the lava orb keyed with the smoothstep")
+	# Through the whole pipeline: keyed, trimmed and fitted.
+	var big := Image.create(400, 300, false, Image.FORMAT_RGB8)
+	big.fill(Color.WHITE)
+	for y in range(100, 200):
+		for x in range(50, 350):
+			big.set_pixel(x, y, Color(0.05, 0.05, 0.05) if (x < 56 or x >= 344 or y < 106 or y >= 194) else Color(0.3, 0.5, 0.2))
+	var done: Image = Imp.processed(big, "solid", cfg, {}, Vector2(176, 80))
+	check(done.get_width() <= 176 and done.get_height() <= 80 and done.get_width() > 150, "fitted: %s" % done.get_size())
+	near(done.get_pixel(0, 0).a, 0.0, 0.01, "its corner transparent")
+	near(done.get_pixel(done.get_width() / 2, done.get_height() / 2).a, 1.0, 0.01, "its middle opaque")
+
+
+## The imported bazooka, cannon, seed and shock shells: keyed (transparent corners, opaque body), about 4x
+## the base picture, flying at its size, untinted.
+func test_imported_tier_shells() -> void:
+	for kind in ["bazooka", "cannon", "seed_launcher", "shock_rifle"]:
+		_check_tier_shells(kind)
+	check(float(ShotLook.KINDS["seed_launcher"]["tier_body_scale"]) > 1.0, "the long seeds drawn larger than the round pod's box")
+	var ball := ProjectileView.base_content(Art.shot("cannon", "projectile", Art.fx("bomb")))
+	check(ball.x < 50.0 and ball.x > 40.0, "the cannon ball's drawn part, not its 64 px frame: %s" % ball)
+
+
+func _check_tier_shells(kind: String) -> void:
+	var base := Image.load_from_file(ProjectSettings.globalize_path(Art.shot_path(kind, "projectile")))
+	for tier in Art.PROJECTILE_TIERS:
+		var path := Art.tier_projectile_path(kind, tier)
+		check(FileAccess.file_exists(path), "%s %s shell imported" % [kind, tier])
+		check(FileAccess.file_exists("res://art_source/fx/projectiles/%s_%s.png" % [kind, tier]), "%s %s source kept" % [kind, tier])
+		var img := Image.load_from_file(ProjectSettings.globalize_path(path))
+		check(img.get_width() <= base.get_width() * 4 and img.get_height() <= base.get_height() * 4 and img.get_width() >= base.get_width() * 3, "%s %s about 4x: %s" % [kind, tier, img.get_size()])
+		for corner in [Vector2i(0, 0), Vector2i(img.get_width() - 1, 0), Vector2i(0, img.get_height() - 1), Vector2i(img.get_width() - 1, img.get_height() - 1)]:
+			eq(img.get_pixelv(corner).a, 0.0, "%s %s corner transparent" % [kind, tier])
+		near(img.get_pixel(img.get_width() / 2, img.get_height() / 2).a, 1.0, 0.001, "%s %s body opaque" % [kind, tier])
+		var v := _flier(kind, tier)
+		check(v._tier_body, "%s %s flies its own shell" % [kind, tier])
+		var box := ProjectileView.base_content(Art.shot(kind, "projectile", Art.fx("bomb"))) / ProjectileView.BOMB_PX * float(ShotLook.KINDS[kind].get("tier_body_scale", 1.0))
+		check(v.body_size().x <= box.x + 0.01 and v.body_size().y <= box.y + 0.01 and (is_equal_approx(v.body_size().x, box.x) or is_equal_approx(v.body_size().y, box.y)), "%s %s as big as the base shell: %s in %s" % [kind, tier, v.body_size(), box])
+		eq(v.body_color(), Color.WHITE, "%s %s untinted" % [kind, tier])
+		eq(v._exhaust, kind == "bazooka", "%s %s keeps its exhaust" % [kind, tier])
+		eq(v.body_color(), Color.WHITE, "%s %s: no blaster tint" % [kind, tier])
+		v.free()
+	for tier in ["basic", "gold", "diamond"]:
+		var v := _flier(kind, tier)
+		check(not v._tier_body, "%s %s keeps projectile.png" % [kind, tier])
+		v.free()

@@ -43,6 +43,14 @@ Total about 4.0 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   on black, `art_source/fx/back_aura_<colour>.png`, keyed by `tools/import_back_aura.gd` (config
   `art_source/fx/back_aura.json`: the "✦" watermark disc, black → alpha, the red's dark outlines):
   replace a picture and re-run it.
+- **Tier shells** (`fx/<kind>/projectile_<tier>.png`, tiers iron / steel / mithril / dragon: the shell a
+  normal-tier gun fires, `match/views/projectile_view.gd`; drawn in its own colours as big as the
+  kind's `projectile.png` draws its shell, the seeds ×1.45; a missing one flies the kind's
+  `projectile.png` as before): AI-drawn facing right, `art_source/fx/projectiles/<kind>_<tier>.png`
+  (bazooka, cannon, seed_launcher: thick dark outline on flat white; shock_rifle, blaster: energy on
+  pure black), keyed by `tools/import_projectiles.gd` (config `art_source/fx/projectiles/projectiles.json`:
+  the mode per kind, the "✦" watermark, the glow curve per file): add or replace a picture and re-run
+  it (`$GODOT --headless --path . -s tools/import_projectiles.gd`, every picture present).
 - **Title plates** (`ui/titles/title_<rarity>.png`, blue / orange / purple / red, and
   `ui/titles/titles.json`: the banner the title name is drawn on, `ui/title_plate.gd`): AI-drawn
   with no text on a dark background, `art_source/ui/titles/title_<rarity>.png`, keyed by

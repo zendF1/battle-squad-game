@@ -10,7 +10,16 @@ extends Node2D
 ## - blaster: an energy bolt in the accent colour with a short streak.
 ## The tier blends its colour into the trail, adds a glow halo (steel up) and its overlay
 ## particles (assets/fx/tiers/: mithril / silver sparkles, dragon / titan embers, gold coins,
-## diamond crystal shards in rainbow colours). Images via ui/art.gd (assets/fx/<kind>/, falling
+## diamond crystal shards in rainbow colours). The four normal tiers have their own theme
+## (ShotLook.THEMES) instead: iron sheds thick grey smoke puffs, steel sparks (short white-hot
+## streaks stretched along their speed, falling behind), mithril an icy-blue light ribbon with ice
+## glints, dragon a long flickering fire tail (layered flame puffs, hot white-yellow to orange,
+## red and dark smoke, wavering) with its embers; and its own shell picture when there is one
+## (assets/fx/<kind>/projectile_<tier>.png, Art.tier_projectile()): drawn in its own colours (no
+## accent tint, no sheen), fitted into the drawn part of the kind's projectile.png (its alpha
+## content box, base_content()) so it flies just as big
+## (the halo, skill boost, spin, flicker, exhaust and item marks / tints as for the plain one);
+## missing: the kind's projectile.png as before. Images via ui/art.gd (assets/fx/<kind>/, falling
 ## back to the round bomb, assets/fx/common/bomb.png). A skill shot is drawn larger and brighter;
 ## an item shot is tinted and marked by the item on top (ITEM_LOOKS; an air strike drops the round
 ## bomb with its fuse spark instead). Set kind / tier / skill / item / heading before adding it.
@@ -21,6 +30,7 @@ const ShotLook := preload("res://match/views/shot_look.gd")
 
 const TRAIL := 10 # positions kept for the line trail
 const BOMB_PX := 2.0 # projectile image px per world px
+const CONTENT_ALPHA := 0.1 # a px with more alpha is part of the drawn shell (base_content())
 const SPARK := Vector2(-11, -3) # the bomb's fuse tip, world px from its centre (flying +x)
 const EXHAUST := Vector2(-13, 0) # the rocket's exhaust flame, world px from its centre (flying +x)
 ## Overlay trail particles drawn behind the projectile with its halo; coins and shards fly over it.
@@ -36,6 +46,8 @@ const ITEM_LOOKS := {
 	"teleport": {"tint": Color(0.8, 0.62, 1.0), "mark": ""},
 }
 
+static var _contents := {} # Texture2D -> base_content()
+
 var kind := ShotLook.DEFAULT_KIND
 var tier := ShotLook.DEFAULT_TIER
 var skill := false
@@ -49,16 +61,25 @@ var _tl: Dictionary # ShotLook.TIERS[tier]
 var _accent := Color.WHITE
 var _accent2 := Color.WHITE
 var _trail := PackedVector2Array() # global positions, oldest first
-var _particles: Array = [] # the kind's trail: [global position, age, angle, sideways offset]
-var _tier_particles: Array = [] # the tier's overlay trail: the same
+var _particles: Array = [] # the kind's trail: [global position, age, angle, sideways offset, velocity]
+var _tier_particles: Array = [] # the tier's overlay trail (or its theme's): the same
 var _since_particle := 0.0 # world px travelled since the last kind particle
 var _since_tier := 0.0
 var _dir := Vector2.RIGHT
 var _t := 0.0
 var _tex: Texture2D
+var _tier_body := false # _tex is the tier's own shell picture
+var _body_size := Vector2.ONE # the shell's drawn size, world px (before the tier / skill scale)
 var _trail_tex: Texture2D
+var _tier_fx := {} # ShotLook.trail_fx(tier)
+var _tier_on := false # the tier sheds particles
 var _tier_tex: Texture2D
+var _tier_tex2: Texture2D # every other particle (null: _tier_tex)
 var _tier_glows := false
+var _ribbon_spec := {} # the theme's tail ({}: none)
+var _ribbon := PackedVector2Array() # its points, global, oldest first, one every _ribbon_spec.every px
+var _line_pts := PackedVector2Array() # reused drawing buffers for the light ribbon
+var _line_cols := PackedColorArray()
 var _spark: Texture2D
 var _glow: Texture2D
 var _tint := Color.WHITE
@@ -80,16 +101,25 @@ func _ready() -> void:
 	var look: Dictionary = ITEM_LOOKS.get(item, {})
 	var bomb := bool(look.get("bomb", false))
 	_tex = Art.fx("bomb") if bomb else Art.shot(kind, "projectile", Art.fx("bomb"))
+	_body_size = _tex.get_size() / BOMB_PX
+	var own: Texture2D = null if bomb else Art.tier_projectile(kind, tier)
+	if own != null:
+		_body_size = fit_size(own.get_size(), base_content(_tex) / BOMB_PX) * float(_k.get("tier_body_scale", 1.0))
+		_tex = own
+		_tier_body = true
 	_fuse = bomb or bool(_k["fuse"])
 	_exhaust = not bomb and bool(_k["exhaust"])
 	if heading.length_squared() > 0.0:
 		_dir = heading.normalized()
 	_spark = Art.fx("muzzle")
 	_trail_tex = Art.shot(kind, "trail", Art.fx("smoke"))
-	var fx: Dictionary = _tl["trail_fx"]
-	if not fx.is_empty():
-		_tier_tex = Art.tier_fx(str(fx["tex"]))
-		_tier_glows = GLOWING_FX.has(str(fx["tex"]))
+	_tier_fx = ShotLook.trail_fx(tier)
+	if not _tier_fx.is_empty():
+		_tier_tex = overlay_texture(str(_tier_fx.get("tex", "")))
+		_tier_tex2 = overlay_texture(str(_tier_fx.get("tex2", "")))
+		_tier_glows = bool(_tier_fx.get("glow", GLOWING_FX.has(str(_tier_fx.get("tex", "")))))
+		_tier_on = _tier_tex != null or _tier_fx.get("mode", "") == "streak"
+	_ribbon_spec = ShotLook.tier_theme(tier).get("ribbon", {})
 	_glow = Art.tier_fx("glow")
 	if _glow == null:
 		_glow = _spark
@@ -97,6 +127,8 @@ func _ready() -> void:
 	_mark = look.get("mark", "")
 	_rng.randomize()
 	_trail.append(global_position)
+	if not _ribbon_spec.is_empty():
+		_ribbon.append(global_position)
 	_glow_layer = Node2D.new()
 	_glow_layer.texture_filter = TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_glow_layer.show_behind_parent = true
@@ -118,15 +150,40 @@ func _process(delta: float) -> void:
 			_trail.remove_at(0)
 	_since_particle += moved
 	_particles = _emit(_particles, _k["trail"], delta, p - _dir * float(_k["trail"].get("back", 0.0)) * _scale_k(), "_since_particle", ShotLook.TRAIL_KIND_CAP)
-	if _tier_tex != null:
+	if _tier_on:
 		_since_tier += moved
-		_tier_particles = _emit(_tier_particles, _tl["trail_fx"], delta, p, "_since_tier", ShotLook.TRAIL_TIER_CAP)
+		_tier_particles = _emit(_tier_particles, _tier_fx, delta, p, "_since_tier", ShotLook.TRAIL_TIER_CAP)
+	if not _ribbon_spec.is_empty():
+		_grow_ribbon(p)
 	queue_redraw()
 	_glow_layer.queue_redraw()
 
 
+## An overlay or common effect texture by name ("" or a missing file: null).
+static func overlay_texture(tex_name: String) -> Texture2D:
+	if tex_name == "":
+		return null
+	return Art.fx(tex_name) if Art.FX.has(tex_name) else Art.tier_fx(tex_name)
+
+
+## Adds the ribbon's points along the path towards the shell at p, one every `every` px (the
+## shell itself is its head, added when drawn), keeping its `points`.
+func _grow_ribbon(p: Vector2) -> void:
+	var every := float(_ribbon_spec["every"])
+	var keep := int(_ribbon_spec["points"])
+	var steps := 0
+	while _ribbon[-1].distance_to(p) >= every and steps < keep:
+		_ribbon.append(_ribbon[-1].move_toward(p, every))
+		steps += 1
+	if steps == keep: # a jump longer than the whole tail: start it again here
+		_ribbon[-1] = p
+	if _ribbon.size() > keep:
+		_ribbon = _ribbon.slice(_ribbon.size() - keep)
+
+
 ## Ages a trail's particles, drops the dead ones, adds one every `every` px travelled (the
-## distance counter is the property named `counter`) and keeps at most `cap` (the oldest go).
+## distance counter is the property named `counter`; shed [back, side]: thrown off backwards and
+## sideways, px/s) and keeps at most `cap` (the oldest go).
 func _emit(list: Array, spec: Dictionary, delta: float, at: Vector2, counter: String, cap: int) -> Array:
 	var life: float = spec["life"]
 	for q in list:
@@ -134,9 +191,13 @@ func _emit(list: Array, spec: Dictionary, delta: float, at: Vector2, counter: St
 	list = list.filter(func(q): return q[1] < life)
 	var every: float = spec["every"]
 	var travelled: float = get(counter)
+	var shed: Array = spec.get("shed", [0.0, 0.0])
 	while travelled >= every:
 		travelled -= every
-		list.append([at, 0.0, _rng.randf() * TAU, _rng.randf_range(-1.0, 1.0) * float(spec.get("jitter", 0.0))])
+		var v := Vector2.ZERO
+		if float(shed[0]) > 0.0 or float(shed[1]) > 0.0:
+			v = -_dir * _rng.randf_range(0.4, 1.0) * float(shed[0]) + Vector2(-_dir.y, _dir.x) * _rng.randf_range(-1.0, 1.0) * float(shed[1])
+		list.append([at, 0.0, _rng.randf() * TAU, _rng.randf_range(-1.0, 1.0) * float(spec.get("jitter", 0.0)), v])
 	set(counter, travelled)
 	if list.size() > cap:
 		list = list.slice(list.size() - cap)
@@ -146,6 +207,51 @@ func _emit(list: Array, spec: Dictionary, delta: float, at: Vector2, counter: St
 ## The projectile's drawn rotation (rad): its flight direction plus the kind's spin.
 func draw_angle() -> float:
 	return _dir.angle() + _t * float(_k["spin"])
+
+
+## The shell's colour: the tier's own picture untinted (only an item's tint), the kind's
+## projectile.png taking the accent by the kind's body_tint (the blaster's white bolt fully).
+func body_color() -> Color:
+	if _tier_body:
+		return _tint
+	return Color.WHITE.lerp(_accent, float(_k["body_tint"])) * _tint
+
+
+## The shell's drawn size, world px, before the tier / skill scale: the kind's projectile.png's,
+## a tier's own picture fitted into it.
+func body_size() -> Vector2:
+	return _body_size
+
+
+## The size of the drawn part of a picture (the box of its px with alpha > CONTENT_ALPHA; the
+## whole picture when it cannot be read), cached per texture.
+static func base_content(tex: Texture2D) -> Vector2:
+	if _contents.has(tex):
+		return _contents[tex]
+	var size := tex.get_size()
+	var img := tex.get_image()
+	if img != null and not img.is_empty():
+		if img.is_compressed():
+			img.decompress()
+		var used := img.get_used_rect() if img.detect_alpha() != Image.ALPHA_NONE else Rect2i(Vector2i.ZERO, img.get_size())
+		var lo := Vector2i(img.get_width(), img.get_height())
+		var hi := Vector2i(-1, -1)
+		for y in range(used.position.y, used.end.y):
+			for x in range(used.position.x, used.end.x):
+				if img.get_pixel(x, y).a > CONTENT_ALPHA:
+					lo = Vector2i(mini(lo.x, x), mini(lo.y, y))
+					hi = Vector2i(maxi(hi.x, x), maxi(hi.y, y))
+		if hi.x >= 0:
+			size = Vector2(hi - lo + Vector2i.ONE) * size / Vector2(img.get_size())
+	_contents[tex] = size
+	return size
+
+
+## A picture of size `src` fitted into `box` keeping its aspect (as large as fits).
+static func fit_size(src: Vector2, box: Vector2) -> Vector2:
+	if src.x <= 0.0 or src.y <= 0.0:
+		return box
+	return src * minf(box.x / src.x, box.y / src.y)
 
 
 func _scale_k() -> float:
@@ -170,20 +276,20 @@ func _draw() -> void:
 	var kt: Dictionary = _k["trail"]
 	var amount := float(kt.get("tint", 0.0)) * (1.0 if float(_k["body_tint"]) > 0.0 else float(_tl["mix"]))
 	_draw_particles(self, _particles, kt, _trail_tex, Color.WHITE.lerp(_accent, amount) * _tint, scale_k, false)
-	if _tier_tex != null and not _tier_glows:
-		_draw_particles(self, _tier_particles, _tl["trail_fx"], _tier_tex, _tier_color(), scale_k, _tl["prismatic"])
+	if _tier_on and not _tier_glows:
+		_draw_tier_particles(self, scale_k)
 	# The projectile.
 	var rot := draw_angle()
 	var pulse := 1.0 + (0.12 * sin(_t * 45.0) if _k["flicker"] else 0.0)
 	draw_set_transform(Vector2.ZERO, rot, Vector2.ONE * scale_k * pulse)
-	var size := _tex.get_size() / BOMB_PX
-	var body := Color.WHITE.lerp(_accent, float(_k["body_tint"])) * _tint
+	var size := _body_size
+	var body := body_color()
 	if _exhaust: # behind the rocket: a flame stretched along the flight, flickering in length
 		var flicker := 0.8 + 0.12 * sin(_t * 47.0) + 0.08 * sin(_t * 113.0)
 		var flame := Vector2(20.0 * flicker, 11.0)
 		draw_texture_rect(_spark, Rect2(EXHAUST - Vector2(flame.x * 0.65, flame.y / 2), flame), false, Color(1, 1, 1, 0.9) * _tint)
 	draw_texture_rect(_tex, Rect2(-size / 2, size), false, body)
-	if float(_k["body_tint"]) == 0.0 and float(_tl["glow"]) > 0.0: # a sheen in the tier's colour on a solid shell
+	if not _tier_body and float(_k["body_tint"]) == 0.0 and float(_tl["glow"]) > 0.0: # a sheen in the tier's colour on a solid shell
 		var sheen: Color = ShotLook.prism(_t * 2.0) if _tl["prismatic"] else _accent
 		draw_texture_rect(_glow, Rect2(-size * 0.4, size * 0.8), false, Color(sheen, 0.35 * float(_tl["glow"])))
 	if _fuse:
@@ -196,15 +302,106 @@ func _draw() -> void:
 
 ## The overlay particles' colour: coins keep their own gold, the rest take the tier's colour.
 func _tier_color() -> Color:
-	return (Color.WHITE if str(_tl["trail_fx"]["tex"]) == "coin" else _accent2) * _tint
+	return (Color.WHITE if str(_tier_fx.get("tex", "")) == "coin" else _accent2) * _tint
+
+
+## The tier's (or its theme's) flight particles on ci: streaks, or puffs in its texture(s), in the
+## theme's alternating colours (else the tier's).
+func _draw_tier_particles(ci: CanvasItem, scale_k: float) -> void:
+	if _tier_fx.get("mode", "") == "streak":
+		_draw_streaks(ci, _tier_particles, _tier_fx, scale_k)
+		return
+	if _tier_fx.has("color"):
+		_draw_particles(ci, _tier_particles, _tier_fx, _tier_tex, Color(_tier_fx["color"]) * _tint, scale_k, false,
+			_tier_tex2 if _tier_tex2 != null else _tier_tex, Color(_tier_fx["color2"]) * _tint)
+		return
+	_draw_particles(ci, _tier_particles, _tier_fx, _tier_tex, _tier_color(), scale_k, _tl["prismatic"])
+
+
+## Spark streaks: each a short line from where it is back along its speed (length s of it),
+## falling with the spec's gravity, thinning and fading over its life; a soft white core.
+func _draw_streaks(ci: CanvasItem, list: Array, spec: Dictionary, scale_k: float) -> void:
+	var sizes: Array = spec["size"]
+	var life: float = spec["life"]
+	var g := float(spec.get("gravity", 0.0))
+	var length := float(spec.get("length", 0.04))
+	for q in list:
+		var age: float = q[1]
+		var f: float = age / life
+		var v: Vector2 = q[4] + Vector2(0, g * age)
+		var at: Vector2 = q[0] - global_position + Vector2(-_dir.y, _dir.x) * float(q[3]) + q[4] * age + Vector2(0, 0.5 * g * age * age)
+		var w: float = lerpf(sizes[0], sizes[1], f) * scale_k
+		var c: Color = Color(spec["color"] if q[2] < PI else spec["color2"]) * _tint
+		var tail := at - v * length * (1.0 - 0.5 * f)
+		ci.draw_line(tail, at, Color(c, (1.0 - f) * float(spec.get("alpha", 1.0))), w, true)
+		ci.draw_line(tail.lerp(at, 0.5), at, Color(1, 1, 1, 0.8 * (1.0 - f)), maxf(1.0, w * 0.45), true)
+
+
+## The theme's tail along the ribbon points (ci: the glow layer, behind the shell).
+## light: a glowing streak, soft deep blue glows outside, ice ones inside, a white-cyan core
+##   line, tapering and fading to the tail; fire: flame puffs from a hot white-yellow head through orange and red
+##   to dark smoke at the tail, wavering sideways and flickering in size.
+func _draw_ribbon(ci: CanvasItem, scale_k: float) -> void:
+	var n := _ribbon.size() + 1 # the points, then the shell
+	if n < 2:
+		return
+	var w := float(_ribbon_spec["width"]) * scale_k
+	var style := str(_ribbon_spec["style"])
+	if style == "light": # soft glows along the path (deep blue, then ice), a white-cyan core line
+		for pass_i in 2:
+			var col: Color = [ShotLook.ICE_DEEP, ShotLook.ICE][pass_i] * _tint
+			var size_k: float = [1.15, 0.6][pass_i]
+			var alpha_k: float = [0.45, 0.75][pass_i]
+			for i in n:
+				var k := float(i) / (n - 1) # 1 at the shell
+				var r := w * size_k * (0.3 + 0.7 * k) * (0.94 + 0.06 * sin(_t * 31.0 + i * 1.7))
+				var p: Vector2 = _ribbon_at(i) - global_position
+				ci.draw_texture_rect(_glow, Rect2(p - Vector2(r, r), Vector2(r, r) * 2), false, Color(col, alpha_k * k))
+		_line_pts.resize(n)
+		_line_cols.resize(n)
+		for i in n:
+			var k := float(i) / (n - 1)
+			_line_pts[i] = _ribbon_at(i) - global_position
+			_line_cols[i] = Color(ShotLook.ICE_WHITE * _tint, k * (0.9 + 0.1 * sin(_t * 41.0 + i)))
+		ci.draw_polyline_colors(_line_pts, _line_cols, maxf(1.5, w * 0.28), true)
+		return
+	# fire: tail first, so the hot head is drawn over it.
+	var side := Vector2(-_dir.y, _dir.x)
+	for i in n:
+		var k := float(i) / (n - 1) # 1 at the shell
+		var p: Vector2 = _ribbon_at(i) - global_position
+		var sway := side * sin(_t * 17.0 + i * 0.8) * w * 0.35 * (1.0 - k)
+		var flick := 0.85 + 0.15 * sin(_t * 43.0 + i * 2.3) + 0.08 * sin(_t * 97.0 + i)
+		var heat := k * k * (0.92 + 0.08 * sin(_t * 29.0 + i))
+		var r := w * (0.55 + 0.75 * (1.0 - k)) * flick
+		var c: Color = ShotLook.fire(heat) * _tint
+		var tex := _glow if heat > 0.25 else _trail_smoke()
+		var alpha := (0.25 + 0.7 * k) if heat > 0.25 else 0.45 * k + 0.08
+		ci.draw_texture_rect(tex, Rect2(p + sway - Vector2(r, r), Vector2(r, r) * 2), false, Color(c, alpha))
+	for i in range(int(n * 0.55), n): # the hot inner core near the shell
+		var k := float(i) / (n - 1)
+		var p: Vector2 = _ribbon_at(i) - global_position
+		var r := w * 0.42 * (0.6 + 0.4 * k) * (0.9 + 0.1 * sin(_t * 61.0 + i))
+		ci.draw_texture_rect(_glow, Rect2(p - Vector2(r, r), Vector2(r, r) * 2), false, Color(ShotLook.fire(1.0) * _tint, 0.75 * k))
+
+
+## Ribbon point i, local to the shell's parent space (global); past the points: the shell.
+func _ribbon_at(i: int) -> Vector2:
+	return _ribbon[i] if i < _ribbon.size() else global_position
+
+
+func _trail_smoke() -> Texture2D:
+	return Art.fx("smoke")
 
 
 ## The glowing parts behind the projectile (normal blending, so they read on the bright sky too):
 ## the halo (tier glow, brighter for a skill shot) and the sparkle / ember trail.
 func _draw_glow() -> void:
 	var scale_k := _scale_k()
-	if _tier_tex != null and _tier_glows:
-		_draw_particles(_glow_layer, _tier_particles, _tl["trail_fx"], _tier_tex, _tier_color(), scale_k, _tl["prismatic"])
+	if not _ribbon_spec.is_empty():
+		_draw_ribbon(_glow_layer, scale_k)
+	if _tier_on and _tier_glows:
+		_draw_tier_particles(_glow_layer, scale_k)
 	var glow := float(_tl["glow"]) + (ShotLook.SKILL_GLOW if skill else 0.0)
 	if glow <= 0.0:
 		return
@@ -218,8 +415,10 @@ func _draw_glow() -> void:
 
 
 ## Draws trail particles (spec: life, size, alpha, drift, spin, optional hot / cool / cool_at)
-## with tex in color (prismatic: each its own rainbow colour), times its hot-to-cool colour, on ci.
-func _draw_particles(ci: CanvasItem, list: Array, spec: Dictionary, tex: Texture2D, color: Color, scale_k: float, prismatic: bool) -> void:
+## with tex in color (prismatic: each its own rainbow colour), times its hot-to-cool colour, on ci;
+## with tex2: every other one (by its random angle) in tex2 and color2.
+func _draw_particles(ci: CanvasItem, list: Array, spec: Dictionary, tex: Texture2D, color: Color, scale_k: float, prismatic: bool,
+		tex2: Texture2D = null, color2: Color = Color.WHITE) -> void:
 	if list.is_empty() or tex == null:
 		return
 	var sizes: Array = spec["size"]
@@ -231,12 +430,13 @@ func _draw_particles(ci: CanvasItem, list: Array, spec: Dictionary, tex: Texture
 		var f: float = q[1] / life
 		var r: float = lerpf(sizes[0], sizes[1], f) * scale_k
 		var side := Vector2(-_dir.y, _dir.x) * float(q[3])
-		var at: Vector2 = q[0] - global_position + side + Vector2(0, float(spec.get("drift", 0.0)) * q[1])
-		var c: Color = ShotLook.prism(q[2] / TAU + _t) if prismatic else color
+		var at: Vector2 = q[0] - global_position + side + Vector2(0, float(spec.get("drift", 0.0)) * q[1]) + q[4] * q[1]
+		var second: bool = tex2 != null and q[2] >= PI
+		var c: Color = ShotLook.prism(q[2] / TAU + _t) if prismatic else (color2 if second else color)
 		if hot != null:
 			c *= Color(hot).lerp(spec["cool"], minf(1.0, f / cool_at))
 		ci.draw_set_transform(at, q[2] + q[1] * float(spec.get("spin", 0.0)), Vector2.ONE)
-		ci.draw_texture_rect(tex, Rect2(-Vector2(r, r), Vector2(r, r) * 2), false, Color(c, alpha * (1.0 - f)))
+		ci.draw_texture_rect(tex2 if second else tex, Rect2(-Vector2(r, r), Vector2(r, r) * 2), false, Color(c, alpha * (1.0 - f)))
 	ci.draw_set_transform(Vector2.ZERO)
 
 

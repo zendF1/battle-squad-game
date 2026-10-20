@@ -7,6 +7,10 @@ extends RefCounted
 ## - TIERS (gun tier = intensity): colours (the guns' tier palettes, tools/art/weapon_painter.gd),
 ##   sizes, particle counts and which shared overlays of assets/fx/tiers/ join in. Every tier
 ##   works with every kind, so 5 kinds × 9 tiers need no image set of their own.
+## - THEMES (the four normal tiers only): how the shell flies, on top of every kind: iron a thick
+##   grey smoke trail, steel shed sparks, mithril an icy-blue light streak with ice glints, dragon
+##   a flickering fire tail with embers (projectile_view.gd). Basic and the crafted tiers have none
+##   and fly as before; the muzzle flash and the impact are the same for every theme.
 ## Particle counts stay capped (MAX_IMPACT_PARTICLES per impact, MAX_TRAIL_PARTICLES live per
 ## projectile); both views free themselves.
 
@@ -39,6 +43,8 @@ const DIRT := [Color(0.42, 0.28, 0.16), Color(0.3, 0.2, 0.12), Color(0.36, 0.6, 
 ## exhaust: a flickering flame at the rocket's nozzle; flicker: the projectile pulses;
 ## body_tint: how much the projectile itself takes the accent colour (0: its own colours; the
 ##   blaster bolt is drawn white and takes it fully);
+## tier_body_scale: a tier's own shell picture (projectile_<tier>.png) is drawn this much larger
+##   than fitted into projectile.png's drawn part (the long seeds would look tiny in the round pod's box);
 ## impact: scale of the burst frames, smoke puffs and colour, bits (count, speed, size, gravity
 ##   factor, colours, image: "debris" or "trail" = the kind's trail particle), frame_tint.
 const KINDS := {
@@ -59,7 +65,7 @@ const KINDS := {
 		"impact": {"scale": 1.0, "smoke": 2, "smoke_color": Color(0.55, 0.8, 0.95, 0.5), "bits": 16,
 			"speed": [200.0, 480.0], "bit_size": [3.0, 5.0], "gravity": 0.25,
 			"colors": [Color(1.0, 1.0, 0.7), Color(0.6, 0.95, 1.0)], "bit_image": "trail"}},
-	"seed_launcher": {"color": Color(0.6, 1.0, 0.5), "line": null, "line_width": 0.0,
+	"seed_launcher": {"color": Color(0.6, 1.0, 0.5), "line": null, "line_width": 0.0, "tier_body_scale": 1.45,
 		"trail": {"every": 8.0, "life": 0.6, "size": [8.0, 6.0], "alpha": 0.95, "drift": 22.0, "jitter": 6.0, "spin": 9.0, "tint": 0.2},
 		"spin": 9.0, "fuse": false, "exhaust": false, "flicker": false, "body_tint": 0.0,
 		"impact": {"scale": 1.0, "smoke": 3, "smoke_color": Color(0.6, 0.85, 0.55, 0.55), "bits": 16,
@@ -121,6 +127,44 @@ const TIERS := {
 ## The impact particle groups counted against MAX_IMPACT_PARTICLES.
 const PARTICLE_GROUPS := ["smoke", "bits", "sparkles", "embers", "coins", "shards"]
 
+## The flight themes' own colours (not the tier palettes: smoke is grey, sparks white-hot, ice blue).
+const SMOKE := Color(0.5, 0.5, 0.54)
+const SMOKE_DARK := Color(0.33, 0.33, 0.36)
+const SPARK := Color(1.0, 0.72, 0.18)
+const SPARK_WHITE := Color(1.0, 0.98, 0.86)
+const ICE := Color(0.35, 0.85, 1.0)
+const ICE_DEEP := Color(0.1, 0.35, 0.95)
+const ICE_WHITE := Color(0.88, 0.97, 1.0)
+## Flame from its hot core to its smoke (fire()).
+const FIRE := [Color(1.0, 0.98, 0.8), Color(1.0, 0.84, 0.3), Color(1.0, 0.5, 0.1), Color(0.86, 0.18, 0.05), Color(0.26, 0.2, 0.2)]
+
+## gun tier -> how its shell flies (only the four normal tiers; tier_theme() is {} for the others):
+## trail: the flight particles, instead of TIERS.trail_fx (its keys, plus mode "puff" (a texture,
+##   tex: an assets/fx/tiers/ overlay or an assets/fx/common/ effect, tex2: every other one) or
+##   "streak" (a velocity-stretched line: length s of its speed, size = width), shed [back, side]
+##   px/s thrown off the shell, gravity px/s², color / color2 (alternating), glow (drawn in the
+##   glow layer behind the shell)); no trail: the tier's own trail_fx;
+## ribbon: a tail along the recent path ({}: none): style "light" (a glowing line, mithril) or
+##   "fire" (layered flame puffs, dragon), points kept one every `every` px, width px.
+const THEMES := {
+	"iron": {
+		"trail": {"mode": "puff", "tex": "smoke", "every": 12.0, "life": 1.0, "size": [12.0, 34.0], "alpha": 0.6, "drift": -10.0,
+			"jitter": 4.0, "spin": 1.2, "color": SMOKE, "color2": SMOKE_DARK, "glow": false},
+		"ribbon": {}},
+	"steel": {
+		"trail": {"mode": "streak", "every": 9.0, "life": 0.38, "size": [3.6, 1.8], "length": 0.07, "alpha": 1.0,
+			"shed": [260.0, 200.0], "gravity": 700.0, "jitter": 3.0, "color": SPARK, "color2": SPARK_WHITE, "glow": true},
+		"ribbon": {}},
+	"mithril": {
+		"trail": {"mode": "puff", "tex": "shard", "tex2": "sparkle", "every": 8.0, "life": 0.55, "size": [8.0, 3.0], "alpha": 1.0,
+			"drift": 8.0, "jitter": 11.0, "spin": 5.0, "color": ICE_WHITE, "color2": ICE, "glow": true},
+		"ribbon": {"style": "light", "points": 30, "every": 8.0, "width": 14.0}},
+	"dragon": {
+		"ribbon": {"style": "fire", "points": 30, "every": 7.0, "width": 19.0}},
+}
+## Ribbon points kept at most (they are path points, not particles).
+const MAX_RIBBON_POINTS := 32
+
 
 ## Who fires, how: the gun the shooter brought (match player dict: weaponItemId, characterId;
 ## catalog for the weapon's entry; no weapon / a bot → its character's gun, basic), whether it is
@@ -134,6 +178,24 @@ static func style_for(player: Dictionary, action_mode: String, item_id: String, 
 		out["kind"] = DEFAULT_KIND
 		out["tier"] = DEFAULT_TIER
 	return out
+
+
+## A tier's flight theme (THEMES), {} for basic, the crafted tiers and an unknown tier.
+static func tier_theme(tier: String) -> Dictionary:
+	return THEMES.get(known_tier(tier), {})
+
+
+## The flight particles of a tier: its theme's, else its TIERS trail_fx ({} none).
+static func trail_fx(tier: String) -> Dictionary:
+	var th := tier_theme(tier)
+	return th["trail"] if th.has("trail") else TIERS[known_tier(tier)]["trail_fx"]
+
+
+## Flame colour at heat h (1 the hot core .. 0 its smoke), through FIRE.
+static func fire(h: float) -> Color:
+	var x := (1.0 - clampf(h, 0.0, 1.0)) * (FIRE.size() - 1)
+	var i := mini(int(x), FIRE.size() - 2)
+	return Color(FIRE[i]).lerp(FIRE[i + 1], x - i)
 
 
 static func known_kind(kind: String) -> String:
