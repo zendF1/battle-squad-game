@@ -58,6 +58,12 @@ var item := ""
 ## The flight direction before the first move (shot_player.gd: the path's start velocity);
 ## zero: +x.
 var heading := Vector2.ZERO
+## The share of its trail the shell keeps (0..1: the line, the tier's tail and how long the
+## kind's and the tier's trail particles live); set before adding it (the rain's missiles: a
+## short one).
+var trail_length := 1.0
+var _trail_keep := TRAIL
+var _kind_trail := {} # _k["trail"], its life scaled by trail_length
 var _tangent := Vector2.ZERO # set_tangent()
 
 var _k: Dictionary # ShotLook.KINDS[kind]
@@ -118,12 +124,22 @@ func _ready() -> void:
 	_spark = Art.fx("muzzle")
 	_trail_tex = Art.shot(kind, "trail", Art.fx("smoke"))
 	_tier_fx = ShotLook.trail_fx(tier)
+	_kind_trail = _k["trail"]
+	if trail_length < 1.0: # shorter-lived particles (copies: the specs are shared)
+		_kind_trail = _shorter(_kind_trail)
+		if not _tier_fx.is_empty():
+			_tier_fx = _shorter(_tier_fx)
 	if not _tier_fx.is_empty():
 		_tier_tex = overlay_texture(str(_tier_fx.get("tex", "")))
 		_tier_tex2 = overlay_texture(str(_tier_fx.get("tex2", "")))
 		_tier_glows = bool(_tier_fx.get("glow", GLOWING_FX.has(str(_tier_fx.get("tex", "")))))
 		_tier_on = _tier_tex != null or _tier_fx.get("mode", "") == "streak"
 	_ribbon_spec = ShotLook.tier_theme(tier).get("ribbon", {})
+	if trail_length < 1.0:
+		_trail_keep = maxi(3, int(TRAIL * trail_length))
+		if not _ribbon_spec.is_empty():
+			_ribbon_spec = _ribbon_spec.duplicate()
+			_ribbon_spec["points"] = maxi(4, int(float(_ribbon_spec["points"]) * trail_length))
 	_glow = Art.tier_fx("glow")
 	if _glow == null:
 		_glow = _spark
@@ -153,10 +169,10 @@ func _process(delta: float) -> void:
 			_dir = v.normalized() # no tangent given: the last step
 		moved = v.length()
 		_trail.append(p)
-		if _trail.size() > TRAIL:
+		if _trail.size() > _trail_keep:
 			_trail.remove_at(0)
 	_since_particle += moved
-	_particles = _emit(_particles, _k["trail"], delta, p - _dir * float(_k["trail"].get("back", 0.0)) * _scale_k(), "_since_particle", ShotLook.TRAIL_KIND_CAP)
+	_particles = _emit(_particles, _kind_trail, delta, p - _dir * float(_kind_trail.get("back", 0.0)) * _scale_k(), "_since_particle", ShotLook.TRAIL_KIND_CAP)
 	if _tier_on:
 		_since_tier += moved
 		_tier_particles = _emit(_tier_particles, _tier_fx, delta, p, "_since_tier", ShotLook.TRAIL_TIER_CAP)
@@ -164,6 +180,14 @@ func _process(delta: float) -> void:
 		_grow_ribbon(p)
 	queue_redraw()
 	_glow_layer.queue_redraw()
+
+
+## A copy of a trail spec whose particles live trail_length as long.
+func _shorter(spec: Dictionary) -> Dictionary:
+	var out := spec.duplicate()
+	if out.has("life"):
+		out["life"] = float(out["life"]) * maxf(trail_length, 0.05)
+	return out
 
 
 ## An overlay or common effect texture by name ("" or a missing file: null).
@@ -302,7 +326,7 @@ func _draw() -> void:
 			var col: Color = ShotLook.prism(_t * 1.5 - k * 0.6) * _tint if _tl["prismatic"] else c
 			draw_line(a, b, Color(col, bright * k), 2.0 + w * k * scale_k, true)
 	# The kind's trail particles take the accent by the tier's mix (the blaster's always).
-	var kt: Dictionary = _k["trail"]
+	var kt: Dictionary = _kind_trail
 	var amount := float(kt.get("tint", 0.0)) * (1.0 if float(_k["body_tint"]) > 0.0 else float(_tl["mix"]))
 	_draw_particles(self, _particles, kt, _trail_tex, Color.WHITE.lerp(_accent, amount) * _tint, scale_k, false)
 	if _tier_on and not _tier_glows:

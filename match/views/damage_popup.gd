@@ -11,6 +11,17 @@ static func damage_text(amount: int) -> String:
 	return "-" + Fmt.thousands(absi(amount))
 
 
+## Numbers that come quickly on one player (a missile rain, a bomb chain) step aside so they
+## stay readable: the n-th in a row (0 the first) is drawn this far off the usual spot.
+const STACK_MS := 450 # a popup within this of the previous one on the player is "in a row"
+const STAGGER_X := [0.0, 36.0, -36.0, 18.0, -18.0]
+
+
+static func stagger(n: int) -> Vector2:
+	var i := absi(n) % STAGGER_X.size()
+	return Vector2(STAGGER_X[i], -30.0 * i)
+
+
 ## A heal: 450 → "+450", 1250 → "+1.250".
 static func heal_text(amount: int) -> String:
 	return "+" + Fmt.thousands(absi(amount))

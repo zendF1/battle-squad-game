@@ -18,6 +18,7 @@ const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
 const TerrainView := preload("res://match/terrain/terrain_view.gd")
 const PlayerView := preload("res://match/views/player_view.gd")
 const ExplosionFx := preload("res://match/views/explosion_fx.gd")
+const BurnFx := preload("res://match/views/skills/burn_fx.gd")
 const ShotLook := preload("res://match/views/shot_look.gd")
 const DamagePopup := preload("res://match/views/damage_popup.gd")
 const SkyView := preload("res://match/views/sky_view.gd")
@@ -77,6 +78,7 @@ var _aim: AimInput
 var _shot_player: ShotPlayer
 var _shot_timeline: ShotTimeline = null # the shot being replayed (its projectiles' blast radii)
 var _skill_view = null # the SkillView of the skill shot being replayed, or null
+var _popup_row := {} # playerId -> [msec of its last popup, how many came in a row] (DamagePopup.stagger)
 var _skip := "" # the current player loses this turn: "stun" / "freeze" (TurnStarted.skipped), "" none
 var _hud: Hud
 
@@ -395,6 +397,10 @@ func _apply(event: String, data: Variant) -> void:
 				if amount > 0:
 					var burn := str(e.get("type", "")) == "burn"
 					_popup(id, DamagePopup.damage_text(amount), Color(1.0, 0.55, 0.15) if burn else Color(1, 0.3, 0.3))
+					if burn and _views.has(id): # the burn tick: a fire flash over the body
+						var flash := BurnFx.new()
+						flash.position = _views[id].position
+						_fx_layer.add_child(flash)
 				if not bool(e.get("isAlive", true)):
 					_kill(id)
 		"ItemUsed":
@@ -789,7 +795,11 @@ func _popup(id: String, text: String, color: Color, offset: Vector2 = Vector2.ZE
 	var label := DamagePopup.new()
 	label.text = text
 	label.add_theme_color_override("font_color", color)
-	label.position = _views[id].position + Vector2(0, -140) + offset
+	var now := Time.get_ticks_msec()
+	var last: Array = _popup_row.get(id, [-100000, 0])
+	var n: int = int(last[1]) + 1 if now - int(last[0]) < DamagePopup.STACK_MS else 0
+	_popup_row[id] = [now, n]
+	label.position = _views[id].position + Vector2(0, -140) + offset + DamagePopup.stagger(n)
 	_fx_layer.add_child(label)
 
 

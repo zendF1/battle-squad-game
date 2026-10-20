@@ -1,0 +1,2904 @@
+{
+ "burnTick": [
+  {
+   "damage": 165,
+   "hp": 1332,
+   "isAlive": true,
+   "playerId": "e1",
+   "shield": 0,
+   "type": "burn"
+  }
+ ],
+ "rain": {
+  "mapId": "grassland_valley",
+  "shooter": "rookie",
+  "players": {
+   "e1": {
+    "playerId": "e1",
+    "displayName": "e1",
+    "teamId": 2,
+    "characterId": "tanko",
+    "weaponItemId": "",
+    "weaponUpgradeLevel": 0,
+    "hp": 1650,
+    "maxHp": 1650,
+    "shield": 0,
+    "defense": 60,
+    "position": {
+     "x": 1050,
+     "y": 514
+    },
+    "moveEnergy": 0,
+    "maxMoveEnergy": 80,
+    "items": null,
+    "statusEffects": [],
+    "isAlive": true,
+    "isBot": false,
+    "damageBonus": 0,
+    "critChance": 0,
+    "moveEnergyBonus": 0,
+    "skillPowerBonus": 0,
+    "terrainDamageBonus": 0,
+    "skillEnergy": 0,
+    "skillRank": 0,
+    "damageDealt": 0,
+    "killCount": 0,
+    "shotsFired": 0,
+    "shotsHit": 0
+   },
+   "e2": {
+    "playerId": "e2",
+    "displayName": "e2",
+    "teamId": 2,
+    "characterId": "spark",
+    "weaponItemId": "",
+    "weaponUpgradeLevel": 0,
+    "hp": 1250,
+    "maxHp": 1250,
+    "shield": 0,
+    "defense": 30,
+    "position": {
+     "x": 1150,
+     "y": 485
+    },
+    "moveEnergy": 0,
+    "maxMoveEnergy": 120,
+    "items": null,
+    "statusEffects": [],
+    "isAlive": true,
+    "isBot": false,
+    "damageBonus": 0,
+    "critChance": 0,
+    "moveEnergyBonus": 0,
+    "skillPowerBonus": 0,
+    "terrainDamageBonus": 0,
+    "skillEnergy": 0,
+    "skillRank": 0,
+    "damageDealt": 0,
+    "killCount": 0,
+    "shotsFired": 0,
+    "shotsHit": 0
+   },
+   "rookie": {
+    "playerId": "rookie",
+    "displayName": "rookie",
+    "teamId": 1,
+    "characterId": "rookie",
+    "weaponItemId": "rookie_weapon_lv40",
+    "weaponUpgradeLevel": 0,
+    "hp": 1500,
+    "maxHp": 1500,
+    "shield": 0,
+    "defense": 50,
+    "position": {
+     "x": 450,
+     "y": 609
+    },
+    "moveEnergy": 100,
+    "maxMoveEnergy": 100,
+    "items": null,
+    "statusEffects": [],
+    "isAlive": true,
+    "isBot": false,
+    "damageBonus": 0,
+    "critChance": 0,
+    "moveEnergyBonus": 0,
+    "skillPowerBonus": 0,
+    "terrainDamageBonus": 0,
+    "skillEnergy": 0,
+    "skillRank": 4,
+    "damageDealt": 0,
+    "killCount": 0,
+    "shotsFired": 0,
+    "shotsHit": 0
+   }
+  },
+  "terrain": {
+   "width": 1600,
+   "height": 900,
+   "version": 0,
+   "solid": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY=",
+   "destructible": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY="
+  },
+  "terrainAfter": {
+   "width": 1600,
+   "height": 900,
+   "version": 14,
+   "solid": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJDgESpAJ0/QgroQJ3/QgrngJ6/QgrmwJ9/QgqmQKAAf0IKy8E4QGEAf0IKy8K2AGHAf4IKi8RzQGLAf0IKy8XxAGOAf0IKy8cuwGSAf0IKy8ctwGWAf0ILC4cswGaAf0ILC8brwGeAf0ILDAaqgGjAfwILjAYpgGoAfwILjEYnwGuAfwILzAYLwFptAH7CDAxFy8JWrsB+wgxMBcvE0jDAfoIMzAWLx8xzgH6CDQvFi+eAvkINi4XLZ8C+Ag3LxYtnwL3CDgvFi2fAvYIOS8XK6AC9Qg6LxcroAL0CDsvGCmhAvMIPC8YKaECnwgCUTwxGCeiApwIBVA+LxolowKaCAdQPi8bI6QCmAgKTz4vHCGlApYIDE8+Lx0fpgKUCA9OPi8eHacCkwgQTj4vHxuoApEIE0xALSIXqgKPCBZLQC0kE6wCjQgZSkAtJw2vAosIHEhCKy4BtQKJCB9HQivkAocIIkVEKeUChggkREQp5QKECCgXAydGJ+YCgwgrEwYlSCXnAoMILg0KI0oj6AKECDMBESFMIekChAhGH04f6gKFCEYdUB3rAoUIRxtSG+wChQhJF1YX7gKGCEoTWhPwAoYITQ1gDfMChghTAWwB+QKGCLoEhgi6BIYIugSHCLkEhgi6BIYIugSGCLoEhgi6BIYIugSGCLoEhQi7BIUIuwSFCLwEgwi+BIIIvwSACMIE0wcCKcME0QcEJ8YEzQcHJcgEywcJI8sExwcMIc0ExQcOH88EwgcRHdIEvwcTG9QEvAcXF9gEuQcaE9sEtgcfDeAEswcmAecEsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY=",
+   "destructible": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY="
+  },
+  "shot": {
+   "shooterId": "rookie",
+   "actionMode": "skill",
+   "skillId": "triple_shot",
+   "skillEnergy": 0,
+   "skillEnergies": {
+    "e1": 10,
+    "e2": 10,
+    "rookie": 0
+   },
+   "projectiles": [
+    {
+     "projectileId": "proj-90d141764e49d289",
+     "ownerPlayerId": "rookie",
+     "skillId": "triple_shot",
+     "path": [
+      {
+       "position": {
+        "x": 450,
+        "y": 589
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -229.79975999676375
+       },
+       "time": 0
+      },
+      {
+       "position": {
+        "x": 474.8741844710444,
+        "y": 575.6920144001942
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -217.79975999676375
+       },
+       "time": 0.06
+      },
+      {
+       "position": {
+        "x": 499.74836894208875,
+        "y": 563.1040288003884
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -205.79975999676375
+       },
+       "time": 0.12000000000000001
+      },
+      {
+       "position": {
+        "x": 524.6225534131331,
+        "y": 551.2360432005826
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -193.79975999676375
+       },
+       "time": 0.18
+      },
+      {
+       "position": {
+        "x": 549.4967378841775,
+        "y": 540.0880576007768
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -181.79975999676375
+       },
+       "time": 0.23999999999999996
+      },
+      {
+       "position": {
+        "x": 574.3709223552219,
+        "y": 529.6600720009709
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -169.79975999676375
+       },
+       "time": 0.3
+      },
+      {
+       "position": {
+        "x": 599.2451068262662,
+        "y": 519.952086401165
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -157.79975999676375
+       },
+       "time": 0.36000000000000004
+      },
+      {
+       "position": {
+        "x": 624.1192912973106,
+        "y": 510.9641008013593
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -145.79975999676375
+       },
+       "time": 0.4200000000000001
+      },
+      {
+       "position": {
+        "x": 648.993475768355,
+        "y": 502.6961152015534
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -133.79975999676375
+       },
+       "time": 0.48000000000000015
+      },
+      {
+       "position": {
+        "x": 673.8676602393994,
+        "y": 495.1481296017476
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -121.79975999676375
+       },
+       "time": 0.5400000000000001
+      },
+      {
+       "position": {
+        "x": 698.7418447104437,
+        "y": 488.3201440019418
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -109.79975999676375
+       },
+       "time": 0.6000000000000002
+      },
+      {
+       "position": {
+        "x": 723.6160291814881,
+        "y": 482.21215840213597
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -97.79975999676375
+       },
+       "time": 0.6600000000000003
+      },
+      {
+       "position": {
+        "x": 748.4902136525325,
+        "y": 476.82417280233017
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -85.79975999676375
+       },
+       "time": 0.7200000000000003
+      },
+      {
+       "position": {
+        "x": 773.3643981235768,
+        "y": 472.15618720252434
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -73.79975999676375
+       },
+       "time": 0.7800000000000004
+      },
+      {
+       "position": {
+        "x": 798.2385825946212,
+        "y": 468.2082016027185
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -61.799759996763754
+       },
+       "time": 0.8400000000000004
+      },
+      {
+       "position": {
+        "x": 823.1127670656656,
+        "y": 464.98021600291264
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -49.799759996763754
+       },
+       "time": 0.9000000000000005
+      },
+      {
+       "position": {
+        "x": 847.98695153671,
+        "y": 462.47223040310683
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -37.799759996763754
+       },
+       "time": 0.9600000000000005
+      },
+      {
+       "position": {
+        "x": 872.8611360077543,
+        "y": 460.684244803301
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -25.799759996763754
+       },
+       "time": 1.0200000000000005
+      },
+      {
+       "position": {
+        "x": 897.7353204787987,
+        "y": 459.6162592034952
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -13.799759996763754
+       },
+       "time": 1.0800000000000005
+      },
+      {
+       "position": {
+        "x": 922.6095049498431,
+        "y": 459.26827360368935
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": -1.799759996763754
+       },
+       "time": 1.1400000000000006
+      },
+      {
+       "position": {
+        "x": 947.4836894208875,
+        "y": 459.64028800388354
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": 10.200240003236246
+       },
+       "time": 1.2000000000000006
+      },
+      {
+       "position": {
+        "x": 972.3578738919318,
+        "y": 460.7323024040777
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": 22.200240003236246
+       },
+       "time": 1.2600000000000007
+      },
+      {
+       "position": {
+        "x": 997.2320583629762,
+        "y": 462.5443168042719
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": 34.200240003236246
+       },
+       "time": 1.3200000000000007
+      },
+      {
+       "position": {
+        "x": 1022.1062428340206,
+        "y": 465.07633120446604
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": 46.200240003236246
+       },
+       "time": 1.3800000000000008
+      },
+      {
+       "position": {
+        "x": 1046.980427305065,
+        "y": 468.3283456046602
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": 58.200240003236246
+       },
+       "time": 1.4400000000000008
+      },
+      {
+       "position": {
+        "x": 1071.8546117761093,
+        "y": 472.3003600048544
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": 70.20024000323625
+       },
+       "time": 1.5000000000000009
+      },
+      {
+       "position": {
+        "x": 1096.7287962471537,
+        "y": 476.99237440504857
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": 82.20024000323625
+       },
+       "time": 1.560000000000001
+      },
+      {
+       "position": {
+        "x": 1121.602980718198,
+        "y": 482.4043888052427
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": 94.20024000323625
+       },
+       "time": 1.620000000000001
+      },
+      {
+       "position": {
+        "x": 1140.9495686401215,
+        "y": 487.1204000053938
+       },
+       "velocity": {
+        "x": 414.56974118407356,
+        "y": 106.20024000323625
+       },
+       "time": 1.680000000000001
+      }
+     ],
+     "hitPlayerId": "e2",
+     "explosionPoint": {
+      "x": 1140.9495686401215,
+      "y": 487.1204000053938
+     },
+     "explosionRadius": 0,
+     "craterRadius": 0,
+     "kind": "flare"
+    },
+    {
+     "projectileId": "proj-996eb72f78ae6a69",
+     "ownerPlayerId": "rookie",
+     "skillId": "triple_shot",
+     "path": [
+      {
+       "position": {
+        "x": 1161.3405132649789,
+        "y": -60
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 720
+       },
+       "time": 2.180000000000001
+      },
+      {
+       "position": {
+        "x": 1161.3405132649789,
+        "y": -16.320000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 732
+       },
+       "time": 2.240000000000001
+      },
+      {
+       "position": {
+        "x": 1161.3405132649789,
+        "y": 28.08
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 744
+       },
+       "time": 2.300000000000001
+      },
+      {
+       "position": {
+        "x": 1161.3405132649789,
+        "y": 73.2
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 756
+       },
+       "time": 2.360000000000001
+      },
+      {
+       "position": {
+        "x": 1161.3405132649789,
+        "y": 119.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 768
+       },
+       "time": 2.420000000000001
+      },
+      {
+       "position": {
+        "x": 1161.3405132649789,
+        "y": 165.60000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 780
+       },
+       "time": 2.480000000000001
+      },
+      {
+       "position": {
+        "x": 1161.3405132649789,
+        "y": 212.88000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 792
+       },
+       "time": 2.540000000000001
+      },
+      {
+       "position": {
+        "x": 1161.3405132649789,
+        "y": 260.88
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 804
+       },
+       "time": 2.600000000000001
+      },
+      {
+       "position": {
+        "x": 1161.3405132649789,
+        "y": 309.6
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 816
+       },
+       "time": 2.660000000000001
+      },
+      {
+       "position": {
+        "x": 1161.3405132649789,
+        "y": 359.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 828
+       },
+       "time": 2.720000000000001
+      },
+      {
+       "position": {
+        "x": 1161.3405132649789,
+        "y": 409.20000000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 840
+       },
+       "time": 2.780000000000001
+      },
+      {
+       "position": {
+        "x": 1161.3405132649789,
+        "y": 446.44800000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 852
+       },
+       "time": 2.840000000000001
+      }
+     ],
+     "hitPlayerId": "e2",
+     "explosionPoint": {
+      "x": 1161.3405132649789,
+      "y": 446.44800000000004
+     },
+     "explosionRadius": 28,
+     "craterRadius": 24,
+     "kind": "missile",
+     "launchDelay": 2.180000000000001
+    },
+    {
+     "projectileId": "proj-d7a84a0b55b1eb4a",
+     "ownerPlayerId": "rookie",
+     "skillId": "triple_shot",
+     "path": [
+      {
+       "position": {
+        "x": 1005.7736361262682,
+        "y": -60
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 720
+       },
+       "time": 2.280000000000001
+      },
+      {
+       "position": {
+        "x": 1005.7736361262682,
+        "y": -16.320000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 732
+       },
+       "time": 2.340000000000001
+      },
+      {
+       "position": {
+        "x": 1005.7736361262682,
+        "y": 28.08
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 744
+       },
+       "time": 2.4000000000000012
+      },
+      {
+       "position": {
+        "x": 1005.7736361262682,
+        "y": 73.2
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 756
+       },
+       "time": 2.4600000000000013
+      },
+      {
+       "position": {
+        "x": 1005.7736361262682,
+        "y": 119.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 768
+       },
+       "time": 2.520000000000001
+      },
+      {
+       "position": {
+        "x": 1005.7736361262682,
+        "y": 165.60000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 780
+       },
+       "time": 2.580000000000001
+      },
+      {
+       "position": {
+        "x": 1005.7736361262682,
+        "y": 212.88000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 792
+       },
+       "time": 2.640000000000001
+      },
+      {
+       "position": {
+        "x": 1005.7736361262682,
+        "y": 260.88
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 804
+       },
+       "time": 2.700000000000001
+      },
+      {
+       "position": {
+        "x": 1005.7736361262682,
+        "y": 309.6
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 816
+       },
+       "time": 2.760000000000001
+      },
+      {
+       "position": {
+        "x": 1005.7736361262682,
+        "y": 359.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 828
+       },
+       "time": 2.820000000000001
+      },
+      {
+       "position": {
+        "x": 1005.7736361262682,
+        "y": 409.20000000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 840
+       },
+       "time": 2.8800000000000012
+      },
+      {
+       "position": {
+        "x": 1005.7736361262682,
+        "y": 460.08000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 852
+       },
+       "time": 2.9400000000000013
+      },
+      {
+       "position": {
+        "x": 1005.7736361262682,
+        "y": 511.68
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 864
+       },
+       "time": 3.0000000000000013
+      },
+      {
+       "position": {
+        "x": 1005.7736361262682,
+        "y": 539.504
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 872
+       },
+       "time": 3.0400000000000014
+      }
+     ],
+     "explosionPoint": {
+      "x": 1005.7736361262682,
+      "y": 539.504
+     },
+     "explosionRadius": 28,
+     "craterRadius": 24,
+     "kind": "missile",
+     "launchDelay": 2.280000000000001
+    },
+    {
+     "projectileId": "proj-55d4bccd9ddf802d",
+     "ownerPlayerId": "rookie",
+     "skillId": "triple_shot",
+     "path": [
+      {
+       "position": {
+        "x": 1215.0640259896554,
+        "y": -60
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 720
+       },
+       "time": 2.3800000000000012
+      },
+      {
+       "position": {
+        "x": 1215.0640259896554,
+        "y": -16.320000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 732
+       },
+       "time": 2.4400000000000013
+      },
+      {
+       "position": {
+        "x": 1215.0640259896554,
+        "y": 28.08
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 744
+       },
+       "time": 2.5000000000000013
+      },
+      {
+       "position": {
+        "x": 1215.0640259896554,
+        "y": 73.2
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 756
+       },
+       "time": 2.5600000000000014
+      },
+      {
+       "position": {
+        "x": 1215.0640259896554,
+        "y": 119.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 768
+       },
+       "time": 2.620000000000001
+      },
+      {
+       "position": {
+        "x": 1215.0640259896554,
+        "y": 165.60000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 780
+       },
+       "time": 2.680000000000001
+      },
+      {
+       "position": {
+        "x": 1215.0640259896554,
+        "y": 212.88000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 792
+       },
+       "time": 2.740000000000001
+      },
+      {
+       "position": {
+        "x": 1215.0640259896554,
+        "y": 260.88
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 804
+       },
+       "time": 2.800000000000001
+      },
+      {
+       "position": {
+        "x": 1215.0640259896554,
+        "y": 309.6
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 816
+       },
+       "time": 2.860000000000001
+      },
+      {
+       "position": {
+        "x": 1215.0640259896554,
+        "y": 359.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 828
+       },
+       "time": 2.9200000000000013
+      },
+      {
+       "position": {
+        "x": 1215.0640259896554,
+        "y": 409.20000000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 840
+       },
+       "time": 2.9800000000000013
+      },
+      {
+       "position": {
+        "x": 1215.0640259896554,
+        "y": 460.08000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 852
+       },
+       "time": 3.0400000000000014
+      },
+      {
+       "position": {
+        "x": 1215.0640259896554,
+        "y": 487.52000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 860
+       },
+       "time": 3.0800000000000014
+      }
+     ],
+     "explosionPoint": {
+      "x": 1215.0640259896554,
+      "y": 487.52000000000004
+     },
+     "explosionRadius": 28,
+     "craterRadius": 24,
+     "kind": "missile",
+     "launchDelay": 2.3800000000000012
+    },
+    {
+     "projectileId": "proj-71a81ab6e44565f5",
+     "ownerPlayerId": "rookie",
+     "skillId": "triple_shot",
+     "path": [
+      {
+       "position": {
+        "x": 1132.0606743614146,
+        "y": -60
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 720
+       },
+       "time": 2.480000000000001
+      },
+      {
+       "position": {
+        "x": 1132.0606743614146,
+        "y": -16.320000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 732
+       },
+       "time": 2.540000000000001
+      },
+      {
+       "position": {
+        "x": 1132.0606743614146,
+        "y": 28.08
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 744
+       },
+       "time": 2.600000000000001
+      },
+      {
+       "position": {
+        "x": 1132.0606743614146,
+        "y": 73.2
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 756
+       },
+       "time": 2.660000000000001
+      },
+      {
+       "position": {
+        "x": 1132.0606743614146,
+        "y": 119.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 768
+       },
+       "time": 2.7200000000000006
+      },
+      {
+       "position": {
+        "x": 1132.0606743614146,
+        "y": 165.60000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 780
+       },
+       "time": 2.7800000000000007
+      },
+      {
+       "position": {
+        "x": 1132.0606743614146,
+        "y": 212.88000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 792
+       },
+       "time": 2.8400000000000007
+      },
+      {
+       "position": {
+        "x": 1132.0606743614146,
+        "y": 260.88
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 804
+       },
+       "time": 2.900000000000001
+      },
+      {
+       "position": {
+        "x": 1132.0606743614146,
+        "y": 309.6
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 816
+       },
+       "time": 2.960000000000001
+      },
+      {
+       "position": {
+        "x": 1132.0606743614146,
+        "y": 359.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 828
+       },
+       "time": 3.020000000000001
+      },
+      {
+       "position": {
+        "x": 1132.0606743614146,
+        "y": 409.20000000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 840
+       },
+       "time": 3.080000000000001
+      },
+      {
+       "position": {
+        "x": 1132.0606743614146,
+        "y": 449.85600000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 852
+       },
+       "time": 3.140000000000001
+      }
+     ],
+     "hitPlayerId": "e2",
+     "explosionPoint": {
+      "x": 1132.0606743614146,
+      "y": 449.85600000000005
+     },
+     "explosionRadius": 28,
+     "craterRadius": 24,
+     "kind": "missile",
+     "launchDelay": 2.480000000000001
+    },
+    {
+     "projectileId": "proj-9a65f63a2e8cff5a",
+     "ownerPlayerId": "rookie",
+     "skillId": "triple_shot",
+     "path": [
+      {
+       "position": {
+        "x": 1125.1761055720656,
+        "y": -60
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 720
+       },
+       "time": 2.580000000000001
+      },
+      {
+       "position": {
+        "x": 1125.1761055720656,
+        "y": -16.320000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 732
+       },
+       "time": 2.640000000000001
+      },
+      {
+       "position": {
+        "x": 1125.1761055720656,
+        "y": 28.08
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 744
+       },
+       "time": 2.700000000000001
+      },
+      {
+       "position": {
+        "x": 1125.1761055720656,
+        "y": 73.2
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 756
+       },
+       "time": 2.760000000000001
+      },
+      {
+       "position": {
+        "x": 1125.1761055720656,
+        "y": 119.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 768
+       },
+       "time": 2.8200000000000007
+      },
+      {
+       "position": {
+        "x": 1125.1761055720656,
+        "y": 165.60000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 780
+       },
+       "time": 2.880000000000001
+      },
+      {
+       "position": {
+        "x": 1125.1761055720656,
+        "y": 212.88000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 792
+       },
+       "time": 2.940000000000001
+      },
+      {
+       "position": {
+        "x": 1125.1761055720656,
+        "y": 260.88
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 804
+       },
+       "time": 3.000000000000001
+      },
+      {
+       "position": {
+        "x": 1125.1761055720656,
+        "y": 309.6
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 816
+       },
+       "time": 3.060000000000001
+      },
+      {
+       "position": {
+        "x": 1125.1761055720656,
+        "y": 359.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 828
+       },
+       "time": 3.120000000000001
+      },
+      {
+       "position": {
+        "x": 1125.1761055720656,
+        "y": 409.20000000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 840
+       },
+       "time": 3.180000000000001
+      },
+      {
+       "position": {
+        "x": 1125.1761055720656,
+        "y": 460.08000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 852
+       },
+       "time": 3.240000000000001
+      },
+      {
+       "position": {
+        "x": 1125.1761055720656,
+        "y": 490.96000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 860
+       },
+       "time": 3.280000000000001
+      }
+     ],
+     "explosionPoint": {
+      "x": 1125.1761055720656,
+      "y": 490.96000000000004
+     },
+     "explosionRadius": 28,
+     "craterRadius": 24,
+     "kind": "missile",
+     "launchDelay": 2.580000000000001
+    },
+    {
+     "projectileId": "proj-507193d8c92261d3",
+     "ownerPlayerId": "rookie",
+     "skillId": "triple_shot",
+     "path": [
+      {
+       "position": {
+        "x": 1112.90301495748,
+        "y": -60
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 720
+       },
+       "time": 2.680000000000001
+      },
+      {
+       "position": {
+        "x": 1112.90301495748,
+        "y": -16.320000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 732
+       },
+       "time": 2.740000000000001
+      },
+      {
+       "position": {
+        "x": 1112.90301495748,
+        "y": 28.08
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 744
+       },
+       "time": 2.800000000000001
+      },
+      {
+       "position": {
+        "x": 1112.90301495748,
+        "y": 73.2
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 756
+       },
+       "time": 2.860000000000001
+      },
+      {
+       "position": {
+        "x": 1112.90301495748,
+        "y": 119.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 768
+       },
+       "time": 2.920000000000001
+      },
+      {
+       "position": {
+        "x": 1112.90301495748,
+        "y": 165.60000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 780
+       },
+       "time": 2.980000000000001
+      },
+      {
+       "position": {
+        "x": 1112.90301495748,
+        "y": 212.88000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 792
+       },
+       "time": 3.040000000000001
+      },
+      {
+       "position": {
+        "x": 1112.90301495748,
+        "y": 260.88
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 804
+       },
+       "time": 3.100000000000001
+      },
+      {
+       "position": {
+        "x": 1112.90301495748,
+        "y": 309.6
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 816
+       },
+       "time": 3.160000000000001
+      },
+      {
+       "position": {
+        "x": 1112.90301495748,
+        "y": 359.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 828
+       },
+       "time": 3.220000000000001
+      },
+      {
+       "position": {
+        "x": 1112.90301495748,
+        "y": 409.20000000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 840
+       },
+       "time": 3.280000000000001
+      },
+      {
+       "position": {
+        "x": 1112.90301495748,
+        "y": 460.08000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 852
+       },
+       "time": 3.340000000000001
+      },
+      {
+       "position": {
+        "x": 1112.90301495748,
+        "y": 511.68
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 864
+       },
+       "time": 3.4000000000000012
+      }
+     ],
+     "explosionPoint": {
+      "x": 1112.90301495748,
+      "y": 511.68
+     },
+     "explosionRadius": 28,
+     "craterRadius": 24,
+     "kind": "missile",
+     "launchDelay": 2.680000000000001
+    },
+    {
+     "projectileId": "proj-fe70aedbc438c8a6",
+     "ownerPlayerId": "rookie",
+     "skillId": "triple_shot",
+     "path": [
+      {
+       "position": {
+        "x": 1172.560516815894,
+        "y": -60
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 720
+       },
+       "time": 2.780000000000001
+      },
+      {
+       "position": {
+        "x": 1172.560516815894,
+        "y": -16.320000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 732
+       },
+       "time": 2.840000000000001
+      },
+      {
+       "position": {
+        "x": 1172.560516815894,
+        "y": 28.08
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 744
+       },
+       "time": 2.9000000000000012
+      },
+      {
+       "position": {
+        "x": 1172.560516815894,
+        "y": 73.2
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 756
+       },
+       "time": 2.9600000000000013
+      },
+      {
+       "position": {
+        "x": 1172.560516815894,
+        "y": 119.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 768
+       },
+       "time": 3.020000000000001
+      },
+      {
+       "position": {
+        "x": 1172.560516815894,
+        "y": 165.60000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 780
+       },
+       "time": 3.080000000000001
+      },
+      {
+       "position": {
+        "x": 1172.560516815894,
+        "y": 212.88000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 792
+       },
+       "time": 3.140000000000001
+      },
+      {
+       "position": {
+        "x": 1172.560516815894,
+        "y": 260.88
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 804
+       },
+       "time": 3.200000000000001
+      },
+      {
+       "position": {
+        "x": 1172.560516815894,
+        "y": 309.6
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 816
+       },
+       "time": 3.260000000000001
+      },
+      {
+       "position": {
+        "x": 1172.560516815894,
+        "y": 359.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 828
+       },
+       "time": 3.320000000000001
+      },
+      {
+       "position": {
+        "x": 1172.560516815894,
+        "y": 409.20000000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 840
+       },
+       "time": 3.3800000000000012
+      },
+      {
+       "position": {
+        "x": 1172.560516815894,
+        "y": 460.08000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 852
+       },
+       "time": 3.4400000000000013
+      }
+     ],
+     "hitPlayerId": "e2",
+     "explosionPoint": {
+      "x": 1172.560516815894,
+      "y": 460.08000000000004
+     },
+     "explosionRadius": 28,
+     "craterRadius": 24,
+     "kind": "missile",
+     "launchDelay": 2.780000000000001
+    },
+    {
+     "projectileId": "proj-fac063076760dd08",
+     "ownerPlayerId": "rookie",
+     "skillId": "triple_shot",
+     "path": [
+      {
+       "position": {
+        "x": 1290.4918583997319,
+        "y": -60
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 720
+       },
+       "time": 2.8800000000000012
+      },
+      {
+       "position": {
+        "x": 1290.4918583997319,
+        "y": -16.320000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 732
+       },
+       "time": 2.9400000000000013
+      },
+      {
+       "position": {
+        "x": 1290.4918583997319,
+        "y": 28.08
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 744
+       },
+       "time": 3.0000000000000013
+      },
+      {
+       "position": {
+        "x": 1290.4918583997319,
+        "y": 73.2
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 756
+       },
+       "time": 3.0600000000000014
+      },
+      {
+       "position": {
+        "x": 1290.4918583997319,
+        "y": 119.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 768
+       },
+       "time": 3.120000000000001
+      },
+      {
+       "position": {
+        "x": 1290.4918583997319,
+        "y": 165.60000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 780
+       },
+       "time": 3.180000000000001
+      },
+      {
+       "position": {
+        "x": 1290.4918583997319,
+        "y": 212.88000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 792
+       },
+       "time": 3.240000000000001
+      },
+      {
+       "position": {
+        "x": 1290.4918583997319,
+        "y": 260.88
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 804
+       },
+       "time": 3.300000000000001
+      },
+      {
+       "position": {
+        "x": 1290.4918583997319,
+        "y": 309.6
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 816
+       },
+       "time": 3.360000000000001
+      },
+      {
+       "position": {
+        "x": 1290.4918583997319,
+        "y": 359.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 828
+       },
+       "time": 3.4200000000000013
+      },
+      {
+       "position": {
+        "x": 1290.4918583997319,
+        "y": 409.20000000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 840
+       },
+       "time": 3.4800000000000013
+      },
+      {
+       "position": {
+        "x": 1290.4918583997319,
+        "y": 460.08000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 852
+       },
+       "time": 3.5400000000000014
+      },
+      {
+       "position": {
+        "x": 1290.4918583997319,
+        "y": 497.85600000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 864
+       },
+       "time": 3.6000000000000014
+      }
+     ],
+     "explosionPoint": {
+      "x": 1290.4918583997319,
+      "y": 497.85600000000005
+     },
+     "explosionRadius": 28,
+     "craterRadius": 24,
+     "kind": "missile",
+     "launchDelay": 2.8800000000000012
+    },
+    {
+     "projectileId": "proj-be1f9686fe305f88",
+     "ownerPlayerId": "rookie",
+     "skillId": "triple_shot",
+     "path": [
+      {
+       "position": {
+        "x": 1139.1959443015905,
+        "y": -60
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 720
+       },
+       "time": 2.9800000000000013
+      },
+      {
+       "position": {
+        "x": 1139.1959443015905,
+        "y": -16.320000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 732
+       },
+       "time": 3.0400000000000014
+      },
+      {
+       "position": {
+        "x": 1139.1959443015905,
+        "y": 28.08
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 744
+       },
+       "time": 3.1000000000000014
+      },
+      {
+       "position": {
+        "x": 1139.1959443015905,
+        "y": 73.2
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 756
+       },
+       "time": 3.1600000000000015
+      },
+      {
+       "position": {
+        "x": 1139.1959443015905,
+        "y": 119.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 768
+       },
+       "time": 3.220000000000001
+      },
+      {
+       "position": {
+        "x": 1139.1959443015905,
+        "y": 165.60000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 780
+       },
+       "time": 3.280000000000001
+      },
+      {
+       "position": {
+        "x": 1139.1959443015905,
+        "y": 212.88000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 792
+       },
+       "time": 3.340000000000001
+      },
+      {
+       "position": {
+        "x": 1139.1959443015905,
+        "y": 260.88
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 804
+       },
+       "time": 3.4000000000000012
+      },
+      {
+       "position": {
+        "x": 1139.1959443015905,
+        "y": 309.6
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 816
+       },
+       "time": 3.4600000000000013
+      },
+      {
+       "position": {
+        "x": 1139.1959443015905,
+        "y": 359.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 828
+       },
+       "time": 3.5200000000000014
+      },
+      {
+       "position": {
+        "x": 1139.1959443015905,
+        "y": 409.20000000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 840
+       },
+       "time": 3.5800000000000014
+      },
+      {
+       "position": {
+        "x": 1139.1959443015905,
+        "y": 446.44800000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 852
+       },
+       "time": 3.6400000000000015
+      }
+     ],
+     "hitPlayerId": "e2",
+     "explosionPoint": {
+      "x": 1139.1959443015905,
+      "y": 446.44800000000004
+     },
+     "explosionRadius": 28,
+     "craterRadius": 24,
+     "kind": "missile",
+     "launchDelay": 2.9800000000000013
+    },
+    {
+     "projectileId": "proj-bd12f58532318b98",
+     "ownerPlayerId": "rookie",
+     "skillId": "triple_shot",
+     "path": [
+      {
+       "position": {
+        "x": 1142.6973560828837,
+        "y": -60
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 720
+       },
+       "time": 3.080000000000001
+      },
+      {
+       "position": {
+        "x": 1142.6973560828837,
+        "y": -16.320000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 732
+       },
+       "time": 3.140000000000001
+      },
+      {
+       "position": {
+        "x": 1142.6973560828837,
+        "y": 28.08
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 744
+       },
+       "time": 3.200000000000001
+      },
+      {
+       "position": {
+        "x": 1142.6973560828837,
+        "y": 73.2
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 756
+       },
+       "time": 3.260000000000001
+      },
+      {
+       "position": {
+        "x": 1142.6973560828837,
+        "y": 119.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 768
+       },
+       "time": 3.3200000000000007
+      },
+      {
+       "position": {
+        "x": 1142.6973560828837,
+        "y": 165.60000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 780
+       },
+       "time": 3.380000000000001
+      },
+      {
+       "position": {
+        "x": 1142.6973560828837,
+        "y": 212.88000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 792
+       },
+       "time": 3.440000000000001
+      },
+      {
+       "position": {
+        "x": 1142.6973560828837,
+        "y": 260.88
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 804
+       },
+       "time": 3.500000000000001
+      },
+      {
+       "position": {
+        "x": 1142.6973560828837,
+        "y": 309.6
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 816
+       },
+       "time": 3.560000000000001
+      },
+      {
+       "position": {
+        "x": 1142.6973560828837,
+        "y": 359.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 828
+       },
+       "time": 3.620000000000001
+      },
+      {
+       "position": {
+        "x": 1142.6973560828837,
+        "y": 409.20000000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 840
+       },
+       "time": 3.680000000000001
+      },
+      {
+       "position": {
+        "x": 1142.6973560828837,
+        "y": 443.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 848
+       },
+       "time": 3.720000000000001
+      }
+     ],
+     "hitPlayerId": "e2",
+     "explosionPoint": {
+      "x": 1142.6973560828837,
+      "y": 443.04
+     },
+     "explosionRadius": 28,
+     "craterRadius": 24,
+     "kind": "missile",
+     "launchDelay": 3.080000000000001
+    },
+    {
+     "projectileId": "proj-f6a9c632440b992c",
+     "ownerPlayerId": "rookie",
+     "skillId": "triple_shot",
+     "path": [
+      {
+       "position": {
+        "x": 1079.4538228836711,
+        "y": -60
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 720
+       },
+       "time": 3.180000000000001
+      },
+      {
+       "position": {
+        "x": 1079.4538228836711,
+        "y": -16.320000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 732
+       },
+       "time": 3.240000000000001
+      },
+      {
+       "position": {
+        "x": 1079.4538228836711,
+        "y": 28.08
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 744
+       },
+       "time": 3.300000000000001
+      },
+      {
+       "position": {
+        "x": 1079.4538228836711,
+        "y": 73.2
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 756
+       },
+       "time": 3.360000000000001
+      },
+      {
+       "position": {
+        "x": 1079.4538228836711,
+        "y": 119.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 768
+       },
+       "time": 3.420000000000001
+      },
+      {
+       "position": {
+        "x": 1079.4538228836711,
+        "y": 165.60000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 780
+       },
+       "time": 3.480000000000001
+      },
+      {
+       "position": {
+        "x": 1079.4538228836711,
+        "y": 212.88000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 792
+       },
+       "time": 3.540000000000001
+      },
+      {
+       "position": {
+        "x": 1079.4538228836711,
+        "y": 260.88
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 804
+       },
+       "time": 3.600000000000001
+      },
+      {
+       "position": {
+        "x": 1079.4538228836711,
+        "y": 309.6
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 816
+       },
+       "time": 3.660000000000001
+      },
+      {
+       "position": {
+        "x": 1079.4538228836711,
+        "y": 359.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 828
+       },
+       "time": 3.720000000000001
+      },
+      {
+       "position": {
+        "x": 1079.4538228836711,
+        "y": 409.20000000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 840
+       },
+       "time": 3.780000000000001
+      },
+      {
+       "position": {
+        "x": 1079.4538228836711,
+        "y": 460.08000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 852
+       },
+       "time": 3.840000000000001
+      },
+      {
+       "position": {
+        "x": 1079.4538228836711,
+        "y": 504.76800000000003
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 864
+       },
+       "time": 3.9000000000000012
+      }
+     ],
+     "explosionPoint": {
+      "x": 1079.4538228836711,
+      "y": 504.76800000000003
+     },
+     "explosionRadius": 28,
+     "craterRadius": 24,
+     "kind": "missile",
+     "launchDelay": 3.180000000000001
+    },
+    {
+     "projectileId": "proj-fda0dd3db30019e9",
+     "ownerPlayerId": "rookie",
+     "skillId": "triple_shot",
+     "path": [
+      {
+       "position": {
+        "x": 1145.453619567163,
+        "y": -60
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 720
+       },
+       "time": 3.280000000000001
+      },
+      {
+       "position": {
+        "x": 1145.453619567163,
+        "y": -16.320000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 732
+       },
+       "time": 3.340000000000001
+      },
+      {
+       "position": {
+        "x": 1145.453619567163,
+        "y": 28.08
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 744
+       },
+       "time": 3.4000000000000012
+      },
+      {
+       "position": {
+        "x": 1145.453619567163,
+        "y": 73.2
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 756
+       },
+       "time": 3.4600000000000013
+      },
+      {
+       "position": {
+        "x": 1145.453619567163,
+        "y": 119.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 768
+       },
+       "time": 3.520000000000001
+      },
+      {
+       "position": {
+        "x": 1145.453619567163,
+        "y": 165.60000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 780
+       },
+       "time": 3.580000000000001
+      },
+      {
+       "position": {
+        "x": 1145.453619567163,
+        "y": 212.88000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 792
+       },
+       "time": 3.640000000000001
+      },
+      {
+       "position": {
+        "x": 1145.453619567163,
+        "y": 260.88
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 804
+       },
+       "time": 3.700000000000001
+      },
+      {
+       "position": {
+        "x": 1145.453619567163,
+        "y": 309.6
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 816
+       },
+       "time": 3.760000000000001
+      },
+      {
+       "position": {
+        "x": 1145.453619567163,
+        "y": 359.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 828
+       },
+       "time": 3.820000000000001
+      },
+      {
+       "position": {
+        "x": 1145.453619567163,
+        "y": 409.20000000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 840
+       },
+       "time": 3.8800000000000012
+      },
+      {
+       "position": {
+        "x": 1145.453619567163,
+        "y": 443.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 848
+       },
+       "time": 3.9200000000000013
+      }
+     ],
+     "hitPlayerId": "e2",
+     "explosionPoint": {
+      "x": 1145.453619567163,
+      "y": 443.04
+     },
+     "explosionRadius": 28,
+     "craterRadius": 24,
+     "kind": "missile",
+     "launchDelay": 3.280000000000001
+    },
+    {
+     "projectileId": "proj-d635c4566ec83472",
+     "ownerPlayerId": "rookie",
+     "skillId": "triple_shot",
+     "path": [
+      {
+       "position": {
+        "x": 1221.8071347709574,
+        "y": -60
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 720
+       },
+       "time": 3.3800000000000012
+      },
+      {
+       "position": {
+        "x": 1221.8071347709574,
+        "y": -16.320000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 732
+       },
+       "time": 3.4400000000000013
+      },
+      {
+       "position": {
+        "x": 1221.8071347709574,
+        "y": 28.08
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 744
+       },
+       "time": 3.5000000000000013
+      },
+      {
+       "position": {
+        "x": 1221.8071347709574,
+        "y": 73.2
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 756
+       },
+       "time": 3.5600000000000014
+      },
+      {
+       "position": {
+        "x": 1221.8071347709574,
+        "y": 119.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 768
+       },
+       "time": 3.620000000000001
+      },
+      {
+       "position": {
+        "x": 1221.8071347709574,
+        "y": 165.60000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 780
+       },
+       "time": 3.680000000000001
+      },
+      {
+       "position": {
+        "x": 1221.8071347709574,
+        "y": 212.88000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 792
+       },
+       "time": 3.740000000000001
+      },
+      {
+       "position": {
+        "x": 1221.8071347709574,
+        "y": 260.88
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 804
+       },
+       "time": 3.800000000000001
+      },
+      {
+       "position": {
+        "x": 1221.8071347709574,
+        "y": 309.6
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 816
+       },
+       "time": 3.860000000000001
+      },
+      {
+       "position": {
+        "x": 1221.8071347709574,
+        "y": 359.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 828
+       },
+       "time": 3.9200000000000013
+      },
+      {
+       "position": {
+        "x": 1221.8071347709574,
+        "y": 409.20000000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 840
+       },
+       "time": 3.9800000000000013
+      },
+      {
+       "position": {
+        "x": 1221.8071347709574,
+        "y": 460.08000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 852
+       },
+       "time": 4.040000000000002
+      },
+      {
+       "position": {
+        "x": 1221.8071347709574,
+        "y": 511.68
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 864
+       },
+       "time": 4.100000000000001
+      }
+     ],
+     "explosionPoint": {
+      "x": 1221.8071347709574,
+      "y": 511.68
+     },
+     "explosionRadius": 28,
+     "craterRadius": 24,
+     "kind": "missile",
+     "launchDelay": 3.3800000000000012
+    },
+    {
+     "projectileId": "proj-2724d931f6dd94d4",
+     "ownerPlayerId": "rookie",
+     "skillId": "triple_shot",
+     "path": [
+      {
+       "position": {
+        "x": 1054.396121716917,
+        "y": -60
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 720
+       },
+       "time": 3.4800000000000013
+      },
+      {
+       "position": {
+        "x": 1054.396121716917,
+        "y": -16.320000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 732
+       },
+       "time": 3.5400000000000014
+      },
+      {
+       "position": {
+        "x": 1054.396121716917,
+        "y": 28.08
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 744
+       },
+       "time": 3.6000000000000014
+      },
+      {
+       "position": {
+        "x": 1054.396121716917,
+        "y": 73.2
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 756
+       },
+       "time": 3.6600000000000015
+      },
+      {
+       "position": {
+        "x": 1054.396121716917,
+        "y": 119.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 768
+       },
+       "time": 3.720000000000001
+      },
+      {
+       "position": {
+        "x": 1054.396121716917,
+        "y": 165.60000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 780
+       },
+       "time": 3.780000000000001
+      },
+      {
+       "position": {
+        "x": 1054.396121716917,
+        "y": 212.88000000000002
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 792
+       },
+       "time": 3.840000000000001
+      },
+      {
+       "position": {
+        "x": 1054.396121716917,
+        "y": 260.88
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 804
+       },
+       "time": 3.9000000000000012
+      },
+      {
+       "position": {
+        "x": 1054.396121716917,
+        "y": 309.6
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 816
+       },
+       "time": 3.9600000000000013
+      },
+      {
+       "position": {
+        "x": 1054.396121716917,
+        "y": 359.04
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 828
+       },
+       "time": 4.020000000000001
+      },
+      {
+       "position": {
+        "x": 1054.396121716917,
+        "y": 409.20000000000005
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 840
+       },
+       "time": 4.080000000000002
+      },
+      {
+       "position": {
+        "x": 1054.396121716917,
+        "y": 460.08000000000004
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 852
+       },
+       "time": 4.1400000000000015
+      },
+      {
+       "position": {
+        "x": 1054.396121716917,
+        "y": 473.77600000000007
+       },
+       "velocity": {
+        "x": -1.3226185430791396e-13,
+        "y": 856
+       },
+       "time": 4.160000000000002
+      }
+     ],
+     "hitPlayerId": "e1",
+     "explosionPoint": {
+      "x": 1054.396121716917,
+      "y": 473.77600000000007
+     },
+     "explosionRadius": 28,
+     "craterRadius": 24,
+     "kind": "missile",
+     "launchDelay": 3.4800000000000013
+    }
+   ],
+   "events": [
+    {
+     "t": 1.680000000000001,
+     "type": "flare",
+     "projectileId": "proj-90d141764e49d289",
+     "position": {
+      "x": 1140.9495686401215,
+      "y": 487.1204000053938
+     }
+    },
+    {
+     "t": 2.180000000000001,
+     "type": "rain",
+     "position": {
+      "x": 1140.9495686401215,
+      "y": 487.1204000053938
+     },
+     "radius": 150,
+     "count": 14
+    },
+    {
+     "t": 2.840000000000001,
+     "type": "explode",
+     "projectileId": "proj-996eb72f78ae6a69",
+     "position": {
+      "x": 1161.3405132649789,
+      "y": 446.44800000000004
+     },
+     "radius": 24,
+     "terrainVersion": 1
+    },
+    {
+     "t": 2.840000000000001,
+     "type": "damage",
+     "playerId": "e2",
+     "projectileId": "proj-996eb72f78ae6a69",
+     "amount": 160,
+     "hp": 1090,
+     "cause": "explosion"
+    },
+    {
+     "t": 2.840000000000001,
+     "type": "status",
+     "playerId": "e2",
+     "effectId": "burn",
+     "turns": 1
+    },
+    {
+     "t": 3.0400000000000014,
+     "type": "explode",
+     "projectileId": "proj-d7a84a0b55b1eb4a",
+     "position": {
+      "x": 1005.7736361262682,
+      "y": 539.504
+     },
+     "radius": 24,
+     "terrainVersion": 2
+    },
+    {
+     "t": 3.0800000000000014,
+     "type": "explode",
+     "projectileId": "proj-55d4bccd9ddf802d",
+     "position": {
+      "x": 1215.0640259896554,
+      "y": 487.52000000000004
+     },
+     "radius": 24,
+     "terrainVersion": 3
+    },
+    {
+     "t": 3.140000000000001,
+     "type": "explode",
+     "projectileId": "proj-71a81ab6e44565f5",
+     "position": {
+      "x": 1132.0606743614146,
+      "y": 449.85600000000005
+     },
+     "radius": 24,
+     "terrainVersion": 4
+    },
+    {
+     "t": 3.140000000000001,
+     "type": "damage",
+     "playerId": "e2",
+     "projectileId": "proj-71a81ab6e44565f5",
+     "amount": 160,
+     "hp": 930,
+     "cause": "explosion"
+    },
+    {
+     "t": 3.280000000000001,
+     "type": "explode",
+     "projectileId": "proj-9a65f63a2e8cff5a",
+     "position": {
+      "x": 1125.1761055720656,
+      "y": 490.96000000000004
+     },
+     "radius": 24,
+     "terrainVersion": 5
+    },
+    {
+     "t": 3.280000000000001,
+     "type": "damage",
+     "playerId": "e2",
+     "projectileId": "proj-9a65f63a2e8cff5a",
+     "amount": 14,
+     "hp": 916,
+     "cause": "explosion"
+    },
+    {
+     "t": 3.4000000000000012,
+     "type": "explode",
+     "projectileId": "proj-507193d8c92261d3",
+     "position": {
+      "x": 1112.90301495748,
+      "y": 511.68
+     },
+     "radius": 24,
+     "terrainVersion": 6
+    },
+    {
+     "t": 3.4400000000000013,
+     "type": "explode",
+     "projectileId": "proj-fe70aedbc438c8a6",
+     "position": {
+      "x": 1172.560516815894,
+      "y": 460.08000000000004
+     },
+     "radius": 24,
+     "terrainVersion": 7
+    },
+    {
+     "t": 3.4400000000000013,
+     "type": "damage",
+     "playerId": "e2",
+     "projectileId": "proj-fe70aedbc438c8a6",
+     "amount": 160,
+     "hp": 756,
+     "cause": "explosion"
+    },
+    {
+     "t": 3.6000000000000014,
+     "type": "explode",
+     "projectileId": "proj-fac063076760dd08",
+     "position": {
+      "x": 1290.4918583997319,
+      "y": 497.85600000000005
+     },
+     "radius": 24,
+     "terrainVersion": 8
+    },
+    {
+     "t": 3.6400000000000015,
+     "type": "explode",
+     "projectileId": "proj-be1f9686fe305f88",
+     "position": {
+      "x": 1139.1959443015905,
+      "y": 446.44800000000004
+     },
+     "radius": 24,
+     "terrainVersion": 9
+    },
+    {
+     "t": 3.6400000000000015,
+     "type": "damage",
+     "playerId": "e2",
+     "projectileId": "proj-be1f9686fe305f88",
+     "amount": 160,
+     "hp": 596,
+     "cause": "explosion"
+    },
+    {
+     "t": 3.720000000000001,
+     "type": "explode",
+     "projectileId": "proj-bd12f58532318b98",
+     "position": {
+      "x": 1142.6973560828837,
+      "y": 443.04
+     },
+     "radius": 24,
+     "terrainVersion": 10
+    },
+    {
+     "t": 3.720000000000001,
+     "type": "damage",
+     "playerId": "e2",
+     "projectileId": "proj-bd12f58532318b98",
+     "amount": 160,
+     "hp": 436,
+     "cause": "explosion"
+    },
+    {
+     "t": 3.9000000000000012,
+     "type": "explode",
+     "projectileId": "proj-f6a9c632440b992c",
+     "position": {
+      "x": 1079.4538228836711,
+      "y": 504.76800000000003
+     },
+     "radius": 24,
+     "terrainVersion": 11
+    },
+    {
+     "t": 3.9200000000000013,
+     "type": "explode",
+     "projectileId": "proj-fda0dd3db30019e9",
+     "position": {
+      "x": 1145.453619567163,
+      "y": 443.04
+     },
+     "radius": 24,
+     "terrainVersion": 12
+    },
+    {
+     "t": 3.9200000000000013,
+     "type": "damage",
+     "playerId": "e2",
+     "projectileId": "proj-fda0dd3db30019e9",
+     "amount": 100,
+     "hp": 336,
+     "cause": "explosion"
+    },
+    {
+     "t": 4.100000000000001,
+     "type": "explode",
+     "projectileId": "proj-d635c4566ec83472",
+     "position": {
+      "x": 1221.8071347709574,
+      "y": 511.68
+     },
+     "radius": 24,
+     "terrainVersion": 13
+    },
+    {
+     "t": 4.160000000000002,
+     "type": "explode",
+     "projectileId": "proj-2724d931f6dd94d4",
+     "position": {
+      "x": 1054.396121716917,
+      "y": 473.77600000000007
+     },
+     "radius": 24,
+     "terrainVersion": 14
+    },
+    {
+     "t": 4.160000000000002,
+     "type": "damage",
+     "playerId": "e1",
+     "projectileId": "proj-2724d931f6dd94d4",
+     "amount": 153,
+     "hp": 1497,
+     "cause": "explosion"
+    },
+    {
+     "t": 4.160000000000002,
+     "type": "status",
+     "playerId": "e1",
+     "effectId": "burn",
+     "turns": 1
+    }
+   ],
+   "duration": 4.160000000000002
+  }
+ }
+}
