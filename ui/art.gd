@@ -98,7 +98,7 @@ const HUG_DATA := ROOT + "weapons/hug.json"
 const ICON_SIZE := Vector2i(96, 96)
 const ICONS := [
 	"gem", "coin", "plus", "weapon", "skill", "battle",
-	"characters", "inventory", "history", "shop", "upgrade",
+	"characters", "inventory", "history", "shop", "upgrade", "milestone",
 	"swap", "send", "back", "arrow_left", "arrow_right", "check", "close", "end_turn", "unknown",
 	"medkit", "teleport", "power_shot", "drill_bomb", "spider_net", "freeze_bomb", "air_strike", "wind_stopper",
 ]

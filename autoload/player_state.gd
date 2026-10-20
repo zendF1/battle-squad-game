@@ -27,6 +27,15 @@ extends Node
 ## when it replayed); upgrade() (POST /player/equipment/upgrade, also an equipment action:
 ## equip_busy) and merge_stones() (POST /merge/stone) consume stones one at a time (stone_busy)
 ## and reload the stones whatever the answer.
+##
+## Milestones ("Mốc thưởng"): GET /milestones (MilestoneModel.parse, coalesced, stale after an
+## equipment action and after a claim) and the claimable count for the lobby badge
+## (milestone_count: from the list, GET /milestones/summary or a claim's answer; -1 unknown).
+## claim_milestone(id) / claim_all_milestones() run POST /milestones/claim {id} /
+## /milestones/claim-all one at a time (milestone_busy): the wallet and the stones take the
+## answer's balances at once, the list reloads whatever the answer (MILESTONE_ALREADY_CLAIMED
+## means another device or a retry already took it). take_new_milestones() is true once each
+## time the count rose past what the player saw (the lobby's "Có mốc thưởng mới!").
 
 signal changed # profile, loading or error changed
 signal assets_dirty # inventory, characters or purchases changed on the server
@@ -34,12 +43,14 @@ signal characters_changed # characters, characters_loading or characters_error c
 signal busy_changed # a purchase or top-up started or ended
 signal equipment_changed # catalog, owned equipment, their loading / errors, or equip_busy changed
 signal stones_changed # owned stones, their loading / error, or stone_busy changed
+signal milestones_changed # milestones, their loading / error, milestone_count or milestone_busy changed
 
 const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
 const Coalescer := preload("res://core/coalescer.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
+const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 
 ## What a payment refreshes once it succeeded.
 const AFTER_WALLET := 0 # the wallet only (a top-up)
@@ -94,6 +105,22 @@ var _stones_player := ""
 ## "upgrade" / "merge" while a request consuming stones runs, "" when none.
 var stone_busy := ""
 var _stones_gate := Coalescer.new()
+
+## MilestoneModel.parse() of GET /milestones; null until loaded.
+var milestones: Variant = null
+var milestones_loading := false
+var milestones_error := "" # Vietnamese; "" after a success
+var milestones_stale := true
+var milestones_version := 0 # bumped each time a GET /milestones answer is applied
+var _milestones_player := ""
+var _milestones_gate := Coalescer.new()
+var _summary_gate := Coalescer.new()
+## The claimable milestones (badge), -1 while unknown; milestone_seen: the count the player was
+## last told about (take_new_milestones()).
+var milestone_count := -1
+var milestone_seen := -1
+## "all" or the id being claimed, "" when none.
+var milestone_busy := ""
 
 var _equipment_gate := Coalescer.new()
 var _profile_gate := Coalescer.new()
@@ -557,7 +584,124 @@ func _equip_steps(equipment_id: String, steps: Array) -> Dictionary:
 	equip_busy = ""
 	# Even a refusal may come from a stale view (or a move failed halfway): show the truth.
 	equipment_dirty()
+	milestones_dirty() # an upgrade or a worn set can reach a milestone
 	characters_stale = true
 	load_characters()
 	equipment_changed.emit()
+	return res
+
+
+# ── Milestones ──────────────────────────────────────────────────────────────
+
+## Loads GET /milestones unless a fresh copy is cached or already on its way.
+func need_milestones() -> void:
+	if _milestones_player != Session.player_id:
+		milestones = null # another account signed in on this device
+		milestone_count = -1
+		milestone_seen = -1
+	if not _milestones_gate.running and (milestones == null or milestones_stale):
+		load_milestones()
+
+
+func load_milestones() -> void:
+	if not _milestones_gate.ask():
+		return
+	milestones_loading = true
+	milestones_error = ""
+	milestones_changed.emit()
+	while true:
+		var t := _milestones_gate.ticket()
+		var player := Session.player_id
+		var res: Dictionary = await _api().get_json("/milestones")
+		if not _milestones_gate.finish(t):
+			continue
+		var parsed = MilestoneModel.parse(res.data) if res.ok else null
+		if parsed != null:
+			milestones = parsed
+			milestones_stale = false
+			milestones_version += 1
+			_milestones_player = player
+			_set_milestone_count(MilestoneModel.claimable_total(parsed))
+		else:
+			milestones_error = ErrorText.load_failed(res) if not res.ok else "Dữ liệu mốc thưởng không hợp lệ"
+		break
+	milestones_loading = false
+	milestones_changed.emit()
+
+
+## Refreshes the badge count (GET /milestones/summary); the list goes stale when it differs.
+func load_milestone_summary() -> void:
+	if not _summary_gate.ask():
+		return
+	while true:
+		var t := _summary_gate.ticket()
+		var res: Dictionary = await _api().get_json("/milestones/summary")
+		if not _summary_gate.finish(t):
+			continue
+		var data = res.data if res.ok else null
+		if data is Dictionary and (data.get("claimableCount") is int or data.get("claimableCount") is float):
+			var n := int(data["claimableCount"])
+			if milestones != null and n != MilestoneModel.claimable_total(milestones):
+				milestones_stale = true
+			_set_milestone_count(n)
+		break
+	milestones_changed.emit()
+
+
+## Something that moves milestone progress happened (an upgrade, an equip): the list is stale
+## and the badge count reloads.
+func milestones_dirty() -> void:
+	milestones_stale = true
+	load_milestone_summary()
+
+
+func _set_milestone_count(n: int) -> void:
+	milestone_count = maxi(0, n)
+	if milestone_seen < 0 or milestone_count < milestone_seen:
+		milestone_seen = milestone_count # first count of the session, or a claim: nothing new
+
+
+## True once each time the claimable count rose past the one the player was last told about.
+func take_new_milestones() -> bool:
+	if milestone_count < 0 or milestone_count <= milestone_seen:
+		return false
+	milestone_seen = milestone_count
+	return true
+
+
+## POST /milestones/claim {id} → {claimed, rewards, coin, gem, stones, claimableCount}.
+## {ok: false, code: "BUSY"} while another claim runs.
+func claim_milestone(id: String) -> Dictionary:
+	return await _claim("/milestones/claim", {"id": id}, id)
+
+
+## POST /milestones/claim-all, like claim_milestone().
+func claim_all_milestones() -> Dictionary:
+	return await _claim("/milestones/claim-all", {}, "all")
+
+
+func _claim(path: String, body: Dictionary, busy: String) -> Dictionary:
+	if milestone_busy != "":
+		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null}
+	milestone_busy = busy
+	milestones_changed.emit()
+	var res: Dictionary = await _api().post_json(path, body)
+	milestone_busy = ""
+	if res.ok and res.data is Dictionary:
+		var data: Dictionary = res.data
+		if not profile.is_empty():
+			for currency in ["coin", "gem"]:
+				if data.get(currency) is int or data.get(currency) is float:
+					profile[currency] = int(data[currency])
+			changed.emit()
+		var parsed = UpgradeModel.parse_stones(data.get("stones"))
+		if parsed is Dictionary and data.get("stones") is Array:
+			stones = parsed
+			stones_version += 1
+			stones_changed.emit()
+		if data.get("claimableCount") is int or data.get("claimableCount") is float:
+			_set_milestone_count(int(data["claimableCount"]))
+	refresh() # the wallet's truth, also after a refusal or no answer
+	milestones_stale = true
+	load_milestones()
 	return res

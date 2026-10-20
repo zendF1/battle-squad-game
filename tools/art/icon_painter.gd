@@ -25,6 +25,7 @@ static func paint(ci: CanvasItem, icon_name: String) -> void:
 		"history": _history(ci)
 		"shop": _shop(ci)
 		"upgrade": _upgrade(ci)
+		"milestone": _milestone(ci)
 		"swap": _swap(ci)
 		"send": _send(ci)
 		"back": _back(ci)
@@ -269,6 +270,24 @@ static func _upgrade(ci: CanvasItem) -> void:
 	_fill(ci, [Vector2(62, 18), Vector2(78, 34), Vector2(66, 34), Vector2(66, 68), Vector2(58, 68), Vector2(58, 34)], Color(1.0, 0.92, 0.55))
 	_sparkle(ci, Vector2(84, 64), 10.0)
 	_sparkle(ci, Vector2(22, 30), 7.0)
+
+
+## Mốc thưởng: a red gift box with a gold ribbon and bow, a sparkle beside it.
+static func _milestone(ci: CanvasItem) -> void:
+	var red := Color(0.92, 0.26, 0.3)
+	var red_dark := Color(0.72, 0.14, 0.22)
+	# Bow loops first: the lid covers their base
+	_poly(ci, [Vector2(48, 30), Vector2(26, 12), Vector2(18, 22), Vector2(28, 32)], GOLD)
+	_poly(ci, [Vector2(48, 30), Vector2(70, 12), Vector2(78, 22), Vector2(68, 32)], GOLD)
+	_fill(ci, [Vector2(46, 29), Vector2(27, 16), Vector2(22, 22)], Color(1.0, 0.92, 0.55))
+	_rect(ci, Rect2(20, 46, 56, 38), red_dark, 6)
+	_rect(ci, Rect2(14, 30, 68, 18), red, 6)
+	_fill(ci, [Vector2(14, 44), Vector2(82, 44), Vector2(82, 48), Vector2(14, 48)], red_dark)
+	_rect(ci, Rect2(41, 30, 14, 54), GOLD, 2, 0.0)
+	ci.draw_line(Vector2(44, 32), Vector2(44, 82), Color(1.0, 0.92, 0.55), 3.0, true)
+	_disc(ci, Vector2(48, 30), 7, GOLD, 3.0)
+	ci.draw_line(Vector2(20, 34), Vector2(38, 34), Color(1, 1, 1, 0.35), 3.0, true)
+	_sparkle(ci, Vector2(84, 58), 9.0)
 
 
 # ── Buttons ─────────────────────────────────────────────────────────────────

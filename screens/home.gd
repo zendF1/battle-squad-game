@@ -1,7 +1,8 @@
 extends Control
 ## Home: the lobby (screens/home/lobby.gd) and the full-screen pages opened from it: "Nhân vật"
 ## (gear slots, character, Trang bị / Chỉ số), "Túi đồ" (Trang bị / Vật phẩm / Nguyên liệu),
-## "Nâng cấp" (Nâng cấp / Ghép đá; also from the piece popup's Nâng cấp), "Hồ sơ" (player card,
+## "Nâng cấp" (Nâng cấp / Ghép đá; also from the piece popup's Nâng cấp), "Mốc thưởng" (one-time
+## progress rewards, milestone_page.gd), "Hồ sơ" (player card,
 ## Lịch sử) and "Shop" (Vật phẩm / Trang bị / Đá nâng cấp / Nhân vật / Kim cương / Đổi xu). A page has a
 ## header with "← Sảnh", its title and the wallet pills; "← Sảnh", Esc (ui_cancel) and the
 ## Android back button return to the lobby. The pages are built with Home but hidden, and each
@@ -23,6 +24,7 @@ const ShopTab := preload("res://screens/home/shop_tab.gd")
 const BagPage := preload("res://screens/home/bag_page.gd")
 const CharacterPage := preload("res://screens/home/character_page.gd")
 const UpgradePage := preload("res://screens/home/upgrade_page.gd")
+const MilestonePage := preload("res://screens/home/milestone_page.gd")
 const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
 
 const LOBBY := 0
@@ -31,6 +33,7 @@ const SHOP := 2
 const BAG := 3
 const CHARACTER := 4
 const UPGRADE := 5
+const MILESTONE := 6
 
 var _lobby: Lobby
 var _profile: ProfileTab
@@ -38,6 +41,7 @@ var _shop: ShopTab
 var _bag: BagPage
 var _character: CharacterPage
 var _upgrade: UpgradePage
+var _milestone: MilestonePage
 var _pages := {} # PROFILE / SHOP / BAG / CHARACTER -> the page (header + content)
 var _shown := LOBBY
 
@@ -58,6 +62,7 @@ func _ready() -> void:
 	_lobby.open_bag.connect(open_bag)
 	_lobby.open_character.connect(open_character)
 	_lobby.open_upgrade.connect(open_upgrade)
+	_lobby.open_milestones.connect(open_milestones)
 	_connect_wallet(_lobby.wallet)
 
 	_profile = ProfileTab.new()
@@ -78,9 +83,12 @@ func _ready() -> void:
 	_upgrade.overlay = self
 	_upgrade.open_shop.connect(open_shop)
 	EquipmentUi.open_upgrade = open_upgrade
+	_milestone = MilestonePage.new()
+	_milestone.overlay = self
 	_pages[CHARACTER] = _build_page("Nhân vật", _character)
 	_pages[UPGRADE] = _build_page("Nâng cấp", _upgrade)
 	_pages[BAG] = _build_page("Túi đồ", _bag)
+	_pages[MILESTONE] = _build_page("Mốc thưởng", _milestone)
 	_pages[PROFILE] = _build_page("Hồ sơ", _profile)
 	_pages[SHOP] = _build_page("Shop", _shop)
 	_show(LOBBY)
@@ -161,12 +169,19 @@ func open_upgrade(equipment_id: String = "", section: int = UpgradePage.UPGRADE)
 	_show(UPGRADE)
 
 
+## The Mốc thưởng page, on tab `tab` (MilestoneModel.TABS index; -1 keeps the last one).
+func open_milestones(tab: int = -1) -> void:
+	if tab >= 0:
+		_milestone.show_tab(tab)
+	_show(MILESTONE)
+
+
 func open_shop(section: int) -> void:
 	_shop.show_section(section)
 	_show(SHOP)
 
 
-## Which screen shows: LOBBY or a page (PROFILE, SHOP, BAG, CHARACTER, UPGRADE). Android back quits only from the lobby.
+## Which screen shows: LOBBY or a page (PROFILE, SHOP, BAG, CHARACTER, UPGRADE, MILESTONE). Android back quits only from the lobby.
 func _show(which: int) -> void:
 	_shown = which
 	for key in _pages:

@@ -4,7 +4,9 @@ extends Control
 ## state top-centre, one round shortcut per page down the right (Nhân vật, Kho đồ → Túi đồ,
 ## Nâng cấp, Lịch sử → Hồ sơ, Shop), the
 ## selected character's info card (role, skill, stats; its name and level are on the stage) on
-## the left, a placeholder chat box bottom-left and the mode card with "BẮT ĐẦU" bottom-right.
+## the left, the "Mốc thưởng" button (a red badge with the claimable count, hidden at 0; "Có mốc
+## thưởng mới!" once when the count rose since the player last saw it) above a placeholder chat
+## box bottom-left and the mode card with "BẮT ĐẦU" bottom-right.
 ## Centre stage: the selected character's name and level over it, drawn big on a pedestal with
 ## its hands free; the gun it wears (its basic gun when none) rests on the pedestal at its left
 ## (pedestal_gun.gd, no name under it), updated on equip / unequip. ◀ ▶ or a swipe cycles
@@ -19,6 +21,7 @@ signal open_shop(section: int)
 signal open_bag
 signal open_character
 signal open_upgrade
+signal open_milestones
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -32,6 +35,8 @@ const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const Progress := preload("res://screens/home/progress.gd")
 const ShopTab := preload("res://screens/home/shop_tab.gd")
 const FakeChat := preload("res://screens/home/fake_chat.gd")
+const MilestonePage := preload("res://screens/home/milestone_page.gd")
+const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 
 const MARGIN := 18
 const STAGE := Vector2(560, 590)
@@ -65,6 +70,8 @@ var _info_stats: GridContainer
 var _info_buy: Button
 var _drag_from := -1.0
 
+var _milestone_badge: PanelContainer
+
 # Mode card
 var _mode_name: Label
 var _mode_text: Label
@@ -85,11 +92,13 @@ func _ready() -> void:
 	_pin(_build_shortcuts(), 1, 0, -MARGIN - 6, 112)
 	_pin(_build_info_card(), 0, 0, MARGIN, 150)
 	_pin(_build_chat(), 0, 1, MARGIN, -MARGIN)
+	_pin(_build_milestone_button(), 0, 1, MARGIN + 6, -MARGIN - CHAT_H - 12)
 	_pin(_build_mode_card(), 1, 1, -MARGIN, -MARGIN)
 
 	PlayerState.changed.connect(_render_player)
 	PlayerState.characters_changed.connect(_render_character)
 	PlayerState.equipment_changed.connect(_render_gun)
+	PlayerState.milestones_changed.connect(_render_milestones)
 	GameSocket.connected.connect(_render_conn)
 	GameSocket.disconnected.connect(_render_conn)
 	visibility_changed.connect(_on_visibility_changed)
@@ -126,7 +135,9 @@ func _on_visibility_changed() -> void:
 	if is_visible_in_tree():
 		PlayerState.need_characters()
 		PlayerState.need_equipment() # the stage character holds the weapon it wears
+		PlayerState.load_milestone_summary() # back from a match or a page: the badge count
 		_render_character() # back from a page: whatever it loaded or bought
+		_render_milestones()
 
 
 # ── Player ──────────────────────────────────────────────────────────────────
@@ -232,12 +243,35 @@ func _build_shortcuts() -> Control:
 	return col
 
 
+const CHAT_H := 172
+
+
+## "Mốc thưởng": a round gift button with its caption and the red claimable badge on its corner.
+func _build_milestone_button() -> Control:
+	var col := LobbyUi.icon_button("milestone", "Mốc thưởng", LobbyUi.ICON_COLORS["red"], func(): open_milestones.emit(), SHORTCUT)
+	var b: Button = col.get_child(0)
+	_milestone_badge = MilestonePage.badge()
+	_milestone_badge.position = Vector2(SHORTCUT - 22, -6)
+	b.add_child(_milestone_badge)
+	return col
+
+
+func _render_milestones() -> void:
+	if _milestone_badge == null:
+		return
+	var text := MilestoneModel.badge_text(PlayerState.milestone_count)
+	_milestone_badge.visible = text != ""
+	(_milestone_badge.get_child(0) as Label).text = text
+	if is_visible_in_tree() and PlayerState.take_new_milestones():
+		Ui.toast(self, "Có mốc thưởng mới!")
+
+
 ## The chat placeholder: the fake recent lines and an input-looking row; a tap says chat is
 ## coming later.
 func _build_chat() -> Control:
 	var b := Button.new()
 	LobbyUi.texture_button(b, "panel", 0, true)
-	b.custom_minimum_size = Vector2(490, 172)
+	b.custom_minimum_size = Vector2(490, CHAT_H)
 	b.pressed.connect(func(): Ui.toast(self, FakeChat.COMING_SOON))
 	var col := Ui.vbox(2)
 	col.set_anchors_and_offsets_preset(PRESET_FULL_RECT)

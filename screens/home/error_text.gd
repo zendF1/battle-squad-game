@@ -81,6 +81,14 @@ const MERGE := {
 	"EQUIP_INSUFFICIENT_STONES": "Không đủ đá để ghép",
 }
 
+## POST /milestones/claim and /milestones/claim-all.
+const MILESTONE := {
+	"MILESTONE_ALREADY_CLAIMED": "Mốc này đã nhận rồi",
+	"MILESTONE_NOT_REACHED": "Chưa đạt mốc này",
+	"NOT_FOUND": "Mốc thưởng này không còn",
+	"BUSY": "Đang nhận thưởng, chờ chút",
+}
+
 
 ## POST /shop/purchase failure. currency is the offer's priceCurrency ("coin" | "gem").
 static func purchase(res: Dictionary, currency: String = "") -> String:
@@ -195,3 +203,13 @@ static func merge(res: Dictionary) -> String:
 	if int(res.get("status", 0)) == 0:
 		return OFFLINE
 	return MERGE.get(str(res.get("code", "")), "Ghép đá thất bại: %s" % res.get("message", ""))
+
+
+## POST /milestones/claim or /milestones/claim-all failure.
+static func milestone(res: Dictionary) -> String:
+	var code := str(res.get("code", ""))
+	if code == "BUSY":
+		return MILESTONE[code]
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	return MILESTONE.get(code, "Nhận thưởng thất bại: %s" % res.get("message", ""))
