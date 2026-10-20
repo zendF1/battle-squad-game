@@ -209,12 +209,12 @@ func test_rest_after_fire_stays_out() -> void:
 	eq(_run(g, 1.0), ["holstered"], "a walk still holsters it")
 
 
-## idle_gun (the match): every real character stands on its idle animation (breathing) with the hug
-## gun in its near fist (carry.json), 45° down-forward, the fist cut from the idle frame drawn over
-## it, mirrored facing left; only aiming / shooting kneel on the ready pose, with the muzzle of any
-## aim as before; after the shot it stands again; walking slings the gun across the back, behind
-## the body, riding the walk frames' bob; stopping puts it back in the hand.
-func test_idle_gun_stands_with_the_gun_in_hand() -> void:
+## idle_gun (the match): every real character stands on its idle animation (breathing) with the
+## hug gun slung across its back (carry.json), behind the body, muzzle up and back over the
+## shoulder, mirrored facing left; only aiming / shooting kneel on the ready pose with the gun in
+## hand, with the muzzle of any aim as before; after the shot it stands again with the gun on its
+## back; walking keeps it there riding the walk frames' bob.
+func test_idle_gun_slung_on_the_back() -> void:
 	var Art := preload("res://ui/art.gd")
 	for id in ["rookie", "tanko", "spark", "flora"]:
 		var c: Node2D = CharacterScene.instantiate()
@@ -229,49 +229,51 @@ func test_idle_gun_stands_with_the_gun_in_hand() -> void:
 		var gun: Node2D = c.get_node("Flip/Gun")
 		var arm: Sprite2D = c.get_node("Flip/ArmFront")
 		var look: Dictionary = Art.character_look(id)
-		var carry: Dictionary = look["carry"]
+		var back: Dictionary = look["carry"]["back"]
 		var k := float(look["scale"])
 		var pivot: Vector2 = look["pivot"]
 		var dt := 1.0 / 60.0
+		var on_back := func(what: String) -> void:
+			eq(c.carry_mode(), "back", "%s: %s: on the back" % [id, what])
+			check(gun.visible and c.holds_gun(), "%s: %s: the gun shown" % [id, what])
+			check(gun.get_index() < sprite.get_index(), "%s: %s: behind the body" % [id, what])
+			check(not arm.visible, "%s: %s: no arm over it" % [id, what])
+			var up: Vector2 = c.muzzle_position() - c.global_transform * flip.transform * gun.position
+			check(up.y < 0.0 and signf(up.x) == -float(c.facing), "%s: %s: muzzle up and back (%s)" % [id, what, up])
+			check(c.muzzle_position().y < c.global_position.y - 0.6 * c.art_height(), "%s: %s: up at the shoulders or above" % [id, what])
 		check(c.is_resting(), "%s: rests at once" % id)
 		eq(c.animation(), "idle", "%s: standing on the idle animation, not the ready pose" % id)
 		eq(str(look["motions"]["idle"]), "breathe", "%s: which breathes" % id)
-		eq(c.carry_mode(), "hand", "%s: the gun in the hand" % id)
-		check(gun.visible and c.holds_gun(), "%s: the gun out" % id)
-		near(rad_to_deg(gun.rotation), 45.0, 0.01, "%s: 45° down" % id)
-		var grip: Vector2 = (carry["hand"]["grip"] - pivot) * k
-		check(gun.position.distance_to(grip) < 0.01, "%s: its hold on the near fist" % id)
-		check(arm.visible and arm.texture == carry["hand"]["fist"] and arm.texture != null, "%s: the fist over it" % id)
-		check(arm.get_index() > gun.get_index() and gun.get_index() > sprite.get_index(), "%s: body < gun < fist" % id)
+		on_back.call("idle")
+		near(rad_to_deg(gun.rotation), float(back["angle"]), 0.01, "%s: at the sling angle" % id)
+		check(gun.position.distance_to((back["at"] - pivot) * k) < 0.01, "%s: its hold on the back" % id)
 		near(gun.modulate.a, 1.0, 1e-6, "%s: fully shown" % id)
 		var hug: Dictionary = Art.hug_gun(Art.CHARACTER_GUNS[id], "basic")
 		var gs: Sprite2D = c.get_node("Flip/Gun/Sprite")
 		near(gs.scale.x * float(hug["size"].x), Art.gun_transform(Art.ready_pose(id), hug).x.length() * float(hug["size"].x), 0.01,
 			"%s: the ready pose's size" % id)
-		# The muzzle below the hold, ahead of it, facing right: down-forward on screen.
-		var hold := c.global_transform * flip.transform * grip
-		var m: Vector2 = c.muzzle_position() - hold
-		check(m.y > 0.0 and m.x > 0.0, "%s: muzzle lower than the hold and ahead (%s)" % [id, m])
-		near(rad_to_deg(m.angle()), 45.0, 6.0, "%s: about 45° down-forward" % id)
+		var m: Vector2 = c.muzzle_position() - c.global_position
 		c.facing = -1
 		c._apply_motion()
 		c._update_gun()
-		var hold_l := c.global_transform * flip.transform * grip
-		var ml: Vector2 = c.muzzle_position() - hold_l
-		check(ml.y > 0.0 and signf(ml.x) == -signf(m.x) and absf(absf(ml.x) - absf(m.x)) < 0.05, "%s: mirrored facing left (%s vs %s)" % [id, ml, m])
+		on_back.call("idle facing left")
+		var ml: Vector2 = c.muzzle_position() - c.global_position
+		check(absf(ml.x + m.x) < 0.05 and absf(ml.y - m.y) < 0.05, "%s: mirrored facing left (%s vs %s)" % [id, ml, m])
 		c.facing = 1
 		c._apply_motion()
-		# The muzzle stays about on the ground: the carry does not dig the gun into it.
-		check(c.muzzle_position().y - c.global_position.y < 0.06 * c.art_height(), "%s: muzzle not under the feet" % id)
-		# Aiming: kneels on the ready pose, the gun on its socket as before.
+		c._update_gun()
+		# Aiming: kneels on the ready pose, the gun in hand on its socket as before.
 		var sock: Transform2D = Art.ready_pose(id)["socket"]
 		c.draw_gun()
 		eq(c.animation(), "draw", "%s: a drag start kneels" % id)
-		eq(c.carry_mode(), "", "%s: no carry on the ready pose" % id)
-		check(c._swap_left > 0.0, "%s: settling with a squash" % id)
+		eq(c.carry_mode(), "", "%s: in hand on the ready pose" % id)
+		check(c._swap_left > 0.0 and gun.modulate.a < 1.0, "%s: settling with a squash, the gun fading in" % id)
 		near(rad_to_deg(gun.rotation), 0.0, 0.01, "%s: turned to level" % id)
-		check(gun.position.distance_to(sock.origin) < 0.01, "%s: on its socket" % id)
-		check(arm.texture == look["ready"]["arm_front"], "%s: the ready pose's arm over it" % id)
+		check(gun.position.distance_to(sock.origin) < 0.01 and gun.get_index() > sprite.get_index(), "%s: on its socket, in front" % id)
+		check(arm.visible and arm.texture == look["ready"]["arm_front"], "%s: the ready pose's arm over it" % id)
+		for i in 20:
+			c._process(dt)
+		near(gun.modulate.a, 1.0, 1e-6, "%s: fully shown once settled" % id)
 		c.aim(45.0)
 		near(rad_to_deg(gun.rotation), -45.0, 0.01, "%s: the aim turns it up" % id)
 		var predicted: Vector2 = c.fire_muzzle_position()
@@ -281,23 +283,22 @@ func test_idle_gun_stands_with_the_gun_in_hand() -> void:
 		for i in 60:
 			c._process(dt)
 		check(c.is_resting(), "%s: back to rest after the shot" % id)
-		eq([c.animation(), c.carry_mode()], ["idle", "hand"], "%s: standing again, the gun in the hand" % id)
-		near(rad_to_deg(gun.rotation), 45.0, 0.01, "%s: 45° down again" % id)
+		eq(c.animation(), "idle", "%s: standing again" % id)
+		on_back.call("after the shot")
 		eq(c.gun_state(), "aiming", "%s: never holstered" % id)
 		# A turn change while aiming: back to rest.
 		c.aim(90.0)
 		eq(c.animation(), "draw", "%s: kneels to aim" % id)
 		c.clear_aim()
 		check(c.is_resting() and c.animation() == "idle", "%s: clear_aim stands it up" % id)
-		# Walking: the draw holstered, the gun slung across the back behind the body.
+		on_back.call("after clear_aim")
+		# Walking: the draw holstered, still on the back, riding the walk.
 		c.set_walking(true)
 		for i in 5:
 			c._process(dt)
 		eq(c.gun_state(), "holstered", "%s: walks holstered" % id)
-		eq([c.animation(), c.carry_mode()], ["walk", "back"], "%s: the walk plays, the gun on the back" % id)
-		check(gun.visible and gun.get_index() < sprite.get_index(), "%s: behind the body" % id)
-		check(not arm.visible, "%s: no fist over it" % id)
-		var back: Dictionary = carry["back"]
+		eq(c.animation(), "walk", "%s: the walk plays" % id)
+		on_back.call("walking")
 		eq(back["bob"].size(), sprite.sprite_frames.get_frame_count("walk"), "%s: a bob per walk frame" % id)
 		for f in [0, 3]:
 			sprite.frame = f
@@ -306,23 +307,20 @@ func test_idle_gun_stands_with_the_gun_in_hand() -> void:
 			check(gun.position.distance_to(at) < 0.01, "%s: frame %d rides the bob" % [id, f])
 			near(rad_to_deg(gun.rotation), float(back["angle"]) + c.BACK_SWAY_DEG * sin(TAU * f / back["bob"].size()), 0.01,
 				"%s: frame %d at the sling angle" % [id, f])
-		var up: Vector2 = c.muzzle_position() - c.global_transform * flip.transform * gun.position
-		check(up.y < 0.0 and up.x < 0.0, "%s: muzzle up and back over the shoulder (%s)" % [id, up])
-		check(c.muzzle_position().y < c.global_position.y - 0.6 * c.art_height(), "%s: up at the shoulders or above" % id)
 		c.facing = -1
 		c._apply_motion()
 		c._update_gun()
-		var up_l: Vector2 = c.muzzle_position() - c.global_transform * flip.transform * gun.position
-		check(up_l.y < 0.0 and up_l.x > 0.0, "%s: mirrored facing left (%s)" % [id, up_l])
+		on_back.call("walking left")
 		c.facing = 1
 		c._apply_motion()
 		c.set_walking(false)
 		for i in 5:
 			c._process(dt)
-		check(c.is_resting() and gun.visible and c.animation() == "idle" and c.carry_mode() == "hand", "%s: in the hand again when it stops" % id)
-		# A hurt while resting shows the idle frame: the gun stays in the hand.
+		check(c.is_resting() and c.animation() == "idle", "%s: stands when it stops" % id)
+		on_back.call("stopped")
+		# A hurt while resting shows the idle frame: the gun stays on the back.
 		c.hurt()
-		eq([c.animation(), c.carry_mode()], ["hurt", "hand"], "%s: hurt keeps the hand carry" % id)
+		eq([c.animation(), c.carry_mode()], ["hurt", "back"], "%s: hurt keeps the sling" % id)
 		c.die()
 		check(not c.is_resting() and not gun.visible and c.carry_mode() == "", "%s: dead: no gun" % id)
 		holder.free()
@@ -350,7 +348,8 @@ func test_idle_gun_squash_keeps_the_muzzle() -> void:
 	holder.free()
 
 
-## The code draw (a look without a drawn ready pose): the hand hold on the idle frame at 45° down.
+## The code draw (a look without a drawn ready pose, no carry.json): at rest the default sling on
+## the back; aiming takes it in hand on the idle frame's anchor as before, clear_aim slings it again.
 func test_idle_gun_code_hold() -> void:
 	var restore: Callable = CodeDrawLook.install("spark")
 	var c: Node2D = CharacterScene.instantiate()
@@ -361,17 +360,20 @@ func test_idle_gun_code_hold() -> void:
 	holder.add_child(c)
 	c._ready()
 	var gun: Node2D = c.get_node("Flip/Gun")
+	var sprite: Node2D = c.get_node("Flip/Sprite")
 	var anchor: Dictionary = preload("res://ui/art.gd").gun_anchor("spark", "idle", 0)
-	check(c.is_resting() and c.holds_gun(), "the gun in hand")
-	eq(c.animation(), "idle", "on the idle frame")
-	near(rad_to_deg(gun.rotation), float(anchor["angle"]) + 45.0, 0.01, "45° below the anchor")
-	near(gun.scale.x, 1.0, 1e-6, "full size")
+	check(c.is_resting() and c.holds_gun(), "the gun shown")
+	eq([c.animation(), c.carry_mode()], ["idle", "back"], "standing, on the back")
+	check(gun.get_index() < sprite.get_index(), "behind the body")
 	c.aim(40.0)
+	eq(c.carry_mode(), "", "aiming: in hand")
 	near(rad_to_deg(gun.rotation), float(anchor["angle"]) - 45.0, 0.01, "the aim as before")
+	near(gun.scale.x, 1.0, 1e-6, "full size")
 	c.clear_aim()
-	near(rad_to_deg(gun.rotation), float(anchor["angle"]) + 45.0, 0.01, "back to rest")
+	eq(c.carry_mode(), "back", "back on the back")
 	c.set_walking(true)
-	eq(c.gun_state(), "holstering", "walking puts it away")
+	eq(c.gun_state(), "holstering", "walking holsters the draw")
+	eq(c.carry_mode(), "back", "still on the back")
 	holder.free()
 	restore.call()
 
@@ -818,41 +820,20 @@ func _sole_row(img: Image) -> int:
 	return -1
 
 
-## Each character's carry.json (ui/art.gd parse_carry()): the fist inside the idle frame, its cut
-## the idle frame's own pixels inside the polygon and nothing outside, the back carry's bob one per
-## walk frame (tools/carry_bob.gd) and listed with the side view's files.
+## Each character's carry.json (ui/art.gd parse_carry()): the sling's hold on the idle frame's
+## lower back, muzzle up and back, the bob one per walk frame (tools/carry_bob.gd), listed with the
+## side view's files.
 func test_carry_assets() -> void:
 	var Art := preload("res://ui/art.gd")
 	for id in Art.CHARACTERS:
 		var look: Dictionary = Art.character_look(id)
 		var carry: Dictionary = look["carry"]
-		check(carry.has("hand") and carry.has("back"), "%s: both carries" % id)
+		check(carry.has("back") and not carry.has("hand"), "%s: the back sling only" % id)
+		var back: Dictionary = carry["back"]
 		var size: Vector2 = look["size"]
-		var grip: Vector2 = carry["hand"]["grip"]
-		check(grip.x > 0.0 and grip.y > 0.0 and grip.x < size.x and grip.y < size.y, "%s: the fist in the frame" % id)
-		var hold := float(carry["hand"]["hold"])
-		check(hold > 0.0 and hold < 1.0, "%s: held along the gun" % id)
-		var fist: Texture2D = carry["hand"]["fist"]
-		check(fist != null and Vector2(fist.get_size()) == size, "%s: the fist cut on the frame's canvas" % id)
-		var cut := fist.get_image()
-		var frame := Image.load_from_file(ProjectSettings.globalize_path(Art.side_dir(id) + "idle_0.png"))
-		frame.convert(Image.FORMAT_RGBA8)
-		var opaque := 0
-		var outside := 0
-		var same := true
-		for y in cut.get_height():
-			for x in cut.get_width():
-				var a := cut.get_pixel(x, y).a
-				if a <= 0.0:
-					continue
-				opaque += 1
-				if Vector2(x + 0.5, y + 0.5).distance_to(grip) > 12.0:
-					outside += 1
-				var f := frame.get_pixel(x, y)
-				if a >= 0.99 and not cut.get_pixel(x, y).is_equal_approx(f):
-					same = false
-		check(opaque > 40, "%s: the fist has pixels (%d)" % [id, opaque])
-		eq(outside, 0, "%s: only round the fist" % id)
-		check(same, "%s: the idle frame's own pixels" % id)
-		eq(carry["back"]["bob"].size(), look["frames"].get_frame_count("walk"), "%s: a bob per walk frame" % id)
+		var at: Vector2 = back["at"]
+		check(at.x > 0.0 and at.y > 0.0 and at.x < float(look["pivot"].x) and at.y < size.y, "%s: on the back half of the frame" % id)
+		check(float(back["angle"]) < -90.0 and float(back["angle"]) > -180.0, "%s: muzzle up and back" % id)
+		check(float(back["hold"]) > 0.0 and float(back["hold"]) < 0.5, "%s: hung low on the gun" % id)
+		eq(back["bob"].size(), look["frames"].get_frame_count("walk"), "%s: a bob per walk frame" % id)
 		check(Art.side_paths(id).has(Art.side_dir(id) + "carry.json"), "%s: carry.json among the side view's files" % id)

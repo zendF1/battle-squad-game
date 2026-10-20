@@ -28,21 +28,19 @@ extends Node2D
 ## or the side view's drawn "draw" frames when it has them), out while aiming (idle frame, no walk
 ## swing), shoot() fires it (at once, or once drawn fast: it returns the wait) and it goes away
 ## fireHoldSec later; clear_aim() holsters it and walking holsters it first. Off: always out.
-## idle_gun (the match, with holster): idle is not empty-handed: the character stands on its
-## normal idle animation (breathing) with the gun in its near fist in a low carry, IDLE_GUN_UP
-## (45° below level towards the facing side, mirrored facing left): the side view's carry.json
-## (ui/art.gd parse_carry(): the fist on the idle frame, where along the gun it holds it, the fist
-## cut from the frame and drawn over the gun) places the hug gun (the ready pose's gun, same size)
-## there, on idle, hurt and a shot not from the gun (they show the idle frame); a look without
-## carry.json keeps the hand hold on the idle frame's anchor at -45. Only aiming and shooting kneel
-## on the ready pose: draw_gun() / aim() switch to it (the gun on its socket: level / the snapped
-## aim, the same muzzle and shot origin as from a holster), the shot fires from it and after its
-## fire hold (gun_draw.gd rest: "rested") or clear_aim() the character stands up again in the low
-## carry; each switch between standing and kneeling settles with a short squash (SWAP_SEC, not
-## while a shot fires, not in fire_muzzle_position()). Walking holsters the draw (gun_state()
-## "holstered") and slings the gun across the back, behind the body (carry.json back: its hold
-## point on the back, the axis angle, muzzle up over the shoulder; per walk frame the upper body's
-## bob), mirrored with the facing; back in the hand when the walk stops. Dead: no gun.
+## idle_gun (the match, with holster): the gun is never put away: off the ready pose it is slung
+## across the back, behind the body, muzzle up and back over the shoulder, mirrored with the
+## facing: standing on the normal idle animation (breathing with it; also hurt and a shot not from
+## the gun, which show the idle frame) and walking (riding each walk frame's bob, a little sway).
+## The side view's carry.json (ui/art.gd parse_carry(): the hold point on the back, the axis angle,
+## where along the gun it hangs, the walk bob) places the hug gun (the ready pose's gun, same
+## size); a look without one gets a default sling. Only aiming and shooting take it in hand:
+## draw_gun() / aim() kneel on the ready pose (the gun on its socket: level / the snapped aim, the
+## same muzzle and shot origin as from a holster), the shot fires from it and after its fire hold
+## (gun_draw.gd rest: "rested") or clear_aim() the character stands again with the gun on its
+## back; each switch between the back and the hands settles with a short squash and the gun fading
+## in where it goes (SWAP_SEC; not while a shot fires, not in fire_muzzle_position()). Walking
+## holsters the draw (gun_state() "holstered"). Dead: no gun.
 ## A side view with a drawn ready pose (Rookie: side.json "draw" = the ready frame, kneeling with
 ## both fists on the chest, "fire" = it with the recoil, "gunDraw" all 0 s) switches to it and back
 ## at once. On it the character hugs a big gun (ui/art.gd hug_gun(): the held weapon's hug art, else
@@ -82,13 +80,13 @@ const FLASH_TINT := Color(1.0, 0.92, 0.65)
 ## The hugged gun's kick on a shot: this part of its drawn length back along its axis × the fire
 ## frame's muzzle flash (1, 0.35, 0).
 const HUG_KICK := 0.05
-## idle_gun: the gun's rest angle, degrees above level towards the facing side (-45: down-forward).
-const IDLE_GUN_UP := -45.0
-## idle_gun: the animations that show the idle frame, standing with the gun in the hand carry.
-const HAND_ANIMS := ["idle", "hurt", "shoot"]
-## idle_gun: the squash settling a switch between standing and the kneeling ready pose.
+## idle_gun: the animations that show the idle frame, standing with the gun on the back.
+const STAND_ANIMS := ["idle", "hurt", "shoot"]
+## idle_gun: the squash settling a switch between the back carry and the kneeling ready pose, and
+## how faint the gun starts where it goes.
 const SWAP_SEC := 0.16
 const SWAP_SQUASH := 0.08
+const SWAP_FADE := 0.7
 ## The back carry's sway over a walk cycle, degrees.
 const BACK_SWAY_DEG := 2.0
 ## The animations that follow the base pose (idle / walk, or the armed hold) when it changes.
@@ -117,7 +115,7 @@ const BASE_ANIMS := ["idle", "walk", Art.DRAW_ANIM]
 		holster = value
 		if is_node_ready():
 			_apply_frames()
-## holster on: idle shows the gun in the low carry (IDLE_GUN_UP) instead of holstered.
+## holster on: off the ready pose the gun is slung on the back (standing and walking) instead of away.
 @export var idle_gun := false:
 	set(value):
 		idle_gun = value
@@ -318,8 +316,8 @@ func _apply_gun() -> void:
 
 
 ## The gun sprite and the muzzle as the held gun (its grip on the Gun node's origin), as the ready
-## pose's hug gun ("pose": _hug_xf, the hold on the hug point) or carried ("hand" / "back": the gun
-## at its carry hold point, _carry_gun()). force: set it again (a new gun).
+## pose's hug gun ("pose": _hug_xf, the hold on the hug point) or slung ("back": the gun at its
+## carry hold point, _carry_gun()). force: set it again (a new gun).
 func _set_gun_look(mode: String, force: bool = false) -> void:
 	if mode == _gun_look and not force:
 		return
@@ -331,7 +329,7 @@ func _set_gun_look(mode: String, force: bool = false) -> void:
 		_gun_sprite.transform = _hug_xf
 		_flash.position = _hug_xf * _hug["muzzle"]
 		return
-	if mode == "hand" or mode == "back":
+	if mode == "back":
 		var c := _carry_gun(mode)
 		var cs: float = c["scale"]
 		_gun_sprite.texture = c["texture"]
@@ -466,8 +464,9 @@ func _muzzle_for(anim: String) -> Vector2:
 	return (_gun["muzzle"] - _gun["grip"]) * float(_gun["scale"])
 
 
-## The idle_gun carry `anim` shows: "hand" (standing: the low carry in the near fist, a look with
-## carry.json's hand), "back" (walking), "" (none: the ready pose, the anchors' hold, no gun).
+## The idle_gun carry `anim` shows: "back" (slung on the back: walking, or standing off the ready
+## pose: a look without one only while not aiming on the idle frame), "" (none: the ready pose, the
+## anchors' hold, no gun).
 func carry_mode(anim: String = "") -> String:
 	if anim == "":
 		anim = animation()
@@ -475,19 +474,19 @@ func carry_mode(anim: String = "") -> String:
 		return ""
 	if anim == "walk":
 		return "back"
-	if anim in HAND_ANIMS and _look.get("carry", {}).has("hand"):
-		return "hand"
+	if anim in STAND_ANIMS and (not _aiming or not _look.get("ready", {}).is_empty()):
+		return "back"
 	return ""
 
 
 ## carry.json's part for a carry (ui/art.gd parse_carry()); a look without a back part slings it
-## from the upper back by default.
+## from the lower back by default.
 func _carry_cfg(mode: String) -> Dictionary:
 	var c: Dictionary = _look.get("carry", {}).get(mode, {})
 	if c.is_empty() and mode == "back":
 		var e: Dictionary = _look.get("extent", {"back": 0.0, "top": 0.0})
-		c = {"at": _look.get("pivot", Art.FRAME_PIVOT) + Vector2(-0.35 * float(e["back"]), -0.5 * float(e["top"])),
-			"angle": -118.0, "hold": -1.0, "scale": 1.0, "bob": []}
+		c = {"at": _look.get("pivot", Art.FRAME_PIVOT) + Vector2(-0.3 * float(e["back"]), -0.33 * float(e["top"])),
+			"angle": -122.0, "hold": 0.18, "scale": 1.0, "bob": []}
 	return c
 
 
@@ -519,15 +518,12 @@ func _carry_gun(mode: String) -> Dictionary:
 		"flip": bool(cfg.get("flip", false))}
 
 
-## The Gun node on a carry, in Flip's coordinates: {xf, front, flash}. hand: the hold on the fist,
-## IDLE_GUN_UP below level; back: the hold on the back at the carry's angle, bobbing and swaying
-## with the walk frames.
+## The Gun node slung on the back, in Flip's coordinates: {xf, front (false: behind the body),
+## flash}: the hold on the back at the carry's angle, bobbing and swaying with the walk frames.
 func _carry_pose(mode: String, anim: String, frame: int) -> Dictionary:
 	var cfg := _carry_cfg(mode)
 	var k := float(_look.get("scale", 1.0))
 	var pivot: Vector2 = _look.get("pivot", Art.FRAME_PIVOT)
-	if mode == "hand":
-		return {"xf": Transform2D(deg_to_rad(-IDLE_GUN_UP), (Vector2(cfg["grip"]) - pivot) * k), "front": true, "flash": 0.0}
 	var at: Vector2 = cfg["at"]
 	var deg := float(cfg.get("angle", -118.0))
 	var bob: Array = cfg.get("bob", [])
@@ -546,7 +542,7 @@ func _update_gun() -> void:
 	# A character with a drawn ready pose shows its gun only on it (hugged): out on any other
 	# animation (hurt just after a shot, idle with holster off) it is put away, never held.
 	var posed: bool = not _look.get("ready", {}).is_empty()
-	# idle_gun: carried in the hand standing, on the back walking (even while the draw is holstered).
+	# idle_gun: slung on the back standing and walking (even while the draw is holstered).
 	var carry := carry_mode(anim)
 	var out: bool = carry != "" or ((not holster or _gun_draw.armed()) and (not posed or _is_ready_anim(anim)))
 	_gun_node.visible = out
@@ -554,20 +550,16 @@ func _update_gun() -> void:
 	var in_pose := out and carry == "" and not hands_free and _is_ready_anim(anim)
 	_set_gun_look("pose" if in_pose else (carry if carry != "" else "held"))
 	_hand.visible = not in_pose and carry == ""
-	# Over the gun: the ready pose's near arm, or the near fist holding the carried gun (the body
-	# under them has the same pixels: no hole round them).
-	var arm_tex: Texture2D = _look.get("ready", {}).get("arm_front")
-	if carry == "hand":
-		arm_tex = _carry_cfg("hand").get("fist")
-	if _arm.texture != arm_tex:
-		_arm.texture = arm_tex
-	_arm.visible = (in_pose or carry == "hand") and _arm.texture != null
+	# The near arm over the hugged gun (the body under it has the same arm: no hole round it).
+	_arm.visible = in_pose and _arm.texture != null
 	if not out:
 		_flash.visible = false
 		return
 	var pose := _carry_pose(carry, anim, _sprite.frame) if carry != "" else _gun_pose(anim, _sprite.frame, _gun_draw.shown() if holster else 1.0)
 	_gun_node.transform = pose["xf"]
 	_gun_node.modulate.a = _gun_draw.alpha() if holster and carry == "" else 1.0
+	if _swap_left > 0.0 and _gun_draw.state != GunDraw.FIRING: # back ↔ hands: fades in where it goes
+		_gun_node.modulate.a *= 1.0 - SWAP_FADE * pow(_swap_left / SWAP_SEC, 2.0)
 	var top := _flip.get_child_count() - 1
 	if _arm.visible: # the arm on top, the gun right under it
 		if _arm.get_index() != top:
@@ -589,7 +581,7 @@ func _gun_pose(anim: String, frame: int, k: float) -> Dictionary:
 	var a := Art.gun_anchor(character_id, anim, frame)
 	var grip: Vector2 = a["grip"]
 	var deg: float = a["angle"]
-	var up := _aim_up if _aiming and not _dead else (IDLE_GUN_UP if is_resting() else 0.0)
+	var up := _aim_up if _aiming and not _dead else 0.0
 	if _is_ready_anim(anim):
 		# The ready pose: the hug gun on the pose scene's socket, the socket turned by the aim round
 		# its origin (the hug point), kicked back along the gun's axis by the frame's flash.

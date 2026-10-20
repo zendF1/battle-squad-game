@@ -1,7 +1,7 @@
 extends SceneTree
 ## Writes the walk bob of each side view's back carry (assets/characters/<id>/side/carry.json
 ## back.bob, read by ui/art.gd parse_carry(); scenes/character/character.gd slings the gun across
-## the back while walking): per walk frame, how far the upper body (the opaque pixels from the top
+## the back, standing and walking): per walk frame, how far the upper body (the opaque pixels from the top
 ## of the figure down BAND of its height) has its centre from the idle frame's, texture px, so the
 ## gun rides with the body. Everything else in carry.json is hand-written and kept. Runs headless
 ## (only Image is used; the editor may stay open):
