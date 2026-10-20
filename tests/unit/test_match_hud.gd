@@ -50,8 +50,39 @@ func test_no_end_turn_or_weapon_button() -> void:
 	check(not texts.has("Hết lượt") and not texts.has("Vũ khí"), "no Hết lượt / Vũ khí buttons: %s" % [texts])
 	var leave: Button = h.find_child("Leave", true, false)
 	check(leave != null and leave.custom_minimum_size.x >= 60, "Thoát is a round button in the corner")
-	check(h.find_child("Chat", true, false) != null, "the chat box")
 	h.free()
+
+
+## Top left: only the chat lines, plain text over the sky: no panel, no input row, nothing to tap.
+func test_chat_is_plain_text() -> void:
+	var h := _hud()
+	var lines: VBoxContainer = h.find_child("ChatLines", true, false)
+	check(lines != null, "the chat lines")
+	eq(h.chat_lines().map(func(l): return l["text"]), ["[Hệ thống] Trận đấu bắt đầu!"], "the system line")
+	check(h.find_child("Chat", true, false) == null, "no chat box button")
+	for n in _all(lines):
+		check(not (n is PanelContainer or n is Button or n is LineEdit), "no frame / input in the chat: %s" % n)
+		eq((n as Control).mouse_filter, Control.MOUSE_FILTER_IGNORE, "taps go through")
+	var l: RichTextLabel = lines.get_child(0)
+	check(l.get_theme_constant("outline_size") >= 4, "outlined over the sky")
+	check(l.get_theme_color("font_shadow_color").a > 0.0, "and shadowed")
+	for i in 7:
+		h.add_chat_line({"channel": "Thế giới", "name": "A", "text": "tin %d" % i})
+	var shown: Array = h.chat_lines()
+	eq(shown.size(), Hud.CHAT_LINES, "the oldest lines go")
+	eq(shown[-1]["text"], "[Thế giới] A: tin 6", "the newest last")
+	near(shown[-1]["alpha"], 1.0, 1e-6, "the newest fully shown")
+	check(shown[0]["alpha"] < shown[-2]["alpha"] and shown[-2]["alpha"] < 1.0, "the older ones fade")
+	check(shown[0]["alpha"] >= Hud.CHAT_MIN_ALPHA - 1e-4, "still readable")
+	h.free()
+
+
+static func _all(n: Node) -> Array:
+	var out: Array = []
+	for c in n.get_children():
+		out.append(c)
+		out.append_array(_all(c))
+	return out
 
 
 func test_turn_portrait() -> void:
@@ -60,12 +91,11 @@ func test_turn_portrait() -> void:
 	h.set_turn(true, "Smoke", {"playerId": "me", "characterId": "rookie", "weaponUpgradeLevel": 16, "isBot": false})
 	var p: Dictionary = h.portrait()
 	check(p["visible"], "shown")
-	eq([p["character"], p["aura"], p["name"]], ["rookie", "red", "Smoke"], "my figure, my +16 red aura, my name")
-	check((p["title_slot"] as Control).custom_minimum_size.y >= 24, "a slot kept for the title plate")
+	eq([p["character"], p["aura"]], ["rookie", "red"], "my figure, my +16 red aura")
 	eq(h.turn_text(), "Lượt của bạn", "the banner text")
 	h.set_turn(false, "Đối thủ", {"playerId": "p2", "characterId": "spark", "weaponUpgradeLevel": 14}, false)
 	p = h.portrait()
-	eq([p["character"], p["aura"], p["name"]], ["spark", "purple", "Đối thủ"], "the opponent's turn: its figure and +14 aura")
+	eq([p["character"], p["aura"]], ["spark", "purple"], "the opponent's turn: its figure and +14 aura")
 	h.set_turn(false, "Bot", {"playerId": "bot_1", "characterId": "tanko", "weaponUpgradeLevel": 16, "isBot": true}, false)
 	eq(h.portrait()["aura"], "", "bots: no aura")
 	h.set_turn(false, "Cũ", {"playerId": "p3", "characterId": "flora"}, false)
@@ -75,23 +105,26 @@ func test_turn_portrait() -> void:
 	h.free()
 
 
-func test_turn_portrait_title() -> void:
+## The portrait is only the figure: no card / background, no name, no title plate (titles stay
+## over each sprite's name), and it stays clear of the timer and the wind.
+func test_turn_portrait_is_frameless() -> void:
 	var h := _hud()
 	var red := {"id": "grandmaster", "name": "Cao thủ", "rarity": "red"}
 	h.set_turn(true, "Smoke", {"playerId": "me", "characterId": "rookie", "title": red})
-	var p: Dictionary = h.portrait()
-	eq(p["title"], red, "the worn title's plate between the figure and the name")
-	var plate: Control = (p["title_slot"] as Control).get_child(0)
-	check(plate.visible, "plate shown")
-	check(plate.plate_size().x <= Hud.PORTRAIT_ART.x + 12 + 0.01, "fits the card")
-	var slot_h: float = (p["title_slot"] as Control).custom_minimum_size.y
-	h.set_turn(false, "Bot", {"playerId": "bot_1", "characterId": "tanko", "isBot": true}, false)
-	eq(h.portrait()["title"], {}, "a bot: none")
-	check(not plate.visible, "no empty plate")
-	eq((h.portrait()["title_slot"] as Control).custom_minimum_size.y, slot_h, "the slot stays reserved (the card keeps its size)")
-	h.set_turn(false, "Đối thủ", {"playerId": "p2", "characterId": "spark", "title": {"id": "x"}}, false)
-	eq(h.portrait()["title"], {}, "a malformed title: none")
+	var node: Control = h.portrait()["node"]
+	check(not (node is PanelContainer), "no card")
+	eq(node.get_children().map(func(c): return str(c.name)), ["Figure"], "only the figure in it")
+	for n in _all(node):
+		check(not (n is Label or n is RichTextLabel or n is PanelContainer), "no name / frame: %s" % n)
+		check(not n.has_method("set_title"), "no title plate")
+	check(node.custom_minimum_size.x <= Hud.PORTRAIT_ART.x + 0.01, "the figure's box")
+	# At the smallest viewport the portrait's left edge stays right of the wind panel.
+	var vw := 1600.0
+	var centre: Control = h.find_child("TopCentre", true, false)
+	var centre_right := vw / 2.0 + centre.get_combined_minimum_size().x / 2.0
+	check(vw - Hud.MARGIN - Hud.PORTRAIT_ART.x - Hud.PORTRAIT_SLIDE > centre_right, "clear of the wind / timer even sliding in")
 	h.free()
+
 
 func test_slots() -> void:
 	var h := _hud()

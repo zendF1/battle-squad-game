@@ -5,7 +5,7 @@ extends RefCounted
 ## view with a kneeling ready pose, so no real one takes that path; it is still the fallback of a
 ## side view without a ready picture and of the code-baked frames (tools/bake_art.gd, a character
 ## without hand-drawn art). The look is Rookie's side view with its ready pose taken out (no
-## draw / fire frames, no readyPose, gun_draw.gd's default timings, the anchors of idle / walk /
+## draw / fire frames, no readyPose, no carry.json, gun_draw.gd's default timings, the anchors of idle / walk /
 ## shoot / hurt / die), cached under a real id (ui/art.gd maps unknown ids to Rookie), so a
 ## Character / PlayerView with that id draws it. install() returns the Callable that puts the
 ## cache back.
@@ -21,6 +21,7 @@ static func install(id: String) -> Callable:
 	look["draw_frames"] = false
 	look["fire_frames"] = false
 	look["gun_draw"] = {}
+	look["carry"] = {} # no carry.json: the anchors' hand hold, the default back carry
 	var anchors := {}
 	for anim in Art.ANIMS:
 		anchors[anim] = look["anchors"].get(anim, [])

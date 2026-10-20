@@ -524,7 +524,8 @@ static func character_frames(id: String) -> SpriteFrames:
 ## FIRE_ANIM), ready (side.json "readyPose": {anims, scene, arm_front (Texture2D: the near arm
 ## drawn over the hugged gun, same size / pivot / scale as the frames; null without)}; {} without:
 ## see ready_pose()),
-## gun_draw (side.json "gunDraw": gun_draw.gd TIMINGS overrides)}.
+## gun_draw (side.json "gunDraw": gun_draw.gd TIMINGS overrides), carry (parse_carry(): how the
+## match carries the gun standing and walking; {} for the baked frames)}.
 ## Order: side view → baked frames → rookie's → empty.
 static func character_look(id: String) -> Dictionary:
 	id = known_character(id)
@@ -564,7 +565,7 @@ static func _baked(frames: SpriteFrames, anchors: Dictionary) -> Dictionary:
 	var h := 150.0 * PX_PER_UNIT
 	return {"side": false, "frames": frames, "size": Vector2(FRAME_SIZE), "pivot": FRAME_PIVOT, "scale": 1.0, "height": h,
 		"extent": {"back": 40.0 * PX_PER_UNIT, "front": 40.0 * PX_PER_UNIT, "top": h}, "motions": {}, "anchors": anchors,
-		"hand": null, "hand_scale": 1.0, "draw_frames": false, "fire_frames": false, "ready": {}, "gun_draw": {}}
+		"hand": null, "hand_scale": 1.0, "draw_frames": false, "fire_frames": false, "ready": {}, "gun_draw": {}, "carry": {}}
 
 
 ## A character's side view (see character_look()), {} when it has none or it is broken.
@@ -649,11 +650,13 @@ static func parse_side(dir: String) -> Dictionary:
 	var hand: Texture2D = null
 	if str(data.get("hand", "")) != "":
 		hand = _png_texture(dir + str(data["hand"]))
+	var idle_stem := str(data["anims"]["idle"]["frames"][0])
+	var carry := parse_carry(dir + "carry.json", frames.get_frame_texture("idle", 0), dir + idle_stem + ".png")
 	out.merge({"side": true, "frames": frames, "size": _vec2(data.get("size", [])), "pivot": _vec2(data["pivot"]), "scale": scale,
 		"height": height, "extent": {"back": float(ext.get("back", height * 0.3)), "front": float(ext.get("front", height * 0.3)),
 		"top": float(ext.get("top", height))}, "motions": motions, "anchors": _parse_anchors(dir + "gun_anchors.json"),
 		"hand": hand, "hand_scale": scale if hand != null else 1.0, "draw_frames": frames.has_animation(DRAW_ANIM),
-		"fire_frames": frames.has_animation(FIRE_ANIM), "ready": ready,
+		"fire_frames": frames.has_animation(FIRE_ANIM), "ready": ready, "carry": carry,
 		"gun_draw": data.get("gunDraw", {}) if data.get("gunDraw") is Dictionary else {}})
 	return out
 
@@ -675,7 +678,80 @@ static func side_paths(id: String) -> Array[String]:
 	var rp = data.get("readyPose")
 	if rp is Dictionary and str(rp.get("armFront", "")) != "":
 		out.append(dir + str(rp["armFront"]) + ".png")
+	if FileAccess.file_exists(dir + "carry.json"):
+		out.append(dir + "carry.json")
 	return out
+
+
+## How the match carries a side view's gun outside the ready pose (scenes/character/character.gd
+## idle_gun), from its hand-written carry.json (not made by tools/import_frames.gd; px of the
+## frame textures, the frames' canvas):
+##   hand {grip [x, y] (the near fist on the idle frame, where the gun's hold point sits), hold
+##     (0..1 along the gun from its back end to the muzzle; missing: the gun's own hold point),
+##     scale (× its ready-pose size, 1), fist [[x, y]...] (a polygon round that fist: cut from the
+##     idle frame and drawn over the gun so the fist holds it)}: standing (idle, hurt, a shot not
+##     from the gun);
+##   back {at [x, y] (the hold point on the idle frame's back), angle (degrees of the gun's axis
+##     from the facing direction, + turns the muzzle down: -120 = muzzle up and back), hold,
+##     scale, bob [[dx, dy]...] (per walk frame, the upper body's offset from the idle frame:
+##     tools/carry_bob.py)}: walking, slung behind the body.
+## Returns {hand: {grip, hold (-1: the gun's), scale, fist (Texture2D, null: none)}, back: {at,
+## angle, hold, scale, bob (Array of Vector2)}}; a part missing → {} for it ({} when no file).
+static func parse_carry(json_path: String, idle: Texture2D, idle_png: String) -> Dictionary:
+	if not FileAccess.file_exists(json_path):
+		return {}
+	var data := _load_json(json_path)
+	var out := {}
+	var h = data.get("hand")
+	if h is Dictionary and h.get("grip") is Array:
+		var poly := PackedVector2Array()
+		for pt in h.get("fist", []):
+			if pt is Array:
+				poly.append(_vec2(pt))
+		out["hand"] = {"grip": _vec2(h["grip"]), "hold": float(h.get("hold", -1.0)), "scale": float(h.get("scale", 1.0)),
+			"fist": cut_polygon(idle, idle_png, poly) if poly.size() >= 3 else null}
+	var b = data.get("back")
+	if b is Dictionary and b.get("at") is Array:
+		var bob: Array = []
+		for d in b.get("bob", []):
+			bob.append(_vec2(d) if d is Array else Vector2.ZERO)
+		out["back"] = {"at": _vec2(b["at"]), "angle": float(b.get("angle", -120.0)), "hold": float(b.get("hold", -1.0)),
+			"scale": float(b.get("scale", 1.0)), "bob": bob}
+	return out
+
+
+## The pixels of a frame inside poly (texture px; edges anti-aliased by 4 samples per pixel) on a
+## transparent canvas of the frame's size: the frame's own image, else its PNG (headless: no
+## readback); null when neither can be read.
+static func cut_polygon(tex: Texture2D, png: String, poly: PackedVector2Array) -> Texture2D:
+	var src: Image = null
+	if FileAccess.file_exists(png):
+		src = Image.load_from_file(ProjectSettings.globalize_path(png))
+	if (src == null or src.is_empty()) and tex != null:
+		src = tex.get_image()
+	if src == null or src.is_empty():
+		return null
+	if src.is_compressed():
+		src.decompress()
+	src.convert(Image.FORMAT_RGBA8)
+	var img := Image.create(src.get_width(), src.get_height(), false, Image.FORMAT_RGBA8)
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for pt in poly:
+		lo = lo.min(pt)
+		hi = hi.max(pt)
+	var subs := [Vector2(0.25, 0.25), Vector2(0.75, 0.25), Vector2(0.25, 0.75), Vector2(0.75, 0.75)]
+	for y in range(maxi(0, floori(lo.y)), mini(src.get_height(), ceili(hi.y) + 1)):
+		for x in range(maxi(0, floori(lo.x)), mini(src.get_width(), ceili(hi.x) + 1)):
+			var cover := 0
+			for sub in subs:
+				if Geometry2D.is_point_in_polygon(Vector2(x, y) + sub, poly):
+					cover += 1
+			if cover > 0:
+				var c := src.get_pixel(x, y)
+				c.a *= cover / 4.0
+				img.set_pixel(x, y, c)
+	return ImageTexture.create_from_image(img)
 
 
 # ── Full-body pictures ──────────────────────────────────────────────────────

@@ -2,14 +2,14 @@ extends Control
 ## Match HUD, in the lobby look (ui/lobby_ui.gd: translucent navy panels, rounded buttons, gold
 ## for the armed slot and for my turn), each part pinned to its own corner so it adapts to wide
 ## phones (stretch aspect "expand"; the viewport is at least 1600 × 900):
-## - top left: a small round Thoát (X) in the corner and the chat box beside it (a placeholder
-##   until match chat exists: a tap says so);
+## - top left: a small round Thoát (X) in the corner and the chat beside it: only its lines, plain
+##   text with an outline and a shadow over the sky (no box, no input: match chat is not there
+##   yet), the newest last, the older ones fading (add_chat_line());
 ## - top centre: the turn timer badge and the wind (strength bar from the middle) side by side;
-## - top right: whose turn it is: that player's lobby full-body figure (ui/character_view.gd, its
-##   weapon's +14 / +16 back aura: the match's aura lives here, not on the small sprites) over
-##   its name, with the title plate it wears between them (ui/title_plate.gd, the payload's
-##   "title"; the slot stays reserved, empty, without one: bots); it slides and fades in on each
-##   turn change (mine, opponents', bots: no aura);
+## - top right: whose turn it is: only that player's lobby full-body figure (ui/character_view.gd,
+##   its weapon's +14 / +16 back aura: the match's aura lives here, not on the small sprites), no
+##   card, name or title (the title plates are over each sprite's name); it slides and fades in on
+##   each turn change (mine, opponents', bots: no aura);
 ## - bottom left: the move buttons and the move energy (Thể lực);
 ## - bottom centre: the aim readout over the items in hand, a row of slots (icon + count);
 ## - bottom right: the character's skill as a round slot (its icon, the energy as a ring, off
@@ -31,21 +31,19 @@ const Art := preload("res://ui/art.gd")
 const CharacterView := preload("res://ui/character_view.gd")
 const FakeChat := preload("res://screens/home/fake_chat.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
-const TitleModel := preload("res://screens/home/title_model.gd")
-const TitlePlate := preload("res://ui/title_plate.gd")
 
 const NAVY := Color(0.06, 0.09, 0.22, 0.78)
 const MODE_BG := Color(0.13, 0.2, 0.42, 0.9)
 const ENEMY_RED := Color(1.0, 0.42, 0.38)
-const ALLY_BLUE := Color(0.55, 0.8, 1.0)
 const RING_CHARGING := Color(0.45, 0.85, 1.0)
 const LOW_TIME := 5
 const MARGIN := 24
 const LEAVE_SIZE := 64
-const CHAT_SIZE := Vector2(380, 112)
-const PORTRAIT_ART := Vector2(190, 200) # the figure's box in the turn portrait
-const TITLE_SLOT_H := 36 # reserved for the title plate between the figure and the name
-const PORTRAIT_TITLE_H := 34.0 # the plate's height in it
+const CHAT_WIDTH := 440 # the chat lines' width (a longer line wraps)
+const CHAT_LINES := 5 # lines kept, the newest last
+const CHAT_FADE := 0.17 # each older line this much more transparent
+const CHAT_MIN_ALPHA := 0.35
+const PORTRAIT_ART := Vector2(190, 200) # the turn portrait's figure box
 const SKILL_SIZE := 132
 const ITEM_SIZE := 96
 const MOVE_SIZE := 110
@@ -69,13 +67,11 @@ var _skill_name: Label
 var _skill_box: VBoxContainer
 var _items: HBoxContainer
 var _item_buttons: Array[Button] = [] # reused; one per item left in hand
-var _portrait: PanelContainer
+var _portrait: Control
 var _portrait_art: CharacterView
-var _portrait_name: Label
-var _portrait_title: Control
-var _portrait_plate: TitlePlate
 var _portrait_tween: Tween
 var _portrait_key := ""
+var _chat: VBoxContainer
 var _result: Control
 var _result_title: Label
 var _result_detail: Label
@@ -139,9 +135,9 @@ func _pin(c: Control, ax: float, ay: float, off: Vector2) -> Control:
 	return c
 
 
-## Top left: the round Thoát in the corner, the chat box beside it.
+## Top left: the round Thoát in the corner, the chat lines beside it.
 func _build_top_left() -> void:
-	var row: HBoxContainer = _pin(_ignore(Ui.hbox(12)), 0, 0, Vector2(MARGIN, MARGIN))
+	var row: HBoxContainer = _pin(_ignore(Ui.hbox(14)), 0, 0, Vector2(MARGIN, MARGIN))
 	row.name = "TopLeft"
 	var leave := LobbyUi.round_button("close", LEAVE_SIZE, NAVY, 0.42)
 	leave.name = "Leave"
@@ -149,56 +145,48 @@ func _build_top_left() -> void:
 	leave.size_flags_vertical = SIZE_SHRINK_BEGIN
 	leave.pressed.connect(leave_pressed.emit)
 	row.add_child(leave)
-	row.add_child(_build_chat())
+	_chat = _ignore(Ui.vbox(2))
+	_chat.name = "ChatLines"
+	_chat.custom_minimum_size.x = CHAT_WIDTH
+	_chat.size_flags_vertical = SIZE_SHRINK_BEGIN
+	row.add_child(_chat)
+	add_chat_line(CHAT_LINE)
 
 
-## The chat placeholder: a line and an input-looking row; a tap says chat comes later.
-func _build_chat() -> Button:
-	var b := Button.new()
-	b.name = "Chat"
-	b.custom_minimum_size = CHAT_SIZE
-	LobbyUi.style_button(b, NAVY, 18, 0, LobbyUi.PANEL_BORDER, 2)
-	b.pressed.connect(func() -> void: Ui.toast(self, FakeChat.COMING_SOON))
-	var col := Ui.vbox(4)
-	col.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	col.offset_left = 12
-	col.offset_top = 8
-	col.offset_right = -12
-	col.offset_bottom = -8
-	b.add_child(col)
-	var lines := RichTextLabel.new()
-	lines.bbcode_enabled = true
-	lines.scroll_active = false
-	lines.autowrap_mode = TextServer.AUTOWRAP_OFF
-	lines.clip_contents = true
-	lines.size_flags_vertical = SIZE_EXPAND_FILL
-	lines.add_theme_font_size_override("normal_font_size", 18)
-	lines.add_theme_constant_override("outline_size", 4)
-	lines.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.08, 0.85))
-	lines.text = FakeChat.bbcode(CHAT_LINE)
-	col.add_child(lines)
-	var input := LobbyUi.panel(0, 12, Color(0, 0, 0, 0.35))
-	input.custom_minimum_size.y = 40
-	col.add_child(input)
-	var row := Ui.hbox(8)
-	input.add_child(row)
-	var hint := LobbyUi.text(FakeChat.PLACEHOLDER, 18, Ui.TEXT_DIM)
-	hint.size_flags_horizontal = SIZE_EXPAND_FILL
-	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	var pad := MarginContainer.new()
-	pad.add_theme_constant_override("margin_left", 10)
-	pad.size_flags_horizontal = SIZE_EXPAND_FILL
-	pad.add_child(hint)
-	row.add_child(pad)
-	var send := LobbyUi.panel(0, 12, LobbyUi.ICON_COLORS["blue"])
-	send.custom_minimum_size = Vector2(50, 40)
-	var arrow := LobbyUi.icon("send", 26)
-	arrow.size_flags_horizontal = SIZE_SHRINK_CENTER
-	send.add_child(arrow)
-	row.add_child(send)
-	for c in [col, lines, input, row, pad, hint, send, arrow]:
-		c.mouse_filter = MOUSE_FILTER_IGNORE
-	return b
+## Adds a chat line (FakeChat line: {channel, name, text}) under the others: plain text, outlined
+## and shadowed over the sky; past CHAT_LINES the oldest goes, the older ones fade.
+func add_chat_line(line: Dictionary) -> void:
+	var l: RichTextLabel = _ignore(RichTextLabel.new())
+	l.bbcode_enabled = true
+	l.fit_content = true
+	l.scroll_active = false
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size.x = CHAT_WIDTH
+	l.add_theme_font_size_override("normal_font_size", 20)
+	l.add_theme_color_override("default_color", Color.WHITE)
+	l.add_theme_constant_override("outline_size", 7)
+	l.add_theme_color_override("font_outline_color", Color(0.02, 0.03, 0.1, 0.9))
+	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.55))
+	l.add_theme_constant_override("shadow_offset_x", 2)
+	l.add_theme_constant_override("shadow_offset_y", 2)
+	l.add_theme_constant_override("shadow_outline_size", 7)
+	l.text = FakeChat.bbcode(line)
+	_chat.add_child(l)
+	while _chat.get_child_count() > CHAT_LINES:
+		var old := _chat.get_child(0)
+		_chat.remove_child(old)
+		old.free()
+	var n := _chat.get_child_count()
+	for i in n:
+		(_chat.get_child(i) as CanvasItem).modulate.a = maxf(CHAT_MIN_ALPHA, 1.0 - CHAT_FADE * (n - 1 - i))
+
+
+## The chat lines shown, oldest first: [{text (no BBCode), alpha}].
+func chat_lines() -> Array:
+	var out: Array = []
+	for l in _chat.get_children():
+		out.append({"text": (l as RichTextLabel).get_parsed_text(), "alpha": (l as CanvasItem).modulate.a})
+	return out
 
 
 ## Top centre: the timer badge and the wind side by side.
@@ -233,17 +221,11 @@ func _build_top_centre() -> void:
 	wind_col.add_child(_wind_bar)
 
 
-## Top right: the turn portrait (figure, title slot, name).
+## Top right: the turn portrait, only the figure (and its back aura): no card, no name.
 func _build_portrait() -> void:
-	_portrait = _pin(_ignore(PanelContainer.new()), 1, 0, Vector2(-MARGIN, MARGIN))
+	_portrait = _pin(_ignore(Control.new()), 1, 0, Vector2(-MARGIN, MARGIN))
 	_portrait.name = "Portrait"
-	_portrait.add_theme_stylebox_override("panel", LobbyUi.box(NAVY, 20, 8, LobbyUi.PANEL_BORDER, 2))
-	var col: VBoxContainer = _ignore(Ui.vbox(0))
-	_portrait.add_child(col)
-	var holder: Control = _ignore(Control.new())
-	holder.custom_minimum_size = PORTRAIT_ART
-	holder.clip_contents = true # the aura's rays stay inside the card
-	col.add_child(holder)
+	_portrait.custom_minimum_size = PORTRAIT_ART
 	_portrait_art = CharacterView.new()
 	_portrait_art.name = "Figure"
 	_portrait_art.size = PORTRAIT_ART
@@ -251,22 +233,7 @@ func _build_portrait() -> void:
 	_portrait_art.hands_free = true
 	_portrait_art.back_aura = true
 	_portrait_art.aura_level = 0
-	holder.add_child(_portrait_art)
-	_portrait_title = _ignore(Control.new()) # the worn title's plate, centred (empty without one)
-	_portrait_title.name = "TitleSlot"
-	_portrait_title.custom_minimum_size = Vector2(0, TITLE_SLOT_H)
-	col.add_child(_portrait_title)
-	_portrait_plate = TitlePlate.new()
-	_portrait_plate.name = "TitlePlate"
-	_portrait_plate.plate_height = PORTRAIT_TITLE_H
-	_portrait_plate.max_width = PORTRAIT_ART.x + 12
-	_portrait_plate.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	_portrait_title.add_child(_portrait_plate)
-	_portrait_name = LobbyUi.text("", 24, Color.WHITE, true)
-	_portrait_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_portrait_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_portrait_name.custom_minimum_size = Vector2(PORTRAIT_ART.x, 0)
-	col.add_child(_portrait_name)
+	_portrait.add_child(_portrait_art)
 	_portrait.visible = false
 
 
@@ -344,8 +311,8 @@ func _build_skill() -> void:
 
 ## Whose turn: the banner when it changes, and the top-right portrait of `player` (a match player
 ## dict: playerId, characterId, isBot, weaponUpgradeLevel) sliding in when the player changes.
-## ally: my team (an ally's name light blue, an enemy's red; mine gold).
-func set_turn(mine: bool, player_name: String, player: Dictionary = {}, ally: bool = true) -> void:
+## _ally: my team (no longer shown: the portrait has no name).
+func set_turn(mine: bool, player_name: String, player: Dictionary = {}, _ally: bool = true) -> void:
 	var text := "Lượt của bạn" if mine else "Lượt của %s" % player_name
 	var changed := text != _turn_text
 	_turn_text = text
@@ -353,7 +320,7 @@ func set_turn(mine: bool, player_name: String, player: Dictionary = {}, ally: bo
 	_set_turn_style(mine)
 	if changed:
 		_announce(text, mine)
-	_set_portrait(player, player_name, mine, ally)
+	_set_portrait(player, player_name)
 
 
 ## The turn text ("Lượt của bạn" / "Lượt của X") the banner shows.
@@ -367,7 +334,7 @@ static func portrait_level(player: Dictionary) -> int:
 	return 0 if bool(player.get("isBot", false)) else EquipmentModel.player_weapon_level(player)
 
 
-func _set_portrait(player: Dictionary, player_name: String, mine: bool, ally: bool) -> void:
+func _set_portrait(player: Dictionary, player_name: String) -> void:
 	if player.is_empty():
 		_portrait.visible = false
 		_portrait_key = ""
@@ -376,11 +343,6 @@ func _set_portrait(player: Dictionary, player_name: String, mine: bool, ally: bo
 	var key := "%s|%s" % [player.get("playerId", player_name), id]
 	_portrait_art.character_id = id
 	_portrait_art.aura_level = portrait_level(player)
-	_portrait_name.text = player_name
-	_portrait_plate.set_title(TitleModel.from_player(player)) # bots and none: {} (nothing drawn)
-	var accent := LobbyUi.GOLD if mine else (ALLY_BLUE if ally else ENEMY_RED)
-	_portrait_name.add_theme_color_override("font_color", accent)
-	_portrait.add_theme_stylebox_override("panel", LobbyUi.box(NAVY, 20, 8, Color(accent, 0.8), 3))
 	_portrait.visible = true
 	if key == _portrait_key:
 		return
@@ -403,11 +365,11 @@ func _set_portrait(player: Dictionary, player_name: String, mine: bool, ally: bo
 	_portrait_tween.tween_property(_portrait, "offset_right", right, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
-## The turn portrait: {visible, character, aura ("red" / "purple" / ""), name, title ({id, name,
-## rarity}, {} = none), title_slot}.
+## The turn portrait: {visible, character, aura ("red" / "purple" / ""), node (the portrait
+## Control: only the figure in it)}.
 func portrait() -> Dictionary:
 	return {"visible": _portrait.visible, "character": _portrait_art.character_id, "aura": _portrait_art.aura().aura(),
-		"name": _portrait_name.text, "title": _portrait_plate.title if _portrait_plate.has_title() else {}, "title_slot": _portrait_title}
+		"node": _portrait}
 
 
 ## Sets the turn clock from a server value and resumes the local countdown.

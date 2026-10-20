@@ -6,10 +6,10 @@ extends Node2D
 ## bots: nothing drawn, no gap) and above that the markers of its active status effects
 ## (match/status_effects.gd); the turn arrow rises over the plate too.
 ## Walking is read from the position changes (prediction or tweens), so callers only move it.
-## Idle, the gun is out in a low carry, 45° down-forward (scenes/character/character.gd holster
-## + idle_gun); walking puts it away: aim() / draw_gun() turn it up from there, shoot() fires it
-## (returning the wait while it is drawn), clear_aim() and the end of a shot bring it back to the
-## low carry. aim_sweep() shows a remote player aiming (server PlayerAiming): the gun drawn and
+## Idle, the character stands breathing with the gun in its hand in a low carry, 45° down-forward
+## (scenes/character/character.gd holster + idle_gun); walking slings it across the back: aim() /
+## draw_gun() kneel on the ready pose and turn it up, shoot() fires it (returning the wait while
+## it is drawn), clear_aim() and the end of a shot stand it up again in the low carry. aim_sweep() shows a remote player aiming (server PlayerAiming): the gun drawn and
 ## swung onto the aim over its duration (match/aim/aim_sweep.gd), held there until the shot. The
 ## gun only ever shows one of 7 directions (scenes/character/aim_snap.gd), so a sweep steps
 ## between them.
@@ -81,8 +81,8 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_sprite = CharacterScene.instantiate()
 	_sprite.scale = Vector2.ONE * (ART_SCALE / Art.PX_PER_UNIT)
 	_sprite.show_behind_parent = true
-	_sprite.holster = true # drawn to shoot, put away to walk
-	_sprite.idle_gun = true # idle: the gun out in a low carry, 45° down-forward
+	_sprite.holster = true # drawn (kneeling) to shoot
+	_sprite.idle_gun = true # idle: standing, the gun in hand 45° down-forward; walking: on the back
 	_sprite.character_id = str(p.get("characterId", ""))
 	var gun := EquipmentModel.player_gun(p, PlayerState.catalog)
 	_sprite.set_weapon(gun["kind"], gun["tier"])
