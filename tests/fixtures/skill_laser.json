@@ -1,0 +1,197 @@
+{
+ "laser": {
+  "mapId": "grassland_valley",
+  "shooter": "spark",
+  "players": {
+   "e1": {
+    "playerId": "e1",
+    "displayName": "e1",
+    "teamId": 2,
+    "characterId": "rookie",
+    "weaponItemId": "",
+    "weaponUpgradeLevel": 0,
+    "hp": 1500,
+    "maxHp": 1500,
+    "shield": 0,
+    "defense": 50,
+    "position": {
+     "x": 900,
+     "y": 610
+    },
+    "moveEnergy": 0,
+    "maxMoveEnergy": 100,
+    "items": null,
+    "statusEffects": [],
+    "isAlive": true,
+    "isBot": false,
+    "damageBonus": 0,
+    "critChance": 0,
+    "moveEnergyBonus": 0,
+    "skillPowerBonus": 0,
+    "terrainDamageBonus": 0,
+    "skillEnergy": 0,
+    "skillRank": 0,
+    "damageDealt": 0,
+    "killCount": 0,
+    "shotsFired": 0,
+    "shotsHit": 0
+   },
+   "e2": {
+    "playerId": "e2",
+    "displayName": "e2",
+    "teamId": 2,
+    "characterId": "tanko",
+    "weaponItemId": "",
+    "weaponUpgradeLevel": 0,
+    "hp": 1650,
+    "maxHp": 1650,
+    "shield": 0,
+    "defense": 60,
+    "position": {
+     "x": 700,
+     "y": 663
+    },
+    "moveEnergy": 0,
+    "maxMoveEnergy": 80,
+    "items": null,
+    "statusEffects": [],
+    "isAlive": true,
+    "isBot": false,
+    "damageBonus": 0,
+    "critChance": 0,
+    "moveEnergyBonus": 0,
+    "skillPowerBonus": 0,
+    "terrainDamageBonus": 0,
+    "skillEnergy": 0,
+    "skillRank": 0,
+    "damageDealt": 0,
+    "killCount": 0,
+    "shotsFired": 0,
+    "shotsHit": 0
+   },
+   "spark": {
+    "playerId": "spark",
+    "displayName": "spark",
+    "teamId": 1,
+    "characterId": "spark",
+    "weaponItemId": "spark_weapon_lv40",
+    "weaponUpgradeLevel": 0,
+    "hp": 1250,
+    "maxHp": 1250,
+    "shield": 0,
+    "defense": 30,
+    "position": {
+     "x": 1450,
+     "y": 494
+    },
+    "moveEnergy": 120,
+    "maxMoveEnergy": 120,
+    "items": null,
+    "statusEffects": [],
+    "isAlive": true,
+    "isBot": false,
+    "damageBonus": 0,
+    "critChance": 0,
+    "moveEnergyBonus": 0,
+    "skillPowerBonus": 0,
+    "terrainDamageBonus": 0,
+    "skillEnergy": 0,
+    "skillRank": 4,
+    "damageDealt": 0,
+    "killCount": 0,
+    "shotsFired": 0,
+    "shotsHit": 0
+   }
+  },
+  "terrain": {
+   "width": 1600,
+   "height": 900,
+   "version": 0,
+   "solid": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY=",
+   "destructible": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY="
+  },
+  "terrainAfter": {
+   "width": 1600,
+   "height": 900,
+   "version": 0,
+   "solid": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY=",
+   "destructible": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY="
+  },
+  "shot": {
+   "shooterId": "spark",
+   "actionMode": "skill",
+   "skillId": "shock_field",
+   "skillEnergy": 0,
+   "skillEnergies": {
+    "e1": 10,
+    "e2": 10,
+    "spark": 0
+   },
+   "projectiles": [],
+   "events": [
+    {
+     "t": 0.3,
+     "type": "beam",
+     "playerId": "spark",
+     "from": {
+      "x": 1450,
+      "y": 474
+     },
+     "to": {
+      "x": -2.5956962769608687e-14,
+      "y": 779.8181818181821
+     },
+     "duration": 0.6
+    },
+    {
+     "t": 0.39368327254934865,
+     "type": "damage",
+     "playerId": "e1",
+     "amount": 1087,
+     "hp": 413,
+     "cause": "laser"
+    },
+    {
+     "t": 0.39368327254934865,
+     "type": "status",
+     "playerId": "e1",
+     "effectId": "stun",
+     "turns": 1
+    },
+    {
+     "t": 0.42812200686698076,
+     "type": "damage",
+     "playerId": "e2",
+     "amount": 857,
+     "hp": 793,
+     "cause": "laser"
+    },
+    {
+     "t": 0.42812200686698076,
+     "type": "status",
+     "playerId": "e2",
+     "effectId": "stun",
+     "turns": 1
+    }
+   ],
+   "duration": 0.8999999999999999
+  },
+  "angle": -168.09034295837543,
+  "turnStarted": {
+   "currentPlayerId": "e1",
+   "maxMoveEnergy": 100,
+   "moveEnergy": 0,
+   "skillEnergy": {
+    "e1": 10,
+    "e2": 10,
+    "spark": 20
+   },
+   "skipped": "stun",
+   "turnIndex": 1,
+   "wind": {
+    "direction": -1,
+    "power": 3.193333825895469
+   }
+  }
+ }
+}

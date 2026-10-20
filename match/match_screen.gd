@@ -32,6 +32,8 @@ const Items := preload("res://match/items.gd")
 const Status := preload("res://match/status_effects.gd")
 const ActionLock := preload("res://match/action_lock.gd")
 const SkillView := preload("res://match/views/skills/skill_view.gd")
+## A status popup ("Choáng", "Bỏng") sits this far above the damage number the same hit shows.
+const STATUS_POPUP_OFFSET := Vector2(0, -46)
 
 const ACTION_INTERVAL := 0.25 # server drops actions closer than 150 ms
 const MOVE_ACK_GAP := 0.16 # Shoot/EndTurn/UseItem wait this long after the last answer to a Move
@@ -548,7 +550,7 @@ func _on_shot_event(e: Dictionary) -> void:
 				_views[id].set_status(_players[id]["statusEffects"])
 			var text := Skills.status_label(str(e.get("effectId", "")))
 			if text != "":
-				_popup(id, text, Color(0.7, 0.85, 1))
+				_popup(id, text, Color(0.7, 0.85, 1), STATUS_POPUP_OFFSET) # over the damage number of the same hit
 	# beam, flare, rain (and the rest): the skill draws them
 	if _skill_view != null:
 		_skill_view.on_event(e)

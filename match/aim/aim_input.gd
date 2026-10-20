@@ -13,7 +13,8 @@ extends Node2D
 ## line_mode (the laser skill, SkillView.AIM_LINE): the same slingshot, but the angle is not
 ## clamped to the upper half (the beam may point down) and the preview is one straight line from
 ## the shot origin to the map edge (beam_end(), the server's beamEnd); power still only decides
-## whether the drag fires (MIN_POWER).
+## whether the drag fires (MIN_POWER). The line is drawn thinner in a light electric blue over a
+## soft wider glow (LINE_COLOR / LINE_GLOW) so it reads as a beam, not a lob.
 
 signal aim_changed(angle: float, power: float)
 signal aim_cleared # a drag ended without a shot (cancelled, or aiming was turned off)
@@ -26,6 +27,12 @@ const Items := preload("res://match/items.gd")
 const CANCEL_RADIUS := 60.0
 const MIN_POWER := 5.0
 const BODY_CENTER := Trajectory.SHOT_ORIGIN # the cancel ring and the shot start (body centre)
+const ARC_COLOR := Color(1, 1, 1, 0.55)
+const ARC_WIDTH := 4.0
+const LINE_COLOR := Color(0.78, 0.97, 1.0, 0.85) # line_mode: the beam preview
+const LINE_WIDTH := 3.0
+const LINE_GLOW := Color(0.35, 0.85, 1.0, 0.28)
+const LINE_GLOW_WIDTH := 12.0
 
 var enabled := false:
 	set(value):
@@ -74,8 +81,8 @@ func _ensure_lines() -> void:
 		return
 	while _lines.size() < preview_offsets.size():
 		var line := Line2D.new()
-		line.width = 4.0
-		line.default_color = Color(1, 1, 1, 0.55)
+		line.width = ARC_WIDTH
+		line.default_color = ARC_COLOR
 		add_child(line)
 		_lines.append(line)
 
@@ -104,6 +111,9 @@ func _update(pointer: Vector2) -> void:
 		return
 	var d := pointer - _start
 	_power = clampf(d.length() / 2.0, 0.0, 100.0)
+	if not _lines.is_empty():
+		_lines[0].default_color = LINE_COLOR if line_mode else ARC_COLOR
+		_lines[0].width = LINE_WIDTH if line_mode else ARC_WIDTH
 	if line_mode:
 		_angle = rad_to_deg(atan2(d.y, -d.x)) # -180..180: any direction
 		var origin: Vector2 = Trajectory.shot_origin(shooter_pos, terrain)
@@ -188,6 +198,8 @@ func _draw() -> void:
 	draw_arc(c, CANCEL_RADIUS, 0.0, TAU, 48, color, 3.0)
 	draw_line(c + Vector2(-14, -14), c + Vector2(14, 14), color, 3.0)
 	draw_line(c + Vector2(-14, 14), c + Vector2(14, -14), color, 3.0)
+	if line_mode and not target_column and not _lines.is_empty() and _lines[0].points.size() == 2:
+		draw_line(_lines[0].points[0], _lines[0].points[1], LINE_GLOW, LINE_GLOW_WIDTH, true) # under the line (children draw on top)
 	if target_column and not _in_cancel:
 		var bottom := float(terrain.height) if terrain != null else 2000.0
 		draw_line(Vector2(_column_x, 0.0), Vector2(_column_x, bottom), Color(1, 0.85, 0.2, 0.8), 3.0)
