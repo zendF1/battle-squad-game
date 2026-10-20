@@ -195,6 +195,113 @@ func test_character_holster() -> void:
 	restore.call()
 
 
+func test_rest_after_fire_stays_out() -> void:
+	var g := GunDraw.new()
+	g.rest = true
+	g.set_out()
+	eq(g.state_name(), "aiming", "set_out: out at once")
+	eq(g.fire(), 0.0, "fires at once")
+	var ev := _run(g, 1.0)
+	eq(ev, ["rested"], "the fire hold ends in the rest, not a holster")
+	eq(g.state_name(), "aiming", "still out")
+	near(g.progress, 1.0, 1e-6, "all the way out")
+	g.holster()
+	eq(_run(g, 1.0), ["holstered"], "a walk still holsters it")
+
+
+## idle_gun (the match): every real character (a drawn ready pose) idles kneeling with the hug gun
+## turned 45° down-forward, mirrored facing left; aiming turns it from there with the muzzle of
+## any aim; after the shot it comes back to rest; walking holsters it, stopping brings it back.
+func test_idle_gun_on_the_ready_pose() -> void:
+	for id in ["rookie", "tanko", "spark", "flora"]:
+		var c: Node2D = CharacterScene.instantiate()
+		c.character_id = id
+		c.holster = true
+		c.idle_gun = true
+		var holder := Node2D.new()
+		holder.add_child(c)
+		c._ready()
+		var flip: Node2D = c.get_node("Flip")
+		var gun: Node2D = c.get_node("Flip/Gun")
+		var dt := 1.0 / 60.0
+		check(c.is_resting(), "%s: rests at once" % id)
+		eq(c.animation(), "draw", "%s: on the ready pose" % id)
+		check(gun.visible, "%s: the gun out" % id)
+		near(rad_to_deg(gun.rotation), 45.0, 0.01, "%s: the socket turned 45° down" % id)
+		var sock: Transform2D = preload("res://ui/art.gd").ready_pose(id)["socket"]
+		check(gun.position.distance_to(sock.origin) < 0.01, "%s: on its socket" % id)
+		# The muzzle below the hold, ahead of it, facing right: down-forward on screen.
+		var hold := c.global_transform * flip.transform * sock.origin
+		var m: Vector2 = c.muzzle_position() - hold
+		check(m.y > 0.0, "%s: muzzle lower than the hold (%s)" % [id, m])
+		c.facing = -1
+		c._apply_motion()
+		c._update_gun()
+		var hold_l := c.global_transform * flip.transform * sock.origin
+		var ml: Vector2 = c.muzzle_position() - hold_l
+		check(ml.y > 0.0 and signf(ml.x) == -signf(m.x) and absf(absf(ml.x) - absf(m.x)) < 0.05, "%s: mirrored facing left (%s vs %s)" % [id, ml, m])
+		c.facing = 1
+		c._apply_motion()
+		# Aiming: the same as from a holster.
+		c.draw_gun()
+		near(rad_to_deg(gun.rotation), 0.0, 0.01, "%s: a drag start turns it to level" % id)
+		c.aim(45.0)
+		near(rad_to_deg(gun.rotation), -45.0, 0.01, "%s: the aim turns it up" % id)
+		var predicted: Vector2 = c.fire_muzzle_position()
+		eq(c.shoot(), 0.0, "%s: out: fires at once" % id)
+		check(c.muzzle_position().distance_to(predicted) < 0.5, "%s: the shot leaves the aimed muzzle" % id)
+		check(not c.is_resting(), "%s: not resting while firing" % id)
+		for i in 60:
+			c._process(dt)
+		check(c.is_resting(), "%s: back to rest after the shot" % id)
+		near(rad_to_deg(gun.rotation), 45.0, 0.01, "%s: 45° down again" % id)
+		eq(c.gun_state(), "aiming", "%s: never holstered" % id)
+		# A turn change while aiming: back to rest.
+		c.aim(90.0)
+		c.clear_aim()
+		check(c.is_resting(), "%s: clear_aim back to rest" % id)
+		# Walking: holstered (no gun hold on the walk frames), out again when it stops.
+		c.set_walking(true)
+		for i in 5:
+			c._process(dt)
+		eq(c.gun_state(), "holstered", "%s: walks holstered" % id)
+		eq(c.animation(), "walk", "%s: the walk plays" % id)
+		check(not gun.visible, "%s: no gun on the walk" % id)
+		c.set_walking(false)
+		for i in 5:
+			c._process(dt)
+		check(c.is_resting() and gun.visible and c.animation() == "draw", "%s: out again when it stops" % id)
+		c.die()
+		check(not c.is_resting() and not gun.visible, "%s: dead: no gun" % id)
+		holder.free()
+
+
+## The code draw (a look without a drawn ready pose): the hand hold on the idle frame at 45° down.
+func test_idle_gun_code_hold() -> void:
+	var restore: Callable = CodeDrawLook.install("spark")
+	var c: Node2D = CharacterScene.instantiate()
+	c.character_id = "spark"
+	c.holster = true
+	c.idle_gun = true
+	var holder := Node2D.new()
+	holder.add_child(c)
+	c._ready()
+	var gun: Node2D = c.get_node("Flip/Gun")
+	var anchor: Dictionary = preload("res://ui/art.gd").gun_anchor("spark", "idle", 0)
+	check(c.is_resting() and c.holds_gun(), "the gun in hand")
+	eq(c.animation(), "idle", "on the idle frame")
+	near(rad_to_deg(gun.rotation), float(anchor["angle"]) + 45.0, 0.01, "45° below the anchor")
+	near(gun.scale.x, 1.0, 1e-6, "full size")
+	c.aim(40.0)
+	near(rad_to_deg(gun.rotation), float(anchor["angle"]) - 45.0, 0.01, "the aim as before")
+	c.clear_aim()
+	near(rad_to_deg(gun.rotation), float(anchor["angle"]) + 45.0, 0.01, "back to rest")
+	c.set_walking(true)
+	eq(c.gun_state(), "holstering", "walking puts it away")
+	holder.free()
+	restore.call()
+
+
 ## Out of the match (holster off) a look without a drawn ready pose has the gun always in hand, as
 ## before (a character with one holds it only on that pose: every real one now).
 func test_character_without_holster_keeps_the_gun() -> void:

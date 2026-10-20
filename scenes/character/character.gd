@@ -28,6 +28,14 @@ extends Node2D
 ## or the side view's drawn "draw" frames when it has them), out while aiming (idle frame, no walk
 ## swing), shoot() fires it (at once, or once drawn fast: it returns the wait) and it goes away
 ## fireHoldSec later; clear_aim() holsters it and walking holsters it first. Off: always out.
+## idle_gun (the match, with holster): idle is not empty-handed: the gun is out in a relaxed low
+## carry, IDLE_GUN_UP (45° below level towards the facing side, mirrored facing left), in the
+## character's own hold (a drawn ready pose: kneeling, the hugged gun's socket turned to it, one
+## of its 7 directions; otherwise the hand hold on the idle frame) and the ready pose breathes.
+## Aiming turns it from there (draw_gun(): to level, aim(): to the snapped aim) exactly as from a
+## holster, with the same muzzle; after a shot's fire hold it goes back to the low carry
+## (gun_draw.gd rest: "rested") instead of away, and clear_aim() returns it there. Walking still
+## holsters it (the walk frames have no gun hold) and it comes out again when the walk stops.
 ## A side view with a drawn ready pose (Rookie: side.json "draw" = the ready frame, kneeling with
 ## both fists on the chest, "fire" = it with the recoil, "gunDraw" all 0 s) switches to it and back
 ## at once. On it the character hugs a big gun (ui/art.gd hug_gun(): the held weapon's hug art, else
@@ -67,6 +75,8 @@ const FLASH_TINT := Color(1.0, 0.92, 0.65)
 ## The hugged gun's kick on a shot: this part of its drawn length back along its axis × the fire
 ## frame's muzzle flash (1, 0.35, 0).
 const HUG_KICK := 0.05
+## idle_gun: the gun's rest angle, degrees above level towards the facing side (-45: down-forward).
+const IDLE_GUN_UP := -45.0
 ## The animations that follow the base pose (idle / walk, or the armed hold) when it changes.
 const BASE_ANIMS := ["idle", "walk", Art.DRAW_ANIM]
 
@@ -93,6 +103,14 @@ const BASE_ANIMS := ["idle", "walk", Art.DRAW_ANIM]
 		holster = value
 		if is_node_ready():
 			_apply_frames()
+## holster on: idle shows the gun in the low carry (IDLE_GUN_UP) instead of holstered.
+@export var idle_gun := false:
+	set(value):
+		idle_gun = value
+		_gun_draw.rest = value
+		if is_node_ready():
+			_settle(true)
+			_update_gun()
 ## 1 faces right, -1 left.
 var facing := 1:
 	set(value):
@@ -158,6 +176,10 @@ func _process(delta: float) -> void:
 				_aiming = false
 				if animation() in BASE_ANIMS or animation() == Art.FIRE_ANIM:
 					play(_base())
+			"rested": # idle_gun: the shot is over, back to the low carry
+				_aiming = false
+				if animation() in BASE_ANIMS or animation() == Art.FIRE_ANIM:
+					play(_base())
 		if _sprite.animation == Art.DRAW_ANIM:
 			_sprite.frame = _draw_frame()
 		if _gun_draw.armed() or ev != "":
@@ -182,6 +204,7 @@ func _apply_frames() -> void:
 	var anim := _sprite.animation
 	_look = Art.character_look(character_id)
 	_gun_draw = GunDraw.new(_look.get("gun_draw", {}))
+	_gun_draw.rest = idle_gun
 	_aiming = _aiming and not holster
 	_sprite.sprite_frames = _look["frames"]
 	_sprite.offset = -_look["pivot"]
@@ -199,6 +222,7 @@ func _apply_frames() -> void:
 		_sprite.play("die")
 		_sprite.frame = _sprite.sprite_frames.get_frame_count("die") - 1
 	_gun_sprite.visible = not hands_free
+	_settle(true)
 	_apply_gun()
 
 
@@ -312,7 +336,7 @@ func aim(angle: float) -> void:
 func draw_gun() -> void:
 	if not holster:
 		return
-	if not _gun_draw.armed():
+	if not _gun_draw.armed() or not _aiming: # from the holster or the idle low carry: at level
 		_aim_up = 0.0
 	_aiming = true
 	_start_draw()
@@ -327,6 +351,30 @@ func _start_draw() -> void:
 		play(_base())
 
 
+## idle_gun wants the gun out in the low carry now: idle (not walking), alive, the frames.
+func _wants_rest() -> bool:
+	return holster and idle_gun and not _dead and not _walking and _full == null
+
+
+## idle_gun: the gun out in the low carry when idle (instant: at once, else drawn as a holster
+## draw); the base animation follows.
+func _settle(instant: bool) -> void:
+	if not _wants_rest():
+		return
+	if instant:
+		_gun_draw.set_out()
+	elif _gun_draw.state == GunDraw.HOLSTERED or _gun_draw.state == GunDraw.HOLSTERING:
+		_gun_draw.draw()
+	if animation() in BASE_ANIMS:
+		play(_base())
+
+
+## The gun rests in the idle low carry (idle_gun, not aimed, no shot leaving).
+func is_resting() -> bool:
+	return holster and idle_gun and not _dead and _full == null and not _aiming and _gun_draw.armed() \
+		and _gun_draw.state != GunDraw.FIRING and not _gun_draw.fire_pending()
+
+
 ## The gun draw's state (scenes/character/gun_draw.gd STATE_NAMES).
 func gun_state() -> String:
 	return _gun_draw.state_name() if holster else "aiming"
@@ -339,8 +387,16 @@ static func aim_elevation(angle: float, facing_dir: int) -> float:
 	return AimSnap.elevation(angle, facing_dir)
 
 
-## Back to the animation's own hold; with holster on, the gun is put away.
+## Back to the animation's own hold; with holster on, the gun is put away (idle_gun: back to the
+## low carry; a shot still firing gets there once its fire hold is over).
 func clear_aim() -> void:
+	if holster and _wants_rest():
+		if _gun_draw.state == GunDraw.FIRING or _gun_draw.fire_pending():
+			return # "rested" brings it back
+		_aiming = false
+		_settle(false)
+		_update_gun()
+		return
 	if holster:
 		_gun_draw.holster()
 		if not _gun_draw.armed():
@@ -426,7 +482,7 @@ func _gun_pose(anim: String, frame: int, k: float) -> Dictionary:
 	var a := Art.gun_anchor(character_id, anim, frame)
 	var grip: Vector2 = a["grip"]
 	var deg: float = a["angle"]
-	var up := _aim_up if _aiming and not _dead else 0.0
+	var up := _aim_up if _aiming and not _dead else (IDLE_GUN_UP if is_resting() else 0.0)
 	if _is_ready_anim(anim):
 		# The ready pose: the hug gun on the pose scene's socket, the socket turned by the aim round
 		# its origin (the hug point), kicked back along the gun's axis by the frame's flash.
@@ -471,6 +527,8 @@ func _flip_transform(anim: String, t: float, p: float) -> Transform2D:
 	var motion := ""
 	if _full == null and not _look.is_empty():
 		motion = str(_look["motions"].get(anim, ""))
+		if motion == "" and anim == Art.DRAW_ANIM and is_resting():
+			motion = "breathe" # the idle low carry on the ready pose breathes like idle
 	var pose := motion_pose(motion, t, _time, _extent())
 	if holster and _full == null and p > 0.0 and not bool(_look.get("draw_frames", false)):
 		var r := ready_pose(p, _gun_draw.timings)
@@ -583,6 +641,9 @@ func set_walking(on: bool) -> void:
 	_walking = on
 	if on and holster and ((_gun_draw.state == GunDraw.DRAWING and not _gun_draw.fire_pending()) or _gun_draw.state == GunDraw.AIMING):
 		_gun_draw.holster()
+		_aiming = false if idle_gun else _aiming
+	if not on:
+		_settle(false) # idle_gun: out again in the low carry
 	if animation() in BASE_ANIMS:
 		play(_base())
 

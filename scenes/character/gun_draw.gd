@@ -12,6 +12,9 @@ extends RefCounted
 ##   fires when the gun is out (update() returns "fire"), returning the seconds until then, so
 ##   the shot can be drawn leaving from the muzzle (remote and bot shots never aimed here).
 ## - holster() cancels a pending fire.
+## - rest (the match's idle gun, character.gd idle_gun): the shot's fire hold ends back in aiming
+##   (update() returns "rested": the gun stays out, the view turns it to its rest angle) instead
+##   of holstering; set_out() puts the gun out at once (a match starting with idle characters).
 ##
 ## TIMINGS is the one table of the draw's timings and pose; a side view may override any of them
 ## in its side.json "gunDraw" object (ui/art.gd parse_side()).
@@ -37,6 +40,8 @@ var state := HOLSTERED
 ## 0 holstered .. 1 the gun out.
 var progress := 0.0
 var timings := TIMINGS.duplicate(true)
+## The gun stays out after a shot (aiming again, "rested") instead of holstering.
+var rest := false
 
 var _speed := 0.0 # progress per s while drawing
 var _fire_pending := false
@@ -127,6 +132,14 @@ func fire() -> float:
 	return (1.0 - progress) / maxf(_speed, 0.0001)
 
 
+## The gun out at once (aiming), no draw; a pending fire is kept.
+func set_out() -> void:
+	if state == FIRING:
+		return
+	state = AIMING
+	progress = 1.0
+
+
 ## Back to holstered at once (death, a rebuilt match).
 func reset() -> void:
 	state = HOLSTERED
@@ -136,7 +149,8 @@ func reset() -> void:
 
 
 ## Advances by delta seconds. Returns what happened: "drawn" (aiming), "fire" (a pending fire
-## leaves: play the recoil), "holstering" (the fire hold is over), "holstered", or "".
+## leaves: play the recoil), "holstering" (the fire hold is over), "rested" (the fire hold is over
+## with rest on: aiming again), "holstered", or "".
 func update(delta: float) -> String:
 	match state:
 		DRAWING:
@@ -153,6 +167,9 @@ func update(delta: float) -> String:
 		FIRING:
 			_fire_left -= delta
 			if _fire_left <= 0.0:
+				if rest:
+					state = AIMING
+					return "rested"
 				holster()
 				return "holstered" if state == HOLSTERED else "holstering"
 		HOLSTERING:

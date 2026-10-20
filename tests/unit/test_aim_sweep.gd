@@ -165,7 +165,7 @@ func test_view_sweep_ends_on_holster_or_death() -> void:
 	v.clear_aim()
 	check(not v.is_sweeping(), "a turn change ends it")
 	_drive(v, 0.5)
-	eq(v.gun_state(), "holstered", "and the gun is put away")
+	check(v.get_child(1).is_resting(), "and the gun goes back to the idle low carry")
 	v.aim_sweep(60.0, 1.5)
 	_drive(v, 0.3)
 	v.set_dead()
