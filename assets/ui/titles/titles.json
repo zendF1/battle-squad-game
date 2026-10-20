@@ -1,0 +1,79 @@
+{
+	"_doc": "Written by tools/import_titles.gd (do not edit; edit art_source/ui/titles/titles.json and re-run). Texture px: size [w, h], stretch [[x0, x1], ...] (widened for a long name), text [x0, y0, x1, y1] (the name's box).",
+	"blue": {
+		"size": [
+			506,
+			107
+		],
+		"stretch": [
+			[
+				147,
+				357
+			]
+		],
+		"text": [
+			111,
+			34,
+			400,
+			73
+		]
+	},
+	"orange": {
+		"size": [
+			502,
+			108
+		],
+		"stretch": [
+			[
+				145,
+				345
+			]
+		],
+		"text": [
+			113,
+			36,
+			395,
+			76
+		]
+	},
+	"purple": {
+		"size": [
+			506,
+			110
+		],
+		"stretch": [
+			[
+				157,
+				347
+			]
+		],
+		"text": [
+			130,
+			34,
+			380,
+			74
+		]
+	},
+	"red": {
+		"size": [
+			479,
+			127
+		],
+		"stretch": [
+			[
+				113,
+				157
+			],
+			[
+				313,
+				360
+			]
+		],
+		"text": [
+			102,
+			46,
+			375,
+			89
+		]
+	}
+}

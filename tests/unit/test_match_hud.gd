@@ -75,6 +75,24 @@ func test_turn_portrait() -> void:
 	h.free()
 
 
+func test_turn_portrait_title() -> void:
+	var h := _hud()
+	var red := {"id": "grandmaster", "name": "Cao thủ", "rarity": "red"}
+	h.set_turn(true, "Smoke", {"playerId": "me", "characterId": "rookie", "title": red})
+	var p: Dictionary = h.portrait()
+	eq(p["title"], red, "the worn title's plate between the figure and the name")
+	var plate: Control = (p["title_slot"] as Control).get_child(0)
+	check(plate.visible, "plate shown")
+	check(plate.plate_size().x <= Hud.PORTRAIT_ART.x + 12 + 0.01, "fits the card")
+	var slot_h: float = (p["title_slot"] as Control).custom_minimum_size.y
+	h.set_turn(false, "Bot", {"playerId": "bot_1", "characterId": "tanko", "isBot": true}, false)
+	eq(h.portrait()["title"], {}, "a bot: none")
+	check(not plate.visible, "no empty plate")
+	eq((h.portrait()["title_slot"] as Control).custom_minimum_size.y, slot_h, "the slot stays reserved (the card keeps its size)")
+	h.set_turn(false, "Đối thủ", {"playerId": "p2", "characterId": "spark", "title": {"id": "x"}}, false)
+	eq(h.portrait()["title"], {}, "a malformed title: none")
+	h.free()
+
 func test_slots() -> void:
 	var h := _hud()
 	var rookie := {"id": "triple_shot", "name": "Bắn 3 tia", "needs_aim": true, "offsets": [-10.0, 0.0, 10.0]}

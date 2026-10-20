@@ -1,0 +1,20 @@
+{
+	"_doc": "tools/import_titles.gd: the AI-drawn title plates (dark background, no alpha, no text) → assets/ui/titles/title_<colour>.png + titles.json. Source px: watermarks (grey ✦: centre, half sizes), stretch x ranges (plain border runs a long name may widen), text [x0, y0, x1, y1] (the inner panel). Edit and re-run.",
+	"scale": 0.5,
+	"borderSample": 3,
+	"bgTolerance": 0.04,
+	"climb": 0.05,
+	"glowWidth": 44,
+	"minIsland": 40,
+	"alphaGamma": 1.0,
+	"alphaBoost": 1.0,
+	"trimAlpha": 0.03,
+	"margin": 3,
+	"watermarkGrow": 3,
+	"titles": {
+		"blue": {"source": "title_blue.png", "watermarks": [{"centre": [967.5, 195.5], "size": [8, 12.5]}], "stretch": [[300, 720]], "text": [228, 92, 805, 170]},
+		"orange": {"source": "title_orange.png", "watermarks": [{"centre": [966, 193.5], "size": [9, 13]}], "stretch": [[300, 700]], "text": [235, 92, 800, 172]},
+		"purple": {"source": "title_purple.png", "watermarks": [{"centre": [965, 195], "size": [12.5, 13]}, {"centre": [929.5, 195], "size": [8.5, 13.5]}], "stretch": [[320, 700]], "text": [265, 88, 765, 168]},
+		"red": {"source": "title_red.png", "watermarks": [{"centre": [965, 195], "size": [12, 15]}], "stretch": [[262, 350], [662, 755]], "text": [240, 92, 785, 178]}
+	}
+}

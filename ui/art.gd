@@ -176,6 +176,15 @@ const FX := {
 	"muzzle": ROOT + "fx/common/muzzle.png",
 }
 
+# ── Title plates (ui/titles/) ───────────────────────────────────────────────
+
+## One banner per rarity (tools/import_titles.gd, ui/title_plate.gd); an unknown rarity draws
+## as blue. titles.json: per rarity the texture size, the x ranges a long name may widen
+## ("stretch") and the name's box ("text"), texture px; TITLE_FALLBACK while it is missing.
+const TITLE_RARITIES := ["blue", "orange", "purple", "red"]
+const TITLES_DATA := ROOT + "ui/titles/titles.json"
+const TITLE_FALLBACK := {"size": [506, 107], "stretch": [[147, 357]], "text": [111, 34, 400, 73]}
+
 # ── UI 9-patches ────────────────────────────────────────────────────────────
 
 ## name -> texture margins [left, top, right, bottom] (the parts that never stretch) and expand
@@ -202,6 +211,7 @@ static var _ready_poses := {} # character id -> ready_pose()
 static var _placeholder: Texture2D
 static var _empty_frames: SpriteFrames
 static var _fulls := {} # character id -> lobby_full() data ({} = none)
+static var _titles_data: Variant = null # parsed titles.json ({} when missing)
 
 
 ## The id, or DEFAULT_CHARACTER for an unknown or missing one (e.g. a bot without one).
@@ -294,6 +304,37 @@ static func ui_path(box_name: String) -> String:
 	return ROOT + "ui/%s.png" % box_name
 
 
+## The rarity, or blue for an unknown one.
+static func title_rarity(rarity: String) -> String:
+	return rarity if TITLE_RARITIES.has(rarity) else TITLE_RARITIES[0]
+
+
+static func title_path(rarity: String) -> String:
+	return ROOT + "ui/titles/title_%s.png" % title_rarity(rarity)
+
+
+## The plate of a rarity (blue for an unknown one); the PNG itself while not imported yet.
+static func title_texture(rarity: String) -> Texture2D:
+	return texture(title_path(rarity))
+
+
+## A rarity's plate layout {size: Vector2, stretch: [Vector2(x0, x1), ...], text: Rect2}, texture
+## px (titles.json; TITLE_FALLBACK scaled to the texture when the file or the entry is missing).
+static func title_meta(rarity: String) -> Dictionary:
+	if _titles_data == null:
+		_titles_data = _load_json(TITLES_DATA)
+	var raw = _titles_data.get(title_rarity(rarity))
+	if not raw is Dictionary or not raw.get("size") is Array or not raw.get("text") is Array or not raw.get("stretch") is Array:
+		raw = TITLE_FALLBACK
+	var stretch: Array = []
+	for r in raw["stretch"]:
+		if r is Array and r.size() >= 2 and float(r[1]) > float(r[0]):
+			stretch.append(Vector2(float(r[0]), float(r[1])))
+	var t: Array = raw["text"]
+	return {"size": _vec2(raw["size"]), "stretch": stretch,
+		"text": Rect2(float(t[0]), float(t[1]), float(t[2]) - float(t[0]), float(t[3]) - float(t[1]))}
+
+
 ## Every file this script names (the test checks they all exist).
 static func all_paths() -> Array[String]:
 	var out: Array[String] = [SHADOW, HAND, GUNS_DATA, HUG_DATA, FULL_ANIMS]
@@ -323,6 +364,9 @@ static func all_paths() -> Array[String]:
 		out.append(tier_fx_path(fx_name))
 	for box_name in UI_BOXES:
 		out.append(ui_path(box_name))
+	out.append(TITLES_DATA)
+	for rarity in TITLE_RARITIES:
+		out.append(title_path(rarity))
 	for slot in EQUIP_SLOTS:
 		out.append(equipment_slot_path(slot))
 		for tier in EQUIP_TIERS:

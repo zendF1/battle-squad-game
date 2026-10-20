@@ -89,6 +89,13 @@ const MILESTONE := {
 	"BUSY": "Đang nhận thưởng, chờ chút",
 }
 
+## POST /player/titles/equip.
+const TITLE := {
+	"TITLE_NOT_OWNED": "Bạn chưa có danh hiệu này",
+	"BAD_REQUEST": "Danh hiệu không hợp lệ",
+	"BUSY": "Đang đổi danh hiệu, chờ chút",
+}
+
 
 ## POST /shop/purchase failure. currency is the offer's priceCurrency ("coin" | "gem").
 static func purchase(res: Dictionary, currency: String = "") -> String:
@@ -213,3 +220,13 @@ static func milestone(res: Dictionary) -> String:
 	if int(res.get("status", 0)) == 0:
 		return OFFLINE
 	return MILESTONE.get(code, "Nhận thưởng thất bại: %s" % res.get("message", ""))
+
+
+## POST /player/titles/equip failure.
+static func title(res: Dictionary) -> String:
+	var code := str(res.get("code", ""))
+	if code == "BUSY":
+		return TITLE[code]
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	return TITLE.get(code, "Đổi danh hiệu thất bại: %s" % res.get("message", ""))

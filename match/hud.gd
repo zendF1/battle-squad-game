@@ -7,8 +7,9 @@ extends Control
 ## - top centre: the turn timer badge and the wind (strength bar from the middle) side by side;
 ## - top right: whose turn it is: that player's lobby full-body figure (ui/character_view.gd, its
 ##   weapon's +14 / +16 back aura: the match's aura lives here, not on the small sprites) over
-##   its name, with a reserved slot between them for a title plate (titles come later); it
-##   slides and fades in on each turn change (mine, opponents', bots: no aura);
+##   its name, with the title plate it wears between them (ui/title_plate.gd, the payload's
+##   "title"; the slot stays reserved, empty, without one: bots); it slides and fades in on each
+##   turn change (mine, opponents', bots: no aura);
 ## - bottom left: the move buttons and the move energy (Thể lực);
 ## - bottom centre: the aim readout over the items in hand, a row of slots (icon + count);
 ## - bottom right: the character's skill as a round slot (its icon, the energy as a ring, off
@@ -30,6 +31,8 @@ const Art := preload("res://ui/art.gd")
 const CharacterView := preload("res://ui/character_view.gd")
 const FakeChat := preload("res://screens/home/fake_chat.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
+const TitleModel := preload("res://screens/home/title_model.gd")
+const TitlePlate := preload("res://ui/title_plate.gd")
 
 const NAVY := Color(0.06, 0.09, 0.22, 0.78)
 const MODE_BG := Color(0.13, 0.2, 0.42, 0.9)
@@ -41,7 +44,8 @@ const MARGIN := 24
 const LEAVE_SIZE := 64
 const CHAT_SIZE := Vector2(380, 112)
 const PORTRAIT_ART := Vector2(190, 200) # the figure's box in the turn portrait
-const TITLE_SLOT_H := 30 # reserved for the title plate between the figure and the name
+const TITLE_SLOT_H := 36 # reserved for the title plate between the figure and the name
+const PORTRAIT_TITLE_H := 34.0 # the plate's height in it
 const SKILL_SIZE := 132
 const ITEM_SIZE := 96
 const MOVE_SIZE := 110
@@ -69,6 +73,7 @@ var _portrait: PanelContainer
 var _portrait_art: CharacterView
 var _portrait_name: Label
 var _portrait_title: Control
+var _portrait_plate: TitlePlate
 var _portrait_tween: Tween
 var _portrait_key := ""
 var _result: Control
@@ -247,10 +252,16 @@ func _build_portrait() -> void:
 	_portrait_art.back_aura = true
 	_portrait_art.aura_level = 0
 	holder.add_child(_portrait_art)
-	_portrait_title = _ignore(Control.new()) # the title plate goes here (a later feature)
+	_portrait_title = _ignore(Control.new()) # the worn title's plate, centred (empty without one)
 	_portrait_title.name = "TitleSlot"
 	_portrait_title.custom_minimum_size = Vector2(0, TITLE_SLOT_H)
 	col.add_child(_portrait_title)
+	_portrait_plate = TitlePlate.new()
+	_portrait_plate.name = "TitlePlate"
+	_portrait_plate.plate_height = PORTRAIT_TITLE_H
+	_portrait_plate.max_width = PORTRAIT_ART.x + 12
+	_portrait_plate.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_portrait_title.add_child(_portrait_plate)
 	_portrait_name = LobbyUi.text("", 24, Color.WHITE, true)
 	_portrait_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_portrait_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -366,6 +377,7 @@ func _set_portrait(player: Dictionary, player_name: String, mine: bool, ally: bo
 	_portrait_art.character_id = id
 	_portrait_art.aura_level = portrait_level(player)
 	_portrait_name.text = player_name
+	_portrait_plate.set_title(TitleModel.from_player(player)) # bots and none: {} (nothing drawn)
 	var accent := LobbyUi.GOLD if mine else (ALLY_BLUE if ally else ENEMY_RED)
 	_portrait_name.add_theme_color_override("font_color", accent)
 	_portrait.add_theme_stylebox_override("panel", LobbyUi.box(NAVY, 20, 8, Color(accent, 0.8), 3))
@@ -391,10 +403,11 @@ func _set_portrait(player: Dictionary, player_name: String, mine: bool, ally: bo
 	_portrait_tween.tween_property(_portrait, "offset_right", right, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
-## The turn portrait: {visible, character, aura ("red" / "purple" / ""), name, title_slot}.
+## The turn portrait: {visible, character, aura ("red" / "purple" / ""), name, title ({id, name,
+## rarity}, {} = none), title_slot}.
 func portrait() -> Dictionary:
 	return {"visible": _portrait.visible, "character": _portrait_art.character_id, "aura": _portrait_art.aura().aura(),
-		"name": _portrait_name.text, "title_slot": _portrait_title}
+		"name": _portrait_name.text, "title": _portrait_plate.title if _portrait_plate.has_title() else {}, "title_slot": _portrait_title}
 
 
 ## Sets the turn clock from a server value and resumes the local countdown.

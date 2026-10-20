@@ -22,6 +22,7 @@ const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
+const TitlePlate := preload("res://ui/title_plate.gd")
 const SETTINGS_PATH := LoadoutModel.SETTINGS_PATH
 
 const MARGIN := 18
@@ -38,6 +39,7 @@ var _quick_play: QuickPlay
 # Character panel
 var _art: CharacterView
 var _gun_stand: PedestalGun
+var _char_title: TitlePlate # the worn title over the name (hidden without one)
 var _char_name: Label
 var _char_level: Label
 var _char_role: Label
@@ -94,14 +96,20 @@ func _ready() -> void:
 	right.add_child(_build_footer())
 
 	PlayerState.characters_changed.connect(_render_character)
+	PlayerState.changed.connect(_render_title)
 	PlayerState.equipment_changed.connect(_render_gear)
 	PlayerState.characters_changed.connect(_render_gear) # the stat multipliers of the tooltips
 	PlayerState.need_characters()
 	PlayerState.need_equipment()
 	_render_character()
+	_render_title()
 	_render_gear()
 	_refresh()
 	_fetch_inventory()
+
+
+func _render_title() -> void:
+	_char_title.set_title(PlayerState.equipped_title())
 
 
 # ── Layout ──────────────────────────────────────────────────────────────────
@@ -168,6 +176,11 @@ func _build_character_panel() -> Control:
 	_gun_stand.size = PedestalGun.STAGE_RECT.size
 	stage.add_child(_gun_stand)
 	stage.resized.connect(_place_gun_stand.bind(stage))
+	_char_title = TitlePlate.new()
+	_char_title.plate_height = 38
+	_char_title.max_width = 336
+	_char_title.size_flags_horizontal = SIZE_SHRINK_CENTER
+	col.add_child(_char_title)
 	_char_name = _centered(col, 36, Color.WHITE, true)
 	_char_level = _centered(col, 24, LobbyUi.GOLD, true)
 	_char_role = _centered(col, 22, Ui.TEXT_DIM)

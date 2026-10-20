@@ -71,3 +71,11 @@ func test_equipment_remove() -> void:
 	eq(ErrorText.equipment_remove({"status": 500, "code": "X", "message": "boom"}, true), "Bán thất bại: boom", "sell fallback")
 	eq(ErrorText.equipment_remove({"status": 500, "code": "X", "message": "boom"}, false), "Vứt thất bại: boom", "discard fallback")
 	eq(ErrorText.equipment_remove({"status": 0}, true), ErrorText.OFFLINE, "offline")
+
+
+func test_title() -> void:
+	eq(ErrorText.title({"status": 403, "code": "TITLE_NOT_OWNED"}), "Bạn chưa có danh hiệu này", "not owned")
+	eq(ErrorText.title({"status": -1, "code": "BUSY"}), "Đang đổi danh hiệu, chờ chút", "busy")
+	eq(ErrorText.title({"status": 0, "code": ""}), ErrorText.OFFLINE, "offline")
+	eq(ErrorText.title({"status": 500, "code": "X", "message": "boom"}), "Đổi danh hiệu thất bại: boom", "fallback")
+

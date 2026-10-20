@@ -36,6 +36,12 @@ extends Node
 ## answer's balances at once, the list reloads whatever the answer (MILESTONE_ALREADY_CLAIMED
 ## means another device or a retry already took it). take_new_milestones() is true once each
 ## time the count rose past what the player saw (the lobby's "Có mốc thưởng mới!").
+##
+## Titles ("Danh hiệu"): the worn one is the profile's equippedTitle (equipped_title()); the
+## list GET /player/titles (TitleModel.parse, coalesced, stale after a milestone claim that gave a
+## title). equip_title(id) / equip_title(null) run POST /player/titles/equip {titleId} one at a
+## time (title_busy): the profile and the list take the answer's equipped title at once, the
+## list reloads whatever the answer.
 
 signal changed # profile, loading or error changed
 signal assets_dirty # inventory, characters or purchases changed on the server
@@ -44,6 +50,7 @@ signal busy_changed # a purchase or top-up started or ended
 signal equipment_changed # catalog, owned equipment, their loading / errors, or equip_busy changed
 signal stones_changed # owned stones, their loading / error, or stone_busy changed
 signal milestones_changed # milestones, their loading / error, milestone_count or milestone_busy changed
+signal titles_changed # titles, their loading / error, title_busy or the worn title changed
 
 const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
 const Coalescer := preload("res://core/coalescer.gd")
@@ -51,6 +58,7 @@ const ErrorText := preload("res://screens/home/error_text.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 const MilestoneModel := preload("res://screens/home/milestone_model.gd")
+const TitleModel := preload("res://screens/home/title_model.gd")
 
 ## What a payment refreshes once it succeeded.
 const AFTER_WALLET := 0 # the wallet only (a top-up)
@@ -122,6 +130,17 @@ var milestone_seen := -1
 ## "all" or the id being claimed, "" when none.
 var milestone_busy := ""
 
+## TitleModel.parse() of GET /player/titles; null until loaded.
+var titles: Variant = null
+var titles_loading := false
+var titles_error := "" # Vietnamese; "" after a success
+var titles_stale := true
+var titles_version := 0 # bumped each time a GET /player/titles answer is applied
+var _titles_player := ""
+var _titles_gate := Coalescer.new()
+## True while POST /player/titles/equip runs.
+var title_busy := false
+
 var _equipment_gate := Coalescer.new()
 var _profile_gate := Coalescer.new()
 var _characters_gate := Coalescer.new()
@@ -156,6 +175,11 @@ func coin() -> int:
 
 func gem() -> int:
 	return int(profile.get("gem", 0))
+
+
+## The worn title {id, name, rarity}, {} when none (the profile's equippedTitle).
+func equipped_title() -> Dictionary:
+	return TitleModel.from_profile(profile)
 
 
 ## Takes a GET /player/profile data (also used by Splash, which already fetched it).
@@ -701,7 +725,81 @@ func _claim(path: String, body: Dictionary, busy: String) -> Dictionary:
 			stones_changed.emit()
 		if data.get("claimableCount") is int or data.get("claimableCount") is float:
 			_set_milestone_count(int(data["claimableCount"]))
+		var rewards := MilestoneModel.parse_rewards(data.get("rewards"))
+		if rewards["items"].any(func(it): return it["kind"] == "title"):
+			titles_stale = true
+			if titles != null:
+				load_titles()
 	refresh() # the wallet's truth, also after a refusal or no answer
 	milestones_stale = true
 	load_milestones()
 	return res
+
+
+# ── Titles ──────────────────────────────────────────────────────────────────
+
+## Loads GET /player/titles unless a fresh copy is cached or already on its way.
+func need_titles() -> void:
+	if _titles_player != Session.player_id:
+		titles = null # another account signed in on this device
+	if not _titles_gate.running and (titles == null or titles_stale):
+		load_titles()
+
+
+func load_titles() -> void:
+	if not _titles_gate.ask():
+		return
+	titles_loading = true
+	titles_error = ""
+	titles_changed.emit()
+	while true:
+		var t := _titles_gate.ticket()
+		var player := Session.player_id
+		var res: Dictionary = await _api().get_json("/player/titles")
+		if not _titles_gate.finish(t):
+			continue
+		var parsed = TitleModel.parse(res.data) if res.ok else null
+		if parsed != null:
+			titles = parsed
+			titles_stale = false
+			titles_version += 1
+			_titles_player = player
+			_take_equipped(parsed["equipped"])
+		else:
+			titles_error = ErrorText.load_failed(res) if not res.ok else "Dữ liệu danh hiệu không hợp lệ"
+		break
+	titles_loading = false
+	titles_changed.emit()
+
+
+## POST /player/titles/equip {titleId: id, or null to take the title off} → {equipped}.
+## {ok: false, code: "BUSY"} while another one runs.
+func equip_title(id: Variant) -> Dictionary:
+	if title_busy:
+		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null}
+	title_busy = true
+	titles_changed.emit()
+	var title_id: Variant = null if id == null or str(id) == "" else str(id)
+	var res: Dictionary = await _api().post_json("/player/titles/equip", {"titleId": title_id})
+	title_busy = false
+	if res.ok and res.data is Dictionary:
+		var worn := TitleModel.parse_title(res.data.get("equipped"))
+		_take_equipped(worn)
+		if titles is Dictionary:
+			titles["equipped"] = worn
+			titles_version += 1
+	titles_stale = true
+	load_titles() # the truth, also after a refusal (TITLE_NOT_OWNED) or no answer
+	titles_changed.emit()
+	return res
+
+
+## The worn title as the server said: the profile copy follows (the lobby, Prep and Hồ sơ draw it).
+func _take_equipped(worn: Dictionary) -> void:
+	if profile.is_empty():
+		return
+	var before := TitleModel.from_profile(profile)
+	if before == worn:
+		return
+	profile["equippedTitle"] = worn.duplicate() if not worn.is_empty() else null
+	changed.emit()

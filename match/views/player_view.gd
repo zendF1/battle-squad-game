@@ -1,8 +1,10 @@
 extends Node2D
 ## One player, drawn at its feet (server Position is the first solid pixel under the feet): a
 ## team ring, the character (scenes/character/character.tscn: its art and animations) holding the
-## gun of the weapon it brought (weaponItemId → EquipmentModel.gun()), the HP bar, the name
-## and above it the markers of its active status effects (match/status_effects.gd).
+## gun of the weapon it brought (weaponItemId → EquipmentModel.gun()), the HP bar, the name,
+## above it the small plate of the title it wears (the payload's "title", TitleModel; none for
+## bots: nothing drawn, no gap) and above that the markers of its active status effects
+## (match/status_effects.gd); the turn arrow rises over the plate too.
 ## Walking is read from the position changes (prediction or tweens), so callers only move it.
 ## Idle, the gun is out in a low carry, 45° down-forward (scenes/character/character.gd holster
 ## + idle_gun); walking puts it away: aim() / draw_gun() turn it up from there, shoot() fires it
@@ -19,6 +21,8 @@ const CharacterScene := preload("res://scenes/character/character.tscn")
 const Art := preload("res://ui/art.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
+const TitleModel := preload("res://screens/home/title_model.gd")
+const TitlePlate := preload("res://ui/title_plate.gd")
 
 const BODY := Vector2(28, 40) # server PlayerHeight = 40
 ## px per art unit: the baked art (about 150 units) stands about 52 px tall over the 28x40
@@ -30,6 +34,9 @@ const ENEMY := Color(1.0, 0.35, 0.3)
 const HP_BAR_WIDTH := 50.0
 const ART_TOP := 56.0 # px above the feet the art reaches (at least; a taller side view raises it)
 const WALK_HOLD := 0.12 # s a walk animation lasts after the last x change
+const TITLE_H := 34.0 # the title plate over the name
+const TITLE_FONT := 14
+const TITLE_MAX_W := 220.0
 
 var player_id := ""
 var team_id := 1
@@ -41,6 +48,8 @@ var color := ALLY
 var _tween: Tween
 var _status: Label
 var _name: Label
+var _title: TitlePlate
+var _title_rise := 0.0 # px the status markers and the turn arrow sit higher for the plate
 var _sprite: Node2D # scenes/character/character.gd
 var _ring: Node2D
 var _hp_known := false
@@ -85,10 +94,19 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_name.size = Vector2(200, 26)
 	_name.position = Vector2(-100, -_art_top - 40)
 	add_child(_name)
+	_title = TitlePlate.new()
+	_title.plate_height = TITLE_H
+	_title.font_size = TITLE_FONT
+	_title.max_width = TITLE_MAX_W
+	_title.size = Vector2(TITLE_MAX_W + 20, TITLE_H)
+	_title.position = Vector2(-(TITLE_MAX_W + 20) / 2, -_art_top - 40 - TITLE_H + 3)
+	_title.set_title(TitleModel.from_player(p))
+	add_child(_title)
+	_title_rise = TITLE_H - 3 if _title.has_title() else 0.0
 	_status = Label.new()
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.size = Vector2(200, 24)
-	_status.position = Vector2(-100, -_art_top - 64)
+	_status.position = Vector2(-100, -_art_top - 64 - _title_rise)
 	_status.add_theme_color_override("font_color", Color(0.75, 0.9, 1))
 	_status.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	_status.add_theme_constant_override("outline_size", 4)
@@ -131,6 +149,11 @@ func set_status(effects: Variant) -> void:
 	_status.text = Status.marker_text(effects)
 
 
+## The worn title shown over the name ({} = none).
+func title() -> Dictionary:
+	return _title.title if _title.has_title() else {}
+
+
 func status_text() -> String:
 	return _status.text
 
@@ -143,6 +166,7 @@ func set_dead() -> void:
 	_sweep = {}
 	_sprite.die()
 	_name.modulate.a = 0.5
+	_title.modulate.a = 0.5
 	_status.modulate.a = 0.5
 	_ring.queue_redraw()
 	queue_redraw()
@@ -278,7 +302,7 @@ func _draw() -> void:
 		draw_rect(f, fill)
 		draw_rect(Rect2(f.position, Vector2(f.size.x, 2)), fill.lightened(0.4))
 	if _active:
-		var y := -_art_top - 48 - absf(sin(_t * 4.0)) * 6.0
+		var y := -_art_top - 48 - _title_rise - absf(sin(_t * 4.0)) * 6.0
 		var arrow := PackedVector2Array([Vector2(-10, y - 12), Vector2(10, y - 12), Vector2(0, y)])
 		draw_colored_polygon(arrow, LobbyUi.GOLD)
 		arrow.append(arrow[0])

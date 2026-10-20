@@ -7,7 +7,8 @@ extends Control
 ## the left, the "Mốc thưởng" button (a red badge with the claimable count, hidden at 0; "Có mốc
 ## thưởng mới!" once when the count rose since the player last saw it) above a placeholder chat
 ## box bottom-left and the mode card with "BẮT ĐẦU" bottom-right.
-## Centre stage: the selected character's name and level over it, drawn big on a pedestal with
+## Centre stage: the worn title's plate (ui/title_plate.gd; nothing without one) over the selected
+## character's name and level, the character drawn big on a pedestal with
 ## its hands free; the gun it wears (its basic gun when none) rests on the pedestal at its left
 ## (pedestal_gun.gd, no name under it), updated on equip / unequip. ◀ ▶ or a swipe cycles
 ## the four characters. The character is the Loadout's (saved
@@ -37,6 +38,7 @@ const ShopTab := preload("res://screens/home/shop_tab.gd")
 const FakeChat := preload("res://screens/home/fake_chat.gd")
 const MilestonePage := preload("res://screens/home/milestone_page.gd")
 const MilestoneModel := preload("res://screens/home/milestone_model.gd")
+const TitlePlate := preload("res://ui/title_plate.gd")
 
 const MARGIN := 18
 const STAGE := Vector2(560, 590)
@@ -62,6 +64,8 @@ var _conn: Label
 # Stage and info card
 var _art: CharacterView
 var _gun_stand: PedestalGun
+var _stage_head: VBoxContainer
+var _stage_title: TitlePlate
 var _stage_name: Label
 var _stage_level: Label
 var _info_role: Label
@@ -200,6 +204,9 @@ func _build_player_block() -> Control:
 
 
 func _render_player() -> void:
+	if _stage_title != null:
+		_stage_title.set_title(PlayerState.equipped_title())
+		_stage_head.position.y = HEAD_Y - (TITLE_H - 4.0 if _stage_title.has_title() else 0.0) # the name stays put
 	var display := PlayerState.display_name()
 	_name.text = display
 	_avatar_letter.text = display.substr(0, 1).to_upper() if display != "" else "?"
@@ -339,9 +346,15 @@ func _add_stage() -> void:
 
 	var head := Ui.vbox(0)
 	head.mouse_filter = MOUSE_FILTER_IGNORE
-	head.position = Vector2((STAGE.x - 400) / 2, 40)
+	head.position = Vector2((STAGE.x - 400) / 2, HEAD_Y)
+	_stage_head = head
 	head.custom_minimum_size = Vector2(400, 0)
 	stage.add_child(head)
+	_stage_title = TitlePlate.new()
+	_stage_title.plate_height = TITLE_H
+	_stage_title.max_width = 400
+	_stage_title.size_flags_horizontal = SIZE_SHRINK_CENTER
+	head.add_child(_stage_title)
 	_stage_name = LobbyUi.text("", 44, Color.WHITE, true)
 	_stage_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	head.add_child(_stage_name)
@@ -367,6 +380,10 @@ func _add_stage() -> void:
 		arrow.position = Vector2(0 if side < 0 else STAGE.x - 76, 230) # beside the head, clear of the weapon
 		arrow.pressed.connect(_cycle.bind(side))
 		stage.add_child(arrow)
+
+
+const TITLE_H := 60.0 # the worn title's plate over the stage name
+const HEAD_Y := 40.0 # stage y of the name (the plate rises above it)
 
 
 const PEDESTAL_AT := 528.0 # stage y of the pedestal centre (the character's feet)

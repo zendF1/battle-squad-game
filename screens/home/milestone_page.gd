@@ -7,9 +7,10 @@ extends Control
 ## nodes scrolled to the first one to take: the threshold ("Cấp 20", "+14", "Cả bộ +6", "Vàng"),
 ## the reward icons with their amounts, then "Nhận" (claimable: gold glow, bouncing, tap to
 ## claim), "Đã nhận" (dim, check) or the progress ("37/50", locked: grey); the weapon aura nodes
-## add their description. A claim opens a popup listing what was received; the wallet and the
-## stones update at once (PlayerState). Loads the list when shown; failures show inline with
-## "Thử lại".
+## add their description; a node giving a title is wider and shows the title's small plate over
+## its other rewards (one row). A claim opens a popup listing what was received (a new title:
+## its plate, "Danh hiệu mới: …" and "Đeo ngay"); the wallet and the stones update at once
+## (PlayerState). Loads the list when shown; failures show inline with "Thử lại".
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -18,6 +19,7 @@ const LoadStatus := preload("res://ui/load_status.gd")
 const Modal := preload("res://ui/modal.gd")
 const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
+const TitlePlate := preload("res://ui/title_plate.gd")
 
 const NODE_W := 150
 const WIDE_W := 196
@@ -26,6 +28,8 @@ const LINK_W := 34
 const THRESHOLD_H := 26
 const NODE_H := 196 # threshold, reward box, state line
 const DESCRIPTION_H := 50
+const NODE_TITLE_H := 36 # a title reward's plate in a node box
+const TITLE_W := 236 # a node giving a title
 const GOLD := Color(1.0, 0.8, 0.22)
 const DIM := Color(0.8, 0.88, 1.0)
 const RED := Color(0.93, 0.22, 0.25)
@@ -211,7 +215,10 @@ func _link(reached: bool) -> Control:
 ## A node: threshold, the reward box, the state line (and the description).
 func _node(n: Dictionary, height: int) -> Control:
 	var state: String = n["state"]
-	var w := WIDE_W if n["description"] != "" else NODE_W # room for the description
+	var lines := MilestoneModel.reward_lines(n["rewards"])
+	var titles := MilestoneModel.title_lines(lines)
+	var w := TITLE_W if not titles.is_empty() else (WIDE_W if n["description"] != "" else NODE_W) # room for the plate / description
+	var box_size := BOX if titles.is_empty() else Vector2(w - 12, BOX.y)
 	var b := Button.new()
 	b.flat = true
 	b.focus_mode = FOCUS_NONE
@@ -231,35 +238,54 @@ func _node(n: Dictionary, height: int) -> Control:
 	holder.custom_minimum_size = Vector2(w, BOX.y + 8)
 	col.add_child(holder)
 	var box := PanelContainer.new()
-	box.custom_minimum_size = BOX
-	box.size = BOX
-	box.position = Vector2((w - BOX.x) / 2, 4)
+	box.custom_minimum_size = box_size
+	box.size = box_size
+	box.position = Vector2((w - box_size.x) / 2, 4)
 	box.add_theme_stylebox_override("panel", _box_style(state))
 	holder.add_child(box)
-	var lines := MilestoneModel.reward_lines(n["rewards"])
 	var rewards := Ui.vbox(2)
 	rewards.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_child(rewards)
-	var px := 44 if lines.size() <= 1 else 34
-	for line in lines.slice(0, 3):
-		var row := Ui.hbox(6)
+	if not titles.is_empty():
+		# The title's plate, then the other rewards in one row
+		var plate := TitlePlate.new()
+		plate.plate_height = NODE_TITLE_H
+		plate.max_width = box_size.x - 10
+		plate.shine = state != MilestoneModel.LOCKED
+		plate.set_title(titles[0])
+		plate.size_flags_horizontal = SIZE_SHRINK_CENTER
+		rewards.add_child(plate)
+		var row := Ui.hbox(10)
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_child(LobbyUi.icon(reward_icon(line), px))
-		var q := LobbyUi.text(line["short"], 22 if lines.size() <= 1 else 20, Color.WHITE, true)
-		q.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		row.add_child(q)
 		rewards.add_child(row)
+		for line in MilestoneModel.other_lines(lines).slice(0, 2):
+			var cell := Ui.hbox(4)
+			cell.add_child(LobbyUi.icon(reward_icon(line), 30))
+			var q := LobbyUi.text(line["short"], 19, Color.WHITE, true)
+			q.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			cell.add_child(q)
+			row.add_child(cell)
+	else:
+		var px := 44 if lines.size() <= 1 else 34
+		for line in lines.slice(0, 3):
+			var row := Ui.hbox(6)
+			row.alignment = BoxContainer.ALIGNMENT_CENTER
+			row.add_child(LobbyUi.icon(reward_icon(line), px))
+			var q := LobbyUi.text(line["short"], 22 if lines.size() <= 1 else 20, Color.WHITE, true)
+			q.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			row.add_child(q)
+			rewards.add_child(row)
 	if state == MilestoneModel.CLAIMED:
 		box.modulate = Color(1, 1, 1, 0.5)
 		th.modulate = Color(1, 1, 1, 0.55)
 		var check := LobbyUi.icon("check", 46)
 		check.size = Vector2(46, 46)
-		check.position = Vector2((w + BOX.x) / 2 - 34, -8)
+		check.position = Vector2((w + box_size.x) / 2 - 34, -8)
 		holder.add_child(check)
 	elif state == MilestoneModel.LOCKED:
 		box.modulate = Color(0.62, 0.64, 0.72)
 	else:
-		box.pivot_offset = BOX / 2
+		box.pivot_offset = box_size / 2
 		var bounce := box.create_tween().set_loops()
 		bounce.tween_property(box, "scale", Vector2(1.07, 1.07), 0.45).set_trans(Tween.TRANS_SINE)
 		bounce.tween_property(box, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_SINE)
@@ -400,14 +426,18 @@ func _after_claim(res: Dictionary, heading: String) -> void:
 	show_rewards(overlay, heading, lines)
 
 
-## The "Nhận thưởng" popup: the heading, then one row per reward (icon and text).
-static func show_rewards(host: Control, heading: String, lines: Array) -> Modal:
+## The "Nhận thưởng" popup: the heading, a new title's plate with "Danh hiệu mới: …" and
+## "Đeo ngay" (each title), then one row per other reward (icon and text).
+static func show_rewards(host: Control, heading: String, all_lines: Array) -> Modal:
 	var m := Modal.new()
 	m.open(host, "Nhận thưởng", 620)
 	m.title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var h := m.add_text(heading, 24)
 	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	h.add_theme_color_override("font_color", DIM)
+	for t in MilestoneModel.title_lines(all_lines):
+		m.body.add_child(_new_title_row(host, t))
+	var lines := MilestoneModel.other_lines(all_lines)
 	# Two columns when the list is long (a big claim-all)
 	var columns := Ui.hbox(40)
 	columns.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -429,3 +459,44 @@ static func show_rewards(host: Control, heading: String, lines: Array) -> Modal:
 	m.add_button("Tuyệt!", m.close)
 	m.close_on_backdrop()
 	return m
+
+
+## A title the claim gave: its plate, "Danh hiệu mới: …" and "Đeo ngay" ("Đang đeo" once worn).
+static func _new_title_row(host: Control, line: Dictionary) -> Control:
+	var col := Ui.vbox(8)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	var plate := TitlePlate.new()
+	plate.plate_height = 64
+	plate.max_width = 540
+	plate.set_title({"id": line["id"], "name": line["name"], "rarity": line["rarity"]})
+	plate.size_flags_horizontal = SIZE_SHRINK_CENTER
+	col.add_child(plate)
+	var row := Ui.hbox(18)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_child(row)
+	var l := LobbyUi.text(line["text"], 26, GOLD, true)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(l)
+	var wear := Ui.button("Đeo ngay", 22)
+	wear.custom_minimum_size = Vector2(150, 56)
+	wear.focus_mode = FOCUS_NONE
+	row.add_child(wear)
+	var worn := func() -> void:
+		wear.text = "Đang đeo"
+		wear.disabled = true
+	if PlayerState.equipped_title().get("id", "") == line["id"]:
+		worn.call()
+	wear.pressed.connect(func():
+		if PlayerState.title_busy:
+			return
+		wear.disabled = true
+		var res: Dictionary = await PlayerState.equip_title(line["id"])
+		if not is_instance_valid(wear):
+			return
+		if res.ok:
+			worn.call()
+			Ui.toast(host, "Đã đeo danh hiệu: %s" % line["name"])
+		else:
+			wear.disabled = false
+			Ui.toast(host, ErrorText.title(res)))
+	return col

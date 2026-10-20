@@ -2,11 +2,13 @@ extends RefCounted
 ## The "Mốc thưởng" data without UI: GET /milestones parsed per track, the tabs, the sub-tracks
 ## ("Số trận", "Số trận thắng" ...) a track's nodes split into, each node's threshold ("Cấp 20",
 ## "+14", "Vũ khí +16", "Cả bộ +6", "50 trận", "Vàng"), progress ("37/50", locked nodes only),
-## state and reward lines, and the claimable counts the badges show. Reward items of a kind
-## this client does not know (a future {"kind": "title"}) are left out, never an error; a node
-## left with nothing to show is left out too.
+## state and reward lines, and the claimable counts the badges show. A title reward
+## ({"kind": "title", id, name, rarity}) is a line drawn as its plate (TitleModel.parse_title).
+## Reward items of a kind this client does not know are left out, never an error; a node left
+## with nothing to show is left out too.
 
 const Fmt := preload("res://core/fmt.gd")
+const TitleModel := preload("res://screens/home/title_model.gd")
 
 const CLAIMED := "claimed"
 const CLAIMABLE := "claimable"
@@ -58,7 +60,7 @@ static func parse(data: Variant) -> Variant:
 				"description": str(n.get("description", "")),
 			}
 			if reward_lines(node["rewards"]).is_empty():
-				continue # only rewards this client cannot show (a future title): left out
+				continue # only rewards this client cannot show: left out
 			if not node["state"] in [CLAIMED, CLAIMABLE, LOCKED]:
 				node["state"] = LOCKED
 			if node["state"] == CLAIMABLE:
@@ -72,7 +74,8 @@ static func _int(v: Variant) -> int:
 	return int(v) if v is int or v is float else 0
 
 
-## {coin, gem, items} with only the item kinds this client can show (stone, item).
+## {coin, gem, items} with only the item kinds this client can show (stone, item, title: qty 1,
+## {kind, id, name, rarity, qty}).
 static func parse_rewards(r: Variant) -> Dictionary:
 	var out := {"coin": 0, "gem": 0, "items": []}
 	if not r is Dictionary:
@@ -84,6 +87,13 @@ static func parse_rewards(r: Variant) -> Dictionary:
 			if not it is Dictionary:
 				continue
 			var kind := str(it.get("kind", ""))
+			if kind == "title":
+				var t := TitleModel.parse_title(it)
+				if not t.is_empty() and t["id"] != "" and not out["items"].any(func(e): return e["kind"] == "title" and e["id"] == t["id"]):
+					t["kind"] = "title"
+					t["qty"] = 1
+					out["items"].append(t)
+				continue
 			var qty := _int(it.get("qty"))
 			if qty <= 0:
 				continue
@@ -94,10 +104,11 @@ static func parse_rewards(r: Variant) -> Dictionary:
 				entry = {"kind": "item", "id": str(it["id"]), "qty": qty}
 			if not entry.is_empty():
 				_merge_item(out["items"], entry)
-	# Stones by level, then items in the server's order
+	# Titles first, then stones by level, then items in the server's order
+	var rank := {"title": 0, "stone": 1, "item": 2}
 	out["items"].sort_custom(func(a, b):
 		if a["kind"] != b["kind"]:
-			return a["kind"] == "stone"
+			return rank[a["kind"]] < rank[b["kind"]]
 		return a["kind"] == "stone" and int(a["level"]) < int(b["level"]))
 	return out
 
@@ -230,11 +241,16 @@ static func state_text(node: Dictionary) -> String:
 	return progress_text(node)
 
 
-## The rewards as lines: [{kind: "coin"|"gem"|"stone"|"item", qty, level?, id?, short, text}];
-## short is what the node shows next to the icon ("1.000", "×3"), text the popup line
-## ("1.000 xu", "20 kim cương", "3 × Đá cấp 4").
+## The rewards as lines: [{kind: "title"|"coin"|"gem"|"stone"|"item", qty, level?, id?, name?,
+## rarity?, short, text}]; short is what the node shows next to the icon ("1.000", "×3"; a
+## title: its name, drawn as the plate), text the popup line ("1.000 xu", "20 kim cương",
+## "3 × Đá cấp 4", "Danh hiệu mới: Lão làng"). Titles come first.
 static func reward_lines(rewards: Dictionary) -> Array:
 	var out: Array = []
+	for it in rewards.get("items", []):
+		if it is Dictionary and str(it.get("kind", "")) == "title" and str(it.get("name", "")).strip_edges() != "":
+			out.append({"kind": "title", "id": str(it.get("id", "")), "name": str(it.get("name", "")), "rarity": str(it.get("rarity", "")),
+				"qty": 1, "short": str(it.get("name", "")), "text": "Danh hiệu mới: %s" % str(it.get("name", ""))})
 	if int(rewards.get("coin", 0)) > 0:
 		var n := int(rewards["coin"])
 		out.append({"kind": "coin", "qty": n, "short": Fmt.thousands(n), "text": "%s xu" % Fmt.thousands(n)})
@@ -265,6 +281,15 @@ static func focus_index(group_nodes: Array) -> int:
 		if group_nodes[i]["state"] == LOCKED:
 			return i
 	return maxi(0, group_nodes.size() - 1)
+
+
+## The title lines among reward lines (MilestoneModel.reward_lines), and the others.
+static func title_lines(lines: Array) -> Array:
+	return lines.filter(func(l): return l["kind"] == "title")
+
+
+static func other_lines(lines: Array) -> Array:
+	return lines.filter(func(l): return l["kind"] != "title")
 
 
 ## The badge text: "" at 0, "9+" above 9.

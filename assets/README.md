@@ -43,6 +43,12 @@ Total about 4.0 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   on black, `art_source/fx/back_aura_<colour>.png`, keyed by `tools/import_back_aura.gd` (config
   `art_source/fx/back_aura.json`: the "✦" watermark disc, black → alpha, the red's dark outlines):
   replace a picture and re-run it.
+- **Title plates** (`ui/titles/title_<rarity>.png`, blue / orange / purple / red, and
+  `ui/titles/titles.json`: the banner the title name is drawn on, `ui/title_plate.gd`): AI-drawn
+  with no text on a dark background, `art_source/ui/titles/title_<rarity>.png`, keyed by
+  `tools/import_titles.gd` (config `art_source/ui/titles/titles.json`: the "✦" watermarks, the
+  stretch runs a long name widens, the name's box): replace a picture (or edit the config) and
+  re-run it (`$GODOT --headless --path . -s tools/import_titles.gd`); it rewrites titles.json.
 - **9-patches** (`ui/`): keep the corners inside the texture margins listed below
   (`ui/art.gd` `UI_BOXES`), or change the margins there.
 - Import settings: icons, effects and clouds are imported with mipmaps (they are shown smaller

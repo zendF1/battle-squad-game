@@ -128,3 +128,30 @@ func test_rewards_merge_and_sort_stones() -> void:
 	var r := MilestoneModel.parse_rewards({"items": [{"kind": "stone", "level": 9, "qty": 1}, {"kind": "stone", "level": 7, "qty": 2},
 		{"kind": "stone", "level": 7, "qty": 1}]})
 	eq(MilestoneModel.reward_lines(r).map(func(l): return l["text"]), ["3 × Đá cấp 7", "1 × Đá cấp 9"], "merged, by level")
+
+
+func test_title_rewards() -> void:
+	var t := {"kind": "title", "id": "old_hand", "name": "Lão làng", "rarity": "orange"}
+	var r := MilestoneModel.parse_rewards({"gem": 200, "items": [{"kind": "stone", "level": 10, "qty": 1}, t, t.duplicate(),
+		{"kind": "title", "id": "nameless"}, {"kind": "title", "name": "No id"}]})
+	eq(r["items"].map(func(i): return i["kind"]), ["title", "stone"], "the title first, once; nameless / id-less left out")
+	eq(r["items"][0], {"kind": "title", "id": "old_hand", "name": "Lão làng", "rarity": "orange", "qty": 1}, "title entry")
+	var lines := MilestoneModel.reward_lines(r)
+	eq(lines.map(func(l): return l["kind"]), ["title", "gem", "stone"], "lines: the title first")
+	eq(lines[0]["text"], "Danh hiệu mới: Lão làng", "popup text")
+	eq(lines[0]["short"], "Lão làng", "node: the name (drawn as the plate)")
+	eq(MilestoneModel.title_lines(lines).size(), 1, "title lines")
+	eq(MilestoneModel.other_lines(lines).map(func(l): return l["kind"]), ["gem", "stone"], "other lines")
+	var odd := MilestoneModel.parse_rewards({"items": [{"kind": "title", "id": "x", "name": "X", "rarity": "rainbow"}]})
+	eq(odd["items"][0]["rarity"], "blue", "unknown rarity draws blue")
+
+
+func test_title_only_node_is_shown() -> void:
+	var data := {"tracks": [{"track": "rank", "nodes": [
+		{"id": "ms_rank_master", "track": "rank", "target": "rank_peak", "required": 6, "progress": 6, "state": "claimable",
+			"rewards": {"items": [{"kind": "title", "id": "grandmaster", "name": "Cao thủ", "rarity": "red"}]}},
+	]}]}
+	var p = MilestoneModel.parse(data)
+	eq(MilestoneModel.nodes(p, "rank").size(), 1, "a node giving only a title is shown")
+	eq(MilestoneModel.claimable_total(p), 1, "and counted")
+
