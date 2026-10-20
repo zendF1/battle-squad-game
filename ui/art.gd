@@ -208,6 +208,7 @@ static var _hug_data: Variant = null # parsed hug.json ({} when missing)
 static var _looks := {} # character id -> character_look()
 static var _sides := {} # side view dir -> parse_side() ({} = none)
 static var _ready_poses := {} # character id -> ready_pose()
+static var _carry_poses := {} # carry scene path -> carry_pose()
 static var _placeholder: Texture2D
 static var _empty_frames: SpriteFrames
 static var _fulls := {} # character id -> lobby_full() data ({} = none)
@@ -683,28 +684,116 @@ static func side_paths(id: String) -> Array[String]:
 
 
 ## How the match slings a side view's gun on the back outside the ready pose (scenes/character/
-## character.gd idle_gun: standing and walking), from its hand-written carry.json (not made by
-## tools/import_frames.gd; px of the frame textures, the frames' canvas): back {at [x, y] (the hold
-## point on the idle frame's lower back), angle (degrees of the gun's axis from the facing
+## character.gd idle_gun: standing and walking), from its carry.json (not made by
+## tools/import_frames.gd): back {scene (the carry scene the sling is placed in by hand:
+## scenes/character/poses/<id>_carry.tscn, carry_pose()), bob [[dx, dy]...] (per walk frame, the
+## upper body's offset from the idle frame, px of the frame textures: tools/carry_bob.gd)}.
+## Without a scene the placement can be written in the file (px of the frame textures): at [x, y]
+## (the hold point on the idle frame's lower back), angle (degrees of the gun's axis from the facing
 ## direction, + turns the muzzle down: -122 = muzzle up and back over the shoulder), hold (0..1
 ## along the gun from its back end to the muzzle; missing: the gun's own hold point), scale (× its
-## ready-pose size, 1), flip (drawn upside down), bob [[dx, dy]...] (per walk frame, the upper
-## body's offset from the idle frame: tools/carry_bob.gd)}.
-## Returns {back: {at, angle, hold (-1: the gun's), scale, flip, bob (Array of Vector2)}}; {} when
-## there is no file or no back part.
+## ready-pose size, 1), flip (drawn upside down).
+## Returns {back: {scene ("" none), bob (Array of Vector2), and only when the file has `at`: at,
+## angle, hold (-1: the gun's), scale, flip}}; {} when there is no file or no back part (neither
+## scene nor at).
 static func parse_carry(json_path: String) -> Dictionary:
 	if not FileAccess.file_exists(json_path):
 		return {}
 	var data := _load_json(json_path)
 	var out := {}
 	var b = data.get("back")
-	if b is Dictionary and b.get("at") is Array:
+	if b is Dictionary and (b.get("at") is Array or str(b.get("scene", "")) != ""):
 		var bob: Array = []
 		for d in b.get("bob", []):
 			bob.append(_vec2(d) if d is Array else Vector2.ZERO)
-		out["back"] = {"at": _vec2(b["at"]), "angle": float(b.get("angle", -120.0)), "hold": float(b.get("hold", -1.0)),
-			"scale": float(b.get("scale", 1.0)), "flip": bool(b.get("flip", false)), "bob": bob}
+		var back := {"scene": str(b.get("scene", "")), "bob": bob}
+		if b.get("at") is Array:
+			back.merge({"at": _vec2(b["at"]), "angle": float(b.get("angle", -120.0)), "hold": float(b.get("hold", -1.0)),
+				"scale": float(b.get("scale", 1.0)), "flip": bool(b.get("flip", false))})
+		out["back"] = back
 	return out
+
+
+## How a character's gun is slung on its back (its carry.json back.scene), in the character's Flip
+## coordinates (the feet at 0, facing right; scenes/character/character.gd): {socket (Transform2D:
+## the CarrySocket, its origin the hold point on the back, its turn the gun's angle, its scale the
+## size), preview (Transform2D: the Preview's texture px → socket space, its offset included), hold
+## (the Preview gun's texture px under the socket's origin), muzzle_y (that gun's muzzle row, px),
+## length (its length, px), texture (the Preview's picture, null: not imported yet)}; {} when the
+## character has no carry scene or it is broken (the code then uses carry.json's own placement or a
+## default sling). WYSIWYG: carry_gun_transform() draws any gun exactly as the Preview shows its
+## own. Placed by hand in scenes/character/poses/<id>_carry.tscn (assets/README.md): root → CarrySocket
+## (Node2D) → Preview (Sprite2D: the hug gun, horizontal, muzzle right, at its match size), Body (the
+## idle frame, over the gun: the gun is behind the body), WalkPreview (editor only:
+## poses/carry_walk.gd). A Preview with no picture stands for the character's iron hug gun at the
+## hug scale, held 0.18 along it on its muzzle row.
+static func carry_pose(id: String) -> Dictionary:
+	var back: Dictionary = character_look(id).get("carry", {}).get("back", {})
+	var path := str(back.get("scene", ""))
+	if path == "":
+		return {}
+	if _carry_poses.has(path):
+		return _carry_poses[path]
+	var out := {}
+	_carry_poses[path] = out
+	if not ResourceLoader.exists(path):
+		_warn(path)
+		return out
+	var ps = load(path)
+	var root: Node = ps.instantiate() if ps is PackedScene else null
+	var sock: Node2D = root.get_node_or_null("CarrySocket") as Node2D if root != null else null
+	var pv: Sprite2D = sock.get_node_or_null("Preview") as Sprite2D if sock != null else null
+	if pv == null:
+		push_warning("art: %s has no CarrySocket/Preview, the carry uses its defaults" % path)
+	else:
+		var tex := pv.texture
+		var meta := {}
+		if tex != null:
+			meta = pose_gun_meta(tex.resource_path)
+			if meta.is_empty(): # some other picture: its muzzle row through the middle
+				meta = {"muzzle": Vector2(tex.get_width(), tex.get_height() * 0.5), "size": tex.get_size()}
+		var preview: Transform2D
+		if tex != null:
+			var corner := -tex.get_size() * 0.5 if pv.centered else Vector2.ZERO
+			preview = pv.transform * Transform2D(0.0, pv.offset + corner)
+		else: # not imported yet: the character's iron hug gun at the hug scale
+			var own := hug_gun(str(CHARACTER_GUNS.get(known_character(id), DEFAULT_GUN_KIND)), "iron")
+			meta = {"muzzle": own["muzzle"], "size": own["size"]}
+			var hs := hug_scale()
+			preview = Transform2D(0.0, Vector2(hs, hs), 0.0, Vector2.ZERO) * Transform2D(0.0, -Vector2(0.18 * float(own["size"].x), float(own["muzzle"].y)))
+		out.merge({"socket": sock.transform, "preview": preview, "hold": preview.affine_inverse() * Vector2.ZERO,
+			"muzzle_y": float(meta["muzzle"].y), "length": maxf(1.0, float(meta["size"].x)), "texture": tex})
+	if root != null:
+		root.free()
+	return out
+
+
+## The carry pose's (carry_pose()) gun g ({size, muzzle}: hug_gun() or a held gun) in socket space:
+## texture px → socket px. The Preview's own gun is drawn exactly as the Preview shows it; any other
+## is scaled to the same length and hung at the same place along it, the same height off its
+## muzzle row, on the socket's origin.
+static func carry_gun_transform(pose: Dictionary, g: Dictionary) -> Transform2D:
+	var r := float(pose["length"]) / maxf(1.0, float(g["size"].x))
+	var hold: Vector2 = pose["hold"]
+	var own := Vector2(hold.x / r, float(g["muzzle"].y) + (hold.y - float(pose["muzzle_y"])) / r)
+	return pose["preview"] * Transform2D(0.0, Vector2(r, r), 0.0, hold) * Transform2D(0.0, -own)
+
+
+## The back carry's sway over a walk cycle, degrees.
+const CARRY_SWAY_DEG := 2.0
+
+
+## The sling `socket` (Flip coordinates) on walk frame i of a walk with `bob` (carry.json back.bob:
+## texture px per frame) at k character px per texture px: moved by the frame's bob and swayed
+## round its origin (CARRY_SWAY_DEG over the cycle). No bob: the socket as it is.
+static func carry_walk_transform(socket: Transform2D, bob: Array, i: int, k: float) -> Transform2D:
+	if bob.is_empty():
+		return socket
+	i = posmod(i, bob.size())
+	var xf := Transform2D(deg_to_rad(CARRY_SWAY_DEG * sin(TAU * float(i) / float(bob.size()))), Vector2.ZERO) \
+		* Transform2D(socket.x, socket.y, Vector2.ZERO)
+	xf.origin = socket.origin + Vector2(bob[i]) * k
+	return xf
 
 
 # ── Full-body pictures ──────────────────────────────────────────────────────

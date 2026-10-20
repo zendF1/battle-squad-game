@@ -32,9 +32,11 @@ extends Node2D
 ## across the back, behind the body, muzzle up and back over the shoulder, mirrored with the
 ## facing: standing on the normal idle animation (breathing with it; also hurt and a shot not from
 ## the gun, which show the idle frame) and walking (riding each walk frame's bob, a little sway).
-## The side view's carry.json (ui/art.gd parse_carry(): the hold point on the back, the axis angle,
-## where along the gun it hangs, the walk bob) places the hug gun (the ready pose's gun, same
-## size); a look without one gets a default sling. Only aiming and shooting take it in hand:
+## The side view's carry scene (carry.json back.scene: scenes/character/poses/<id>_carry.tscn,
+## ui/art.gd carry_pose(): one CarrySocket and its Preview, placed by hand on the idle frame) places
+## the hug gun, drawn exactly as the Preview shows it (Art.carry_gun_transform()); carry.json's walk
+## bob moves it with the walk frames (Art.carry_walk_transform()). A look without one gets a default
+## sling (the hug gun at the ready pose's size). Only aiming and shooting take it in hand:
 ## draw_gun() / aim() kneel on the ready pose (the gun on its socket: level / the snapped aim, the
 ## same muzzle and shot origin as from a holster), the shot fires from it and after its fire hold
 ## (gun_draw.gd rest: "rested") or clear_aim() the character stands again with the gun on its
@@ -87,8 +89,8 @@ const STAND_ANIMS := ["idle", "hurt", "shoot"]
 const SWAP_SEC := 0.16
 const SWAP_SQUASH := 0.08
 const SWAP_FADE := 0.7
-## The back carry's sway over a walk cycle, degrees.
-const BACK_SWAY_DEG := 2.0
+## The back carry's sway over a walk cycle, degrees (Art.carry_walk_transform()).
+const BACK_SWAY_DEG := Art.CARRY_SWAY_DEG
 ## The animations that follow the base pose (idle / walk, or the armed hold) when it changes.
 const BASE_ANIMS := ["idle", "walk", Art.DRAW_ANIM]
 
@@ -140,6 +142,7 @@ var _gun := {} # Art.gun() of the gun shown
 var _hug := {} # Art.hug_gun() of it: the gun the drawn ready pose hugs
 var _hug_xf := Transform2D() # the hug gun's texture px → Gun node px (the socket's turn excluded)
 var _in_pose := false # the gun is drawn as the hug gun on the ready pose
+var _carry := {} # _carry_place(): the gun slung on the back
 var _gun_look := "held" # how the gun sprite is set: held (its grip), pose, hand / back (idle_gun carries)
 var _swap_left := 0.0 # s left of the stand / kneel switch's squash
 var _aiming := false
@@ -309,6 +312,7 @@ func _apply_gun() -> void:
 		var rp := Art.ready_pose(character_id)
 		var sock: Transform2D = rp["socket"]
 		_hug_xf = Transform2D(sock.x, sock.y, Vector2.ZERO) * Art.gun_transform(rp, _hug)
+	_carry = _carry_place()
 	var tex_px := maxf(1.0, float(_flash.texture.get_width()))
 	_flash.scale = Vector2.ONE * (FLASH_PX / tex_px)
 	_set_gun_look(_gun_look, true)
@@ -316,8 +320,8 @@ func _apply_gun() -> void:
 
 
 ## The gun sprite and the muzzle as the held gun (its grip on the Gun node's origin), as the ready
-## pose's hug gun ("pose": _hug_xf, the hold on the hug point) or slung ("back": the gun at its
-## carry hold point, _carry_gun()). force: set it again (a new gun).
+## pose's hug gun ("pose": _hug_xf, the hold on the hug point) or slung ("back": _carry's gun, its
+## hold on the carry socket). force: set it again (a new gun).
 func _set_gun_look(mode: String, force: bool = false) -> void:
 	if mode == _gun_look and not force:
 		return
@@ -330,12 +334,11 @@ func _set_gun_look(mode: String, force: bool = false) -> void:
 		_flash.position = _hug_xf * _hug["muzzle"]
 		return
 	if mode == "back":
-		var c := _carry_gun(mode)
-		var cs: float = c["scale"]
-		_gun_sprite.texture = c["texture"]
-		_gun_sprite.transform = Transform2D(0.0, Vector2(cs, -cs if bool(c["flip"]) else cs), 0.0, Vector2.ZERO)
-		_gun_sprite.offset = -c["hold"]
-		_flash.position = (c["muzzle"] - c["hold"]) * Vector2(cs, -cs if bool(c["flip"]) else cs)
+		var gx: Transform2D = _carry["gun"]
+		_gun_sprite.texture = _carry["texture"]
+		_gun_sprite.offset = Vector2.ZERO
+		_gun_sprite.transform = gx
+		_flash.position = gx * _carry["muzzle"]
 		return
 	var s: float = _gun["scale"]
 	_gun_sprite.texture = _gun["texture"]
@@ -479,22 +482,13 @@ func carry_mode(anim: String = "") -> String:
 	return ""
 
 
-## carry.json's part for a carry (ui/art.gd parse_carry()); a look without a back part slings it
-## from the lower back by default.
-func _carry_cfg(mode: String) -> Dictionary:
-	var c: Dictionary = _look.get("carry", {}).get(mode, {})
-	if c.is_empty() and mode == "back":
-		var e: Dictionary = _look.get("extent", {"back": 0.0, "top": 0.0})
-		c = {"at": _look.get("pivot", Art.FRAME_PIVOT) + Vector2(-0.3 * float(e["back"]), -0.33 * float(e["top"])),
-			"angle": -122.0, "hold": 0.18, "scale": 1.0, "bob": []}
-	return c
-
-
-## The carried gun: {texture, hold (texture px: the point on the carry's hold), muzzle, scale
-## (texture px → Gun node px: the ready pose's size × the carry's scale), flip (drawn upside down)}:
-## the hug gun of a ready pose, else the held gun.
-func _carry_gun(mode: String) -> Dictionary:
-	var cfg := _carry_cfg(mode)
+## The gun slung on the back: {socket (Transform2D in Flip's coordinates: the hold point on the
+## back, the gun's angle and size), gun (Transform2D: the gun's texture px → socket px), texture,
+## muzzle (texture px), bob (carry.json's walk bob)}: the hug gun of a ready pose (else the held
+## gun) placed by the carry scene (Art.carry_pose()), else by carry.json's own placement, else by a
+## default sling from the lower back.
+func _carry_place() -> Dictionary:
+	var back: Dictionary = _look.get("carry", {}).get("back", {})
 	var tex: Texture2D
 	var size: Vector2
 	var muzzle: Vector2
@@ -507,31 +501,38 @@ func _carry_gun(mode: String) -> Dictionary:
 		pivot = _hug["pivot"]
 		s = _hug_xf.x.length()
 	else:
-		tex = _gun["texture"]
+		tex = _gun.get("texture")
 		size = tex.get_size() if tex != null else Vector2.ONE
-		muzzle = _gun["muzzle"]
-		pivot = _gun["grip"]
-		s = float(_gun["scale"])
+		muzzle = _gun.get("muzzle", Vector2.ZERO)
+		pivot = _gun.get("grip", Vector2.ZERO)
+		s = float(_gun.get("scale", 1.0))
+	var out := {"texture": tex, "muzzle": muzzle, "bob": back.get("bob", [])}
+	var cp: Dictionary = Art.carry_pose(character_id) if not _look.is_empty() else {}
+	if not cp.is_empty():
+		out["socket"] = cp["socket"]
+		out["gun"] = Art.carry_gun_transform(cp, {"size": size, "muzzle": muzzle})
+		return out
+	var cfg := back
+	if not cfg.has("at"):
+		var e: Dictionary = _look.get("extent", {"back": 0.0, "top": 0.0})
+		cfg = {"at": _look.get("pivot", Art.FRAME_PIVOT) + Vector2(-0.3 * float(e["back"]), -0.33 * float(e["top"])),
+			"angle": -122.0, "hold": 0.18, "scale": 1.0}
+	var k := float(_look.get("scale", 1.0))
 	var f := float(cfg.get("hold", -1.0))
 	var hold := pivot if f < 0.0 else Vector2(f * size.x, muzzle.y)
-	return {"texture": tex, "hold": hold, "muzzle": muzzle, "scale": s * float(cfg.get("scale", 1.0)),
-		"flip": bool(cfg.get("flip", false))}
+	var cs := s * float(cfg.get("scale", 1.0))
+	out["socket"] = Transform2D(deg_to_rad(float(cfg.get("angle", -122.0))), (Vector2(cfg["at"]) - _look.get("pivot", Art.FRAME_PIVOT)) * k)
+	out["gun"] = Transform2D(0.0, Vector2(cs, -cs if bool(cfg.get("flip", false)) else cs), 0.0, Vector2.ZERO) * Transform2D(0.0, -hold)
+	return out
 
 
 ## The Gun node slung on the back, in Flip's coordinates: {xf, front (false: behind the body),
-## flash}: the hold on the back at the carry's angle, bobbing and swaying with the walk frames.
-func _carry_pose(mode: String, anim: String, frame: int) -> Dictionary:
-	var cfg := _carry_cfg(mode)
-	var k := float(_look.get("scale", 1.0))
-	var pivot: Vector2 = _look.get("pivot", Art.FRAME_PIVOT)
-	var at: Vector2 = cfg["at"]
-	var deg := float(cfg.get("angle", -118.0))
-	var bob: Array = cfg.get("bob", [])
-	if anim == "walk" and not bob.is_empty():
-		var i := frame % bob.size()
-		at += Vector2(bob[i])
-		deg += BACK_SWAY_DEG * sin(TAU * float(i) / float(bob.size()))
-	return {"xf": Transform2D(deg_to_rad(deg), (at - pivot) * k), "front": false, "flash": 0.0}
+## flash}: the carry socket, riding the walk frames' bob with a little sway.
+func _carry_pose(anim: String, frame: int) -> Dictionary:
+	var xf: Transform2D = _carry["socket"]
+	if anim == "walk":
+		xf = Art.carry_walk_transform(xf, _carry["bob"], frame, float(_look.get("scale", 1.0)))
+	return {"xf": xf, "front": false, "flash": 0.0}
 
 
 ## Places the gun at the current frame's anchor (and the draw's pose, holster on).
@@ -555,7 +556,7 @@ func _update_gun() -> void:
 	if not out:
 		_flash.visible = false
 		return
-	var pose := _carry_pose(carry, anim, _sprite.frame) if carry != "" else _gun_pose(anim, _sprite.frame, _gun_draw.shown() if holster else 1.0)
+	var pose := _carry_pose(anim, _sprite.frame) if carry != "" else _gun_pose(anim, _sprite.frame, _gun_draw.shown() if holster else 1.0)
 	_gun_node.transform = pose["xf"]
 	_gun_node.modulate.a = _gun_draw.alpha() if holster and carry == "" else 1.0
 	if _swap_left > 0.0 and _gun_draw.state != GunDraw.FIRING: # back ↔ hands: fades in where it goes

@@ -1,12 +1,6 @@
 {
 	"back": {
-		"at": [
-			36.0,
-			80.0
-		],
-		"angle": -122.0,
-		"hold": 0.18,
-		"scale": 1.0,
+		"scene": "res://scenes/character/poses/flora_carry.tscn",
 		"bob": [
 			[
 				-0.59,

@@ -1,12 +1,6 @@
 {
 	"back": {
-		"at": [
-			34.0,
-			82.0
-		],
-		"angle": -122.0,
-		"hold": 0.18,
-		"scale": 1.0,
+		"scene": "res://scenes/character/poses/tanko_carry.tscn",
 		"bob": [
 			[
 				-1.82,

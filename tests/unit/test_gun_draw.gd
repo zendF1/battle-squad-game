@@ -231,7 +231,8 @@ func test_idle_gun_slung_on_the_back() -> void:
 		var look: Dictionary = Art.character_look(id)
 		var back: Dictionary = look["carry"]["back"]
 		var k := float(look["scale"])
-		var pivot: Vector2 = look["pivot"]
+		var cp: Dictionary = Art.carry_pose(id)
+		var csock: Transform2D = cp["socket"]
 		var dt := 1.0 / 60.0
 		var on_back := func(what: String) -> void:
 			eq(c.carry_mode(), "back", "%s: %s: on the back" % [id, what])
@@ -245,8 +246,8 @@ func test_idle_gun_slung_on_the_back() -> void:
 		eq(c.animation(), "idle", "%s: standing on the idle animation, not the ready pose" % id)
 		eq(str(look["motions"]["idle"]), "breathe", "%s: which breathes" % id)
 		on_back.call("idle")
-		near(rad_to_deg(gun.rotation), float(back["angle"]), 0.01, "%s: at the sling angle" % id)
-		check(gun.position.distance_to((back["at"] - pivot) * k) < 0.01, "%s: its hold on the back" % id)
+		near(gun.rotation, csock.get_rotation(), 1e-4, "%s: at the carry socket's angle" % id)
+		check(gun.position.distance_to(csock.origin) < 0.01, "%s: its hold on the carry socket" % id)
 		near(gun.modulate.a, 1.0, 1e-6, "%s: fully shown" % id)
 		var hug: Dictionary = Art.hug_gun(Art.CHARACTER_GUNS[id], "basic")
 		var gs: Sprite2D = c.get_node("Flip/Gun/Sprite")
@@ -303,9 +304,9 @@ func test_idle_gun_slung_on_the_back() -> void:
 		for f in [0, 3]:
 			sprite.frame = f
 			c._update_gun()
-			var at: Vector2 = (back["at"] + back["bob"][f] - pivot) * k
+			var at: Vector2 = csock.origin + back["bob"][f] * k
 			check(gun.position.distance_to(at) < 0.01, "%s: frame %d rides the bob" % [id, f])
-			near(rad_to_deg(gun.rotation), float(back["angle"]) + c.BACK_SWAY_DEG * sin(TAU * f / back["bob"].size()), 0.01,
+			near(rad_to_deg(gun.rotation), rad_to_deg(csock.get_rotation()) + c.BACK_SWAY_DEG * sin(TAU * f / back["bob"].size()), 0.01,
 				"%s: frame %d at the sling angle" % [id, f])
 		c.facing = -1
 		c._apply_motion()
@@ -324,6 +325,117 @@ func test_idle_gun_slung_on_the_back() -> void:
 		c.die()
 		check(not c.is_resting() and not gun.visible and c.carry_mode() == "", "%s: dead: no gun" % id)
 		holder.free()
+
+
+## The carry scenes (scenes/character/poses/<id>_carry.tscn, carry.json back.scene) are WYSIWYG:
+## a locked root → CarrySocket (grouped) → Preview (the iron hug gun), Body (locked: the idle frame
+## at the match's place and scale, after the socket: over the gun), WalkPreview (carry_walk.gd);
+## the match draws the iron hug gun slung exactly as the Preview shows it (the same texture px →
+## Flip transform), behind the body, mirrored facing left; another tier hangs at the same place on
+## the socket at the same length; on every walk frame the WalkPreview's gun is the match's.
+func test_carry_scenes_match_the_game() -> void:
+	var Art := preload("res://ui/art.gd")
+	var CarryWalk := load("res://scenes/character/poses/carry_walk.gd")
+	for id in Art.CHARACTERS:
+		var path := "res://scenes/character/poses/%s_carry.tscn" % id
+		check(ResourceLoader.exists(path), path)
+		if not ResourceLoader.exists(path):
+			continue
+		var root: Node2D = load(path).instantiate()
+		check(root.get_meta("_edit_lock_", false), "%s: root locked" % id)
+		eq(root.get_children().map(func(n): return str(n.name)), ["CarrySocket", "Body", "WalkPreview"], "%s: the gun before (behind) the body" % id)
+		var sock: Node2D = root.get_node("CarrySocket")
+		var pv: Sprite2D = root.get_node("CarrySocket/Preview")
+		var body: Sprite2D = root.get_node("Body")
+		var walk: Node2D = root.get_node("WalkPreview")
+		check(sock.get_meta("_edit_group_", false), "%s: CarrySocket grouped (a click on the gun selects it)" % id)
+		check(body.get_meta("_edit_lock_", false) and walk.get_meta("_edit_lock_", false), "%s: Body and WalkPreview locked" % id)
+		eq(walk.get_script(), CarryWalk, "%s: WalkPreview plays the walk" % id)
+		eq(str(walk.get("character_id")), id, "%s: WalkPreview's character" % id)
+		var kind := str(Art.CHARACTER_GUNS[id])
+		check(pv.texture != null and pv.texture.resource_path == Art.hug_gun_path(kind, "iron"), "%s: Preview is the iron hug gun" % id)
+		var look: Dictionary = Art.character_look(id)
+		check(body.texture != null and body.texture.resource_path == Art.side_dir(id) + "idle_0.png", "%s: Body is idle_0" % id)
+		var scene_gun: Transform2D = sock.transform * pv.transform * Transform2D(0.0, pv.offset)
+		var scene_body: Transform2D = body.transform * Transform2D(0.0, body.offset)
+		for tier in ["iron", "basic", "dragon"]:
+			var c: Node2D = CharacterScene.instantiate()
+			c.character_id = id
+			c.holster = true
+			c.idle_gun = true
+			var holder := Node2D.new()
+			holder.add_child(c)
+			c.set_weapon(kind, tier) # stored: applied by _ready() (not in a tree)
+			c._ready()
+			var flip: Node2D = c.get_node("Flip")
+			var sprite: AnimatedSprite2D = c.get_node("Flip/Sprite")
+			var gun: Node2D = c.get_node("Flip/Gun")
+			var gs: Sprite2D = c.get_node("Flip/Gun/Sprite")
+			var hug: Dictionary = Art.hug_gun(kind, tier)
+			for f in [1, -1]:
+				c.facing = f
+				c._apply_motion()
+				c._update_gun()
+				var what := "%s %s facing %s" % [id, tier, "right" if f > 0 else "left"]
+				eq(c.carry_mode(), "back", "%s: slung" % what)
+				check(flip.transform.is_equal_approx(Transform2D(0.0, Vector2(f, 1.0), 0.0, Vector2.ZERO)), "%s: Flip only mirrors at rest (%s)" % [what, flip.transform])
+				check(gun.get_index() < sprite.get_index(), "%s: behind the body" % what)
+				var game_gun: Transform2D = flip.transform * gun.transform * gs.transform * Transform2D(0.0, gs.offset)
+				var game_body: Transform2D = flip.transform * sprite.transform * Transform2D(0.0, sprite.offset)
+				var mirror := Transform2D(0.0, Vector2(f, 1.0), 0.0, Vector2.ZERO)
+				check(_xf_close(game_body, mirror * scene_body, 0.02), "%s: the body where the scene's Body is" % what)
+				if tier == "iron":
+					eq(gs.texture.resource_path, pv.texture.resource_path, "%s: the Preview's picture" % what)
+					check(_xf_close(game_gun, mirror * scene_gun, 0.01), "%s: drawn exactly as the Preview (%s vs %s)" % [what, game_gun, mirror * scene_gun])
+				else:
+					eq(gs.texture.resource_path, Art.hug_gun_path(kind, tier), "%s: its own hug gun" % what)
+					# Its hold (the same part of its length, on its muzzle row) on the socket's origin.
+					var hold := Vector2(-pv.offset.x / pv.texture.get_width() * hug["size"].x, hug["muzzle"].y + (-pv.offset.y - Art.hug_meta(kind, "iron")["muzzle"].y))
+					check((game_gun * hold).distance_to(mirror * sock.position) < 0.02, "%s: hung on the socket" % what)
+					near(game_gun.x.length() * hug["size"].x, scene_gun.x.length() * pv.texture.get_width(), 0.02, "%s: as long as the Preview" % what)
+			# Walking: the WalkPreview draws the gun as the match does on every walk frame.
+			c.facing = 1
+			c._apply_motion()
+			c.set_walking(true)
+			if tier == "iron":
+				for i in sprite.sprite_frames.get_frame_count("walk"):
+					sprite.frame = i
+					c._update_gun()
+					var game_gun: Transform2D = flip.transform * gun.transform * gs.transform * Transform2D(0.0, gs.offset)
+					var shown = walk.gun_transform(i)
+					check(shown is Transform2D and _xf_close(game_gun, shown, 0.01), "%s walk frame %d: WalkPreview = the match (%s vs %s)" % [id, i, game_gun, shown])
+			holder.free()
+		root.free()
+	# The WalkPreview leaves out what is missing: no socket, no parent.
+	var lone: Node2D = CarryWalk.new()
+	check(lone.gun_transform(0) == null, "no parent: no gun")
+	var bare := Node2D.new()
+	bare.add_child(lone)
+	check(lone.gun_transform(0) == null, "no CarrySocket: no gun")
+	lone.character_id = "nope"
+	eq(lone.walk()["stems"].size(), 8, "an unknown id reads Rookie's walk")
+	bare.free()
+
+
+func _xf_close(a: Transform2D, b: Transform2D, eps: float) -> bool:
+	return a.x.distance_to(b.x) < eps * 0.01 + 1e-4 and a.y.distance_to(b.y) < eps * 0.01 + 1e-4 and a.origin.distance_to(b.origin) < eps
+
+
+## carry.json without a scene can still place the sling itself (at / angle / hold / scale), the
+## walk bob kept.
+func test_parse_carry_without_scene() -> void:
+	var Art := preload("res://ui/art.gd")
+	var path := "user://test_carry_%d.json" % Time.get_ticks_usec()
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string('{"back": {"at": [30, 84], "angle": -110, "hold": 0.2, "bob": [[1, 2]]}}')
+	f.close()
+	var b: Dictionary = Art.parse_carry(path)["back"]
+	eq([b["scene"], b["at"], b["angle"], b["hold"], b["scale"], b["bob"]], ["", Vector2(30, 84), -110.0, 0.2, 1.0, [Vector2(1, 2)]], "the file's own placement")
+	f = FileAccess.open(path, FileAccess.WRITE)
+	f.store_string('{"back": {"bob": [[1, 2]]}}')
+	f.close()
+	eq(Art.parse_carry(path), {}, "neither scene nor at: no back part")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
 ## The stand / kneel squash never moves the shot: fire_muzzle_position() leaves it out and a firing
@@ -820,9 +932,10 @@ func _sole_row(img: Image) -> int:
 	return -1
 
 
-## Each character's carry.json (ui/art.gd parse_carry()): the sling's hold on the idle frame's
-## lower back, muzzle up and back, the bob one per walk frame (tools/carry_bob.gd), listed with the
-## side view's files.
+## Each character's carry.json (ui/art.gd parse_carry()): its carry scene (back.scene:
+## scenes/character/poses/<id>_carry.tscn) and the bob one per walk frame (tools/carry_bob.gd),
+## listed with the side view's files; the scene's socket (ui/art.gd carry_pose()) holds the gun on
+## the idle frame's back half, muzzle up and back, low on the gun.
 func test_carry_assets() -> void:
 	var Art := preload("res://ui/art.gd")
 	for id in Art.CHARACTERS:
@@ -830,10 +943,20 @@ func test_carry_assets() -> void:
 		var carry: Dictionary = look["carry"]
 		check(carry.has("back") and not carry.has("hand"), "%s: the back sling only" % id)
 		var back: Dictionary = carry["back"]
+		eq(back["scene"], "res://scenes/character/poses/%s_carry.tscn" % id, "%s: its carry scene" % id)
+		check(not back.has("at"), "%s: the placement is the scene's, not the file's" % id)
+		var cp: Dictionary = Art.carry_pose(id)
+		check(not cp.is_empty(), "%s: the carry scene loads" % id)
+		var sock: Transform2D = cp["socket"]
+		var k := float(look["scale"])
+		var at: Vector2 = sock.origin / k + look["pivot"]
 		var size: Vector2 = look["size"]
-		var at: Vector2 = back["at"]
-		check(at.x > 0.0 and at.y > 0.0 and at.x < float(look["pivot"].x) and at.y < size.y, "%s: on the back half of the frame" % id)
-		check(float(back["angle"]) < -90.0 and float(back["angle"]) > -180.0, "%s: muzzle up and back" % id)
-		check(float(back["hold"]) > 0.0 and float(back["hold"]) < 0.5, "%s: hung low on the gun" % id)
+		check(at.x > 0.0 and at.y > 0.0 and at.x < float(look["pivot"].x) and at.y < size.y, "%s: on the back half of the frame (%s)" % [id, at])
+		var deg := rad_to_deg(sock.get_rotation())
+		check(deg < -90.0 and deg > -180.0, "%s: muzzle up and back (%s)" % [id, deg])
+		var hold: Vector2 = cp["hold"]
+		check(hold.x > 0.0 and hold.x < 0.5 * float(cp["length"]), "%s: hung low on the gun" % id)
+		check(cp["texture"] != null and cp["texture"].resource_path == Art.hug_gun_path(Art.CHARACTER_GUNS[id], "iron"),
+			"%s: the Preview is its iron hug gun" % id)
 		eq(back["bob"].size(), look["frames"].get_frame_count("walk"), "%s: a bob per walk frame" % id)
 		check(Art.side_paths(id).has(Art.side_dir(id) + "carry.json"), "%s: carry.json among the side view's files" % id)

@@ -307,7 +307,7 @@ missing: a seed in it; torso cut: tighten the polygon there). No `armFront`: no 
 |---|---|---|
 | `rookie/side/ready_0.png` | 112x130 | the kneeling ready pose, fists on the chest, no gun (same canvas / pivot as the run frames) |
 | `rookie/side/ready_arm_front.png` | 112x130 | the near arm and both fists cut from it, drawn over the gun (same canvas) |
-| `<id>/side/carry.json` | 1 KB | hand-written (the importer never touches it), px of the frames: how the match slings the gun on the back off the ready pose, standing and walking (`ui/art.gd` `parse_carry()`, `character.gd` idle_gun): `back` {`at` (the hold point on the lower back of `idle_0`), `angle` (the gun's axis, degrees from the facing direction, + turns the muzzle down: -122 = up and back over the shoulder), `hold` (0..1 along the gun, back end → muzzle), `scale`, `flip`, `bob` (per walk frame, the upper body's offset from `idle_0`: written by `tools/carry_bob.gd`, rerun it after the idle or walk frames change)}; drawn behind the body, mirrored with it. Without the file: a default sling |
+| `<id>/side/carry.json` | 1 KB | how the match slings the gun on the back off the ready pose, standing and walking (`ui/art.gd` `parse_carry()` / `carry_pose()`, `character.gd` idle_gun): `back` {`scene` (the carry scene the sling is placed in by hand: `scenes/character/poses/<id>_carry.tscn`, see below), `bob` (per walk frame, the upper body's offset from `idle_0`, px of the frames: written by `tools/carry_bob.gd`, rerun it after the idle or walk frames change)}; drawn behind the body, mirrored with it. Without a scene the file may place it itself (`at` the hold point on `idle_0`, `angle` degrees from the facing direction, + turns the muzzle down, `hold` 0..1 along the gun, `scale`, `flip`). Without the file: a default sling |
 
 **The hug gun**: on the ready pose the character hugs a big gun against the middle of the chest
 (`weapons/<kind>/hug_<tier>.png`, below), drawn in front of the body and under the front arm (no hand
@@ -343,6 +343,21 @@ scale / offset; `pose_arm.gd` shows `ready_arm_front.png` once imported): the fr
 as in the match. No JSON to edit; `tools/import_frames.gd` never writes the scene. Without
 the scene (or a node) the gun sits on `gun_anchors.json` `"ready".grip` (the hug point), the
 character's iron hug gun at the weapons' scale, level.
+
+**Placing the gun on the back (editor)**: standing and walking in the match the gun is slung on the
+back as placed in the character's carry scene, `scenes/character/poses/<id>_carry.tscn` (carry.json
+`back.scene`; all four exist): the root is the feet (locked, Flip space at the match's scale);
+`CarrySocket` (Node2D, grouped: a click on the gun selects it) is the hold point on the back
+(`position`), the gun's angle (`rotation`, -122° = muzzle up and back over the shoulder) and its size
+(`scale`, 1 = the ready pose's size); its `Preview` child is the iron hug gun at its match size, held
+18 % along it on its muzzle row (`offset`); `Body` (locked, drawn after the socket: over the gun, as
+in the match) is `idle_0`; `WalkPreview` (locked, `poses/carry_walk.gd`, editor only, nothing saved)
+plays the walk beside it with the gun riding each frame's bob and sway, following the socket live
+(`fps`, `playing` / `frame` to hold one). Drag / rotate (rotate tool `R`, or the Inspector
+Transform › Rotation) / scale `CarrySocket`, `Ctrl+S`, `F5`: **the match draws the gun exactly as the
+Preview shows it** (`ui/art.gd` `carry_pose()` / `carry_gun_transform()`: any other tier the same
+length, hung at the same place along it), plus the bob and ±2° sway on the walk frames
+(`carry_walk_transform()`). Breathing (idle) scales the whole figure with the gun.
 
 ### characters/ (baked frames, scene: `scenes/character/character.tscn`)
 
