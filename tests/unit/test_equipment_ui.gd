@@ -102,3 +102,37 @@ func test_sell_block() -> void:
 	eq(EquipmentUi.sell_block({}, {"category": "crafted", "priceCoin": 0, "priceGem": 0}, cat), "Đồ chế tạo không bán được", "crafted")
 	eq(EquipmentUi.sell_block({}, {"category": "normal", "priceCoin": 0, "priceGem": 0}, cat), "Trang bị này không bán được", "no price")
 	eq(EquipmentUi.sell_block({}, normal, null), "", "the catalog loading: Bán waits, no reason")
+
+
+func test_tier_fill() -> void:
+	# The inside of the frame takes a deep shade of the tier colour, brighter toward the border.
+	for lv in [1, 6, 10, 14, 16]:
+		var a := UpgradeAura.inside(Vector2(232, 236), lv, 11.0, 11.0)
+		var m: ShaderMaterial = a.material
+		var deep: Color = m.get_shader_parameter("fill_deep")
+		var edge: Color = m.get_shader_parameter("fill_edge")
+		var tint := U.milestone_color(lv)
+		check(float(m.get_shader_parameter("fill")) > 0.8, "+%d filled" % lv)
+		check(deep.get_luminance() < 0.12, "+%d deep and dark" % lv)
+		check(edge.get_luminance() > deep.get_luminance(), "+%d brighter toward the border" % lv)
+		check(edge.get_luminance() < tint.get_luminance(), "+%d darker than the glow" % lv)
+		a.free()
+	var red: Color = UpgradeAura.fill_colors(5)[0]
+	check(red.r > red.g * 3.0 and red.r > red.b * 3.0, "red → dark crimson")
+	var purple: Color = UpgradeAura.fill_colors(4)[0]
+	check(purple.b > purple.g and purple.r > purple.g, "purple → deep violet")
+	var orange: Color = UpgradeAura.fill_colors(3)[0]
+	check(orange.r > orange.g and orange.g > orange.b, "orange → dark amber")
+	var sky: Color = UpgradeAura.fill_colors(2)[0]
+	check(sky.b > sky.g and sky.b > sky.r, "sky blue → deep blue")
+	var green: Color = UpgradeAura.fill_colors(1)[0]
+	check(green.g > green.r and green.g > green.b, "green → dark emerald")
+	var none := UpgradeAura.inside(Vector2(232, 236), 0, 11.0, 11.0)
+	check(not none.visible, "+0 keeps the card's navy")
+	none.free()
+	var hex := UpgradeAura.around_frame(Vector2(132, 152), 10)
+	check(float(hex.material.get_shader_parameter("fill")) > 0.8, "hexagons filled the same way")
+	hex.free()
+	var badge := EquipmentUi.worn_badge(30)
+	eq(badge.custom_minimum_size, Vector2(30, 30), "the worn badge")
+	badge.free()

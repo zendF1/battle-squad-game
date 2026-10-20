@@ -5,8 +5,9 @@ extends ColorRect
 ## streaks running round the border, sparks drifting off it and a flickering, fire-like outer glow.
 ## Brighter, faster, with more streaks and sparks per tier (UpgradeModel: +1 green the subtlest, a
 ## thin outline and one slow streak; +6 sky blue, +10 orange, +14 purple, +16 red the strongest).
-## Hidden at +0. The inside of the frame stays readable: the
-## glow inward falls off within a few pixels.
+## Hidden at +0. The inside of the frame is filled with a deep, dark shade of the tier colour,
+## brighter toward the border so it blends into the glow (FILL, fill_colors()); the glow inward
+## falls off within a few pixels, so the icon and the name on top stay readable.
 ##
 ## One shader for every aura: the signed distance to a rounded pointy-top hexagon or a rounded
 ## rectangle, a perimeter parameter (the angle around the centre) for the running streaks and the
@@ -53,6 +54,11 @@ uniform float tail = 0.08; // a streak's length, fraction of the perimeter
 uniform float streak_width = 1.0; // × the line's width
 uniform float streak_gain = 1.0;
 uniform float flame = 0.0; // the streaks' outer glow (fire spilling off the frame)
+// The inside of the frame filled with a deep shade of the tier colour, brighter toward the border
+// glow (0 = no fill: what is under it shows through).
+uniform float fill = 0.0;
+uniform vec4 fill_deep : source_color = vec4(0.05, 0.12, 0.22, 1.0);
+uniform vec4 fill_edge : source_color = vec4(0.12, 0.3, 0.5, 1.0);
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -101,7 +107,7 @@ void fragment() {
 	float w = max(1.1, m * 0.014) * line_scale; // the line's half width
 	float sw = w * streak_width;
 	float reach_in = max(w * 6.0, sw * 2.6);
-	if (d < -reach_in) {
+	if (d < -reach_in && fill <= 0.0) {
 		discard;
 	}
 	float g = max(pd * 0.85, w * 2.5); // the outer glow's reach
@@ -165,7 +171,13 @@ void fragment() {
 	// Fade out before the cut inside too (no visible step).
 	float a = clamp(v, 0.0, 1.0) * smoothstep(0.0, 2.0, min(e.x, e.y)) * smoothstep(-reach_in, -reach_in * 0.6, d);
 	a *= base.a;
-	COLOR = vec4(col * a, a * cover);
+	// The fill under the aura: inside the frame, its edge anti-aliased, a deep shade in the middle
+	// rising to a brighter one in the last part toward the border (into the glow).
+	float inner = fill * (1.0 - smoothstep(-1.5, 0.5, d)) * smoothstep(0.0, 2.0, min(e.x, e.y)) * base.a;
+	float rise = exp(d / (m * 0.16));
+	vec3 fc = mix(fill_deep.rgb, fill_edge.rgb, clamp(rise, 0.0, 1.0));
+	float aa = a * cover;
+	COLOR = vec4(col * a + fc * inner * (1.0 - aa), aa + inner * (1.0 - aa));
 }
 """
 
@@ -193,6 +205,24 @@ const LOOKS := [
 		"strength": 1.15, "streaks": 4.0, "tail": 0.17, "streak_width": 2.7, "streak_gain": 1.9, "flame": 1.2,
 		"sparks": 10.0, "speed": 0.34, "flicker": 0.85},
 ]
+
+## How much the inside of the frame is covered by its tier's deep shade (the card or hexagon
+## background under it barely shows).
+const FILL := 0.94
+## The fill's deep middle and brighter edge as darkened tier colours (red → dark crimson, purple →
+## deep violet, orange → dark amber, sky blue → deep blue, green → dark emerald).
+const FILL_DEEP := 0.84
+const FILL_EDGE := 0.64
+
+
+## [deep, edge] fill colours of a colour tier (1..5).
+static func fill_colors(tier: int) -> Array:
+	var c: Color = UpgradeModel.TIER_COLORS[clampi(tier, 1, UpgradeModel.TIER_COLORS.size() - 1)]
+	# Sky blue drifts teal when darkened: lean it to blue.
+	if tier == 2:
+		c = Color(0.25, 0.6, 1.0)
+	return [c.darkened(FILL_DEEP), c.darkened(FILL_EDGE)]
+
 
 static var _shader: Shader
 static var _materials := {} # "tier|shape|pad|radius" -> ShaderMaterial
@@ -278,5 +308,9 @@ static func material_for(tier: int, frame_shape: Shape = Shape.HEX, at_pad: floa
 	var look: Dictionary = LOOKS[tier]
 	for k in look:
 		m.set_shader_parameter(k, look[k])
+	var fill := fill_colors(tier)
+	m.set_shader_parameter("fill", FILL)
+	m.set_shader_parameter("fill_deep", fill[0])
+	m.set_shader_parameter("fill_edge", fill[1])
 	_materials[key] = m
 	return m

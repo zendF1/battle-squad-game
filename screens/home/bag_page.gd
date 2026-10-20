@@ -1,11 +1,11 @@
 extends Control
 ## "Túi đồ": everything the player owns, in two tabs.
 ## - "Trang bị": the owned pieces (PlayerState.equipment + the catalog) as a grid of cards showing
-##   only the icon and the name in the milestone colour inside the milestone border aura (worn
-##   pieces on a green-edged card), worn ones first then by required level; slot filter chips
-##   on top. A tap opens the piece popup with everything else (equipment_ui.gd) for the character chosen in the
-##   lobby: worn → Chuyển cho <nhân vật> / Nâng cấp / Tháo, not worn → Mặc cho <nhân vật> / Bán /
-##   Vứt, closed by its X.
+##   only the icon and the name in the level colour inside the border aura, the card tinted in
+##   that colour (worn pieces: green edge and a check badge), worn ones first then by required
+##   level; slot filter chips on top. A tap opens the piece popup with everything else
+##   (equipment_ui.gd) for the character chosen in the lobby: worn → Chuyển cho <nhân vật> /
+##   Nâng cấp / Tháo, not worn → Mặc cho <nhân vật> / Bán / Vứt, closed by its X.
 ## - "Vật phẩm": the eight battle items with their GET /player/inventory counts.
 ## - "Nguyên liệu": the upgrade stones owned (PlayerState.stones): icon, level, power, count;
 ##   "Mua đá" (Shop → Đá nâng cấp) and "Ghép đá" (the Nâng cấp page's Ghép đá).
@@ -201,8 +201,9 @@ func _render_gear() -> void:
 		_gear_flow.add_child(_gear_card(p))
 
 
-## A piece card: only its icon and its name in the milestone colour, inside the border aura (worn
-## pieces on a green-edged card); everything else is in the popup a tap opens.
+## A piece card: only its icon and its name in the level colour, inside the border aura with the
+## card tinted a deep shade of that colour (worn pieces: a green edge and a check badge in the
+## top-left corner); everything else is in the popup a tap opens.
 func _gear_card(piece: Dictionary) -> Control:
 	var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
 	var b := Button.new()
@@ -233,6 +234,11 @@ func _gear_card(piece: Dictionary) -> Control:
 	title.mouse_filter = MOUSE_FILTER_IGNORE
 	LobbyUi.outline(title, 5) # readable over the aura's streaks
 	col.add_child(title)
+	if EquipmentModel.wearer(piece) != "":
+		# Worn: a check badge in the top-left corner (the green edge alone is lost on a tinted card).
+		var badge := EquipmentUi.worn_badge(30)
+		badge.position = Vector2(8, 8)
+		b.add_child(badge)
 	return b
 
 

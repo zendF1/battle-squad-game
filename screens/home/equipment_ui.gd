@@ -408,6 +408,24 @@ static func level_bar(level: int, width: float = 0.0) -> Control:
 	return c
 
 
+## The "worn" mark of a piece card: a green disc with a dark rim and a white check, px square,
+## drawn in code (reads on every tier's tinted card, green included: the rim and the check).
+static func worn_badge(px: int = 30) -> Control:
+	var c := Control.new()
+	c.name = "WornBadge"
+	c.custom_minimum_size = Vector2(px, px)
+	c.size = Vector2(px, px)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.draw.connect(func() -> void:
+		var w := float(px)
+		var mid := Vector2(w, w) / 2.0
+		c.draw_circle(mid, w * 0.5, Color(0.03, 0.06, 0.1, 0.95))
+		c.draw_circle(mid, w * 0.5 - maxf(2.0, w * 0.09), WORN.darkened(0.15))
+		c.draw_polyline(PackedVector2Array([Vector2(w * 0.27, w * 0.52), Vector2(w * 0.44, w * 0.69), Vector2(w * 0.74, w * 0.33)]),
+			Color.WHITE, maxf(2.5, w * 0.12), true))
+	return c
+
+
 ## A check mark (✓) px square, drawn in code.
 static func check_mark(px: int = 24, color: Color = GOOD) -> Control:
 	var c := Control.new()
