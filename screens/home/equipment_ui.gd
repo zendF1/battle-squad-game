@@ -2,7 +2,8 @@ extends RefCounted
 ## Equipment widgets shared by the Shop (Trang bị), Túi đồ, the Nhân vật page and Prep: an item
 ## icon with, from +1, its level's border aura (upgrade_aura.gd), the hexagon frame, the slot filter
 ## chips, stat lines, and the piece popup (its upgraded stats compared with what the character
-## wears in that slot, who wears it, a close X in the top-left corner and one row of buttons:
+## wears in that slot, who wears it, a close X in the top-right corner (a tap outside closes it
+## too) and one row of buttons:
 ## worn → Chuyển cho <nhân vật> (worn by another) / Nâng cấp (opens the upgrade page on the piece) /
 ## Tháo; not worn → Mặc cho <nhân vật> / Bán (+N xu, never-worn pieces only) / Vứt, the last two
 ## confirmed first). Actions go through PlayerState (one at a time), which reloads the gear and the
@@ -156,9 +157,9 @@ static func delta_row(item: Dictionary, worn: Dictionary, font_size: int = 19) -
 ## hexagon with the icon and its aura beside slot · category · required level, who wears it,
 ## "Cấp nâng cấp +N / 16" and its bar; below, its upgraded stats (with "+24% từ nâng cấp" and
 ## the change against what the character wears in that slot) beside "Mốc nâng cấp" (+6 / +10 /
-## +14 / +16 with their bonus, reached ones bright with a check, the others dimmed); a round X in
-## the top-left corner closes it; one row of equal buttons (piece_actions): worn by another
-## character Chuyển cho <nhân vật> / Nâng cấp / Tháo, worn by this one Nâng cấp / Tháo, not worn
+## +14 / +16 with their bonus, reached ones bright with a check, the others dimmed); an X in the
+## top-right corner (or a tap outside the card) closes it; one row of equal buttons
+## (piece_actions): worn by another character Chuyển cho <nhân vật> / Nâng cấp / Tháo, worn by this one Nâng cấp / Tháo, not worn
 ## Mặc cho <nhân vật> / Bán (+ floor(price × sellRate)) / Vứt. A piece ever worn is locked
 ## (isLocked) and crafted / unknown items cost nothing: Bán stays off with the reason under the row
 ## (sell_block). The actions stay locked while the owned pieces reload
@@ -501,9 +502,12 @@ static func _confirm_remove(m: Modal, overlay: Control, piece: Dictionary, item:
 	var ok := c.add_button("Bán" if sell else "Vứt", _remove.bind(c, m, overlay, str(piece.get("equipmentId", "")), piece_name, sell, refund))
 	if not sell:
 		ok.add_theme_color_override("font_color", LOSS)
-	c.add_button("Huỷ", func() -> void:
+	var cancel := func() -> void:
 		c.close()
-		_release(m))
+		_release(m)
+	c.add_button("Huỷ", cancel)
+	# A tap outside the confirmation is Huỷ: it closes only the confirmation, not the popup.
+	c.close_on_backdrop(cancel)
 
 
 ## Runs the confirmed sell / discard: success closes both with a toast; taken off but not sold /
