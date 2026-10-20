@@ -54,6 +54,8 @@ static var _contents := {} # Texture2D -> base_content()
 var kind := ShotLook.DEFAULT_KIND
 var tier := ShotLook.DEFAULT_TIER
 var skill := false
+## Extra size on top of the tier / skill scale (a skill's bigger shells: the bomb chain's bombs).
+var size_k := 1.0
 var item := ""
 ## The flight direction before the first move (shot_player.gd: the path's start velocity);
 ## zero: +x.
@@ -308,7 +310,7 @@ static func fit_size(src: Vector2, box: Vector2) -> Vector2:
 
 
 func _scale_k() -> float:
-	return float(_tl["scale"]) * (ShotLook.SKILL_SCALE if skill else 1.0)
+	return float(_tl["scale"]) * (ShotLook.SKILL_SCALE if skill else 1.0) * size_k
 
 
 func _draw() -> void:
