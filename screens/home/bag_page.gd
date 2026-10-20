@@ -4,7 +4,8 @@ extends Control
 ##   only the icon and the name in the milestone colour inside the milestone border aura (worn
 ##   pieces on a green-edged card), worn ones first then by required level; slot filter chips
 ##   on top. A tap opens the piece popup with everything else (equipment_ui.gd) for the character chosen in the
-##   lobby: Mặc cho / Chuyển cho <nhân vật>, Tháo, Đóng, Bán, Vứt.
+##   lobby: worn → Chuyển cho <nhân vật> / Nâng cấp / Tháo, not worn → Mặc cho <nhân vật> / Bán /
+##   Vứt, closed by its X.
 ## - "Vật phẩm": the eight battle items with their GET /player/inventory counts.
 ## - "Nguyên liệu": the upgrade stones owned (PlayerState.stones): icon, level, power, count;
 ##   "Mua đá" (Shop → Đá nâng cấp) and "Ghép đá" (the Nâng cấp page's Ghép đá).

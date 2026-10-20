@@ -1,11 +1,12 @@
 extends RefCounted
 ## Equipment widgets shared by the Shop (Trang bị), Túi đồ, the Nhân vật page and Prep: an item
-## icon with, from +6, its milestone border aura (upgrade_aura.gd), the hexagon frame, the slot filter
+## icon with, from +1, its level's border aura (upgrade_aura.gd), the hexagon frame, the slot filter
 ## chips, stat lines, and the piece popup (its upgraded stats compared with what the character
-## wears in that slot, who wears it, Mặc / Tháo / Chuyển cho <nhân vật> / Đóng, and below them
-## Nâng cấp (opens the upgrade page on the piece), Bán (+N xu, never-worn pieces only) / Vứt, each
+## wears in that slot, who wears it, a close X in the top-left corner and one row of buttons:
+## worn → Chuyển cho <nhân vật> (worn by another) / Nâng cấp (opens the upgrade page on the piece) /
+## Tháo; not worn → Mặc cho <nhân vật> / Bán (+N xu, never-worn pieces only) / Vứt, the last two
 ## confirmed first). Actions go through PlayerState (one at a time), which reloads the gear and the
-## characters afterwards. Upgraded pieces' names take their milestone colour.
+## characters afterwards. Upgraded pieces' names take their level colour.
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -21,13 +22,15 @@ const GOOD := Color(0.45, 0.9, 0.55)
 const LOSS := Color(1.0, 0.45, 0.45)
 const WORN := Color(0.35, 0.8, 0.45)
 const LEVEL := Color(1.0, 0.8, 0.22)
+## The popup buttons' width (all equal, one row of up to three).
+const BUTTON_WIDTH := 250
 
 ## Opens the Nâng cấp page on a piece (its equipmentId); Home sets it. The popup's Nâng cấp
 ## button is left out while it is not set.
 static var open_upgrade: Callable
 
 
-## The icon of a catalog item at px; from +6 (`piece`'s upgradeLevel, {} = none) the milestone
+## The icon of a catalog item at px; from +1 (`piece`'s upgradeLevel, {} = none) the level's
 ## aura runs round a rounded square inside the icon's box (kept inside: lists scroll). No "+N":
 ## the aura and the name colour show the level; the number is in the piece popup.
 static func item_icon(item: Dictionary, piece: Dictionary = {}, px: int = 72) -> Control:
@@ -35,7 +38,7 @@ static func item_icon(item: Dictionary, piece: Dictionary = {}, px: int = 72) ->
 	box.custom_minimum_size = Vector2(px, px)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var level := int(piece.get("upgradeLevel", 0))
-	if UpgradeModel.milestone_tier(level) > 0:
+	if UpgradeModel.color_tier(level) > 0:
 		box.add_child(UpgradeAura.inside(Vector2(px, px), level, maxf(4.0, px * 0.07), px * 0.2))
 	var icon := LobbyUi.icon(Art.equipment_icon(str(item.get("slot", "")), EquipmentModel.tier(item), EquipmentModel.weapon_kind(item)), px)
 	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -153,9 +156,12 @@ static func delta_row(item: Dictionary, worn: Dictionary, font_size: int = 19) -
 ## hexagon with the icon and its aura beside slot · category · required level, who wears it,
 ## "Cấp nâng cấp +N / 16" and its bar; below, its upgraded stats (with "+24% từ nâng cấp" and
 ## the change against what the character wears in that slot) beside "Mốc nâng cấp" (+6 / +10 /
-## +14 / +16 with their bonus, reached ones bright with a check, the others dimmed); and the actions: Mặc / Chuyển cho / Tháo / Đóng, then a
-## second row with Bán (+ floor(price × sellRate)) and Vứt. A piece ever worn is locked
-## (isLocked) and crafted / unknown items cost nothing: no Bán, the reason instead. The actions stay locked while the owned pieces reload
+## +14 / +16 with their bonus, reached ones bright with a check, the others dimmed); a round X in
+## the top-left corner closes it; one row of equal buttons (piece_actions): worn by another
+## character Chuyển cho <nhân vật> / Nâng cấp / Tháo, worn by this one Nâng cấp / Tháo, not worn
+## Mặc cho <nhân vật> / Bán (+ floor(price × sellRate)) / Vứt. A piece ever worn is locked
+## (isLocked) and crafted / unknown items cost nothing: Bán stays off with the reason under the row
+## (sell_block). The actions stay locked while the owned pieces reload
 ## (PlayerState.equipment_ready()); Mặc / Chuyển cho also while the can-wear check lacks the
 ## catalog or the characters, Bán while the catalog loads. Once the data changed and settled the
 ## popup is rebuilt from the fresh piece (keeping `note`, the last message), so its buttons always
@@ -194,7 +200,7 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 	meta.add_child(LobbyUi.text("Lv yêu cầu %d" % maxi(int(item.get("requiredLevel", 1)), 1), 22, LEVEL, true))
 	head.add_child(LobbyUi.text("Đang mặc: %s" % EquipmentModel.character_name(who) if who != "" else "Chưa mặc", 22,
 		WORN if who != "" else Ui.TEXT_DIM, true))
-	var level_label := LobbyUi.text(UpgradeModel.level_line(level), 24, UpgradeModel.milestone_color(level) if level >= 6 else LEVEL, true)
+	var level_label := LobbyUi.text(UpgradeModel.level_line(level), 24, UpgradeModel.milestone_color(level) if level >= 1 else LEVEL, true)
 	level_label.name = "LevelLine"
 	head.add_child(level_label)
 	head.add_child(level_bar(level))
@@ -250,46 +256,51 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 	var piece_id := str(piece.get("equipmentId", ""))
 	var piece_name := EquipmentModel.display_name(item)
 	var ready := PlayerState.equipment_ready()
-	var actions: Array = []
-	if who == character_id:
-		actions.append(m.add_button("Tháo", _act.bind(m, overlay, "unequip", piece_id, character_id, "Đã tháo %s" % piece_name)))
-	elif who == "":
-		var wear := m.add_button("Mặc cho %s" % char_name, _act.bind(m, overlay, "equip", piece_id, character_id, "%s đã mặc %s" % [char_name, piece_name]))
-		actions.append(wear)
-		if not check["ok"] or not PlayerState.can_wear_known():
-			m.lock_button(wear)
-	else:
-		var move := m.add_button("Chuyển cho %s" % char_name, _act.bind(m, overlay, "move", piece_id, character_id,
-			"Đã chuyển %s cho %s" % [piece_name, char_name], EquipmentModel.character_name(who)))
-		actions.append(move)
-		if not check["ok"] or not PlayerState.can_wear_known():
-			m.lock_button(move)
-		actions.append(m.add_button("Tháo", _act.bind(m, overlay, "unequip", piece_id, who, "Đã tháo %s" % piece_name)))
-	m.add_button("Đóng", m.close)
-	for b in m.buttons():
-		(b as Button).custom_minimum_size.x = 250
-	# Second row, smaller: upgrading, then selling and throwing away (irreversible, each asks first).
-	if open_upgrade.is_valid():
-		var up := _small(m.add_button("Nâng cấp", func() -> void:
-			m.close()
-			open_upgrade.call(piece_id), 1))
-		up.custom_minimum_size.x = 200
-		up.add_theme_color_override("font_color", LEVEL)
 	var refund := EquipmentModel.sell_price(item, PlayerState.catalog)
-	var locked := bool(piece.get("isLocked", false))
-	if locked:
-		m.add_row_label("Đã mặc nên không bán được", 1)
-	elif PlayerState.catalog == null or refund["amount"] > 0:
-		var sell := _small(m.add_button("Bán  +%s" % EquipmentModel.amount_text(refund) if refund["amount"] > 0 else "Bán",
-			_confirm_remove.bind(m, overlay, piece, item, true, refund), 1))
-		actions.append(sell)
-		if PlayerState.catalog == null:
-			m.lock_button(sell)
-	else:
-		m.add_row_label("Đồ chế tạo không bán được" if str(item.get("category", "")) == "crafted" else "Trang bị này không bán được", 1)
-	var discard := _small(m.add_button("Vứt", _confirm_remove.bind(m, overlay, piece, item, false, refund), 1))
-	discard.add_theme_color_override("font_color", LOSS)
-	actions.append(discard)
+	m.add_close_x()
+	# One row of equal buttons: worn → (Chuyển cho) Nâng cấp Tháo; not worn → Mặc cho Bán Vứt.
+	var actions: Array = []
+	for action in piece_actions(who, character_id, open_upgrade.is_valid()):
+		var b: Button
+		match action:
+			"move":
+				b = m.add_button("Chuyển cho %s" % char_name, _act.bind(m, overlay, "move", piece_id, character_id,
+					"Đã chuyển %s cho %s" % [piece_name, char_name], EquipmentModel.character_name(who)))
+				if not check["ok"] or not PlayerState.can_wear_known():
+					m.lock_button(b)
+			"equip":
+				b = m.add_button("Mặc cho %s" % char_name, _act.bind(m, overlay, "equip", piece_id, character_id, "%s đã mặc %s" % [char_name, piece_name]))
+				if not check["ok"] or not PlayerState.can_wear_known():
+					m.lock_button(b)
+			"unequip":
+				b = m.add_button("Tháo", _act.bind(m, overlay, "unequip", piece_id, who, "Đã tháo %s" % piece_name))
+			"upgrade":
+				b = m.add_button("Nâng cấp", func() -> void:
+					m.close()
+					open_upgrade.call(piece_id))
+				b.add_theme_color_override("font_color", LEVEL)
+			"sell":
+				var why := sell_block(piece, item, PlayerState.catalog)
+				b = m.add_button("Bán  +%s" % EquipmentModel.amount_text(refund) if why == "" and refund["amount"] > 0 else "Bán",
+					_confirm_remove.bind(m, overlay, piece, item, true, refund))
+				if why != "" or PlayerState.catalog == null:
+					m.lock_button(b)
+				if why != "":
+					# The reason under the row, small: the row keeps its three buttons.
+					var reason := m.add_row_label(why, 1, 20)
+					reason.name = "SellReason"
+			"discard":
+				b = m.add_button("Vứt", _confirm_remove.bind(m, overlay, piece, item, false, refund))
+				b.add_theme_color_override("font_color", LOSS)
+		b.set_meta("action", action)
+		if action != "upgrade":
+			actions.append(b)
+	# Equal widths: the widest label ("Chuyển cho Spark") sets them all.
+	var width := float(BUTTON_WIDTH)
+	for b in m.buttons():
+		width = maxf(width, (b as Button).get_combined_minimum_size().x)
+	for b in m.buttons():
+		(b as Button).custom_minimum_size.x = width
 	if not ready:
 		for b in actions:
 			m.lock_button(b)
@@ -317,6 +328,31 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 		PlayerState.equipment_changed.disconnect(rebuild)
 		PlayerState.characters_changed.disconnect(rebuild))
 	return m
+
+
+## The piece popup's buttons, in order, for a piece worn by `who` ("" = nobody) opened for
+## `character_id`: worn by another character "move" (Chuyển cho), "upgrade", "unequip"; worn by
+## this one "upgrade", "unequip" (nothing to move); not worn "equip" (Mặc cho), "sell", "discard".
+## Worn pieces cannot be sold or thrown away from here (take them off first). "upgrade" is left
+## out without the Nâng cấp page (open_upgrade unset).
+static func piece_actions(who: String, character_id: String, can_upgrade: bool = true) -> Array:
+	if who == "":
+		return ["equip", "sell", "discard"]
+	var out: Array = [] if who == character_id else ["move"]
+	if can_upgrade:
+		out.append("upgrade")
+	out.append("unequip")
+	return out
+
+
+## Why a piece cannot be sold ("" when it can, or when the catalog has not loaded yet: Bán waits
+## for it): ever worn (isLocked), crafted, or no price.
+static func sell_block(piece: Dictionary, item: Dictionary, catalog: Variant) -> String:
+	if bool(piece.get("isLocked", false)):
+		return "Đã mặc nên không bán được"
+	if catalog == null or EquipmentModel.sell_price(item, catalog)["amount"] > 0:
+		return ""
+	return "Đồ chế tạo không bán được" if str(item.get("category", "")) == "crafted" else "Trang bị này không bán được"
 
 
 ## "Mốc nâng cấp": the +6 / +10 / +14 / +16 rows (UpgradeModel.milestone_rows) for a piece at
@@ -353,12 +389,12 @@ static func milestone_list(catalog: Variant, level: int) -> VBoxContainer:
 
 
 ## The upgrade level as a bar out of +16 with ticks at the milestones, filled in the level's
-## milestone colour (gold below +6).
+## level colour (green +1..+5, then the milestone colours).
 static func level_bar(level: int, width: float = 0.0) -> Control:
 	var c := Control.new()
 	c.custom_minimum_size = Vector2(width, 14)
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var fill := UpgradeModel.milestone_color(level) if level >= 6 else LEVEL
+	var fill := UpgradeModel.milestone_color(level) if level >= 1 else LEVEL
 	var k := clampf(float(level) / UpgradeModel.MAX_LEVEL, 0.0, 1.0)
 	c.draw.connect(func() -> void:
 		var r := Rect2(Vector2.ZERO, c.size)
@@ -434,15 +470,8 @@ static func _act(m: Modal, overlay: Control, action: String, piece_id: String, c
 	m.set_busy(false)
 	# The reload PlayerState started rebuilds the popup (with this message) when it lands.
 	for b in m.buttons():
-		if b.text != "Đóng" and not PlayerState.equipment_ready():
+		if not PlayerState.equipment_ready():
 			(b as Button).disabled = true
-
-
-## A second-row button: shorter, smaller text.
-static func _small(b: Button) -> Button:
-	b.custom_minimum_size = Vector2(250, 64)
-	b.add_theme_font_size_override("font_size", 24)
-	return b
 
 
 ## The Bán / Vứt confirmation over the piece popup `m`: the piece, what selling gives (`refund`)
@@ -521,7 +550,7 @@ static func _remove(c: Modal, m: Modal, overlay: Control, piece_id: String, piec
 		return
 	m.set_message(ErrorText.equipment_remove(res, sell) if res.code != "BUSY" else "Đang xử lý trang bị khác, hãy đợi")
 	for b in m.buttons():
-		if b.text != "Đóng" and not PlayerState.equipment_ready():
+		if not PlayerState.equipment_ready():
 			(b as Button).disabled = true
 	_release(m)
 

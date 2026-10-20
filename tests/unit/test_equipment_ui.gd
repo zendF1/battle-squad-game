@@ -1,6 +1,7 @@
 extends "res://tests/test_case.gd"
 ## The equipment widgets without "+N" outside the piece popup: icons and hexagons carry the
-## border aura only; the popup's milestone rows bright when reached, dimmed when not.
+## border aura only (from +1, green up to +5); the popup's milestone rows bright when reached,
+## dimmed when not; the popup's button sets and the sell reason.
 
 const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
 const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
@@ -28,12 +29,12 @@ static func auras(n: Node) -> Array:
 
 
 func test_icons_have_no_badge() -> void:
-	for lv in [0, 3, 6, 10, 16]:
+	for lv in [0, 1, 3, 5, 6, 10, 16]:
 		var icon := EquipmentUi.item_icon(ITEM, {"upgradeLevel": lv}, 74)
 		eq(labels(icon).size(), 0, "no +N text on the icon at +%d" % lv)
 		var a := auras(icon)
-		eq(a.size(), 1 if lv >= 6 else 0, "border aura from +6 (+%d)" % lv)
-		if lv >= 6:
+		eq(a.size(), 1 if lv >= 1 else 0, "border aura from +1 (+%d)" % lv)
+		if lv >= 1:
 			check(a[0].visible, "aura shown at +%d" % lv)
 			eq(a[0].shape, UpgradeAura.Shape.RECT, "rounded square round the icon")
 			eq(a[0].size, Vector2(74, 74), "kept inside the icon's box")
@@ -53,9 +54,18 @@ func test_auras_share_materials() -> void:
 	var c := UpgradeAura.inside(Vector2(232, 236), 6, 8.0, 13.0)
 	check(a.material == b.material, "one material per tier and shape")
 	check(a.material != c.material, "another tier, another material")
-	var d := UpgradeAura.inside(Vector2(232, 236), 5)
-	check(not d.visible, "hidden below +6")
-	for n in [a, b, c, d]:
+	var d := UpgradeAura.inside(Vector2(232, 236), 0)
+	check(not d.visible, "hidden at +0")
+	var g := UpgradeAura.inside(Vector2(232, 236), 3, 8.0, 13.0)
+	var g5 := UpgradeAura.inside(Vector2(232, 236), 5, 8.0, 13.0)
+	check(g.visible, "shown at +3")
+	check(g.material == g5.material, "+1..+5 share the green material")
+	check(g.material != c.material, "green is not the +6 sky blue")
+	eq(g.material.get_shader_parameter("tint"), U.milestone_color(3), "green tint")
+	check(float(g.material.get_shader_parameter("streaks")) <= 1.0, "at most one streak")
+	check(float(g.material.get_shader_parameter("speed")) < float(c.material.get_shader_parameter("speed")), "slower than sky blue")
+	check(float(g.material.get_shader_parameter("strength")) < float(c.material.get_shader_parameter("strength")), "the subtlest")
+	for n in [a, b, c, d, g, g5]:
 		n.free()
 
 
@@ -72,3 +82,23 @@ func test_milestone_list_rows() -> void:
 		check(texts.has("+6") and texts.has("+10% chỉ số") and texts.has("+100% chỉ số"), "level and bonus")
 		check(not texts.any(func(t): return t.begins_with("Hào quang")), "no aura names")
 		col.free()
+
+
+func test_piece_actions() -> void:
+	eq(EquipmentUi.piece_actions("rookie", "spark"), ["move", "upgrade", "unequip"], "worn by another: Chuyển cho, Nâng cấp, Tháo")
+	eq(EquipmentUi.piece_actions("spark", "spark"), ["upgrade", "unequip"], "worn by this one: Nâng cấp, Tháo")
+	eq(EquipmentUi.piece_actions("", "spark"), ["equip", "sell", "discard"], "not worn: Mặc cho, Bán, Vứt")
+	eq(EquipmentUi.piece_actions("rookie", "spark", false), ["move", "unequip"], "no Nâng cấp page")
+	for who in ["rookie", "spark"]:
+		var acts := EquipmentUi.piece_actions(who, "spark")
+		check(not acts.has("sell") and not acts.has("discard"), "a worn piece is not sold or thrown away (%s)" % who)
+
+
+func test_sell_block() -> void:
+	var cat := {"items": [], "sellRate": 0.25}
+	var normal := {"itemId": "x", "category": "normal", "priceCoin": 1000, "priceGem": 0}
+	eq(EquipmentUi.sell_block({"isLocked": false}, normal, cat), "", "sellable")
+	eq(EquipmentUi.sell_block({"isLocked": true}, normal, cat), "Đã mặc nên không bán được", "ever worn")
+	eq(EquipmentUi.sell_block({}, {"category": "crafted", "priceCoin": 0, "priceGem": 0}, cat), "Đồ chế tạo không bán được", "crafted")
+	eq(EquipmentUi.sell_block({}, {"category": "normal", "priceCoin": 0, "priceGem": 0}, cat), "Trang bị này không bán được", "no price")
+	eq(EquipmentUi.sell_block({}, normal, null), "", "the catalog loading: Bán waits, no reason")

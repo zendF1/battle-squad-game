@@ -2,7 +2,7 @@ extends Control
 ## "Nâng cấp" (lobby shortcut, the piece popup's Nâng cấp, Túi đồ → Nguyên liệu → Ghép đá): two
 ## tabs.
 ## - "Nâng cấp": left, the owned pieces (slot chips, worn first, "+N" and the name in the
-##   milestone colour, the aura from +6); centre, the selected piece big on its hexagon with its
+##   level colour, the aura from +1); centre, the selected piece big on its hexagon with its
 ##   aura, "+N → +N+1", its stats now → after (green change), the milestone this upgrade reaches or
 ##   the next one (with that milestone's aura as a preview) and what a failure does ("Thất bại: về
 ##   +6" / "giữ nguyên +3"); right, the player's stones by level (icon, power, owned, − n +),
@@ -382,7 +382,7 @@ func _piece_row(piece: Dictionary) -> Control:
 	var sub_label := LobbyUi.text(sub, 17, WORN_COLOR if who != "" else DIM)
 	sub_label.mouse_filter = MOUSE_FILTER_IGNORE
 	texts.add_child(sub_label)
-	var lv := LobbyUi.text(EquipmentModel.level_text(piece), 30, UpgradeModel.milestone_color(level) if level >= 6 else Color.WHITE, true)
+	var lv := LobbyUi.text(EquipmentModel.level_text(piece), 30, UpgradeModel.milestone_color(level), true)
 	lv.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lv.mouse_filter = MOUSE_FILTER_IGNORE
 	row.add_child(lv)
@@ -464,10 +464,10 @@ func _render_center() -> void:
 	steps.alignment = BoxContainer.ALIGNMENT_CENTER
 	steps.add_theme_constant_override("separation", 18)
 	_center.add_child(steps)
-	steps.add_child(LobbyUi.text("+%d" % level, 46, UpgradeModel.milestone_color(level) if level >= 6 else Color.WHITE, true))
+	steps.add_child(LobbyUi.text("+%d" % level, 46, UpgradeModel.milestone_color(level), true))
 	if not maxed:
 		steps.add_child(LobbyUi.icon("arrow_right", 40))
-		steps.add_child(LobbyUi.text("+%d" % (level + 1), 46, UpgradeModel.milestone_color(level + 1) if level + 1 >= 6 else LobbyUi.GOLD, true))
+		steps.add_child(LobbyUi.text("+%d" % (level + 1), 46, UpgradeModel.milestone_color(level + 1), true))
 	else:
 		steps.add_child(LobbyUi.text("TỐI ĐA", 30, LobbyUi.GOLD, true))
 
@@ -493,7 +493,7 @@ func _render_center() -> void:
 	# Milestone hint, with the milestone's aura as a preview.
 	var hint_text := UpgradeModel.milestone_hint(PlayerState.catalog, level)
 	if hint_text != "":
-		var target := level + 1 if UpgradeModel.MILESTONE_FROM.has(level + 1) else UpgradeModel.next_milestone(level + 1)
+		var target := level + 1 if UpgradeModel.is_milestone(level + 1) else UpgradeModel.next_milestone(level + 1)
 		var hint_row := HBoxContainer.new()
 		hint_row.alignment = BoxContainer.ALIGNMENT_CENTER
 		hint_row.add_theme_constant_override("separation", 10)
@@ -659,13 +659,13 @@ func _on_upgrade() -> void:
 	var data: Dictionary = res.data if res.data is Dictionary else {}
 	var success := bool(data.get("success", false))
 	var new_level := int(data.get("newLevel", level + 1 if success else level))
-	var crossed := success and UpgradeModel.milestone_tier(new_level) > UpgradeModel.milestone_tier(level)
+	var crossed := success and new_level > level and UpgradeModel.is_milestone(new_level)
 	if success:
-		_play_fx("milestone" if crossed else "success", UpgradeModel.milestone_color(new_level) if new_level >= 6 else LobbyUi.GOLD,
+		_play_fx("milestone" if crossed else "success", UpgradeModel.milestone_color(new_level) if new_level >= 1 else LobbyUi.GOLD,
 			null, "ĐẠT MỐC +%d!" % new_level if crossed else "THÀNH CÔNG!")
 		if crossed:
 			Ui.toast(overlay, "Đạt mốc +%d! %s +%d — hào quang %s" % [new_level, piece_name, new_level,
-				UpgradeModel.MILESTONE_WORDS[UpgradeModel.milestone_tier(new_level)]], 3.0)
+				UpgradeModel.TIER_WORDS[UpgradeModel.color_tier(new_level)]], 3.0)
 		else:
 			Ui.toast(overlay, "Nâng cấp thành công! %s +%d" % [piece_name, new_level], 2.5)
 	else:

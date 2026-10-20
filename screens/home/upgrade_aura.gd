@@ -3,8 +3,9 @@ extends ColorRect
 ## frame its icon sits in (the hexagon of the Nhân vật slots, the piece popup, the Nâng cấp centre
 ## and the Prep row; the rounded rectangle of the Túi đồ cards and of the list icons), with bright
 ## streaks running round the border, sparks drifting off it and a flickering, fire-like outer glow.
-## Brighter, faster, with more streaks and sparks per tier (UpgradeModel: +6 sky blue, +10 orange,
-## +14 purple, +16 red the strongest). Hidden below +6. The inside of the frame stays readable: the
+## Brighter, faster, with more streaks and sparks per tier (UpgradeModel: +1 green the subtlest, a
+## thin outline and one slow streak; +6 sky blue, +10 orange, +14 purple, +16 red the strongest).
+## Hidden at +0. The inside of the frame stays readable: the
 ## glow inward falls off within a few pixels.
 ##
 ## One shader for every aura: the signed distance to a rounded pointy-top hexagon or a rounded
@@ -43,6 +44,7 @@ uniform float pad = 0.12; // room for the outer glow, fraction of the smaller si
 uniform float radius = 0.08; // corner radius, fraction of the smaller side
 uniform float hex_fit = 0.975;
 uniform float strength = 0.7;
+uniform float line_scale = 1.0; // × the line's width (green: thinner)
 uniform float streaks = 1.0;
 uniform float sparks = 3.0;
 uniform float speed = 0.25; // laps per second of the streaks
@@ -96,7 +98,7 @@ void fragment() {
 	vec2 p = (UV - 0.5) * S;
 	float r = radius * m;
 	float d = shape > 0.5 ? sd_hex(p, b * hex_fit, r) : sd_box(p, b, r);
-	float w = max(1.1, m * 0.014); // the line's half width
+	float w = max(1.1, m * 0.014) * line_scale; // the line's half width
 	float sw = w * streak_width;
 	float reach_in = max(w * 6.0, sw * 2.6);
 	if (d < -reach_in) {
@@ -167,13 +169,17 @@ void fragment() {
 }
 """
 
-## Per milestone tier (1..4): colours (UpgradeModel.MILESTONE_COLORS for the line and streaks, a
+## Per colour tier (1..5): colours (UpgradeModel.TIER_COLORS for the line and streaks, a
 ## saturated flame for the glow, a thin hot core: never pure white, so red reads fire-red, not
 ## pink), how much of the background it covers, glow strength, streaks (count, length as a fraction of the
 ## perimeter, width, brightness, flame spilling off the frame), sparks, speed (laps / s), flicker.
-## Sky blue and orange stay subtle; purple and red get big, thick, fiery streaks.
+## Green the subtlest (thin, dim, one slow streak, one spark); sky blue and orange stay subtle;
+## purple and red get big, thick, fiery streaks.
 const LOOKS := [
 	{},
+	{"flame_tint": Color(0.22, 0.95, 0.3), "core_tint": Color(0.8, 1.0, 0.82), "cover": 0.32,
+		"strength": 0.5, "line_scale": 0.85, "streaks": 1.0, "tail": 0.07, "streak_width": 1.0, "streak_gain": 0.75,
+		"flame": 0.0, "sparks": 1.0, "speed": 0.14, "flicker": 0.2},
 	{"flame_tint": Color(0.18, 0.62, 1.0), "core_tint": Color(0.82, 0.96, 1.0), "cover": 0.35,
 		"strength": 0.6, "streaks": 1.0, "tail": 0.08, "streak_width": 1.1, "streak_gain": 0.9, "flame": 0.0,
 		"sparks": 2.0, "speed": 0.22, "flicker": 0.3},
@@ -246,13 +252,13 @@ func set_level(v: int) -> void:
 
 
 func _apply() -> void:
-	var tier := UpgradeModel.milestone_tier(level)
+	var tier := UpgradeModel.color_tier(level)
 	visible = tier > 0
 	if tier > 0:
 		material = material_for(tier, shape, pad, radius)
 
 
-## The shared material of a milestone tier (1..4), a shape and a fit.
+## The shared material of a colour tier (1..5), a shape and a fit.
 static func material_for(tier: int, frame_shape: Shape = Shape.HEX, at_pad: float = PAD, corner: float = 0.08) -> ShaderMaterial:
 	tier = clampi(tier, 1, LOOKS.size() - 1)
 	var key := "%d|%d|%.3f|%.3f" % [tier, frame_shape, at_pad, corner]
@@ -264,7 +270,7 @@ static func material_for(tier: int, frame_shape: Shape = Shape.HEX, at_pad: floa
 		_shader.code = SHADER_CODE
 	m = ShaderMaterial.new()
 	m.shader = _shader
-	m.set_shader_parameter("tint", UpgradeModel.MILESTONE_COLORS[tier])
+	m.set_shader_parameter("tint", UpgradeModel.TIER_COLORS[tier])
 	m.set_shader_parameter("shape", 1.0 if frame_shape == Shape.HEX else 0.0)
 	m.set_shader_parameter("pad", at_pad)
 	m.set_shader_parameter("radius", corner)

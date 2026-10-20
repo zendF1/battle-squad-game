@@ -9,8 +9,9 @@ extends RefCounted
 ##   rounded per item (crit stays a float) — EquipmentModel.upgraded();
 ## - merging: 2–4 stones of one level (1–11) give one stone of the next level with
 ##   count × mergeRatePerItem % (25 by default) chance; every stone put in is consumed.
-## Milestones colour a piece's aura, ring and name: +6..+9 sky blue, +10..+13 orange, +14..+15
-## purple, +16 red (the highest); below +6 the normal look.
+## The level colours a piece's aura, frame and name: +1..+5 green (the subtlest, no stat bonus),
+## +6..+9 sky blue, +10..+13 orange, +14..+15 purple, +16 red (the highest); +0 the normal look.
+## The stat-bonus milestones are +6 / +10 / +14 / +16 only.
 
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
@@ -24,45 +25,54 @@ const DEFAULT_MERGE_RATE := 25.0
 const MERGE_MIN := 2
 const MERGE_MAX := 4
 
-## Milestone tiers: 0 below +6, then 1 sky blue, 2 orange, 3 purple, 4 red.
-const MILESTONE_FROM := [0, 6, 10, 14, 16]
-const MILESTONE_COLORS := [
+## Colour tiers: 0 at +0 (normal look), then 1 green, 2 sky blue, 3 orange, 4 purple, 5 red, each
+## from TIER_FROM[t].
+const TIER_FROM := [0, 1, 6, 10, 14, 16]
+const TIER_COLORS := [
 	Color(1, 1, 1),
+	Color(0.18, 0.9, 0.42), # green (#2EE66B, emerald, not the sky blue of +6)
 	Color(0.36, 0.8, 1.0), # sky blue
 	Color(1.0, 0.6, 0.16), # orange
 	Color(0.66, 0.32, 1.0), # purple (violet, not lavender)
 	Color(1.0, 0.1, 0.1), # red (#FF1A1A, no pink)
 ]
-const MILESTONE_WORDS := ["", "xanh da trời", "cam", "tím", "đỏ"]
+const TIER_WORDS := ["", "xanh lá", "xanh da trời", "cam", "tím", "đỏ"]
+## The stat-bonus milestones (the catalog's upgradeMilestones): +6, +10, +14, +16 (index 0 unused).
+const MILESTONE_FROM := [0, 6, 10, 14, 16]
 ## How dim the piece popup draws a milestone not reached yet.
 const UNREACHED_ALPHA := 0.4
 
 
 # ── Milestones ──────────────────────────────────────────────────────────────
 
-## 0 below +6, 1 for +6..+9, 2 for +10..+13, 3 for +14..+15, 4 for +16.
-static func milestone_tier(level: int) -> int:
-	for t in range(MILESTONE_FROM.size() - 1, 0, -1):
-		if level >= MILESTONE_FROM[t]:
+## The colour tier of a level: 0 at +0, 1 for +1..+5, 2 for +6..+9, 3 for +10..+13, 4 for
+## +14..+15, 5 for +16.
+static func color_tier(level: int) -> int:
+	for t in range(TIER_FROM.size() - 1, 0, -1):
+		if level >= TIER_FROM[t]:
 			return t
 	return 0
 
 
-## The aura / ring / name colour of a level (white below +6).
+## The aura / frame / name colour of a level (white at +0).
 static func milestone_color(level: int) -> Color:
-	return MILESTONE_COLORS[milestone_tier(level)]
+	return TIER_COLORS[color_tier(level)]
 
 
-## The hexagon frame tint of a piece at `level`: its milestone colour mixed into white, plain
-## white below +6.
+## The hexagon frame tint of a piece at `level`: its colour mixed into white, plain white at +0.
 static func frame_tint(level: int) -> Color:
-	var t := milestone_tier(level)
-	return Color.WHITE if t == 0 else Color.WHITE.lerp(MILESTONE_COLORS[t], 0.6)
+	var t := color_tier(level)
+	return Color.WHITE if t == 0 else Color.WHITE.lerp(TIER_COLORS[t], 0.6)
 
 
-## The item name colour of a piece: its milestone colour, white below +6.
+## The item name colour of a piece: its level colour, white at +0.
 static func name_color(piece: Dictionary) -> Color:
 	return milestone_color(int(piece.get("upgradeLevel", 0)))
+
+
+## Whether `level` is a stat-bonus milestone (+6, +10, +14, +16).
+static func is_milestone(level: int) -> bool:
+	return level > 0 and MILESTONE_FROM.has(level)
 
 
 ## The milestone level a piece at `level` reaches next (6, 10, 14, 16), or -1 at +16.
@@ -83,11 +93,10 @@ static func milestone_bonus(catalog: Variant, level: int) -> float:
 
 ## "+6: +10% chỉ số, hào quang xanh da trời" (the milestone at `level`), "" when it is none.
 static func milestone_text(catalog: Variant, level: int) -> String:
-	var t := MILESTONE_FROM.find(level)
-	if t <= 0:
+	if not is_milestone(level):
 		return ""
 	return "+%d: +%s chỉ số, hào quang %s" % [level, BattleStats.format_chance(milestone_bonus(catalog, level) * 100.0),
-		MILESTONE_WORDS[t]]
+		TIER_WORDS[color_tier(level)]]
 
 
 ## The hint under "+N → +N+1": the milestone reached by this upgrade ("Đạt mốc +6: ..."), else
@@ -95,7 +104,7 @@ static func milestone_text(catalog: Variant, level: int) -> String:
 static func milestone_hint(catalog: Variant, level: int) -> String:
 	if level >= MAX_LEVEL:
 		return ""
-	if MILESTONE_FROM.has(level + 1):
+	if is_milestone(level + 1):
 		return "Đạt mốc " + milestone_text(catalog, level + 1)
 	var next := next_milestone(level + 1)
 	return "Mốc tiếp theo " + milestone_text(catalog, next) if next > 0 else ""
@@ -109,9 +118,10 @@ static func milestone_rows(catalog: Variant, level: int) -> Array:
 	for t in range(1, MILESTONE_FROM.size()):
 		var lv: int = MILESTONE_FROM[t]
 		var bonus := milestone_bonus(catalog, lv)
-		out.append({"level": lv, "tier": t, "color": MILESTONE_COLORS[t], "bonus": bonus,
+		var tier := color_tier(lv)
+		out.append({"level": lv, "tier": tier, "color": TIER_COLORS[tier], "bonus": bonus,
 			"bonus_text": "+%s chỉ số" % BattleStats.format_chance(bonus * 100.0),
-			"aura": "Hào quang " + MILESTONE_WORDS[t], "reached": level >= lv})
+			"aura": "Hào quang " + TIER_WORDS[tier], "reached": level >= lv})
 	return out
 
 
