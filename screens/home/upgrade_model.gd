@@ -99,15 +99,12 @@ static func milestone_text(catalog: Variant, level: int) -> String:
 		TIER_WORDS[color_tier(level)]]
 
 
-## The hint under "+N → +N+1": the milestone reached by this upgrade ("Đạt mốc +6: ..."), else
-## the next one ("Mốc tiếp theo +10: ..."), "" at +16.
-static func milestone_hint(catalog: Variant, level: int) -> String:
-	if level >= MAX_LEVEL:
+## The tag on the Nâng cấp page's next-level column when that level is a bonus milestone: "Đạt
+## mốc +6: +10% chỉ số" (no aura name: the column shows the aura), "" otherwise.
+static func milestone_tag(catalog: Variant, level: int) -> String:
+	if not is_milestone(level):
 		return ""
-	if is_milestone(level + 1):
-		return "Đạt mốc " + milestone_text(catalog, level + 1)
-	var next := next_milestone(level + 1)
-	return "Mốc tiếp theo " + milestone_text(catalog, next) if next > 0 else ""
+	return "Đạt mốc +%d: +%s chỉ số" % [level, BattleStats.format_chance(milestone_bonus(catalog, level) * 100.0)]
 
 
 ## The piece popup's "Mốc nâng cấp" rows for a piece at `level`, +6 / +10 / +14 / +16:
@@ -331,6 +328,20 @@ static func stat_steps(catalog: Variant, piece: Dictionary, mult: Dictionary = {
 			"now_points": _points(float(l["value"]), s["unit"]), "next_points": _points(float(n["value"]), s["unit"]),
 			"now_battle": _battle(l["battle"]), "next_battle": _battle(n["battle"])})
 	return out
+
+
+## The Nâng cấp page's centre: the piece now and after one more level side by side.
+## {maxed, columns: [{level, color, tag}] (now, then next unless at +16; next's tag
+## milestone_tag()), rows: stat_steps(), fail: fail_text() ("" at +16), note: "Đã đạt cấp tối đa"
+## at +16 else ""}.
+static func preview(catalog: Variant, piece: Dictionary, mult: Dictionary = {}) -> Dictionary:
+	var level := clampi(int(piece.get("upgradeLevel", 0)), 0, MAX_LEVEL)
+	var maxed := level >= MAX_LEVEL
+	var columns: Array = [{"level": level, "color": milestone_color(level), "tag": ""}]
+	if not maxed:
+		columns.append({"level": level + 1, "color": milestone_color(level + 1), "tag": milestone_tag(catalog, level + 1)})
+	return {"maxed": maxed, "columns": columns, "rows": stat_steps(catalog, piece, mult),
+		"fail": "" if maxed else fail_text(catalog, level), "note": "Đã đạt cấp tối đa" if maxed else ""}
 
 
 static func _points(v: float, unit: String) -> String:

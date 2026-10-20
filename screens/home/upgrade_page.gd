@@ -2,10 +2,12 @@ extends Control
 ## "Nâng cấp" (lobby shortcut, the piece popup's Nâng cấp, Túi đồ → Nguyên liệu → Ghép đá): two
 ## tabs.
 ## - "Nâng cấp": left, the owned pieces (slot chips, worn first, "+N" and the name in the
-##   level colour, the aura from +1); centre, the selected piece big on its hexagon with its
-##   aura, "+N → +N+1", its stats now → after (green change), the milestone this upgrade reaches or
-##   the next one (with that milestone's aura as a preview) and what a failure does ("Thất bại: về
-##   +6" / "giữ nguyên +3"); right, the player's stones by level (icon, power, owned, − n +),
+##   level colour, the aura from +1); centre, the selected piece's name, then the piece now and
+##   after one more level side by side (UpgradeModel.preview: each on its hexagon with that
+##   level's aura and tint, "+N" in its colour, its stats as points over the battle value, the
+##   gains in green on the right, "Đạt mốc +6: +10% chỉ số" when the next level is a bonus
+##   milestone; at +16 only the piece and "Đã đạt cấp tối đa") and what a failure does ("Thất
+##   bại: về +6" / "giữ nguyên +3"); right, the player's stones by level (icon, power, owned, − n +),
 ##   "Tự chọn" (the least power reaching the cap, UpgradeModel.auto_pick) / "Bỏ chọn", the
 ##   success chance bar "Tỉ lệ thành công 64% (tối đa 64%)", a warning when the stones go above the
 ##   cap, "Mua đá" (Shop → Đá nâng cấp) and NÂNG CẤP (off with the reason: no stones, +16, the
@@ -40,8 +42,10 @@ const SHOP_STONES := 2
 
 const LEFT_W := 430
 const RIGHT_W := 480
-const FRAME := Vector2(210, 242)
-const BIG_ICON := 150
+## The hexagons of the piece now and after the upgrade, side by side, and their columns' width.
+const FRAME := Vector2(136, 157)
+const BIG_ICON := 96
+const COL_W := 190
 const DIM := Color(0.8, 0.88, 1.0)
 const WARN := Color(1.0, 0.72, 0.3)
 const BAD := Color(1.0, 0.45, 0.45)
@@ -423,91 +427,95 @@ func _build_big_piece() -> void:
 
 
 func _render_center() -> void:
-	for c in _center.get_children():
-		if c != _big_holder:
-			_center.remove_child(c)
-			c.queue_free()
-	if _big_holder.get_parent() == null:
-		_center.add_child(_big_holder)
+	# The big piece holder survives (its aura keeps animating, the effects play on it): take it
+	# out of the old layout before that is freed.
+	if _big_holder.get_parent() != null:
+		_big_holder.get_parent().remove_child(_big_holder)
+	Ui.clear(_center)
 	var piece := _piece()
 	# The icon inside the frame (rebuilt: another piece or level).
 	for c in _frame.get_children():
 		c.queue_free()
 	if piece.is_empty():
 		_frame.self_modulate = Color(1, 1, 1, 0.35)
-		_center.move_child(_big_holder, 0)
+		_center.add_child(_big_holder)
 		var hint := LobbyUi.text("Chọn một trang bị bên trái" if PlayerState.equipment != null else "Đang tải...", 24, Ui.TEXT_DIM)
 		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_center.add_child(hint)
 		return
 	var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
 	var level := int(piece.get("upgradeLevel", 0))
-	var maxed := level >= UpgradeModel.MAX_LEVEL
 	_frame.self_modulate = UpgradeModel.frame_tint(level)
 	_frame.add_child(UpgradeAura.around_frame(FRAME, level)) # on the hexagon's edge
 	var icon := EquipmentUi.item_icon(item, {}, BIG_ICON)
-	icon.position = (FRAME - Vector2(BIG_ICON, BIG_ICON)) / 2.0 - Vector2(0, 6)
+	icon.position = (FRAME - Vector2(BIG_ICON, BIG_ICON)) / 2.0 - Vector2(0, 4)
 	_frame.add_child(icon)
 
 	var name_label := LobbyUi.text(EquipmentModel.display_name(item), 34, UpgradeModel.name_color(piece), true)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_center.add_child(name_label)
-	_center.move_child(name_label, 0)
 	var sub := "%s · %s" % [EquipmentModel.slot_name(str(item.get("slot", ""))), EquipmentModel.worn_text(piece) if EquipmentModel.wearer(piece) != "" else "Chưa mặc"]
 	var sub_label := LobbyUi.text(sub, 19, DIM)
 	sub_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_center.add_child(sub_label)
-	_center.move_child(sub_label, 1)
 
-	# "+5 → +6"
-	var steps := HBoxContainer.new()
-	steps.alignment = BoxContainer.ALIGNMENT_CENTER
-	steps.add_theme_constant_override("separation", 18)
-	_center.add_child(steps)
-	steps.add_child(LobbyUi.text("+%d" % level, 46, UpgradeModel.milestone_color(level), true))
-	if not maxed:
-		steps.add_child(LobbyUi.icon("arrow_right", 40))
-		steps.add_child(LobbyUi.text("+%d" % (level + 1), 46, UpgradeModel.milestone_color(level + 1), true))
-	else:
-		steps.add_child(LobbyUi.text("TỐI ĐA", 30, LobbyUi.GOLD, true))
-
-	# Stats now → after: points, with what they add in battle under them.
+	# The piece now | → | the piece after one more level (its next aura), each with its stats:
+	# one grid so the stat rows line up (label, now, arrow, next).
+	var view := UpgradeModel.preview(PlayerState.catalog, piece, EquipmentUi.multipliers())
+	var cols: Array = view["columns"]
+	var maxed: bool = view["maxed"]
 	var grid := GridContainer.new()
-	grid.columns = 5
-	grid.add_theme_constant_override("h_separation", 16)
+	grid.name = "Preview"
+	grid.columns = 2 if maxed else 4
+	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 6)
 	grid.size_flags_horizontal = SIZE_SHRINK_CENTER
 	_center.add_child(grid)
-	var mult := EquipmentUi.multipliers()
-	for s in UpgradeModel.stat_steps(PlayerState.catalog, piece, mult):
-		grid.add_child(LobbyUi.text(s["label"], 21, DIM))
-		grid.add_child(_stat_cell(s["now_points"], s["now_battle"]))
+	# Row 1: the hexagons.
+	grid.add_child(Control.new())
+	var now_holder := CenterContainer.new()
+	now_holder.custom_minimum_size.x = COL_W
+	now_holder.add_child(_big_holder)
+	grid.add_child(now_holder)
+	if not maxed:
+		var arrow := LobbyUi.icon("arrow_right", 36)
+		arrow.size_flags_vertical = SIZE_SHRINK_CENTER
+		grid.add_child(arrow)
+		var next_holder := CenterContainer.new()
+		next_holder.custom_minimum_size.x = COL_W
+		next_holder.name = "NextPiece"
+		next_holder.add_child(EquipmentUi.hex_frame(FRAME, int(cols[1]["level"]), EquipmentUi.item_icon(item, {}, BIG_ICON), 4))
+		grid.add_child(next_holder)
+	# Row 2: "+N" in each level's colour (and the milestone the next one reaches).
+	grid.add_child(Control.new())
+	for i in cols.size():
+		if i == 1:
+			grid.add_child(Control.new())
+		var cell := Ui.vbox(2)
+		cell.custom_minimum_size.x = COL_W
+		var lv := LobbyUi.text("+%d" % int(cols[i]["level"]), 40, cols[i]["color"] if int(cols[i]["level"]) > 0 else Color.WHITE, true)
+		lv.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cell.add_child(lv)
+		if cols[i]["tag"] != "":
+			# "Đạt mốc +6" over "+10% chỉ số", a little lighter than the level colour (red reads).
+			var tag := LobbyUi.text(str(cols[i]["tag"]).replace(": ", "\n"), 18, (cols[i]["color"] as Color).lightened(0.25), true)
+			tag.name = "MilestoneTag"
+			tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			cell.add_child(tag)
+		grid.add_child(cell)
+	# The stat rows: points with what they add in battle under them; the gains in green.
+	for r in view["rows"]:
+		grid.add_child(LobbyUi.text(r["label"], 21, DIM))
+		grid.add_child(_stat_cell(r["now_points"], r["now_battle"]))
 		if maxed:
-			for i in 3:
-				grid.add_child(Control.new())
 			continue
-		grid.add_child(LobbyUi.text("→", 21, DIM))
-		grid.add_child(_stat_cell(s["next_points"], s["next_battle"]))
-		grid.add_child(LobbyUi.text(s["delta"] if s["up"] else "", 19, GOOD, true))
-
-	# Milestone hint, with the milestone's aura as a preview.
-	var hint_text := UpgradeModel.milestone_hint(PlayerState.catalog, level)
-	if hint_text != "":
-		var target := level + 1 if UpgradeModel.is_milestone(level + 1) else UpgradeModel.next_milestone(level + 1)
-		var hint_row := HBoxContainer.new()
-		hint_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		hint_row.add_theme_constant_override("separation", 10)
-		_center.add_child(hint_row)
-		var dot := Control.new()
-		dot.custom_minimum_size = Vector2(48, 52)
-		dot.mouse_filter = MOUSE_FILTER_IGNORE
-		var hex := EquipmentUi.hex_frame(Vector2(36, 42), target)
-		hex.position = Vector2(6, 5)
-		dot.add_child(hex)
-		hint_row.add_child(dot)
-		var hl := LobbyUi.text(hint_text, 20, UpgradeModel.milestone_color(target), true)
-		hint_row.add_child(hl)
-	var fail := UpgradeModel.fail_text(PlayerState.catalog, level)
+		grid.add_child(Control.new())
+		grid.add_child(_stat_cell(r["next_points"], r["next_battle"], r["delta"] if r["up"] else ""))
+	if view["note"] != "":
+		var note := LobbyUi.text(view["note"], 24, LobbyUi.GOLD, true)
+		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_center.add_child(note)
+	var fail: String = view["fail"]
 	if fail != "":
 		var reset := not fail.contains("giữ nguyên")
 		var fl := LobbyUi.text(fail, 21, WARN if reset else DIM, reset)
@@ -515,12 +523,24 @@ func _render_center() -> void:
 		_center.add_child(fl)
 
 
-## "+440 điểm" over a dim "+22.000" (the battle value, left out when unknown).
-static func _stat_cell(points: String, battle: String) -> Control:
+## "+440 điểm" over a dim "+22.000" (the battle value, left out when unknown), centred in a
+## column; gain: the green "+2 điểm" after the battle value.
+static func _stat_cell(points: String, battle: String, gain: String = "") -> Control:
 	var cell := Ui.vbox(0)
-	cell.add_child(LobbyUi.text(points, 21, Color.WHITE, true))
-	if battle != "":
-		cell.add_child(LobbyUi.text(battle, 16, Ui.TEXT_DIM))
+	cell.custom_minimum_size.x = COL_W
+	var pl := LobbyUi.text(points, 21, Color.WHITE, true)
+	pl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cell.add_child(pl)
+	if battle != "" or gain != "":
+		var under := Ui.hbox(8)
+		under.alignment = BoxContainer.ALIGNMENT_CENTER
+		if battle != "":
+			under.add_child(LobbyUi.text(battle, 16, Ui.TEXT_DIM))
+		if gain != "":
+			var g := LobbyUi.text(gain, 17, GOOD, true)
+			g.name = "Gain"
+			under.add_child(g)
+		cell.add_child(under)
 	return cell
 
 
