@@ -58,6 +58,31 @@ func sample(i: int, t: float) -> Vector2:
 	return _vec(path[-1]["position"])
 
 
+## Projectile i's velocity at time t (px/s): the derivative of sample()'s Hermite curve (the
+## path's tangent; the recorded velocity at a sample, zero outside the path).
+func velocity(i: int, t: float) -> Vector2:
+	var path: Array = projectiles[i].get("path", [])
+	if path.size() < 2 or t < float(path[0]["time"]) or t > float(path[-1]["time"]):
+		return Vector2.ZERO
+	for k in range(path.size() - 1):
+		var a: Dictionary = path[k]
+		var b: Dictionary = path[k + 1]
+		var ta := float(a["time"])
+		var tb := float(b["time"])
+		if t > tb:
+			continue
+		var h := tb - ta
+		if h <= 0.0:
+			return _vec(b["velocity"]) if b.get("velocity") is Dictionary else Vector2.ZERO
+		var s := (t - ta) / h
+		var s2 := s * s
+		var va: Vector2 = _vec(a["velocity"]) if a.get("velocity") is Dictionary else Vector2.ZERO
+		var vb: Vector2 = _vec(b["velocity"]) if b.get("velocity") is Dictionary else Vector2.ZERO
+		return ((6.0 * s2 - 6.0 * s) * _vec(a["position"]) + (-6.0 * s2 + 6.0 * s) * _vec(b["position"])) / h \
+			+ (3.0 * s2 - 4.0 * s + 1.0) * va + (3.0 * s2 - 2.0 * s) * vb
+	return Vector2.ZERO
+
+
 ## Projectile i's velocity where its path starts (px/s), zero for an empty path.
 func start_velocity(i: int) -> Vector2:
 	var path: Array = projectiles[i].get("path", [])

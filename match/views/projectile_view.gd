@@ -1,7 +1,9 @@
 extends Node2D
 ## A shell in flight (moved by shot_player.gd), drawn the way the shooter's GUN fires it
 ## (match/views/shot_look.gd: `kind` = the bullet and its trail, `tier` = how grand), always
-## turned to its flight direction (the image flies towards +x; `heading` faces it before it moves):
+## turned to its flight direction (the image flies towards +x; `heading` faces it before it moves,
+## then the server path's tangent, set_tangent(), or else its last step; flying left it is flipped
+## vertically so its top stays on top, flipped()):
 ## - bazooka: a rocket with a flickering exhaust flame (assets/fx/common/muzzle.png) at its nozzle,
 ##   a short fiery line and puffs that start as fire and turn into grey smoke;
 ## - cannon: a heavy iron ball with a grey smoke trail;
@@ -30,6 +32,7 @@ const ShotLook := preload("res://match/views/shot_look.gd")
 
 const TRAIL := 10 # positions kept for the line trail
 const BOMB_PX := 2.0 # projectile image px per world px
+const TURN_RATE := 60.0 # 1/s: how fast the shell turns to the path's tangent (light smoothing)
 const CONTENT_ALPHA := 0.1 # a px with more alpha is part of the drawn shell (base_content())
 const SPARK := Vector2(-11, -3) # the bomb's fuse tip, world px from its centre (flying +x)
 const EXHAUST := Vector2(-13, 0) # the rocket's exhaust flame, world px from its centre (flying +x)
@@ -55,6 +58,7 @@ var item := ""
 ## The flight direction before the first move (shot_player.gd: the path's start velocity);
 ## zero: +x.
 var heading := Vector2.ZERO
+var _tangent := Vector2.ZERO # set_tangent()
 
 var _k: Dictionary # ShotLook.KINDS[kind]
 var _tl: Dictionary # ShotLook.TIERS[tier]
@@ -140,10 +144,13 @@ func _process(delta: float) -> void:
 	_t += delta
 	var p := global_position
 	var moved := 0.0
+	if _tangent.length_squared() > 0.0: # the path's own tangent (shot_player.gd), lightly smoothed
+		var a := lerp_angle(_dir.angle(), _tangent.angle(), 1.0 - exp(-TURN_RATE * delta))
+		_dir = Vector2.from_angle(a)
 	if _trail.is_empty() or p.distance_squared_to(_trail[-1]) > 0.25:
 		var v := p - _trail[-1] if not _trail.is_empty() else Vector2.ZERO
-		if v.length_squared() > 0.01:
-			_dir = v.normalized()
+		if v.length_squared() > 0.01 and _tangent.length_squared() == 0.0:
+			_dir = v.normalized() # no tangent given: the last step
 		moved = v.length()
 		_trail.append(p)
 		if _trail.size() > TRAIL:
@@ -204,9 +211,31 @@ func _emit(list: Array, spec: Dictionary, delta: float, at: Vector2, counter: St
 	return list
 
 
+## The flight direction at the path here (velocity, any length; shot_player.gd sets it every
+## frame from the server path): the shell turns to it (TURN_RATE smoothing) instead of following
+## its last step.
+func set_tangent(v: Vector2) -> void:
+	if v.length_squared() > 0.0:
+		if _tangent.length_squared() == 0.0 and heading.length_squared() == 0.0:
+			_dir = v.normalized() # the first one: no turn from +x
+		_tangent = v
+
+
+## The kind's spin (rad/s): none for a tier's own shell picture (the pointed seeds face their
+## flight like the rocket; the round basic pod keeps spinning).
+func spin_rate() -> float:
+	return 0.0 if _tier_body else float(_k["spin"])
+
+
 ## The projectile's drawn rotation (rad): its flight direction plus the kind's spin.
 func draw_angle() -> float:
-	return _dir.angle() + _t * float(_k["spin"])
+	return _dir.angle() + _t * spin_rate()
+
+
+## Whether the shell is drawn flipped vertically: flying left (a right-facing picture turned by
+## ~180° would be upside down: its top, fins, leaf and highlight kept on top); never a spinning one.
+func flipped() -> bool:
+	return _dir.x < 0.0 and spin_rate() == 0.0
 
 
 ## The shell's colour: the tier's own picture untinted (only an item's tint), the kind's
@@ -281,7 +310,7 @@ func _draw() -> void:
 	# The projectile.
 	var rot := draw_angle()
 	var pulse := 1.0 + (0.12 * sin(_t * 45.0) if _k["flicker"] else 0.0)
-	draw_set_transform(Vector2.ZERO, rot, Vector2.ONE * scale_k * pulse)
+	draw_set_transform(Vector2.ZERO, rot, Vector2(1.0, -1.0 if flipped() else 1.0) * scale_k * pulse)
 	var size := _body_size
 	var body := body_color()
 	if _exhaust: # behind the rocket: a flame stretched along the flight, flickering in length

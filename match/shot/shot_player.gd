@@ -63,6 +63,14 @@ func spawn_offset(i: int, t: float) -> Vector2:
 	return _spawn_offsets[i] * k * k
 
 
+## How fast projectile i's drawn offset changes at time t (px/s): the muzzle offset's ease.
+func spawn_offset_rate(i: int, t: float) -> Vector2:
+	if i >= _spawn_offsets.size() or t >= SPAWN_BLEND:
+		return Vector2.ZERO
+	var k := clampf(1.0 - t / SPAWN_BLEND, 0.0, 1.0)
+	return _spawn_offsets[i] * (-2.0 * k / SPAWN_BLEND)
+
+
 ## Drops the replay without emitting the remaining events (a full snapshot replaces it).
 func stop() -> void:
 	for view in _views:
@@ -88,6 +96,7 @@ func _process(delta: float) -> void:
 			_views[i] = null
 		else:
 			view.position = _timeline.sample(i, _t) + spawn_offset(i, _t)
+			view.set_tangent(_timeline.velocity(i, _t) + spawn_offset_rate(i, _t)) # the nose follows the curve
 	var timeline = _timeline
 	for event in timeline.pop_due(_t):
 		event_due.emit(event)

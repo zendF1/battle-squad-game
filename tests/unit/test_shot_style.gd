@@ -455,3 +455,83 @@ func _check_tier_shells(kind: String) -> void:
 		var v := _flier(kind, tier)
 		check(not v._tier_body, "%s %s keeps projectile.png" % [kind, tier])
 		v.free()
+
+
+## A ShotResolved-like timeline of one ballistic shell: start p0, velocity v0, gravity g, samples
+## every 0.05 s for `dur` s.
+func _arc(p0: Vector2, v0: Vector2, g: float, dur: float) -> Dictionary:
+	var path: Array = []
+	var t := 0.0
+	while t <= dur + 1e-6:
+		var p := p0 + v0 * t + Vector2(0, 0.5 * g * t * t)
+		var v := v0 + Vector2(0, g * t)
+		path.append({"time": t, "position": {"x": p.x, "y": p.y}, "velocity": {"x": v.x, "y": v.y}})
+		t += 0.05
+	return {"duration": dur, "projectiles": [{"projectileId": "p1", "path": path}], "events": []}
+
+
+## Replayed by shot_player.gd along a real arc, the shell's nose follows the path's tangent going
+## up, at the apex and coming down, both ways; flying left it is flipped so its top stays on top.
+func test_nose_follows_the_curve() -> void:
+	var ShotTimeline := preload("res://match/shot/shot_timeline.gd")
+	var ShotPlayer := preload("res://match/shot/shot_player.gd")
+	var g := 900.0
+	for side in [1.0, -1.0]:
+		for shot in [Vector2(300, -650), Vector2(620, -250)]: # a high lob, a flatter shot
+			var v0 := Vector2(shot.x * side, shot.y)
+			var apex := -v0.y / g
+			var tl := ShotTimeline.new(_arc(Vector2(500, 600), v0, g, apex * 2.0))
+			for kind_tier in [["bazooka", "dragon"], ["seed_launcher", "mithril"], ["blaster", "basic"], ["bazooka", "basic"]]:
+				var sp := ShotPlayer.new()
+				var layer := Node2D.new()
+				sp.layer = layer
+				sp.style = {"kind": kind_tier[0], "tier": kind_tier[1], "skill": false, "item": ""}
+				sp.play(tl)
+				var v: Node2D = layer.get_child(0)
+				v._ready()
+				var dt := 1.0 / 60.0
+				var t := 0.0
+				var checks := {0.25 * apex: "up", apex: "apex", 1.75 * apex: "down"}
+				var label := "%s %s %s %s" % [kind_tier[0], kind_tier[1], "lob" if shot.y < -400 else "flat", "right" if side > 0 else "left"]
+				var seen := 0
+				while t < apex * 1.8:
+					t += dt
+					sp._process(dt)
+					v._process(dt)
+					for at in checks:
+						if absf(t - at) < dt * 0.5:
+							seen += 1
+							var want := (v0 + Vector2(0, g * t)).angle()
+							var got: float = v._dir.angle()
+							check(absf(wrapf(got - want, -PI, PI)) < deg_to_rad(4.0), "%s %s: nose %.1f° vs path %.1f°" % [label, checks[at], rad_to_deg(got), rad_to_deg(want)])
+							if v.spin_rate() == 0.0:
+								near(wrapf(v.draw_angle() - want, -PI, PI), 0.0, deg_to_rad(4.0), "%s %s: drawn angle" % [label, checks[at]])
+				eq(seen, 3, "%s: up, apex and down checked" % label)
+				eq(v.flipped(), side < 0.0 and v.spin_rate() == 0.0, "%s: flipped when flying left" % label)
+				sp.stop()
+				sp.free()
+				layer.free()
+
+
+## The pointed per-tier seeds face their flight (no spin); the round basic pod keeps spinning;
+## a shell flying left is drawn flipped vertically (never a spinning one).
+func test_seed_spin_and_flip() -> void:
+	var seed := _flier("seed_launcher", "mithril")
+	check(seed._tier_body, "the mithril seed picture is in")
+	eq(seed.spin_rate(), 0.0, "a per-tier seed does not spin")
+	seed._process(0.5)
+	near(seed.draw_angle(), 0.0, 1e-5, "it faces its flight")
+	var pod := _flier("seed_launcher", "basic")
+	eq(pod.spin_rate(), float(ShotLook.KINDS["seed_launcher"]["spin"]), "the basic pod spins")
+	var left := _flier("bazooka", "iron")
+	left.heading = Vector2(-1, 0.2)
+	left._ready()
+	check(left.flipped(), "flying left: flipped")
+	left.heading = Vector2(1, 0.2)
+	left._ready()
+	check(not left.flipped(), "flying right: not flipped")
+	pod.heading = Vector2(-1, 0)
+	pod._ready()
+	check(not pod.flipped(), "a spinning pod is never flipped")
+	for v in [seed, pod, left]:
+		v.free()
