@@ -8,13 +8,14 @@ extends Control
 ##   gains in green on the right; at +16 only the piece, centred, and "Đã đạt cấp tối đa") and
 ##   what a failure does ("Thất bại: về +6" / "giữ nguyên +3"), all centred in the panel; right, the player's stones by level (icon, power, owned, − n +),
 ##   "Tự chọn" (the least power reaching the cap, UpgradeModel.auto_pick; a weapon needs ×3 power) /
-##   "Bỏ chọn", the success chance bar "Tỉ lệ thành công 64% (tối đa 64%)", a warning when the
-##   stones go above the cap, the "Nâng cấp cẩn thận +40%  [gem] 120" toggle (hidden when the step
-##   has none; off with "Thiếu kim cương" when the gems do not cover it; on: the chance is the
-##   stones' × 1.4, the bar shows the stone part in gold and the careful part in gem cyan, the
-##   button shows the gem price and a confirmation names the spend; it stays on between rolls and
+##   "Bỏ chọn", the success chance bar "Tỉ lệ thành công 64% (tối đa 64%)", the "Nâng cấp cẩn
+##   thận  [gem] 120" toggle (hidden when the step has none; off with "Thiếu kim cương" when the
+##   gems do not cover it; on: "Tỉ lệ thành công 28%" (the stones' chance × the step's bonus), the
+##   bar shows the stone part in gold and the careful part in gem cyan, the button shows the gem
+##   price and "Dùng 120 kim cương cho nâng cấp cẩn thận?" confirms; it stays on between rolls and
 ##   turns off when another piece is picked), "Mua đá" (Shop → Đá nâng cấp) and NÂNG CẤP (off with
-##   the reason: no stones, +16, not enough gems for careful, the equipment or stones reloading). The result plays on the piece (success: flash, rings and
+##   the reason under it: no stones, +16, not enough gems for careful, the equipment or stones
+##   reloading; nothing under it when it can be pressed). The result plays on the piece (success: flash, rings and
 ##   sparkles, a bigger burst in the new colour when it reaches a milestone; failure: red flash,
 ##   shake, smoke) with a toast; the piece and the stones reload (PlayerState).
 ## - "Ghép đá": pick a level (1–11, owned counts), 2 / 3 / 4 stones, "4 × Đá cấp 3 → 1 × Đá cấp
@@ -56,6 +57,10 @@ const BAD := Color(1.0, 0.45, 0.45)
 const GOOD := Color(0.45, 0.9, 0.55)
 ## The careful part of the chance bar and the toggle's accent (the gem's cyan).
 const GEM_CYAN := Color(0.3, 0.9, 1.0)
+const CAREFUL_TITLE := "Nâng cấp cẩn thận"
+## The careful toggle's height: the title alone, or over the red "Thiếu kim cương".
+const CAREFUL_H := 48
+const CAREFUL_H_SHORT := 58
 
 ## Where dialogs and toasts go (Home); defaults to this page.
 var overlay: Control
@@ -88,7 +93,6 @@ var _careful_price: Label
 var _go_text: HBoxContainer # NÂNG CẤP [gem] 120 when careful is on
 var _go_price: Label
 var _chance: Label
-var _waste: Label
 var _go: Button
 var _reason: Label
 var _auto: Button
@@ -319,10 +323,6 @@ func _build_upgrade_page() -> Control:
 	_chance_bar.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	bars.add_child(_chance_bar)
 	rcol.add_child(_build_careful())
-	_waste = LobbyUi.text("", 18, WARN)
-	_waste.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_waste.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	rcol.add_child(_waste)
 	_go = LobbyUi.start_button("NÂNG CẤP")
 	_go.custom_minimum_size = Vector2(0, 84)
 	_go.add_theme_font_size_override("font_size", 34)
@@ -354,12 +354,12 @@ func _build_upgrade_page() -> Control:
 	return row
 
 
-## The "Nâng cấp cẩn thận +40%   [gem] 120" toggle: a check, the title over a short line (what it
-## does, or "Thiếu kim cương"), the step's gem price on the right. _render_chance() fills it.
+## The "Nâng cấp cẩn thận   [gem] 120" toggle: a check, the title (over a red "Thiếu kim cương"
+## when the gems do not cover it), the step's gem price on the right. _render_chance() fills it.
 func _build_careful() -> Button:
 	_careful_btn = Button.new()
 	_careful_btn.name = "Careful"
-	_careful_btn.custom_minimum_size = Vector2(0, 58)
+	_careful_btn.custom_minimum_size = Vector2(0, CAREFUL_H)
 	_careful_btn.focus_mode = FOCUS_NONE
 	_careful_btn.pressed.connect(_on_careful)
 	var row := Ui.hbox(10)
@@ -382,10 +382,11 @@ func _build_careful() -> Button:
 	texts.size_flags_horizontal = SIZE_EXPAND_FILL
 	texts.mouse_filter = MOUSE_FILTER_IGNORE
 	row.add_child(texts)
-	_careful_title = LobbyUi.text("", 21, Color.WHITE, true)
+	_careful_title = LobbyUi.text(CAREFUL_TITLE, 21, Color.WHITE, true)
 	_careful_title.mouse_filter = MOUSE_FILTER_IGNORE
 	texts.add_child(_careful_title)
-	_careful_sub = LobbyUi.text("", 15, DIM)
+	_careful_sub = LobbyUi.text("", 15, BAD)
+	_careful_sub.visible = false
 	_careful_sub.mouse_filter = MOUSE_FILTER_IGNORE
 	texts.add_child(_careful_sub)
 	var gem := LobbyUi.icon("gem", 30)
@@ -750,8 +751,6 @@ func _render_chance() -> void:
 	_chance.text = UpgradeModel.chance_text(c) if rated else "Tỉ lệ thành công —"
 	_chance_bar.value = c["stone"] / 100.0 if rated else 0.0
 	_careful_bar.value = c["percent"] / 100.0 if rated and c["careful"] else 0.0
-	_waste.text = UpgradeModel.waste_text(c) if rated else ""
-	_waste.visible = _waste.text != ""
 	_render_careful(piece, c)
 	var reason := _upgrade_reason(piece)
 	_go.disabled = reason != ""
@@ -759,8 +758,8 @@ func _render_chance() -> void:
 	_go_text.visible = c["careful"]
 	_go_text.modulate = Color(1, 1, 1, 0.5 if _go.disabled else 1.0)
 	_go_price.text = Fmt.thousands(int(c["gem"]))
-	_reason.text = reason if reason != "" else ("Đá bỏ vào sẽ bị tiêu hết dù thành công hay thất bại")
-	_reason.add_theme_color_override("font_color", Ui.TEXT_DIM)
+	_reason.text = reason
+	_reason.visible = reason != "" # only why the button is off; the stone list takes the room
 	_auto.disabled = piece.is_empty() or _owned().is_empty() or _acting or not rated
 	_clear.disabled = _picked.is_empty() or _acting
 
@@ -788,14 +787,10 @@ func _render_careful(piece: Dictionary, c: Dictionary) -> void:
 	var box: PanelContainer = _careful_check.get_parent()
 	box.add_theme_stylebox_override("panel", LobbyUi.box(GEM_CYAN if on else Color(0, 0, 0, 0.35), 8, 3, Color(1, 1, 1, 0.5) if not on else GEM_CYAN, 2))
 	_careful_check.modulate = Color(0.04, 0.1, 0.2) if on else Color(1, 1, 1, 0)
-	_careful_title.text = UpgradeModel.careful_label(cf["bonus"])
 	_careful_title.add_theme_color_override("font_color", GEM_CYAN if on else (Ui.TEXT_DIM if short else Color.WHITE))
-	if short:
-		_careful_sub.text = "Thiếu kim cương — chạm để tắt" if on else "Thiếu kim cương"
-		_careful_sub.add_theme_color_override("font_color", BAD)
-	else:
-		_careful_sub.text = "Tỉ lệ %s · kim cương trừ cả khi thất bại" % UpgradeModel.factor_text(cf["bonus"])
-		_careful_sub.add_theme_color_override("font_color", DIM)
+	_careful_sub.text = ("Thiếu kim cương — chạm để tắt" if on else "Thiếu kim cương") if short else ""
+	_careful_sub.visible = short
+	_careful_btn.custom_minimum_size.y = CAREFUL_H_SHORT if short else CAREFUL_H
 	_careful_price.text = Fmt.thousands(int(cf["gem"]))
 	_careful_price.add_theme_color_override("font_color", BAD if short else Color.WHITE)
 
@@ -826,7 +821,7 @@ func _on_upgrade() -> void:
 	_run_upgrade(false)
 
 
-## Careful costs gems: a confirmation names the spend and the chance first.
+## Careful costs gems: a confirmation names the step's gem price first.
 func _confirm_careful(c: Dictionary) -> void:
 	var m := Modal.new()
 	m.open(overlay, "Nâng cấp cẩn thận")

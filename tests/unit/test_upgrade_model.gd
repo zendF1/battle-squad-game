@@ -126,8 +126,6 @@ func test_percent_and_cap() -> void:
 	ch = U.chance(c, 8, {7: 1})
 	eq(ch["percent"], 45.0, "729 × 100 / 1200 = 60.75 capped at 45")
 	check(ch["wasted"], "above the cap is waste")
-	eq(U.waste_text(ch), "Dư đá: 60.8% > tối đa 45%, phần dư bị mất", "waste warning")
-	eq(U.waste_text(U.chance(c, 8, {6: 1})), "", "no warning below the cap")
 	eq(U.chance(c, 4, {4: 1, 1: 0, 2: -3})["power"], 27, "zero and negative quantities count 0")
 	eq(U.chance(c, 16, {1: 5})["max"], 0.0, "no rate at +16")
 
@@ -336,10 +334,6 @@ func test_careful_percent_matches_the_server() -> void:
 	eq(U.careful_percent(13.5, 30.0), 17.55, "weapon ×3 careful")
 	eq(U.careful_percent(56.0, 30.0), 72.8, "+6→+7 capped stones × 1.3")
 	eq(U.careful_percent(10.0, 0.0), 10.0, "no bonus")
-	eq(U.factor_text(40.0), "×1.4", "factor")
-	eq(U.factor_text(50.0), "×1.5", "factor 1.5")
-	eq(U.factor_text(25.0), "×1.25", "two decimals")
-	eq(U.factor_text(100.0), "×2", "whole factor")
 
 
 func test_careful_step_and_fallback() -> void:
@@ -376,9 +370,8 @@ func test_careful_chance() -> void:
 	var on := U.chance(c, 13, {9: 2}, "armor", true)
 	eq([on["percent"], on["stone"], on["careful"], on["gem"], on["bonus"]], [28.0, 20.0, true, 120, 40.0], "careful on")
 	check(on["wasted"], "the stones still go above the cap")
-	eq(U.chance_text(on), "Tỉ lệ thành công 28% (20% ×1.4)", "on line")
-	eq(U.careful_label(on["bonus"]), "Nâng cấp cẩn thận +40%", "toggle title")
-	eq(U.careful_confirm_text(on), "Dùng 120 kim cương cho Nâng cấp cẩn thận?\nTỉ lệ thành công 20% → 28%.\nKim cương bị trừ dù thành công hay thất bại.", "confirmation")
+	eq(U.chance_text(on), "Tỉ lệ thành công 28%", "on line: the final chance only")
+	eq(U.careful_confirm_text(on), "Dùng 120 kim cương cho nâng cấp cẩn thận?", "confirmation: the price only")
 	eq(U.chance(c, 15, {11: 1}, "armor", true)["percent"], 15.0, "+15→+16: 10% → 15%")
 	eq(U.chance(c, 9, {9: 1}, "armor", true)["percent"], 52.0, "+9→+10: 40% → 52%")
 	c["upgradeRates"][13]["carefulGemCost"] = 0

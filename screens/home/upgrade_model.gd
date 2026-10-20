@@ -232,16 +232,6 @@ static func careful_percent(stone_percent: float, bonus: float) -> float:
 	return minf(round(stone_percent * (1.0 + bonus / 100.0) * 100.0) / 100.0, 100.0)
 
 
-## "×1.4" (the careful factor of a relative bonus %).
-static func factor_text(bonus: float) -> String:
-	var t := "%.2f" % snappedf(1.0 + bonus / 100.0, 0.01)
-	while t.ends_with("0"):
-		t = t.substr(0, t.length() - 1)
-	if t.ends_with("."):
-		t = t.substr(0, t.length() - 1)
-	return "×" + t
-
-
 ## The chance of picked stones for a piece in `slot` at `level`: {percent (what the server rolls),
 ## stone (the stones' part, capped), max, raw, power, cost (effective: upgradeCost × mult), mult,
 ## wasted, careful (on and offered), bonus, gem}. wasted: the stones' chance is above the cap, the
@@ -271,31 +261,16 @@ static func needed_power(cost: float, max_percent: float) -> int:
 	return maxi(p, 1)
 
 
-## "Tỉ lệ thành công 64% (tối đa 64%)"; careful: "Tỉ lệ thành công 28% (20% ×1.4)".
+## "Tỉ lệ thành công 64% (tối đa 64%)"; careful: "Tỉ lệ thành công 28%" (the final chance only).
 static func chance_text(c: Dictionary) -> String:
 	if c.get("careful", false):
-		return "Tỉ lệ thành công %s (%s %s)" % [BattleStats.format_chance(c["percent"]), BattleStats.format_chance(c["stone"]),
-			factor_text(c["bonus"])]
+		return "Tỉ lệ thành công %s" % BattleStats.format_chance(c["percent"])
 	return "Tỉ lệ thành công %s (tối đa %s)" % [BattleStats.format_chance(c["percent"]), BattleStats.format_chance(c["max"])]
 
 
-## The careful toggle row: "Nâng cấp cẩn thận +40%".
-static func careful_label(bonus: float) -> String:
-	return "Nâng cấp cẩn thận +%s" % BattleStats.format_chance(bonus)
-
-
-## The careful upgrade confirmation: "Dùng 120 kim cương cho Nâng cấp cẩn thận?\nTỉ lệ thành
-## công 20% → 28%.\nKim cương bị trừ dù thành công hay thất bại."
+## The careful upgrade confirmation: "Dùng 120 kim cương cho nâng cấp cẩn thận?" (the step's price).
 static func careful_confirm_text(c: Dictionary) -> String:
-	return "Dùng %s kim cương cho Nâng cấp cẩn thận?\nTỉ lệ thành công %s → %s.\nKim cương bị trừ dù thành công hay thất bại." % [
-		Fmt.thousands(int(c["gem"])), BattleStats.format_chance(c["stone"]), BattleStats.format_chance(c["percent"])]
-
-
-## "Dư đá: 135% > tối đa 56%, phần dư bị mất" when the stones go above the cap, "" otherwise.
-static func waste_text(c: Dictionary) -> String:
-	if not c["wasted"]:
-		return ""
-	return "Dư đá: %s > tối đa %s, phần dư bị mất" % [BattleStats.format_chance(c["raw"]), BattleStats.format_chance(c["max"])]
+	return "Dùng %s kim cương cho nâng cấp cẩn thận?" % Fmt.thousands(int(c["gem"]))
 
 
 ## "Tự chọn": the stones (from owned {stoneLevel: quantity}) with the least total power that still
