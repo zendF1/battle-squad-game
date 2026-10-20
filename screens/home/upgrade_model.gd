@@ -99,14 +99,6 @@ static func milestone_text(catalog: Variant, level: int) -> String:
 		TIER_WORDS[color_tier(level)]]
 
 
-## The tag on the Nâng cấp page's next-level column when that level is a bonus milestone: "Đạt
-## mốc +6: +10% chỉ số" (no aura name: the column shows the aura), "" otherwise.
-static func milestone_tag(catalog: Variant, level: int) -> String:
-	if not is_milestone(level):
-		return ""
-	return "Đạt mốc +%d: +%s chỉ số" % [level, BattleStats.format_chance(milestone_bonus(catalog, level) * 100.0)]
-
-
 ## The piece popup's "Mốc nâng cấp" rows for a piece at `level`, +6 / +10 / +14 / +16:
 ## [{level, tier, color, bonus (fraction), bonus_text "+10% chỉ số", aura "Hào quang xanh da
 ## trời", reached}]; bonuses from the catalog's upgradeMilestones (defaults before it loads).
@@ -331,15 +323,15 @@ static func stat_steps(catalog: Variant, piece: Dictionary, mult: Dictionary = {
 
 
 ## The Nâng cấp page's centre: the piece now and after one more level side by side.
-## {maxed, columns: [{level, color, tag}] (now, then next unless at +16; next's tag
-## milestone_tag()), rows: stat_steps(), fail: fail_text() ("" at +16), note: "Đã đạt cấp tối đa"
-## at +16 else ""}.
+## {maxed, columns: [{level, color}] (now, then next unless at +16), rows: stat_steps(), fail:
+## fail_text() ("" at +16), note: "Đã đạt cấp tối đa" at +16 else ""}. No milestone text: the
+## next column's aura shows it.
 static func preview(catalog: Variant, piece: Dictionary, mult: Dictionary = {}) -> Dictionary:
 	var level := clampi(int(piece.get("upgradeLevel", 0)), 0, MAX_LEVEL)
 	var maxed := level >= MAX_LEVEL
-	var columns: Array = [{"level": level, "color": milestone_color(level), "tag": ""}]
+	var columns: Array = [{"level": level, "color": milestone_color(level)}]
 	if not maxed:
-		columns.append({"level": level + 1, "color": milestone_color(level + 1), "tag": milestone_tag(catalog, level + 1)})
+		columns.append({"level": level + 1, "color": milestone_color(level + 1)})
 	return {"maxed": maxed, "columns": columns, "rows": stat_steps(catalog, piece, mult),
 		"fail": "" if maxed else fail_text(catalog, level), "note": "Đã đạt cấp tối đa" if maxed else ""}
 

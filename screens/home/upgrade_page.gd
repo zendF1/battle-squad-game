@@ -5,9 +5,8 @@ extends Control
 ##   level colour, the aura from +1); centre, the selected piece's name, then the piece now and
 ##   after one more level side by side (UpgradeModel.preview: each on its hexagon with that
 ##   level's aura and tint, "+N" in its colour, its stats as points over the battle value, the
-##   gains in green on the right, "Đạt mốc +6: +10% chỉ số" when the next level is a bonus
-##   milestone; at +16 only the piece and "Đã đạt cấp tối đa") and what a failure does ("Thất
-##   bại: về +6" / "giữ nguyên +3"); right, the player's stones by level (icon, power, owned, − n +),
+##   gains in green on the right; at +16 only the piece, centred, and "Đã đạt cấp tối đa") and
+##   what a failure does ("Thất bại: về +6" / "giữ nguyên +3"), all centred in the panel; right, the player's stones by level (icon, power, owned, − n +),
 ##   "Tự chọn" (the least power reaching the cap, UpgradeModel.auto_pick) / "Bỏ chọn", the
 ##   success chance bar "Tỉ lệ thành công 64% (tối đa 64%)", a warning when the stones go above the
 ##   cap, "Mua đá" (Shop → Đá nâng cấp) and NÂNG CẤP (off with the reason: no stones, +16, the
@@ -262,7 +261,7 @@ func _build_upgrade_page() -> Control:
 	center.size_flags_horizontal = SIZE_EXPAND_FILL
 	row.add_child(center)
 	_center = Ui.vbox(10)
-	_center.alignment = BoxContainer.ALIGNMENT_BEGIN
+	_center.alignment = BoxContainer.ALIGNMENT_CENTER # the content in the middle of the panel
 	center.add_child(_center)
 	_build_big_piece()
 
@@ -460,57 +459,67 @@ func _render_center() -> void:
 	_center.add_child(sub_label)
 
 	# The piece now | → | the piece after one more level (its next aura), each with its stats:
-	# one grid so the stat rows line up (label, now, arrow, next).
+	# one grid so the stat rows line up (now, the stat name under the arrow, next). At +16 the one piece, its "+16"
+	# and its stats are each centred in the panel.
 	var view := UpgradeModel.preview(PlayerState.catalog, piece, EquipmentUi.multipliers())
 	var cols: Array = view["columns"]
-	var maxed: bool = view["maxed"]
-	var grid := GridContainer.new()
-	grid.name = "Preview"
-	grid.columns = 2 if maxed else 4
-	grid.add_theme_constant_override("h_separation", 12)
-	grid.add_theme_constant_override("v_separation", 6)
-	grid.size_flags_horizontal = SIZE_SHRINK_CENTER
-	_center.add_child(grid)
-	# Row 1: the hexagons.
-	grid.add_child(Control.new())
-	var now_holder := CenterContainer.new()
-	now_holder.custom_minimum_size.x = COL_W
-	now_holder.add_child(_big_holder)
-	grid.add_child(now_holder)
-	if not maxed:
-		var arrow := LobbyUi.icon("arrow_right", 36)
-		arrow.size_flags_vertical = SIZE_SHRINK_CENTER
-		grid.add_child(arrow)
+	if view["maxed"]:
+		var holder := CenterContainer.new()
+		holder.name = "MaxPiece"
+		holder.add_child(_big_holder)
+		_center.add_child(holder)
+		var lv_max := LobbyUi.text("+%d" % int(cols[0]["level"]), 40, cols[0]["color"], true)
+		lv_max.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_center.add_child(lv_max)
+		var stats := GridContainer.new()
+		stats.name = "Preview"
+		stats.columns = 2
+		stats.add_theme_constant_override("h_separation", 16)
+		stats.add_theme_constant_override("v_separation", 6)
+		stats.size_flags_horizontal = SIZE_SHRINK_CENTER
+		_center.add_child(stats)
+		for r in view["rows"]:
+			stats.add_child(LobbyUi.text(r["label"], 21, DIM))
+			stats.add_child(_stat_cell(r["now_points"], r["now_battle"], "", false))
+	else:
+		# now | label (the arrow over it) | next: symmetric, so the pair sits in the panel's middle.
+		var grid := GridContainer.new()
+		grid.name = "Preview"
+		grid.columns = 3
+		grid.add_theme_constant_override("h_separation", 12)
+		grid.add_theme_constant_override("v_separation", 6)
+		grid.size_flags_horizontal = SIZE_SHRINK_CENTER
+		_center.add_child(grid)
+		# Row 1: the hexagons.
+		var now_holder := CenterContainer.new()
+		now_holder.custom_minimum_size.x = COL_W
+		now_holder.add_child(_big_holder)
+		grid.add_child(now_holder)
+		var arrow_box := CenterContainer.new()
+		arrow_box.add_child(LobbyUi.icon("arrow_right", 36))
+		grid.add_child(arrow_box)
 		var next_holder := CenterContainer.new()
 		next_holder.custom_minimum_size.x = COL_W
 		next_holder.name = "NextPiece"
 		next_holder.add_child(EquipmentUi.hex_frame(FRAME, int(cols[1]["level"]), EquipmentUi.item_icon(item, {}, BIG_ICON), 4))
 		grid.add_child(next_holder)
-	# Row 2: "+N" in each level's colour (and the milestone the next one reaches).
-	grid.add_child(Control.new())
-	for i in cols.size():
-		if i == 1:
-			grid.add_child(Control.new())
-		var cell := Ui.vbox(2)
-		cell.custom_minimum_size.x = COL_W
-		var lv := LobbyUi.text("+%d" % int(cols[i]["level"]), 40, cols[i]["color"] if int(cols[i]["level"]) > 0 else Color.WHITE, true)
-		lv.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		cell.add_child(lv)
-		if cols[i]["tag"] != "":
-			# "Đạt mốc +6" over "+10% chỉ số", a little lighter than the level colour (red reads).
-			var tag := LobbyUi.text(str(cols[i]["tag"]).replace(": ", "\n"), 18, (cols[i]["color"] as Color).lightened(0.25), true)
-			tag.name = "MilestoneTag"
-			tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			cell.add_child(tag)
-		grid.add_child(cell)
-	# The stat rows: points with what they add in battle under them; the gains in green.
-	for r in view["rows"]:
-		grid.add_child(LobbyUi.text(r["label"], 21, DIM))
-		grid.add_child(_stat_cell(r["now_points"], r["now_battle"]))
-		if maxed:
-			continue
-		grid.add_child(Control.new())
-		grid.add_child(_stat_cell(r["next_points"], r["next_battle"], r["delta"] if r["up"] else ""))
+		# Row 2: "+N" in each level's colour.
+		for i in cols.size():
+			if i == 1:
+				grid.add_child(Control.new())
+			var lv := LobbyUi.text("+%d" % int(cols[i]["level"]), 40, cols[i]["color"], true)
+			lv.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			lv.custom_minimum_size.x = COL_W
+			grid.add_child(lv)
+		# The stat rows: points with what they add in battle under them; the gains in green.
+		for r in view["rows"]:
+			grid.add_child(_stat_cell(r["now_points"], r["now_battle"]))
+			var label := LobbyUi.text(r["label"], 21, DIM)
+			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			label.size_flags_vertical = SIZE_FILL
+			grid.add_child(label)
+			grid.add_child(_stat_cell(r["next_points"], r["next_battle"], r["delta"] if r["up"] else ""))
 	if view["note"] != "":
 		var note := LobbyUi.text(view["note"], 24, LobbyUi.GOLD, true)
 		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -524,10 +533,11 @@ func _render_center() -> void:
 
 
 ## "+440 điểm" over a dim "+22.000" (the battle value, left out when unknown), centred in a
-## column; gain: the green "+2 điểm" after the battle value.
-static func _stat_cell(points: String, battle: String, gain: String = "") -> Control:
+## column (column: false = as wide as its text); gain: the green "+2 điểm" after the battle value.
+static func _stat_cell(points: String, battle: String, gain: String = "", column: bool = true) -> Control:
 	var cell := Ui.vbox(0)
-	cell.custom_minimum_size.x = COL_W
+	if column:
+		cell.custom_minimum_size.x = COL_W
 	var pl := LobbyUi.text(points, 21, Color.WHITE, true)
 	pl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cell.add_child(pl)
