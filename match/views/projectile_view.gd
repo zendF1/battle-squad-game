@@ -216,7 +216,9 @@ func _grow_ribbon(p: Vector2) -> void:
 
 ## Ages a trail's particles, drops the dead ones, adds one every `every` px travelled (the
 ## distance counter is the property named `counter`; shed [back, side]: thrown off backwards and
-## sideways, px/s) and keeps at most `cap` (the oldest go).
+## sideways, px/s) and keeps at most `cap` (the oldest go). The particles shed in one frame are
+## spread back along the flight to where each `every` px mark was passed (not all at `at`), so a
+## fast shell (the rain's missiles) leaves an even trail instead of a clump per frame.
 func _emit(list: Array, spec: Dictionary, delta: float, at: Vector2, counter: String, cap: int) -> Array:
 	var life: float = spec["life"]
 	for q in list:
@@ -230,7 +232,8 @@ func _emit(list: Array, spec: Dictionary, delta: float, at: Vector2, counter: St
 		var v := Vector2.ZERO
 		if float(shed[0]) > 0.0 or float(shed[1]) > 0.0:
 			v = -_dir * _rng.randf_range(0.4, 1.0) * float(shed[0]) + Vector2(-_dir.y, _dir.x) * _rng.randf_range(-1.0, 1.0) * float(shed[1])
-		list.append([at, 0.0, _rng.randf() * TAU, _rng.randf_range(-1.0, 1.0) * float(spec.get("jitter", 0.0)), v])
+		# travelled is now how far the shell went since this mark
+		list.append([at - _dir * travelled, 0.0, _rng.randf() * TAU, _rng.randf_range(-1.0, 1.0) * float(spec.get("jitter", 0.0)), v])
 	set(counter, travelled)
 	if list.size() > cap:
 		list = list.slice(list.size() - cap)

@@ -23,8 +23,8 @@ const ChainFx := preload("res://match/views/skills/bomb_chain_fx.gd")
 
 ## A bomb's size against the gun's normal shell (a skill shell is already ShotLook.SKILL_SCALE).
 const BOMB_SCALE := 1.4
-## The explosions' drawn radius (px; the crater itself is the server's, 1.4 × the gun's and
-## shrinking): the first bomb's big blast on the surface, then the ones down the shaft, kept
+## The explosions' drawn radius (px; the crater itself is the server's, 1.4 × the gun's for
+## every bomb): the first bomb's big blast on the surface, then the ones down the shaft, kept
 ## smaller so the hole, the target dropping in and the next bomb stay visible between them.
 const FIRST_BLAST_PX := 85.0
 const SHAFT_BLAST_PX := 58.0
@@ -53,7 +53,7 @@ func skill_name() -> String:
 
 
 func describe(rank: int) -> String:
-	return "Bắn %d quả bom lớn liên tiếp cùng đường bay (+1 mỗi cấp súng), đào sâu một hố; tổng %d%% sát thương; địch trúng bị cầm chân lượt sau." % [3 + rank, 180 + 15 * rank]
+	return "Bắn %d quả bom lớn liên tiếp cùng đường bay (+1 mỗi cấp súng), đào sâu một hố; tổng %d%% sát thương, mỗi địch nhận tối đa %d%%; địch trúng bị cầm chân lượt sau." % [3 + rank, 180 + 15 * rank, 120 + 15 * rank]
 
 
 ## The chain's hits on a player count up in one number (DamageTally).

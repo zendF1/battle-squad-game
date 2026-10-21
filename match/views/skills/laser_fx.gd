@@ -21,7 +21,7 @@ extends Node2D
 const ShotLook := preload("res://match/views/shot_look.gd")
 const Art := preload("res://ui/art.gd")
 
-const SWEEP_SPEED := 6000.0 # px/s, the server's laserSweepSpeed
+const SWEEP_SPEED := 12000.0 # px/s, the server's laserSweepSpeed
 const CHARGE_DEFAULT := 0.3 # s before the beam (server laserChargeTime) when the event has no t
 const BEAM_DEFAULT := 0.6 # s the beam shows when the event has no duration
 const FADE := 0.22 # s: the beam thins out at the end

@@ -23,7 +23,7 @@ extends "res://match/views/skills/skill_view.gd"
 const Art := preload("res://ui/art.gd")
 
 const MISSILE_BURST := 0.8 # a missile's burst radius × this (and drawn like a normal shot)
-const MISSILE_TRAIL := 0.4 # a missile keeps this share of its trail
+const MISSILE_TRAIL := 0.2 # a missile keeps this share of its trail (short-lived: it falls ~1500 px/s)
 const FLARE_TRAIL := 0.3 # the flare: its red smoke is the trail
 const FLARE_RED := Color(1.0, 0.16, 0.12)
 

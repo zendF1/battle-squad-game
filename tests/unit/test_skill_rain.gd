@@ -242,6 +242,21 @@ func test_trail_length_shortens_the_shell_trail() -> void:
 	short.free()
 
 
+## A fast shell (a missile, ~25 px a frame) sheds the frame's particles back along its flight at
+## every `every` px mark, not in one clump at the shell.
+func test_fast_shell_sheds_an_even_trail() -> void:
+	var v := ProjectileView.new()
+	v._dir = Vector2.DOWN
+	v._since_particle = 7.0 * 3 + 2.0 # three marks passed this frame, 2 px since the last
+	var list: Array = v._emit([], {"every": 7.0, "life": 1.0}, 1.0 / 60.0, Vector2(0, 100), "_since_particle", 100)
+	eq(list.size(), 3, "one particle per mark")
+	for i in list.size():
+		near(float(list[i][0].y), 100.0 - 2.0 - 7.0 * (2 - i), 1e-6, "particle %d at its mark" % i)
+		near(float(list[i][0].x), 0.0, 1e-6, "particle %d on the flight line" % i)
+	near(float(v._since_particle), 2.0, 1e-6, "the distance since the last mark kept")
+	v.free()
+
+
 func test_popup_stagger() -> void:
 	eq(DamagePopup.stagger(0), Vector2.ZERO, "the first number at its usual spot")
 	var seen := {}

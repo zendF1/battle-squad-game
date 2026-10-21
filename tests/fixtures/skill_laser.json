@@ -144,7 +144,7 @@
      "duration": 0.6
     },
     {
-     "t": 0.39368327254934865,
+     "t": 0.34684163627467435,
      "type": "damage",
      "playerId": "e1",
      "amount": 1087,
@@ -152,14 +152,14 @@
      "cause": "laser"
     },
     {
-     "t": 0.39368327254934865,
+     "t": 0.34684163627467435,
      "type": "status",
      "playerId": "e1",
      "effectId": "stun",
      "turns": 1
     },
     {
-     "t": 0.42812200686698076,
+     "t": 0.36406100343349035,
      "type": "damage",
      "playerId": "e2",
      "amount": 857,
@@ -167,7 +167,7 @@
      "cause": "laser"
     },
     {
-     "t": 0.42812200686698076,
+     "t": 0.36406100343349035,
      "type": "status",
      "playerId": "e2",
      "effectId": "stun",
@@ -178,8 +178,8 @@
   },
   "angle": -168.09034295837543,
   "turnStarted": {
-   "currentPlayerId": "e1",
-   "maxMoveEnergy": 100,
+   "currentPlayerId": "e2",
+   "maxMoveEnergy": 80,
    "moveEnergy": 0,
    "skillEnergy": {
     "e1": 10,
@@ -189,8 +189,8 @@
    "skipped": "stun",
    "turnIndex": 1,
    "wind": {
-    "direction": -1,
-    "power": 3.193333825895469
+    "direction": 1,
+    "power": 1.4264437709234599
    }
   }
  }
