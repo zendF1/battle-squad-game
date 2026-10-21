@@ -5,9 +5,12 @@ extends Node2D
 ## "skill" icon (each skill's own picture is on the HUD's skill slot). A normal weapon shot shows
 ## nothing.
 ## show_use(): pops in (scaled up from POP_FROM, TRANS_BACK) and stays: for `hold` seconds, or
-## (hold < 0) until release() (match_screen: the end of the shot's replay); then fades out over
-## FADE. A new show_use() replaces the one shown: one badge per player, so a shot item's ItemUsed
-## and its ShotResolved never stack. The node's position is the badge's bottom centre.
+## (hold < 0, "held") until release() (match_screen: the end of the shot's replay); then fades out
+## over FADE. A new show_use() replaces the one shown: one badge per player, so a shot item's
+## ItemUsed and its ShotResolved never stack. Showing the content already held keeps it as it is
+## (no second pop): the badge of an armed skill / shot item (ActionSelected) simply continues
+## into its shot. A timed badge (an instant item) over a held one shows for its time, then the
+## held one comes back. The node's position is the badge's bottom centre.
 
 const Art := preload("res://ui/art.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -27,6 +30,9 @@ const ITEM_RIM := Color(0.85, 0.92, 1.0)
 const SKILL_NAME := "Kỹ năng" # an unknown skill's name
 
 var _content := {}
+var _held := false # shown until release() (hold < 0), not fading out
+var _under := {} # the held content a timed badge covers, shown again when it ends
+var pops := 0 # how many times a badge popped in (tests: a held badge going on into its shot does not)
 var _width := HEIGHT
 var _tex: Texture2D
 var _tween: Tween
@@ -63,11 +69,17 @@ func _init() -> void:
 
 
 ## Shows c (content()); {} hides the badge. hold: seconds before it fades, < 0 until release().
+## The content already held stays as it is.
 func show_use(c: Dictionary, hold: float = -1.0) -> void:
+	if hold < 0.0 and not c.is_empty() and is_held(c):
+		return
+	var cover := hold >= 0.0 and not c.is_empty() and visible and _held
+	_under = _content if cover else ({} if hold < 0.0 or c.is_empty() else _under)
 	if _tween:
 		_tween.kill()
 		_tween = null
 	_content = c
+	_held = hold < 0.0 and not c.is_empty()
 	if c.is_empty():
 		visible = false
 		return
@@ -78,6 +90,7 @@ func show_use(c: Dictionary, hold: float = -1.0) -> void:
 	visible = true
 	modulate.a = 1.0
 	scale = Vector2.ONE * POP_FROM
+	pops += 1
 	queue_redraw()
 	if not is_inside_tree():
 		scale = Vector2.ONE
@@ -87,11 +100,29 @@ func show_use(c: Dictionary, hold: float = -1.0) -> void:
 	if hold >= 0.0:
 		_tween.tween_interval(maxf(0.0, hold - POP_SEC))
 		_tween.tween_property(self, "modulate:a", 0.0, FADE)
-		_tween.tween_callback(_hide)
+		_tween.tween_callback(_timed_over)
+
+
+## Whether c is the held badge on show (not fading, not covered by a timed one).
+func is_held(c: Dictionary) -> bool:
+	return visible and _held and _content == c
+
+
+## The held content c ends: fades out when on show, is dropped when a timed badge covers it.
+## Anything else shown stays.
+func release_held(c: Dictionary) -> void:
+	if c.is_empty():
+		return
+	if _under == c:
+		_under = {}
+	if is_held(c):
+		release()
 
 
 ## The badge held until now fades out (nothing when none is shown).
 func release() -> void:
+	_under = {}
+	_held = false
 	if not visible or _content.is_empty():
 		return
 	if not is_inside_tree():
@@ -118,6 +149,16 @@ func rect() -> Rect2:
 func _hide() -> void:
 	visible = false
 	_content = {}
+	_held = false
+
+
+## A timed badge ended: the held one it covered comes back, else it is gone.
+func _timed_over() -> void:
+	var under := _under
+	_under = {}
+	_hide()
+	if not under.is_empty():
+		show_use(under)
 
 
 func _draw() -> void:

@@ -8,6 +8,7 @@ const ActionLock := preload("res://match/action_lock.gd")
 const MatchScreen := preload("res://match/match_screen.gd")
 const AimInput := preload("res://match/aim/aim_input.gd")
 const ShotPlayer := preload("res://match/shot/shot_player.gd")
+const PlayerView := preload("res://match/views/player_view.gd")
 
 
 ## Not in the tree: _ready by hand, the portrait's figure and its character too.
@@ -160,9 +161,12 @@ func _screen() -> Node:
 	m._me = "me"
 	m._current = "me"
 	m._players = {"me": {"playerId": "me", "characterId": "rookie", "isAlive": true, "skillEnergy": 100,
-		"items": ["drill_bomb", "medkit", "teleport"], "statusEffects": []}}
-	var view := Node2D.new()
+		"items": ["drill_bomb", "medkit", "teleport"], "statusEffects": [], "teamId": 1, "hp": 1000, "maxHp": 1000,
+		"position": {"x": 100.0, "y": 500.0}}}
+	var view: Node2D = PlayerView.new() # the armed special's badge shows on it
+	view.setup(m._players["me"], true, 1)
 	m._views = {"me": view}
+	m.send_hook = func(_event: String, _data: Dictionary) -> void: pass
 	m._hud = _hud()
 	m._aim = AimInput.new()
 	m._shot_player = ShotPlayer.new()

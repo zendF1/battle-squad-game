@@ -18,8 +18,13 @@ extends Node2D
 ## at its first damage event, the rest at the replay's end; TurnStarted (the end-of-turn +20,
 ## held back by the replay), ItemUsed and snapshots set them as they come.
 ## What a player uses shows as a badge over it (PlayerView.show_badge(), match/views/use_badge.gd):
-## a skill or a shot item from its fire moment to the replay's end, an instant item (ItemUsed)
-## for ITEM_BADGE_SEC; a normal weapon shot shows none.
+## a skill or a shot item from the moment it is armed to the replay's end, an instant item
+## (ItemUsed) for ITEM_BADGE_SEC; a normal weapon shot shows none. Arming: my armed mode goes to
+## the server as SelectAction whenever it changes in my turn (the skill, a shot item, back to the
+## weapon; never an instant item), and my badge shows at once; ActionSelected shows (or, for
+## "weapon", hides) another player's, MatchStateSync's selectedAction restores it. A held badge
+## goes on into the shot's (no second pop) and is hidden when the turn passes without a shot. A
+## server without SelectAction ignores it: the others' badges then come with the shot.
 ## See docs/superpowers/specs/2026-10-15-godot-client-roadmap-design.md.
 
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
@@ -80,7 +85,10 @@ var _resync_in := 0.0 # seconds before asking for MatchStateSync again
 var _turn_resolved := false # this turn's shot was answered: the server takes no more actions
 var _move_ack_at := -10_000_000 # Time.get_ticks_usec() when the last PlayerMoved for my Moves was handled
 var _disconnected := false
-var _armed := WEAPON # what my next Shoot fires: WEAPON, SKILL or a shot item id; local only
+var _armed := WEAPON # what my next Shoot fires: WEAPON, SKILL or a shot item id
+var _sent_select := WEAPON # the armed mode the server has from me this turn (my last SelectAction)
+var _held_badges := {} # playerId -> the badge its armed skill / shot item holds (UseBadge.content()) until its shot fires
+var send_hook := Callable() # tests: takes (event, data) instead of GameSocket for SelectAction
 var _turn_index := -1
 
 var _mask := TerrainMask.new()
@@ -168,6 +176,8 @@ func _process(delta: float) -> void:
 			_cmd_sent = false
 			_awaiting_item = ""
 			_refresh_controls()
+			if _armed == WEAPON:
+				_hold_badge(_me, {}) # a no-aim skill's badge shown at the tap: never answered
 	# Once the shot is answered the server takes no Moves until TurnStarted: sending one (e.g.
 	# a walk after SHOT_ACK_TIMEOUT gave control back, then a late ShotResolved) would only
 	# lose it and send Reconnect in the middle of the replay.
@@ -205,6 +215,7 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 	_deferred.clear()
 	_energy_reveal.clear() # the snapshot's energies are shown as they are
 	_shot_badge = {}
+	_held_badges.clear() # the views are rebuilt: selectedAction brings the current one back
 	var terrain: Dictionary = snap.get("terrain", {})
 	if not terrain.is_empty() and _mask.load_snapshot(terrain):
 		_terrain_view.show_mask(_mask)
@@ -233,6 +244,7 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 	if continuing and _turn_resolved:
 		_hud.pause_timer() # this turn's shot is resolving: the server clock waits for TurnStarted
 	_set_current(current, energy, continuing)
+	_restore_selection(snap.get("selectedAction"), current)
 
 
 ## continuing: the same turn goes on (a MatchStateSync for the current player), so MoveSync, a
@@ -243,6 +255,9 @@ func _set_current(player_id: String, move_energy: int, continuing: bool = false)
 	_resync_in = 0.0
 	if not continuing:
 		_armed = WEAPON # every turn starts with the weapon
+		_sent_select = WEAPON # and so does the server's selection
+		for id in _held_badges.keys(): # the turn passed without that shot
+			_hold_badge(id, {})
 		_awaiting_ack = 0.0
 		_awaiting_item = ""
 		_committing = false
@@ -326,6 +341,7 @@ func _refresh_controls() -> void:
 			usable = false
 		buttons.append({"id": it["id"], "count": it["count"], "name": Items.label(it["id"]), "enabled": usable})
 	_hud.set_actions(skill, energy, skill_usable, _armed, buttons)
+	_sync_selection()
 	var aim_mode := str(skill.get("aim", SkillView.AIM_ARC)) if _armed == SKILL else SkillView.AIM_ARC
 	var offsets: Array = skill["offsets"] if _armed == SKILL and aim_mode == SkillView.AIM_ARC else [0.0]
 	if _aim.preview_offsets != offsets:
@@ -407,6 +423,8 @@ func _apply(event: String, data: Variant) -> void:
 			_on_player_moved(data)
 		"PlayerAiming":
 			_on_player_aiming(data)
+		"ActionSelected":
+			_on_action_selected(data)
 		"ShotResolved":
 			_awaiting_ack = 0.0
 			var shooter := str(data.get("shooterId", ""))
@@ -471,6 +489,84 @@ func _on_player_aiming(d: Variant) -> void:
 	if left < MIN_AIM_SEC:
 		return # ShotResolved draws the gun fast, as without PlayerAiming
 	_views[id].aim_sweep(float(d.get("angle", 90.0)), left)
+
+
+## Another player armed its skill or a shot item (or went back to the weapon): its badge shows and
+## is held until its shot fires, "weapon" or the turn passing. Mine follows my own arming.
+func _on_action_selected(d: Variant) -> void:
+	if not d is Dictionary:
+		return
+	var id := str(d.get("playerId", ""))
+	if id == _me or id != _current or _ended or _turn_resolved or not _views.has(id) \
+			or not bool(_players.get(id, {}).get("isAlive", false)):
+		return
+	_hold_badge(id, UseBadge.content(str(d.get("actionMode", "")), str(d.get("skillId", "")), str(d.get("itemId", ""))))
+
+
+## The badge of what my armed mode fires ({} for the weapon).
+func _armed_content() -> Dictionary:
+	if _armed == SKILL:
+		return UseBadge.content(SKILL, str(_my_skill().get("id", "")), "")
+	if _armed == WEAPON:
+		return {}
+	return UseBadge.content("item", "", _armed)
+
+
+## Shows `content` over player id and holds it (its shot's badge goes on from it); {} ends the
+## held one (an instant item's badge shown meanwhile stays).
+func _hold_badge(id: String, content: Dictionary) -> void:
+	var view = _views.get(id)
+	var old: Dictionary = _held_badges.get(id, {})
+	if content == old and (content.is_empty() or (view != null and view.badge() == content)):
+		return
+	_held_badges.erase(id)
+	if view == null:
+		return
+	if not old.is_empty() and old != content:
+		view.release_held_badge(old)
+	if not content.is_empty():
+		_held_badges[id] = content
+		view.show_badge(content)
+
+
+## My armed mode changed in my turn (before my shot): tell the server (SelectAction, everyone sees
+## the badge) and show my badge at once. Not after the Shoot went out: the shot carries it.
+func _sync_selection() -> void:
+	if not _is_my_turn() or _turn_resolved or _commit_sent or _armed == _sent_select:
+		return
+	_sent_select = _armed
+	var data := {"actionMode": WEAPON}
+	if _armed == SKILL:
+		data["actionMode"] = SKILL
+	elif _armed != WEAPON:
+		data = {"actionMode": "item", "itemId": _armed}
+	_send("SelectAction", data)
+	_hold_badge(_me, _armed_content())
+
+
+## MatchStateSync's selectedAction (the current player's armed skill / shot item; absent: the
+## weapon, or a server without it): another player's badge comes back; for me it is what the
+## server has, and my own armed mode (kept through a resync of my turn) shows and is sent again
+## when they differ.
+func _restore_selection(sel: Variant, current: String) -> void:
+	var has: bool = sel is Dictionary and str(sel.get("playerId", "")) == current
+	if current == _me:
+		_sent_select = WEAPON
+		if has:
+			var mode := str(sel.get("actionMode", ""))
+			_sent_select = SKILL if mode == SKILL else (str(sel.get("itemId", "")) if mode == "item" else WEAPON)
+		if _is_my_turn() and not _turn_resolved:
+			_hold_badge(_me, _armed_content())
+		_refresh_controls()
+	elif has and not _turn_resolved:
+		_on_action_selected(sel)
+
+
+func _send(event: String, data: Dictionary) -> void:
+	if send_hook.is_valid():
+		send_hook.call(event, data)
+	else:
+		GameSocket.send(event, data)
 
 
 ## ItemUsed carries every player's state (hp, items, statusEffects...) and the wind. For a shot
@@ -625,8 +721,14 @@ func _on_shot_fired() -> void:
 	_show_energies(_energy_reveal.fired())
 	var shooter := str(_shot_badge.get("shooter", ""))
 	var content: Dictionary = _shot_badge.get("content", {})
-	if not content.is_empty() and _views.has(shooter):
-		_views[shooter].show_badge(content)
+	# The badge held since the arming goes on as the shot's (show_badge keeps it); the shot owns it now
+	var held: Dictionary = _held_badges.get(shooter, {})
+	_held_badges.erase(shooter)
+	if _views.has(shooter):
+		if not held.is_empty() and held != content:
+			_views[shooter].release_held_badge(held)
+		if not content.is_empty():
+			_views[shooter].show_badge(content)
 
 
 func _on_shot_finished() -> void:
@@ -647,6 +749,8 @@ func _on_shot_finished() -> void:
 
 func _on_match_ended(d: Dictionary) -> void:
 	_ended = true
+	for id in _held_badges.keys(): # an armed skill / item never fired
+		_hold_badge(id, {})
 	for view in _views.values():
 		view.set_active(false)
 		view.clear_aim()
@@ -713,7 +817,11 @@ func _on_skill_pressed() -> void:
 		_armed = ActionLock.press(_armed, SKILL)
 		_refresh_controls()
 		return
+	# Fired at the tap (no SelectAction: the Shoot follows at once); my badge shows right away
+	_hold_badge(_me, UseBadge.content(SKILL, str(skill.get("id", "")), ""))
 	await _fire({"angle": Skills.NO_AIM_ANGLE, "power": Skills.NO_AIM_POWER, "actionMode": SKILL})
+	if not _commit_sent and not _turn_resolved and _armed == WEAPON:
+		_hold_badge(_me, {}) # never sent
 
 
 ## An instant item is used at once (UseItem; the turn goes on). A shot item arms the next shot

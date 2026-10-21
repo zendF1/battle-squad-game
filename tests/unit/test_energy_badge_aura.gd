@@ -324,3 +324,163 @@ func test_badge_icon_only() -> void:
 	eq(b._tex, Art.item_icon("drill_bomb"), "an item: its own icon")
 	eq(b.rect().size, Vector2(UseBadge.HEIGHT, UseBadge.HEIGHT), "round, no name")
 	b.free()
+
+
+# ── Badge from the arming (SelectAction / ActionSelected) ────────────────────
+
+## The SelectActions m sends (send_hook), as [data, ...].
+func _hook(m: Node2D) -> Array:
+	var sent: Array = []
+	m.send_hook = func(event: String, data: Dictionary) -> void:
+		if event == "SelectAction":
+			sent.append(data)
+	return sent
+
+
+func _pops(m: Node2D, id: String) -> int:
+	return m._views[id].badge_node().pops
+
+
+func test_arming_sends_one_select_action_per_change() -> void:
+	var m := _screen(100)
+	var sent := _hook(m)
+	m._refresh_controls()
+	eq(sent, [], "the weapon at the turn start: nothing sent")
+	m._on_skill_pressed()
+	eq(sent, [{"actionMode": "skill"}], "the skill armed: sent once")
+	eq(m._views["me"].badge()["kind"], "skill", "my badge at once, before any answer")
+	m._refresh_controls()
+	m._on_skill_pressed()
+	eq(sent.size(), 1, "no change: nothing more")
+	m._players["me"]["skillEnergy"] = 50 # e.g. a resync: the skill can no longer be fired
+	m._refresh_controls()
+	eq(sent[-1], {"actionMode": "weapon"}, "back to the weapon: cleared")
+	eq(m._views["me"].badge(), {}, "my badge gone with it")
+	m._on_item_pressed("drill_bomb")
+	eq(sent[-1], {"actionMode": "item", "itemId": "drill_bomb"}, "a shot item armed")
+	eq(m._views["me"].badge()["id"], "drill_bomb", "its badge at once")
+	m._players["me"]["items"] = ["medkit"] # the drill bomb gone
+	m._refresh_controls()
+	eq(sent[-1], {"actionMode": "weapon"}, "the armed item gone: cleared")
+	eq(sent.size(), 4, "one SelectAction per change")
+	for d in sent:
+		check(str(d.get("itemId", "")) != "medkit", "an instant item is never sent")
+	_free(m)
+
+
+func test_no_select_action_outside_my_turn_or_after_the_shoot() -> void:
+	var m := _screen(100)
+	var sent := _hook(m)
+	m._on_item_pressed("drill_bomb")
+	m._commit_sent = true # the Shoot went out: the shot carries the choice
+	m._players["me"]["items"] = ["medkit"]
+	m._refresh_controls()
+	eq(sent, [{"actionMode": "item", "itemId": "drill_bomb"}], "nothing after the Shoot")
+	m._commit_sent = false
+	m._apply("TurnStarted", {"currentPlayerId": "e1", "turnIndex": 5, "moveEnergy": 100})
+	eq(sent.size(), 1, "the turn change sends nothing (the server resets it)")
+	m._players["me"]["items"] = ["medkit", "drill_bomb"]
+	m._on_item_pressed("drill_bomb")
+	eq(sent.size(), 1, "not my turn: nothing")
+	_free(m)
+
+
+func test_action_selected_shows_and_holds_the_badge() -> void:
+	var m := _screen(40)
+	m._current = "e2"
+	m._apply("ActionSelected", {"playerId": "e2", "actionMode": "skill", "skillId": "shock_field"})
+	eq(m._views["e2"].badge(), UseBadge.content("skill", "shock_field", ""), "e2's skill badge")
+	check(m._views["e2"].badge_node().is_held(m._views["e2"].badge()), "held (no timer)")
+	m._apply("ActionSelected", {"playerId": "e1", "actionMode": "skill", "skillId": "heavy_bomb"})
+	eq(m._views["e1"].badge(), {}, "not the current player: ignored")
+	m._apply("ActionSelected", {"playerId": "e2", "actionMode": "item", "itemId": "drill_bomb"})
+	eq(m._views["e2"].badge()["id"], "drill_bomb", "a change of mind: the item's badge")
+	# An instant item meanwhile: its timed badge, then the held one comes back
+	m._apply("ItemUsed", {"playerId": "e2", "itemId": "medkit", "players": {"e2": m._players["e2"].duplicate(true)}})
+	eq(m._views["e2"].badge()["id"], "medkit", "the medkit's badge over it")
+	m._views["e2"].badge_node()._timed_over() # its ITEM_BADGE_SEC is over
+	eq(m._views["e2"].badge()["id"], "drill_bomb", "the held badge back")
+	m._apply("ActionSelected", {"playerId": "e2", "actionMode": "weapon"})
+	eq(m._views["e2"].badge(), {}, "weapon: hidden")
+	m._current = "me"
+	m._apply("ActionSelected", {"playerId": "me", "actionMode": "skill", "skillId": "triple_shot"})
+	eq(m._views["me"].badge(), {}, "my own echo: my arming decides")
+	_free(m)
+
+
+func test_fire_continues_the_held_badge() -> void:
+	var m := _screen(40)
+	m._current = "e2"
+	m._players["e2"]["skillEnergy"] = 100
+	m._apply("ActionSelected", {"playerId": "e2", "actionMode": "skill", "skillId": "shock_field"})
+	eq(_pops(m, "e2"), 1, "popped in at the selection")
+	m._apply("PlayerAiming", {"playerId": "e2", "angle": 150.0, "durationMs": 1500})
+	m._apply("ShotResolved", _shot("e2", "skill", {"me": 50, "a1": 30, "e1": 60, "e2": 0}, {"skillId": "shock_field"}))
+	_run_to(m, 0.1)
+	eq(m._views["e2"].badge(), UseBadge.content("skill", "shock_field", ""), "the same badge through the fire")
+	eq(_pops(m, "e2"), 1, "no second pop")
+	check(not m._held_badges.has("e2"), "the shot owns it now")
+	_run_to(m, 5.0)
+	eq(m._views["e2"].badge(), {}, "released at the replay's end")
+	# My own armed drill bomb going on into my shot
+	m._apply("TurnStarted", {"currentPlayerId": "me", "turnIndex": 6, "moveEnergy": 100})
+	_hook(m)
+	m._on_item_pressed("drill_bomb")
+	var before := _pops(m, "me")
+	m._apply("ShotResolved", _shot("me", "item", {"me": 40, "a1": 30, "e1": 60, "e2": 0}, {"itemId": "drill_bomb"}))
+	_run_to(m, 0.5)
+	eq([m._views["me"].badge()["id"], _pops(m, "me")], ["drill_bomb", before], "my item badge goes on, no second pop")
+	_free(m)
+
+
+func test_weapon_shot_after_a_selection_drops_the_badge() -> void:
+	var m := _screen(40)
+	m._current = "e2"
+	m._apply("ActionSelected", {"playerId": "e2", "actionMode": "item", "itemId": "drill_bomb"})
+	m._apply("ShotResolved", _shot("e2", "weapon", {"me": 40, "a1": 30, "e1": 60, "e2": 90}))
+	_run_to(m, 0.1)
+	eq(m._views["e2"].badge(), {}, "the shot was a normal one: no badge")
+	_free(m)
+
+
+func test_turn_change_hides_the_held_badge() -> void:
+	var m := _screen(100)
+	_hook(m)
+	m._on_skill_pressed()
+	eq(m._views["me"].badge()["kind"], "skill", "armed")
+	m._apply("TurnStarted", {"currentPlayerId": "e2", "turnIndex": 5, "moveEnergy": 100})
+	eq(m._views["me"].badge(), {}, "my turn passed without the shot: hidden")
+	eq(m._sent_select, "weapon", "the server's selection reset too")
+	m._apply("ActionSelected", {"playerId": "e2", "actionMode": "skill", "skillId": "shock_field"})
+	m._apply("TurnStarted", {"currentPlayerId": "e1", "turnIndex": 6, "moveEnergy": 100})
+	eq(m._views["e2"].badge(), {}, "another player's too")
+	eq(m._held_badges, {}, "nothing held")
+	_free(m)
+
+
+func test_sync_restores_the_selection() -> void:
+	var m := _screen(40)
+	var snap := {"currentPlayerId": "e2", "turnIndex": 4, "players": m._players.duplicate(true), "wind": {"direction": 0, "power": 0.0},
+		"selectedAction": {"playerId": "e2", "actionMode": "item", "itemId": "drill_bomb"}}
+	m._load_snapshot(snap, true)
+	eq(m._views["e2"].badge(), UseBadge.content("item", "", "drill_bomb"), "e2's armed item back after the rebuild")
+	snap["selectedAction"] = {"playerId": "e1", "actionMode": "skill", "skillId": "heavy_bomb"}
+	m._load_snapshot(snap, true)
+	eq(m._views["e1"].badge(), {}, "a selection not of the current player: ignored")
+	snap.erase("selectedAction")
+	m._load_snapshot(snap, true)
+	eq(m._views["e2"].badge(), {}, "none (or an older server): no badge")
+	# My turn resynced while my skill is armed: the badge back, the server told again when it lost it
+	var me := _screen(100)
+	var sent := _hook(me)
+	me._on_skill_pressed()
+	var mine := {"currentPlayerId": "me", "turnIndex": 4, "players": me._players.duplicate(true), "wind": {"direction": 0, "power": 0.0},
+		"selectedAction": {"playerId": "me", "actionMode": "skill", "skillId": "triple_shot"}}
+	me._load_snapshot(mine, true)
+	eq(me._views["me"].badge()["kind"], "skill", "my badge back")
+	eq(sent.size(), 1, "the server has it: not sent again")
+	mine.erase("selectedAction")
+	me._load_snapshot(mine, true)
+	eq(sent, [{"actionMode": "skill"}, {"actionMode": "skill"}], "the server lost it: sent again")
+	_free(m)
+	_free(me)

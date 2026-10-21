@@ -183,12 +183,19 @@ func aura_on() -> bool:
 
 
 ## What the player uses (UseBadge.content(); {} hides it): hold seconds before it fades, < 0
-## until release_badge().
+## until release_badge(). The content already held stays as it is, where it is (no second pop).
 func show_badge(content: Dictionary, hold: float = -1.0) -> void:
 	if _dead and not content.is_empty():
 		return
+	if hold < 0.0 and _badge.is_held(content):
+		return
 	_place_badge(true)
 	_badge.show_use(content, hold)
+
+
+## The held badge `content` ends (UseBadge.release_held()): anything else shown stays.
+func release_held_badge(content: Dictionary) -> void:
+	_badge.release_held(content)
 
 
 ## The badge sits on top of the name (and the title plate), over the shot markers and the
