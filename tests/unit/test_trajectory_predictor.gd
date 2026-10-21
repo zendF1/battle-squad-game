@@ -19,10 +19,10 @@ func _flat(w: int, h: int, ground_y: int):
 
 
 func test_first_step_matches_server_integration() -> void:
-	# SimulateProjectile: v = power*6 = 60 up; v.y += 200*0.02 → -56; y += -56*0.02 = -1.12
+	# SimulateProjectile: v = power*9.6 = 96 up; v.y += 445*0.02 → -87.1; y += -87.1*0.02 = -1.742
 	var pts := Trajectory.predict(Vector2.ZERO, 90.0, 10.0, 0, 0.0, null, 10)
 	eq(pts[0], Vector2.ZERO, "starts at origin")
-	near(pts[1].y, -1.12, 1e-6, "first step y")
+	near(pts[1].y, -1.742, 1e-6, "first step y")
 	near(pts[1].x, 0.0, 1e-6, "first step x")
 
 
@@ -40,8 +40,8 @@ func test_stops_at_terrain() -> void:
 
 
 func test_thin_wall_inside_one_step_stops_preview() -> void:
-	# 600 px/s moves 12 px per step: 100 → 112 (gravity adds 0.08 px down, so the segment is
-	# 12.0003 px → 4 samples). The server samples x = 103, 106, 109, 112 and hits the 2 px wall
+	# 600 px/s moves 12 px per step: 100 → 112 (gravity adds 0.18 px down, so the segment is
+	# 12.001 px → 4 samples). The server samples x = 103, 106, 109, 112 and hits the 2 px wall
 	# at x = 108..109 on the 109 sample; checking only the step end (112) would fly through it.
 	var m = _flat(400, 100, 90)
 	for y in range(0, 90):

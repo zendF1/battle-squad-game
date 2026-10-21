@@ -24,6 +24,10 @@ const TRAIL_KIND_CAP := 30
 const TRAIL_TIER_CAP := 18
 const DEFAULT_KIND := "bazooka"
 const DEFAULT_TIER := "basic"
+## Every shell drawn in flight (projectile_view.gd: the kinds' and the tiers' own pictures, their
+## trails, halos and tails, the skills' shells: bomb chain, rain, bloom seeds; laser_fx.gd's
+## charge orb) is this big; the explosions are not scaled (playtest round 3: was 1, too big).
+const SHELL_SCALE := 0.7
 ## A skill shot: the projectile drawn this much larger, a brighter glow, a bigger impact with
 ## more particles (still capped).
 const SKILL_SCALE := 1.3

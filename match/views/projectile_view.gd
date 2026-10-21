@@ -202,7 +202,7 @@ static func overlay_texture(tex_name: String) -> Texture2D:
 ## Adds the ribbon's points along the path towards the shell at p, one every `every` px (the
 ## shell itself is its head, added when drawn), keeping its `points`.
 func _grow_ribbon(p: Vector2) -> void:
-	var every := float(_ribbon_spec["every"])
+	var every := float(_ribbon_spec["every"]) * ShotLook.SHELL_SCALE # the tail is as much shorter
 	var keep := int(_ribbon_spec["points"])
 	var steps := 0
 	while _ribbon[-1].distance_to(p) >= every and steps < keep:
@@ -320,8 +320,10 @@ static func fit_size(src: Vector2, box: Vector2) -> Vector2:
 	return src * minf(box.x / src.x, box.y / src.y)
 
 
+## The shell's drawn scale (its picture, trails, halo, tail): ShotLook.SHELL_SCALE × the tier's
+## × the skill's × size_k.
 func _scale_k() -> float:
-	return float(_tl["scale"]) * (ShotLook.SKILL_SCALE if skill else 1.0) * size_k
+	return ShotLook.SHELL_SCALE * float(_tl["scale"]) * (ShotLook.SKILL_SCALE if skill else 1.0) * size_k
 
 
 func _draw() -> void:
@@ -337,7 +339,7 @@ func _draw() -> void:
 			var a := _trail[i - 1] - global_position
 			var b := _trail[i] - global_position
 			var col: Color = ShotLook.prism(_t * 1.5 - k * 0.6) * _tint if _tl["prismatic"] else c
-			draw_line(a, b, Color(col, bright * k), 2.0 + w * k * scale_k, true)
+			draw_line(a, b, Color(col, bright * k), (2.0 + w * k) * scale_k, true)
 	# The kind's trail particles take the accent by the tier's mix (the blaster's always).
 	var kt: Dictionary = _kind_trail
 	var amount := float(kt.get("tint", 0.0)) * (1.0 if float(_k["body_tint"]) > 0.0 else float(_tl["mix"]))

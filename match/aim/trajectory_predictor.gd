@@ -1,20 +1,24 @@
 extends RefCounted
 ## Aim preview that uses the same integration and terrain collision as the server's
-## SimulateProjectile (shooting.go), with the getPhysics() defaults:
+## SimulateProjectile (shooting.go), with the server's gamedata.DefaultPhysics():
 ## - semi-implicit Euler steps of TIME_STEP;
 ## - each step's segment is sampled every 4 px or less, so thin walls and crater lips stop the
 ##   preview where they stop the shell.
 ## Players, drills, weapon weight and wind influence are not modelled (weight 1, influence 1),
 ## so the preview is a guide, not a promise. The aiming aid's exact flight (match/aim/aim_aid.gd
-## fly()) adds them on the same integration; the guide arc drawn is simulate() without wind.
+## fly()) adds them on the same integration; the guide arc drawn is simulate() with the weapon's wind.
 ##
 ## The math uses GDScript floats (64-bit, like Go's float64). Vector2 (32-bit) is used only for
 ## the returned points.
 
 const TIME_STEP := 0.02
-const GRAVITY := 200.0
-const WIND_SCALE := 30.0
-const MAX_FLIGHT := 6.0
+## The shell physics (server gamedata.DefaultPhysics(), migration 032_faster_shells): launch
+## speed power × SPEED_PER_POWER px/s, GRAVITY px/s², wind W × WIND_SCALE px/s² (× the weapon's
+## windInfluence / projectileWeight in the aid), at most MAX_FLIGHT s. Before 032: 6, 200, 30, 6.
+const SPEED_PER_POWER := 9.6
+const GRAVITY := 445.0
+const WIND_SCALE := 67.0
+const MAX_FLIGHT := 4.5
 const SAMPLE_PX := 4.0 # checkSegmentCollisions sub-step
 ## The server fires every shot from the shooter's body centre (shotOriginAt, shooting.go): its
 ## position (the feet) lifted by SHOT_LIFT px (PlayerHeight / 2). Air strikes start at
@@ -38,7 +42,7 @@ static func shot_origin(feet: Vector2, terrain = null) -> Vector2:
 
 static func predict(origin: Vector2, angle_deg: float, power: float, wind_dir: int, wind_power: float, terrain, max_points: int = 90) -> PackedVector2Array:
 	var a := deg_to_rad(angle_deg)
-	var speed := power * 6.0
+	var speed := power * SPEED_PER_POWER
 	return simulate(origin.x, origin.y, speed * cos(a), -speed * sin(a), wind_dir * wind_power * WIND_SCALE, terrain, max_points)
 
 

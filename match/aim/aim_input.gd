@@ -11,14 +11,13 @@ extends Node2D
 ## (degrees added to the aimed angle, e.g. three for a triple shot):
 ## - the guide arc: the exact flight (the weapon's wind included) over only the first
 ##   AimAid.arc_fraction(rank_tier) of its time (60 % at bronze or no rank ... 15 % at master), fading out;
-## - the landing marker: a short tick with a dot on the ground at AimAid.shown_point() (the
-##   exact landing, flown like the server with the weapon's wind_influence / projectile_weight,
-##   enemies and a drill's pierce, moved against the wind);
-## - "Trúng!": the exact path comes within AimAid.HIT_RADIUS + hit_tolerance() of an enemy body
-##   (enemies: their body centres): that enemy gets an animated bullseye over its body, no text
-##   (the marker keeps its colour: moved against the wind it may stand by another player);
-## - a down arrow on the tick instead of the dot when the apex is above the top of the screen.
-## Nothing of it shows below MIN_POWER (the release would not fire).
+## - "Trúng!": the exact path (AimAid.fly(), flown like the server with the weapon's
+##   wind_influence / projectile_weight, enemies and a drill's pierce) comes within
+##   AimAid.HIT_RADIUS + hit_tolerance() of an enemy body (enemies: their body centres): that
+##   enemy gets an animated bullseye over its body, no text.
+## No landing marker on the ground (playtest: too easy to aim); a shell above the screen shows
+## on the top edge in flight (match/views/high_shell_marker.gd). The bullseye shows from
+## MIN_POWER (the release would not fire below it).
 ##
 ## target_column (air_strike): no slingshot; while pressed, a vertical target line follows the
 ## pointer and the preview is the drop from the top of the map at that x (the server fires it at
@@ -55,13 +54,7 @@ const LINE_COLOR := Color(0.78, 0.97, 1.0, 0.85) # line_mode: the beam preview
 const LINE_WIDTH := 3.0
 const LINE_GLOW := Color(0.35, 0.85, 1.0, 0.28)
 const LINE_GLOW_WIDTH := 12.0
-# The landing marker (a tick and a dot on the ground, half transparent) and the hit bullseye.
-const MARK_TICK := 9.0 # half the ground tick's width
-const MARK_DOT := 4.0 # the dot's radius, MARK_LIFT over the ground
-const MARK_LIFT := 8.0
-const MARK_COLOR := Color(1, 1, 1, 0.5)
-const MARK_RIM := Color(0.03, 0.04, 0.12, 0.42)
-const ARROW_SIZE := Vector2(15, 19) # super high: a down arrow stands on the tick for the dot
+# The hit bullseye.
 const HIT_COLOR := Color(1.0, 0.22, 0.16) # the bullseye's red rings and centre
 const HIT_LIGHT := Color(1, 1, 1, 0.92) # the white ring between them
 const OUTLINE := Color(0.03, 0.04, 0.12, 0.85) # dark rim: reads on bright skies and dark rock
@@ -117,7 +110,6 @@ var _column_x := 0.0
 var _lines: Array[Line2D] = [] # reused; grows to the largest preview_offsets seen
 var _shadows: Array[Line2D] = [] # under each line: the guide arc's shadow (arc mode only)
 var _ring := PackedVector2Array() # the enemy ring's points round (0, 0), built once
-var _marks: Array = [] # per arc shown: {point: the marker on the ground, hit: it hits, high}
 var _hit := {} # enemy index -> true: the bullseye on it
 var _near := PackedFloat32Array() # AimAid.fly()'s closest distances, reused
 var _guide := PackedVector2Array() # the first arc's guide points (aid())
@@ -234,7 +226,6 @@ func _update(pointer: Vector2) -> void:
 	for shadow in _shadows:
 		if not shadow.points.is_empty():
 			shadow.points = PackedVector2Array()
-	_marks.clear()
 	_hit.clear()
 	_guide = PackedVector2Array()
 	var origin: Vector2 = Trajectory.shot_origin(shooter_pos, terrain)
@@ -273,30 +264,25 @@ func _update(pointer: Vector2) -> void:
 			continue
 		var end: Vector2 = flight["end"]
 		var r := AimAid.hit_tolerance(end.x - origin.x, AimAid.apex_height(a, _power))
-		var hit := false
 		for k in enemies.size():
 			if AimAid.is_hit(_near, k, r):
-				hit = true
 				_hit[k] = true
-		_marks.append({"point": AimAid.shown_point(end, accel, t, terrain), "hit": hit,
-			"high": AimAid.is_super_high(origin.y, a, _power)})
 	queue_redraw()
 	aim_changed.emit(_angle, _power)
 
 
-## The aid shown now: {marks: [{point, hit, high}] (one per arc), hits: the enemy indices with
-## "Trúng!", sorted, guide: the first arc's guide points}.
+## The aid shown now: {hits: the enemy indices with "Trúng!" (the bullseye), sorted, guide: the
+## first arc's guide points}.
 func aid() -> Dictionary:
 	var hits := _hit.keys()
 	hits.sort()
-	return {"marks": _marks.duplicate(true), "hits": hits, "guide": _guide}
+	return {"hits": hits, "guide": _guide}
 
 
 func _update_column(pointer: Vector2) -> void:
 	_column_x = pointer.x
 	if terrain != null:
 		_column_x = clampf(_column_x, 0.0, float(terrain.width)) # the server clamps it the same way
-	_marks.clear()
 	_hit.clear()
 	for shadow in _shadows:
 		shadow.points = PackedVector2Array()
@@ -352,7 +338,6 @@ func _reset(cleared: bool = true) -> void:
 		aim_cleared.emit()
 	_dragging = false
 	_in_cancel = false
-	_marks.clear()
 	_hit.clear()
 	for line in _lines:
 		line.points = PackedVector2Array()
@@ -377,37 +362,6 @@ func _draw() -> void:
 	for k in _hit:
 		if k < enemies.size():
 			_draw_enemy_hit(enemies[k])
-	for m in _marks:
-		_draw_mark(m["point"], bool(m["high"]))
-
-
-## The landing marker on the ground at `foot`: a short tick with a dot over it, or (super high:
-## the apex above the screen) a down arrow standing on it; white with a dark rim.
-func _draw_mark(foot: Vector2, high: bool) -> void:
-	var fill := MARK_COLOR
-	var rim := MARK_RIM
-	var tick := Vector2(MARK_TICK, 0)
-	draw_line(foot - tick, foot + tick, rim, 5.0, true)
-	draw_line(foot - tick, foot + tick, fill, 2.5, true)
-	if high:
-		_draw_down_arrow(foot - Vector2(0, 3), fill, rim)
-		return
-	var dot := foot - Vector2(0, MARK_LIFT)
-	draw_circle(dot, MARK_DOT + 1.5, rim)
-	draw_circle(dot, MARK_DOT, fill)
-
-
-## A down arrow with its tip at `tip`.
-func _draw_down_arrow(tip: Vector2, fill: Color, rim: Color) -> void:
-	var w := ARROW_SIZE.x / 2.0
-	var h := ARROW_SIZE.y
-	var shaft := w * 0.38
-	var tri := PackedVector2Array([tip, tip + Vector2(w, -h * 0.5), tip + Vector2(shaft, -h * 0.5),
-		tip + Vector2(shaft, -h), tip + Vector2(-shaft, -h), tip + Vector2(-shaft, -h * 0.5), tip + Vector2(-w, -h * 0.5)])
-	var loop := tri.duplicate()
-	loop.append(tip)
-	draw_polyline(loop, rim, 3.0, true)
-	draw_colored_polygon(tri, fill)
 
 
 ## The hit enemy (its body centre): an animated bullseye over the body: red outer ring, white

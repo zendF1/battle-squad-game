@@ -43,7 +43,8 @@ const CROSS_MAX := 6 # terrain entry / exit spots
 const CROSS_STEP := 3.0 # px: the beam is sampled this often for them
 const CHARGE_SPARKS := 10
 ## The charge orb (_draw_orb()): ORB_MIN px across at the start of the charge, ORB_MIN +
-## ORB_GROW at the beam; its halo, core glow, white glow (half sizes) and solid white-hot centre
+## ORB_GROW at the beam (both × ShotLook.SHELL_SCALE, like the shells); its halo, core glow,
+## white glow (half sizes) and solid white-hot centre
 ## (radius) as shares of that; its body's alpha and the tier shell's inside it.
 const ORB_MIN := 12.0
 const ORB_GROW := 30.0
@@ -403,7 +404,7 @@ func orb_size(t: float) -> float:
 	var local := t - beam_t
 	var fade := clampf((beam_duration - local) / FADE, 0.0, 1.0) if local >= 0.0 else 1.0
 	var k := charge_k(t)
-	return (ORB_MIN + ORB_GROW * k * k) * _flicker(t) * fade
+	return (ORB_MIN + ORB_GROW * k * k) * ShotLook.SHELL_SCALE * _flicker(t) * fade
 
 
 ## The charge orb's body colour: between the beam's glow and body colours.

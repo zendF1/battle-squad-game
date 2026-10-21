@@ -264,7 +264,7 @@ func test_trail_caps_every_kind_and_tier() -> void:
 ## with points on a straight line; the points keep their spacing.
 func test_ribbon_spacing() -> void:
 	var v := _flier("bazooka", "dragon")
-	var every := float(v._ribbon_spec["every"])
+	var every := float(v._ribbon_spec["every"]) * ShotLook.SHELL_SCALE # the tail scales with the shell
 	for i in 10:
 		v.position += Vector2(4.0, 0.0)
 		v._process(1.0 / 60.0)
@@ -275,6 +275,25 @@ func test_ribbon_spacing() -> void:
 	check(v._ribbon.size() <= int(v._ribbon_spec["points"]), "a jump keeps the cap")
 	near(v._ribbon[-1].x, v.position.x, every, "the tail restarts at the shell")
 	v.free()
+
+
+## Every shell in flight is drawn at ShotLook.SHELL_SCALE (0.7) times its tier's, skill's and
+## size_k scale: the basic pictures and the tiers' own alike, a skill shell and the bomb chain's
+## keep their sizes relative to it.
+func test_shell_scale() -> void:
+	eq(ShotLook.SHELL_SCALE, 0.7, "30 % smaller")
+	for kind in ["bazooka", "cannon", "shock_rifle", "seed_launcher", "blaster"]:
+		for tier in ["basic", "dragon", "gold"]:
+			var v := _flier(kind, tier)
+			near(v._scale_k(), 0.7 * float(ShotLook.TIERS[tier]["scale"]), 1e-9, "%s %s" % [kind, tier])
+			v.free()
+	var s := _flier("cannon", "dragon", true)
+	near(s._scale_k(), 0.7 * float(ShotLook.TIERS["dragon"]["scale"]) * ShotLook.SKILL_SCALE, 1e-9, "a skill shell: the skill scale on top")
+	s.free()
+	var bomb := _flier("cannon", "basic", true)
+	bomb.size_k = 1.4 / ShotLook.SKILL_SCALE # the bomb chain's (bomb_chain.gd)
+	near(bomb._scale_k(), 0.7 * 1.4, 1e-9, "the chain bomb: 1.4 × a normal shell")
+	bomb.free()
 
 
 ## A tier's own shell picture: assets/fx/<kind>/projectile_<tier>.png for the normal tiers only;

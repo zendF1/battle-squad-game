@@ -81,50 +81,27 @@ func test_guide_arc_follows_the_wind_and_is_shorter_by_rank() -> void:
 	a.free()
 
 
-func test_shown_point_formula() -> void:
-	near(AimAid.shown_x(800.0, 40.0, 2.0), 788.0, 1e-9, "X − 0.15 × ½ A T²")
-	near(AimAid.shown_x(800.0, 100.0, 6.0), 550.0, 1e-9, "capped at 250 px")
-	near(AimAid.shown_x(800.0, -100.0, 6.0), 1050.0, 1e-9, "capped at 250 px the other way")
-	# W > 0 blows right: a shot to the right (tailwind) shows short, one to the left (headwind) long
-	var right_tail := AimAid.shown_x(800.0, 40.0, 2.0)
-	check(absf(right_tail - 200.0) < 600.0, "tailwind right: shown nearer the shooter at 200")
-	var left_head := AimAid.shown_x(800.0, 40.0, 2.0)
-	check(absf(left_head - 1400.0) > 600.0, "headwind left: shown farther from the shooter at 1400")
-	# W < 0 blows left: the other way round
-	var right_head := AimAid.shown_x(800.0, -40.0, 2.0)
-	near(right_head, 812.0, 1e-9, "headwind right: +12")
-	check(absf(right_head - 200.0) > 600.0, "headwind right: farther")
-	check(absf(right_head - 1400.0) < 600.0, "tailwind left: nearer the shooter at 1400")
-	near(AimAid.shown_x(800.0, 0.0, 5.0), 800.0, 1e-9, "no wind: the exact x")
-	var m = _flat()
-	eq(AimAid.shown_point(Vector2(800, 690), 40.0, 2.0, m), Vector2(788, GROUND), "dropped onto the ground")
-	eq(AimAid.shown_point(Vector2(20, 690), 100.0, 3.0, m), Vector2(0, GROUND), "clamped to the map")
-	eq(AimAid.shown_point(Vector2(1580, 690), -100.0, 3.0, m), Vector2(1599, GROUND), "clamped right")
-	# two levels in the column: the surface nearest the exact landing
-	for y in range(300, 320):
-		for x in range(700, 900):
-			m.solid[y * m.width + x] = TerrainMask.SOLID
-	eq(AimAid.surface_y(m, 760.0, 690.0), float(GROUND), "the lower ground for a low landing")
-	eq(AimAid.surface_y(m, 760.0, 280.0), 300.0, "the ledge for a high one")
-	eq(AimAid.surface_y(m, 760.0, 650.0), float(GROUND), "a landing under the ledge stays under it")
-
-
-func test_shown_marker_from_the_exact_landing() -> void:
+## No landing marker (playtest round 3): the aid is the guide arc and the bullseye only, for a
+## normal shot, a super-high lob and in the wind; its old helpers are gone.
+func test_no_landing_marker() -> void:
 	var a = _aim()
 	a.wind_dir = 1
 	a.wind_power = 3.0
-	a.wind_influence = 0.5 # Tanko's cannon: half the wind
-	a.projectile_weight = 1.5
-	_drag(a, 50.0, 60.0)
-	var origin := Trajectory.shot_origin(FEET, a.terrain)
-	var flight := AimAid.fly(origin, AimAid.launch_velocity(a._angle, a._power), 30.0 * 3.0 * 0.5 / 1.5, a.terrain,
-		PackedVector2Array(), PackedFloat32Array())
-	var mark: Dictionary = a.aid()["marks"][0]
-	near(mark["point"].x, float(flight["end"].x) - minf(250.0, 0.15 * 0.5 * 30.0 * pow(float(flight["time"]), 2.0)), 1e-3, "shown x from the weapon's exact flight")
-	near(mark["point"].y, float(GROUND), 1e-6, "on the ground")
-	check(not mark["hit"], "no enemy: no hit")
-	_drag(a, 50.0, 3.0)
-	eq(a.aid()["marks"].size(), 0, "no marker below MIN_POWER")
+	for aim in [[50.0, 60.0], [85.0, 100.0], [50.0, 3.0]]:
+		_drag(a, aim[0], aim[1])
+		var aid: Dictionary = a.aid()
+		eq(aid.keys(), ["hits", "guide"], "%s: only the bullseye and the guide" % [aim])
+		check(aid["guide"].size() >= 2, "%s: the guide arc" % [aim])
+	var aid_script = AimAid.new()
+	for gone in ["shown_x", "shown_point", "surface_y", "is_super_high"]:
+		check(not aid_script.has_method(gone), "no " + gone)
+	var aid_consts: Dictionary = (AimAid as Script).get_script_constant_map()
+	var input_consts: Dictionary = (AimInput as Script).get_script_constant_map()
+	for gone in ["BIAS_SHARE", "MAX_BIAS"]:
+		check(not aid_consts.has(gone), "no " + gone)
+	for gone in ["MARK_TICK", "MARK_DOT", "ARROW_SIZE"]:
+		check(not input_consts.has(gone), "no " + gone)
+	check(not a.has_method("_draw_mark") and not a.has_method("_draw_down_arrow"), "nothing drawn on the ground")
 	a.free()
 
 
@@ -136,7 +113,7 @@ func test_hit_tolerance() -> void:
 	near(AimAid.hit_tolerance(200.0, 350.0), 12.0, 1e-9, "or half the high apex")
 	near(AimAid.hit_tolerance(1500.0, 100.0), 20.0, 1e-9, "far: capped at 20")
 	near(AimAid.hit_tolerance(300.0, 900.0), 20.0, 1e-9, "high: capped at 20")
-	near(AimAid.apex_height(90.0, 50.0), 300.0 * 300.0 / 400.0, 1e-6, "apex (power × 6 × sin a)² / 400")
+	near(AimAid.apex_height(90.0, 50.0), 480.0 * 480.0 / 890.0, 1e-6, "apex (power × 9.6 × sin a)² / (2 × 445)")
 	eq(AimAid.apex_height(-30.0, 50.0), 0.0, "shot down: no apex")
 
 
@@ -167,11 +144,9 @@ func test_hit_check_on_the_exact_path() -> void:
 	_drag(a, 60.0, 70.0)
 	var aid: Dictionary = a.aid()
 	eq(aid["hits"], [0], "touches: Trúng")
-	check(aid["marks"][0]["hit"], "the marker shows it")
 	a.enemies = PackedVector2Array([top - Vector2(0, AimAid.HIT_RADIUS + r + 1.0)])
 	_drag(a, 60.0, 70.0)
 	eq(a.aid()["hits"], [], "misses by r + 1: no hit")
-	check(not a.aid()["marks"][0]["hit"], "neutral marker")
 	# an enemy right on the path stops the shell there (the server's body hit)
 	var on_path := top + Vector2(0, 5)
 	a.enemies = PackedVector2Array([on_path])
@@ -232,23 +207,10 @@ func test_laser_hit_check() -> void:
 	a.enemies = PackedVector2Array([origin + Vector2(500, -30), origin + Vector2(900, 0), origin + Vector2(700, 60)])
 	_drag(a, 0.0, 50.0) # level, to the right
 	eq(a.aid()["hits"], [0, 1], "the beam crosses the enemies within 34 px of it")
-	eq(a.aid()["marks"].size(), 0, "no landing marker for the beam")
 	eq(AimAid.laser_hits(origin, origin + Vector2(1000, 0), PackedVector2Array([origin + Vector2(500, 34.5)])).size(), 0,
 		"35 px off: missed")
 	_drag(a, 0.0, 2.0)
 	eq(a.aid()["hits"], [], "below MIN_POWER: nothing")
-	a.free()
-
-
-func test_super_high() -> void:
-	check(AimAid.is_super_high(500.0, 90.0, 100.0), "apex 900 px over an origin at 500: above the screen")
-	check(not AimAid.is_super_high(500.0, 90.0, 50.0), "apex 225 px: on screen")
-	check(not AimAid.is_super_high(500.0, 20.0, 100.0), "a flat strong shot stays low")
-	var a = _aim()
-	_drag(a, 80.0, 95.0)
-	check(a.aid()["marks"][0]["high"], "a steep strong lob: the ground arrow")
-	_drag(a, 45.0, 50.0)
-	check(not a.aid()["marks"][0]["high"], "a normal shot: none")
 	a.free()
 
 
