@@ -102,7 +102,8 @@ func test_floor_keeps_the_bottom_like_the_server() -> void:
 	var floors := 0
 	for e in c["shot"]["events"]:
 		if e["type"] == "explode":
-			m.destroy_circle(float(e["position"]["x"]), float(e["position"]["y"]), float(e["radius"]), float(e.get("floor", 0.0)))
+			eq(str(e.get("crater", "")), TerrainMask.CRATER_CIRCLE, "the chain digs round craters")
+			m.carve(str(e.get("crater", "")), float(e["position"]["x"]), float(e["position"]["y"]), float(e["radius"]), float(e.get("floor", 0.0)))
 			floors += 1 if float(e.get("floor", 0.0)) > 0.0 else 0
 	check(floors > 0, "the chain's explosions carry a floor")
 	var after := TerrainMask.new()

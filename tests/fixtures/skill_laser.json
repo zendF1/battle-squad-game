@@ -189,8 +189,8 @@
    "skipped": "stun",
    "turnIndex": 1,
    "wind": {
-    "direction": 1,
-    "power": 2.0190151571929844
+    "direction": -1,
+    "power": 1.9622962399941573
    }
   }
  }

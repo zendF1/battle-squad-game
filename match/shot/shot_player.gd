@@ -103,13 +103,29 @@ func spawn_offset_rate(i: int, t: float) -> Vector2:
 ## positions, for the arrows at the top edge (HighShellMarker).
 func high_shells() -> PackedVector2Array:
 	var out := PackedVector2Array()
+	for i in _high_indices():
+		out.append(_views[i].position)
+	return out
+
+
+## The velocities (px/s) of the high_shells(), in the same order: their arrows turn with them
+## (up-slanted while rising, down-slanted while falling).
+func high_shell_velocities() -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for i in _high_indices():
+		out.append(_timeline.velocity(i, _t) + spawn_offset_rate(i, _t))
+	return out
+
+
+func _high_indices() -> PackedInt32Array:
+	var out := PackedInt32Array()
 	if _timeline == null:
 		return out
 	for i in _views.size():
 		var view = _views[i]
 		if view != null and is_instance_valid(view) and view.visible and view.position.y < 0.0 \
 				and ARROW_KINDS.has(_timeline.kind(i)):
-			out.append(view.position)
+			out.append(i)
 	return out
 
 

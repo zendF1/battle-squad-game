@@ -50,7 +50,8 @@ const DIRT := [Color(0.42, 0.28, 0.16), Color(0.3, 0.2, 0.12), Color(0.36, 0.6, 
 ##   blaster bolt is drawn white and takes it fully);
 ## tier_body_scale: a tier's own shell picture (projectile_<tier>.png) is drawn this much larger
 ##   than fitted into projectile.png's drawn part (the long seeds would look tiny in the round pod's box);
-## impact: scale of the burst frames, smoke puffs and colour, bits (count, speed, size, gravity
+## impact: scale of the burst frames, size (optional, 1: the whole impact drawn this much smaller,
+##   its radius and its debris spread; the cannon 0.75 after playtest 4), smoke puffs and colour, bits (count, speed, size, gravity
 ##   factor, colours, image: "debris" or "trail" = the kind's trail particle), frame_tint, lum (the
 ##   frames' luminance range, dark smoke .. white core, for the burst palettes' gradient map).
 const KINDS := {
@@ -63,7 +64,7 @@ const KINDS := {
 	"cannon": {"color": Color(1.0, 0.6, 0.25), "line": Color(0.75, 0.74, 0.76), "line_width": 4.0,
 		"trail": {"every": 7.0, "life": 0.45, "size": [9.0, 20.0], "alpha": 0.7, "drift": -18.0, "jitter": 0.0, "spin": 0.0, "tint": 0.15},
 		"spin": 0.0, "fuse": false, "exhaust": false, "flicker": false, "body_tint": 0.0,
-		"impact": {"scale": 1.2, "smoke": 11, "smoke_color": Color(0.38, 0.36, 0.38, 0.9), "bits": 24,
+		"impact": {"scale": 1.2, "size": 0.75, "smoke": 11, "smoke_color": Color(0.38, 0.36, 0.38, 0.9), "bits": 24,
 			"speed": [220.0, 520.0], "bit_size": [2.5, 5.0], "gravity": 1.0, "colors": DIRT, "bit_image": "debris", "lum": [0.15, 0.93]}},
 	"shock_rifle": {"color": Color(0.55, 0.95, 1.0), "line": Color(0.55, 0.95, 1.0), "line_width": 7.0,
 		"trail": {"every": 6.0, "life": 0.3, "size": [9.0, 3.0], "alpha": 1.0, "drift": 0.0, "jitter": 9.0, "spin": 0.0, "tint": 0.6},
@@ -338,6 +339,12 @@ static func impact_counts(kind: String, tier: String, skill: bool = false) -> Di
 static func impact_scale(kind: String, tier: String, skill: bool = false) -> float:
 	var s := float(KINDS[known_kind(kind)]["impact"]["scale"]) * float(TIERS[known_tier(tier)]["impact"]["scale"])
 	return s * (SKILL_IMPACT if skill else 1.0)
+
+
+## The kind's whole-impact size (KINDS impact "size", 1 when unset): ExplosionFx draws everything
+## for radius × this and throws its debris and particles this much less far.
+static func impact_size(kind: String) -> float:
+	return float(KINDS[known_kind(kind)]["impact"].get("size", 1.0))
 
 
 ## How long an impact of this tier stays on screen (s): the base life plus the lingering sparkles.

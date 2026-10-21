@@ -90,7 +90,7 @@ func test_no_landing_marker() -> void:
 	for aim in [[50.0, 60.0], [85.0, 100.0], [50.0, 3.0]]:
 		_drag(a, aim[0], aim[1])
 		var aid: Dictionary = a.aid()
-		eq(aid.keys(), ["hits", "guide", "high_xs"], "%s: the bullseye, the guide and the top-edge arrows; no ground marker" % [aim])
+		eq(aid.keys(), ["hits", "guide", "high_xs", "high_dirs"], "%s: the bullseye, the guide and the top-edge arrows; no ground marker" % [aim])
 		check(aid["guide"].size() >= 2, "%s: the guide arc" % [aim])
 	var aid_script = AimAid.new()
 	for gone in ["shown_x", "shown_point", "surface_y", "is_super_high"]:
@@ -217,9 +217,13 @@ func test_laser_hit_check() -> void:
 func test_top_arrows_follow_high_shells() -> void:
 	var arrows := HighShellMarker.arrows(PackedVector2Array([Vector2(300, -120), Vector2(500, 40), Vector2(-50, -10)]), 1600.0)
 	eq(arrows.size(), 2, "only the shells above the top")
-	eq(arrows[0], {"x": 300.0, "height": 120.0}, "under the shell, its height")
+	eq(arrows[0], {"x": 300.0, "height": 120.0, "dir": HighShellMarker.UP}, "under the shell, its height; no velocity: up")
 	eq(arrows[1]["x"], HighShellMarker.EDGE, "kept inside the screen")
 	eq(HighShellMarker.arrows(PackedVector2Array([Vector2(300, 10)]), 1600.0), [], "none on screen")
+	var turned := HighShellMarker.arrows(PackedVector2Array([Vector2(300, -120), Vector2(500, 40), Vector2(900, -5)]), 1600.0,
+		PackedVector2Array([Vector2(300, -400), Vector2(0, 0), Vector2(-200, 600)]))
+	near(turned[0]["dir"].angle(), Vector2(300, -400).angle(), 1e-6, "rising: up-slanted along its velocity")
+	near(turned[1]["dir"].angle(), Vector2(-200, 600).angle(), 1e-6, "falling: down-slanted (the velocities pair with the shells)")
 	# ShotPlayer: a shell flying up out of the screen and back
 	for kind in ["", "flare", "bomb", "missile"]:
 		var path := [
@@ -242,6 +246,45 @@ func test_top_arrows_follow_high_shells() -> void:
 		sp.stop()
 		layer.free()
 		sp.free()
+	# The in-flight arrow turns with the shell: a lob to the right, up-slanted then down-slanted
+	var lob := [
+		{"position": {"x": 400.0, "y": 300.0}, "velocity": {"x": 200.0, "y": -800.0}, "time": 0.0},
+		{"position": {"x": 600.0, "y": -100.0}, "velocity": {"x": 200.0, "y": 0.0}, "time": 1.0},
+		{"position": {"x": 800.0, "y": 300.0}, "velocity": {"x": 200.0, "y": 800.0}, "time": 2.0}]
+	var sp2 = ShotPlayer.new()
+	var layer2 := Node2D.new()
+	sp2.layer = layer2
+	sp2.play(ShotTimeline.new({"projectiles": [{"path": lob}], "duration": 2.5}))
+	sp2._process(0.9)
+	var up: Array = HighShellMarker.arrows(sp2.high_shells(), 1600.0, sp2.high_shell_velocities())
+	eq(up.size(), 1, "rising above the top: an arrow")
+	check(up[0]["dir"].y < 0.0 and up[0]["dir"].x > 0.0, "rising: tip up and to the right %s" % [up[0]["dir"]])
+	sp2._process(0.2)
+	var down: Array = HighShellMarker.arrows(sp2.high_shells(), 1600.0, sp2.high_shell_velocities())
+	check(down[0]["dir"].y > 0.0 and down[0]["dir"].x > 0.0, "falling: tip down and to the right %s" % [down[0]["dir"]])
+	near(down[0]["x"], sp2.high_shells()[0].x, 1e-6, "under the shell")
+	sp2.stop()
+	layer2.free()
+	sp2.free()
+
+
+## The arrow is 60% of the old one, drawn like the guide arc, and stays inside the screen however
+## it turns, also at the sides.
+func test_top_arrow_look_and_placement() -> void:
+	near(HighShellMarker.LENGTH, 26.0 * 0.6, 0.5, "60% long")
+	near(HighShellMarker.WIDTH, 30.0 * 0.6, 0.5, "60% wide")
+	eq(HighShellMarker.FILL, AimInput.GUIDE_COLOR, "the guide arc's half transparent white")
+	check(HighShellMarker.RIM.a < 0.5, "a faint dark rim")
+	for x in [0.0, 800.0, 1600.0]:
+		for k in 16:
+			var d := Vector2.from_angle(TAU * k / 16.0)
+			var a: Dictionary = HighShellMarker.aim_arrows(PackedFloat32Array([x]), 1600.0, PackedVector2Array([d]))[0]
+			var pts := HighShellMarker.outline(a)
+			near((pts[0] - Vector2(a["x"], HighShellMarker.CENTRE_Y)).angle_to(d), 0.0, 1e-5, "the tip leads along the direction")
+			for p in pts:
+				check(p.y >= HighShellMarker.TOP - 1e-3 and p.x >= 0.0 and p.x <= 1600.0, "x %d dir %s: %s on the screen" % [x, d, p])
+	var plain: Dictionary = HighShellMarker.aim_arrows(PackedFloat32Array([500.0]), 1600.0)[0]
+	eq(plain["dir"], HighShellMarker.DOWN, "no direction known while aiming: straight down")
 
 
 ## A HUD outside the tree (_ready by hand) with its skill, three items and the notice shown.
@@ -372,12 +415,20 @@ func test_aim_arrow_where_a_high_lob_comes_back() -> void:
 		PackedVector2Array(), PackedFloat32Array())
 	near(xs[0], float(flight["high_x"]), 1e-3, "at the exact flight's re-entry x")
 	check(xs[0] > FEET.x and xs[0] < float(flight["end"].x), "between the shooter and the landing")
-	var arrows := HighShellMarker.aim_arrows(xs, 1600.0)
+	var dirs: PackedVector2Array = a.aid()["high_dirs"]
+	eq(dirs.size(), 1, "and its direction")
+	near(dirs[0].angle(), flight["high_dir"].angle(), 1e-4, "the exact flight's re-entry direction")
+	near(dirs[0].length(), 1.0, 1e-6, "a unit direction")
+	check(dirs[0].y > 0.0 and dirs[0].x > 0.0, "coming back down, slanted the way it flies (right): %s" % [dirs[0]])
+	var arrows := HighShellMarker.aim_arrows(xs, 1600.0, dirs)
 	eq(arrows.size(), 1, "the marker draws it")
 	eq(float(arrows[0]["height"]), 0.0, "no height")
+	var tip: Vector2 = HighShellMarker.outline(arrows[0])[0]
+	check(tip.y > HighShellMarker.CENTRE_Y, "the tip points down into the screen")
 	_drag(a, 40.0, 50.0)
 	eq(a.aid()["high_xs"].size(), 0, "a low shot: no arrow")
 	_drag(a, 80.0, 95.0)
 	a._reset()
 	eq(a.high_xs().size(), 0, "released: no arrow")
+	eq(a.high_dirs().size(), 0, "nor direction")
 	a.free()

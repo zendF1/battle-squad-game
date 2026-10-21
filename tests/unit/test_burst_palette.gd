@@ -171,3 +171,27 @@ func test_explosion_takes_the_palette() -> void:
 		a.free()
 		b.free()
 	check(ExplosionFx.burst_material("bazooka", "basic") == null and ExplosionFx.burst_material("blaster", "iron") == null, "no material without a palette")
+
+
+## Playtest 4: Tanko's cannon impact is drawn 25% smaller as a whole (the burst, flash, smoke and
+## how far its debris flies), its heavy smoke kept; the other kinds and the crater are unchanged.
+func test_cannon_impact_is_smaller() -> void:
+	near(ShotLook.impact_size("cannon"), 0.75, 1e-9, "cannon 0.75")
+	for kind in ["bazooka", "shock_rifle", "seed_launcher", "blaster"]:
+		near(ShotLook.impact_size(kind), 1.0, 1e-9, "%s unchanged" % kind)
+	var big: Node2D = ExplosionFx.new()
+	big.kind = "bazooka"
+	big.radius = 60.0
+	big._ready()
+	var fx: Node2D = ExplosionFx.new()
+	fx.kind = "cannon"
+	fx.radius = 60.0
+	fx._ready()
+	near(fx._r, 45.0, 1e-9, "drawn for 0.75 × the radius")
+	eq(fx.radius, 60.0, "the radius given is kept")
+	near(big._r, 60.0, 1e-9, "the bazooka draws its radius")
+	check(fx._smoke.size() >= big._smoke.size(), "the cannon keeps its heavier smoke")
+	for p in fx._smoke:
+		check(absf(p[0].x) <= 0.7 * fx._r + 1e-6, "smoke puffs within the smaller burst")
+	big.free()
+	fx.free()

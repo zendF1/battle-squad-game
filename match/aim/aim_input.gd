@@ -114,6 +114,7 @@ var _hit := {} # enemy index -> true: the bullseye on it
 var _near := PackedFloat32Array() # AimAid.fly()'s closest distances, reused
 var _guide := PackedVector2Array() # the first arc's guide points (aid())
 var _high_xs := PackedFloat32Array() # per arc rising above the screen: where it comes back into view
+var _high_dirs := PackedVector2Array() # and the unit direction it falls there
 var _fade: Gradient
 var _shadow_fade: Gradient
 var _anim := 0.0 # s: drives the bullseye's pulse and turn
@@ -229,6 +230,7 @@ func _update(pointer: Vector2) -> void:
 			shadow.points = PackedVector2Array()
 	_hit.clear()
 	_high_xs.clear()
+	_high_dirs.clear()
 	_guide = PackedVector2Array()
 	var origin: Vector2 = Trajectory.shot_origin(shooter_pos, terrain)
 	if line_mode:
@@ -266,6 +268,7 @@ func _update(pointer: Vector2) -> void:
 			continue
 		if not is_nan(float(flight["high_x"])):
 			_high_xs.append(float(flight["high_x"]))
+			_high_dirs.append(flight["high_dir"])
 		var end: Vector2 = flight["end"]
 		var r := AimAid.hit_tolerance(end.x - origin.x, AimAid.apex_height(a, _power))
 		for k in enemies.size():
@@ -276,11 +279,11 @@ func _update(pointer: Vector2) -> void:
 
 
 ## The aid shown now: {hits: the enemy indices with "Trúng!" (the bullseye), sorted, guide: the
-## first arc's guide points, high_xs: high_xs()}.
+## first arc's guide points, high_xs: high_xs(), high_dirs: high_dirs()}.
 func aid() -> Dictionary:
 	var hits := _hit.keys()
 	hits.sort()
-	return {"hits": hits, "guide": _guide, "high_xs": high_xs()}
+	return {"hits": hits, "guide": _guide, "high_xs": high_xs(), "high_dirs": high_dirs()}
 
 
 ## While aiming: for each previewed arc that rises above the top of the screen, the x where the
@@ -288,6 +291,12 @@ func aid() -> Dictionary:
 ## falls is left to the shooter's feel and the bullseye).
 func high_xs() -> PackedFloat32Array:
 	return _high_xs if _dragging else PackedFloat32Array()
+
+
+## The unit direction each high_xs() shell falls back into view (down, slanted with its drift):
+## HighShellMarker turns its arrow that way.
+func high_dirs() -> PackedVector2Array:
+	return _high_dirs if _dragging else PackedVector2Array()
 
 
 func _update_column(pointer: Vector2) -> void:
@@ -351,6 +360,7 @@ func _reset(cleared: bool = true) -> void:
 	_in_cancel = false
 	_hit.clear()
 	_high_xs.clear()
+	_high_dirs.clear()
 	for line in _lines:
 		line.points = PackedVector2Array()
 	for shadow in _shadows:

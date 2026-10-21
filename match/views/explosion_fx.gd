@@ -7,7 +7,9 @@ extends Node2D
 ## intensity, from the shared overlays (assets/fx/tiers/): a bigger burst, a glow flash in its
 ## colour, shockwave rings (dragon up; titan and diamond two, diamond's in rainbow colours),
 ## sparkles, embers, gold coins, crystal shards, a lens flare, titan's ground cracks and a screen
-## tint for titan and diamond; diamond's sparkles linger. Particles stay within
+## tint for titan and diamond; diamond's sparkles linger. The kind's size (ShotLook.impact_size,
+## the cannon 0.75) shrinks the whole impact: everything drawn for the radius (burst, flash,
+## rings, smoke, cracks, flare) and how far the debris and particles fly. Particles stay within
 ## ShotLook.MAX_IMPACT_PARTICLES. There is no camera hook in the match, so nothing shakes the
 ## screen. Visuals only: the crater and the radius come from the server. It frees itself when
 ## its last effect is over. `lite` (one of many quick impacts, the missile rain's) keeps it cheap:
@@ -93,6 +95,8 @@ var _spark := Color.WHITE # sparkles (two of three) and embers
 var _spark2 := Color.WHITE
 var _smoke_color := Color.WHITE
 var _scale := 1.0 # burst scale (ShotLook.impact_scale)
+var _size := 1.0 # the kind's whole-impact size (ShotLook.impact_size): the drawn radius and the spread
+var _r := 30.0 # the drawn radius: radius × _size
 var _life := LIFE
 var _t := 0.0
 var _smoke: Array = [] # [offset, size, drift, spin]
@@ -133,6 +137,8 @@ func _ready() -> void:
 		_smoke_color = _pal["smoke_color"]
 		material = burst_material(kind, tier)
 	_scale = ShotLook.impact_scale(kind, tier, skill)
+	_size = ShotLook.impact_size(kind)
+	_r = radius * _size
 	_life = LIFE if lite else ShotLook.impact_life(tier, LIFE)
 	for i in Art.EXPLOSION_FRAMES:
 		_frames.append(Art.shot(kind, "impact_%d" % i, Art.explosion(i)))
@@ -150,7 +156,7 @@ func _ready() -> void:
 		for g in counts:
 			counts[g] = int(floor(counts[g] * LITE_PARTICLES))
 	for i in int(counts["smoke"]):
-		var off := Vector2(_rng.randf_range(-0.7, 0.7), _rng.randf_range(-0.6, 0.1)) * radius
+		var off := Vector2(_rng.randf_range(-0.7, 0.7), _rng.randf_range(-0.6, 0.1)) * _r
 		_smoke.append([off, _rng.randf_range(0.4, 0.7), Vector2(_rng.randf_range(-20, 20), _rng.randf_range(-70, -35)), _rng.randf_range(-1.0, 1.0)])
 	var colors: Array = _k["colors"]
 	if not _pal.is_empty():
@@ -246,15 +252,15 @@ func _draw() -> void:
 		var tex: Texture2D = _fx["crack"]
 		if tex != null:
 			var a := clampf(t / 0.08, 0.0, 1.0) * clampf((_life - t) / CRACK_FADE, 0.0, 1.0)
-			var r := radius * 1.9 * _scale
+			var r := _r * 1.9 * _scale
 			draw_texture_rect(tex, Rect2(-Vector2(r, r), Vector2(r, r) * 2), false, Color(1, 1, 1, 0.85 * a))
 	# Smoke (behind the fire), from 0.08 s: grows, drifts up, fades.
 	if t > 0.08 and t < LIFE:
 		var s := (t - 0.08) / (LIFE - 0.08)
 		var sc := _smoke_color
 		for p in _smoke:
-			var at: Vector2 = p[0] + p[2] * (t - 0.08)
-			var r: float = radius * p[1] * (0.8 + s * 0.9) * 1.25 * sqrt(_scale)
+			var at: Vector2 = p[0] + p[2] * (t - 0.08) * _size
+			var r: float = _r * p[1] * (0.8 + s * 0.9) * 1.25 * sqrt(_scale)
 			draw_set_transform(at, p[3] * s, Vector2.ONE)
 			draw_texture_rect(_smoke_tex, Rect2(-Vector2(r, r), Vector2(r, r) * 2), false, Color(sc, sc.a * (1.0 - s)))
 		draw_set_transform(Vector2.ZERO)
@@ -262,7 +268,7 @@ func _draw() -> void:
 	if t < BURST_SEC and not _frames.is_empty():
 		var i := mini(int(t / BURST_SEC * _frames.size()), _frames.size() - 1)
 		var tex := _frames[i]
-		var k := radius / Art.EXPLOSION_RADIUS * _scale
+		var k := _r / Art.EXPLOSION_RADIUS * _scale
 		var sz := tex.get_size() * k
 		if _pal.is_empty():
 			draw_texture_rect(tex, Rect2(-sz / 2, sz), false, _frame_tint)
@@ -275,7 +281,7 @@ func _draw() -> void:
 		var tinted: bool = not _pal.is_empty() and _k["bit_image"] != "debris" # sparks / petals in the palette
 		var src := Rect2(_debris_tex.get_size() * TINT_UV, _debris_tex.get_size())
 		for d in _debris:
-			var at: Vector2 = d[0] * t + Vector2(0, 0.5 * g * t * t)
+			var at: Vector2 = (d[0] * t + Vector2(0, 0.5 * g * t * t)) * _size
 			var r: float = d[1] * 1.4
 			draw_set_transform(at, d[3] * t, Vector2.ONE)
 			if tinted:
@@ -301,11 +307,11 @@ func _draw_glow() -> void:
 	var glow: Texture2D = _fx["glow"]
 	if flash > 0.0 and t < FLASH_SEC:
 		var k := t / FLASH_SEC
-		var r := radius * (1.6 + 1.2 * ease(k, 0.3)) * _scale
+		var r := _r * (1.6 + 1.2 * ease(k, 0.3)) * _scale
 		var c: Color = ShotLook.prism(t) if _prismatic and _pal.is_empty() else _accent
 		ci.draw_texture_rect(glow, Rect2(-Vector2(r, r), Vector2(r, r) * 2), false, Color(c, 0.6 * minf(1.0, flash) * (1.0 - k)))
 		if t < 0.12:
-			var h := radius * 0.9 * _scale
+			var h := _r * 0.9 * _scale
 			ci.draw_texture_rect(glow, Rect2(-Vector2(h, h), Vector2(h, h) * 2), false, Color(1, 1, 1, 0.8 * minf(1.0, flash) * (1.0 - t / 0.12)))
 	var ring: Texture2D = _fx["ring"]
 	if ring != null:
@@ -314,7 +320,7 @@ func _draw_glow() -> void:
 			if rt < 0.0 or rt > RING_SEC:
 				continue
 			var k := rt / RING_SEC
-			var r := radius * (0.5 + (1.6 + 0.35 * j) * ease(k, 0.4)) * _scale
+			var r := _r * (0.5 + (1.6 + 0.35 * j) * ease(k, 0.4)) * _scale
 			var c: Color = ShotLook.prism(k + j * 0.33) if _prismatic else (_accent if j == 0 else _accent2)
 			ci.draw_texture_rect(ring, Rect2(-Vector2(r, r), Vector2(r, r) * 2), false, Color(c, 0.9 * (1.0 - k)))
 	_draw_particles(ci, _sparkles, _fx["sparkle"], t, _prismatic, true)
@@ -323,7 +329,7 @@ func _draw_glow() -> void:
 	var flare: Texture2D = _fx["flare"]
 	if flare_k > 0.0 and flare != null and t < 0.45:
 		var pop := sin(PI * t / 0.45)
-		var w := radius * 3.2 * flare_k * _scale * (0.6 + 0.4 * pop)
+		var w := _r * 3.2 * flare_k * _scale * (0.6 + 0.4 * pop)
 		var c: Color = Color.WHITE.lerp(_accent2, 0.35)
 		ci.draw_texture_rect(flare, Rect2(-Vector2(w, w), Vector2(w, w) * 2), false, Color(c, 0.9 * pop))
 
@@ -339,7 +345,7 @@ func _draw_particles(ci: CanvasItem, list: Array, tex: Texture2D, t: float, pris
 			continue
 		var g := GRAVITY * float(q[5])
 		var slow := 1.0 / (1.0 + t * 1.5) # air drag: they slow down
-		var at: Vector2 = q[0] * t * slow + Vector2(0, 0.5 * g * t * t)
+		var at: Vector2 = (q[0] * t * slow + Vector2(0, 0.5 * g * t * t)) * _size
 		var f := t / life
 		var a := 1.0 - f * f
 		if twinkle:

@@ -145,7 +145,7 @@
    },
    "projectiles": [
     {
-     "projectileId": "proj-1738a564d401ed2c",
+     "projectileId": "proj-80778f8f221f91ad",
      "ownerPlayerId": "flora",
      "skillId": "healing_bloom",
      "path": [
@@ -475,7 +475,7 @@
      "kind": "seed"
     },
     {
-     "projectileId": "proj-09611b51d8ce7fea",
+     "projectileId": "proj-08e066bbd4aa27bb",
      "ownerPlayerId": "flora",
      "skillId": "healing_bloom",
      "path": [
@@ -950,7 +950,7 @@
    },
    "projectiles": [
     {
-     "projectileId": "proj-7e6f871b0aa688e5",
+     "projectileId": "proj-c25571914685ee68",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -1119,7 +1119,7 @@
      "kind": "bomb"
     },
     {
-     "projectileId": "proj-1cba5fa3071c5fa6",
+     "projectileId": "proj-2756dd3ec54ad722",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -1310,7 +1310,7 @@
      "launchDelay": 0.17481416606826594
     },
     {
-     "projectileId": "proj-ac57d64357f99bdc",
+     "projectileId": "proj-622cc63147e122b2",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -1512,7 +1512,7 @@
      "launchDelay": 0.2748141660682659
     },
     {
-     "projectileId": "proj-5354a1b281d639f7",
+     "projectileId": "proj-7f37609d3022caa0",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -1736,7 +1736,7 @@
      "launchDelay": 0.3748141660682659
     },
     {
-     "projectileId": "proj-fbcffab05e2e414e",
+     "projectileId": "proj-7660c480cfcb27a0",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -1971,7 +1971,7 @@
      "launchDelay": 0.4748141660682659
     },
     {
-     "projectileId": "proj-c0c7945a90307591",
+     "projectileId": "proj-d6917aefa31b5851",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -2228,7 +2228,7 @@
      "launchDelay": 0.5748141660682659
     },
     {
-     "projectileId": "proj-d7d4536c4727525c",
+     "projectileId": "proj-f4761121ad860bee",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -2500,20 +2500,21 @@
     {
      "t": 0.7600000000000003,
      "type": "explode",
-     "projectileId": "proj-7e6f871b0aa688e5",
+     "projectileId": "proj-c25571914685ee68",
      "position": {
       "x": 1043.2713033712444,
       "y": 516.6183080769305
      },
      "radius": 72.8,
      "floor": 852,
+     "crater": "circle",
      "terrainVersion": 1
     },
     {
      "t": 0.7600000000000003,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-7e6f871b0aa688e5",
+     "projectileId": "proj-c25571914685ee68",
      "amount": 133,
      "hp": 1367,
      "cause": "explosion"
@@ -2542,73 +2543,79 @@
     {
      "t": 1.0348141660682664,
      "type": "explode",
-     "projectileId": "proj-1cba5fa3071c5fa6",
+     "projectileId": "proj-2756dd3ec54ad722",
      "position": {
       "x": 1117.43021629265,
       "y": 525.6598465865466
      },
      "radius": 72.8,
      "floor": 852,
+     "crater": "circle",
      "terrainVersion": 2
     },
     {
      "t": 1.2348141660682663,
      "type": "explode",
-     "projectileId": "proj-ac57d64357f99bdc",
+     "projectileId": "proj-622cc63147e122b2",
      "position": {
       "x": 1191.5891292140554,
       "y": 538.7063850961626
      },
      "radius": 72.8,
      "floor": 852,
+     "crater": "circle",
      "terrainVersion": 3
     },
     {
      "t": 1.4348141660682665,
      "type": "explode",
-     "projectileId": "proj-5354a1b281d639f7",
+     "projectileId": "proj-7f37609d3022caa0",
      "position": {
       "x": 1264.9674219994463,
       "y": 555.5550126740991
      },
      "radius": 72.8,
      "floor": 852,
+     "crater": "circle",
      "terrainVersion": 4
     },
     {
      "t": 1.6148141660682664,
      "type": "explode",
-     "projectileId": "proj-fbcffab05e2e414e",
+     "projectileId": "proj-7660c480cfcb27a0",
      "position": {
       "x": 1336.7844745128073,
       "y": 575.860418388675
      },
      "radius": 72.8,
      "floor": 852,
+     "crater": "circle",
      "terrainVersion": 5
     },
     {
      "t": 1.8148141660682664,
      "type": "explode",
-     "projectileId": "proj-c0c7945a90307591",
+     "projectileId": "proj-d6917aefa31b5851",
      "position": {
       "x": 1408.6015270261685,
       "y": 599.9394241032509
      },
      "radius": 72.8,
      "floor": 852,
+     "crater": "circle",
      "terrainVersion": 6
     },
     {
      "t": 1.9948141660682666,
      "type": "explode",
-     "projectileId": "proj-d7d4536c4727525c",
+     "projectileId": "proj-f4761121ad860bee",
      "position": {
       "x": 1477.2960989954704,
       "y": 626.481986091106
      },
      "radius": 72.8,
      "floor": 852,
+     "crater": "circle",
      "terrainVersion": 7
     }
    ],
@@ -2893,7 +2900,7 @@
    "width": 1600,
    "height": 900,
    "version": 28,
-   "solid": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJCrsCdPsIFbkCd/MIHrUCevAIIbICffEIIK8CgAHxCCCrAoQB8QghpwKHAfEIIaMCiwHyCCGfAo4B8QgjmgKSAfEIJA8CTgG1AZYB8QglDQQNAT8BsQGaAfEIJwkICQTsAZ4B8AgsARABCTwCFwKPAaMB8AhIDQIsAhcIhAGoAe8ISwkGKQMXD3euAe4IUAEOAQMgBBcXabQB7QhlHgYVIFq7AewIZh0HFSpIwwHqCGkaChM3Mc4B5ghuEQMBDxG3Aq4IATdvDxUPuAKsCAM3cA0XDbkCqggFOHEJGwm7AqcICR4BF3YBIwG/AqUICx0CF9oDowgOGgQX2gOhCBERAwEIF9oDnwgUDw4V2wOcCBgNDxXbA5oIHAkSE9wDmAgiARcR3QOWCD0P3gOUCEAN3wOTCEMJ4QORCEkB5QOPCLEEjQizBIsItQSLCLUEiwi1BIwItASMCLQEjAi0BIwItASNCLMEjAi0BIwItASMCLQEjAi0BIsItQT0BwIVtQTzBwQTtgTxBwcRtwTvBwoPuATuBwwNuQTuBw4JuwTvBxEBvwTwB9AE8AfQBPEHzwTxB88E8QfPBPEHzwTyB84E8QfQBPAH0QTvB9IE7gfUBNMHAxXWBNEHBBXYBM0HBxPaBMsHCRHdBMcHDA/fBMUHDg3hBMIHEgnlBL8HFwHqBLwHhgW5B4gFtgeMBbMHjgWwB5EFrgeUBaoHlwWoB5oFpAedBaIHoAWeB6MFnAemBZgHqQWWB6wFkweuBZAHsgWNB7QFige4BYcHugWEB74FgQfABf4GxAX7BsYF+AbKBfUGzAXzBs8F7wbTBewG1QXpBtkF5gbbBeMG3wXgBuIF3AblBdoG6AXWBusF1AbuBdAG8gXNBvUFyQb4BccG+wXDBv8FwAaBBr0GhQa6BogGtgaMBrMGjwavBpIGrAaWBtkCJ6kDmQbKAkGaA50GvwJSkQOgBrUCYocDpAasAm//AqgGpAJ7+AKrBpwChgHxAq8GlQKQAesCsgaNApsB5AK2BoYCpAHeArsG/gGuAdgCvgb4AbYB0gLCBvEBvwHMAsYG6wHHAccCygbjAc8BwgLOBt0B1wG8AtMG1QHgAbYC1wbPAecBsgLbBsgB7gGtAt8GwQH3AacC5Aa6Af4BogLpBrMBhgKcAu4GqwGOApgC8gakAZUCkwL3BpwBnQKOAv0GkwGlAokCggeMAa0CgwKIB4MBtQL+AY4Heb4C+QGUB3DGAvQBmwdlzwLvAaIHWdkC6gGrB0vkAuQBtAc87wLeAcIHJf4C2QHqCtQB7wrPAfUKyAH7CsMBgAu9AYcLtwGMC7EBkwuqAZkLpQGfC54BpguXAa0LkAG0C4gBvAuBAcMLecwLcNULZ94LXugLUvQLRoIMN5QMIszzFg==",
+   "solid": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJCbwCdPsIFbkCd/YIHLQCevYIHbACffUIH6wCgAH0CCINBJUChAHzCCUJCAkDhAKHAfIIKgEQAQj/AYsB8ghGDQLrAY4B8AhKCQblAZIB7whPAQ4BASMBtwGWAe4IYiEDsgGaAewIZB8FrgGeAeoIaBsJFQOPAaMB5whsEwIBDhMKhAGoAecIbRETERJ3rgHlCHENFw0cabQB5Ah0CRsJJlq7AeMIeQEjATRIwwHhCOABMc4B1QgBCeEDrggDIwYB5QOsCAYh7QOqCAof7QOnCA8b7wOlCBUBAhPwA6MIGxHxA6EIHw3zA58IIwn1A5wIKgH5A5oIpgSYCKgElgiqBJUIqwSVCKsElAisBJMIrQSTCK0EkgiuBJEIrwSRCK8EkAiwBI8IsQSOCLIEjQizBI0IswSLCLUEigi2BIkItwSHCLkE+wcBCbsE+wcFAb8E+gfGBPoHxgT5B8cE+AfIBPgHyAT3B8kE9gfKBPYHygT1B8sE9AfMBPMHzQTyB84E8gfOBPAH0QTuB9ME2QcCEdUE1wcFDdkE0wcJCdwE0QcOAeIEzQf0BMsH9wTHB/oExQf8BMIHgAW/B4IFvAeGBbkHiAW2B4wFsweOBbAHkQWuB5QFqgeXBagHmgWkB50FogegBZ4HowWcB6YFmAepBZYHrAWTB64FkAeyBY0HtAWKB7gFhwe6BYQHvgWBB8AF/gbEBfsGxgX4BsoF9QbMBfMGzwXvBtMF7AbVBekG2QXmBtsF4wbfBeAG4gXcBuUF2gboBdYG6wXUBu4F0AbyBc0G9QXJBvgFxwb7BcMG/wXABoEGvQaFBroGiAa2BowGswaPBq8GkgasBpYG2QInqQOZBsoCQZoDnQa/AlKRA6AGtQJihwOkBqwCb/8CqAakAnv4AqsGnAKGAfECrwaVApAB6wKyBo0CmwHkArYGhgKkAd4Cuwb+Aa4B2AK+BvgBtgHSAsIG8QG/AcwCxgbrAccBxwLKBuMBzwHCAs4G3QHXAbwC0wbVAeABtgLXBs8B5wGyAtsGyAHuAa0C3wbBAfcBpwLkBroB/gGiAukGswGGApwC7garAY4CmALyBqQBlQKTAvcGnAGdAo4C/QaTAaUCiQKCB4wBrQKDAogHgwG1Av4Bjgd5vgL5AZQHcMYC9AGbB2XPAu8BogdZ2QLqAasHS+QC5AG0BzzvAt4Bwgcl/gLZAeoK1AHvCs8B9QrIAfsKwwGAC70Bhwu3AYwLsQGTC6oBmQulAZ8LngGmC5cBrQuQAbQLiAG8C4EBwwt5zAtw1Qtn3gte6AtS9AtGggw3lAwizPMW",
    "destructible": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY="
   },
   "shot": {
@@ -2908,7 +2915,7 @@
    },
    "projectiles": [
     {
-     "projectileId": "proj-7594bb82c1196b93",
+     "projectileId": "proj-fd442a3b5198dba3",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3143,7 +3150,7 @@
      "kind": "flare"
     },
     {
-     "projectileId": "proj-01a6387c5b2819a0",
+     "projectileId": "proj-443e52284d608b37",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3235,7 +3242,7 @@
      "launchDelay": 1.6200000000000006
     },
     {
-     "projectileId": "proj-46022b2effa45101",
+     "projectileId": "proj-be0da86568196d30",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3328,7 +3335,7 @@
      "launchDelay": 1.7200000000000006
     },
     {
-     "projectileId": "proj-09314ac1df48333e",
+     "projectileId": "proj-2a79c7ac01deaace",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3431,7 +3438,7 @@
      "launchDelay": 1.6700000000000006
     },
     {
-     "projectileId": "proj-9eaa22b31231ab77",
+     "projectileId": "proj-cc897c027cc97086",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3523,7 +3530,7 @@
      "launchDelay": 1.7700000000000005
     },
     {
-     "projectileId": "proj-3f14e69df24f2fc2",
+     "projectileId": "proj-1b0a1db26c17a5de",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3616,7 +3623,7 @@
      "launchDelay": 1.8200000000000005
     },
     {
-     "projectileId": "proj-51023b531fb98969",
+     "projectileId": "proj-0d0c97314de30b2e",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3709,7 +3716,7 @@
      "launchDelay": 1.8700000000000006
     },
     {
-     "projectileId": "proj-149e096d51e279e3",
+     "projectileId": "proj-a74fed4a76fe351f",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3801,7 +3808,7 @@
      "launchDelay": 1.9200000000000006
     },
     {
-     "projectileId": "proj-340fafc2f7cbb57a",
+     "projectileId": "proj-0d1d533dd2340aa6",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3893,7 +3900,7 @@
      "launchDelay": 1.9700000000000006
     },
     {
-     "projectileId": "proj-a4023f254e67def3",
+     "projectileId": "proj-8ccbf73f4bd110da",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3986,7 +3993,7 @@
      "launchDelay": 2.0200000000000005
     },
     {
-     "projectileId": "proj-a51127b6c77c5e25",
+     "projectileId": "proj-f02f97b04d7cc5f1",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4078,7 +4085,7 @@
      "launchDelay": 2.0700000000000007
     },
     {
-     "projectileId": "proj-0990c46fe859f06e",
+     "projectileId": "proj-314218646ef7d8ca",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4170,7 +4177,7 @@
      "launchDelay": 2.1200000000000006
     },
     {
-     "projectileId": "proj-136113a6e84f6119",
+     "projectileId": "proj-47e7d79fb6fcb372",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4263,7 +4270,7 @@
      "launchDelay": 2.1700000000000004
     },
     {
-     "projectileId": "proj-f66ef01581470a04",
+     "projectileId": "proj-dcc04e00795f2526",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4355,7 +4362,7 @@
      "launchDelay": 2.2200000000000006
     },
     {
-     "projectileId": "proj-46fc0898ab709f36",
+     "projectileId": "proj-018dff0b119a42b7",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4447,7 +4454,7 @@
      "launchDelay": 2.2700000000000005
     },
     {
-     "projectileId": "proj-b7a55cdb0f0e892c",
+     "projectileId": "proj-d0f9460262aa04f4",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4540,7 +4547,7 @@
      "launchDelay": 2.3200000000000007
     },
     {
-     "projectileId": "proj-b3347d4b2aab27fe",
+     "projectileId": "proj-b2f0c255ee05e04e",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4633,7 +4640,7 @@
      "launchDelay": 2.3700000000000006
     },
     {
-     "projectileId": "proj-7ff682bdb435f328",
+     "projectileId": "proj-5e8b66c1ec25048f",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4726,7 +4733,7 @@
      "launchDelay": 2.420000000000001
     },
     {
-     "projectileId": "proj-b2e1af0fbe3f9024",
+     "projectileId": "proj-42ff2194dc6ffc47",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4819,7 +4826,7 @@
      "launchDelay": 2.4700000000000006
     },
     {
-     "projectileId": "proj-006eaee05daa8127",
+     "projectileId": "proj-4a7117d4446753a3",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4912,7 +4919,7 @@
      "launchDelay": 2.5200000000000005
     },
     {
-     "projectileId": "proj-a2f17628bce38565",
+     "projectileId": "proj-25cd9c48bcfd1ec3",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5005,7 +5012,7 @@
      "launchDelay": 2.5700000000000007
     },
     {
-     "projectileId": "proj-28112ebd6ce582e7",
+     "projectileId": "proj-ab572b8b5b78cd17",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5097,7 +5104,7 @@
      "launchDelay": 2.6200000000000006
     },
     {
-     "projectileId": "proj-c0b76e65a2056d8c",
+     "projectileId": "proj-b45819d94353b21e",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5189,7 +5196,7 @@
      "launchDelay": 2.670000000000001
     },
     {
-     "projectileId": "proj-d3e2a925fd4a7876",
+     "projectileId": "proj-9a8979a3725d3b03",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5262,7 +5269,7 @@
       {
        "position": {
         "x": 1114.0463363657952,
-        "y": 506.7486666666669
+        "y": 499.37000000000023
        },
        "velocity": {
         "x": -2.755455298081541e-13,
@@ -5273,7 +5280,7 @@
      ],
      "explosionPoint": {
       "x": 1114.0463363657952,
-      "y": 506.7486666666669
+      "y": 499.37000000000023
      },
      "explosionRadius": 28,
      "craterRadius": 12,
@@ -5281,7 +5288,7 @@
      "launchDelay": 2.7200000000000006
     },
     {
-     "projectileId": "proj-fc2e97b1230604b8",
+     "projectileId": "proj-375ce29e39020a0f",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5374,7 +5381,7 @@
      "launchDelay": 2.7700000000000005
     },
     {
-     "projectileId": "proj-9d78fc110c83dbdc",
+     "projectileId": "proj-5e122c523335ae4a",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5467,7 +5474,7 @@
      "launchDelay": 2.8200000000000007
     },
     {
-     "projectileId": "proj-286cd0716304f4e2",
+     "projectileId": "proj-20f6a5effca44d16",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5570,7 +5577,7 @@
      "launchDelay": 2.8700000000000006
     },
     {
-     "projectileId": "proj-17aa34704fac770c",
+     "projectileId": "proj-a3fea5ab7c2406aa",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5643,7 +5650,7 @@
       {
        "position": {
         "x": 1093.628406014108,
-        "y": 499.37000000000023
+        "y": 506.7486666666669
        },
        "velocity": {
         "x": -2.755455298081541e-13,
@@ -5654,7 +5661,7 @@
      ],
      "explosionPoint": {
       "x": 1093.628406014108,
-      "y": 499.37000000000023
+      "y": 506.7486666666669
      },
      "explosionRadius": 28,
      "craterRadius": 12,
@@ -5662,7 +5669,7 @@
      "launchDelay": 2.920000000000001
     },
     {
-     "projectileId": "proj-26c37e2113b0ffe0",
+     "projectileId": "proj-26d8ac81d3c3d324",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5759,7 +5766,7 @@
     {
      "t": 1.1200000000000006,
      "type": "flare",
-     "projectileId": "proj-7594bb82c1196b93",
+     "projectileId": "proj-fd442a3b5198dba3",
      "position": {
       "x": 1139.6761223465305,
       "y": 485.81028281247234
@@ -5778,30 +5785,32 @@
     {
      "t": 1.9800000000000006,
      "type": "explode",
-     "projectileId": "proj-01a6387c5b2819a0",
+     "projectileId": "proj-443e52284d608b37",
      "position": {
       "x": 1109.834978664252,
       "y": 491.99133333333356
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 1
     },
     {
      "t": 2.0400000000000005,
      "type": "explode",
-     "projectileId": "proj-46022b2effa45101",
+     "projectileId": "proj-be0da86568196d30",
      "position": {
       "x": 1142.5979046700218,
       "y": 444.2080000000002
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 2
     },
     {
      "t": 2.0400000000000005,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-46022b2effa45101",
+     "projectileId": "proj-be0da86568196d30",
      "amount": 114,
      "hp": 1136,
      "cause": "explosion"
@@ -5816,30 +5825,32 @@
     {
      "t": 2.0500000000000007,
      "type": "explode",
-     "projectileId": "proj-09314ac1df48333e",
+     "projectileId": "proj-2a79c7ac01deaace",
      "position": {
       "x": 1023.5662391368346,
       "y": 528.9835555555558
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 3
     },
     {
      "t": 2.1300000000000003,
      "type": "explode",
-     "projectileId": "proj-9eaa22b31231ab77",
+     "projectileId": "proj-cc897c027cc97086",
      "position": {
       "x": 1124.7308801724537,
       "y": 491.99133333333356
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 4
     },
     {
      "t": 2.1300000000000003,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-9eaa22b31231ab77",
+     "projectileId": "proj-cc897c027cc97086",
      "amount": 7,
      "hp": 1129,
      "cause": "explosion"
@@ -5847,19 +5858,20 @@
     {
      "t": 2.1600000000000006,
      "type": "explode",
-     "projectileId": "proj-3f14e69df24f2fc2",
+     "projectileId": "proj-1b0a1db26c17a5de",
      "position": {
       "x": 1169.4794388168223,
       "y": 451.5471111111113
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 5
     },
     {
      "t": 2.1600000000000006,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-3f14e69df24f2fc2",
+     "projectileId": "proj-1b0a1db26c17a5de",
      "amount": 114,
      "hp": 1015,
      "cause": "explosion"
@@ -5867,19 +5879,20 @@
     {
      "t": 2.2300000000000004,
      "type": "explode",
-     "projectileId": "proj-51023b531fb98969",
+     "projectileId": "proj-0d0c97314de30b2e",
      "position": {
       "x": 1073.9118835472402,
       "y": 491.99133333333356
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 6
     },
     {
      "t": 2.2300000000000004,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-51023b531fb98969",
+     "projectileId": "proj-0d0c97314de30b2e",
      "amount": 109,
      "hp": 1541,
      "cause": "explosion"
@@ -5894,41 +5907,44 @@
     {
      "t": 2.2800000000000007,
      "type": "explode",
-     "projectileId": "proj-149e096d51e279e3",
+     "projectileId": "proj-a74fed4a76fe351f",
      "position": {
       "x": 1229.2877477228337,
       "y": 488.3020000000002
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 7
     },
     {
      "t": 2.3300000000000005,
      "type": "explode",
-     "projectileId": "proj-340fafc2f7cbb57a",
+     "projectileId": "proj-0d1d533dd2340aa6",
      "position": {
       "x": 1255.802711506543,
       "y": 491.99133333333356
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 8
     },
     {
      "t": 2.3400000000000003,
      "type": "explode",
-     "projectileId": "proj-a4023f254e67def3",
+     "projectileId": "proj-8ccbf73f4bd110da",
      "position": {
       "x": 1145.1615731563056,
       "y": 444.2080000000002
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 9
     },
     {
      "t": 2.3400000000000003,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-a4023f254e67def3",
+     "projectileId": "proj-8ccbf73f4bd110da",
      "amount": 114,
      "hp": 901,
      "cause": "explosion"
@@ -5936,41 +5952,44 @@
     {
      "t": 2.4300000000000006,
      "type": "explode",
-     "projectileId": "proj-a51127b6c77c5e25",
+     "projectileId": "proj-f02f97b04d7cc5f1",
      "position": {
       "x": 1197.006541515892,
       "y": 484.6126666666669
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 10
     },
     {
      "t": 2.4800000000000004,
      "type": "explode",
-     "projectileId": "proj-0990c46fe859f06e",
+     "projectileId": "proj-314218646ef7d8ca",
      "position": {
       "x": 1243.9042883178886,
       "y": 495.68066666666687
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 11
     },
     {
      "t": 2.49,
      "type": "explode",
-     "projectileId": "proj-136113a6e84f6119",
+     "projectileId": "proj-47e7d79fb6fcb372",
      "position": {
       "x": 1147.4337344767353,
       "y": 444.2080000000002
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 12
     },
     {
      "t": 2.49,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-136113a6e84f6119",
+     "projectileId": "proj-47e7d79fb6fcb372",
      "amount": 114,
      "hp": 787,
      "cause": "explosion"
@@ -5978,41 +5997,44 @@
     {
      "t": 2.5800000000000005,
      "type": "explode",
-     "projectileId": "proj-f66ef01581470a04",
+     "projectileId": "proj-dcc04e00795f2526",
      "position": {
       "x": 1081.6964746581148,
       "y": 503.05933333333354
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 13
     },
     {
      "t": 2.6300000000000003,
      "type": "explode",
-     "projectileId": "proj-46fc0898ab709f36",
+     "projectileId": "proj-018dff0b119a42b7",
      "position": {
       "x": 1280.2100864500558,
       "y": 495.68066666666687
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 14
     },
     {
      "t": 2.6600000000000006,
      "type": "explode",
-     "projectileId": "proj-b7a55cdb0f0e892c",
+     "projectileId": "proj-d0f9460262aa04f4",
      "position": {
       "x": 1136.3665003231843,
       "y": 447.8775555555558
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 15
     },
     {
      "t": 2.6600000000000006,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-b7a55cdb0f0e892c",
+     "projectileId": "proj-d0f9460262aa04f4",
      "amount": 114,
      "hp": 673,
      "cause": "explosion"
@@ -6020,19 +6042,20 @@
     {
      "t": 2.7100000000000004,
      "type": "explode",
-     "projectileId": "proj-b3347d4b2aab27fe",
+     "projectileId": "proj-b2f0c255ee05e04e",
      "position": {
       "x": 1062.7338539119612,
       "y": 477.2340000000002
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 16
     },
     {
      "t": 2.7100000000000004,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-b3347d4b2aab27fe",
+     "projectileId": "proj-b2f0c255ee05e04e",
      "amount": 109,
      "hp": 1432,
      "cause": "explosion"
@@ -6040,19 +6063,20 @@
     {
      "t": 2.7600000000000007,
      "type": "explode",
-     "projectileId": "proj-7ff682bdb435f328",
+     "projectileId": "proj-5e8b66c1ec25048f",
      "position": {
       "x": 1128.7031770038375,
       "y": 455.21666666666687
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 17
     },
     {
      "t": 2.7600000000000007,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-7ff682bdb435f328",
+     "projectileId": "proj-5e8b66c1ec25048f",
      "amount": 114,
      "hp": 559,
      "cause": "explosion"
@@ -6060,19 +6084,20 @@
     {
      "t": 2.7900000000000005,
      "type": "explode",
-     "projectileId": "proj-b2e1af0fbe3f9024",
+     "projectileId": "proj-42ff2194dc6ffc47",
      "position": {
       "x": 1139.691448024772,
       "y": 444.2080000000002
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 18
     },
     {
      "t": 2.7900000000000005,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-b2e1af0fbe3f9024",
+     "projectileId": "proj-42ff2194dc6ffc47",
      "amount": 114,
      "hp": 445,
      "cause": "explosion"
@@ -6080,19 +6105,20 @@
     {
      "t": 2.8400000000000003,
      "type": "explode",
-     "projectileId": "proj-006eaee05daa8127",
+     "projectileId": "proj-4a7117d4446753a3",
      "position": {
       "x": 1139.6760349219858,
       "y": 444.2080000000002
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 19
     },
     {
      "t": 2.8400000000000003,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-006eaee05daa8127",
+     "projectileId": "proj-4a7117d4446753a3",
      "amount": 109,
      "hp": 336,
      "cause": "explosion"
@@ -6100,63 +6126,68 @@
     {
      "t": 2.9100000000000006,
      "type": "explode",
-     "projectileId": "proj-a2f17628bce38565",
+     "projectileId": "proj-25cd9c48bcfd1ec3",
      "position": {
       "x": 1137.0267717191578,
       "y": 447.8775555555558
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 20
     },
     {
      "t": 2.9800000000000004,
      "type": "explode",
-     "projectileId": "proj-28112ebd6ce582e7",
+     "projectileId": "proj-ab572b8b5b78cd17",
      "position": {
       "x": 1214.2974588647544,
       "y": 488.3020000000002
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 21
     },
     {
      "t": 3.0300000000000007,
      "type": "explode",
-     "projectileId": "proj-c0b76e65a2056d8c",
+     "projectileId": "proj-b45819d94353b21e",
      "position": {
       "x": 1180.4326019329455,
       "y": 484.6126666666669
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 22
     },
     {
      "t": 3.0800000000000005,
      "type": "explode",
-     "projectileId": "proj-d3e2a925fd4a7876",
+     "projectileId": "proj-9a8979a3725d3b03",
      "position": {
       "x": 1114.0463363657952,
-      "y": 506.7486666666669
+      "y": 499.37000000000023
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 23
     },
     {
      "t": 3.1100000000000003,
      "type": "explode",
-     "projectileId": "proj-fc2e97b1230604b8",
+     "projectileId": "proj-375ce29e39020a0f",
      "position": {
       "x": 1038.7804151584453,
       "y": 473.56444444444463
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 24
     },
     {
      "t": 3.1100000000000003,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-fc2e97b1230604b8",
+     "projectileId": "proj-375ce29e39020a0f",
      "amount": 109,
      "hp": 1323,
      "cause": "explosion"
@@ -6164,45 +6195,49 @@
     {
      "t": 3.1600000000000006,
      "type": "explode",
-     "projectileId": "proj-9d78fc110c83dbdc",
+     "projectileId": "proj-5e122c523335ae4a",
      "position": {
       "x": 1164.7728982511774,
       "y": 447.8775555555558
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 25
     },
     {
      "t": 3.2700000000000005,
      "type": "explode",
-     "projectileId": "proj-286cd0716304f4e2",
+     "projectileId": "proj-20f6a5effca44d16",
      "position": {
       "x": 997.184544671134,
       "y": 547.5488888888892
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 26
     },
     {
      "t": 3.2800000000000007,
      "type": "explode",
-     "projectileId": "proj-17aa34704fac770c",
+     "projectileId": "proj-a3fea5ab7c2406aa",
      "position": {
       "x": 1093.628406014108,
-      "y": 499.37000000000023
+      "y": 506.7486666666669
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 27
     },
     {
      "t": 3.2900000000000005,
      "type": "explode",
-     "projectileId": "proj-26c37e2113b0ffe0",
+     "projectileId": "proj-26d8ac81d3c3d324",
      "position": {
       "x": 1156.8041287356007,
       "y": 444.2080000000002
      },
      "radius": 12,
+     "crater": "bowl",
      "terrainVersion": 28
     }
    ],

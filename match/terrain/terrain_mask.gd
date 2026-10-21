@@ -9,6 +9,9 @@ extends RefCounted
 const SOLID := 255
 const PLAYER_HEIGHT := 40 # match.PlayerHeight
 const MAX_CLIMB_PER_STEP := 3 # Terrain.WalkTo maxClimbPerStep
+const CRATER_BOWL := "bowl" # the explode event's crater: Terrain.CarveBowl (every explosion but the bomb chain)
+const CRATER_CIRCLE := "circle" # Terrain.DestroyCircleAbove (the bomb chain's shaft)
+const BOWL_CEILING := 1.5 # bowlCeiling: the bowl's flat top, in crater radii above the centre
 
 var width := 0
 var height := 0
@@ -97,6 +100,45 @@ func destroy_circle(cx: float, cy: float, radius: float, floor_y: float = 0.0) -
 		for x in range(maxi(icx - ir, 0), mini(icx + ir, width - 1) + 1):
 			var dx := float(x - icx)
 			if dx * dx + dy * dy <= r2:
+				var i := row + x
+				if destructible[i] != 0:
+					solid[i] = 0
+
+
+## Terrain.Carve: the explode event's crater of this shape (CRATER_BOWL, also "", or
+## CRATER_CIRCLE) at (cx, cy); floor_y > 0 keeps the rows y >= floor_y.
+func carve(shape: String, cx: float, cy: float, radius: float, floor_y: float = 0.0) -> void:
+	if shape == CRATER_CIRCLE:
+		destroy_circle(cx, cy, radius, floor_y)
+	else:
+		carve_bowl(cx, cy, radius, floor_y)
+
+
+## Terrain.CarveBowl: clears the destructible solid pixels of a shallow bowl round (cx, cy), the
+## pixels (dx, dy) from the rounded centre with dx² + 2·r·dy <= r² (a floor r/2 under the centre,
+## r to each side at its height) and dy >= -BOWL_CEILING·r (a flat top), so a player in it can
+## walk out. Same float operations in the same order as the Go code: bit-identical.
+func carve_bowl(cx: float, cy: float, radius: float, floor_y: float = 0.0) -> void:
+	version += 1
+	if radius <= 0.0:
+		return
+	var icx := roundi(cx)
+	var icy := roundi(cy)
+	var reach := ceili(2.0 * radius) + 1
+	var top := -BOWL_CEILING * radius
+	var r2 := radius * radius
+	var max_y := height - 1
+	if floor_y > 0.0:
+		max_y = mini(max_y, ceili(floor_y) - 1)
+	for y in range(maxi(icy - ceili(BOWL_CEILING * radius) - 1, 0), mini(icy + ceili(radius / 2.0) + 1, max_y) + 1):
+		var dy := float(y - icy)
+		if dy < top:
+			continue
+		var lift := 2.0 * radius * dy
+		var row := y * width
+		for x in range(maxi(icx - reach, 0), mini(icx + reach, width - 1) + 1):
+			var dx := x - icx
+			if float(dx * dx) + lift <= r2:
 				var i := row + x
 				if destructible[i] != 0:
 					solid[i] = 0

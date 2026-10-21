@@ -69,12 +69,15 @@ func test_is_solid_bounds() -> void:
 	check(m.is_solid(0, 5), "below map is solid floor")
 
 
-func test_destroy_circle_matches_server() -> void:
+func test_craters_match_server() -> void:
 	var f := _fixture()
 	var m := TerrainMask.new()
 	check(m.load_snapshot(f["before"]), "load before snapshot")
+	var shapes := {}
 	for op in f["ops"]:
-		m.destroy_circle(float(op["x"]), float(op["y"]), float(op["radius"]))
+		shapes[str(op["crater"])] = true
+		m.carve(str(op["crater"]), float(op["x"]), float(op["y"]), float(op["radius"]), float(op.get("floor", 0.0)))
+	eq(shapes.keys().size(), 2, "the fixture has circles and bowls")
 	var n := m.width * m.height
 	eq(_diff_count(m.solid, TerrainMask.decode_rle(f["after"]["solid"], n)), 0, "solid pixels differing from server")
 	eq(_diff_count(m.destructible, TerrainMask.decode_rle(f["after"]["destructible"], n)), 0, "destructible pixels differing")
@@ -101,3 +104,58 @@ func test_walk_to_matches_server() -> void:
 	for c in f["walks"]:
 		eq(m.walk_to(float(c["startX"]), float(c["startY"]), float(c["targetX"])), Vector2(float(c["x"]), float(c["y"])),
 			"walk %s,%s -> %s" % [c["startX"], c["startY"], c["targetX"]])
+
+
+## Terrain.CarveBowl's shape (the server's TestCarveBowlShape): dx² + 2·r·dy <= r² under a flat
+## top 1.5·r above the centre.
+func test_bowl_shape() -> void:
+	var m := _solid(400, 300)
+	m.carve_bowl(200, 150, 20)
+	eq(m.version, 1, "one operation")
+	for c in [[200, 160, true], [200, 161, false], [220, 150, true], [221, 150, false],
+			[210, 157, true], [210, 158, false], [200, 120, true], [200, 119, false],
+			[240, 120, true], [241, 120, false], [230, 140, false]]:
+		eq(not m.is_solid(c[0], c[1]), c[2], "(%d, %d) carved" % [c[0], c[1]])
+	m = _solid(100, 100)
+	m.carve_bowl(50, 50, 20, 55.0)
+	check(not m.is_solid(50, 54) and m.is_solid(50, 55), "rows >= floor kept")
+	m.carve_bowl(90, 90, 0.0)
+	check(m.is_solid(90, 90) and m.version == 2, "a zero radius carves nothing, still an operation")
+	m = _solid(100, 100)
+	m.carve("circle", 50, 50, 10)
+	check(not m.is_solid(50, 59) and not m.is_solid(50, 41), "circle")
+	m = _solid(100, 100)
+	m.carve("", 50, 50, 10)
+	check(not m.is_solid(50, 55) and m.is_solid(50, 56), "no shape: the bowl")
+
+
+## Every real shot in the fixtures (rain missiles' bowls, the bomb chain's circles, bloom, laser)
+## replayed through carve() from its explode events ends on the server's terrainAfter.
+func test_fixture_shots_carve_like_the_server() -> void:
+	var shapes := {}
+	for path in ["skill_shots", "skill_rain", "skill_bombchain", "skill_laser", "skill_bloom"]:
+		var all: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tests/fixtures/%s.json" % path))
+		for key in all:
+			var c = all[key]
+			if not (c is Dictionary) or not c.has("terrainAfter"):
+				continue
+			var m := TerrainMask.new()
+			check(m.load_snapshot(c["terrain"]), "%s/%s: load" % [path, key])
+			for e in c["shot"]["events"]:
+				if e["type"] == "explode":
+					shapes[str(e.get("crater", ""))] = true
+					m.carve(str(e.get("crater", "")), float(e["position"]["x"]), float(e["position"]["y"]), float(e.get("radius", 0.0)), float(e.get("floor", 0.0)))
+			var after := TerrainMask.new()
+			after.load_snapshot(c["terrainAfter"])
+			eq(_diff_count(m.solid, after.solid), 0, "%s/%s: solid pixels differing from the server" % [path, key])
+	check(shapes.has("bowl") and shapes.has("circle"), "bowls and circles replayed: %s" % [shapes.keys()])
+
+
+func _solid(w: int, h: int) -> TerrainMask:
+	var m := TerrainMask.new()
+	m.width = w
+	m.height = h
+	m.solid.resize(w * h)
+	m.solid.fill(TerrainMask.SOLID)
+	m.destructible = m.solid.duplicate()
+	return m

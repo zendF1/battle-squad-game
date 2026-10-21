@@ -1,7 +1,7 @@
 extends Sprite2D
 ## Draws a TerrainMask: the solid bytes are an L8 image coloured by terrain.gdshader with the
 ## dirt and grass images (assets/terrain, via ui/art.gd). An explosion costs one byte edit pass
-## (TerrainMask.destroy_circle) and one texture upload (refresh).
+## (TerrainMask.carve) and one texture upload (refresh).
 
 const Art := preload("res://ui/art.gd")
 
