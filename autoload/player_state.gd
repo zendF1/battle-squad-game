@@ -37,6 +37,10 @@ extends Node
 ## means another device or a retry already took it). take_new_milestones() is true once each
 ## time the count rose past what the player saw (the lobby's "Có mốc thưởng mới!").
 ##
+## Rank: GET /rank/me (the current season's {rating, tier, ...}), loaded with the profile when
+## Home is shown (load_rank(), coalesced); rank_tier() is its tier ("" until loaded, after a
+## failure or for another account): the match's aiming aid shortens its guide arc by it.
+##
 ## Titles ("Danh hiệu"): the worn one is the profile's equippedTitle (equipped_title()); the
 ## list GET /player/titles (TitleModel.parse, coalesced, stale after a milestone claim that gave a
 ## title). equip_title(id) / equip_title(null) run POST /player/titles/equip {titleId} one at a
@@ -140,6 +144,11 @@ var _titles_player := ""
 var _titles_gate := Coalescer.new()
 ## True while POST /player/titles/equip runs.
 var title_busy := false
+
+## Last GET /rank/me data; {} until loaded.
+var rank: Dictionary = {}
+var _rank_player := ""
+var _rank_gate := Coalescer.new()
 
 var _equipment_gate := Coalescer.new()
 var _profile_gate := Coalescer.new()
@@ -245,6 +254,29 @@ func load_characters() -> void:
 		break
 	characters_loading = false
 	characters_changed.emit()
+
+
+## Loads GET /rank/me; a failure keeps the last answer for this account.
+func load_rank() -> void:
+	if not _rank_gate.ask():
+		return
+	while true:
+		var t := _rank_gate.ticket()
+		var player := Session.player_id
+		var res: Dictionary = await _api().get_json("/rank/me")
+		if not _rank_gate.finish(t):
+			continue
+		if res.ok and res.data is Dictionary:
+			rank = res.data
+			_rank_player = player
+		break
+
+
+## The signed-in player's rank tier (ratingToTier ids: bronze ... master), "" when unknown.
+func rank_tier() -> String:
+	if rank.is_empty() or _rank_player != Session.player_id:
+		return ""
+	return str(rank.get("tier", ""))
 
 
 ## A display name the server accepted: shown at once, then confirmed by a refresh.

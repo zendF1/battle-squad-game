@@ -5,7 +5,8 @@ extends RefCounted
 ## - each step's segment is sampled every 4 px or less, so thin walls and crater lips stop the
 ##   preview where they stop the shell.
 ## Players, drills, weapon weight and wind influence are not modelled (weight 1, influence 1),
-## so the preview is a guide, not a promise.
+## so the preview is a guide, not a promise. The aiming aid's exact flight (match/aim/aim_aid.gd
+## fly()) adds them on the same integration; the guide arc drawn is simulate() without wind.
 ##
 ## The math uses GDScript floats (64-bit, like Go's float64). Vector2 (32-bit) is used only for
 ## the returned points.

@@ -10,8 +10,10 @@ extends Control
 ##   its weapon's +14 / +16 back aura: the match's aura lives here, not on the small sprites), no
 ##   card, name or title (the title plates are over each sprite's name); it slides and fades in on
 ##   each turn change (mine, opponents', bots: no aura);
-## - bottom left: the move buttons and the move energy (Thể lực), and over them a notice while
-##   moving is blocked ("Bị cầm chân", set_move_notice());
+## - the move buttons on the screen's left and right edges, vertically centred (◀ left, ▶
+##   right; move_layout()); under the left one the move energy (Thể lực, a short bar as wide as
+##   the button) and over it a notice while moving is blocked ("Bị cầm chân", set_move_notice());
+##   between the chat (top left) and the skill slot (bottom right), clear of both;
 ## - bottom centre: the aim readout over the items in hand, a row of slots (icon + count);
 ## - bottom right: the character's skill as a round slot (its icon, the energy as a ring, off
 ##   until charged).
@@ -49,6 +51,8 @@ const PORTRAIT_ART := Vector2(190, 200) # the turn portrait's figure box
 const SKILL_SIZE := 132
 const ITEM_SIZE := 96
 const MOVE_SIZE := 110
+const ENERGY_GAP := 10 # between the left move button and the energy under it
+const NOTICE_GAP := 8 # between the notice and the left move button over which it sits
 const PORTRAIT_SLIDE := 70.0 # px the portrait slides in from the right
 ## The chat's line until match chat exists.
 const CHAT_LINE := {"channel": "Hệ thống", "name": "", "text": "Trận đấu bắt đầu!"}
@@ -103,7 +107,7 @@ func _ready() -> void:
 	_build_top_left()
 	_build_top_centre()
 	_build_portrait()
-	_build_bottom_left()
+	_build_move()
 	_build_bottom_centre()
 	_build_skill()
 	_set_turn_style(false)
@@ -243,37 +247,51 @@ func _build_portrait() -> void:
 	_portrait.visible = false
 
 
-## Bottom left: the move buttons and the energy.
-func _build_bottom_left() -> void:
-	var col: VBoxContainer = _pin(_ignore(Ui.vbox(8)), 0, 1, Vector2(MARGIN, -MARGIN))
-	col.name = "BottomLeftColumn"
-	_move_notice = LobbyUi.text("", 24, Color(0.75, 1.0, 0.55), true)
-	_move_notice.name = "MoveNotice"
-	_move_notice.visible = false
-	col.add_child(_move_notice)
-	var row: HBoxContainer = _ignore(Ui.hbox(16))
-	col.add_child(row)
-	row.name = "BottomLeft"
+## The move buttons on the left and right edges, vertically centred; the energy under the left
+## one, the notice over it.
+func _build_move() -> void:
+	var col: VBoxContainer = _pin(_ignore(Ui.vbox(ENERGY_GAP)), 0, 0.5, Vector2(MARGIN, -MOVE_SIZE / 2.0))
+	col.name = "MoveLeft"
+	col.grow_vertical = GROW_DIRECTION_END # the button's centre on the screen's middle
+	col.offset_bottom = col.offset_top
 	_left = _hold_button("arrow_left", -1)
-	row.add_child(_left)
-	_right = _hold_button("arrow_right", 1)
-	row.add_child(_right)
-	var energy_panel: PanelContainer = _ignore(LobbyUi.panel(12, 18, NAVY))
-	energy_panel.size_flags_vertical = SIZE_SHRINK_CENTER
-	row.add_child(energy_panel)
-	var energy_row := Ui.hbox(10)
-	energy_row.mouse_filter = MOUSE_FILTER_IGNORE
-	energy_panel.add_child(energy_row)
-	energy_row.add_child(LobbyUi.text("Thể lực", 20, Color(1, 1, 1, 0.8), true))
+	_left.name = "MoveLeftButton"
+	_left.size_flags_horizontal = SIZE_SHRINK_CENTER
+	col.add_child(_left)
+	var energy_panel: PanelContainer = _ignore(LobbyUi.panel(8, 10, NAVY))
+	energy_panel.name = "Energy"
+	energy_panel.size_flags_horizontal = SIZE_SHRINK_CENTER
+	col.add_child(energy_panel)
+	var energy_col := Ui.vbox(4)
+	energy_col.mouse_filter = MOUSE_FILTER_IGNORE
+	energy_panel.add_child(energy_col)
+	var label := LobbyUi.text("Thể lực", 18, Color(1, 1, 1, 0.85), true)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	energy_col.add_child(label)
 	_energy = ProgressBar.new()
 	_energy.max_value = 100
 	_energy.show_percentage = false
-	_energy.custom_minimum_size = Vector2(200, 20)
-	_energy.size_flags_vertical = SIZE_SHRINK_CENTER
+	_energy.custom_minimum_size = Vector2(MOVE_SIZE, 16)
 	_energy.mouse_filter = MOUSE_FILTER_IGNORE
-	_energy.add_theme_stylebox_override("background", LobbyUi.box(Color(0.02, 0.03, 0.1, 0.85), 10, 0, Color(1, 1, 1, 0.15), 2))
-	_energy.add_theme_stylebox_override("fill", LobbyUi.box(Color(0.35, 0.85, 0.45), 10, 0))
-	energy_row.add_child(_energy)
+	_energy.add_theme_stylebox_override("background", LobbyUi.box(Color(0.02, 0.03, 0.1, 0.85), 8, 0, Color(1, 1, 1, 0.15), 2))
+	_energy.add_theme_stylebox_override("fill", LobbyUi.box(Color(0.35, 0.85, 0.45), 8, 0))
+	energy_col.add_child(_energy)
+	_move_notice = _pin(LobbyUi.text("", 24, Color(0.75, 1.0, 0.55), true), 0, 0.5, Vector2(MARGIN, -MOVE_SIZE / 2.0 - NOTICE_GAP))
+	_move_notice.name = "MoveNotice"
+	_move_notice.grow_vertical = GROW_DIRECTION_BEGIN # sits on the button
+	_move_notice.offset_top = _move_notice.offset_bottom
+	_move_notice.mouse_filter = MOUSE_FILTER_IGNORE
+	_move_notice.visible = false
+	_right = _hold_button("arrow_right", 1)
+	_right.name = "MoveRightButton"
+	_pin(_right, 1, 0.5, Vector2(-MARGIN, 0))
+
+
+## Where the move parts are, in screen px (after a layout pass): {left, right, energy, notice}
+## as Rect2s.
+func move_layout() -> Dictionary:
+	return {"left": _left.get_global_rect(), "right": _right.get_global_rect(),
+		"energy": _energy.get_parent().get_parent().get_global_rect(), "notice": _move_notice.get_global_rect()}
 
 
 ## Bottom centre: the aim readout over the item slots.

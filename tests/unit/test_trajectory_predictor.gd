@@ -105,4 +105,5 @@ func test_shot_origin_matches_server() -> void:
 func test_shot_origin_is_the_body_centre() -> void:
 	eq(Trajectory.shot_origin(Vector2(100, 200)), Vector2(100, 180), "feet - (0, 20)")
 	var text := FileAccess.get_file_as_string("res://match/aim/aim_input.gd")
-	check(text.contains("Trajectory.predict(Trajectory.shot_origin(shooter_pos, terrain)"), "the preview starts at the body centre")
+	check(text.contains("var origin: Vector2 = Trajectory.shot_origin(shooter_pos, terrain)"), "the aid starts at the body centre")
+	check(text.contains("AimAid.fly(origin,") and text.contains("Trajectory.simulate(origin.x, origin.y"), "both flights from it")

@@ -33,6 +33,8 @@ const Items := preload("res://match/items.gd")
 const Status := preload("res://match/status_effects.gd")
 const ActionLock := preload("res://match/action_lock.gd")
 const SkillView := preload("res://match/views/skills/skill_view.gd")
+const HighShellMarker := preload("res://match/views/high_shell_marker.gd")
+const CharacterShopModel := preload("res://screens/home/character_shop_model.gd")
 
 const ACTION_INTERVAL := 0.25 # server drops actions closer than 150 ms
 const MOVE_ACK_GAP := 0.16 # Shoot/EndTurn/UseItem wait this long after the last answer to a Move
@@ -49,6 +51,7 @@ const RESYNC_RETRY := 3.0 # re-ask for MatchStateSync if none arrived
 const TURN_SECONDS := 20
 const DEFAULT_MAX_ENERGY := 100 # maxMoveEnergy from a server that does not send it
 const MIN_AIM_SEC := 0.15 # a PlayerAiming with less left (held back by a replay) is not shown
+const DRILL_PIERCE := 50.0 # px of terrain the drill_bomb shot drills (server items.yaml value)
 
 var _me := ""
 var _players := {} # playerId -> server BattlePlayerState
@@ -76,6 +79,7 @@ var _terrain_view: TerrainView
 var _players_layer: Node2D
 var _fx_layer: Node2D
 var _aim: AimInput
+var _high_marker: HighShellMarker
 var _shot_player: ShotPlayer
 var _shot_timeline: ShotTimeline = null # the shot being replayed (its projectiles' blast radii)
 var _skill_view = null # the SkillView of the skill shot being replayed, or null
@@ -108,6 +112,12 @@ func _ready() -> void:
 	add_child(ui)
 	_hud = Hud.new()
 	ui.add_child(_hud)
+	var over_hud := CanvasLayer.new() # the high shells' arrows on the top edge, over the HUD
+	over_hud.layer = ui.layer + 1
+	add_child(over_hud)
+	_high_marker = HighShellMarker.new()
+	_high_marker.shot_player = _shot_player
+	over_hud.add_child(_high_marker)
 
 	_moves.terrain = _mask
 	_aim.fire.connect(_on_fire)
@@ -312,8 +322,28 @@ func _refresh_controls() -> void:
 		_aim.terrain = _mask
 		_aim.wind_dir = int(_wind.get("direction", 0))
 		_aim.wind_power = float(_wind.get("power", 0.0))
+		_set_aim_aid(me)
 	else:
 		_hold_dir = 0
+
+
+## What the aiming aid needs for my next shot: my rank tier (the guide arc's length), my
+## weapon's wind response (server configs/weapons.yaml via CharacterShopModel.WEAPONS), a drill's
+## pierce, and the alive enemies' body centres (the exact flight stops on them; "Trúng!").
+func _set_aim_aid(me: Dictionary) -> void:
+	_aim.rank_tier = PlayerState.rank_tier()
+	var weapon: Dictionary = CharacterShopModel.WEAPONS.get(str(me.get("characterId", "")), {})
+	_aim.wind_influence = float(weapon.get("windInfluence", 1.0))
+	_aim.projectile_weight = float(weapon.get("projectileWeight", 1.0))
+	_aim.pierce = DRILL_PIERCE if _armed == "drill_bomb" else 0.0
+	var my_team := int(me.get("teamId", -1))
+	var centres := PackedVector2Array()
+	for id in _players:
+		var p: Dictionary = _players[id]
+		if id == _me or not bool(p.get("isAlive", false)) or int(p.get("teamId", -2)) == my_team or not p.has("position"):
+			continue
+		centres.append(_pos(id) + AimInput.BODY_CENTER)
+	_aim.enemies = centres
 
 
 # ── Server events ────────────────────────────────────────────────────────────

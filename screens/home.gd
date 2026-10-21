@@ -93,6 +93,7 @@ func _ready() -> void:
 	_pages[SHOP] = _build_page("Shop", _shop)
 	_show(LOBBY)
 	PlayerState.refresh()
+	PlayerState.load_rank() # the match's aiming aid reads the tier
 
 
 func _exit_tree() -> void:

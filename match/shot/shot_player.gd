@@ -17,6 +17,7 @@ signal finished
 const ProjectileView := preload("res://match/views/projectile_view.gd")
 const SPAWN_BLEND := 0.15 # s
 const SPAWN_NEAR := 90.0 # px: a path starting farther from the muzzle (air strike) is not moved
+const ARROW_KINDS := ["", "flare", "bomb"] # high_shells(): the kinds flying a normal arc
 
 var layer: Node2D
 ## How this shot's projectiles look: ShotLook.style_for() {kind, tier, skill, item}; set before play().
@@ -95,6 +96,21 @@ func spawn_offset_rate(i: int, t: float) -> Vector2:
 		return Vector2.ZERO
 	var k := clampf(1.0 - t / SPAWN_BLEND, 0.0, 1.0)
 	return _spawn_offsets[i] * (-2.0 * k / SPAWN_BLEND)
+
+
+## Shells drawn above the top of the screen (y < 0) that fly like a normal shot (ARROW_KINDS:
+## a normal shell, the flare, the bombs; not the rain's missiles dropping in from above): their
+## positions, for the arrows at the top edge (HighShellMarker).
+func high_shells() -> PackedVector2Array:
+	var out := PackedVector2Array()
+	if _timeline == null:
+		return out
+	for i in _views.size():
+		var view = _views[i]
+		if view != null and is_instance_valid(view) and view.visible and view.position.y < 0.0 \
+				and ARROW_KINDS.has(_timeline.kind(i)):
+			out.append(view.position)
+	return out
 
 
 ## Drops the replay without emitting the remaining events (a full snapshot replaces it).
