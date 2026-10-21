@@ -10,8 +10,11 @@ extends Node
 ## hidden until then; its muzzle blend starts when it leaves. A skill shot's `skill_view`
 ## (match/views/skills/skill_view.gd, set before play()) may restyle or replace each projectile
 ## view (projectile_view()) and draws its extras every frame (process()); end() when it stops.
+## `fired` is emitted once per replay when the lead-in is over (the shot leaves the gun: replay
+## time 0), before that frame's events.
 
 signal event_due(event: Dictionary)
+signal fired
 signal finished
 
 const ProjectileView := preload("res://match/views/projectile_view.gd")
@@ -33,6 +36,7 @@ var _views: Array = []
 var _spawn_offsets: Array = [] # per projectile: muzzle - path start (or zero)
 var _launch: Array = [] # per projectile: when it leaves
 var _skill_view = null
+var _fired := false
 
 
 func is_playing() -> bool:
@@ -43,6 +47,7 @@ func play(timeline, lead_in: float = 0.0) -> void:
 	stop()
 	_timeline = timeline
 	_t = -maxf(0.0, lead_in)
+	_fired = false
 	_spawn_offsets.clear()
 	_launch.clear()
 	_skill_view = skill_view
@@ -148,6 +153,12 @@ func _process(delta: float) -> void:
 	_t += delta
 	if _t < 0.0:
 		return # the lead-in: the shooter is still drawing
+	var timeline = _timeline
+	if not _fired:
+		_fired = true
+		fired.emit()
+		if _timeline != timeline:
+			return # a handler stopped or replaced the replay
 	for i in _views.size():
 		var view = _views[i]
 		if view == null:
@@ -164,7 +175,6 @@ func _process(delta: float) -> void:
 				view.set_tangent(_timeline.velocity(i, _t) + spawn_offset_rate(i, _t)) # the nose follows the curve
 	if _skill_view != null:
 		_skill_view.process(_t)
-	var timeline = _timeline
 	for event in timeline.pop_due(_t):
 		event_due.emit(event)
 		if _timeline != timeline:

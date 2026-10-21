@@ -12,6 +12,14 @@ extends Node2D
 ## of the default handling here. Status effects: stun and freeze lose the whole turn (controls off,
 ## a banner; the server ends it), root keeps the move controls off ("Bị cầm chân"); burn ticks at
 ## turn start (PlayerDamaged type burn); the shield shows on the HP bar and absorbs damage first.
+## Skill energy: players[id].skillEnergy is the value on screen (the HUD's skill slot, the
+## full-energy aura over each player). A ShotResolved's new energies wait for the replay
+## (match/shot/energy_reveal.gd): the skill's shooter spends at the fire moment, a hit player gains
+## at its first damage event, the rest at the replay's end; TurnStarted (the end-of-turn +20,
+## held back by the replay), ItemUsed and snapshots set them as they come.
+## What a player uses shows as a badge over it (PlayerView.show_badge(), match/views/use_badge.gd):
+## a skill or a shot item from its fire moment to the replay's end, an instant item (ItemUsed)
+## for ITEM_BADGE_SEC; a normal weapon shot shows none.
 ## See docs/superpowers/specs/2026-10-15-godot-client-roadmap-design.md.
 
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
@@ -25,6 +33,8 @@ const DamageTally := preload("res://match/views/damage_tally.gd")
 const SkyView := preload("res://match/views/sky_view.gd")
 const ShotTimeline := preload("res://match/shot/shot_timeline.gd")
 const ShotPlayer := preload("res://match/shot/shot_player.gd")
+const EnergyReveal := preload("res://match/shot/energy_reveal.gd")
+const UseBadge := preload("res://match/views/use_badge.gd")
 const AimInput := preload("res://match/aim/aim_input.gd")
 const MoveSync := preload("res://match/move/move_sync.gd")
 const Hud := preload("res://match/hud.gd")
@@ -52,6 +62,7 @@ const TURN_SECONDS := 20
 const DEFAULT_MAX_ENERGY := 100 # maxMoveEnergy from a server that does not send it
 const MIN_AIM_SEC := 0.15 # a PlayerAiming with less left (held back by a replay) is not shown
 const DRILL_PIERCE := 50.0 # px of terrain the drill_bomb shot drills (server items.yaml value)
+const ITEM_BADGE_SEC := 1.5 # an instant item's badge stays this long, then fades
 
 var _me := ""
 var _players := {} # playerId -> server BattlePlayerState
@@ -83,6 +94,8 @@ var _high_marker: HighShellMarker
 var _shot_player: ShotPlayer
 var _shot_timeline: ShotTimeline = null # the shot being replayed (its projectiles' blast radii)
 var _skill_view = null # the SkillView of the skill shot being replayed, or null
+var _energy_reveal := EnergyReveal.new() # the replayed shot's skill energies not shown yet
+var _shot_badge := {} # the replayed shot's badge: {shooter, content (UseBadge.content())}
 var _popup_row := {} # playerId -> [msec of its last popup, how many came in a row] (DamagePopup.stagger)
 var _tallies := {} # playerId -> its running DamageTally in a multi-hit skill shot (SkillView.merges_damage())
 var _skip := "" # the current player loses this turn: "stun" / "freeze" (TurnStarted.skipped), "" none
@@ -127,6 +140,7 @@ func _ready() -> void:
 	_aim.aim_cleared.connect(_clear_my_aim)
 	_aim.column_changed.connect(_hud.set_column)
 	_shot_player.event_due.connect(_on_shot_event)
+	_shot_player.fired.connect(_on_shot_fired)
 	_shot_player.finished.connect(_on_shot_finished)
 	_hud.move_pressed.connect(func(dir: int) -> void: _hold_dir = dir)
 	_hud.move_released.connect(func() -> void: _hold_dir = 0)
@@ -189,6 +203,8 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 	var continuing := is_sync and current == _current
 	_shot_player.stop()
 	_deferred.clear()
+	_energy_reveal.clear() # the snapshot's energies are shown as they are
+	_shot_badge = {}
 	var terrain: Dictionary = snap.get("terrain", {})
 	if not terrain.is_empty() and _mask.load_snapshot(terrain):
 		_terrain_view.show_mask(_mask)
@@ -370,10 +386,9 @@ func _apply(event: String, data: Variant) -> void:
 			if index > _turn_index and _players.has(_current):
 				_tick_status(_current) # the server ticks the effects at the end of their target's turn
 			_turn_index = maxi(index, _turn_index)
-			var energies: Dictionary = data.get("skillEnergy", {})
-			for id in energies:
-				if _players.has(id):
-					_players[id]["skillEnergy"] = energies[id]
+			var energies = data.get("skillEnergy") # every player's (the end-of-turn +20 in it)
+			if energies is Dictionary:
+				_show_energies(energies)
 			_hud.set_time(TURN_SECONDS)
 			for view in _views.values():
 				view.clear_aim() # guns put away
@@ -395,18 +410,15 @@ func _apply(event: String, data: Variant) -> void:
 		"ShotResolved":
 			_awaiting_ack = 0.0
 			var shooter := str(data.get("shooterId", ""))
-			if _players.has(shooter) and data.has("skillEnergy"):
-				_players[shooter]["skillEnergy"] = int(data["skillEnergy"]) # 0 after a skill
-			var energies = data.get("skillEnergies") # every player's (+10 when an enemy hit them)
-			if energies is Dictionary:
-				for id in energies:
-					if _players.has(id):
-						_players[id]["skillEnergy"] = int(energies[id])
 			_turn_resolved = true # the server takes no more actions until TurnStarted
 			_hud.pause_timer() # resumed by the next TurnTimerTick / TurnStarted
 			_snap_to_server(shooter)
 			var timeline := ShotTimeline.new(data)
 			_shot_timeline = timeline
+			# The energies after the shot (0 for a skill's shooter, +10 for each enemy hit) wait
+			# for their moment in the replay.
+			_energy_reveal.begin(timeline, _players)
+			_shot_badge = {"shooter": shooter, "content": UseBadge.content(timeline.action_mode, timeline.skill_id, timeline.item_id)}
 			# The shot looks like the shooter's gun (visuals only): the kind and tier of the weapon
 			# it brought (weaponItemId), its character's basic gun when none (bots).
 			_shot_player.style = ShotLook.style_for(_players.get(shooter, {}), str(data.get("actionMode", "")),
@@ -474,12 +486,19 @@ func _on_item_used(d: Dictionary) -> void:
 			_players[id] = p
 			_views[id].set_hp(int(p.get("hp", 0)), int(p.get("maxHp", -1)))
 			_views[id].set_status(p.get("statusEffects"))
+			if p.get("skillEnergy") is int or p.get("skillEnergy") is float:
+				_views[id].set_skill_energy(int(p["skillEnergy"]))
 			if p.get("shield") is int or p.get("shield") is float:
 				_views[id].set_shield(int(p["shield"]))
 			if not bool(p.get("isAlive", true)):
 				_views[id].set_dead()
 	_hud.set_wind(int(_wind.get("direction", 0)), float(_wind.get("power", 0.0)))
 	_show_wind()
+	# An instant item shows its badge now; a shot item's comes with its shot (one badge, not two).
+	var used := str(d.get("itemId", ""))
+	var user := str(d.get("playerId", ""))
+	if Items.is_instant(used) and _views.has(user):
+		_views[user].show_badge(UseBadge.content("item", "", used), ITEM_BADGE_SEC)
 	if str(d.get("playerId", "")) == _me and _awaiting_item != "" and str(d.get("itemId", "")) == _awaiting_item:
 		_awaiting_item = ""
 		_awaiting_ack = 0.0
@@ -550,6 +569,7 @@ func _on_shot_event(e: Dictionary) -> void:
 				_tally(id, int(e.get("amount", 0)), crit)
 			else:
 				_popup(id, DamagePopup.damage_text(int(e.get("amount", 0))), Color(1, 0.85, 0.2) if crit else Color(1, 0.3, 0.3))
+			_show_energies(_energy_reveal.on_event(e)) # the hit's +10, after the HP drop
 		"heal":
 			_set_hp(id, int(e.get("hp", 0)))
 			var amount := int(e.get("amount", 0))
@@ -599,8 +619,24 @@ static func shield_text(amount: int) -> String:
 	return DamagePopup.heal_text(amount) + " khiên"
 
 
+## The lead-in is over, the shot leaves: the skill's shooter spends its energy (its aura goes)
+## and the shooter's badge pops up (a skill or a shot item; none for a normal shot).
+func _on_shot_fired() -> void:
+	_show_energies(_energy_reveal.fired())
+	var shooter := str(_shot_badge.get("shooter", ""))
+	var content: Dictionary = _shot_badge.get("content", {})
+	if not content.is_empty() and _views.has(shooter):
+		_views[shooter].show_badge(content)
+
+
 func _on_shot_finished() -> void:
 	_skill_view = null
+	_show_energies(_energy_reveal.finish()) # what changed without a hit on screen
+	var shooter := str(_shot_badge.get("shooter", ""))
+	var content: Dictionary = _shot_badge.get("content", {})
+	if not content.is_empty() and _views.has(shooter):
+		_views[shooter].release_badge()
+	_shot_badge = {}
 	for view in _views.values():
 		view.clear_aim()
 	while not _deferred.is_empty() and not _shot_player.is_playing():
@@ -790,6 +826,22 @@ func _pos(id: String) -> Vector2:
 func _set_pos(id: String, p: Vector2) -> void:
 	if _players.has(id):
 		_players[id]["position"] = {"x": p.x, "y": p.y}
+
+
+## Shows skill energies, {playerId: energy}: the players' values, their auras and (mine) the
+## skill slot.
+func _show_energies(energies: Dictionary) -> void:
+	var mine := false
+	for id in energies:
+		var value = energies[id]
+		if not _players.has(id) or not (value is int or value is float):
+			continue
+		_players[id]["skillEnergy"] = int(value)
+		if _views.has(id):
+			_views[id].set_skill_energy(int(value))
+		mine = mine or id == _me
+	if mine:
+		_refresh_controls()
 
 
 func _set_shield(id: String, shield: int) -> void:

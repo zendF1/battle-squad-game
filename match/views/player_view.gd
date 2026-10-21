@@ -16,6 +16,10 @@ extends Node2D
 ## swung onto the aim over its duration (match/aim/aim_sweep.gd), held there until the shot. The
 ## gun only ever shows one of 7 directions (scenes/character/aim_snap.gd), so a sweep steps
 ## between them.
+## Skill energy (set_skill_energy(), the value on screen): at 100 (the skill ready) a looping
+## aura surrounds the character (energy_aura.gd, behind the body) until it drops (the skill
+## fired, a resync) or the player dies. What the player uses (a skill, a shot item, an instant
+## item) pops up as a badge over everything above its head (use_badge.gd, show_badge()).
 
 const AimSweep := preload("res://match/aim/aim_sweep.gd")
 const AimSnap := preload("res://scenes/character/aim_snap.gd")
@@ -27,6 +31,9 @@ const LobbyUi := preload("res://ui/lobby_ui.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
+const EnergyAura := preload("res://match/views/energy_aura.gd")
+const UseBadge := preload("res://match/views/use_badge.gd")
+const Skills := preload("res://match/skills.gd")
 
 const BODY := Vector2(28, 40) # server PlayerHeight = 40
 ## px per art unit: the baked art (about 150 units) stands about 52 px tall over the 28x40
@@ -44,6 +51,8 @@ const WALK_HOLD := 0.12 # s a walk animation lasts after the last x change
 const TITLE_H := 34.0 # the title plate over the name
 const TITLE_FONT := 14
 const TITLE_MAX_W := 220.0
+const BADGE_GAP := 4.0 # px between the badge and what is under it
+const BADGE_LIFT := 26.0 # px the badge rises over the shot markers / the turn arrow when shown
 
 var player_id := ""
 var team_id := 1
@@ -51,6 +60,7 @@ var is_me := false
 var hp := 0
 var max_hp := 1
 var shield := 0
+var skill_energy := 0
 var _icons: Array = [] # Status.icons() of the effects
 var color := ALLY
 
@@ -61,6 +71,8 @@ var _title: TitlePlate
 var _title_rise := 0.0 # px the status markers and the turn arrow sit higher for the plate
 var _sprite: Node2D # scenes/character/character.gd
 var _ring: Node2D
+var _aura: EnergyAura
+var _badge: UseBadge
 var _hp_known := false
 var _active := false
 var _dead := false
@@ -87,6 +99,8 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_ring.show_behind_parent = true
 	_ring.draw.connect(_draw_ring)
 	add_child(_ring)
+	_aura = EnergyAura.new() # a child of the ring: over it, under the body (drawn before it)
+	_ring.add_child(_aura)
 	_sprite = CharacterScene.instantiate()
 	_sprite.scale = Vector2.ONE * (ART_SCALE / Art.PX_PER_UNIT)
 	_sprite.show_behind_parent = true
@@ -97,6 +111,7 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_sprite.set_weapon(gun["kind"], gun["tier"])
 	add_child(_sprite)
 	_art_top = maxf(ART_TOP, _sprite.art_height() * _sprite.scale.y + 3.0)
+	_aura.height = _art_top
 
 	_name = LobbyUi.text(str(p.get("displayName", "")), 20, color.lightened(0.55) if not me else LobbyUi.GOLD, true)
 	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -120,9 +135,12 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_status.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	_status.add_theme_constant_override("outline_size", 4)
 	add_child(_status)
+	_badge = UseBadge.new()
+	add_child(_badge)
 	set_status(p.get("statusEffects"))
 	set_hp(int(p.get("hp", 0)), int(p.get("maxHp", 1)))
 	set_shield(int(p.get("shield", 0)) if (p.get("shield") is int or p.get("shield") is float) else 0)
+	set_skill_energy(int(p.get("skillEnergy", 0)) if (p.get("skillEnergy") is int or p.get("skillEnergy") is float) else 0)
 	if not bool(p.get("isAlive", true)):
 		set_dead()
 
@@ -154,10 +172,54 @@ func set_hp(value: int, max_value: int = -1) -> void:
 	queue_redraw()
 
 
+## The skill energy on screen (0..100): the aura is on while the skill is ready and alive.
+func set_skill_energy(value: int) -> void:
+	skill_energy = value
+	_aura.set_on(Skills.is_ready(value) and not _dead)
+
+
+func aura_on() -> bool:
+	return _aura.is_on()
+
+
+## What the player uses (UseBadge.content(); {} hides it): hold seconds before it fades, < 0
+## until release_badge().
+func show_badge(content: Dictionary, hold: float = -1.0) -> void:
+	if _dead and not content.is_empty():
+		return
+	_place_badge(true)
+	_badge.show_use(content, hold)
+
+
+## The badge sits on top of the name (and the title plate), over the shot markers and the
+## turn arrow while they show: never on the HP bar. A badge already up stays where it is (the
+## turn passing on while it fades does not drop it onto the name) unless `force`.
+func _place_badge(force: bool = false) -> void:
+	if _badge.visible and not force:
+		return
+	var lift := BADGE_LIFT if _active or _status.text != "" else 0.0
+	_badge.position = Vector2(0, -_art_top - 40 - _title_rise - lift - BADGE_GAP)
+
+
+func release_badge() -> void:
+	_badge.release()
+
+
+## The badge shown ({} none): {kind, id, name}.
+func badge() -> Dictionary:
+	return _badge.shown()
+
+
+## The badge node (its position and box, for layout checks).
+func badge_node() -> Node2D:
+	return _badge
+
+
 ## effects: the player's statusEffects list (null or [] clears the markers and icons).
 func set_status(effects: Variant) -> void:
 	_status.text = Status.marker_text(effects)
 	_icons = Status.icons(effects)
+	_place_badge()
 	queue_redraw()
 
 
@@ -200,6 +262,8 @@ func set_dead() -> void:
 	_active = false
 	_sweep = {}
 	_sprite.die()
+	_aura.set_on(false)
+	_badge.show_use({})
 	_name.modulate.a = 0.5
 	_title.modulate.a = 0.5
 	_status.modulate.a = 0.5
@@ -297,6 +361,7 @@ func shoot(with_gun: bool = true) -> float:
 ## The current player gets a bobbing arrow above the name.
 func set_active(on: bool) -> void:
 	_active = on and not _dead
+	_place_badge()
 	queue_redraw()
 
 

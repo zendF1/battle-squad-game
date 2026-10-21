@@ -4,16 +4,20 @@ extends RefCounted
 ## so the projectile curve stays smooth at any frame rate. Path times are seconds since the shot:
 ## a projectile leaving later (bomb chain, missiles) starts at launch_time() > 0. Fields an older
 ## server does not send fall back: no kind = a normal shell, no launchDelay = its first path
-## sample's time, no skillEnergies = {}.
+## sample's time, no skillEnergies = {} (shooter_energy, from skillEnergy, then still says the
+## shooter's), no itemId = "".
 
 var shooter_id := ""
 var action_mode := ""
 var skill_id := ""
+var item_id := "" # the shot item (actionMode "item"), "" for none
 var projectiles: Array = []
 var events: Array = []
 var duration := 0.0
 ## {playerId: skill energy after the shot} (players hit by an enemy gained some); {} when absent.
 var skill_energies := {}
+## The shooter's skill energy after the shot (skillEnergy; 0 after a skill), -1 when absent.
+var shooter_energy := -1
 
 var _cursor := 0
 
@@ -22,6 +26,7 @@ func _init(payload: Dictionary) -> void:
 	shooter_id = str(payload.get("shooterId", ""))
 	action_mode = str(payload.get("actionMode", ""))
 	skill_id = str(payload.get("skillId", "")) if payload.get("skillId") != null else ""
+	item_id = str(payload.get("itemId", "")) if payload.get("itemId") is String else ""
 	var p = payload.get("projectiles", [])
 	projectiles = p if p is Array else []
 	var e = payload.get("events", [])
@@ -30,6 +35,9 @@ func _init(payload: Dictionary) -> void:
 	var energies = payload.get("skillEnergies")
 	if energies is Dictionary:
 		skill_energies = energies
+	var mine = payload.get("skillEnergy")
+	if mine is int or mine is float:
+		shooter_energy = int(mine)
 
 
 ## What projectile i is (server ProjectileResult.kind): "flare", "missile", "bomb", "seed", or ""
