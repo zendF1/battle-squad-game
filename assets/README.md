@@ -645,6 +645,16 @@ guns' tier palettes, `tools/art/weapon_painter.gd` / `equipment_painter.gd`):
 A skill shot is 1.3x with a brighter glow and a 1.1x impact with more particles; an item shot keeps its item
 tint and mark on top. Particles stay within 120 per impact and 48 per projectile.
 
+The burst's colours follow the shell (`ShotLook.burst_palette()`, tables `BURST_FAMILIES` / `BURST` /
+`CRAFTED_BURST`): the `impact_0..5.png` frames are gradient-mapped in code (one cached shader material per
+kind × tier) onto a smoke → outer → mid → core ramp picked from that kind's `projectile_<tier>.png`, and the
+flash, rings, sparks / petals, embers, debris and (subtly) the smoke take the same palette: iron grey-steel with
+a white-hot core (the shock rifle's and seed launcher's iron shells: cyan / leaf green), steel as its shell
+(bazooka green, cannon orange, shock rifle purple, seed launcher lime with pink), mithril icy cyan-white, dragon
+red lava with heavy glowing lava blobs and dark smoke; the crafted tiers in their own colours (diamond's rings,
+sparkles and shards stay rainbow). Basic, and a tier whose shell picture is missing (the blaster, whose bolt
+takes the tier accent), keep the kind's own colours. The kind still shapes the burst.
+
 ### icons/ (96x96 each, 1–7 KB, transparent, dark outline)
 
 | Icon | Used by |

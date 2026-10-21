@@ -13,6 +13,14 @@ extends Node2D
 ## its last effect is over. `lite` (one of many quick impacts, the missile rain's) keeps it cheap:
 ## LITE_PARTICLES of the particles, at most one ring, no screen tint, lens flare, cracks or
 ## lingering sparkles.
+## Its colours follow the SHELL (ShotLook.burst_palette(kind, tier)): the burst frames are
+## gradient-mapped onto the palette's smoke -> outer -> mid -> core by their luminance, the kind's
+## sparks / petals tinted by it, the flash, rings, sparkles and embers, the debris (shrapnel, ice
+## chips, lava) and subtly the smoke take it, and a lava palette (dragon) throws half its embers as
+## heavy glowing blobs (diamond's flash and screen tint too; its rings, sparkles and shards stay
+## rainbow). The shape stays the kind's. One ShaderMaterial per kind × tier, cached
+## (draws whose UV is moved by MAP_UV / TINT_UV are recoloured, the rest drawn as usual); basic
+## and a tier with no palette keep the kind's own colours (no material).
 
 const Art := preload("res://ui/art.gd")
 const ShotLook := preload("res://match/views/shot_look.gd")
@@ -25,6 +33,49 @@ const RING_SEC := 0.55
 const SCREEN_SEC := 0.3
 const CRACK_FADE := 0.8 # s the ground cracks take to fade at the end
 const LITE_PARTICLES := 0.35 # a lite impact's share of the particles
+## A draw whose source rect is moved by this many texture sizes is gradient-mapped onto the
+## palette (the frames), by TINT_UV brightened to grey and tinted (the kind's sparks / petals).
+const MAP_UV := 2.0
+const TINT_UV := 4.0
+## Where the ramp's stops sit along the frames' normalised luminance: smoke 0, outer, mid, core 1.
+const RAMP_OUTER := 0.4
+const RAMP_MID := 0.75
+const SHADER_CODE := """
+shader_type canvas_item;
+uniform vec4 smoke_c;
+uniform vec4 outer_c;
+uniform vec4 mid_c;
+uniform vec4 core_c;
+uniform vec2 lum = vec2(0.0, 1.0);
+uniform vec2 ramp = vec2(0.4, 0.75);
+varying vec4 tint;
+
+void vertex() {
+	tint = COLOR;
+}
+
+void fragment() {
+	if (UV.x > 1.5) {
+		bool map = UV.x < 3.5;
+		vec4 c = texture(TEXTURE, UV - vec2(map ? 2.0 : 4.0));
+		float l = clamp((dot(c.rgb, vec3(0.299, 0.587, 0.114)) - lum.x) / max(lum.y - lum.x, 0.001), 0.0, 1.0);
+		vec3 g = vec3(0.75 + 0.25 * l);
+		if (map) {
+			if (l < ramp.x) {
+				g = mix(smoke_c.rgb, outer_c.rgb, l / ramp.x);
+			} else if (l < ramp.y) {
+				g = mix(outer_c.rgb, mid_c.rgb, (l - ramp.x) / (ramp.y - ramp.x));
+			} else {
+				g = mix(mid_c.rgb, core_c.rgb, (l - ramp.y) / (1.0 - ramp.y));
+			}
+		}
+		COLOR = vec4(g, c.a) * tint;
+	}
+}
+"""
+
+static var _shader: Shader
+static var _materials := {} # "kind/tier" -> ShaderMaterial (burst_material())
 
 var radius := 30.0
 var kind := ShotLook.DEFAULT_KIND
@@ -37,6 +88,10 @@ var _ti: Dictionary # ShotLook.TIERS[tier]["impact"]
 var _prismatic := false
 var _accent := Color.WHITE
 var _accent2 := Color.WHITE
+var _pal := {} # ShotLook.burst_palette(kind, tier); {} the kind's own colours
+var _spark := Color.WHITE # sparkles (two of three) and embers
+var _spark2 := Color.WHITE
+var _smoke_color := Color.WHITE
 var _scale := 1.0 # burst scale (ShotLook.impact_scale)
 var _life := LIFE
 var _t := 0.0
@@ -66,6 +121,17 @@ func _ready() -> void:
 	_prismatic = bool(ShotLook.TIERS[tier]["prismatic"])
 	_accent = ShotLook.accent(kind, tier)
 	_accent2 = ShotLook.accent2(kind, tier)
+	_spark = _accent2
+	_spark2 = _accent
+	_smoke_color = _k["smoke_color"]
+	_pal = ShotLook.burst_palette(kind, tier)
+	if not _pal.is_empty():
+		_accent = _pal["flash"]
+		_accent2 = _pal["spark2"]
+		_spark = _pal["spark"]
+		_spark2 = _pal["spark2"]
+		_smoke_color = _pal["smoke_color"]
+		material = burst_material(kind, tier)
 	_scale = ShotLook.impact_scale(kind, tier, skill)
 	_life = LIFE if lite else ShotLook.impact_life(tier, LIFE)
 	for i in Art.EXPLOSION_FRAMES:
@@ -87,9 +153,11 @@ func _ready() -> void:
 		var off := Vector2(_rng.randf_range(-0.7, 0.7), _rng.randf_range(-0.6, 0.1)) * radius
 		_smoke.append([off, _rng.randf_range(0.4, 0.7), Vector2(_rng.randf_range(-20, 20), _rng.randf_range(-70, -35)), _rng.randf_range(-1.0, 1.0)])
 	var colors: Array = _k["colors"]
+	if not _pal.is_empty():
+		colors = _bit_colors()
 	var speed: Array = _k["speed"]
 	var bit: Array = _k["bit_size"]
-	var bit_tint := _accent if float(kd["body_tint"]) > 0.0 else Color.WHITE
+	var bit_tint := _accent if float(kd["body_tint"]) > 0.0 and _pal.is_empty() else Color.WHITE
 	for i in int(counts["bits"]):
 		var a := _rng.randf_range(-PI * 0.95, -PI * 0.05) # mostly upward
 		_debris.append([Vector2.from_angle(a) * _rng.randf_range(speed[0], speed[1]) * sqrt(_scale), _rng.randf_range(bit[0], bit[1]),
@@ -98,9 +166,14 @@ func _ready() -> void:
 	for i in int(counts["sparkles"]):
 		var slow := linger > 0.0 and i % 2 == 0 # half of diamond's sparkles hang in the air
 		var life := (0.7 + linger) * _rng.randf_range(0.8, 1.0) if slow else _rng.randf_range(0.55, 0.85)
-		_sparkles.append(_particle(-PI, PI, [40.0, 120.0] if slow else [140.0, 380.0], [3.0, 7.0], _accent2 if i % 3 else _accent, life, 0.05 if slow else 0.2))
+		_sparkles.append(_particle(-PI, PI, [40.0, 120.0] if slow else [140.0, 380.0], [3.0, 7.0], _spark if i % 3 else _spark2, life, 0.05 if slow else 0.2))
+	var lava := bool(_pal.get("lava", false))
 	for i in int(counts["embers"]):
-		_embers.append(_particle(-PI * 0.95, -PI * 0.05, [150.0, 420.0], [3.0, 6.0], _accent if i % 2 else _accent2, _rng.randf_range(0.7, 1.05), 0.35))
+		if lava and i % 2 == 0: # a heavy glowing lava blob: thrown up, falling back
+			var c: Color = Color(_pal["mid"]).lerp(_pal["core"], _rng.randf_range(0.0, 0.6))
+			_embers.append(_particle(-PI * 0.85, -PI * 0.15, [200.0, 420.0], [7.5, 12.0], c, _rng.randf_range(0.85, 1.1), 1.0))
+		else:
+			_embers.append(_particle(-PI * 0.95, -PI * 0.05, [150.0, 420.0], [3.0, 6.0], _spark2 if i % 2 else _spark, _rng.randf_range(0.7, 1.05), 0.35))
 	for i in int(counts["coins"]):
 		_coins.append(_particle(-PI * 0.9, -PI * 0.1, [220.0, 460.0], [4.5, 6.5], Color.WHITE, LIFE, 1.0))
 	for i in int(counts["shards"]):
@@ -109,6 +182,46 @@ func _ready() -> void:
 	_glow_layer.texture_filter = TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_glow_layer.draw.connect(_draw_glow)
 	add_child(_glow_layer)
+
+
+## The cached ShaderMaterial of kind × tier's burst palette (null: no palette).
+static func burst_material(kind: String, tier: String) -> ShaderMaterial:
+	kind = ShotLook.known_kind(kind)
+	tier = ShotLook.known_tier(tier)
+	var key := kind + "/" + tier
+	if _materials.has(key):
+		return _materials[key]
+	var pal := ShotLook.burst_palette(kind, tier)
+	var m: ShaderMaterial = null
+	if not pal.is_empty():
+		if _shader == null:
+			_shader = Shader.new()
+			_shader.code = SHADER_CODE
+		m = ShaderMaterial.new()
+		m.shader = _shader
+		m.set_shader_parameter("smoke_c", pal["smoke"])
+		m.set_shader_parameter("outer_c", pal["outer"])
+		m.set_shader_parameter("mid_c", pal["mid"])
+		m.set_shader_parameter("core_c", pal["core"])
+		var lum: Array = ShotLook.KINDS[kind]["impact"].get("lum", [0.0, 1.0])
+		m.set_shader_parameter("lum", Vector2(lum[0], lum[1]))
+		m.set_shader_parameter("ramp", Vector2(RAMP_OUTER, RAMP_MID))
+	_materials[key] = m
+	return m
+
+
+## The debris colours under a palette: the kind's dirt with the palette's bits between (shrapnel,
+## ice chips, lava), or for sparks / petals (the kind's trail image) the palette's sparks.
+func _bit_colors() -> Array:
+	if _k["bit_image"] != "debris":
+		return [_pal["spark"], _pal["spark2"], _pal["mid"]]
+	var bits: Array = _pal["bits"]
+	if bits.is_empty():
+		return _k["colors"]
+	var out: Array = []
+	for i in 6:
+		out.append(bits[(i >> 1) % bits.size()] if i % 2 else _k["colors"][(i >> 1) % _k["colors"].size()])
+	return out
 
 
 ## An overlay particle thrown at an angle in [a0, a1] (radians, -PI/2 = up), speed and size
@@ -138,7 +251,7 @@ func _draw() -> void:
 	# Smoke (behind the fire), from 0.08 s: grows, drifts up, fades.
 	if t > 0.08 and t < LIFE:
 		var s := (t - 0.08) / (LIFE - 0.08)
-		var sc: Color = _k["smoke_color"]
+		var sc := _smoke_color
 		for p in _smoke:
 			var at: Vector2 = p[0] + p[2] * (t - 0.08)
 			var r: float = radius * p[1] * (0.8 + s * 0.9) * 1.25 * sqrt(_scale)
@@ -151,16 +264,24 @@ func _draw() -> void:
 		var tex := _frames[i]
 		var k := radius / Art.EXPLOSION_RADIUS * _scale
 		var sz := tex.get_size() * k
-		draw_texture_rect(tex, Rect2(-sz / 2, sz), false, _frame_tint)
+		if _pal.is_empty():
+			draw_texture_rect(tex, Rect2(-sz / 2, sz), false, _frame_tint)
+		else:
+			draw_texture_rect_region(tex, Rect2(-sz / 2, sz), Rect2(tex.get_size() * MAP_UV, tex.get_size()), Color.WHITE, false, false)
 	# Debris / sparks / petals.
 	if t < LIFE:
 		var g := GRAVITY * float(_k["gravity"])
 		var a := clampf(1.0 - t / LIFE, 0.0, 1.0)
+		var tinted: bool = not _pal.is_empty() and _k["bit_image"] != "debris" # sparks / petals in the palette
+		var src := Rect2(_debris_tex.get_size() * TINT_UV, _debris_tex.get_size())
 		for d in _debris:
 			var at: Vector2 = d[0] * t + Vector2(0, 0.5 * g * t * t)
 			var r: float = d[1] * 1.4
 			draw_set_transform(at, d[3] * t, Vector2.ONE)
-			draw_texture_rect(_debris_tex, Rect2(-Vector2(r, r), Vector2(r, r) * 2), false, Color(d[2], a))
+			if tinted:
+				draw_texture_rect_region(_debris_tex, Rect2(-Vector2(r, r), Vector2(r, r) * 2), src, Color(d[2], a), false, false)
+			else:
+				draw_texture_rect(_debris_tex, Rect2(-Vector2(r, r), Vector2(r, r) * 2), false, Color(d[2], a))
 		draw_set_transform(Vector2.ZERO)
 	_draw_particles(self, _coins, _fx["coin"], t, false)
 	_draw_particles(self, _shards, _fx["shard"], t, _prismatic)
@@ -174,14 +295,14 @@ func _draw_glow() -> void:
 	var screen := 0.0 if lite else float(_ti["screen"]) * (1.25 if skill else 1.0)
 	if screen > 0.0 and t < SCREEN_SEC:
 		var view := get_global_transform_with_canvas().affine_inverse() * get_viewport_rect()
-		var c: Color = ShotLook.prism(t * 2.0) if _prismatic else _accent
+		var c: Color = ShotLook.prism(t * 2.0) if _prismatic and _pal.is_empty() else _accent
 		ci.draw_rect(view, Color(c, screen * (1.0 - t / SCREEN_SEC)))
 	var flash := float(_ti["flash"]) + (0.3 if skill else 0.0)
 	var glow: Texture2D = _fx["glow"]
 	if flash > 0.0 and t < FLASH_SEC:
 		var k := t / FLASH_SEC
 		var r := radius * (1.6 + 1.2 * ease(k, 0.3)) * _scale
-		var c: Color = ShotLook.prism(t) if _prismatic else _accent
+		var c: Color = ShotLook.prism(t) if _prismatic and _pal.is_empty() else _accent
 		ci.draw_texture_rect(glow, Rect2(-Vector2(r, r), Vector2(r, r) * 2), false, Color(c, 0.6 * minf(1.0, flash) * (1.0 - k)))
 		if t < 0.12:
 			var h := radius * 0.9 * _scale
