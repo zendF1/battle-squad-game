@@ -523,8 +523,9 @@ func _on_shot_event(e: Dictionary) -> void:
 		"explode":
 			var p := _vec(e["position"])
 			var radius := float(e.get("radius", 0.0))
-			# crater: the shape (a bowl, the bomb chain's circle); floor: the chain keeps the bottom
-			_mask.carve(str(e.get("crater", TerrainMask.CRATER_BOWL)), p.x, p.y, radius, float(e.get("floor", 0.0)))
+			# crater: the shape (always a bowl now; a circle is still carved). The view uploads
+			# only the tiles the crater and its scorched edge touched.
+			_mask.carve(str(e.get("crater", TerrainMask.CRATER_BOWL)), p.x, p.y, radius)
 			_terrain_view.refresh()
 			var fx := ExplosionFx.new()
 			# The burst covers the crater and the damage area (the blast radius can be the larger)

@@ -95,17 +95,15 @@ func test_shot_player_hides_until_launch_and_calls_the_skill_view() -> void:
 	player.free()
 
 
-func test_floor_keeps_the_bottom_like_the_server() -> void:
+func test_chain_carves_bowls_like_the_server() -> void:
 	var c: Dictionary = _cases()["chain"]
 	var m := TerrainMask.new()
 	check(m.load_snapshot(c["terrain"]), "load the terrain before")
-	var floors := 0
 	for e in c["shot"]["events"]:
 		if e["type"] == "explode":
-			eq(str(e.get("crater", "")), TerrainMask.CRATER_CIRCLE, "the chain digs round craters")
-			m.carve(str(e.get("crater", "")), float(e["position"]["x"]), float(e["position"]["y"]), float(e["radius"]), float(e.get("floor", 0.0)))
-			floors += 1 if float(e.get("floor", 0.0)) > 0.0 else 0
-	check(floors > 0, "the chain's explosions carry a floor")
+			eq(str(e.get("crater", "")), TerrainMask.CRATER_BOWL, "the chain digs the gun's own bowls")
+			check(not e.has("floor"), "no floor kept")
+			m.carve(str(e.get("crater", "")), float(e["position"]["x"]), float(e["position"]["y"]), float(e["radius"]))
 	var after := TerrainMask.new()
 	after.load_snapshot(c["terrainAfter"])
 	var diff := 0
@@ -113,13 +111,6 @@ func test_floor_keeps_the_bottom_like_the_server() -> void:
 		if m.solid[i] != after.solid[i]:
 			diff += 1
 	eq(diff, 0, "solid pixels differing from the server after the chain")
-	var small := TerrainMask.new()
-	small.width = 4
-	small.height = 10
-	small.solid = PackedByteArray(); small.solid.resize(40); small.solid.fill(1)
-	small.destructible = small.solid.duplicate()
-	small.destroy_circle(2, 5, 9, 8.0)
-	check(not small.is_solid(2, 7) and small.is_solid(2, 8) and small.is_solid(2, 9), "rows >= floor kept")
 
 
 func test_beam_end_reaches_the_map_edge() -> void:

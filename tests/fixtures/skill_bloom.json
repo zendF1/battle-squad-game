@@ -152,7 +152,7 @@
    },
    "projectiles": [
     {
-     "projectileId": "proj-0e699d4e53b8ef18",
+     "projectileId": "proj-2b4f264722214311",
      "ownerPlayerId": "flora",
      "skillId": "healing_bloom",
      "path": [
@@ -482,7 +482,7 @@
      "kind": "seed"
     },
     {
-     "projectileId": "proj-86c0ae741886c6dc",
+     "projectileId": "proj-a87aa1d20c274fa6",
      "ownerPlayerId": "flora",
      "skillId": "healing_bloom",
      "path": [

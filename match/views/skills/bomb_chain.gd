@@ -20,10 +20,11 @@ extends "res://match/views/skills/skill_view.gd"
 
 const ShotLook := preload("res://match/views/shot_look.gd")
 const ChainFx := preload("res://match/views/skills/bomb_chain_fx.gd")
+const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
 
 ## A bomb's size against the gun's normal shell (a skill shell is already ShotLook.SKILL_SCALE).
 const BOMB_SCALE := 1.4
-## The explosions' drawn radius (px; the crater itself is the server's, 1.4 × the gun's for
+## The explosions' drawn radius (px; the crater itself is the server's, the gun's own bowl for
 ## every bomb): the first bomb's big blast on the surface, then the ones down the shaft, kept
 ## smaller so the hole, the target dropping in and the next bomb stay visible between them.
 const FIRST_BLAST_PX := 85.0
@@ -136,13 +137,20 @@ func end() -> void:
 
 
 ## The ground beside an explosion at `at` whose crater is `crater` (already carved): the higher of
-## the surfaces just past both crater edges; without terrain the first explosion's y.
+## the surfaces just past both crater edges (rim_reach()); without terrain the first explosion's y.
 func rim_y(at: Vector2, crater: float) -> float:
 	var mask = ctx.get("terrain")
 	if mask == null or not mask.has_method("get_landing_y"):
 		return _first_y if not is_nan(_first_y) else at.y
-	var edge := crater + 6.0
+	var edge := rim_reach(crater)
 	return minf(mask.get_landing_y(at.x - edge, 0.0), mask.get_landing_y(at.x + edge, 0.0))
+
+
+## How far from the explosion rim_y() looks: 6 px past the widest the bowl carves (where its
+## floor meets its flat top, r·√(1 + BOWL_CEILING / BOWL_DEPTH) ≈ 1.76r). A shaft of stacked
+## bowls is that wide, so nearer in it would read the shaft's own wall.
+static func rim_reach(crater: float) -> float:
+	return crater * sqrt(1.0 + TerrainMask.BOWL_CEILING / TerrainMask.BOWL_DEPTH) + 6.0
 
 
 ## The explosions seen so far (tests).

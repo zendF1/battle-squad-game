@@ -178,8 +178,8 @@
   },
   "angle": -168.09034295837543,
   "turnStarted": {
-   "currentPlayerId": "e2",
-   "maxMoveEnergy": 80,
+   "currentPlayerId": "e1",
+   "maxMoveEnergy": 100,
    "moveEnergy": 0,
    "skillEnergy": {
     "e1": 10,
@@ -190,7 +190,7 @@
    "turnIndex": 1,
    "wind": {
     "direction": -1,
-    "power": 1.9622962399941573
+    "power": 2.3166616554566812
    }
   }
  }

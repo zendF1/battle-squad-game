@@ -5,19 +5,36 @@ extends RefCounted
 ##
 ## Masks are row-major (index = y * width + x), one byte per pixel: SOLID or 0. The solid bytes
 ## double as the L8 image the terrain view uploads.
+##
+## Carved pixels: a pixel is carved when it is air now but destructible. The server sets the
+## destructible bit only on the map's own solid pixels and never clears it (a crater clears only
+## the solid bit), so this holds for every snapshot, a rejoin included, and needs no map of its
+## own. `edge` (one byte per pixel, for the terrain view) keeps it ready to draw: CARVED on a
+## carved air pixel, 0 on the map's own air; on a solid pixel its scorch, 255 within SCORCH_FULL
+## px of a carved pixel fading to 0 at SCORCH_FULL + SCORCH_FADE px (the black band along a
+## crater's edge; the map's own surface is not darkened). Every carve updates it around the
+## pixels it cleared and grows `dirty`, the region the view must upload again (take_dirty()).
 
 const SOLID := 255
 const PLAYER_HEIGHT := 40 # match.PlayerHeight
 const MAX_CLIMB_PER_STEP := 3 # Terrain.WalkTo maxClimbPerStep
-const CRATER_BOWL := "bowl" # the explode event's crater: Terrain.CarveBowl (every explosion but the bomb chain)
-const CRATER_CIRCLE := "circle" # Terrain.DestroyCircleAbove (the bomb chain's shaft)
+const CRATER_BOWL := "bowl" # the explode event's crater: Terrain.CarveBowl (every explosion, the bomb chain's too)
+const CRATER_CIRCLE := "circle" # Terrain.DestroyCircle (no explosion sends it now; still carved)
 const BOWL_CEILING := 1.5 # bowlCeiling: the bowl's flat top, in crater radii above the centre
+const BOWL_DEPTH := 0.72 # bowlDepth: the bowl's floor, in crater radii under the centre
+const CARVED := 255 # edge byte of a carved air pixel
+const SCORCH_FULL := 3.0 # px from a carved pixel at full scorch (near-black)
+const SCORCH_FADE := 2.5 # px more over which the scorch fades out
 
 var width := 0
 var height := 0
 var version := 0
 var solid := PackedByteArray()
 var destructible := PackedByteArray()
+var edge := PackedByteArray() # see the top: CARVED / scorch per pixel (rebuild_edge())
+var dirty := Rect2i() # pixels whose solid or edge bytes changed since take_dirty()
+
+static var _stamp_offsets := PackedInt32Array() # dx, dy, scorch byte per pixel of the stamp
 
 
 ## Loads a TerrainSnapshot {width, height, version, solid, destructible}. Returns false if the
@@ -37,7 +54,115 @@ func load_snapshot(snap: Dictionary) -> bool:
 	version = int(snap.get("version", 0))
 	solid = s
 	destructible = d
+	rebuild_edge()
 	return true
+
+
+## The region changed since the last call (empty if none), and starts a new one.
+func take_dirty() -> Rect2i:
+	var d := dirty
+	dirty = Rect2i()
+	return d
+
+
+## Whether the pixel (x, y) inside the map was carved: air now, destructible (the map's own ground).
+func is_carved(x: int, y: int) -> bool:
+	var i := y * width + x
+	return solid[i] == 0 and destructible[i] != 0
+
+
+## Recomputes `edge` from the masks: every carved pixel CARVED, the scorch of the solid pixels
+## near the carved ones. PackedByteArray.find walks the masks in native code, so only the carved
+## pixels (the craters so far, nothing on a fresh map) are visited one by one. The whole map is
+## dirty.
+func rebuild_edge() -> void:
+	var n := width * height
+	edge = PackedByteArray()
+	edge.resize(n)
+	edge.fill(0)
+	dirty = Rect2i(0, 0, width, height)
+	var i := 0
+	while i < n:
+		var air := solid.find(0, i) # start of the next air run
+		if air < 0:
+			break
+		var end := solid.find(SOLID, air)
+		if end < 0:
+			end = n
+		var j := air
+		while j < end: # the carved runs inside this air run
+			var c := destructible.find(SOLID, j)
+			if c < 0 or c >= end:
+				break
+			var stop := destructible.find(0, c)
+			if stop < 0 or stop > end:
+				stop = end
+			for k in range(c, stop):
+				edge[k] = CARVED
+			for k in range(c, stop):
+				_scorch_around(k)
+			j = stop
+		i = end
+
+
+## The scorch bytes the stamp gives the pixels round a carved one: dx, dy, value triples for
+## every offset nearer than SCORCH_FULL + SCORCH_FADE (255 up to SCORCH_FULL, linear to 0).
+static func stamp_offsets() -> PackedInt32Array:
+	if _stamp_offsets.is_empty():
+		var reach := SCORCH_FULL + SCORCH_FADE
+		var n := ceili(reach)
+		for dy in range(-n, n + 1):
+			for dx in range(-n, n + 1):
+				var v := roundi(255.0 * clampf((reach - sqrt(float(dx * dx + dy * dy))) / SCORCH_FADE, 0.0, 1.0))
+				if v > 0 and (dx != 0 or dy != 0):
+					_stamp_offsets.append_array([dx, dy, v])
+	return _stamp_offsets
+
+
+## The carved pixel i scorches the solid pixels round it, if it touches one (a carved pixel deep
+## inside a crater has nothing to scorch).
+func _scorch_around(i: int) -> void:
+	var x := i % width
+	var y := i / width
+	if not ((x > 0 and solid[i - 1] != 0) or (x < width - 1 and solid[i + 1] != 0)
+			or (y > 0 and solid[i - width] != 0) or (y < height - 1 and solid[i + width] != 0)):
+		return
+	var offs := stamp_offsets()
+	for k in range(0, offs.size(), 3):
+		var nx := x + offs[k]
+		var ny := y + offs[k + 1]
+		if nx < 0 or ny < 0 or nx >= width or ny >= height:
+			continue
+		var j := ny * width + nx
+		if solid[j] != 0 and edge[j] < offs[k + 2]:
+			edge[j] = offs[k + 2]
+
+
+## After a carve cleared the pixels `cleared`: marks them carved, scorches round them and grows
+## `dirty` over them and their scorch.
+func _carved(cleared: PackedInt32Array) -> void:
+	if cleared.is_empty():
+		return
+	if edge.size() != width * height: # a mask built by hand (tests): everything, the pixels just cleared too
+		rebuild_edge()
+		return
+	var x0 := width
+	var y0 := height
+	var x1 := -1
+	var y1 := -1
+	for i in cleared:
+		edge[i] = CARVED
+		var x := i % width
+		var y := i / width
+		x0 = mini(x0, x)
+		x1 = maxi(x1, x)
+		y0 = mini(y0, y)
+		y1 = maxi(y1, y)
+	for i in cleared:
+		_scorch_around(i)
+	var reach := ceili(SCORCH_FULL + SCORCH_FADE)
+	var r := Rect2i(x0 - reach, y0 - reach, x1 - x0 + 1 + 2 * reach, y1 - y0 + 1 + 2 * reach).intersection(Rect2i(0, 0, width, height))
+	dirty = dirty.merge(r) if dirty.has_area() else r
 
 
 ## Decodes the server's mask encoding: alternating air/solid run lengths (air first) as unsigned
@@ -84,41 +209,40 @@ func is_solid(x: float, y: float) -> bool:
 
 
 ## Terrain.DestroyCircle: clears destructible solid pixels within radius of (cx, cy).
-## floor_y > 0 keeps the rows y >= floor_y (Terrain.DestroyCircleAbove: the explode event's floor).
-func destroy_circle(cx: float, cy: float, radius: float, floor_y: float = 0.0) -> void:
+func destroy_circle(cx: float, cy: float, radius: float) -> void:
 	version += 1
 	var icx := roundi(cx)
 	var icy := roundi(cy)
 	var ir := roundi(radius)
 	var r2 := radius * radius
-	var max_y := height - 1
-	if floor_y > 0.0:
-		max_y = mini(max_y, ceili(floor_y) - 1)
-	for y in range(maxi(icy - ir, 0), mini(icy + ir, max_y) + 1):
+	var cleared := PackedInt32Array()
+	for y in range(maxi(icy - ir, 0), mini(icy + ir, height - 1) + 1):
 		var dy := float(y - icy)
 		var row := y * width
 		for x in range(maxi(icx - ir, 0), mini(icx + ir, width - 1) + 1):
 			var dx := float(x - icx)
 			if dx * dx + dy * dy <= r2:
 				var i := row + x
-				if destructible[i] != 0:
+				if destructible[i] != 0 and solid[i] != 0:
 					solid[i] = 0
+					cleared.append(i)
+	_carved(cleared)
 
 
 ## Terrain.Carve: the explode event's crater of this shape (CRATER_BOWL, also "", or
-## CRATER_CIRCLE) at (cx, cy); floor_y > 0 keeps the rows y >= floor_y.
-func carve(shape: String, cx: float, cy: float, radius: float, floor_y: float = 0.0) -> void:
+## CRATER_CIRCLE) at (cx, cy).
+func carve(shape: String, cx: float, cy: float, radius: float) -> void:
 	if shape == CRATER_CIRCLE:
-		destroy_circle(cx, cy, radius, floor_y)
+		destroy_circle(cx, cy, radius)
 	else:
-		carve_bowl(cx, cy, radius, floor_y)
+		carve_bowl(cx, cy, radius)
 
 
-## Terrain.CarveBowl: clears the destructible solid pixels of a shallow bowl round (cx, cy), the
-## pixels (dx, dy) from the rounded centre with dx² + 2·r·dy <= r² (a floor r/2 under the centre,
-## r to each side at its height) and dy >= -BOWL_CEILING·r (a flat top), so a player in it can
-## walk out. Same float operations in the same order as the Go code: bit-identical.
-func carve_bowl(cx: float, cy: float, radius: float, floor_y: float = 0.0) -> void:
+## Terrain.CarveBowl: clears the destructible solid pixels of a bowl round (cx, cy), the pixels
+## (dx, dy) from the rounded centre with dx² + (r/k)·dy <= r², k = BOWL_DEPTH (a floor k·r under
+## the centre, r to each side at its height) and dy >= -BOWL_CEILING·r (a flat top), so a player
+## in it can walk out. Same float operations in the same order as the Go code: bit-identical.
+func carve_bowl(cx: float, cy: float, radius: float) -> void:
 	version += 1
 	if radius <= 0.0:
 		return
@@ -127,21 +251,22 @@ func carve_bowl(cx: float, cy: float, radius: float, floor_y: float = 0.0) -> vo
 	var reach := ceili(2.0 * radius) + 1
 	var top := -BOWL_CEILING * radius
 	var r2 := radius * radius
-	var max_y := height - 1
-	if floor_y > 0.0:
-		max_y = mini(max_y, ceili(floor_y) - 1)
-	for y in range(maxi(icy - ceili(BOWL_CEILING * radius) - 1, 0), mini(icy + ceili(radius / 2.0) + 1, max_y) + 1):
+	var lean := radius / BOWL_DEPTH
+	var cleared := PackedInt32Array()
+	for y in range(maxi(icy - ceili(BOWL_CEILING * radius) - 1, 0), mini(icy + ceili(BOWL_DEPTH * radius) + 1, height - 1) + 1):
 		var dy := float(y - icy)
 		if dy < top:
 			continue
-		var lift := 2.0 * radius * dy
+		var lift := lean * dy
 		var row := y * width
 		for x in range(maxi(icx - reach, 0), mini(icx + reach, width - 1) + 1):
 			var dx := x - icx
 			if float(dx * dx) + lift <= r2:
 				var i := row + x
-				if destructible[i] != 0:
+				if destructible[i] != 0 and solid[i] != 0:
 					solid[i] = 0
+					cleared.append(i)
+	_carved(cleared)
 
 
 ## Terrain.GetLandingY: first solid pixel at or below start_y in column x; height if none.

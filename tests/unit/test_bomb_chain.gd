@@ -2,7 +2,8 @@ extends "res://tests/test_case.gd"
 ## Bom liên hoàn against the server's own chains (tests/fixtures/skill_bombchain.json, written by
 ## the server's TestBombChainOnRealMap with BOMBCHAIN_FIXTURE_OUT: Tanko rank 4 on
 ## grassland_valley at 600 px: "flat" the bot's best normal shot, "lob" its steep shot, one
-## target; "pair" two enemies side by side, lobbed) and its replay view.
+## target; "pair" two enemies side by side, lobbed; "vertical" straight up, Tanko's own shaft)
+## and its replay view.
 
 const FIXTURE := "res://tests/fixtures/skill_bombchain.json"
 const ShotTimeline := preload("res://match/shot/shot_timeline.gd")
@@ -23,7 +24,7 @@ func _cases() -> Dictionary:
 ## still drawn falling), and every bomb flies the first one's arc (nothing steers it).
 func test_server_chain_is_coherent_to_replay() -> void:
 	var cases := _cases()
-	for k in ["flat", "lob", "pair"]:
+	for k in ["flat", "lob", "pair", "vertical"]:
 		check(cases.has(k), "case " + k)
 		var tl = ShotTimeline.new(cases[k]["shot"])
 		eq(tl.skill_id, "heavy_bomb", k + " skill")
@@ -32,7 +33,8 @@ func test_server_chain_is_coherent_to_replay() -> void:
 			eq(tl.kind(i), "bomb", "%s bomb %d kind" % [k, i])
 			check(tl.launch_time(i) >= tl.launch_time(i - 1) + 0.1 - 1e-6, "%s bomb %d leaves 0.1 s after the previous" % [k, i])
 		var falls: Array = tl.events_of("fall")
-		check(not falls.is_empty(), k + " the target falls into the hole")
+		# the lob hits the body every time (its bowl does not reach the feet): nobody falls
+		check(not falls.is_empty() or k == "lob", k + " someone falls into the hole")
 		for i in range(1, tl.projectiles.size()):
 			var t0: float = tl.launch_time(i)
 			var end := minf(tl.projectile_end(0), tl.projectile_end(i) - t0)
@@ -45,7 +47,10 @@ func test_server_chain_is_coherent_to_replay() -> void:
 				if start < t:
 					check(start + float(f.get("duration", 0.0)) <= t + 1e-6,
 						"%s: explosion at %.2f while %s falls until %.2f" % [k, t, str(f["playerId"]), start + float(f["duration"])])
-			check(float(x.get("floor", 0.0)) > 0.0, k + " explosions keep the floor")
+			eq(str(x.get("crater", "")), "bowl", k + " explosions carve the gun's bowl")
+			check(not x.has("floor"), k + " no floor kept")
+		if k == "vertical":
+			continue # nobody under it
 		check(not tl.events_of("damage").is_empty(), k + " hits")
 		check(tl.events_of("status").any(func(e): return str(e.get("effectId", "")) == "root"), k + " root applied")
 
@@ -109,11 +114,11 @@ func test_explosions_and_geyser() -> void:
 	target.free()
 
 
-## The rim is read from the terrain after the crater: the ground just past both crater edges.
-## (The lob's later bombs go off on the target's body in its small shaft, so the deepest
-## explosion is the pair's, down the shaft between the two enemies.)
+## The rim is read from the terrain after the crater: the ground just past the bowl's widest.
+## (The lob's bombs go off on the target's body and dig nothing, so the deepest explosion is the
+## vertical chain's, at the bottom of Tanko's own shaft.)
 func test_rim_from_terrain() -> void:
-	var c: Dictionary = _cases()["pair"]
+	var c: Dictionary = _cases()["vertical"]
 	var mask := TerrainMask.new()
 	mask.load_snapshot(c["terrainAfter"])
 	var v := BombChain.new()
@@ -126,7 +131,17 @@ func test_rim_from_terrain() -> void:
 	var at := Vector2(float(last["position"]["x"]), float(last["position"]["y"]))
 	var rim := v.rim_y(at, float(last["radius"]))
 	check(at.y - rim > BombChain.GEYSER_DEPTH, "the deepest bomb is down a hole: %.0f under the rim %.0f" % [at.y - rim, rim])
-	near(rim, minf(mask.get_landing_y(at.x - float(last["radius"]) - 6.0, 0.0), mask.get_landing_y(at.x + float(last["radius"]) + 6.0, 0.0)), 1e-6, "higher edge")
+	var edge := BombChain.rim_reach(float(last["radius"]))
+	near(edge, float(last["radius"]) * 1.756 + 6.0, 0.01, "past the bowl's widest")
+	near(rim, minf(mask.get_landing_y(at.x - edge, 0.0), mask.get_landing_y(at.x + edge, 0.0)), 1e-6, "higher edge")
+	# the first bomb's bowl on the surface is not a hole
+	var first: Dictionary = tl.events_of("explode")[0]
+	var mask0 := TerrainMask.new()
+	mask0.load_snapshot(c["terrain"])
+	mask0.carve_bowl(float(first["position"]["x"]), float(first["position"]["y"]), float(first["radius"]))
+	v.ctx["terrain"] = mask0
+	var at0 := Vector2(float(first["position"]["x"]), float(first["position"]["y"]))
+	check(at0.y - v.rim_y(at0, float(first["radius"])) <= BombChain.GEYSER_DEPTH, "the first bowl throws no geyser")
 
 
 class FakeShooter extends Node2D:
@@ -146,7 +161,7 @@ func test_gun_kicks_for_each_later_bomb() -> void:
 	var v := BombChain.new()
 	var tl = ShotTimeline.new(_cases()["lob"]["shot"])
 	v.begin({"layer": layer, "timeline": tl, "style": {}, "views": {"tanko": shooter}, "shooter": "tanko"})
-	v.process(0.1)
+	v.process(tl.launch_time(1) * 0.5)
 	eq(shooter.shots, 0, "the first bomb leaves with the shot itself")
 	v.process(tl.launch_time(2) + 0.01)
 	eq(shooter.shots, 2, "two more kicks by the third bomb")

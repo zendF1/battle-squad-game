@@ -145,7 +145,7 @@
    },
    "projectiles": [
     {
-     "projectileId": "proj-80778f8f221f91ad",
+     "projectileId": "proj-451ab3c6dbff3f59",
      "ownerPlayerId": "flora",
      "skillId": "healing_bloom",
      "path": [
@@ -475,7 +475,7 @@
      "kind": "seed"
     },
     {
-     "projectileId": "proj-08e066bbd4aa27bb",
+     "projectileId": "proj-84809115d43eda76",
      "ownerPlayerId": "flora",
      "skillId": "healing_bloom",
      "path": [
@@ -936,7 +936,7 @@
    "width": 1600,
    "height": 900,
    "version": 7,
-   "solid": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LccwLdMkLd8YLesMLfcALgAG8C4QBuQuHAbULiwGyC44BrguSAaoLlgGmC5oBogueAZ0LowGYC6gBkguuAaAKA2m0AaEKClq7AaIKE0jDAaMKHjHOAaQKCxX8AaUKBCH2Ac0K8wHRCu8B0wrtAdYK6gHYCugB2grmAdwK5AHeCuIB4ArgAeEK3wHjCt0B5ArcAeUK2wHnCtkB6ArYAekK1wHqCtYB6wrVAewK1AHtCtMB7grSAe8K0QHwCgcVtAGSC64BlQurAZkLpwGbC6UBnguiAaALoAGiC54BpAucAaYLmgGoC5gBqQuXAasLlQGsC5QBrQuTAa8LkQGwC5ABsQuPAbILjgGzC40BtAuMAbULjAG1C4wBtQuMAbULjQG0C40BtAsBFXjOC3PLBwKDBHLHBwWGBG/FBwaIBG7CBwmKBG2/BwuLBGy8Bw6MBGy5Bw+OBGu2BxKPBGuzBxSQBGqwBxeQBGquBxmRBGqqBxyRBGqoBx6RBGukByGSBGqiByOSBGueByaSBGucByiSBGyYByuSBGyWBy2SBG2TBzCRBG2QBzORBG6NBzWRBG6KBzmQBG+HBzuQBG+EBz+PBHCBB0KOBHD+BkaMBHL7BkmLBHL4Bk05As8Dc/UGUTMGzwNz8wZULwnOA3XvBlonD80DduwGXiETzQN26QZmFRvLA3jmBpkBygN44wadAcgDeuAGoAHHA3vcBqQBxQN82gaoATMCjgN91gasAS8FjQN+1AaxAScKjQN/0Aa2ASEPiwOBAc0GvQEVFosDggHJBusBigODAccG7gGIA4UBwwbxAYgDhgHABvQBhgOHAb0G+AGFA4gBugb7AYMDigG2Bv8BgQOMAbMGggL/Ao4BrwaHAv0CjgGsBosC+wKQAdkCJ6kDkAInBMwCkgHKAkGaA5UCIQjMApMBvwJSkQOcAhUPywKVAbUCYocDwwLKApcBrAJv/wLGAskCmQGkAnv4AskCxwKbAZwChgHxAswCxgKdAZUCkAHrAs4CxgKeAY0CmwHkAtICxAKgAYYCpAHeAtUCwwKjAf4BrgHYAtgCwQKlAfgBtgHSAtwCvwKnAfEBvwHMAuACvQKpAesBxwHHAuMCuwKsAeMBzwHCAucCuQKuAd0B1wG8AuwCtgKxAdUB4AG2AvACtAKzAc8B5wGyAvUCsAK2AcgB7gGtAvoCIQSIArgBwQH3AacCggMVC4cCuwG6Af4BogKlA4YCvgGzAYYCnAKoA4UCwQGrAY4CmAKqA4QCxAGkAZUCkwKtA4MCxwGcAZ0CjgKwA4ICywGTAaUCiQK0A4ACzgGMAa0CgwK3A/8B0gGDAbUC/gG6A/4B1gF5vgL5Ab4D+wHbAXDGAvQBwQP6AeABZc8C7wHFA/gB5QFZ2QLqAckD9gHsAUvkAuQBzQP0AfMBPO8C3gHSA/IB/gEl/gLZAdYD7wGlBdQB2wPsAagFzwHfA+oBrAXIAeYD5QGwBcMB6wPiAbMFvQH0AxUHwAG3BbcBkwS/AboFsQGXBL0BvwWqAZsEvAHCBaUBngS6AccFngGiBLkBywWXAaYEuAHPBZABqgS2AdQFiAGvBLUB2AWBAbMEswHdBXm5BLEB4gVwvgSvAegFZ8MErgHtBV7JBKsB9AVS0ASqAfoFRtgEpwGDBjfhBKUBjgYi7QSiAaALnwGjC50BpguZAakLlgGuC5EBsguOAbgLFQFx0Atv0gtt1Atr1gtp2Atn2gtl3Atj3gth4Atf4gtd5Atb5wtX6gtV7AtT7wtP8gtN9QtJ+QtF/QtBgQw9hQw5igwzjwwvlQwnnAwhpQwVsNET",
+   "solid": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdcIlwHEAY4B1gieAboBkgHWCKUBrwGWAdUIrAGlAZoB1AizAZsBngHUCLoBjwGjAdMIwQGEAagB0wjIAXeuAdII0QFptAHSCNkBWrsB0QjkAUjDAdAI8QExzgHQCPADzwjxA88I8QPOCPIDzQjzA80I8wPMCPQDzAj0A8sI9QPKCPYDygj2A8kI9wPICPgDyAj4A8cI+QPGCPoDxQj7A8UI+wPECPwDwwj9A8II/gPCCP4DwQj/A8AIgAS/CIEEvgiCBL4IggS9CIMEvAiEBLsIhQS6CIYEuQiHBLgIiAS3CIkEtgiKBLUIiwS0CIwE6wcDRY0E6QcGQo8E5wcJQJAE5gcLPpEE5AcPO5IE4wcROJQE4QcVNZUE4AcYMZcE3gccLZoE3AcfKZ0E2QcjJaAE1wcnIKQE0wcuGKgE0Qc3C68EzQf0BMsH9wTHB/oExQf8BMIHgAW/B4IFvAeGBbkHiAW2B4wFsweOBbAHkQWuB5QFqgeXBagHmgWkB50FogegBZ4HowWcB6YFmAepBZYHrAWTB64FkAeyBY0HtAWKB7gFhwe6BYQHvgWBB8AF/gbEBfsGxgX4BsoF9QbMBfMGzwXvBtMF7AbVBekG2QXmBtsF4wbfBeAG4gXcBuUF2gboBdYG6wXUBu4F0AbyBc0G9QXJBvgFxwb7BcMG/wXABoEGvQaFBroGiAa2BowGswaPBq8GkgasBpYG2QInqQOZBsoCQZoDnQa/AlKRA6AGtQJihwOkBqwCb/8CqAakAnv4AqsGnAKGAfECrwaVApAB6wKyBo0CmwHkArYGhgKkAd4Cuwb+Aa4B2AK+BvgBtgHSAsIG8QG/AcwCxgbrAccBxwLKBuMBzwHCAs4G3QHXAbwC0wbVAeABtgLXBs8B5wGyAtsGyAHuAa0C3wbBAfcBpwLkBroB/gGiAukGswGGApwC7garAY4CmALyBqQBlQKTAvcGnAGdAo4C/QaTAaUCiQKCB4wBrQKDAogHgwG1Av4Bjgd5vgL5AZQHcMYC9AGbB2XPAu8BogdZ2QLqAasHS+QC5AG0BzzvAt4Bwgcl/gLZAeoK1AHvCs8B9QrIAfsKwwGAC70Bhwu3AYwLsQGTC6oBmQulAZ8LngGmC5cBrQuQAbQLiAG8C4EBwwt5zAtw1Qtn3gte6AtS9AtGggw3lAwizPMW",
    "destructible": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY="
   },
   "shot": {
@@ -950,7 +950,7 @@
    },
    "projectiles": [
     {
-     "projectileId": "proj-c25571914685ee68",
+     "projectileId": "proj-4fa5705f368025e5",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -1115,11 +1115,11 @@
       "y": 516.6183080769305
      },
      "explosionRadius": 78,
-     "craterRadius": 72.8,
+     "craterRadius": 52,
      "kind": "bomb"
     },
     {
-     "projectileId": "proj-2756dd3ec54ad722",
+     "projectileId": "proj-27bc00d02e5ce4a9",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -1132,7 +1132,7 @@
         "x": 780.6201360147959,
         "y": -268.7890683198285
        },
-       "time": 0.17481416606826594
+       "time": 0.22133305066751463
       },
       {
        "position": {
@@ -1143,7 +1143,7 @@
         "x": 780.6201360147959,
         "y": -242.08906831982853
        },
-       "time": 0.23481416606826594
+       "time": 0.28133305066751463
       },
       {
        "position": {
@@ -1154,7 +1154,7 @@
         "x": 780.6201360147959,
         "y": -215.3890683198285
        },
-       "time": 0.29481416606826594
+       "time": 0.3413330506675146
       },
       {
        "position": {
@@ -1165,7 +1165,7 @@
         "x": 780.6201360147959,
         "y": -188.6890683198285
        },
-       "time": 0.35481416606826593
+       "time": 0.4013330506675146
       },
       {
        "position": {
@@ -1176,7 +1176,7 @@
         "x": 780.6201360147959,
         "y": -161.98906831982848
        },
-       "time": 0.41481416606826593
+       "time": 0.4613330506675146
       },
       {
        "position": {
@@ -1187,7 +1187,7 @@
         "x": 780.6201360147959,
         "y": -135.28906831982846
        },
-       "time": 0.47481416606826593
+       "time": 0.5213330506675147
       },
       {
        "position": {
@@ -1198,7 +1198,7 @@
         "x": 780.6201360147959,
         "y": -108.58906831982844
        },
-       "time": 0.5348141660682659
+       "time": 0.5813330506675147
       },
       {
        "position": {
@@ -1209,7 +1209,7 @@
         "x": 780.6201360147959,
         "y": -81.88906831982843
        },
-       "time": 0.594814166068266
+       "time": 0.6413330506675148
       },
       {
        "position": {
@@ -1220,7 +1220,7 @@
         "x": 780.6201360147959,
         "y": -55.189068319828415
        },
-       "time": 0.654814166068266
+       "time": 0.7013330506675148
       },
       {
        "position": {
@@ -1231,7 +1231,7 @@
         "x": 780.6201360147959,
         "y": -28.48906831982842
        },
-       "time": 0.7148141660682661
+       "time": 0.7613330506675148
       },
       {
        "position": {
@@ -1242,7 +1242,7 @@
         "x": 780.6201360147959,
         "y": -1.7890683198284203
        },
-       "time": 0.7748141660682661
+       "time": 0.8213330506675148
       },
       {
        "position": {
@@ -1253,7 +1253,7 @@
         "x": 780.6201360147959,
         "y": 24.91093168017158
        },
-       "time": 0.8348141660682662
+       "time": 0.8813330506675149
       },
       {
        "position": {
@@ -1264,53 +1264,32 @@
         "x": 780.6201360147959,
         "y": 51.610931680171575
        },
-       "time": 0.8948141660682662
+       "time": 0.9413330506675149
       },
       {
        "position": {
-        "x": 1058.8837060915403,
-        "y": 518.1845267105339
+        "x": 1035.4651020110964,
+        "y": 515.9241987601288
        },
        "velocity": {
         "x": 780.6201360147959,
-        "y": 78.31093168017158
+        "y": 69.41093168017157
        },
-       "time": 0.9548141660682663
-      },
-      {
-       "position": {
-        "x": 1105.720914252428,
-        "y": 523.951182611344
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 105.0109316801716
-       },
-       "time": 1.0148141660682664
-      },
-      {
-       "position": {
-        "x": 1117.43021629265,
-        "y": 525.6598465865466
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 113.9109316801716
-       },
-       "time": 1.0348141660682664
+       "time": 0.981333050667515
       }
      ],
+     "hitPlayerId": "e1",
      "explosionPoint": {
-      "x": 1117.43021629265,
-      "y": 525.6598465865466
+      "x": 1035.4651020110964,
+      "y": 515.9241987601288
      },
      "explosionRadius": 78,
-     "craterRadius": 72.8,
+     "craterRadius": 52,
      "kind": "bomb",
-     "launchDelay": 0.17481416606826594
+     "launchDelay": 0.22133305066751463
     },
     {
-     "projectileId": "proj-622cc63147e122b2",
+     "projectileId": "proj-7ea3c2e3c065875d",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -1323,7 +1302,7 @@
         "x": 780.6201360147959,
         "y": -268.7890683198285
        },
-       "time": 0.2748141660682659
+       "time": 0.3213330506675146
       },
       {
        "position": {
@@ -1334,7 +1313,7 @@
         "x": 780.6201360147959,
         "y": -242.08906831982853
        },
-       "time": 0.3348141660682659
+       "time": 0.3813330506675146
       },
       {
        "position": {
@@ -1345,7 +1324,7 @@
         "x": 780.6201360147959,
         "y": -215.3890683198285
        },
-       "time": 0.3948141660682659
+       "time": 0.4413330506675146
       },
       {
        "position": {
@@ -1356,7 +1335,7 @@
         "x": 780.6201360147959,
         "y": -188.6890683198285
        },
-       "time": 0.4548141660682659
+       "time": 0.5013330506675147
       },
       {
        "position": {
@@ -1367,7 +1346,7 @@
         "x": 780.6201360147959,
         "y": -161.98906831982848
        },
-       "time": 0.5148141660682659
+       "time": 0.5613330506675146
       },
       {
        "position": {
@@ -1378,7 +1357,7 @@
         "x": 780.6201360147959,
         "y": -135.28906831982846
        },
-       "time": 0.574814166068266
+       "time": 0.6213330506675145
       },
       {
        "position": {
@@ -1389,7 +1368,7 @@
         "x": 780.6201360147959,
         "y": -108.58906831982844
        },
-       "time": 0.634814166068266
+       "time": 0.6813330506675146
       },
       {
        "position": {
@@ -1400,7 +1379,7 @@
         "x": 780.6201360147959,
         "y": -81.88906831982843
        },
-       "time": 0.6948141660682661
+       "time": 0.7413330506675146
       },
       {
        "position": {
@@ -1411,7 +1390,7 @@
         "x": 780.6201360147959,
         "y": -55.189068319828415
        },
-       "time": 0.7548141660682661
+       "time": 0.8013330506675147
       },
       {
        "position": {
@@ -1422,7 +1401,7 @@
         "x": 780.6201360147959,
         "y": -28.48906831982842
        },
-       "time": 0.8148141660682661
+       "time": 0.8613330506675148
       },
       {
        "position": {
@@ -1433,7 +1412,7 @@
         "x": 780.6201360147959,
         "y": -1.7890683198284203
        },
-       "time": 0.8748141660682661
+       "time": 0.9213330506675148
       },
       {
        "position": {
@@ -1444,7 +1423,7 @@
         "x": 780.6201360147959,
         "y": 24.91093168017158
        },
-       "time": 0.9348141660682662
+       "time": 0.9813330506675149
       },
       {
        "position": {
@@ -1455,64 +1434,32 @@
         "x": 780.6201360147959,
         "y": 51.610931680171575
        },
-       "time": 0.9948141660682662
+       "time": 1.041333050667515
       },
       {
        "position": {
-        "x": 1058.8837060915403,
-        "y": 518.1845267105339
+        "x": 1035.4651020110964,
+        "y": 515.9241987601288
        },
        "velocity": {
         "x": 780.6201360147959,
-        "y": 78.31093168017158
+        "y": 69.41093168017157
        },
-       "time": 1.0548141660682662
-      },
-      {
-       "position": {
-        "x": 1105.720914252428,
-        "y": 523.951182611344
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 105.0109316801716
-       },
-       "time": 1.1148141660682662
-      },
-      {
-       "position": {
-        "x": 1152.5581224133157,
-        "y": 531.3198385121542
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 131.7109316801716
-       },
-       "time": 1.1748141660682663
-      },
-      {
-       "position": {
-        "x": 1191.5891292140554,
-        "y": 538.7063850961626
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 158.41093168017161
-       },
-       "time": 1.2348141660682663
+       "time": 1.081333050667515
       }
      ],
+     "hitPlayerId": "e1",
      "explosionPoint": {
-      "x": 1191.5891292140554,
-      "y": 538.7063850961626
+      "x": 1035.4651020110964,
+      "y": 515.9241987601288
      },
      "explosionRadius": 78,
-     "craterRadius": 72.8,
+     "craterRadius": 52,
      "kind": "bomb",
-     "launchDelay": 0.2748141660682659
+     "launchDelay": 0.3213330506675146
     },
     {
-     "projectileId": "proj-7f37609d3022caa0",
+     "projectileId": "proj-feabdcf16dae4ecc",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -1525,7 +1472,7 @@
         "x": 780.6201360147959,
         "y": -268.7890683198285
        },
-       "time": 0.3748141660682659
+       "time": 0.4213330506675146
       },
       {
        "position": {
@@ -1536,7 +1483,7 @@
         "x": 780.6201360147959,
         "y": -242.08906831982853
        },
-       "time": 0.4348141660682659
+       "time": 0.4813330506675146
       },
       {
        "position": {
@@ -1547,7 +1494,7 @@
         "x": 780.6201360147959,
         "y": -215.3890683198285
        },
-       "time": 0.4948141660682659
+       "time": 0.5413330506675146
       },
       {
        "position": {
@@ -1558,7 +1505,7 @@
         "x": 780.6201360147959,
         "y": -188.6890683198285
        },
-       "time": 0.554814166068266
+       "time": 0.6013330506675145
       },
       {
        "position": {
@@ -1569,7 +1516,7 @@
         "x": 780.6201360147959,
         "y": -161.98906831982848
        },
-       "time": 0.6148141660682659
+       "time": 0.6613330506675146
       },
       {
        "position": {
@@ -1580,7 +1527,7 @@
         "x": 780.6201360147959,
         "y": -135.28906831982846
        },
-       "time": 0.6748141660682658
+       "time": 0.7213330506675146
       },
       {
        "position": {
@@ -1591,7 +1538,7 @@
         "x": 780.6201360147959,
         "y": -108.58906831982844
        },
-       "time": 0.7348141660682659
+       "time": 0.7813330506675147
       },
       {
        "position": {
@@ -1602,7 +1549,7 @@
         "x": 780.6201360147959,
         "y": -81.88906831982843
        },
-       "time": 0.7948141660682659
+       "time": 0.8413330506675147
       },
       {
        "position": {
@@ -1613,7 +1560,7 @@
         "x": 780.6201360147959,
         "y": -55.189068319828415
        },
-       "time": 0.854814166068266
+       "time": 0.9013330506675148
       },
       {
        "position": {
@@ -1624,7 +1571,7 @@
         "x": 780.6201360147959,
         "y": -28.48906831982842
        },
-       "time": 0.914814166068266
+       "time": 0.9613330506675147
       },
       {
        "position": {
@@ -1635,7 +1582,7 @@
         "x": 780.6201360147959,
         "y": -1.7890683198284203
        },
-       "time": 0.9748141660682661
+       "time": 1.021333050667515
       },
       {
        "position": {
@@ -1646,7 +1593,7 @@
         "x": 780.6201360147959,
         "y": 24.91093168017158
        },
-       "time": 1.0348141660682662
+       "time": 1.081333050667515
       },
       {
        "position": {
@@ -1657,86 +1604,32 @@
         "x": 780.6201360147959,
         "y": 51.610931680171575
        },
-       "time": 1.0948141660682662
+       "time": 1.141333050667515
       },
       {
        "position": {
-        "x": 1058.8837060915403,
-        "y": 518.1845267105339
+        "x": 1035.4651020110964,
+        "y": 515.9241987601288
        },
        "velocity": {
         "x": 780.6201360147959,
-        "y": 78.31093168017158
+        "y": 69.41093168017157
        },
-       "time": 1.1548141660682663
-      },
-      {
-       "position": {
-        "x": 1105.720914252428,
-        "y": 523.951182611344
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 105.0109316801716
-       },
-       "time": 1.2148141660682663
-      },
-      {
-       "position": {
-        "x": 1152.5581224133157,
-        "y": 531.3198385121542
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 131.7109316801716
-       },
-       "time": 1.2748141660682664
-      },
-      {
-       "position": {
-        "x": 1199.3953305742034,
-        "y": 540.2904944129644
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 158.41093168017161
-       },
-       "time": 1.3348141660682664
-      },
-      {
-       "position": {
-        "x": 1246.232538735091,
-        "y": 550.8631503137749
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 185.11093168017163
-       },
-       "time": 1.3948141660682665
-      },
-      {
-       "position": {
-        "x": 1264.9674219994463,
-        "y": 555.5550126740991
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 202.91093168017164
-       },
-       "time": 1.4348141660682665
+       "time": 1.181333050667515
       }
      ],
+     "hitPlayerId": "e1",
      "explosionPoint": {
-      "x": 1264.9674219994463,
-      "y": 555.5550126740991
+      "x": 1035.4651020110964,
+      "y": 515.9241987601288
      },
      "explosionRadius": 78,
-     "craterRadius": 72.8,
+     "craterRadius": 52,
      "kind": "bomb",
-     "launchDelay": 0.3748141660682659
+     "launchDelay": 0.4213330506675146
     },
     {
-     "projectileId": "proj-7660c480cfcb27a0",
+     "projectileId": "proj-a1e1edef89ead054",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -1749,7 +1642,7 @@
         "x": 780.6201360147959,
         "y": -268.7890683198285
        },
-       "time": 0.4748141660682659
+       "time": 0.5213330506675146
       },
       {
        "position": {
@@ -1760,7 +1653,7 @@
         "x": 780.6201360147959,
         "y": -242.08906831982853
        },
-       "time": 0.5348141660682659
+       "time": 0.5813330506675145
       },
       {
        "position": {
@@ -1771,7 +1664,7 @@
         "x": 780.6201360147959,
         "y": -215.3890683198285
        },
-       "time": 0.5948141660682659
+       "time": 0.6413330506675146
       },
       {
        "position": {
@@ -1782,7 +1675,7 @@
         "x": 780.6201360147959,
         "y": -188.6890683198285
        },
-       "time": 0.6548141660682658
+       "time": 0.7013330506675146
       },
       {
        "position": {
@@ -1793,7 +1686,7 @@
         "x": 780.6201360147959,
         "y": -161.98906831982848
        },
-       "time": 0.7148141660682659
+       "time": 0.7613330506675146
       },
       {
        "position": {
@@ -1804,7 +1697,7 @@
         "x": 780.6201360147959,
         "y": -135.28906831982846
        },
-       "time": 0.7748141660682659
+       "time": 0.8213330506675145
       },
       {
        "position": {
@@ -1815,7 +1708,7 @@
         "x": 780.6201360147959,
         "y": -108.58906831982844
        },
-       "time": 0.834814166068266
+       "time": 0.8813330506675146
       },
       {
        "position": {
@@ -1826,7 +1719,7 @@
         "x": 780.6201360147959,
         "y": -81.88906831982843
        },
-       "time": 0.894814166068266
+       "time": 0.9413330506675146
       },
       {
        "position": {
@@ -1837,7 +1730,7 @@
         "x": 780.6201360147959,
         "y": -55.189068319828415
        },
-       "time": 0.9548141660682661
+       "time": 1.0013330506675147
       },
       {
        "position": {
@@ -1848,7 +1741,7 @@
         "x": 780.6201360147959,
         "y": -28.48906831982842
        },
-       "time": 1.0148141660682661
+       "time": 1.0613330506675147
       },
       {
        "position": {
@@ -1859,7 +1752,7 @@
         "x": 780.6201360147959,
         "y": -1.7890683198284203
        },
-       "time": 1.0748141660682662
+       "time": 1.1213330506675148
       },
       {
        "position": {
@@ -1870,7 +1763,7 @@
         "x": 780.6201360147959,
         "y": 24.91093168017158
        },
-       "time": 1.1348141660682662
+       "time": 1.1813330506675148
       },
       {
        "position": {
@@ -1881,97 +1774,32 @@
         "x": 780.6201360147959,
         "y": 51.610931680171575
        },
-       "time": 1.1948141660682663
+       "time": 1.2413330506675149
       },
       {
        "position": {
-        "x": 1058.8837060915403,
-        "y": 518.1845267105339
+        "x": 1035.4651020110964,
+        "y": 515.9241987601288
        },
        "velocity": {
         "x": 780.6201360147959,
-        "y": 78.31093168017158
+        "y": 69.41093168017157
        },
-       "time": 1.2548141660682663
-      },
-      {
-       "position": {
-        "x": 1105.720914252428,
-        "y": 523.951182611344
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 105.0109316801716
-       },
-       "time": 1.3148141660682664
-      },
-      {
-       "position": {
-        "x": 1152.5581224133157,
-        "y": 531.3198385121542
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 131.7109316801716
-       },
-       "time": 1.3748141660682665
-      },
-      {
-       "position": {
-        "x": 1199.3953305742034,
-        "y": 540.2904944129644
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 158.41093168017161
-       },
-       "time": 1.4348141660682665
-      },
-      {
-       "position": {
-        "x": 1246.232538735091,
-        "y": 550.8631503137749
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 185.11093168017163
-       },
-       "time": 1.4948141660682663
-      },
-      {
-       "position": {
-        "x": 1293.0697468959788,
-        "y": 563.0378062145853
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 211.81093168017165
-       },
-       "time": 1.5548141660682664
-      },
-      {
-       "position": {
-        "x": 1336.7844745128073,
-        "y": 575.860418388675
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 238.51093168017167
-       },
-       "time": 1.6148141660682664
+       "time": 1.281333050667515
       }
      ],
+     "hitPlayerId": "e1",
      "explosionPoint": {
-      "x": 1336.7844745128073,
-      "y": 575.860418388675
+      "x": 1035.4651020110964,
+      "y": 515.9241987601288
      },
      "explosionRadius": 78,
-     "craterRadius": 72.8,
+     "craterRadius": 52,
      "kind": "bomb",
-     "launchDelay": 0.4748141660682659
+     "launchDelay": 0.5213330506675146
     },
     {
-     "projectileId": "proj-d6917aefa31b5851",
+     "projectileId": "proj-efd7eeb09eccb475",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -1984,7 +1812,7 @@
         "x": 780.6201360147959,
         "y": -268.7890683198285
        },
-       "time": 0.5748141660682659
+       "time": 0.6213330506675145
       },
       {
        "position": {
@@ -1995,7 +1823,7 @@
         "x": 780.6201360147959,
         "y": -242.08906831982853
        },
-       "time": 0.6348141660682658
+       "time": 0.6813330506675146
       },
       {
        "position": {
@@ -2006,7 +1834,7 @@
         "x": 780.6201360147959,
         "y": -215.3890683198285
        },
-       "time": 0.6948141660682658
+       "time": 0.7413330506675145
       },
       {
        "position": {
@@ -2017,7 +1845,7 @@
         "x": 780.6201360147959,
         "y": -188.6890683198285
        },
-       "time": 0.7548141660682659
+       "time": 0.8013330506675145
       },
       {
        "position": {
@@ -2028,7 +1856,7 @@
         "x": 780.6201360147959,
         "y": -161.98906831982848
        },
-       "time": 0.8148141660682658
+       "time": 0.8613330506675145
       },
       {
        "position": {
@@ -2039,7 +1867,7 @@
         "x": 780.6201360147959,
         "y": -135.28906831982846
        },
-       "time": 0.8748141660682658
+       "time": 0.9213330506675146
       },
       {
        "position": {
@@ -2050,7 +1878,7 @@
         "x": 780.6201360147959,
         "y": -108.58906831982844
        },
-       "time": 0.9348141660682658
+       "time": 0.9813330506675146
       },
       {
        "position": {
@@ -2061,7 +1889,7 @@
         "x": 780.6201360147959,
         "y": -81.88906831982843
        },
-       "time": 0.9948141660682659
+       "time": 1.0413330506675147
       },
       {
        "position": {
@@ -2072,7 +1900,7 @@
         "x": 780.6201360147959,
         "y": -55.189068319828415
        },
-       "time": 1.054814166068266
+       "time": 1.1013330506675147
       },
       {
        "position": {
@@ -2083,7 +1911,7 @@
         "x": 780.6201360147959,
         "y": -28.48906831982842
        },
-       "time": 1.114814166068266
+       "time": 1.1613330506675146
       },
       {
        "position": {
@@ -2094,7 +1922,7 @@
         "x": 780.6201360147959,
         "y": -1.7890683198284203
        },
-       "time": 1.174814166068266
+       "time": 1.2213330506675146
       },
       {
        "position": {
@@ -2105,7 +1933,7 @@
         "x": 780.6201360147959,
         "y": 24.91093168017158
        },
-       "time": 1.234814166068266
+       "time": 1.2813330506675147
       },
       {
        "position": {
@@ -2116,119 +1944,32 @@
         "x": 780.6201360147959,
         "y": 51.610931680171575
        },
-       "time": 1.2948141660682662
+       "time": 1.3413330506675147
       },
       {
        "position": {
-        "x": 1058.8837060915403,
-        "y": 518.1845267105339
+        "x": 1035.4651020110964,
+        "y": 515.9241987601288
        },
        "velocity": {
         "x": 780.6201360147959,
-        "y": 78.31093168017158
+        "y": 69.41093168017157
        },
-       "time": 1.3548141660682662
-      },
-      {
-       "position": {
-        "x": 1105.720914252428,
-        "y": 523.951182611344
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 105.0109316801716
-       },
-       "time": 1.4148141660682663
-      },
-      {
-       "position": {
-        "x": 1152.5581224133157,
-        "y": 531.3198385121542
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 131.7109316801716
-       },
-       "time": 1.4748141660682663
-      },
-      {
-       "position": {
-        "x": 1199.3953305742034,
-        "y": 540.2904944129644
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 158.41093168017161
-       },
-       "time": 1.5348141660682664
-      },
-      {
-       "position": {
-        "x": 1246.232538735091,
-        "y": 550.8631503137749
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 185.11093168017163
-       },
-       "time": 1.5948141660682662
-      },
-      {
-       "position": {
-        "x": 1293.0697468959788,
-        "y": 563.0378062145853
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 211.81093168017165
-       },
-       "time": 1.6548141660682663
-      },
-      {
-       "position": {
-        "x": 1339.9069550568665,
-        "y": 576.8144621153957
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 238.51093168017167
-       },
-       "time": 1.7148141660682663
-      },
-      {
-       "position": {
-        "x": 1386.7441632177542,
-        "y": 592.1931180162061
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 265.21093168017165
-       },
-       "time": 1.7748141660682664
-      },
-      {
-       "position": {
-        "x": 1408.6015270261685,
-        "y": 599.9394241032509
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 283.0109316801716
-       },
-       "time": 1.8148141660682664
+       "time": 1.3813330506675148
       }
      ],
+     "hitPlayerId": "e1",
      "explosionPoint": {
-      "x": 1408.6015270261685,
-      "y": 599.9394241032509
+      "x": 1035.4651020110964,
+      "y": 515.9241987601288
      },
      "explosionRadius": 78,
-     "craterRadius": 72.8,
+     "craterRadius": 52,
      "kind": "bomb",
-     "launchDelay": 0.5748141660682659
+     "launchDelay": 0.6213330506675145
     },
     {
-     "projectileId": "proj-f4761121ad860bee",
+     "projectileId": "proj-216614f7cdebb995",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -2241,7 +1982,7 @@
         "x": 780.6201360147959,
         "y": -268.7890683198285
        },
-       "time": 0.6748141660682658
+       "time": 0.7213330506675145
       },
       {
        "position": {
@@ -2252,7 +1993,7 @@
         "x": 780.6201360147959,
         "y": -242.08906831982853
        },
-       "time": 0.7348141660682659
+       "time": 0.7813330506675145
       },
       {
        "position": {
@@ -2263,7 +2004,7 @@
         "x": 780.6201360147959,
         "y": -215.3890683198285
        },
-       "time": 0.7948141660682658
+       "time": 0.8413330506675145
       },
       {
        "position": {
@@ -2274,7 +2015,7 @@
         "x": 780.6201360147959,
         "y": -188.6890683198285
        },
-       "time": 0.8548141660682658
+       "time": 0.9013330506675146
       },
       {
        "position": {
@@ -2285,7 +2026,7 @@
         "x": 780.6201360147959,
         "y": -161.98906831982848
        },
-       "time": 0.9148141660682658
+       "time": 0.9613330506675145
       },
       {
        "position": {
@@ -2296,7 +2037,7 @@
         "x": 780.6201360147959,
         "y": -135.28906831982846
        },
-       "time": 0.9748141660682659
+       "time": 1.0213330506675145
       },
       {
        "position": {
@@ -2307,7 +2048,7 @@
         "x": 780.6201360147959,
         "y": -108.58906831982844
        },
-       "time": 1.034814166068266
+       "time": 1.0813330506675145
       },
       {
        "position": {
@@ -2318,7 +2059,7 @@
         "x": 780.6201360147959,
         "y": -81.88906831982843
        },
-       "time": 1.094814166068266
+       "time": 1.1413330506675146
       },
       {
        "position": {
@@ -2329,7 +2070,7 @@
         "x": 780.6201360147959,
         "y": -55.189068319828415
        },
-       "time": 1.154814166068266
+       "time": 1.2013330506675146
       },
       {
        "position": {
@@ -2340,7 +2081,7 @@
         "x": 780.6201360147959,
         "y": -28.48906831982842
        },
-       "time": 1.2148141660682659
+       "time": 1.2613330506675147
       },
       {
        "position": {
@@ -2351,7 +2092,7 @@
         "x": 780.6201360147959,
         "y": -1.7890683198284203
        },
-       "time": 1.274814166068266
+       "time": 1.3213330506675147
       },
       {
        "position": {
@@ -2362,7 +2103,7 @@
         "x": 780.6201360147959,
         "y": 24.91093168017158
        },
-       "time": 1.334814166068266
+       "time": 1.3813330506675148
       },
       {
        "position": {
@@ -2373,148 +2114,49 @@
         "x": 780.6201360147959,
         "y": 51.610931680171575
        },
-       "time": 1.394814166068266
+       "time": 1.4413330506675148
       },
       {
        "position": {
-        "x": 1058.8837060915403,
-        "y": 518.1845267105339
+        "x": 1035.4651020110964,
+        "y": 515.9241987601288
        },
        "velocity": {
         "x": 780.6201360147959,
-        "y": 78.31093168017158
+        "y": 69.41093168017157
        },
-       "time": 1.454814166068266
-      },
-      {
-       "position": {
-        "x": 1105.720914252428,
-        "y": 523.951182611344
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 105.0109316801716
-       },
-       "time": 1.5148141660682661
-      },
-      {
-       "position": {
-        "x": 1152.5581224133157,
-        "y": 531.3198385121542
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 131.7109316801716
-       },
-       "time": 1.5748141660682662
-      },
-      {
-       "position": {
-        "x": 1199.3953305742034,
-        "y": 540.2904944129644
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 158.41093168017161
-       },
-       "time": 1.6348141660682662
-      },
-      {
-       "position": {
-        "x": 1246.232538735091,
-        "y": 550.8631503137749
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 185.11093168017163
-       },
-       "time": 1.6948141660682663
-      },
-      {
-       "position": {
-        "x": 1293.0697468959788,
-        "y": 563.0378062145853
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 211.81093168017165
-       },
-       "time": 1.7548141660682663
-      },
-      {
-       "position": {
-        "x": 1339.9069550568665,
-        "y": 576.8144621153957
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 238.51093168017167
-       },
-       "time": 1.8148141660682664
-      },
-      {
-       "position": {
-        "x": 1386.7441632177542,
-        "y": 592.1931180162061
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 265.21093168017165
-       },
-       "time": 1.8748141660682665
-      },
-      {
-       "position": {
-        "x": 1433.581371378642,
-        "y": 609.1737739170164
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 291.9109316801716
-       },
-       "time": 1.9348141660682665
-      },
-      {
-       "position": {
-        "x": 1477.2960989954704,
-        "y": 626.481986091106
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 318.6109316801715
-       },
-       "time": 1.9948141660682666
+       "time": 1.4813330506675149
       }
      ],
+     "hitPlayerId": "e1",
      "explosionPoint": {
-      "x": 1477.2960989954704,
-      "y": 626.481986091106
+      "x": 1035.4651020110964,
+      "y": 515.9241987601288
      },
      "explosionRadius": 78,
-     "craterRadius": 72.8,
+     "craterRadius": 52,
      "kind": "bomb",
-     "launchDelay": 0.6748141660682658
+     "launchDelay": 0.7213330506675145
     }
    ],
    "events": [
     {
      "t": 0.7600000000000003,
      "type": "explode",
-     "projectileId": "proj-c25571914685ee68",
+     "projectileId": "proj-4fa5705f368025e5",
      "position": {
       "x": 1043.2713033712444,
       "y": 516.6183080769305
      },
-     "radius": 72.8,
-     "floor": 852,
-     "crater": "circle",
+     "radius": 52,
+     "crater": "bowl",
      "terrainVersion": 1
     },
     {
      "t": 0.7600000000000003,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-c25571914685ee68",
+     "projectileId": "proj-4fa5705f368025e5",
      "amount": 133,
      "hp": 1367,
      "cause": "explosion"
@@ -2536,90 +2178,129 @@
      },
      "to": {
       "x": 1050,
-      "y": 590
+      "y": 554
      },
-     "duration": 0.19481416606826596
+     "duration": 0.14133305066751467
     },
     {
-     "t": 1.0348141660682664,
+     "t": 0.981333050667515,
      "type": "explode",
-     "projectileId": "proj-2756dd3ec54ad722",
+     "projectileId": "proj-27bc00d02e5ce4a9",
      "position": {
-      "x": 1117.43021629265,
-      "y": 525.6598465865466
+      "x": 1035.4651020110964,
+      "y": 515.9241987601288
      },
-     "radius": 72.8,
-     "floor": 852,
-     "crater": "circle",
+     "radius": 52,
+     "crater": "bowl",
      "terrainVersion": 2
     },
     {
-     "t": 1.2348141660682663,
+     "t": 0.981333050667515,
+     "type": "damage",
+     "playerId": "e1",
+     "projectileId": "proj-27bc00d02e5ce4a9",
+     "amount": 133,
+     "hp": 1234,
+     "cause": "explosion"
+    },
+    {
+     "t": 1.081333050667515,
      "type": "explode",
-     "projectileId": "proj-622cc63147e122b2",
+     "projectileId": "proj-7ea3c2e3c065875d",
      "position": {
-      "x": 1191.5891292140554,
-      "y": 538.7063850961626
+      "x": 1035.4651020110964,
+      "y": 515.9241987601288
      },
-     "radius": 72.8,
-     "floor": 852,
-     "crater": "circle",
+     "radius": 52,
+     "crater": "bowl",
      "terrainVersion": 3
     },
     {
-     "t": 1.4348141660682665,
+     "t": 1.081333050667515,
+     "type": "damage",
+     "playerId": "e1",
+     "projectileId": "proj-7ea3c2e3c065875d",
+     "amount": 133,
+     "hp": 1101,
+     "cause": "explosion"
+    },
+    {
+     "t": 1.181333050667515,
      "type": "explode",
-     "projectileId": "proj-7f37609d3022caa0",
+     "projectileId": "proj-feabdcf16dae4ecc",
      "position": {
-      "x": 1264.9674219994463,
-      "y": 555.5550126740991
+      "x": 1035.4651020110964,
+      "y": 515.9241987601288
      },
-     "radius": 72.8,
-     "floor": 852,
-     "crater": "circle",
+     "radius": 52,
+     "crater": "bowl",
      "terrainVersion": 4
     },
     {
-     "t": 1.6148141660682664,
+     "t": 1.181333050667515,
+     "type": "damage",
+     "playerId": "e1",
+     "projectileId": "proj-feabdcf16dae4ecc",
+     "amount": 133,
+     "hp": 968,
+     "cause": "explosion"
+    },
+    {
+     "t": 1.281333050667515,
      "type": "explode",
-     "projectileId": "proj-7660c480cfcb27a0",
+     "projectileId": "proj-a1e1edef89ead054",
      "position": {
-      "x": 1336.7844745128073,
-      "y": 575.860418388675
+      "x": 1035.4651020110964,
+      "y": 515.9241987601288
      },
-     "radius": 72.8,
-     "floor": 852,
-     "crater": "circle",
+     "radius": 52,
+     "crater": "bowl",
      "terrainVersion": 5
     },
     {
-     "t": 1.8148141660682664,
+     "t": 1.281333050667515,
+     "type": "damage",
+     "playerId": "e1",
+     "projectileId": "proj-a1e1edef89ead054",
+     "amount": 133,
+     "hp": 835,
+     "cause": "explosion"
+    },
+    {
+     "t": 1.3813330506675148,
      "type": "explode",
-     "projectileId": "proj-d6917aefa31b5851",
+     "projectileId": "proj-efd7eeb09eccb475",
      "position": {
-      "x": 1408.6015270261685,
-      "y": 599.9394241032509
+      "x": 1035.4651020110964,
+      "y": 515.9241987601288
      },
-     "radius": 72.8,
-     "floor": 852,
-     "crater": "circle",
+     "radius": 52,
+     "crater": "bowl",
      "terrainVersion": 6
     },
     {
-     "t": 1.9948141660682666,
+     "t": 1.3813330506675148,
+     "type": "damage",
+     "playerId": "e1",
+     "projectileId": "proj-efd7eeb09eccb475",
+     "amount": 33,
+     "hp": 802,
+     "cause": "explosion"
+    },
+    {
+     "t": 1.4813330506675149,
      "type": "explode",
-     "projectileId": "proj-f4761121ad860bee",
+     "projectileId": "proj-216614f7cdebb995",
      "position": {
-      "x": 1477.2960989954704,
-      "y": 626.481986091106
+      "x": 1035.4651020110964,
+      "y": 515.9241987601288
      },
-     "radius": 72.8,
-     "floor": 852,
-     "crater": "circle",
+     "radius": 52,
+     "crater": "bowl",
      "terrainVersion": 7
     }
    ],
-   "duration": 1.9948141660682666
+   "duration": 1.4813330506675149
   }
  },
  "laser": {
@@ -2900,7 +2581,7 @@
    "width": 1600,
    "height": 900,
    "version": 28,
-   "solid": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJCbwCdPsIFbkCd/YIHLQCevYIHbACffUIH6wCgAH0CCINBJUChAHzCCUJCAkDhAKHAfIIKgEQAQj/AYsB8ghGDQLrAY4B8AhKCQblAZIB7whPAQ4BASMBtwGWAe4IYiEDsgGaAewIZB8FrgGeAeoIaBsJFQOPAaMB5whsEwIBDhMKhAGoAecIbRETERJ3rgHlCHENFw0cabQB5Ah0CRsJJlq7AeMIeQEjATRIwwHhCOABMc4B1QgBCeEDrggDIwYB5QOsCAYh7QOqCAof7QOnCA8b7wOlCBUBAhPwA6MIGxHxA6EIHw3zA58IIwn1A5wIKgH5A5oIpgSYCKgElgiqBJUIqwSVCKsElAisBJMIrQSTCK0EkgiuBJEIrwSRCK8EkAiwBI8IsQSOCLIEjQizBI0IswSLCLUEigi2BIkItwSHCLkE+wcBCbsE+wcFAb8E+gfGBPoHxgT5B8cE+AfIBPgHyAT3B8kE9gfKBPYHygT1B8sE9AfMBPMHzQTyB84E8gfOBPAH0QTuB9ME2QcCEdUE1wcFDdkE0wcJCdwE0QcOAeIEzQf0BMsH9wTHB/oExQf8BMIHgAW/B4IFvAeGBbkHiAW2B4wFsweOBbAHkQWuB5QFqgeXBagHmgWkB50FogegBZ4HowWcB6YFmAepBZYHrAWTB64FkAeyBY0HtAWKB7gFhwe6BYQHvgWBB8AF/gbEBfsGxgX4BsoF9QbMBfMGzwXvBtMF7AbVBekG2QXmBtsF4wbfBeAG4gXcBuUF2gboBdYG6wXUBu4F0AbyBc0G9QXJBvgFxwb7BcMG/wXABoEGvQaFBroGiAa2BowGswaPBq8GkgasBpYG2QInqQOZBsoCQZoDnQa/AlKRA6AGtQJihwOkBqwCb/8CqAakAnv4AqsGnAKGAfECrwaVApAB6wKyBo0CmwHkArYGhgKkAd4Cuwb+Aa4B2AK+BvgBtgHSAsIG8QG/AcwCxgbrAccBxwLKBuMBzwHCAs4G3QHXAbwC0wbVAeABtgLXBs8B5wGyAtsGyAHuAa0C3wbBAfcBpwLkBroB/gGiAukGswGGApwC7garAY4CmALyBqQBlQKTAvcGnAGdAo4C/QaTAaUCiQKCB4wBrQKDAogHgwG1Av4Bjgd5vgL5AZQHcMYC9AGbB2XPAu8BogdZ2QLqAasHS+QC5AG0BzzvAt4Bwgcl/gLZAeoK1AHvCs8B9QrIAfsKwwGAC70Bhwu3AYwLsQGTC6oBmQulAZ8LngGmC5cBrQuQAbQLiAG8C4EBwwt5zAtw1Qtn3gte6AtS9AtGggw3lAwizPMW",
+   "solid": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJCbwCdPsIFbkCd/UIHLUCevUIHbECffQIH60CgAHzCCGoAoQB8wgiDwKTAocB8ggkDQQNAYACiwHyCCULBgsD/AGOAfEIKAcKBwb3AZIB8AhIDQLjAZYB7whKCwQqArIBmgHuCE0HCCcDrgGeAe0IZB8FFwKPAaMB7AhmHQcVCYQBqAHrCGgbCRMRd64B6QhrGAwRGmm0AegIbQ8VDyNauwHnCG8NFw0uSMMB5whwCxkLOzHOAeYIcwcdB7wCrggCNdsDrAgFM9wDqggIMd0DpwgMHwEP3gOlCA8dAw3fA6MIEhsFC+ADoQgWGAgH4gOfCCAP8gOcCCQN8wOaCCcL9AOYCCsH9gOWCKoElAisBJMIrQSSCK4EkgiuBJEIrwSRCK8EkAiwBJAIsASPCLEEjgiyBI4IsgSNCLMEjQizBIwItASLCLUEigi2BIkItwSICLgE+AcCDbkE+AcDC7oE+AcFB7wE9wfJBPcHyQT2B8oE9gfKBPUHywT1B8sE9AfMBPMHzQTzB80E8gfOBPIHzgTxB9AE7wfSBNkHARPUBNcHAxHXBNMHBg/ZBNEHCA3cBM0HCwveBMsHDgfiBMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY=",
    "destructible": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY="
   },
   "shot": {
@@ -2915,7 +2596,7 @@
    },
    "projectiles": [
     {
-     "projectileId": "proj-fd442a3b5198dba3",
+     "projectileId": "proj-a30531b7edaf1d46",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3150,7 +2831,7 @@
      "kind": "flare"
     },
     {
-     "projectileId": "proj-443e52284d608b37",
+     "projectileId": "proj-d1d07764bc58d7d4",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3242,7 +2923,7 @@
      "launchDelay": 1.6200000000000006
     },
     {
-     "projectileId": "proj-be0da86568196d30",
+     "projectileId": "proj-587e6ab63ab41403",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3335,7 +3016,7 @@
      "launchDelay": 1.7200000000000006
     },
     {
-     "projectileId": "proj-2a79c7ac01deaace",
+     "projectileId": "proj-dbe4b7da9d125d87",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3438,7 +3119,7 @@
      "launchDelay": 1.6700000000000006
     },
     {
-     "projectileId": "proj-cc897c027cc97086",
+     "projectileId": "proj-6d33f6482883fa18",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3530,7 +3211,7 @@
      "launchDelay": 1.7700000000000005
     },
     {
-     "projectileId": "proj-1b0a1db26c17a5de",
+     "projectileId": "proj-2ca88673c163c1e7",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3623,7 +3304,7 @@
      "launchDelay": 1.8200000000000005
     },
     {
-     "projectileId": "proj-0d0c97314de30b2e",
+     "projectileId": "proj-c291fce031223385",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3716,7 +3397,7 @@
      "launchDelay": 1.8700000000000006
     },
     {
-     "projectileId": "proj-a74fed4a76fe351f",
+     "projectileId": "proj-f03cd56cd3b6feca",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3808,7 +3489,7 @@
      "launchDelay": 1.9200000000000006
     },
     {
-     "projectileId": "proj-0d1d533dd2340aa6",
+     "projectileId": "proj-c0bf0046b21f5ddf",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3900,7 +3581,7 @@
      "launchDelay": 1.9700000000000006
     },
     {
-     "projectileId": "proj-8ccbf73f4bd110da",
+     "projectileId": "proj-82a1b21da7f20307",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -3993,7 +3674,7 @@
      "launchDelay": 2.0200000000000005
     },
     {
-     "projectileId": "proj-f02f97b04d7cc5f1",
+     "projectileId": "proj-bca927b69bfc3b74",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4085,7 +3766,7 @@
      "launchDelay": 2.0700000000000007
     },
     {
-     "projectileId": "proj-314218646ef7d8ca",
+     "projectileId": "proj-d55ec5fa731bfcd6",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4177,7 +3858,7 @@
      "launchDelay": 2.1200000000000006
     },
     {
-     "projectileId": "proj-47e7d79fb6fcb372",
+     "projectileId": "proj-756d3b5505b1c038",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4270,7 +3951,7 @@
      "launchDelay": 2.1700000000000004
     },
     {
-     "projectileId": "proj-dcc04e00795f2526",
+     "projectileId": "proj-5f1d175f84ab9f82",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4362,7 +4043,7 @@
      "launchDelay": 2.2200000000000006
     },
     {
-     "projectileId": "proj-018dff0b119a42b7",
+     "projectileId": "proj-724f89cd2c31d607",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4454,7 +4135,7 @@
      "launchDelay": 2.2700000000000005
     },
     {
-     "projectileId": "proj-d0f9460262aa04f4",
+     "projectileId": "proj-dfefbdb150494e73",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4547,7 +4228,7 @@
      "launchDelay": 2.3200000000000007
     },
     {
-     "projectileId": "proj-b2f0c255ee05e04e",
+     "projectileId": "proj-67d117a103a0ce96",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4640,7 +4321,7 @@
      "launchDelay": 2.3700000000000006
     },
     {
-     "projectileId": "proj-5e8b66c1ec25048f",
+     "projectileId": "proj-805a9490d0987851",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4733,7 +4414,7 @@
      "launchDelay": 2.420000000000001
     },
     {
-     "projectileId": "proj-42ff2194dc6ffc47",
+     "projectileId": "proj-3aab3138ae7e0d2e",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4826,7 +4507,7 @@
      "launchDelay": 2.4700000000000006
     },
     {
-     "projectileId": "proj-4a7117d4446753a3",
+     "projectileId": "proj-25dec96e2540bf47",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -4919,7 +4600,7 @@
      "launchDelay": 2.5200000000000005
     },
     {
-     "projectileId": "proj-25cd9c48bcfd1ec3",
+     "projectileId": "proj-c57b2228d7143146",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5012,7 +4693,7 @@
      "launchDelay": 2.5700000000000007
     },
     {
-     "projectileId": "proj-ab572b8b5b78cd17",
+     "projectileId": "proj-ef60697e11644d37",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5104,7 +4785,7 @@
      "launchDelay": 2.6200000000000006
     },
     {
-     "projectileId": "proj-b45819d94353b21e",
+     "projectileId": "proj-3abb64bfe82d91cb",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5196,7 +4877,7 @@
      "launchDelay": 2.670000000000001
     },
     {
-     "projectileId": "proj-9a8979a3725d3b03",
+     "projectileId": "proj-6f7b696b6fa2951d",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5269,7 +4950,7 @@
       {
        "position": {
         "x": 1114.0463363657952,
-        "y": 499.37000000000023
+        "y": 503.05933333333354
        },
        "velocity": {
         "x": -2.755455298081541e-13,
@@ -5280,7 +4961,7 @@
      ],
      "explosionPoint": {
       "x": 1114.0463363657952,
-      "y": 499.37000000000023
+      "y": 503.05933333333354
      },
      "explosionRadius": 28,
      "craterRadius": 12,
@@ -5288,7 +4969,7 @@
      "launchDelay": 2.7200000000000006
     },
     {
-     "projectileId": "proj-375ce29e39020a0f",
+     "projectileId": "proj-21facb2ff3af35b6",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5381,7 +5062,7 @@
      "launchDelay": 2.7700000000000005
     },
     {
-     "projectileId": "proj-5e122c523335ae4a",
+     "projectileId": "proj-608bc16e3fda82bd",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5474,7 +5155,7 @@
      "launchDelay": 2.8200000000000007
     },
     {
-     "projectileId": "proj-20f6a5effca44d16",
+     "projectileId": "proj-a3fff32ad321dba9",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5577,7 +5258,7 @@
      "launchDelay": 2.8700000000000006
     },
     {
-     "projectileId": "proj-a3fea5ab7c2406aa",
+     "projectileId": "proj-08a9713c195f3700",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5669,7 +5350,7 @@
      "launchDelay": 2.920000000000001
     },
     {
-     "projectileId": "proj-26d8ac81d3c3d324",
+     "projectileId": "proj-2754c814b980eb94",
      "ownerPlayerId": "rookie",
      "skillId": "triple_shot",
      "path": [
@@ -5766,7 +5447,7 @@
     {
      "t": 1.1200000000000006,
      "type": "flare",
-     "projectileId": "proj-fd442a3b5198dba3",
+     "projectileId": "proj-a30531b7edaf1d46",
      "position": {
       "x": 1139.6761223465305,
       "y": 485.81028281247234
@@ -5785,7 +5466,7 @@
     {
      "t": 1.9800000000000006,
      "type": "explode",
-     "projectileId": "proj-443e52284d608b37",
+     "projectileId": "proj-d1d07764bc58d7d4",
      "position": {
       "x": 1109.834978664252,
       "y": 491.99133333333356
@@ -5797,7 +5478,7 @@
     {
      "t": 2.0400000000000005,
      "type": "explode",
-     "projectileId": "proj-be0da86568196d30",
+     "projectileId": "proj-587e6ab63ab41403",
      "position": {
       "x": 1142.5979046700218,
       "y": 444.2080000000002
@@ -5810,7 +5491,7 @@
      "t": 2.0400000000000005,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-be0da86568196d30",
+     "projectileId": "proj-587e6ab63ab41403",
      "amount": 114,
      "hp": 1136,
      "cause": "explosion"
@@ -5825,7 +5506,7 @@
     {
      "t": 2.0500000000000007,
      "type": "explode",
-     "projectileId": "proj-2a79c7ac01deaace",
+     "projectileId": "proj-dbe4b7da9d125d87",
      "position": {
       "x": 1023.5662391368346,
       "y": 528.9835555555558
@@ -5837,7 +5518,7 @@
     {
      "t": 2.1300000000000003,
      "type": "explode",
-     "projectileId": "proj-cc897c027cc97086",
+     "projectileId": "proj-6d33f6482883fa18",
      "position": {
       "x": 1124.7308801724537,
       "y": 491.99133333333356
@@ -5850,7 +5531,7 @@
      "t": 2.1300000000000003,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-cc897c027cc97086",
+     "projectileId": "proj-6d33f6482883fa18",
      "amount": 7,
      "hp": 1129,
      "cause": "explosion"
@@ -5858,7 +5539,7 @@
     {
      "t": 2.1600000000000006,
      "type": "explode",
-     "projectileId": "proj-1b0a1db26c17a5de",
+     "projectileId": "proj-2ca88673c163c1e7",
      "position": {
       "x": 1169.4794388168223,
       "y": 451.5471111111113
@@ -5871,7 +5552,7 @@
      "t": 2.1600000000000006,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-1b0a1db26c17a5de",
+     "projectileId": "proj-2ca88673c163c1e7",
      "amount": 114,
      "hp": 1015,
      "cause": "explosion"
@@ -5879,7 +5560,7 @@
     {
      "t": 2.2300000000000004,
      "type": "explode",
-     "projectileId": "proj-0d0c97314de30b2e",
+     "projectileId": "proj-c291fce031223385",
      "position": {
       "x": 1073.9118835472402,
       "y": 491.99133333333356
@@ -5892,7 +5573,7 @@
      "t": 2.2300000000000004,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-0d0c97314de30b2e",
+     "projectileId": "proj-c291fce031223385",
      "amount": 109,
      "hp": 1541,
      "cause": "explosion"
@@ -5907,7 +5588,7 @@
     {
      "t": 2.2800000000000007,
      "type": "explode",
-     "projectileId": "proj-a74fed4a76fe351f",
+     "projectileId": "proj-f03cd56cd3b6feca",
      "position": {
       "x": 1229.2877477228337,
       "y": 488.3020000000002
@@ -5919,7 +5600,7 @@
     {
      "t": 2.3300000000000005,
      "type": "explode",
-     "projectileId": "proj-0d1d533dd2340aa6",
+     "projectileId": "proj-c0bf0046b21f5ddf",
      "position": {
       "x": 1255.802711506543,
       "y": 491.99133333333356
@@ -5931,7 +5612,7 @@
     {
      "t": 2.3400000000000003,
      "type": "explode",
-     "projectileId": "proj-8ccbf73f4bd110da",
+     "projectileId": "proj-82a1b21da7f20307",
      "position": {
       "x": 1145.1615731563056,
       "y": 444.2080000000002
@@ -5944,7 +5625,7 @@
      "t": 2.3400000000000003,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-8ccbf73f4bd110da",
+     "projectileId": "proj-82a1b21da7f20307",
      "amount": 114,
      "hp": 901,
      "cause": "explosion"
@@ -5952,7 +5633,7 @@
     {
      "t": 2.4300000000000006,
      "type": "explode",
-     "projectileId": "proj-f02f97b04d7cc5f1",
+     "projectileId": "proj-bca927b69bfc3b74",
      "position": {
       "x": 1197.006541515892,
       "y": 484.6126666666669
@@ -5964,7 +5645,7 @@
     {
      "t": 2.4800000000000004,
      "type": "explode",
-     "projectileId": "proj-314218646ef7d8ca",
+     "projectileId": "proj-d55ec5fa731bfcd6",
      "position": {
       "x": 1243.9042883178886,
       "y": 495.68066666666687
@@ -5976,7 +5657,7 @@
     {
      "t": 2.49,
      "type": "explode",
-     "projectileId": "proj-47e7d79fb6fcb372",
+     "projectileId": "proj-756d3b5505b1c038",
      "position": {
       "x": 1147.4337344767353,
       "y": 444.2080000000002
@@ -5989,7 +5670,7 @@
      "t": 2.49,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-47e7d79fb6fcb372",
+     "projectileId": "proj-756d3b5505b1c038",
      "amount": 114,
      "hp": 787,
      "cause": "explosion"
@@ -5997,7 +5678,7 @@
     {
      "t": 2.5800000000000005,
      "type": "explode",
-     "projectileId": "proj-dcc04e00795f2526",
+     "projectileId": "proj-5f1d175f84ab9f82",
      "position": {
       "x": 1081.6964746581148,
       "y": 503.05933333333354
@@ -6009,7 +5690,7 @@
     {
      "t": 2.6300000000000003,
      "type": "explode",
-     "projectileId": "proj-018dff0b119a42b7",
+     "projectileId": "proj-724f89cd2c31d607",
      "position": {
       "x": 1280.2100864500558,
       "y": 495.68066666666687
@@ -6021,7 +5702,7 @@
     {
      "t": 2.6600000000000006,
      "type": "explode",
-     "projectileId": "proj-d0f9460262aa04f4",
+     "projectileId": "proj-dfefbdb150494e73",
      "position": {
       "x": 1136.3665003231843,
       "y": 447.8775555555558
@@ -6034,7 +5715,7 @@
      "t": 2.6600000000000006,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-d0f9460262aa04f4",
+     "projectileId": "proj-dfefbdb150494e73",
      "amount": 114,
      "hp": 673,
      "cause": "explosion"
@@ -6042,7 +5723,7 @@
     {
      "t": 2.7100000000000004,
      "type": "explode",
-     "projectileId": "proj-b2f0c255ee05e04e",
+     "projectileId": "proj-67d117a103a0ce96",
      "position": {
       "x": 1062.7338539119612,
       "y": 477.2340000000002
@@ -6055,7 +5736,7 @@
      "t": 2.7100000000000004,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-b2f0c255ee05e04e",
+     "projectileId": "proj-67d117a103a0ce96",
      "amount": 109,
      "hp": 1432,
      "cause": "explosion"
@@ -6063,7 +5744,7 @@
     {
      "t": 2.7600000000000007,
      "type": "explode",
-     "projectileId": "proj-5e8b66c1ec25048f",
+     "projectileId": "proj-805a9490d0987851",
      "position": {
       "x": 1128.7031770038375,
       "y": 455.21666666666687
@@ -6076,7 +5757,7 @@
      "t": 2.7600000000000007,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-5e8b66c1ec25048f",
+     "projectileId": "proj-805a9490d0987851",
      "amount": 114,
      "hp": 559,
      "cause": "explosion"
@@ -6084,7 +5765,7 @@
     {
      "t": 2.7900000000000005,
      "type": "explode",
-     "projectileId": "proj-42ff2194dc6ffc47",
+     "projectileId": "proj-3aab3138ae7e0d2e",
      "position": {
       "x": 1139.691448024772,
       "y": 444.2080000000002
@@ -6097,7 +5778,7 @@
      "t": 2.7900000000000005,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-42ff2194dc6ffc47",
+     "projectileId": "proj-3aab3138ae7e0d2e",
      "amount": 114,
      "hp": 445,
      "cause": "explosion"
@@ -6105,7 +5786,7 @@
     {
      "t": 2.8400000000000003,
      "type": "explode",
-     "projectileId": "proj-4a7117d4446753a3",
+     "projectileId": "proj-25dec96e2540bf47",
      "position": {
       "x": 1139.6760349219858,
       "y": 444.2080000000002
@@ -6118,7 +5799,7 @@
      "t": 2.8400000000000003,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-4a7117d4446753a3",
+     "projectileId": "proj-25dec96e2540bf47",
      "amount": 109,
      "hp": 336,
      "cause": "explosion"
@@ -6126,7 +5807,7 @@
     {
      "t": 2.9100000000000006,
      "type": "explode",
-     "projectileId": "proj-25cd9c48bcfd1ec3",
+     "projectileId": "proj-c57b2228d7143146",
      "position": {
       "x": 1137.0267717191578,
       "y": 447.8775555555558
@@ -6138,7 +5819,7 @@
     {
      "t": 2.9800000000000004,
      "type": "explode",
-     "projectileId": "proj-ab572b8b5b78cd17",
+     "projectileId": "proj-ef60697e11644d37",
      "position": {
       "x": 1214.2974588647544,
       "y": 488.3020000000002
@@ -6150,7 +5831,7 @@
     {
      "t": 3.0300000000000007,
      "type": "explode",
-     "projectileId": "proj-b45819d94353b21e",
+     "projectileId": "proj-3abb64bfe82d91cb",
      "position": {
       "x": 1180.4326019329455,
       "y": 484.6126666666669
@@ -6162,10 +5843,10 @@
     {
      "t": 3.0800000000000005,
      "type": "explode",
-     "projectileId": "proj-9a8979a3725d3b03",
+     "projectileId": "proj-6f7b696b6fa2951d",
      "position": {
       "x": 1114.0463363657952,
-      "y": 499.37000000000023
+      "y": 503.05933333333354
      },
      "radius": 12,
      "crater": "bowl",
@@ -6174,7 +5855,7 @@
     {
      "t": 3.1100000000000003,
      "type": "explode",
-     "projectileId": "proj-375ce29e39020a0f",
+     "projectileId": "proj-21facb2ff3af35b6",
      "position": {
       "x": 1038.7804151584453,
       "y": 473.56444444444463
@@ -6187,7 +5868,7 @@
      "t": 3.1100000000000003,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-375ce29e39020a0f",
+     "projectileId": "proj-21facb2ff3af35b6",
      "amount": 109,
      "hp": 1323,
      "cause": "explosion"
@@ -6195,7 +5876,7 @@
     {
      "t": 3.1600000000000006,
      "type": "explode",
-     "projectileId": "proj-5e122c523335ae4a",
+     "projectileId": "proj-608bc16e3fda82bd",
      "position": {
       "x": 1164.7728982511774,
       "y": 447.8775555555558
@@ -6207,7 +5888,7 @@
     {
      "t": 3.2700000000000005,
      "type": "explode",
-     "projectileId": "proj-20f6a5effca44d16",
+     "projectileId": "proj-a3fff32ad321dba9",
      "position": {
       "x": 997.184544671134,
       "y": 547.5488888888892
@@ -6219,7 +5900,7 @@
     {
      "t": 3.2800000000000007,
      "type": "explode",
-     "projectileId": "proj-a3fea5ab7c2406aa",
+     "projectileId": "proj-08a9713c195f3700",
      "position": {
       "x": 1093.628406014108,
       "y": 506.7486666666669
@@ -6231,7 +5912,7 @@
     {
      "t": 3.2900000000000005,
      "type": "explode",
-     "projectileId": "proj-26d8ac81d3c3d324",
+     "projectileId": "proj-2754c814b980eb94",
      "position": {
       "x": 1156.8041287356007,
       "y": 444.2080000000002
