@@ -24,8 +24,8 @@ const Trajectory := preload("res://match/aim/trajectory_predictor.gd")
 const ARC_FRACTION := {"bronze": 0.6, "silver": 0.5, "gold": 0.4, "platinum": 0.3, "diamond": 0.22, "master": 0.15}
 const DEFAULT_TIER := "bronze"
 const ARC_FADE_FROM := 0.55 # the arc is solid to this part of its length, then fades out
-const WIND_BIAS := 2.0 # px per (wind × s) the landing marker is moved against the wind
-const MAX_BIAS := 40.0 # px: the marker never strays further from the real landing
+const WIND_BIAS := 3.0 # px per (wind × s) the landing marker is moved against the wind
+const MAX_BIAS := 60.0 # px: the marker never strays further from the real landing
 ## The "Trúng!" tolerance r = TOL_MAX × min(1, TOL_MIN_PART + (1 − TOL_MIN_PART) ×
 ## max(D / TOL_FAR, H / TOL_HIGH)) px: near and low shots are judged tighter.
 const TOL_MAX := 20.0

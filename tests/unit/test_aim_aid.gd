@@ -82,9 +82,9 @@ func test_guide_arc_follows_the_wind_and_is_shorter_by_rank() -> void:
 
 
 func test_shown_point_formula() -> void:
-	near(AimAid.shown_x(800.0, 2.0, 2.0), 792.0, 1e-9, "X − 2 × W × T")
-	near(AimAid.shown_x(800.0, 4.0, 6.0), 760.0, 1e-9, "capped at 40 px")
-	near(AimAid.shown_x(800.0, -4.0, 6.0), 840.0, 1e-9, "capped at 40 px the other way")
+	near(AimAid.shown_x(800.0, 2.0, 2.0), 788.0, 1e-9, "X − 3 × W × T")
+	near(AimAid.shown_x(800.0, 4.0, 6.0), 740.0, 1e-9, "capped at 60 px")
+	near(AimAid.shown_x(800.0, -4.0, 6.0), 860.0, 1e-9, "capped at 60 px the other way")
 	# W > 0 blows right: a shot to the right (tailwind) shows short, one to the left (headwind) long
 	var right_tail := AimAid.shown_x(800.0, 2.0, 2.0)
 	check(absf(right_tail - 200.0) < 600.0, "tailwind right: shown nearer the shooter at 200")
@@ -92,12 +92,12 @@ func test_shown_point_formula() -> void:
 	check(absf(left_head - 1400.0) > 600.0, "headwind left: shown farther from the shooter at 1400")
 	# W < 0 blows left: the other way round
 	var right_head := AimAid.shown_x(800.0, -2.0, 2.0)
-	near(right_head, 808.0, 1e-9, "headwind right: +8")
+	near(right_head, 812.0, 1e-9, "headwind right: +12")
 	check(absf(right_head - 200.0) > 600.0, "headwind right: farther")
 	check(absf(right_head - 1400.0) < 600.0, "tailwind left: nearer the shooter at 1400")
 	near(AimAid.shown_x(800.0, 0.0, 5.0), 800.0, 1e-9, "no wind: the exact x")
 	var m = _flat()
-	eq(AimAid.shown_point(Vector2(800, 690), 2.0, 2.0, m), Vector2(792, GROUND), "dropped onto the ground")
+	eq(AimAid.shown_point(Vector2(800, 690), 2.0, 2.0, m), Vector2(788, GROUND), "dropped onto the ground")
 	eq(AimAid.shown_point(Vector2(20, 690), 4.0, 3.0, m), Vector2(0, GROUND), "clamped to the map")
 	eq(AimAid.shown_point(Vector2(1580, 690), -4.0, 3.0, m), Vector2(1599, GROUND), "clamped right")
 	# two levels in the column: the surface nearest the exact landing
@@ -120,7 +120,7 @@ func test_shown_marker_from_the_exact_landing() -> void:
 	var flight := AimAid.fly(origin, AimAid.launch_velocity(a._angle, a._power), 30.0 * 3.0 * 0.5 / 1.5, a.terrain,
 		PackedVector2Array(), PackedFloat32Array())
 	var mark: Dictionary = a.aid()["marks"][0]
-	near(mark["point"].x, float(flight["end"].x) - minf(40.0, 2.0 * 3.0 * float(flight["time"])), 1e-3, "shown x from the weapon's exact flight")
+	near(mark["point"].x, float(flight["end"].x) - minf(60.0, 3.0 * 3.0 * float(flight["time"])), 1e-3, "shown x from the weapon's exact flight")
 	near(mark["point"].y, float(GROUND), 1e-6, "on the ground")
 	check(not mark["hit"], "no enemy: no hit")
 	_drag(a, 50.0, 3.0)

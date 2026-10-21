@@ -15,9 +15,8 @@ extends Node2D
 ##   exact landing, flown like the server with the weapon's wind_influence / projectile_weight,
 ##   enemies and a drill's pierce, moved against the wind);
 ## - "Trúng!": the exact path comes within AimAid.HIT_RADIUS + hit_tolerance() of an enemy body
-##   (enemies: their body centres): that enemy gets a gold ring on the ground round its feet and
-##   the tag over its name (the marker keeps its colour: moved against the wind it may stand by
-##   another player);
+##   (enemies: their body centres): that enemy gets an animated bullseye over its body, no text
+##   (the marker keeps its colour: moved against the wind it may stand by another player);
 ## - a down arrow on the tick instead of the dot when the apex is above the top of the screen.
 ## Nothing of it shows below MIN_POWER (the release would not fire).
 ##
@@ -31,7 +30,7 @@ extends Node2D
 ## the shot origin to the map edge (beam_end(), the server's beamEnd), full length; power still
 ## only decides whether the drag fires (MIN_POWER). The line is drawn thinner in a light electric
 ## blue over a soft wider glow (LINE_COLOR / LINE_GLOW) so it reads as a beam, not a lob. Every
-## enemy the beam crosses (AimAid.laser_hits()) gets "Trúng!".
+## enemy the beam crosses (AimAid.laser_hits()) gets the bullseye.
 
 signal aim_changed(angle: float, power: float)
 signal aim_cleared # a drag ended without a shot (cancelled, or aiming was turned off)
@@ -48,27 +47,27 @@ const MIN_POWER := 5.0
 const BODY_CENTER := Trajectory.SHOT_ORIGIN # the cancel ring and the shot start (body centre)
 const ARC_COLOR := Color(1, 1, 1, 0.55) # the air strike's drop preview
 const ARC_WIDTH := 4.0
-const GUIDE_COLOR := Color(1, 1, 1, 0.95) # the guide arc, over a soft dark shadow (any sky)
-const GUIDE_WIDTH := 5.0
-const GUIDE_SHADOW := Color(0.03, 0.04, 0.12, 0.38)
-const GUIDE_SHADOW_WIDTH := 10.0
+const GUIDE_COLOR := Color(1, 1, 1, 0.48) # the guide arc, over a soft dark shadow (any sky)
+const GUIDE_WIDTH := 3.0
+const GUIDE_SHADOW := Color(0.03, 0.04, 0.12, 0.19)
+const GUIDE_SHADOW_WIDTH := 6.0
 const LINE_COLOR := Color(0.78, 0.97, 1.0, 0.85) # line_mode: the beam preview
 const LINE_WIDTH := 3.0
 const LINE_GLOW := Color(0.35, 0.85, 1.0, 0.28)
 const LINE_GLOW_WIDTH := 12.0
-# The landing marker (a tick and a dot on the ground) and the "Trúng!" look.
-const MARK_TICK := 14.0 # half the ground tick's width
-const MARK_DOT := 6.0 # the dot's radius, MARK_LIFT over the ground
-const MARK_LIFT := 11.0
-const MARK_COLOR := Color(1, 1, 1, 0.97)
-const HIT_COLOR := Color(1.0, 0.8, 0.22) # LobbyUi.GOLD
-const HIT_RIM := Color(0.85, 0.16, 0.1) # the hit ring's and tag's red rim
+# The landing marker (a tick and a dot on the ground, half transparent) and the hit bullseye.
+const MARK_TICK := 9.0 # half the ground tick's width
+const MARK_DOT := 4.0 # the dot's radius, MARK_LIFT over the ground
+const MARK_LIFT := 8.0
+const MARK_COLOR := Color(1, 1, 1, 0.5)
+const MARK_RIM := Color(0.03, 0.04, 0.12, 0.42)
+const ARROW_SIZE := Vector2(15, 19) # super high: a down arrow stands on the tick for the dot
+const HIT_COLOR := Color(1.0, 0.22, 0.16) # the bullseye's red rings and centre
+const HIT_LIGHT := Color(1, 1, 1, 0.92) # the white ring between them
 const OUTLINE := Color(0.03, 0.04, 0.12, 0.85) # dark rim: reads on bright skies and dark rock
-const ENEMY_RING := Vector2(30, 9) # the hit enemy's ring on the ground round its feet (radii)
-const TAG_TEXT := "Trúng!"
-const TAG_FONT := 22
-const TAG_RISE := 150.0 # the tag's centre above the enemy's feet (over its name and title)
-const ARROW_SIZE := Vector2(24, 30) # super high: a down arrow stands on the tick for the dot
+const BULLSEYE_RADIUS := 26.0 # the outer ring round the hit enemy's body centre
+const BULLSEYE_PULSE := 0.1 # ± scale of its pulse
+const BULLSEYE_HZ := 1.6 # pulses per second; the tick marks turn 1 turn per 4 s
 
 var enabled := false:
 	set(value):
@@ -119,12 +118,12 @@ var _lines: Array[Line2D] = [] # reused; grows to the largest preview_offsets se
 var _shadows: Array[Line2D] = [] # under each line: the guide arc's shadow (arc mode only)
 var _ring := PackedVector2Array() # the enemy ring's points round (0, 0), built once
 var _marks: Array = [] # per arc shown: {point: the marker on the ground, hit: it hits, high}
-var _hit := {} # enemy index -> true: "Trúng!" on it
+var _hit := {} # enemy index -> true: the bullseye on it
 var _near := PackedFloat32Array() # AimAid.fly()'s closest distances, reused
 var _guide := PackedVector2Array() # the first arc's guide points (aid())
 var _fade: Gradient
 var _shadow_fade: Gradient
-var _tag_style: StyleBoxFlat
+var _anim := 0.0 # s: drives the bullseye's pulse and turn
 
 
 func _ready() -> void:
@@ -164,6 +163,12 @@ func _ensure_lines() -> void:
 		line.default_color = ARC_COLOR
 		add_child(line)
 		_lines.append(line)
+
+
+func _process(delta: float) -> void:
+	if _dragging and not _hit.is_empty():
+		_anim += delta
+		queue_redraw()
 
 
 ## A press no Control took starts a drag.
@@ -381,15 +386,15 @@ func _draw() -> void:
 ## the apex above the screen) a down arrow standing on it; white with a dark rim.
 func _draw_mark(foot: Vector2, high: bool) -> void:
 	var fill := MARK_COLOR
-	var rim := OUTLINE
+	var rim := MARK_RIM
 	var tick := Vector2(MARK_TICK, 0)
-	draw_line(foot - tick, foot + tick, OUTLINE, 8.0, true)
-	draw_line(foot - tick, foot + tick, fill, 4.0, true)
+	draw_line(foot - tick, foot + tick, rim, 5.0, true)
+	draw_line(foot - tick, foot + tick, fill, 2.5, true)
 	if high:
-		_draw_down_arrow(foot - Vector2(0, 4), fill, rim)
+		_draw_down_arrow(foot - Vector2(0, 3), fill, rim)
 		return
 	var dot := foot - Vector2(0, MARK_LIFT)
-	draw_circle(dot, MARK_DOT + 2.5, rim)
+	draw_circle(dot, MARK_DOT + 1.5, rim)
 	draw_circle(dot, MARK_DOT, fill)
 
 
@@ -402,34 +407,29 @@ func _draw_down_arrow(tip: Vector2, fill: Color, rim: Color) -> void:
 		tip + Vector2(shaft, -h), tip + Vector2(-shaft, -h), tip + Vector2(-shaft, -h * 0.5), tip + Vector2(-w, -h * 0.5)])
 	var loop := tri.duplicate()
 	loop.append(tip)
-	draw_polyline(loop, rim, 5.0, true)
+	draw_polyline(loop, rim, 3.0, true)
 	draw_colored_polygon(tri, fill)
 
 
-## "Trúng!" on an enemy (its body centre): a gold ring with a red rim on the ground round its
-## feet and the tag over its name.
+## The hit enemy (its body centre): an animated bullseye over the body: red outer ring, white
+## ring, red centre dot, four tick marks slowly turning, the whole pulsing gently (no text).
 func _draw_enemy_hit(centre: Vector2) -> void:
-	var feet := centre + Vector2(0, AimAid.BODY_LIFT)
 	if _ring.is_empty():
 		for i in 41:
 			var a := TAU * i / 40.0
-			_ring.append(Vector2(cos(a) * ENEMY_RING.x, sin(a) * ENEMY_RING.y))
-	draw_set_transform(feet)
-	draw_polyline(_ring, OUTLINE, 7.0, true)
-	draw_polyline(_ring, HIT_RIM, 5.0, true)
-	draw_polyline(_ring, HIT_COLOR, 2.5, true)
+			_ring.append(Vector2(cos(a), sin(a)))
+	var k := 1.0 + BULLSEYE_PULSE * sin(_anim * TAU * BULLSEYE_HZ)
+	var r := BULLSEYE_RADIUS * k
+	draw_set_transform(centre, 0.0, Vector2(r, r))
+	draw_polyline(_ring, OUTLINE, 6.0 / r, true)
+	draw_polyline(_ring, HIT_COLOR, 3.5 / r, true)
+	draw_set_transform(centre, 0.0, Vector2(r, r) * 0.62)
+	draw_polyline(_ring, HIT_LIGHT, 2.5 / (r * 0.62), true)
 	draw_set_transform(Vector2.ZERO)
-	var font := LobbyUi.bold()
-	var size := font.get_string_size(TAG_TEXT, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_FONT)
-	var c := feet - Vector2(0, TAG_RISE)
-	var box := Rect2(c - Vector2(size.x / 2.0 + 12, 17), Vector2(size.x + 24, 34))
-	draw_style_box(_tag_box(), box)
-	draw_string(font, Vector2(box.position.x + 12, c.y + size.y * 0.3), TAG_TEXT, HORIZONTAL_ALIGNMENT_LEFT, -1, TAG_FONT, LobbyUi.TEXT_DARK)
-	var tip := Vector2(c.x, box.end.y + 8)
-	draw_colored_polygon(PackedVector2Array([tip, Vector2(c.x - 8, box.end.y - 1), Vector2(c.x + 8, box.end.y - 1)]), HIT_COLOR)
-
-
-func _tag_box() -> StyleBoxFlat:
-	if _tag_style == null:
-		_tag_style = LobbyUi.box(HIT_COLOR, 17, 0, HIT_RIM, 3)
-	return _tag_style
+	draw_circle(centre, 5.5 * k, OUTLINE)
+	draw_circle(centre, 4.0 * k, HIT_COLOR)
+	var turn := _anim * TAU / 4.0
+	for q in 4:
+		var d := Vector2.from_angle(turn + q * TAU / 4.0)
+		draw_line(centre + d * (r - 5.0), centre + d * (r + 7.0), OUTLINE, 5.0, true)
+		draw_line(centre + d * (r - 4.0), centre + d * (r + 6.0), HIT_COLOR, 2.5, true)
