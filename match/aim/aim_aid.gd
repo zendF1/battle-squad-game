@@ -22,7 +22,7 @@ const Trajectory := preload("res://match/aim/trajectory_predictor.gd")
 ## The guide arc's length along the path (px), by the rank tier (ratingToTier ids); the same
 ## for every power (playtest: it used to be a share of the flight time, so weak shots got a
 ## short guide). No / an unknown rank counts as DEFAULT_TIER.
-const ARC_LENGTH := {"bronze": 675.0, "silver": 560.0, "gold": 450.0, "platinum": 340.0, "diamond": 250.0, "master": 170.0}
+const ARC_LENGTH := {"bronze": 700.0, "silver": 650.0, "gold": 600.0, "platinum": 550.0, "diamond": 500.0, "master": 450.0}
 const DEFAULT_TIER := "bronze"
 const ARC_FADE_FROM := 0.55 # the arc is solid to this part of its length, then fades out
 ## The "Trúng!" tolerance r = TOL_MAX × min(1, TOL_MIN_PART + (1 − TOL_MIN_PART) ×

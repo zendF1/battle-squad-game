@@ -47,11 +47,11 @@ func _drag(a, angle: float, power: float) -> void:
 
 
 func test_arc_length_by_tier() -> void:
-	var want := {"bronze": 675.0, "silver": 560.0, "gold": 450.0, "platinum": 340.0, "diamond": 250.0, "master": 170.0}
+	var want := {"bronze": 700.0, "silver": 650.0, "gold": 600.0, "platinum": 550.0, "diamond": 500.0, "master": 450.0}
 	for tier in want:
 		near(AimAid.arc_length(tier), want[tier], 1e-9, tier)
-	near(AimAid.arc_length(""), 675.0, 1e-9, "no rank: bronze")
-	near(AimAid.arc_length("legend"), 675.0, 1e-9, "unknown tier: bronze")
+	near(AimAid.arc_length(""), 700.0, 1e-9, "no rank: bronze")
+	near(AimAid.arc_length("legend"), 700.0, 1e-9, "unknown tier: bronze")
 
 
 func _polyline_length(pts: PackedVector2Array) -> float:
@@ -83,12 +83,12 @@ func test_guide_arc_same_length_at_any_power_and_shorter_by_rank() -> void:
 	_drag(a, 55.0, 70.0)
 	var origin := Trajectory.shot_origin(FEET, a.terrain)
 	var v := AimAid.launch_velocity(a._angle, a._power)
-	var windy := AimAid.trim_to_length(Trajectory.simulate(origin.x, origin.y, v.x, v.y, AimAid.wind_accel(1, 4.0), a.terrain, 240), 675.0)
-	var calm := AimAid.trim_to_length(Trajectory.simulate(origin.x, origin.y, v.x, v.y, 0.0, a.terrain, 240), 675.0)
+	var windy := AimAid.trim_to_length(Trajectory.simulate(origin.x, origin.y, v.x, v.y, AimAid.wind_accel(1, 4.0), a.terrain, 240), 700.0)
+	var calm := AimAid.trim_to_length(Trajectory.simulate(origin.x, origin.y, v.x, v.y, 0.0, a.terrain, 240), 700.0)
 	eq(a.aid()["guide"], windy, "bronze guide = the start of the exact, windy flight")
 	check(a.aid()["guide"] != calm, "the wind bends the guide")
 	_drag(a, 10.0, 20.0)
-	check(_polyline_length(a.aid()["guide"]) < 675.0, "a flight ending sooner (low and weak, into the ground) cuts the guide")
+	check(_polyline_length(a.aid()["guide"]) < 700.0, "a flight ending sooner (low and weak, into the ground) cuts the guide")
 	a.free()
 
 
