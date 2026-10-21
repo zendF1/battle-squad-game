@@ -35,6 +35,7 @@ const Art := preload("res://ui/art.gd")
 const CharacterView := preload("res://ui/character_view.gd")
 const FakeChat := preload("res://screens/home/fake_chat.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
+const SkillGlyphs := preload("res://match/views/skill_glyphs.gd")
 
 const NAVY := Color(0.06, 0.09, 0.22, 0.78)
 const MODE_BG := Color(0.13, 0.2, 0.42, 0.9)
@@ -98,6 +99,7 @@ var _low := false
 var _skill_energy := 0.0 # 0..1 of the ring
 var _skill_ready := false
 var _skill_armed := false
+var _skill_id := "" # the slot shows its picture (SkillGlyphs) instead of the generic lightning icon
 
 
 func _ready() -> void:
@@ -489,6 +491,13 @@ func set_actions(skill: Dictionary, energy: int, skill_enabled: bool, armed: Str
 	_skill_box.visible = not skill.is_empty()
 	_skill_name.text = str(skill.get("name", ""))
 	_skill.tooltip_text = _skill_name.text
+	var id := str(skill.get("id", ""))
+	if id != _skill_id:
+		_skill_id = id
+		if SkillGlyphs.has(id):
+			_skill.icon = null
+		else:
+			LobbyUi.set_icon(_skill, "skill", int(SKILL_SIZE * 0.46))
 	_skill_energy = clampf(energy / 100.0, 0.0, 1.0)
 	_skill_ready = energy >= 100
 	_skill_armed = armed == "skill"
@@ -522,7 +531,7 @@ func slots() -> Dictionary:
 			items.append({"id": str(b.get_meta("item_id", "")), "count": (b.get_node("Count") as Label).text,
 				"disabled": b.disabled, "armed": b.button_pressed})
 	return {"skill": {"visible": _skill_box.visible, "disabled": _skill.disabled, "armed": _skill.button_pressed,
-		"ring": _skill_energy, "name": _skill_name.text}, "items": items}
+		"ring": _skill_energy, "name": _skill_name.text, "picture": _skill_id if SkillGlyphs.has(_skill_id) else ""}, "items": items}
 
 
 func show_result(title: String, detail: String) -> void:
@@ -584,6 +593,9 @@ func _draw_skill_ring() -> void:
 	var c := _skill_ring.size / 2.0
 	var r := minf(c.x, c.y) - 6.0
 	_skill_ring.draw_arc(c, r, 0.0, TAU, 64, Color(0.02, 0.03, 0.1, 0.8), 8.0, true)
+	if SkillGlyphs.has(_skill_id): # the skill's own picture in the slot, dimmed while it can't be used
+		_skill_ring.modulate = Color(1, 1, 1, 0.45) if _skill.disabled and not _skill_ready else Color.WHITE
+		SkillGlyphs.draw(_skill_ring, _skill_id, c, SKILL_SIZE * 0.5)
 	if _skill_energy <= 0.0:
 		return
 	var col := Color.WHITE if _skill_armed else (LobbyUi.GOLD if _skill_ready else RING_CHARGING)

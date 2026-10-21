@@ -1,8 +1,9 @@
 extends Node2D
 ## What a player is using, over its head (player_view.gd: above the name, the title plate, the
-## shot markers and the turn arrow): a small pill with the icon (an item's own icon, the one in the
-## items row, Art.item_icon(); a skill's code-drawn picture, skill_glyphs.gd) and the short name
-## ("Mưa tên lửa", "Bom khoan", "Hộp cứu thương"). A normal weapon shot shows nothing.
+## shot markers and the turn arrow): a small round badge with only the icon, no name: an item's
+## own icon (the one in the items row, Art.item_icon()), or for any skill the generic lightning
+## "skill" icon (each skill's own picture is on the HUD's skill slot). A normal weapon shot shows
+## nothing.
 ## show_use(): pops in (scaled up from POP_FROM, TRANS_BACK) and stays: for `hold` seconds, or
 ## (hold < 0) until release() (match_screen: the end of the shot's replay); then fades out over
 ## FADE. A new show_use() replaces the one shown: one badge per player, so a shot item's ItemUsed
@@ -16,12 +17,8 @@ const SkillGlyphs := preload("res://match/views/skill_glyphs.gd")
 
 const KIND_SKILL := "skill"
 const KIND_ITEM := "item"
-const HEIGHT := 34.0
+const HEIGHT := 36.0 # the round badge's diameter
 const ICON := 26.0 # the icon's square
-const PAD := 5.0 # left of the icon
-const GAP := 6.0 # icon to text
-const PAD_RIGHT := 12.0
-const FONT_SIZE := 17
 const POP_FROM := 0.55
 const POP_SEC := 0.22
 const FADE := 0.35
@@ -30,15 +27,13 @@ const ITEM_RIM := Color(0.85, 0.92, 1.0)
 const SKILL_NAME := "Kỹ năng" # an unknown skill's name
 
 var _content := {}
-var _width := 0.0
-var _text_w := 0.0
+var _width := HEIGHT
 var _tex: Texture2D
 var _tween: Tween
-var _font: Font
 var _box: StyleBoxFlat
 
 
-## What a shot or an item use shows: {kind (KIND_SKILL / KIND_ITEM), id, name}, {} for a normal
+## What a shot or an item use shows: {kind (KIND_SKILL / KIND_ITEM), id, name (not drawn)}, {} for a normal
 ## weapon shot (or nothing known to show). action_mode: ShotResolved.actionMode (weapon, skill,
 ## item); an ItemUsed is ("item", "", itemId).
 static func content(action_mode: String, skill_id: String, item_id: String) -> Dictionary:
@@ -57,7 +52,6 @@ static func content(action_mode: String, skill_id: String, item_id: String) -> D
 func _init() -> void:
 	visible = false
 	z_index = 2 # over the other players' names and bars
-	_font = LobbyUi.bold()
 	_box = StyleBoxFlat.new()
 	_box.bg_color = BG
 	_box.set_corner_radius_all(int(HEIGHT / 2))
@@ -78,10 +72,9 @@ func show_use(c: Dictionary, hold: float = -1.0) -> void:
 		visible = false
 		return
 	var skill := str(c.get("kind", "")) == KIND_SKILL
-	_tex = null if skill else Art.item_icon(str(c.get("id", "")))
+	# a skill shows the generic lightning "skill" icon (its own picture is on the HUD's skill slot)
+	_tex = Art.icon("skill") if skill else Art.item_icon(str(c.get("id", "")))
 	_box.border_color = SkillGlyphs.color(str(c["id"])) if skill else ITEM_RIM
-	_text_w = _font.get_string_size(str(c.get("name", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x
-	_width = PAD + ICON + GAP + _text_w + PAD_RIGHT
 	visible = true
 	modulate.a = 1.0
 	scale = Vector2.ONE * POP_FROM
@@ -132,15 +125,5 @@ func _draw() -> void:
 		return
 	var r := rect()
 	draw_style_box(_box, r)
-	var ic := Vector2(r.position.x + PAD + ICON / 2.0, r.get_center().y)
-	var id := str(_content.get("id", ""))
 	if _tex != null:
-		draw_texture_rect(_tex, Rect2(ic - Vector2(ICON, ICON) / 2.0, Vector2(ICON, ICON)), false)
-	else:
-		draw_circle(ic, ICON / 2.0, SkillGlyphs.disc(id))
-		draw_arc(ic, ICON / 2.0 - 0.5, 0.0, TAU, 24, Color(SkillGlyphs.color(id), 0.9), 1.5, true)
-		SkillGlyphs.draw(self, id, ic, ICON * 0.86)
-	var base := Vector2(ic.x + ICON / 2.0 + GAP, r.get_center().y + _font.get_ascent(FONT_SIZE) / 2.0 - 2.0)
-	var col := Color.WHITE if _tex != null else SkillGlyphs.color(id).lightened(0.55)
-	draw_string_outline(_font, base, str(_content.get("name", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, 4, Color(0.02, 0.02, 0.08, 0.9))
-	draw_string(_font, base, str(_content.get("name", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, col)
+		draw_texture_rect(_tex, Rect2(r.get_center() - Vector2(ICON, ICON) / 2.0, Vector2(ICON, ICON)), false)

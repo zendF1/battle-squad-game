@@ -7,6 +7,7 @@ const ShotTimeline := preload("res://match/shot/shot_timeline.gd")
 const ShotPlayer := preload("res://match/shot/shot_player.gd")
 const EnergyReveal := preload("res://match/shot/energy_reveal.gd")
 const UseBadge := preload("res://match/views/use_badge.gd")
+const Art := preload("res://ui/art.gd")
 const SkillGlyphs := preload("res://match/views/skill_glyphs.gd")
 const PlayerView := preload("res://match/views/player_view.gd")
 const SkyView := preload("res://match/views/sky_view.gd")
@@ -283,7 +284,7 @@ func test_badge_sits_above_the_name_and_hp_bar() -> void:
 		check(box.end.y < v._name.position.y - v._title_rise, "%s: over the name and title" % id)
 		if id != "e1":
 			check(box.end.y < v._name.position.y - 26.0 - v._title_rise, "%s: over the markers / the arrow" % id)
-		check(box.size.x > 100.0 and box.size.x < 220.0, "%s: a short pill (%s)" % [id, box.size])
+		eq(box.size, Vector2(UseBadge.HEIGHT, UseBadge.HEIGHT), "%s: a round icon-only badge (no name)" % id)
 	var plain: Node2D = m._views["e1"].badge_node()
 	check(plain.position.y > m._views["me"].badge_node().position.y, "no arrow or markers: lower, on the name")
 	_free(m)
@@ -310,3 +311,16 @@ func test_aura_on_at_full_and_off_on_drop_or_death() -> void:
 	v.set_skill_energy(100)
 	check(not v.aura_on(), "stays off when dead")
 	_free(m)
+
+
+
+## The badge shows only an icon: an item's own, or the lightning "skill" icon for every skill.
+func test_badge_icon_only() -> void:
+	var b = UseBadge.new()
+	b.show_use(UseBadge.content("skill", "heavy_bomb", ""))
+	eq(b._tex, Art.icon("skill"), "a skill: the lightning icon")
+	eq(b.rect().size, Vector2(UseBadge.HEIGHT, UseBadge.HEIGHT), "round, no name")
+	b.show_use(UseBadge.content("item", "", "drill_bomb"))
+	eq(b._tex, Art.item_icon("drill_bomb"), "an item: its own icon")
+	eq(b.rect().size, Vector2(UseBadge.HEIGHT, UseBadge.HEIGHT), "round, no name")
+	b.free()

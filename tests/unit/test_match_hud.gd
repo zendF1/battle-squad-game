@@ -136,6 +136,8 @@ func test_slots() -> void:
 	check(s["skill"]["visible"] and s["skill"]["disabled"] and not s["skill"]["armed"], "charging: shown, off")
 	near(s["skill"]["ring"], 0.4, 1e-6, "the ring at 40/100")
 	eq(s["skill"]["name"], "Bắn 3 tia", "its name")
+	eq(s["skill"]["picture"], "triple_shot", "the skill's own picture, not the lightning icon")
+	check(h._skill.icon == null, "no lightning icon on the slot")
 	eq(s["items"].map(func(i): return [i["id"], i["count"], i["disabled"], i["armed"]]),
 		[["medkit", "x2", false, false], ["drill_bomb", "x1", false, false]], "the items with their counts")
 	h.set_actions(rookie, 100, true, "skill", [items[0], {"id": "drill_bomb", "count": 1, "name": "Bom khoan", "enabled": false}])
@@ -144,6 +146,9 @@ func test_slots() -> void:
 	near(s["skill"]["ring"], 1.0, 1e-6, "full ring")
 	check(s["items"][1]["disabled"] and not s["items"][1]["armed"], "the shot item off while the skill is armed")
 	check(not s["items"][0]["disabled"], "the instant item stays usable")
+	h.set_actions({"id": "mystery", "name": "?"}, 0, false, "weapon", [])
+	eq(h.slots()["skill"]["picture"], "", "an unknown skill: no picture")
+	check(h._skill.icon != null, "an unknown skill keeps the lightning icon")
 	h.set_actions({}, 0, false, "weapon", [])
 	check(not h.slots()["skill"]["visible"] and h.slots()["items"].is_empty(), "unknown character, no items: nothing")
 	h.free()
