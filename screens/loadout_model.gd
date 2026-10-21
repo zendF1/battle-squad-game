@@ -1,16 +1,20 @@
 extends RefCounted
 ## Loadout choice for Quick Play: one character (picked in the lobby, which saves it here) and
 ## up to Items.MAX_LOADOUT items (picked on the Loadout screen), plus how many of each item the
-## player owns (GET /player/inventory). Ownership is advisory: an item not owned can still be
-## picked, the server decides (QuickPlay answers RoomError LOADOUT_INVALID). When the request
-## failed, ownership is unknown (null) and nothing is marked. The last choice is remembered in a
-## ConfigFile (a convenience only), shared with the lobby (its mode).
+## player can still bring (GET /player/inventory: the unreserved quantity, rows with none left
+## are not listed). The server refuses a QuickPlay with an item the player does not hold
+## (RoomError LOADOUT_INVALID "You do not own item: <id>"), so once the counts are known an item
+## with none left cannot be picked, set_counts() drops it from the choice (a saved loadout, or
+## the last one used up in a match) and payload() never sends it. While the counts are unknown
+## (the request failed) nothing is marked or refused: the server decides. The last choice is
+## remembered in a ConfigFile (a convenience only), shared with the lobby (its mode).
 
 const Items := preload("res://match/items.gd")
 
 const SETTINGS_PATH := "user://loadout.cfg"
 const DEFAULT_CHARACTER := "rookie" # always owned
 const NOT_OWNED := "Chưa sở hữu"
+const NOT_OWNED_HINT := "Chưa sở hữu vật phẩm này"
 
 ## Server configs/characters.yaml: id, name, role (the Vietnamese label of its role id: balanced,
 ## demolisher, striker, sustain).
@@ -38,12 +42,13 @@ func select_character(id: String) -> void:
 		character_id = id
 
 
-## Picks or drops an item. Returns false (and changes nothing) for a fourth item or an unknown id.
+## Picks or drops an item. Returns false (and changes nothing) for a fourth item, an unknown id
+## or an item the player has none of.
 func toggle_item(id: String) -> bool:
 	if items.has(id):
 		items.erase(id)
 		return true
-	if not Items.is_known(id) or items.size() >= Items.MAX_LOADOUT:
+	if not Items.is_known(id) or items.size() >= Items.MAX_LOADOUT or not owns(id):
 		return false
 	items.append(id)
 	return true
@@ -53,11 +58,38 @@ func is_full() -> bool:
 	return items.size() >= Items.MAX_LOADOUT
 
 
-## The QuickPlay payload: base ({} or {"bot": "ai"}) plus the choice.
+## True unless the counts are known and the player has none of the item left.
+func owns(id: String) -> bool:
+	return not item_counts is Dictionary or int(item_counts.get(id, 0)) > 0
+
+
+## Takes GET /player/inventory counts (parse_inventory, null: unknown) and drops the picked items
+## the player has none of. Returns the dropped ids, in the order they were picked.
+func set_counts(counts: Variant) -> Array[String]:
+	item_counts = counts if counts is Dictionary else null
+	return drop_unowned()
+
+
+## Drops the picked items the player has none of (nothing while the counts are unknown).
+func drop_unowned() -> Array[String]:
+	var dropped: Array[String] = []
+	for id in items.duplicate():
+		if not owns(id):
+			items.erase(id)
+			dropped.append(id)
+	return dropped
+
+
+## The QuickPlay payload: base ({} or {"bot": "ai"}) plus the choice, without an item the
+## player has none of.
 func payload(base: Dictionary) -> Dictionary:
 	var out := base.duplicate()
 	out["characterId"] = character_id
-	out["items"] = items.duplicate()
+	var sent: Array[String] = []
+	for id in items:
+		if owns(id):
+			sent.append(id)
+	out["items"] = sent
 	return out
 
 

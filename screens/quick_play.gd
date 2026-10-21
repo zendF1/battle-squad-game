@@ -9,6 +9,9 @@ extends Node
 ## pending would lose the answer, so the owner keeps the player here while `pending`.
 
 signal changed # pending, status or the connection changed
+signal refused(code: String) # a RoomError ended the request (its code, "" if none)
+
+const ErrorText := preload("res://screens/home/error_text.gd")
 
 const SLOW_NOTICE_SEC := 10.0
 
@@ -62,9 +65,11 @@ func _on_event(event: String, data: Variant) -> void:
 			Router.go(Router.MATCH)
 		"RoomError":
 			# Any code ends the request: LOADOUT_INVALID (character/items refused, English
-			# message), MATCH_START_FAILED (after a RoomUpdated from the join), a server error.
+			# message, shown in Vietnamese by ErrorText.room_error), MATCH_START_FAILED (after a
+			# RoomUpdated from the join), a server error.
 			if pending:
-				_resolve("Không vào được trận: %s" % error_message(data))
+				_resolve("Không vào được trận: %s" % ErrorText.room_error(data))
+				refused.emit(error_code(data))
 
 
 ## Back online: a resolution message from before the disconnect is stale.
@@ -88,9 +93,9 @@ func _resolve(message: String) -> void:
 	changed.emit()
 
 
-static func error_message(data: Variant) -> String:
+static func error_code(data: Variant) -> String:
 	if data is Dictionary:
 		if data.get("error") is Dictionary:
-			return str(data["error"].get("message", "Lỗi phòng"))
-		return str(data.get("message", "Lỗi phòng"))
-	return "Lỗi phòng"
+			return str(data["error"].get("code", ""))
+		return str(data.get("code", ""))
+	return ""

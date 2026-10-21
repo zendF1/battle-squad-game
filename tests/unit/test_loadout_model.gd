@@ -81,3 +81,42 @@ func test_remember_and_restore() -> void:
 	var missing := LoadoutModel.new()
 	missing.restore(TMP)
 	eq(missing.character_id, "rookie", "no file keeps defaults")
+
+
+func test_item_with_none_left_cannot_be_picked() -> void:
+	var m := LoadoutModel.new()
+	check(m.owns("power_shot"), "counts unknown: the server decides")
+	m.set_counts(LoadoutModel.parse_inventory([{"itemId": "medkit", "quantity": 2}, {"itemId": "teleport", "quantity": 0}]))
+	check(m.owns("medkit"), "owned")
+	check(not m.owns("teleport"), "zero")
+	check(not m.owns("power_shot"), "absent")
+	check(not m.toggle_item("power_shot"), "not owned refused")
+	check(not m.toggle_item("teleport"), "used up refused")
+	check(m.toggle_item("medkit"), "owned picked")
+	eq(m.items, ["medkit"] as Array[String], "only the owned one")
+
+
+func test_counts_clean_a_saved_loadout() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("loadout", "character_id", "flora")
+	cfg.set_value("loadout", "items", ["power_shot", "medkit", "spider_net"])
+	cfg.save(TMP)
+	var m := LoadoutModel.new()
+	m.restore(TMP)
+	eq(m.items, ["power_shot", "medkit", "spider_net"] as Array[String], "restored before the counts")
+	eq(m.set_counts(null), [] as Array[String], "unknown counts drop nothing")
+	var dropped := m.set_counts(LoadoutModel.parse_inventory([{"itemId": "medkit", "quantity": 1}, {"itemId": "spider_net", "quantity": 2}]))
+	eq(dropped, ["power_shot"] as Array[String], "the unowned one dropped")
+	eq(m.items, ["medkit", "spider_net"] as Array[String], "the rest kept in order")
+	# A match used the last medkit: the next counts drop it too.
+	eq(m.set_counts(LoadoutModel.parse_inventory([{"itemId": "spider_net", "quantity": 1}])), ["medkit"] as Array[String], "used up")
+	eq(m.payload({}), {"characterId": "flora", "items": ["spider_net"]}, "payload")
+	DirAccess.remove_absolute(TMP)
+
+
+func test_payload_never_sends_an_item_with_none_left() -> void:
+	var m := LoadoutModel.new()
+	m.toggle_item("power_shot") # picked while the counts were unknown
+	m.toggle_item("medkit")
+	m.item_counts = {"medkit": 1} # set without set_counts: the payload still filters
+	eq(m.payload({"bot": "ai"}), {"bot": "ai", "characterId": "rookie", "items": ["medkit"]}, "power_shot left out")

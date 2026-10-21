@@ -4,8 +4,12 @@ extends Control
 ## helper. The character is the one chosen in the lobby (saved in the shared settings file) and
 ## shows read-only on the left with its level; the mode ({} practice target, {"bot": "ai"}) is
 ## the lobby's, in Router.quick_play_base, named in the header. The picked items sit in three
-## slots above the item grid; tapping a slot (or the picked item) drops it. Item ownership comes
-## from the API; a failed request only hides the "xN" notes, it never blocks playing. Drawn in
+## slots above the item grid (five per row, scrolling when the window is short); tapping a slot
+## (or the picked item) drops it. Item ownership comes from GET /player/inventory (fetched on
+## open, after assets change and after a refused QuickPlay): an item with none left is dimmed,
+## tapping it shows a hint instead of picking it, and a saved pick of it is dropped
+## (LoadoutModel.set_counts). A failed request only hides the "xN" notes, it never blocks
+## playing; "Vào trận" fetches the counts once more first when they are still unknown. Drawn in
 ## the lobby look (backdrop, translucent panels, the yellow start button).
 
 const Ui := preload("res://ui/ui.gd")
@@ -29,6 +33,13 @@ const MARGIN := 18
 const CARD := Color(0.08, 0.12, 0.3, 0.72)
 const CARD_PICKED := Color(0.2, 0.38, 0.75, 0.95)
 const NOTE_OWNED := Color(0.45, 0.9, 0.55)
+const ITEM_COLUMNS := 5
+const ITEM_GAP := 12
+## Card height: the rows share the scroll's height, between these (below the minimum it scrolls).
+const ITEM_CARD_MIN := 104
+const ITEM_CARD_MAX := 170
+const HINT_SEC := 2.0 # the "Vật phẩm" header hint, then it fades
+const DIM := Color(1, 1, 1, 0.45) # a card that cannot be picked
 ## The pedestal image (assets/env/pedestal.png) drawn at this scale under the character.
 const PEDESTAL_SCALE := Vector2(0.66, 0.6)
 
@@ -39,7 +50,8 @@ var _quick_play: QuickPlay
 # Character panel
 var _art: CharacterView
 var _gun_stand: PedestalGun
-var _char_title: TitlePlate # the worn title over the name (hidden without one)
+var _char_title: TitlePlate # the worn title at the top of the panel (hidden without one)
+var _char_top: Control # a little room above the art when there is no title
 var _char_name: Label
 var _char_level: Label
 var _char_role: Label
@@ -56,10 +68,15 @@ var _item_buttons := {} # itemId -> Button
 var _item_notes := {} # itemId -> Label ("x2" / "Chưa sở hữu")
 var _item_checks := {} # itemId -> TextureRect (the check mark while picked)
 var _count: Label
+var _hint: Label # "Chưa sở hữu vật phẩm này" / items dropped, beside "Vật phẩm"
+var _hint_tween: Tween
+var _item_scroll: ScrollContainer
 var _status: Label
 var _conn: Label
 var _back: Button
 var _play: Button
+var _inventory_seq := 0 # the latest GET /player/inventory; older answers are dropped
+var _checking := false # "Vào trận" waits for the counts
 
 
 func _ready() -> void:
@@ -93,6 +110,8 @@ func _ready() -> void:
 	var grid := _build_item_grid()
 	grid.size_flags_vertical = SIZE_EXPAND_FILL
 	right.add_child(grid)
+	_quick_play.refused.connect(_on_refused)
+	PlayerState.assets_dirty.connect(_fetch_inventory) # a match or a purchase changed the counts
 	right.add_child(_build_footer())
 
 	PlayerState.characters_changed.connect(_render_character)
@@ -110,6 +129,7 @@ func _ready() -> void:
 
 func _render_title() -> void:
 	_char_title.set_title(PlayerState.equipped_title())
+	_char_top.visible = not _char_title.has_title()
 
 
 # ── Layout ──────────────────────────────────────────────────────────────────
@@ -145,16 +165,21 @@ func _build_header() -> Control:
 	return row
 
 
-## The lobby's character, read-only: art on a small pedestal, name, level, role, skill and
-## stats (once the characters cache is loaded).
+## The lobby's character, read-only: the worn title on top (nothing without one), art on a
+## small pedestal, name, level, role, skill and stats (once the characters cache is loaded).
 func _build_character_panel() -> Control:
 	var card := LobbyUi.panel(20, 22)
 	card.custom_minimum_size.x = 380
 	var col := Ui.vbox(6)
 	card.add_child(col)
-	var tag := LobbyUi.text("Nhân vật", 22, Ui.TEXT_DIM, true)
-	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(tag)
+	_char_title = TitlePlate.new()
+	_char_title.plate_height = 38
+	_char_title.max_width = 336
+	_char_title.size_flags_horizontal = SIZE_SHRINK_CENTER
+	col.add_child(_char_title)
+	_char_top = Control.new()
+	_char_top.custom_minimum_size.y = 10
+	col.add_child(_char_top)
 	var stage := Control.new()
 	stage.custom_minimum_size = Vector2(0, 260)
 	stage.mouse_filter = MOUSE_FILTER_IGNORE
@@ -176,11 +201,6 @@ func _build_character_panel() -> Control:
 	_gun_stand.size = PedestalGun.STAGE_RECT.size
 	stage.add_child(_gun_stand)
 	stage.resized.connect(_place_gun_stand.bind(stage))
-	_char_title = TitlePlate.new()
-	_char_title.plate_height = 38
-	_char_title.max_width = 336
-	_char_title.size_flags_horizontal = SIZE_SHRINK_CENTER
-	col.add_child(_char_title)
 	_char_name = _centered(col, 36, Color.WHITE, true)
 	_char_level = _centered(col, 24, LobbyUi.GOLD, true)
 	_char_role = _centered(col, 22, Ui.TEXT_DIM)
@@ -334,24 +354,35 @@ func _build_slots() -> Control:
 	return card
 
 
-## The eight items, four per row: icon, name and how many are owned ("xN" / "Chưa sở hữu").
+## The eight items, ITEM_COLUMNS per row in a vertical scroll (it only scrolls when the window
+## is too short for the rows): icon, name and how many are left ("xN" / "Chưa sở hữu").
 func _build_item_grid() -> Control:
 	var card := LobbyUi.panel(18, 22)
 	var col := Ui.vbox(10)
 	card.add_child(col)
-	col.add_child(LobbyUi.text("Vật phẩm", 26, Color.WHITE, true))
+	var head := Ui.hbox(12)
+	col.add_child(head)
+	head.add_child(LobbyUi.text("Vật phẩm", 26, Color.WHITE, true))
+	_hint = LobbyUi.text("", 22, Ui.TONES["draw"], true)
+	_hint.size_flags_horizontal = SIZE_EXPAND_FILL
+	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_hint.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	head.add_child(_hint)
 	var grid := GridContainer.new()
-	grid.columns = 4
-	grid.size_flags_vertical = SIZE_EXPAND_FILL
-	grid.add_theme_constant_override("h_separation", 14)
-	grid.add_theme_constant_override("v_separation", 14)
-	col.add_child(grid)
+	grid.columns = ITEM_COLUMNS
+	grid.add_theme_constant_override("h_separation", ITEM_GAP)
+	grid.add_theme_constant_override("v_separation", ITEM_GAP)
+	_item_scroll = Ui.scroll(grid)
+	_item_scroll.custom_minimum_size.y = ITEM_CARD_MIN # one row at least
+	_item_scroll.resized.connect(_fit_item_cards)
+	col.add_child(_item_scroll)
 	for id in Items.ORDER:
 		var b := Button.new()
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(0, 116)
+		b.custom_minimum_size = Vector2(0, ITEM_CARD_MIN)
 		b.size_flags_horizontal = SIZE_EXPAND_FILL
-		b.size_flags_vertical = SIZE_EXPAND_FILL
+		b.mouse_filter = MOUSE_FILTER_PASS # a drag over the cards scrolls the grid
 		LobbyUi.style_button(b, CARD, 16, 8, Color(1, 1, 1, 0.12), 2)
 		b.add_theme_stylebox_override("pressed", Art.ui_box("panel_selected", 8))
 		b.add_theme_stylebox_override("hover_pressed", Art.ui_box("panel_selected", 8, Color(1.08, 1.08, 1.08)))
@@ -363,11 +394,11 @@ func _build_item_grid() -> Control:
 		var icon := LobbyUi.icon(Art.item_icon(id), 46)
 		icon.size_flags_horizontal = SIZE_SHRINK_CENTER
 		inner.add_child(icon)
-		_centered(inner, 22, Color.WHITE, true).text = Items.label(id)
-		var note := _centered(inner, 19, Ui.TEXT_DIM, true)
-		var check := LobbyUi.icon("check", 34)
-		check.position = Vector2(10, 8)
-		check.size = Vector2(34, 34)
+		_centered(inner, 21, Color.WHITE, true).text = Items.label(id)
+		var note := _centered(inner, 18, Ui.TEXT_DIM, true)
+		var check := LobbyUi.icon("check", 30)
+		check.position = Vector2(8, 6)
+		check.size = Vector2(30, 30)
 		b.add_child(check)
 		for c in [inner, check] + inner.get_children():
 			c.mouse_filter = MOUSE_FILTER_IGNORE
@@ -376,6 +407,27 @@ func _build_item_grid() -> Control:
 		_item_notes[id] = note
 		_item_checks[id] = check
 	return card
+
+
+## The rows share the scroll's height (ITEM_CARD_MIN..ITEM_CARD_MAX), so a short window
+## scrolls and a tall one does not stretch the cards.
+func _fit_item_cards() -> void:
+	var rows := ceili(Items.ORDER.size() / float(ITEM_COLUMNS))
+	var h := floorf((_item_scroll.size.y - ITEM_GAP * (rows - 1)) / rows)
+	h = clampf(h, ITEM_CARD_MIN, ITEM_CARD_MAX)
+	for id in _item_buttons:
+		_item_buttons[id].custom_minimum_size.y = h
+
+
+## A short message beside "Vật phẩm" that fades out after HINT_SEC.
+func _show_hint(message: String) -> void:
+	if _hint_tween != null:
+		_hint_tween.kill()
+	_hint.text = message
+	_hint.modulate.a = 1.0
+	_hint_tween = _hint.create_tween()
+	_hint_tween.tween_interval(HINT_SEC)
+	_hint_tween.tween_property(_hint, "modulate:a", 0.0, 0.3)
 
 
 ## The QuickPlay status (pending, slow, RoomError, disconnect) and "VÀO TRẬN".
@@ -396,17 +448,41 @@ func _build_footer() -> Control:
 
 # ── Data and actions ────────────────────────────────────────────────────────
 
-func _fetch_inventory() -> void:
+## GET /player/inventory → the counts; a picked item with none left is dropped (and the
+## saved choice with it). Returns the dropped ids ([] also when the request failed).
+func _fetch_inventory() -> Array[String]:
+	_inventory_seq += 1
+	var seq := _inventory_seq
 	var res: Dictionary = await Api.get_json("/player/inventory")
-	if res.ok:
-		_model.item_counts = LoadoutModel.parse_inventory(res.data)
-		_refresh()
+	if seq != _inventory_seq or not is_inside_tree():
+		return [] as Array[String]
+	if not res.ok:
+		return [] as Array[String]
+	var dropped := _model.set_counts(LoadoutModel.parse_inventory(res.data))
+	if not dropped.is_empty():
+		_model.remember(SETTINGS_PATH)
+		var names := PackedStringArray()
+		for id in dropped:
+			names.append(Items.label(id))
+		_show_hint("Đã bỏ %s: không còn trong kho" % ", ".join(names))
+	_refresh()
+	return dropped
 
 
-## A full loadout disables the other items, so a fourth cannot be picked.
+## The server refused the items: the counts shown may be stale.
+func _on_refused(code: String) -> void:
+	if code == "LOADOUT_INVALID":
+		_fetch_inventory()
+
+
+## A full loadout disables the other items, so a fourth cannot be picked; an item with none
+## left only shows a hint.
 func _on_item(id: String) -> void:
-	_model.toggle_item(id)
-	_model.remember(SETTINGS_PATH)
+	if not _model.items.has(id) and not _model.owns(id):
+		_show_hint(LoadoutModel.NOT_OWNED_HINT)
+	else:
+		_model.toggle_item(id)
+		_model.remember(SETTINGS_PATH)
 	_refresh()
 
 
@@ -416,7 +492,21 @@ func _on_slot(index: int) -> void:
 		_on_item(id)
 
 
+## Counts still unknown (the request failed): fetched once more first, so an item with none
+## left is not sent. When that drops an item the player sees it and presses again.
 func _on_play() -> void:
+	if _checking:
+		return
+	if _model.item_counts == null and not _model.items.is_empty():
+		_checking = true
+		_refresh()
+		var dropped := await _fetch_inventory()
+		if not is_inside_tree():
+			return
+		_checking = false
+		_refresh()
+		if not dropped.is_empty():
+			return
 	_model.remember(SETTINGS_PATH)
 	_quick_play.request(_model.payload(_base))
 
@@ -476,7 +566,8 @@ func _refresh() -> void:
 		b.set_pressed_no_signal(picked)
 		_item_checks[id].visible = picked
 		b.disabled = locked or (_model.is_full() and not picked)
-		b.modulate = Color(1, 1, 1, 0.45) if b.disabled and not picked else Color.WHITE
+		# Not disabled when none is left: the tap shows why it cannot be picked.
+		b.modulate = DIM if not picked and (b.disabled or not _model.owns(id)) else Color.WHITE
 	_count.text = "Mang theo  %d/%d" % [_model.items.size(), Items.MAX_LOADOUT]
 	if GameSocket.is_open():
 		_conn.text = "● Online"
@@ -486,5 +577,5 @@ func _refresh() -> void:
 		_conn.add_theme_color_override("font_color", Ui.TONES["draw"])
 	_status.text = _quick_play.status
 	_status.add_theme_color_override("font_color", Color.WHITE if locked else Ui.TONES["error"])
-	_play.disabled = not _quick_play.can_request()
+	_play.disabled = _checking or not _quick_play.can_request()
 	_back.disabled = locked

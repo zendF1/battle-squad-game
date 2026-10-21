@@ -2,6 +2,8 @@ extends RefCounted
 ## Vietnamese messages for failed API calls (Api results {ok, status, code, message}) and the
 ## display-name rule. Codes not listed fall back to "<action> thất bại: <server message>".
 
+const Items := preload("res://match/items.gd")
+
 const MAX_NAME := 20 # characters; the server counts runes and trims
 
 const OFFLINE := "Không kết nối được server, hãy thử lại"
@@ -95,6 +97,48 @@ const TITLE := {
 	"BAD_REQUEST": "Danh hiệu không hợp lệ",
 	"BUSY": "Đang đổi danh hiệu, chờ chút",
 }
+
+
+## RoomError codes answering QuickPlay (LOADOUT_INVALID has its own texts, room_error()).
+const ROOM := {
+	"LOADOUT_INVALID": "Nhân vật hoặc vật phẩm không hợp lệ",
+	"MATCH_START_FAILED": "Không tạo được trận, hãy thử lại",
+	"INTERNAL_SERVER_ERROR": "Server gặp lỗi, hãy thử lại",
+}
+
+
+## A RoomError's data ({"error": {code, message}}, or an older flat {code?, message}) in
+## Vietnamese. LOADOUT_INVALID carries the server's English reason (internal/game/room
+## loadout.go, room.go reserveItemTx): the known ones are translated, naming the item; any other
+## code falls back to the server message.
+static func room_error(data: Variant) -> String:
+	var err: Dictionary = {}
+	if data is Dictionary:
+		err = data["error"] if data.get("error") is Dictionary else data
+	var code := str(err.get("code", ""))
+	var message := str(err.get("message", ""))
+	if code == "LOADOUT_INVALID":
+		var m := RegEx.create_from_string("^You do not own item: (\\S+)").search(message)
+		if m != null:
+			return "Bạn chưa sở hữu vật phẩm %s" % Items.label(m.get_string(1))
+		m = RegEx.create_from_string("^Only (\\d+) of item (\\S+) available").search(message)
+		if m != null:
+			return "Không đủ %s (còn %s)" % [Items.label(m.get_string(2)), m.get_string(1)]
+		m = RegEx.create_from_string("^item (\\S+) can be brought at most (\\d+)").search(message)
+		if m != null:
+			return "Mỗi trận chỉ mang được %s %s" % [m.get_string(2), Items.label(m.get_string(1))]
+		if message.begins_with("You do not own character"):
+			return "Bạn chưa sở hữu nhân vật này"
+		m = RegEx.create_from_string("^You can bring at most (\\d+) items").search(message)
+		if m != null:
+			return "Chỉ mang tối đa %s vật phẩm" % m.get_string(1)
+		if message.begins_with("Unknown item"):
+			return "Vật phẩm không hợp lệ"
+		if message.begins_with("Unknown character"):
+			return "Nhân vật không hợp lệ"
+	if ROOM.has(code):
+		return ROOM[code]
+	return message if message != "" else "Lỗi phòng"
 
 
 ## POST /shop/purchase failure. currency is the offer's priceCurrency ("coin" | "gem").

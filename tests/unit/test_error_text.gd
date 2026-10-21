@@ -79,3 +79,18 @@ func test_title() -> void:
 	eq(ErrorText.title({"status": 0, "code": ""}), ErrorText.OFFLINE, "offline")
 	eq(ErrorText.title({"status": 500, "code": "X", "message": "boom"}), "Đổi danh hiệu thất bại: boom", "fallback")
 
+
+
+func test_room_error_messages() -> void:
+	var e := func(code: String, message: String) -> Dictionary: return {"error": {"code": code, "message": message, "correlationId": "ws-error"}}
+	eq(ErrorText.room_error(e.call("LOADOUT_INVALID", "You do not own item: power_shot")), "Bạn chưa sở hữu vật phẩm Tăng lực", "not owned")
+	eq(ErrorText.room_error(e.call("LOADOUT_INVALID", "Only 0 of item medkit available, 1 needed")), "Không đủ Hộp cứu thương (còn 0)", "reserved")
+	eq(ErrorText.room_error(e.call("LOADOUT_INVALID", "item teleport can be brought at most 1 time(s) per match")), "Mỗi trận chỉ mang được 1 Dịch chuyển", "per match")
+	eq(ErrorText.room_error(e.call("LOADOUT_INVALID", "You do not own character: spark")), "Bạn chưa sở hữu nhân vật này", "character")
+	eq(ErrorText.room_error(e.call("LOADOUT_INVALID", "You can bring at most 3 items")), "Chỉ mang tối đa 3 vật phẩm", "count")
+	eq(ErrorText.room_error(e.call("LOADOUT_INVALID", "Unknown item: x")), "Vật phẩm không hợp lệ", "unknown item")
+	eq(ErrorText.room_error(e.call("LOADOUT_INVALID", "something new")), "Nhân vật hoặc vật phẩm không hợp lệ", "other reason")
+	eq(ErrorText.room_error(e.call("MATCH_START_FAILED", "Failed to start match")), "Không tạo được trận, hãy thử lại", "start failed")
+	eq(ErrorText.room_error(e.call("ROOM_FULL", "Room is full")), "Room is full", "unknown code keeps the message")
+	eq(ErrorText.room_error({"message": "flat"}), "flat", "older flat payload")
+	eq(ErrorText.room_error(null), "Lỗi phòng", "no data")
