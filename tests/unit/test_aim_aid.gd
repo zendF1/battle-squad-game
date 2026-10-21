@@ -47,11 +47,11 @@ func _drag(a, angle: float, power: float) -> void:
 
 
 func test_arc_length_by_tier() -> void:
-	var want := {"bronze": 450.0, "silver": 375.0, "gold": 300.0, "platinum": 225.0, "diamond": 165.0, "master": 115.0}
+	var want := {"bronze": 675.0, "silver": 560.0, "gold": 450.0, "platinum": 340.0, "diamond": 250.0, "master": 170.0}
 	for tier in want:
 		near(AimAid.arc_length(tier), want[tier], 1e-9, tier)
-	near(AimAid.arc_length(""), 450.0, 1e-9, "no rank: bronze")
-	near(AimAid.arc_length("legend"), 450.0, 1e-9, "unknown tier: bronze")
+	near(AimAid.arc_length(""), 675.0, 1e-9, "no rank: bronze")
+	near(AimAid.arc_length("legend"), 675.0, 1e-9, "unknown tier: bronze")
 
 
 func _polyline_length(pts: PackedVector2Array) -> float:
@@ -76,19 +76,19 @@ func test_guide_arc_same_length_at_any_power_and_shorter_by_rank() -> void:
 	a.wind_power = 4.0
 	for tier in ["", "bronze", "silver", "master"]:
 		a.rank_tier = tier
-		for power in [35.0, 60.0, 90.0]:
+		for power in [50.0, 70.0, 90.0]:
 			_drag(a, 70.0, power)
 			near(_polyline_length(a.aid()["guide"]), AimAid.arc_length(tier), 0.5, "%s at power %d: the rank's length" % [tier, power])
 	a.rank_tier = "bronze"
 	_drag(a, 55.0, 70.0)
 	var origin := Trajectory.shot_origin(FEET, a.terrain)
 	var v := AimAid.launch_velocity(a._angle, a._power)
-	var windy := AimAid.trim_to_length(Trajectory.simulate(origin.x, origin.y, v.x, v.y, AimAid.wind_accel(1, 4.0), a.terrain, 240), 450.0)
-	var calm := AimAid.trim_to_length(Trajectory.simulate(origin.x, origin.y, v.x, v.y, 0.0, a.terrain, 240), 450.0)
+	var windy := AimAid.trim_to_length(Trajectory.simulate(origin.x, origin.y, v.x, v.y, AimAid.wind_accel(1, 4.0), a.terrain, 240), 675.0)
+	var calm := AimAid.trim_to_length(Trajectory.simulate(origin.x, origin.y, v.x, v.y, 0.0, a.terrain, 240), 675.0)
 	eq(a.aid()["guide"], windy, "bronze guide = the start of the exact, windy flight")
 	check(a.aid()["guide"] != calm, "the wind bends the guide")
 	_drag(a, 10.0, 20.0)
-	check(_polyline_length(a.aid()["guide"]) < 450.0, "a flight ending sooner (low and weak, into the ground) cuts the guide")
+	check(_polyline_length(a.aid()["guide"]) < 675.0, "a flight ending sooner (low and weak, into the ground) cuts the guide")
 	a.free()
 
 

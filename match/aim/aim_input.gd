@@ -10,7 +10,7 @@ extends Node2D
 ## The aiming aid (match/aim/aim_aid.gd, its constants there), one per entry of preview_offsets
 ## (degrees added to the aimed angle, e.g. three for a triple shot):
 ## - the guide arc: the exact flight (the weapon's wind included) over only the first
-##   AimAid.arc_length(rank_tier) px (450 at bronze or no rank ... 115 at master, whatever the
+##   AimAid.arc_length(rank_tier) px (675 at bronze or no rank ... 170 at master, whatever the
 ##   power), fading out;
 ## - "Trúng!": the exact path (AimAid.fly(), flown like the server with the weapon's
 ##   wind_influence / projectile_weight, enemies and a drill's pierce) comes within
