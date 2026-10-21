@@ -9,8 +9,8 @@ extends Node2D
 ##
 ## The aiming aid (match/aim/aim_aid.gd, its constants there), one per entry of preview_offsets
 ## (degrees added to the aimed angle, e.g. three for a triple shot):
-## - the guide arc: the launch WITHOUT wind over only the first AimAid.arc_fraction(rank_tier)
-##   of the exact flight time (60 % at bronze or no rank ... 15 % at master), fading out;
+## - the guide arc: the exact flight (the weapon's wind included) over only the first
+##   AimAid.arc_fraction(rank_tier) of its time (60 % at bronze or no rank ... 15 % at master), fading out;
 ## - the landing marker: a short tick with a dot on the ground at AimAid.shown_point() (the
 ##   exact landing, flown like the server with the weapon's wind_influence / projectile_weight,
 ##   enemies and a drill's pierce, moved against the wind);
@@ -256,9 +256,10 @@ func _update(pointer: Vector2) -> void:
 		var v := AimAid.launch_velocity(a, _power)
 		var flight: Dictionary = AimAid.fly(origin, v, accel, terrain, enemies, _near, pierce)
 		var t: float = flight["time"]
-		# the windless guide over the first part of the exact flight time (points every TIME_STEP)
+		# the guide: the first part of the exact flight (the weapon's wind included; points every
+		# TIME_STEP), so it bends like the shell will
 		var n := maxi(2, roundi(part * t / Trajectory.TIME_STEP) + 1)
-		var guide := Trajectory.simulate(origin.x, origin.y, v.x, v.y, 0.0, terrain, n)
+		var guide := Trajectory.simulate(origin.x, origin.y, v.x, v.y, accel, terrain, n)
 		if i < _lines.size():
 			_lines[i].points = guide
 			_shadows[i].points = guide

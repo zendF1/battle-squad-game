@@ -4,11 +4,11 @@ extends RefCounted
 ##   wind (dir × power × WIND_SCALE × windInfluence / projectileWeight), terrain (drilling
 ##   through `pierce` px of it), enemy bodies (the shell stops within HIT_RADIUS of a body
 ##   centre; allies never stop it), MAX_FLIGHT s. Its end X and time T are never drawn as such;
-## - the guide arc: the same launch WITHOUT wind, only the first arc_fraction(tier) of T (shorter
-##   the higher the local player's rank tier), its end faded out.
+## - the guide arc: the same exact flight (wind included), only the first arc_fraction(tier) of
+##   T (shorter the higher the local player's rank tier), its end faded out.
 ## What is shown from X:
-## - the landing marker at shown_x() = X.x − WIND_BIAS × W × T² (W: the signed wind dir × power,
-##   + blows right), dropped onto the ground (surface_y()): against the wind, so the wind must
+## - the landing marker at shown_x() = X.x − clamp(WIND_BIAS × W × T, ±MAX_BIAS) (W: the signed
+##   wind dir × power, + blows right), dropped onto the ground (surface_y()): against the wind, so the wind must
 ##   still be read (a tailwind shows it short, a headwind long, whichever way the shot goes);
 ## - "Trúng!" (is_hit()) when the exact path comes within HIT_RADIUS + hit_tolerance(D, H) of an
 ##   enemy body centre, D the horizontal distance to X, H the apex height above the origin;
@@ -24,7 +24,8 @@ const Trajectory := preload("res://match/aim/trajectory_predictor.gd")
 const ARC_FRACTION := {"bronze": 0.6, "silver": 0.5, "gold": 0.4, "platinum": 0.3, "diamond": 0.22, "master": 0.15}
 const DEFAULT_TIER := "bronze"
 const ARC_FADE_FROM := 0.55 # the arc is solid to this part of its length, then fades out
-const WIND_BIAS := 5.0 # px per (wind × s²) the landing marker is moved against the wind
+const WIND_BIAS := 2.0 # px per (wind × s) the landing marker is moved against the wind
+const MAX_BIAS := 40.0 # px: the marker never strays further from the real landing
 ## The "Trúng!" tolerance r = TOL_MAX × min(1, TOL_MIN_PART + (1 − TOL_MIN_PART) ×
 ## max(D / TOL_FAR, H / TOL_HIGH)) px: near and low shots are judged tighter.
 const TOL_MAX := 20.0
@@ -71,7 +72,7 @@ static func is_super_high(origin_y: float, angle_deg: float, power: float) -> bo
 
 
 static func shown_x(exact_x: float, wind: float, flight_time: float) -> float:
-	return exact_x - WIND_BIAS * wind * flight_time * flight_time
+	return exact_x - clampf(WIND_BIAS * wind * flight_time, -MAX_BIAS, MAX_BIAS)
 
 
 ## r: the "Trúng!" tolerance (px) for a shot landing d px away with an apex h px high.
