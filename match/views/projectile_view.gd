@@ -256,6 +256,14 @@ func spin_rate() -> float:
 	return 0.0 if _tier_body else float(_k["spin"])
 
 
+## The body's size pulse (scale factor) for the flickering kinds: none for a tier's own shell
+## picture (a big detailed shell pulsing at ~7 Hz reads as stutter; its glow still shimmers).
+func body_pulse() -> float:
+	if _tier_body or not _k["flicker"]:
+		return 1.0
+	return 1.0 + 0.12 * sin(_t * 45.0)
+
+
 ## The projectile's drawn rotation (rad): its flight direction plus the kind's spin.
 func draw_angle() -> float:
 	return _dir.angle() + _t * spin_rate()
@@ -338,7 +346,7 @@ func _draw() -> void:
 		_draw_tier_particles(self, scale_k)
 	# The projectile.
 	var rot := draw_angle()
-	var pulse := 1.0 + (0.12 * sin(_t * 45.0) if _k["flicker"] else 0.0)
+	var pulse := body_pulse()
 	draw_set_transform(Vector2.ZERO, rot, Vector2(1.0, -1.0 if flipped() else 1.0) * scale_k * pulse)
 	var size := _body_size
 	var body := body_color()

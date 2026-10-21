@@ -535,3 +535,22 @@ func test_seed_spin_and_flip() -> void:
 	check(not pod.flipped(), "a spinning pod is never flipped")
 	for v in [seed, pod, left]:
 		v.free()
+
+
+## A per-tier shell picture keeps a steady size (a fast size pulse reads as stutter); the basic
+## plasma orb still pulses.
+func test_tier_shell_does_not_pulse() -> void:
+	var orb := _flier("shock_rifle", "dragon")
+	check(orb._tier_body, "the dragon orb picture is in")
+	var basic := _flier("shock_rifle", "basic")
+	var steady := true
+	var pulses := false
+	for i in 12:
+		orb._process(0.013)
+		basic._process(0.013)
+		steady = steady and orb.body_pulse() == 1.0
+		pulses = pulses or absf(basic.body_pulse() - 1.0) > 0.01
+	check(steady, "the dragon orb keeps its size")
+	check(pulses, "the basic orb still pulses")
+	for v in [orb, basic]:
+		v.free()
