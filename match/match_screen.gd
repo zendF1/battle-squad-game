@@ -21,6 +21,7 @@ const ExplosionFx := preload("res://match/views/explosion_fx.gd")
 const BurnFx := preload("res://match/views/skills/burn_fx.gd")
 const ShotLook := preload("res://match/views/shot_look.gd")
 const DamagePopup := preload("res://match/views/damage_popup.gd")
+const DamageTally := preload("res://match/views/damage_tally.gd")
 const SkyView := preload("res://match/views/sky_view.gd")
 const ShotTimeline := preload("res://match/shot/shot_timeline.gd")
 const ShotPlayer := preload("res://match/shot/shot_player.gd")
@@ -79,6 +80,7 @@ var _shot_player: ShotPlayer
 var _shot_timeline: ShotTimeline = null # the shot being replayed (its projectiles' blast radii)
 var _skill_view = null # the SkillView of the skill shot being replayed, or null
 var _popup_row := {} # playerId -> [msec of its last popup, how many came in a row] (DamagePopup.stagger)
+var _tallies := {} # playerId -> its running DamageTally in a multi-hit skill shot (SkillView.merges_damage())
 var _skip := "" # the current player loses this turn: "stun" / "freeze" (TurnStarted.skipped), "" none
 var _hud: Hud
 
@@ -379,6 +381,7 @@ func _apply(event: String, data: Variant) -> void:
 			_shot_player.style = ShotLook.style_for(_players.get(shooter, {}), str(data.get("actionMode", "")),
 				str(data.get("itemId", "")), PlayerState.catalog)
 			_skill_view = null
+			_tallies.clear() # the last shot's tallies finish on their own
 			if timeline.action_mode == SKILL:
 				_skill_view = Skills.view_for_skill(timeline.skill_id)
 				_skill_view.begin({"layer": _fx_layer, "timeline": timeline, "style": _shot_player.style,
@@ -510,7 +513,10 @@ func _on_shot_event(e: Dictionary) -> void:
 			if e.get("shield") is int or e.get("shield") is float:
 				_set_shield(id, int(e["shield"]))
 			var crit := bool(e.get("critical", false))
-			_popup(id, DamagePopup.damage_text(int(e.get("amount", 0))), Color(1, 0.85, 0.2) if crit else Color(1, 0.3, 0.3))
+			if _skill_view != null and _skill_view.merges_damage():
+				_tally(id, int(e.get("amount", 0)), crit)
+			else:
+				_popup(id, DamagePopup.damage_text(int(e.get("amount", 0))), Color(1, 0.85, 0.2) if crit else Color(1, 0.3, 0.3))
 		"heal":
 			_set_hp(id, int(e.get("hp", 0)))
 			var amount := int(e.get("amount", 0))
@@ -548,7 +554,8 @@ func _on_shot_event(e: Dictionary) -> void:
 				_views[id].set_status(_players[id]["statusEffects"])
 			var text := Skills.status_label(str(e.get("effectId", "")))
 			if text != "":
-				_popup(id, text, Color(0.7, 0.85, 1))
+				# over the running damage number when there is one
+				_popup(id, text, Color(0.7, 0.85, 1), Vector2(0, -64) if _has_tally(id) else Vector2.ZERO)
 	# beam, flare, rain (and the rest): the skill draws them
 	if _skill_view != null:
 		_skill_view.on_event(e)
@@ -787,6 +794,24 @@ func _kill(id: String) -> void:
 		return
 	_players[id]["isAlive"] = false
 	_views[id].set_dead()
+
+
+## A hit in a multi-hit skill shot: added to the player's running number (DamageTally), a new
+## one when it has none or its last one is already fading.
+func _tally(id: String, amount: int, critical: bool) -> void:
+	if not _views.has(id):
+		return
+	if not _has_tally(id):
+		var t := DamageTally.new()
+		t.follow = _views[id]
+		_fx_layer.add_child(t)
+		_tallies[id] = t
+	_tallies[id].add(amount, critical)
+
+
+func _has_tally(id: String) -> bool:
+	var t = _tallies.get(id)
+	return t != null and is_instance_valid(t) and not t.is_queued_for_deletion() and not t.is_fading()
 
 
 func _popup(id: String, text: String, color: Color, offset: Vector2 = Vector2.ZERO) -> void:

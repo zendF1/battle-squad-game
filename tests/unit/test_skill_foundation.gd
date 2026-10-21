@@ -28,12 +28,15 @@ func test_fixture_timelines_parse() -> void:
 	eq(rain.kind(1), "missile", "then missiles")
 	check(rain.launch_time(1) > rain.projectile_end(0), "missiles leave after the flare lands")
 	eq(rain.events_of("flare").size(), 1, "flare event")
-	eq(int(rain.events_of("rain")[0]["count"]), 14, "rank 4 rain: 14")
+	eq(int(rain.events_of("rain")[0]["count"]), 28, "rank 4 rain: 28")
 	check(rain.skill_energies.has("rookie"), "skillEnergies")
 	var chain = ShotTimeline.new(c["chain"]["shot"])
 	for i in chain.projectiles.size():
 		eq(chain.kind(i), "bomb", "bomb %d" % i)
-		near(chain.launch_time(i), 0.3 * i, 1e-6, "bomb %d leaves 0.3 s after the previous" % i)
+		if i == 0:
+			near(chain.launch_time(i), 0.0, 1e-6, "the first bomb leaves with the shot")
+		else:
+			check(chain.launch_time(i) >= chain.launch_time(i - 1) + 0.1 - 1e-6, "bomb %d leaves at least 0.1 s after the previous" % i)
 	var laser = ShotTimeline.new(c["laser"]["shot"])
 	eq(laser.projectiles.size(), 0, "laser: no projectile")
 	eq(laser.events_of("beam").size(), 1, "beam event")
@@ -80,8 +83,9 @@ func test_shot_player_hides_until_launch_and_calls_the_skill_view() -> void:
 	player.play(tl)
 	eq(fake.calls.slice(0, 2), ["view:0:bomb", "view:1:bomb"], "a view per projectile")
 	check(player.layer.get_child(0).visible and not player.layer.get_child(1).visible, "only the first bomb is out at t 0")
-	player._process(0.35)
-	check(player.layer.get_child(1).visible, "the second bomb out after 0.3 s")
+	var t := (tl.launch_time(1) + tl.launch_time(2)) * 0.5 # between the second and the third launch
+	player._process(t)
+	check(player.layer.get_child(1).visible, "the second bomb out after its launch")
 	check(not player.layer.get_child(2).visible, "the third not yet")
 	check(fake.calls.has("process"), "process every frame")
 	near(player.spawn_offset(1, 0.3).length(), 0.0, 1e-9, "no muzzle given: no offset")

@@ -7,7 +7,8 @@ extends RefCounted
 ##   AIM_LINE a straight aim line to the map edge in any direction, AIM_NONE fired on tap);
 ## - its replay visuals: match_screen makes one instance per ShotResolved of the skill and calls
 ##   begin() before the replay, projectile_view() for every projectile ShotPlayer draws,
-##   explosion() for every explode effect before it is shown, on_event() for every timeline
+##   explosion() for every explode effect before it is shown, merges_damage() whether its hits
+##   on a player add up into one running number (DamageTally), on_event() for every timeline
 ##   event after the default handling (HP, shield, effects, popups), process() every frame and
 ##   end() when the replay stops. aim_angle() is where the shooter points its gun when the shot
 ##   has no projectile (the laser's beam).
@@ -58,6 +59,12 @@ func begin(context: Dictionary) -> void:
 ## changed, or another Node2D; ShotPlayer moves it along the path and frees it when it lands.
 func projectile_view(_i: int, _projectile: Dictionary, view: Node2D) -> Node2D:
 	return view
+
+
+## True: the shot's hits on a player add up into one running number (DamageTally: the rain,
+## the bomb chain) instead of a popup per hit.
+func merges_damage() -> bool:
+	return false
 
 
 ## An explode event's ExplosionFx before it is added (radius, kind, tier, skill already set).

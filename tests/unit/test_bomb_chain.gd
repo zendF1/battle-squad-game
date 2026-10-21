@@ -18,7 +18,7 @@ func _cases() -> Dictionary:
 	return JSON.parse_string(FileAccess.get_file_as_string(FIXTURE))
 
 
-## The server's pacing as the client replays it: the bombs leave at least 0.3 s apart, each
+## The server's pacing as the client replays it: the bombs leave at least 0.1 s apart, each
 ## explodes only once every fall started before it has landed (the target is never hit while
 ## still drawn falling), and every bomb flies the first one's arc (nothing steers it).
 func test_server_chain_is_coherent_to_replay() -> void:
@@ -30,7 +30,7 @@ func test_server_chain_is_coherent_to_replay() -> void:
 		eq(tl.projectiles.size(), 7, k + " bombs at rank 4")
 		for i in range(1, tl.projectiles.size()):
 			eq(tl.kind(i), "bomb", "%s bomb %d kind" % [k, i])
-			check(tl.launch_time(i) >= tl.launch_time(i - 1) + 0.3 - 1e-6, "%s bomb %d leaves 0.3 s after the previous" % [k, i])
+			check(tl.launch_time(i) >= tl.launch_time(i - 1) + 0.1 - 1e-6, "%s bomb %d leaves 0.1 s after the previous" % [k, i])
 		var falls: Array = tl.events_of("fall")
 		check(not falls.is_empty(), k + " the target falls into the hole")
 		for i in range(1, tl.projectiles.size()):
@@ -72,6 +72,7 @@ func test_explosions_and_geyser() -> void:
 	var tl = ShotTimeline.new(_cases()["lob"]["shot"])
 	v.begin({"layer": layer, "timeline": tl, "style": {"kind": "cannon", "tier": "dragon", "skill": true}, "views": {"e1": target}, "shooter": "nobody"})
 	eq(target.z_index, BombChain.PLAYERS_Z, "players over the explosions during the chain")
+	check(v.merges_damage(), "the chain's hits count up in one number")
 	var fx: Node2D = ExplosionFx.new()
 	fx.radius = 145.6
 	fx.skill = true
@@ -109,14 +110,19 @@ func test_explosions_and_geyser() -> void:
 
 
 ## The rim is read from the terrain after the crater: the ground just past both crater edges.
+## (The lob's later bombs go off on the target's body in its small shaft, so the deepest
+## explosion is the pair's, down the shaft between the two enemies.)
 func test_rim_from_terrain() -> void:
-	var c: Dictionary = _cases()["lob"]
+	var c: Dictionary = _cases()["pair"]
 	var mask := TerrainMask.new()
 	mask.load_snapshot(c["terrainAfter"])
 	var v := BombChain.new()
 	v.begin({"terrain": mask, "views": {}})
 	var tl = ShotTimeline.new(c["shot"])
 	var last: Dictionary = tl.events_of("explode")[-1]
+	for x in tl.events_of("explode"):
+		if float(x["position"]["y"]) > float(last["position"]["y"]):
+			last = x
 	var at := Vector2(float(last["position"]["x"]), float(last["position"]["y"]))
 	var rim := v.rim_y(at, float(last["radius"]))
 	check(at.y - rim > BombChain.GEYSER_DEPTH, "the deepest bomb is down a hole: %.0f under the rim %.0f" % [at.y - rim, rim])

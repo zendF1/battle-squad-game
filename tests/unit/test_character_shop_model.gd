@@ -59,7 +59,7 @@ func test_bar_ratio() -> void:
 func test_stat_rows() -> void:
 	var rows := Model.stat_rows(DATA, "tanko")
 	eq(rows.map(func(r): return r["key"]), ["maxHp", "weaponDamage", "defense", "moveEnergy", "explosionRadius", "craterRadius"], "rows")
-	eq(rows.map(func(r): return r["value"]), [1650, 420, 60, 80, 60, 104], "tanko's server numbers")
+	eq(rows.map(func(r): return r["value"]), [1650, 420, 60, 80, 60, 52], "tanko's server numbers")
 	eq(rows[0]["text"], "1.650", "thousands")
 	# Every bar is normalised to the best character at that stat
 	near(rows[0]["ratio"], 1650.0 / 1900.0, 0.0001, "hp against flora")
@@ -72,7 +72,7 @@ func test_stat_rows() -> void:
 	eq(spark.map(func(r): return r["value"]), [1250, 620, 30, 120, 30, 20], "spark's server numbers")
 	eq(spark[1]["ratio"], 1.0, "spark hits hardest")
 	eq(spark[3]["ratio"], 1.0, "spark moves furthest")
-	near(spark[5]["ratio"], 20.0 / 104.0, 0.0001, "crater against tanko")
+	near(spark[5]["ratio"], 20.0 / 52.0, 0.0001, "crater against tanko")
 	var flora := Model.stat_rows(DATA, "flora")
 	eq(flora[0]["value"], 1900, "json floats as ints")
 	eq([flora[0]["ratio"], flora[2]["ratio"]], [1.0, 1.0], "flora has the most hp and defense")
@@ -81,7 +81,7 @@ func test_stat_rows() -> void:
 
 
 func test_crater_radius() -> void:
-	eq(Model.ids().map(func(id): return Model.crater_radius(id)), [40, 104, 20, 24], "terrain damage × 0.8")
+	eq(Model.ids().map(func(id): return Model.crater_radius(id)), [20, 52, 20, 24], "terrain damage × 0.8")
 	eq(Model.crater_radius("nobody"), 0, "unknown")
 
 

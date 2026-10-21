@@ -10,7 +10,9 @@ extends Node2D
 ## tint for titan and diamond; diamond's sparkles linger. Particles stay within
 ## ShotLook.MAX_IMPACT_PARTICLES. There is no camera hook in the match, so nothing shakes the
 ## screen. Visuals only: the crater and the radius come from the server. It frees itself when
-## its last effect is over.
+## its last effect is over. `lite` (one of many quick impacts, the missile rain's) keeps it cheap:
+## LITE_PARTICLES of the particles, at most one ring, no screen tint, lens flare, cracks or
+## lingering sparkles.
 
 const Art := preload("res://ui/art.gd")
 const ShotLook := preload("res://match/views/shot_look.gd")
@@ -22,11 +24,13 @@ const FLASH_SEC := 0.35
 const RING_SEC := 0.55
 const SCREEN_SEC := 0.3
 const CRACK_FADE := 0.8 # s the ground cracks take to fade at the end
+const LITE_PARTICLES := 0.35 # a lite impact's share of the particles
 
 var radius := 30.0
 var kind := ShotLook.DEFAULT_KIND
 var tier := ShotLook.DEFAULT_TIER
 var skill := false
+var lite := false
 
 var _k: Dictionary # ShotLook.KINDS[kind]["impact"]
 var _ti: Dictionary # ShotLook.TIERS[tier]["impact"]
@@ -63,7 +67,7 @@ func _ready() -> void:
 	_accent = ShotLook.accent(kind, tier)
 	_accent2 = ShotLook.accent2(kind, tier)
 	_scale = ShotLook.impact_scale(kind, tier, skill)
-	_life = ShotLook.impact_life(tier, LIFE)
+	_life = LIFE if lite else ShotLook.impact_life(tier, LIFE)
 	for i in Art.EXPLOSION_FRAMES:
 		_frames.append(Art.shot(kind, "impact_%d" % i, Art.explosion(i)))
 	var mix := float(ShotLook.TIERS[tier]["mix"])
@@ -76,6 +80,9 @@ func _ready() -> void:
 		_fx["glow"] = Art.fx("muzzle")
 	_rng.randomize()
 	var counts := ShotLook.impact_counts(kind, tier, skill)
+	if lite:
+		for g in counts:
+			counts[g] = int(floor(counts[g] * LITE_PARTICLES))
 	for i in int(counts["smoke"]):
 		var off := Vector2(_rng.randf_range(-0.7, 0.7), _rng.randf_range(-0.6, 0.1)) * radius
 		_smoke.append([off, _rng.randf_range(0.4, 0.7), Vector2(_rng.randf_range(-20, 20), _rng.randf_range(-70, -35)), _rng.randf_range(-1.0, 1.0)])
@@ -87,7 +94,7 @@ func _ready() -> void:
 		var a := _rng.randf_range(-PI * 0.95, -PI * 0.05) # mostly upward
 		_debris.append([Vector2.from_angle(a) * _rng.randf_range(speed[0], speed[1]) * sqrt(_scale), _rng.randf_range(bit[0], bit[1]),
 			Color(colors[i % colors.size()]) * bit_tint, _rng.randf_range(-12.0, 12.0)])
-	var linger := float(_ti["linger"])
+	var linger := 0.0 if lite else float(_ti["linger"])
 	for i in int(counts["sparkles"]):
 		var slow := linger > 0.0 and i % 2 == 0 # half of diamond's sparkles hang in the air
 		var life := (0.7 + linger) * _rng.randf_range(0.8, 1.0) if slow else _rng.randf_range(0.55, 0.85)
@@ -122,7 +129,7 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var t := _t
-	if _ti["crack"]: # ground cracks: under everything, fading at the end
+	if _ti["crack"] and not lite: # ground cracks: under everything, fading at the end
 		var tex: Texture2D = _fx["crack"]
 		if tex != null:
 			var a := clampf(t / 0.08, 0.0, 1.0) * clampf((_life - t) / CRACK_FADE, 0.0, 1.0)
@@ -164,7 +171,7 @@ func _draw() -> void:
 func _draw_glow() -> void:
 	var t := _t
 	var ci := _glow_layer
-	var screen := float(_ti["screen"]) * (1.25 if skill else 1.0)
+	var screen := 0.0 if lite else float(_ti["screen"]) * (1.25 if skill else 1.0)
 	if screen > 0.0 and t < SCREEN_SEC:
 		var view := get_global_transform_with_canvas().affine_inverse() * get_viewport_rect()
 		var c: Color = ShotLook.prism(t * 2.0) if _prismatic else _accent
@@ -181,7 +188,7 @@ func _draw_glow() -> void:
 			ci.draw_texture_rect(glow, Rect2(-Vector2(h, h), Vector2(h, h) * 2), false, Color(1, 1, 1, 0.8 * minf(1.0, flash) * (1.0 - t / 0.12)))
 	var ring: Texture2D = _fx["ring"]
 	if ring != null:
-		for j in int(_ti["rings"]):
+		for j in mini(int(_ti["rings"]), 1) if lite else int(_ti["rings"]):
 			var rt := t - j * 0.09
 			if rt < 0.0 or rt > RING_SEC:
 				continue
@@ -191,7 +198,7 @@ func _draw_glow() -> void:
 			ci.draw_texture_rect(ring, Rect2(-Vector2(r, r), Vector2(r, r) * 2), false, Color(c, 0.9 * (1.0 - k)))
 	_draw_particles(ci, _sparkles, _fx["sparkle"], t, _prismatic, true)
 	_draw_particles(ci, _embers, _fx["ember"], t, false)
-	var flare_k := float(_ti["flare"])
+	var flare_k := 0.0 if lite else float(_ti["flare"])
 	var flare: Texture2D = _fx["flare"]
 	if flare_k > 0.0 and flare != null and t < 0.45:
 		var pop := sin(PI * t / 0.45)

@@ -1,6 +1,6 @@
 extends "res://match/views/skills/skill_view.gd"
 ## Tanko — Bom liên hoàn (server skill heavy_bomb, effect bomb_chain): bombs (projectile kind
-## "bomb", each leaving at its launchDelay, at least 0.3 s apart) all fly the shot's own normal
+## "bomb", each leaving at its launchDelay, at least 0.1 s apart) all fly the shot's own normal
 ## arc: each later one passes through the earlier craters and explodes where that arc now meets
 ## the terrain or a player (a lob digs one deep shaft onto the target, a flat shot a trench along
 ## its arc); every enemy hit is rooted. The server paces the chain so a bomb only explodes once
@@ -14,6 +14,7 @@ extends "res://match/views/skills/skill_view.gd"
 ##   (bomb_chain_fx.gd), so the digging reads from above;
 ## - the bombs and the players are drawn over the explosions during the chain (BOMBS_Z,
 ##   PLAYERS_Z): every bomb is seen flying into the hole and the target stays in sight in it;
+## - the hits on a player count up in one running number (merges_damage(), DamageTally);
 ## - the root: the "Bị cầm chân" number when it lands and the banner on the rooted player's next
 ##   turn (match_screen; the status overlay on the character is drawn elsewhere).
 
@@ -53,6 +54,11 @@ func skill_name() -> String:
 
 func describe(rank: int) -> String:
 	return "Bắn %d quả bom lớn liên tiếp cùng đường bay (+1 mỗi cấp súng), đào sâu một hố; tổng %d%% sát thương; địch trúng bị cầm chân lượt sau." % [3 + rank, 180 + 15 * rank]
+
+
+## The chain's hits on a player count up in one number (DamageTally).
+func merges_damage() -> bool:
+	return true
 
 
 func begin(context: Dictionary) -> void:

@@ -53,8 +53,8 @@ func test_rank_of_player() -> void:
 
 
 func test_describe_has_rank_numbers() -> void:
-	check(Skills.describe("rookie", 0).contains("6 tên lửa"), "rain rank 0: 6")
-	check(Skills.describe("rookie", 4).contains("14 tên lửa"), "rain rank 4: 14")
+	check(Skills.describe("rookie", 0).contains("12 tên lửa"), "rain rank 0: 12")
+	check(Skills.describe("rookie", 4).contains("28 tên lửa"), "rain rank 4: 28")
 	check(Skills.describe("tanko", 2).contains("5 quả"), "bombs rank 2: 5")
 	check(Skills.describe("spark", 4).contains("190%"), "laser rank 4: 190%")
 	check(Skills.describe("flora", 4).contains("60%") and Skills.describe("flora", 4).contains("50%"), "bloom rank 4")

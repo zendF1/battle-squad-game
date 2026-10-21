@@ -7,11 +7,16 @@ extends "res://match/views/skills/skill_view.gd"
 ##   signal light around it and a red smoke trail behind it;
 ## - where it lands: a red-white flash with sparks, the flare burning on the ground and a red
 ##   signal smoke column rising from it until the rain is over (then it drifts off and fades);
+##   the column all but vanishes where it crosses a character's body (body_fade()), so the
+##   player the flare landed on stays in sight;
 ## - the missiles are the same tier shell, normal size (not the skill's larger one), nose-down
 ##   along their path with a shorter trail (ProjectileView.trail_length), each impact a smaller
-##   burst than a normal shot (MISSILE_BURST, not the skill's bigger one);
-## - burn (status) and the hits' numbers are the default replay's; the burn tick at the
-##   target's next turn start is a BurnFx flash (match_screen, PlayerDamaged type burn).
+##   burst than a normal shot (MISSILE_BURST, not the skill's bigger one) and a lite one
+##   (ExplosionFx.lite: a third of the particles, no screen tint / lens flare / cracks), as up to
+##   28 of them go off within ~1.4 s;
+## - the hits on a player count up in one running number (merges_damage(), DamageTally) and the
+##   burn shows once (the server sends one status per enemy); the burn tick at the target's next
+##   turn start is a BurnFx flash (match_screen, PlayerDamaged type burn).
 ## Cheap: one RainFx node draws the light, the smoke and the sparks from fixed pools (no
 ## per-frame allocation); it outlives the replay only to fade out.
 
@@ -25,6 +30,7 @@ const FLARE_RED := Color(1.0, 0.16, 0.12)
 var _fx: RainFx = null
 var _flare := -1 # the flare's projectile index, -1 none
 var _missile_ids := {} # projectileId -> true
+var _bodies: Array = [] # the players' views: the column fades over their bodies
 
 
 func skill_id() -> String:
@@ -36,13 +42,24 @@ func skill_name() -> String:
 
 
 func describe(rank: int) -> String:
-	return "Bắn pháo hiệu, %d tên lửa rơi quanh chỗ đáp (+2 mỗi cấp súng), mỗi quả 35%% sát thương; địch trúng bị bỏng: mất 10%% máu tối đa đầu lượt sau." % (6 + 2 * rank)
+	return "Bắn pháo hiệu, %d tên lửa rơi quanh chỗ đáp (+4 mỗi cấp súng), mỗi quả 25%% sát thương; địch trúng bị bỏng: mất 10%% máu tối đa đầu lượt sau." % (12 + 4 * rank)
+
+
+## The rain's hits on a player count up in one number (DamageTally).
+func merges_damage() -> bool:
+	return true
 
 
 func begin(context: Dictionary) -> void:
 	super.begin(context)
 	_flare = -1
 	_missile_ids.clear()
+	_bodies.clear()
+	var views = ctx.get("views")
+	if views is Dictionary:
+		for id in views:
+			if views[id] is Node2D:
+				_bodies.append(views[id])
 	var timeline = ctx.get("timeline")
 	if timeline != null:
 		for i in timeline.projectiles.size():
@@ -55,6 +72,7 @@ func begin(context: Dictionary) -> void:
 	var layer = ctx.get("layer")
 	if layer is Node2D:
 		_fx = RainFx.new()
+		_fx.set_body_count(_bodies.size())
 		layer.add_child(_fx) # before the projectile views: the light and smoke stay behind the shells
 
 
@@ -72,11 +90,13 @@ func projectile_view(_i: int, projectile: Dictionary, view: Node2D) -> Node2D:
 	return view
 
 
-## A missile's impact: smaller than a normal shot's.
+## A missile's impact: smaller and lighter than a normal shot's.
 func explosion(event: Dictionary, fx: Node2D) -> void:
 	if is_missile(str(event.get("projectileId", ""))):
 		fx.skill = false
 		fx.radius *= MISSILE_BURST
+		if "lite" in fx:
+			fx.lite = true
 
 
 func is_missile(projectile_id: String) -> bool:
@@ -98,6 +118,10 @@ func on_event(event: Dictionary) -> void:
 func process(t: float) -> void:
 	if _fx == null or not is_instance_valid(_fx):
 		return
+	for i in _bodies.size(): # where the players stand now (they may fall)
+		var b = _bodies[i]
+		if is_instance_valid(b):
+			_fx.set_body(i, b.position)
 	var timeline = ctx.get("timeline")
 	if _flare >= 0 and timeline != null and t >= timeline.launch_time(_flare) and t < timeline.projectile_end(_flare):
 		_fx.follow(timeline.sample(_flare, t))
@@ -109,6 +133,12 @@ func end() -> void:
 	if _fx != null and is_instance_valid(_fx):
 		_fx.fade_out()
 	_fx = null
+
+
+## How much of a column puff of radius r at p is drawn (1 clear of everyone, down to
+## RainFx.BODY_ALPHA over a body): `feet` holds the first n players' positions (feet).
+static func body_fade(p: Vector2, r: float, feet: PackedVector2Array, n: int) -> float:
+	return RainFx.body_fade(p, r, feet, n)
 
 
 ## What a rain replay is drawing now, for tests: {flying, landed, column, puffs, fading}.
@@ -129,6 +159,11 @@ class RainFx extends Node2D:
 	const FADE_SEC := 1.6 # after the replay: the column stops, the rest fades
 	const SPARK_LIFE := 0.6
 	const GRAVITY := 520.0
+	# The column over a character's body: drawn BODY_ALPHA × (body_fade()), the body an ellipse
+	# BODY_REACH (+ half the puff) around feet + BODY_CENTER (the side view is ~60 px tall).
+	const BODY_ALPHA := 0.12
+	const BODY_CENTER := Vector2(0, -30)
+	const BODY_REACH := Vector2(30, 40)
 
 	var _smoke_tex: Texture2D
 	var _glow_tex: Texture2D
@@ -162,6 +197,9 @@ class RainFx extends Node2D:
 	var _sp_pos := PackedVector2Array()
 	var _sp_vel := PackedVector2Array()
 	var _sp_age := PackedFloat32Array()
+	# the players' feet (set_body), the column fades over them
+	var _feet := PackedVector2Array()
+	var _n_feet := 0
 
 	func _init() -> void: # the pools are ready before the node enters the tree
 		texture_filter = TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
@@ -184,6 +222,26 @@ class RainFx extends Node2D:
 		_sp_vel.resize(SPARKS)
 		_sp_age.resize(SPARKS)
 		_sp_age.fill(1e6)
+
+	static func body_fade(p: Vector2, r: float, feet: PackedVector2Array, n: int) -> float:
+		var k := 1.0
+		for i in n:
+			var c: Vector2 = feet[i] + BODY_CENTER
+			var reach: Vector2 = BODY_REACH + Vector2(r, r) * 0.5
+			var d := Vector2((p.x - c.x) / reach.x, (p.y - c.y) / reach.y).length()
+			k = minf(k, lerpf(BODY_ALPHA, 1.0, smoothstep(0.55, 1.0, d)))
+		return k
+
+	## n players to keep the column off (their places come with set_body()).
+	func set_body_count(n: int) -> void:
+		_feet.resize(n)
+		_feet.fill(Vector2(-1e6, -1e6))
+		_n_feet = n
+
+	## Player i stands at feet (layer coordinates) this frame.
+	func set_body(i: int, feet: Vector2) -> void:
+		if i < _n_feet:
+			_feet[i] = feet
 
 	## The flare is at p (layer coordinates) this frame.
 	func follow(p: Vector2) -> void:
@@ -303,7 +361,7 @@ class RainFx extends Node2D:
 			var col: Color
 			if _column[i] == 1:
 				col = Color(0.95, 0.12, 0.1).lerp(Color(0.88, 0.5, 0.5), f)
-				col.a = 0.75 * (1.0 - f * f) * minf(1.0, age / 0.1) * _fade()
+				col.a = 0.75 * (1.0 - f * f) * minf(1.0, age / 0.1) * _fade() * body_fade(_pos[i], r, _feet, _n_feet)
 			else:
 				col = Color(0.98, 0.15, 0.12).lerp(Color(0.85, 0.55, 0.55), f)
 				col.a = 0.8 * (1.0 - f)
