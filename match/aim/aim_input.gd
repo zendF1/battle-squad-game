@@ -113,6 +113,7 @@ var _ring := PackedVector2Array() # the enemy ring's points round (0, 0), built 
 var _hit := {} # enemy index -> true: the bullseye on it
 var _near := PackedFloat32Array() # AimAid.fly()'s closest distances, reused
 var _guide := PackedVector2Array() # the first arc's guide points (aid())
+var _high_xs := PackedFloat32Array() # per arc rising above the screen: where it comes back into view
 var _fade: Gradient
 var _shadow_fade: Gradient
 var _anim := 0.0 # s: drives the bullseye's pulse and turn
@@ -227,6 +228,7 @@ func _update(pointer: Vector2) -> void:
 		if not shadow.points.is_empty():
 			shadow.points = PackedVector2Array()
 	_hit.clear()
+	_high_xs.clear()
 	_guide = PackedVector2Array()
 	var origin: Vector2 = Trajectory.shot_origin(shooter_pos, terrain)
 	if line_mode:
@@ -262,6 +264,8 @@ func _update(pointer: Vector2) -> void:
 			_guide = guide
 		if _power < MIN_POWER:
 			continue
+		if not is_nan(float(flight["high_x"])):
+			_high_xs.append(float(flight["high_x"]))
 		var end: Vector2 = flight["end"]
 		var r := AimAid.hit_tolerance(end.x - origin.x, AimAid.apex_height(a, _power))
 		for k in enemies.size():
@@ -272,11 +276,18 @@ func _update(pointer: Vector2) -> void:
 
 
 ## The aid shown now: {hits: the enemy indices with "Trúng!" (the bullseye), sorted, guide: the
-## first arc's guide points}.
+## first arc's guide points, high_xs: high_xs()}.
 func aid() -> Dictionary:
 	var hits := _hit.keys()
 	hits.sort()
-	return {"hits": hits, "guide": _guide}
+	return {"hits": hits, "guide": _guide, "high_xs": high_xs()}
+
+
+## While aiming: for each previewed arc that rises above the top of the screen, the x where the
+## shell comes back into view (HighShellMarker puts its top-edge arrow there; how far it then
+## falls is left to the shooter's feel and the bullseye).
+func high_xs() -> PackedFloat32Array:
+	return _high_xs if _dragging else PackedFloat32Array()
 
 
 func _update_column(pointer: Vector2) -> void:
@@ -339,6 +350,7 @@ func _reset(cleared: bool = true) -> void:
 	_dragging = false
 	_in_cancel = false
 	_hit.clear()
+	_high_xs.clear()
 	for line in _lines:
 		line.points = PackedVector2Array()
 	for shadow in _shadows:

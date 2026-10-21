@@ -117,6 +117,7 @@ func _ready() -> void:
 	add_child(over_hud)
 	_high_marker = HighShellMarker.new()
 	_high_marker.shot_player = _shot_player
+	_high_marker.aim = _aim
 	over_hud.add_child(_high_marker)
 
 	_moves.terrain = _mask

@@ -90,7 +90,7 @@ func test_no_landing_marker() -> void:
 	for aim in [[50.0, 60.0], [85.0, 100.0], [50.0, 3.0]]:
 		_drag(a, aim[0], aim[1])
 		var aid: Dictionary = a.aid()
-		eq(aid.keys(), ["hits", "guide"], "%s: only the bullseye and the guide" % [aim])
+		eq(aid.keys(), ["hits", "guide", "high_xs"], "%s: the bullseye, the guide and the top-edge arrows; no ground marker" % [aim])
 		check(aid["guide"].size() >= 2, "%s: the guide arc" % [aim])
 	var aid_script = AimAid.new()
 	for gone in ["shown_x", "shown_point", "surface_y", "is_super_high"]:
@@ -357,4 +357,27 @@ func test_drag_moves_and_release_are_taken_first() -> void:
 	check(not a._drag_event(_button(over, false)), "a release with no drag is left to the GUI (the button's own)")
 	a.enabled = false
 	check(not a._press_starts_drag(_button(Vector2(1300, 300), true)), "aiming off: no drag")
+	a.free()
+
+
+## While aiming, a lob rising above the top of the screen gets a top-edge arrow where it comes back
+## into view (no height shown); a low shot gets none; a released drag clears it.
+func test_aim_arrow_where_a_high_lob_comes_back() -> void:
+	var a = _aim()
+	_drag(a, 80.0, 95.0)
+	var xs: PackedFloat32Array = a.aid()["high_xs"]
+	eq(xs.size(), 1, "a high lob: one arrow")
+	var origin := Trajectory.shot_origin(FEET, a.terrain)
+	var flight := AimAid.fly(origin, AimAid.launch_velocity(a._angle, a._power), 0.0, a.terrain,
+		PackedVector2Array(), PackedFloat32Array())
+	near(xs[0], float(flight["high_x"]), 1e-3, "at the exact flight's re-entry x")
+	check(xs[0] > FEET.x and xs[0] < float(flight["end"].x), "between the shooter and the landing")
+	var arrows := HighShellMarker.aim_arrows(xs, 1600.0)
+	eq(arrows.size(), 1, "the marker draws it")
+	eq(float(arrows[0]["height"]), 0.0, "no height")
+	_drag(a, 40.0, 50.0)
+	eq(a.aid()["high_xs"].size(), 0, "a low shot: no arrow")
+	_drag(a, 80.0, 95.0)
+	a._reset()
+	eq(a.high_xs().size(), 0, "released: no arrow")
 	a.free()

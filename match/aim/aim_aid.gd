@@ -72,7 +72,9 @@ static func hit_tolerance(d: float, h: float) -> float:
 ## each step sampled every SAMPLE_PX for enemy bodies then terrain). enemies: the alive enemies'
 ## body centres. near (resized to enemies.size()) gets each enemy's closest distance to the path
 ## flown. Returns {end: Vector2 (the explosion point, or where the flight stopped), time: s,
-## landed: it exploded (terrain or a body), hit: the index of the enemy body it stopped on, -1}.
+## landed: it exploded (terrain or a body), hit: the index of the enemy body it stopped on, -1,
+## high_x: where a shell that rose above the top of the screen (y < 0) comes back into view, its
+## last x up there if it never does, NAN if it never rose above}.
 static func fly(origin: Vector2, v: Vector2, accel_x: float, terrain, enemies: PackedVector2Array,
 		near: PackedFloat32Array, pierce: float = 0.0) -> Dictionary:
 	near.resize(enemies.size())
@@ -86,6 +88,7 @@ static func fly(origin: Vector2, v: Vector2, accel_x: float, terrain, enemies: P
 	var r2 := HIT_RADIUS * HIT_RADIUS
 	var drill_left := pierce
 	var inside := false
+	var high_x := NAN # where a shell above the top of the screen comes back into view
 	while t < Trajectory.MAX_FLIGHT:
 		var px := x
 		var py := y
@@ -94,6 +97,10 @@ static func fly(origin: Vector2, v: Vector2, accel_x: float, terrain, enemies: P
 		x += vx * dt
 		y += vy * dt
 		t += dt
+		if y < 0.0:
+			high_x = x
+		elif py < 0.0:
+			high_x = px + (x - px) * (-py / (y - py))
 		var dx := x - px
 		var dy := y - py
 		var dist := sqrt(dx * dx + dy * dy)
@@ -108,21 +115,21 @@ static func fly(origin: Vector2, v: Vector2, accel_x: float, terrain, enemies: P
 				var ey := sy - enemies[k].y
 				if ex * ex + ey * ey <= r2:
 					_near_segment(enemies, near, px, py, sx, sy)
-					return {"end": Vector2(sx, sy), "time": t, "landed": true, "hit": k}
+					return {"end": Vector2(sx, sy), "time": t, "landed": true, "hit": k, "high_x": high_x}
 			if terrain != null and terrain.is_solid(sx, sy):
 				if drill_left > 0.0:
 					inside = true
 					drill_left -= step_len
 					continue
 				_near_segment(enemies, near, px, py, sx, sy)
-				return {"end": Vector2(sx, sy), "time": t, "landed": true, "hit": -1}
+				return {"end": Vector2(sx, sy), "time": t, "landed": true, "hit": -1, "high_x": high_x}
 			if inside:
 				inside = false
 				drill_left = 0.0
 		_near_segment(enemies, near, px, py, x, y)
 		if terrain != null and (x < OUT_LEFT or x > terrain.width + OUT_RIGHT or y > terrain.height + OUT_BELOW):
 			break
-	return {"end": Vector2(x, y), "time": t, "landed": false, "hit": -1}
+	return {"end": Vector2(x, y), "time": t, "landed": false, "hit": -1, "high_x": high_x}
 
 
 ## Lowers each enemy's closest distance with the segment a → b.

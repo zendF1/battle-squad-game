@@ -1,19 +1,18 @@
 extends Node2D
 ## While a shell flies above the top of the screen (ShotPlayer.high_shells(): normal shells, the
-## flare, the bombs), an arrow on the top edge under it points up at it, following its x, with
-## how high it is (px above the top). On its own CanvasLayer over the HUD (match_screen), so the
+## flare, the bombs), an arrow on the top edge under it points up at it, following its x; while
+## aiming (AimInput.high_xs()), one where the previewed shell will come back into view. No height
+## or distance shown: the shooter judges the fall from there. On its own CanvasLayer over the HUD (match_screen), so the
 ## top row (timer, wind, portrait) never hides it; screen coordinates are the world's (no camera).
-
-const LobbyUi := preload("res://ui/lobby_ui.gd")
 
 const EDGE := 18.0 # keep the arrow this far inside the screen's sides
 const TIP_Y := 6.0 # the arrow's tip, just under the top edge
 const SIZE := Vector2(30, 26)
 const FILL := Color(1.0, 0.9, 0.35)
 const OUTLINE := Color(0.03, 0.04, 0.12, 0.85)
-const FONT_SIZE := 18
 
 var shot_player # ShotPlayer
+var aim # AimInput (optional): the arrows while aiming
 var _arrows: Array = [] # [{x, height}] drawn now
 
 
@@ -28,11 +27,22 @@ static func arrows(shells: PackedVector2Array, width: float) -> Array:
 
 
 func _process(_delta: float) -> void:
-	var now: Array = arrows(shot_player.high_shells(), get_viewport_rect().size.x) if shot_player != null else []
+	var width := get_viewport_rect().size.x
+	var now: Array = arrows(shot_player.high_shells(), width) if shot_player != null else []
+	if aim != null:
+		now.append_array(aim_arrows(aim.high_xs(), width))
 	if now.is_empty() and _arrows.is_empty():
 		return
 	_arrows = now
 	queue_redraw()
+
+
+## The arrows while aiming: one per x where a previewed shell comes back into view (height 0).
+static func aim_arrows(xs: PackedFloat32Array, width: float) -> Array:
+	var out: Array = []
+	for x in xs:
+		out.append({"x": clampf(x, EDGE, width - EDGE), "height": 0.0})
+	return out
 
 
 ## The arrows shown now ([{x, height}]).
@@ -41,7 +51,6 @@ func shown() -> Array:
 
 
 func _draw() -> void:
-	var font := LobbyUi.bold()
 	for a in _arrows:
 		var tip := Vector2(a["x"], TIP_Y)
 		var w := SIZE.x / 2.0
@@ -51,7 +60,3 @@ func _draw() -> void:
 		var rim := tri.duplicate()
 		rim.append(tip)
 		draw_polyline(rim, OUTLINE, 3.0, true)
-		var text := "%d" % roundi(float(a["height"]))
-		var pos := Vector2(tip.x - 40.0, tip.y + SIZE.y + FONT_SIZE + 2)
-		draw_string_outline(font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, 80.0, FONT_SIZE, 5, OUTLINE)
-		draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, 80.0, FONT_SIZE, Color.WHITE)
