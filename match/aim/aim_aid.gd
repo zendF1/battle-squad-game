@@ -7,8 +7,10 @@ extends RefCounted
 ## - the guide arc: the same exact flight (wind included), only the first arc_fraction(tier) of
 ##   T (shorter the higher the local player's rank tier), its end faded out.
 ## What is shown from X:
-## - the landing marker at shown_x() = X.x − clamp(WIND_BIAS × W × T, ±MAX_BIAS) (W: the signed
-##   wind dir × power, + blows right), dropped onto the ground (surface_y()): against the wind, so the wind must
+## - the landing marker at shown_x() = X.x − clamp(BIAS_SHARE × ½ × A × T², ±MAX_BIAS): it shows
+##   only (1 − BIAS_SHARE) of the drift the wind gives this weapon's shell (A: its wind
+##   acceleration, wind_accel(); ½ A T² the whole drift), so low quick shots are nearly exact
+##   and long lobs clearly off; dropped onto the ground (surface_y()): against the wind, so the wind must
 ##   still be read (a tailwind shows it short, a headwind long, whichever way the shot goes);
 ## - "Trúng!" (is_hit()) when the exact path comes within HIT_RADIUS + hit_tolerance(D, H) of an
 ##   enemy body centre, D the horizontal distance to X, H the apex height above the origin;
@@ -24,8 +26,8 @@ const Trajectory := preload("res://match/aim/trajectory_predictor.gd")
 const ARC_FRACTION := {"bronze": 0.6, "silver": 0.5, "gold": 0.4, "platinum": 0.3, "diamond": 0.22, "master": 0.15}
 const DEFAULT_TIER := "bronze"
 const ARC_FADE_FROM := 0.55 # the arc is solid to this part of its length, then fades out
-const WIND_BIAS := 3.0 # px per (wind × s) the landing marker is moved against the wind
-const MAX_BIAS := 60.0 # px: the marker never strays further from the real landing
+const BIAS_SHARE := 0.15 # part of the shell's wind drift (½ A T²) the landing marker leaves out
+const MAX_BIAS := 250.0 # px: the marker never strays further from the real landing
 ## The "Trúng!" tolerance r = TOL_MAX × min(1, TOL_MIN_PART + (1 − TOL_MIN_PART) ×
 ## max(D / TOL_FAR, H / TOL_HIGH)) px: near and low shots are judged tighter.
 const TOL_MAX := 20.0
@@ -71,8 +73,9 @@ static func is_super_high(origin_y: float, angle_deg: float, power: float) -> bo
 	return origin_y - apex_height(angle_deg, power) < 0.0
 
 
-static func shown_x(exact_x: float, wind: float, flight_time: float) -> float:
-	return exact_x - clampf(WIND_BIAS * wind * flight_time, -MAX_BIAS, MAX_BIAS)
+## accel: the shell's wind acceleration (px/s², wind_accel(): + blows right).
+static func shown_x(exact_x: float, accel: float, flight_time: float) -> float:
+	return exact_x - clampf(BIAS_SHARE * 0.5 * accel * flight_time * flight_time, -MAX_BIAS, MAX_BIAS)
 
 
 ## r: the "Trúng!" tolerance (px) for a shot landing d px away with an apex h px high.
@@ -102,8 +105,8 @@ static func surface_y(terrain, x: float, near_y: float) -> float:
 
 
 ## The landing marker: shown_x() clamped to the map, on the ground nearest the exact landing.
-static func shown_point(exact: Vector2, wind: float, flight_time: float, terrain) -> Vector2:
-	var x := shown_x(exact.x, wind, flight_time)
+static func shown_point(exact: Vector2, accel: float, flight_time: float, terrain) -> Vector2:
+	var x := shown_x(exact.x, accel, flight_time)
 	if terrain == null:
 		return Vector2(x, exact.y)
 	x = clampf(x, 0.0, float(terrain.width - 1))

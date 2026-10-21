@@ -250,7 +250,6 @@ func _update(pointer: Vector2) -> void:
 		aim_changed.emit(_angle, _power)
 		return
 	_angle = clampf(rad_to_deg(atan2(d.y, -d.x)), 0.0, 180.0)
-	var wind := float(wind_dir) * wind_power
 	var accel := AimAid.wind_accel(wind_dir, wind_power, wind_influence, projectile_weight)
 	var part := AimAid.arc_fraction(rank_tier)
 	for i in range(preview_offsets.size(), _lines.size()):
@@ -279,7 +278,7 @@ func _update(pointer: Vector2) -> void:
 			if AimAid.is_hit(_near, k, r):
 				hit = true
 				_hit[k] = true
-		_marks.append({"point": AimAid.shown_point(end, wind, t, terrain), "hit": hit,
+		_marks.append({"point": AimAid.shown_point(end, accel, t, terrain), "hit": hit,
 			"high": AimAid.is_super_high(origin.y, a, _power)})
 	queue_redraw()
 	aim_changed.emit(_angle, _power)
