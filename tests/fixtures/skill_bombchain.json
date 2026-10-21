@@ -80,7 +80,7 @@
   "terrainAfter": {
    "width": 1600,
    "height": 900,
-   "version": 7,
+   "version": 6,
    "solid": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdcIlwHEAY4B1gieAboBkgHWCKUBrwGWAdUIrAGlAZoB1AizAZsBngHUCLoBjwGjAdMIwQGEAagB0wjIAXeuAdII0QFptAHSCNkBWrsB0QjkAUjDAdAI8QExzgHQCPADzwjxA88I8QPOCPIDzQjzA80I8wPMCPQDzAj0A8sI9QPKCPYDygj2A8kI9wPICPgDyAj4A8cI+QPGCPoDxQj7A8UI+wPECPwDwwj9A8II/gPCCP4DwQj/A8AIgAS/CIEEvgiCBL4IggS9CIMEvAiEBLsIhQS6CIYEuQiHBLgIiAS3CIkEtgiKBLUIiwS0CIwE6wcDRY0E6QcGQo8E5wcJQJAE5gcLPpEE5AcPO5IE4wcROJQE4QcVNZUE4AcYMZcE3gccLZoE3AcfKZ0E2QcjJaAE1wcnIKQE0wcuGKgE0Qc3C68EzQf0BMsH9wTHB/oExQf8BMIHgAW/B4IFvAeGBbkHiAW2B4wFsweOBbAHkQWuB5QFqgeXBagHmgWkB50FogegBZ4HowWcB6YFmAepBZYHrAWTB64FkAeyBY0HtAWKB7gFhwe6BYQHvgWBB8AF/gbEBfsGxgX4BsoF9QbMBfMGzwXvBtMF7AbVBekG2QXmBtsF4wbfBeAG4gXcBuUF2gboBdYG6wXUBu4F0AbyBc0G9QXJBvgFxwb7BcMG/wXABoEGvQaFBroGiAa2BowGswaPBq8GkgasBpYG2QInqQOZBsoCQZoDnQa/AlKRA6AGtQJihwOkBqwCb/8CqAakAnv4AqsGnAKGAfECrwaVApAB6wKyBo0CmwHkArYGhgKkAd4Cuwb+Aa4B2AK+BvgBtgHSAsIG8QG/AcwCxgbrAccBxwLKBuMBzwHCAs4G3QHXAbwC0wbVAeABtgLXBs8B5wGyAtsGyAHuAa0C3wbBAfcBpwLkBroB/gGiAukGswGGApwC7garAY4CmALyBqQBlQKTAvcGnAGdAo4C/QaTAaUCiQKCB4wBrQKDAogHgwG1Av4Bjgd5vgL5AZQHcMYC9AGbB2XPAu8BogdZ2QLqAasHS+QC5AG0BzzvAt4Bwgcl/gLZAeoK1AHvCs8B9QrIAfsKwwGAC70Bhwu3AYwLsQGTC6oBmQulAZ8LngGmC5cBrQuQAbQLiAG8C4EBwwt5zAtw1Qtn3gte6AtS9AtGggw3lAwizPMW",
    "destructible": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY="
   },
@@ -95,7 +95,7 @@
    },
    "projectiles": [
     {
-     "projectileId": "proj-1d03b2b9a1076991",
+     "projectileId": "proj-a6b10c9aba11f6fe",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -264,7 +264,7 @@
      "kind": "bomb"
     },
     {
-     "projectileId": "proj-2de9639bbe661f43",
+     "projectileId": "proj-ef6a2fe054d21050",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -434,7 +434,7 @@
      "launchDelay": 0.22133305066751463
     },
     {
-     "projectileId": "proj-9ab825a6b6af80ca",
+     "projectileId": "proj-3182692801650bb7",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -604,7 +604,7 @@
      "launchDelay": 0.3213330506675146
     },
     {
-     "projectileId": "proj-8df8bfcc72db07d7",
+     "projectileId": "proj-b8f887c8abd95539",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -774,7 +774,7 @@
      "launchDelay": 0.4213330506675146
     },
     {
-     "projectileId": "proj-4e9412c1beaf1b36",
+     "projectileId": "proj-15c5f1ea15751738",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -944,7 +944,7 @@
      "launchDelay": 0.5213330506675146
     },
     {
-     "projectileId": "proj-8061138263166997",
+     "projectileId": "proj-c1a683319fa39720",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -1112,183 +1112,13 @@
      "craterRadius": 52,
      "kind": "bomb",
      "launchDelay": 0.6213330506675145
-    },
-    {
-     "projectileId": "proj-e0f9e1ccc12da4ae",
-     "ownerPlayerId": "tanko",
-     "skillId": "heavy_bomb",
-     "path": [
-      {
-       "position": {
-        "x": 450,
-        "y": 589
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": -268.7890683198285
-       },
-       "time": 0.7213330506675145
-      },
-      {
-       "position": {
-        "x": 496.8372081608877,
-        "y": 573.9406559008102
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": -242.08906831982853
-       },
-       "time": 0.7813330506675145
-      },
-      {
-       "position": {
-        "x": 543.6744163217754,
-        "y": 560.4833118016203
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": -215.3890683198285
-       },
-       "time": 0.8413330506675145
-      },
-      {
-       "position": {
-        "x": 590.5116244826631,
-        "y": 548.6279677024307
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": -188.6890683198285
-       },
-       "time": 0.9013330506675146
-      },
-      {
-       "position": {
-        "x": 637.3488326435508,
-        "y": 538.3746236032412
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": -161.98906831982848
-       },
-       "time": 0.9613330506675145
-      },
-      {
-       "position": {
-        "x": 684.1860408044386,
-        "y": 529.7232795040516
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": -135.28906831982846
-       },
-       "time": 1.0213330506675145
-      },
-      {
-       "position": {
-        "x": 731.0232489653263,
-        "y": 522.6739354048619
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": -108.58906831982844
-       },
-       "time": 1.0813330506675145
-      },
-      {
-       "position": {
-        "x": 777.860457126214,
-        "y": 517.2265913056723
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": -81.88906831982843
-       },
-       "time": 1.1413330506675146
-      },
-      {
-       "position": {
-        "x": 824.6976652871017,
-        "y": 513.3812472064826
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": -55.189068319828415
-       },
-       "time": 1.2013330506675146
-      },
-      {
-       "position": {
-        "x": 871.5348734479894,
-        "y": 511.1379031072929
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": -28.48906831982842
-       },
-       "time": 1.2613330506675147
-      },
-      {
-       "position": {
-        "x": 918.3720816088771,
-        "y": 510.4965590081032
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": -1.7890683198284203
-       },
-       "time": 1.3213330506675147
-      },
-      {
-       "position": {
-        "x": 965.2092897697648,
-        "y": 511.45721490891344
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 24.91093168017158
-       },
-       "time": 1.3813330506675148
-      },
-      {
-       "position": {
-        "x": 1012.0464979306525,
-        "y": 514.0198708097237
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 51.610931680171575
-       },
-       "time": 1.4413330506675148
-      },
-      {
-       "position": {
-        "x": 1035.4651020110964,
-        "y": 515.9241987601288
-       },
-       "velocity": {
-        "x": 780.6201360147959,
-        "y": 69.41093168017157
-       },
-       "time": 1.4813330506675149
-      }
-     ],
-     "hitPlayerId": "e1",
-     "explosionPoint": {
-      "x": 1035.4651020110964,
-      "y": 515.9241987601288
-     },
-     "explosionRadius": 78,
-     "craterRadius": 52,
-     "kind": "bomb",
-     "launchDelay": 0.7213330506675145
     }
    ],
    "events": [
     {
      "t": 0.7600000000000003,
      "type": "explode",
-     "projectileId": "proj-1d03b2b9a1076991",
+     "projectileId": "proj-a6b10c9aba11f6fe",
      "position": {
       "x": 1043.2713033712444,
       "y": 516.6183080769305
@@ -1301,7 +1131,7 @@
      "t": 0.7600000000000003,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-1d03b2b9a1076991",
+     "projectileId": "proj-a6b10c9aba11f6fe",
      "amount": 133,
      "hp": 1367,
      "cause": "explosion"
@@ -1330,7 +1160,7 @@
     {
      "t": 0.981333050667515,
      "type": "explode",
-     "projectileId": "proj-2de9639bbe661f43",
+     "projectileId": "proj-ef6a2fe054d21050",
      "position": {
       "x": 1035.4651020110964,
       "y": 515.9241987601288
@@ -1343,7 +1173,7 @@
      "t": 0.981333050667515,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-2de9639bbe661f43",
+     "projectileId": "proj-ef6a2fe054d21050",
      "amount": 133,
      "hp": 1234,
      "cause": "explosion"
@@ -1351,7 +1181,7 @@
     {
      "t": 1.081333050667515,
      "type": "explode",
-     "projectileId": "proj-9ab825a6b6af80ca",
+     "projectileId": "proj-3182692801650bb7",
      "position": {
       "x": 1035.4651020110964,
       "y": 515.9241987601288
@@ -1364,7 +1194,7 @@
      "t": 1.081333050667515,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-9ab825a6b6af80ca",
+     "projectileId": "proj-3182692801650bb7",
      "amount": 133,
      "hp": 1101,
      "cause": "explosion"
@@ -1372,7 +1202,7 @@
     {
      "t": 1.181333050667515,
      "type": "explode",
-     "projectileId": "proj-8df8bfcc72db07d7",
+     "projectileId": "proj-b8f887c8abd95539",
      "position": {
       "x": 1035.4651020110964,
       "y": 515.9241987601288
@@ -1385,7 +1215,7 @@
      "t": 1.181333050667515,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-8df8bfcc72db07d7",
+     "projectileId": "proj-b8f887c8abd95539",
      "amount": 133,
      "hp": 968,
      "cause": "explosion"
@@ -1393,7 +1223,7 @@
     {
      "t": 1.281333050667515,
      "type": "explode",
-     "projectileId": "proj-4e9412c1beaf1b36",
+     "projectileId": "proj-15c5f1ea15751738",
      "position": {
       "x": 1035.4651020110964,
       "y": 515.9241987601288
@@ -1406,7 +1236,7 @@
      "t": 1.281333050667515,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-4e9412c1beaf1b36",
+     "projectileId": "proj-15c5f1ea15751738",
      "amount": 133,
      "hp": 835,
      "cause": "explosion"
@@ -1414,7 +1244,7 @@
     {
      "t": 1.3813330506675148,
      "type": "explode",
-     "projectileId": "proj-8061138263166997",
+     "projectileId": "proj-c1a683319fa39720",
      "position": {
       "x": 1035.4651020110964,
       "y": 515.9241987601288
@@ -1427,25 +1257,13 @@
      "t": 1.3813330506675148,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-8061138263166997",
+     "projectileId": "proj-c1a683319fa39720",
      "amount": 33,
      "hp": 802,
      "cause": "explosion"
-    },
-    {
-     "t": 1.4813330506675149,
-     "type": "explode",
-     "projectileId": "proj-e0f9e1ccc12da4ae",
-     "position": {
-      "x": 1035.4651020110964,
-      "y": 515.9241987601288
-     },
-     "radius": 52,
-     "crater": "bowl",
-     "terrainVersion": 7
     }
    ],
-   "duration": 1.4813330506675149
+   "duration": 1.3813330506675148
   }
  },
  "lob": {
@@ -1529,7 +1347,7 @@
   "terrainAfter": {
    "width": 1600,
    "height": 900,
-   "version": 7,
+   "version": 6,
    "solid": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY=",
    "destructible": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY="
   },
@@ -1544,7 +1362,7 @@
    },
    "projectiles": [
     {
-     "projectileId": "proj-03adc2f614976227",
+     "projectileId": "proj-907f7749e47db0f1",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -2197,7 +2015,7 @@
      "kind": "bomb"
     },
     {
-     "projectileId": "proj-12198eef05a7fb50",
+     "projectileId": "proj-4363ab04836f662d",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -2851,7 +2669,7 @@
      "launchDelay": 0.1
     },
     {
-     "projectileId": "proj-e96ef900b417394b",
+     "projectileId": "proj-837ee8bfee35c1e9",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -3505,7 +3323,7 @@
      "launchDelay": 0.2
     },
     {
-     "projectileId": "proj-5c586482b01721be",
+     "projectileId": "proj-751717a8f20c67d6",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -4159,7 +3977,7 @@
      "launchDelay": 0.30000000000000004
     },
     {
-     "projectileId": "proj-1a97b419d8268001",
+     "projectileId": "proj-7c48fa07f503395b",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -4813,7 +4631,7 @@
      "launchDelay": 0.4
     },
     {
-     "projectileId": "proj-d9e86b1871db1d6f",
+     "projectileId": "proj-4957303467958b14",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -5465,667 +5283,13 @@
      "craterRadius": 52,
      "kind": "bomb",
      "launchDelay": 0.5
-    },
-    {
-     "projectileId": "proj-493e45034b0f9683",
-     "ownerPlayerId": "tanko",
-     "skillId": "heavy_bomb",
-     "path": [
-      {
-       "position": {
-        "x": 450,
-        "y": 589
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -789.6282105586021
-       },
-       "time": 0.6
-      },
-      {
-       "position": {
-        "x": 460.5033815851882,
-        "y": 542.6903073664839
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -762.9282105586021
-       },
-       "time": 0.6599999999999999
-      },
-      {
-       "position": {
-        "x": 471.0067631703764,
-        "y": 497.9826147329678
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -736.2282105586022
-       },
-       "time": 0.72
-      },
-      {
-       "position": {
-        "x": 481.5101447555646,
-        "y": 454.8769220994517
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -709.5282105586023
-       },
-       "time": 0.78
-      },
-      {
-       "position": {
-        "x": 492.01352634075283,
-        "y": 413.37322946593554
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -682.8282105586023
-       },
-       "time": 0.84
-      },
-      {
-       "position": {
-        "x": 502.51690792594104,
-        "y": 373.47153683241936
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -656.1282105586024
-       },
-       "time": 0.8999999999999999
-      },
-      {
-       "position": {
-        "x": 513.0202895111292,
-        "y": 335.17184419890316
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -629.4282105586025
-       },
-       "time": 0.96
-      },
-      {
-       "position": {
-        "x": 523.5236710963175,
-        "y": 298.47415156538693
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -602.7282105586025
-       },
-       "time": 1.02
-      },
-      {
-       "position": {
-        "x": 534.0270526815057,
-        "y": 263.37845893187085
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -576.0282105586026
-       },
-       "time": 1.08
-      },
-      {
-       "position": {
-        "x": 544.5304342666939,
-        "y": 229.88476629835466
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -549.3282105586027
-       },
-       "time": 1.1400000000000001
-      },
-      {
-       "position": {
-        "x": 555.0338158518821,
-        "y": 197.99307366483853
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -522.6282105586027
-       },
-       "time": 1.2000000000000002
-      },
-      {
-       "position": {
-        "x": 565.5371974370703,
-        "y": 167.70338103132238
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -495.9282105586028
-       },
-       "time": 1.2600000000000002
-      },
-      {
-       "position": {
-        "x": 576.0405790222585,
-        "y": 139.0156883978062
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -469.2282105586029
-       },
-       "time": 1.3200000000000003
-      },
-      {
-       "position": {
-        "x": 586.5439606074467,
-        "y": 111.92999576429003
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -442.52821055860295
-       },
-       "time": 1.3800000000000003
-      },
-      {
-       "position": {
-        "x": 597.0473421926349,
-        "y": 86.44630313077384
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -415.828210558603
-       },
-       "time": 1.4400000000000004
-      },
-      {
-       "position": {
-        "x": 607.5507237778231,
-        "y": 62.564610497257654
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -389.1282105586031
-       },
-       "time": 1.5000000000000004
-      },
-      {
-       "position": {
-        "x": 618.0541053630113,
-        "y": 40.28491786374146
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -362.42821055860315
-       },
-       "time": 1.5600000000000005
-      },
-      {
-       "position": {
-        "x": 628.5574869481995,
-        "y": 19.60722523022527
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -335.7282105586032
-       },
-       "time": 1.6200000000000006
-      },
-      {
-       "position": {
-        "x": 639.0608685333877,
-        "y": 0.5315325967090745
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -309.0282105586033
-       },
-       "time": 1.6800000000000006
-      },
-      {
-       "position": {
-        "x": 649.564250118576,
-        "y": -16.942160036807124
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -282.32821055860336
-       },
-       "time": 1.7400000000000007
-      },
-      {
-       "position": {
-        "x": 660.0676317037642,
-        "y": -32.81385267032333
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -255.6282105586034
-       },
-       "time": 1.8000000000000007
-      },
-      {
-       "position": {
-        "x": 670.5710132889524,
-        "y": -47.08354530383953
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -228.92821055860338
-       },
-       "time": 1.8600000000000008
-      },
-      {
-       "position": {
-        "x": 681.0743948741406,
-        "y": -59.75123793735573
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -202.22821055860337
-       },
-       "time": 1.9200000000000008
-      },
-      {
-       "position": {
-        "x": 691.5777764593288,
-        "y": -70.81693057087193
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -175.52821055860335
-       },
-       "time": 1.9800000000000009
-      },
-      {
-       "position": {
-        "x": 702.081158044517,
-        "y": -80.28062320438814
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -148.82821055860333
-       },
-       "time": 2.040000000000001
-      },
-      {
-       "position": {
-        "x": 712.5845396297052,
-        "y": -88.14231583790433
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -122.12821055860331
-       },
-       "time": 2.100000000000001
-      },
-      {
-       "position": {
-        "x": 723.0879212148934,
-        "y": -94.40200847142053
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -95.4282105586033
-       },
-       "time": 2.160000000000001
-      },
-      {
-       "position": {
-        "x": 733.5913028000816,
-        "y": -99.05970110493674
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -68.72821055860328
-       },
-       "time": 2.220000000000001
-      },
-      {
-       "position": {
-        "x": 744.0946843852698,
-        "y": -102.11539373845292
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -42.028210558603284
-       },
-       "time": 2.280000000000001
-      },
-      {
-       "position": {
-        "x": 754.598065970458,
-        "y": -103.56908637196912
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": -15.328210558603287
-       },
-       "time": 2.340000000000001
-      },
-      {
-       "position": {
-        "x": 765.1014475556462,
-        "y": -103.42077900548531
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 11.371789441396714
-       },
-       "time": 2.4000000000000012
-      },
-      {
-       "position": {
-        "x": 775.6048291408345,
-        "y": -101.6704716390015
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 38.07178944139671
-       },
-       "time": 2.4600000000000013
-      },
-      {
-       "position": {
-        "x": 786.1082107260227,
-        "y": -98.3181642725177
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 64.7717894413967
-       },
-       "time": 2.5200000000000014
-      },
-      {
-       "position": {
-        "x": 796.6115923112109,
-        "y": -93.3638569060339
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 91.47178944139672
-       },
-       "time": 2.5800000000000014
-      },
-      {
-       "position": {
-        "x": 807.1149738963991,
-        "y": -86.80754953955011
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 118.17178944139674
-       },
-       "time": 2.6400000000000015
-      },
-      {
-       "position": {
-        "x": 817.6183554815873,
-        "y": -78.6492421730663
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 144.87178944139674
-       },
-       "time": 2.7000000000000015
-      },
-      {
-       "position": {
-        "x": 828.1217370667755,
-        "y": -68.8889348065825
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 171.57178944139676
-       },
-       "time": 2.7600000000000016
-      },
-      {
-       "position": {
-        "x": 838.6251186519637,
-        "y": -57.52662744009869
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 198.27178944139678
-       },
-       "time": 2.8200000000000016
-      },
-      {
-       "position": {
-        "x": 849.1285002371519,
-        "y": -44.562320073614885
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 224.9717894413968
-       },
-       "time": 2.8800000000000017
-      },
-      {
-       "position": {
-        "x": 859.6318818223401,
-        "y": -29.99601270713108
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 251.6717894413968
-       },
-       "time": 2.9400000000000017
-      },
-      {
-       "position": {
-        "x": 870.1352634075283,
-        "y": -13.827705340647276
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 278.37178944139674
-       },
-       "time": 3.0000000000000018
-      },
-      {
-       "position": {
-        "x": 880.6386449927165,
-        "y": 3.942602025836527
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 305.0717894413967
-       },
-       "time": 3.060000000000002
-      },
-      {
-       "position": {
-        "x": 891.1420265779047,
-        "y": 23.314909392320327
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 331.7717894413966
-       },
-       "time": 3.120000000000002
-      },
-      {
-       "position": {
-        "x": 901.645408163093,
-        "y": 44.28921675880412
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 358.47178944139654
-       },
-       "time": 3.180000000000002
-      },
-      {
-       "position": {
-        "x": 912.1487897482812,
-        "y": 66.8655241252879
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 385.17178944139647
-       },
-       "time": 3.240000000000002
-      },
-      {
-       "position": {
-        "x": 922.6521713334694,
-        "y": 91.04383149177168
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 411.8717894413964
-       },
-       "time": 3.300000000000002
-      },
-      {
-       "position": {
-        "x": 933.1555529186576,
-        "y": 116.82413885825547
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 438.57178944139633
-       },
-       "time": 3.360000000000002
-      },
-      {
-       "position": {
-        "x": 943.6589345038458,
-        "y": 144.20644622473927
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 465.27178944139627
-       },
-       "time": 3.420000000000002
-      },
-      {
-       "position": {
-        "x": 954.162316089034,
-        "y": 173.19075359122306
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 491.9717894413962
-       },
-       "time": 3.480000000000002
-      },
-      {
-       "position": {
-        "x": 964.6656976742222,
-        "y": 203.77706095770682
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 518.6717894413962
-       },
-       "time": 3.5400000000000023
-      },
-      {
-       "position": {
-        "x": 975.1690792594104,
-        "y": 235.96536832419056
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 545.3717894413961
-       },
-       "time": 3.6000000000000023
-      },
-      {
-       "position": {
-        "x": 985.6724608445986,
-        "y": 269.7556756906743
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 572.071789441396
-       },
-       "time": 3.6600000000000024
-      },
-      {
-       "position": {
-        "x": 996.1758424297868,
-        "y": 305.147983057158
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 598.771789441396
-       },
-       "time": 3.7200000000000024
-      },
-      {
-       "position": {
-        "x": 1006.679224014975,
-        "y": 342.1422904236418
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 625.4717894413959
-       },
-       "time": 3.7800000000000025
-      },
-      {
-       "position": {
-        "x": 1017.1826056001632,
-        "y": 380.7385977901256
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 652.1717894413958
-       },
-       "time": 3.8400000000000025
-      },
-      {
-       "position": {
-        "x": 1027.6859871853515,
-        "y": 420.9369051566094
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 678.8717894413958
-       },
-       "time": 3.9000000000000026
-      },
-      {
-       "position": {
-        "x": 1038.1893687705397,
-        "y": 462.73721252309315
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 705.5717894413957
-       },
-       "time": 3.9600000000000026
-      },
-      {
-       "position": {
-        "x": 1040.8152141668368,
-        "y": 473.4542893647141
-       },
-       "velocity": {
-        "x": 175.05635975313763,
-        "y": 714.4717894413957
-       },
-       "time": 3.9800000000000026
-      }
-     ],
-     "hitPlayerId": "e1",
-     "explosionPoint": {
-      "x": 1040.8152141668368,
-      "y": 473.4542893647141
-     },
-     "explosionRadius": 78,
-     "craterRadius": 52,
-     "kind": "bomb",
-     "launchDelay": 0.6
     }
    ],
    "events": [
     {
      "t": 3.3800000000000026,
      "type": "explode",
-     "projectileId": "proj-03adc2f614976227",
+     "projectileId": "proj-907f7749e47db0f1",
      "position": {
       "x": 1040.8152141668368,
       "y": 473.4542893647141
@@ -6138,7 +5302,7 @@
      "t": 3.3800000000000026,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-03adc2f614976227",
+     "projectileId": "proj-907f7749e47db0f1",
      "amount": 133,
      "hp": 1367,
      "cause": "explosion"
@@ -6153,7 +5317,7 @@
     {
      "t": 3.4800000000000026,
      "type": "explode",
-     "projectileId": "proj-12198eef05a7fb50",
+     "projectileId": "proj-4363ab04836f662d",
      "position": {
       "x": 1040.8152141668368,
       "y": 473.4542893647141
@@ -6166,7 +5330,7 @@
      "t": 3.4800000000000026,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-12198eef05a7fb50",
+     "projectileId": "proj-4363ab04836f662d",
      "amount": 133,
      "hp": 1234,
      "cause": "explosion"
@@ -6174,7 +5338,7 @@
     {
      "t": 3.5800000000000027,
      "type": "explode",
-     "projectileId": "proj-e96ef900b417394b",
+     "projectileId": "proj-837ee8bfee35c1e9",
      "position": {
       "x": 1040.8152141668368,
       "y": 473.4542893647141
@@ -6187,7 +5351,7 @@
      "t": 3.5800000000000027,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-e96ef900b417394b",
+     "projectileId": "proj-837ee8bfee35c1e9",
      "amount": 133,
      "hp": 1101,
      "cause": "explosion"
@@ -6195,7 +5359,7 @@
     {
      "t": 3.6800000000000024,
      "type": "explode",
-     "projectileId": "proj-5c586482b01721be",
+     "projectileId": "proj-751717a8f20c67d6",
      "position": {
       "x": 1040.8152141668368,
       "y": 473.4542893647141
@@ -6208,7 +5372,7 @@
      "t": 3.6800000000000024,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-5c586482b01721be",
+     "projectileId": "proj-751717a8f20c67d6",
      "amount": 133,
      "hp": 968,
      "cause": "explosion"
@@ -6216,7 +5380,7 @@
     {
      "t": 3.7800000000000025,
      "type": "explode",
-     "projectileId": "proj-1a97b419d8268001",
+     "projectileId": "proj-7c48fa07f503395b",
      "position": {
       "x": 1040.8152141668368,
       "y": 473.4542893647141
@@ -6229,7 +5393,7 @@
      "t": 3.7800000000000025,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-1a97b419d8268001",
+     "projectileId": "proj-7c48fa07f503395b",
      "amount": 133,
      "hp": 835,
      "cause": "explosion"
@@ -6237,7 +5401,7 @@
     {
      "t": 3.8800000000000026,
      "type": "explode",
-     "projectileId": "proj-d9e86b1871db1d6f",
+     "projectileId": "proj-4957303467958b14",
      "position": {
       "x": 1040.8152141668368,
       "y": 473.4542893647141
@@ -6250,25 +5414,13 @@
      "t": 3.8800000000000026,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-d9e86b1871db1d6f",
+     "projectileId": "proj-4957303467958b14",
      "amount": 33,
      "hp": 802,
      "cause": "explosion"
-    },
-    {
-     "t": 3.9800000000000026,
-     "type": "explode",
-     "projectileId": "proj-493e45034b0f9683",
-     "position": {
-      "x": 1040.8152141668368,
-      "y": 473.4542893647141
-     },
-     "radius": 52,
-     "crater": "bowl",
-     "terrainVersion": 7
     }
    ],
-   "duration": 3.9800000000000026
+   "duration": 3.8800000000000026
   }
  },
  "pair": {
@@ -6385,7 +5537,7 @@
   "terrainAfter": {
    "width": 1600,
    "height": 900,
-   "version": 7,
+   "version": 6,
    "solid": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtwj+AUjDAbcIigIxzgG2CIoEtgiKBLUIiwS0CIwEtAiMBLMIjQSyCI4EsgiOBLEIjwSwCJAErwiRBK8IkQSuCJIErQiTBKwIlASsCJQEqwiVBKoIlgSpCJcEqAiYBKgImASnCJkEpgiaBKUImwSkCJwEowidBKIIngShCJ8EoAigBJ8IoQSeCKIEnQijBJsIpQSaCKYEmQinBJgIqASWCKoElQirBJMIrQTnBwMnrwTmBwYjsQTkBwofswTjBw0btQThBxIVuATgBxgLvQTeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY=",
    "destructible": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY="
   },
@@ -6401,7 +5553,7 @@
    },
    "projectiles": [
     {
-     "projectileId": "proj-9ffd008cfedeb996",
+     "projectileId": "proj-199a4ea9e95c206d",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -7043,7 +6195,7 @@
      "kind": "bomb"
     },
     {
-     "projectileId": "proj-c4ae5ff64708a2a9",
+     "projectileId": "proj-0600abbc6344ee44",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -7686,7 +6838,7 @@
      "launchDelay": 0.15411567703948492
     },
     {
-     "projectileId": "proj-58c565a4107eee74",
+     "projectileId": "proj-330d9234b3a19f17",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -8329,7 +7481,7 @@
      "launchDelay": 0.2541156770394849
     },
     {
-     "projectileId": "proj-f746a2e7f0378866",
+     "projectileId": "proj-c86d62aa4695c370",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -8972,7 +8124,7 @@
      "launchDelay": 0.3541156770394849
     },
     {
-     "projectileId": "proj-50e701aa9a4f1bf6",
+     "projectileId": "proj-a0746f206c99540f",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -9615,7 +8767,7 @@
      "launchDelay": 0.45411567703948486
     },
     {
-     "projectileId": "proj-a53b2d86180c18c2",
+     "projectileId": "proj-0d855ad09ea4062f",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -10256,656 +9408,13 @@
      "craterRadius": 52,
      "kind": "bomb",
      "launchDelay": 0.5541156770394848
-    },
-    {
-     "projectileId": "proj-cbcf9fbaa58b0ba0",
-     "ownerPlayerId": "tanko",
-     "skillId": "heavy_bomb",
-     "path": [
-      {
-       "position": {
-        "x": 450,
-        "y": 589
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -770.8833272218994
-       },
-       "time": 0.6541156770394848
-      },
-      {
-       "position": {
-        "x": 460.25404314993165,
-        "y": 543.8150003666859
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -744.1833272218995
-       },
-       "time": 0.7141156770394848
-      },
-      {
-       "position": {
-        "x": 470.5080862998633,
-        "y": 500.2320007333719
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -717.4833272218996
-       },
-       "time": 0.7741156770394848
-      },
-      {
-       "position": {
-        "x": 480.76212944979494,
-        "y": 458.2510011000579
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -690.7833272218996
-       },
-       "time": 0.8341156770394849
-      },
-      {
-       "position": {
-        "x": 491.0161725997266,
-        "y": 417.87200146674394
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -664.0833272218997
-       },
-       "time": 0.8941156770394848
-      },
-      {
-       "position": {
-        "x": 501.27021574965823,
-        "y": 379.09500183342993
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -637.3833272218998
-       },
-       "time": 0.9541156770394847
-      },
-      {
-       "position": {
-        "x": 511.5242588995899,
-        "y": 341.9200022001159
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -610.6833272218998
-       },
-       "time": 1.0141156770394848
-      },
-      {
-       "position": {
-        "x": 521.7783020495214,
-        "y": 306.34700256680185
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -583.9833272218999
-       },
-       "time": 1.0741156770394849
-      },
-      {
-       "position": {
-        "x": 532.0323451994528,
-        "y": 272.3760029334878
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -557.2833272219
-       },
-       "time": 1.134115677039485
-      },
-      {
-       "position": {
-        "x": 542.2863883493843,
-        "y": 240.00700330017384
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -530.5833272219
-       },
-       "time": 1.194115677039485
-      },
-      {
-       "position": {
-        "x": 552.5404314993158,
-        "y": 209.24000366685982
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -503.8833272219001
-       },
-       "time": 1.254115677039485
-      },
-      {
-       "position": {
-        "x": 562.7944746492473,
-        "y": 180.07500403354584
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -477.1833272219002
-       },
-       "time": 1.314115677039485
-      },
-      {
-       "position": {
-        "x": 573.0485177991787,
-        "y": 152.51200440023183
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -450.48332722190025
-       },
-       "time": 1.3741156770394851
-      },
-      {
-       "position": {
-        "x": 583.3025609491102,
-        "y": 126.5510047669178
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -423.7833272219003
-       },
-       "time": 1.4341156770394852
-      },
-      {
-       "position": {
-        "x": 593.5566040990417,
-        "y": 102.19200513360379
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -397.0833272219004
-       },
-       "time": 1.4941156770394852
-      },
-      {
-       "position": {
-        "x": 603.8106472489732,
-        "y": 79.43500550028975
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -370.38332722190046
-       },
-       "time": 1.5541156770394853
-      },
-      {
-       "position": {
-        "x": 614.0646903989046,
-        "y": 58.28000586697573
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -343.6833272219005
-       },
-       "time": 1.6141156770394853
-      },
-      {
-       "position": {
-        "x": 624.3187335488361,
-        "y": 38.72700623366169
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -316.9833272219006
-       },
-       "time": 1.6741156770394854
-      },
-      {
-       "position": {
-        "x": 634.5727766987676,
-        "y": 20.77600660034765
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -290.28332722190066
-       },
-       "time": 1.7341156770394854
-      },
-      {
-       "position": {
-        "x": 644.8268198486991,
-        "y": 4.427006967033607
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -263.58332722190073
-       },
-       "time": 1.7941156770394855
-      },
-      {
-       "position": {
-        "x": 655.0808629986306,
-        "y": -10.319992666280436
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -236.88332722190071
-       },
-       "time": 1.8541156770394855
-      },
-      {
-       "position": {
-        "x": 665.334906148562,
-        "y": -23.46499229959448
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -210.1833272219007
-       },
-       "time": 1.9141156770394856
-      },
-      {
-       "position": {
-        "x": 675.5889492984935,
-        "y": -35.007991932908524
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -183.48332722190068
-       },
-       "time": 1.9741156770394857
-      },
-      {
-       "position": {
-        "x": 685.842992448425,
-        "y": -44.94899156622256
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -156.78332722190066
-       },
-       "time": 2.0341156770394857
-      },
-      {
-       "position": {
-        "x": 696.0970355983565,
-        "y": -53.2879911995366
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -130.08332722190065
-       },
-       "time": 2.0941156770394858
-      },
-      {
-       "position": {
-        "x": 706.3510787482879,
-        "y": -60.024990832850634
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -103.38332722190063
-       },
-       "time": 2.154115677039486
-      },
-      {
-       "position": {
-        "x": 716.6051218982194,
-        "y": -65.15999046616467
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -76.68332722190061
-       },
-       "time": 2.214115677039486
-      },
-      {
-       "position": {
-        "x": 726.8591650481509,
-        "y": -68.6929900994787
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -49.98332722190061
-       },
-       "time": 2.274115677039486
-      },
-      {
-       "position": {
-        "x": 737.1132081980824,
-        "y": -70.62398973279274
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": -23.283327221900613
-       },
-       "time": 2.334115677039486
-      },
-      {
-       "position": {
-        "x": 747.3672513480138,
-        "y": -70.95298936610678
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 3.4166727780993877
-       },
-       "time": 2.394115677039486
-      },
-      {
-       "position": {
-        "x": 757.6212944979453,
-        "y": -69.67998899942081
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 30.116672778099385
-       },
-       "time": 2.454115677039486
-      },
-      {
-       "position": {
-        "x": 767.8753376478768,
-        "y": -66.80498863273486
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 56.81667277809938
-       },
-       "time": 2.514115677039486
-      },
-      {
-       "position": {
-        "x": 778.1293807978083,
-        "y": -62.32798826604889
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 83.51667277809939
-       },
-       "time": 2.574115677039486
-      },
-      {
-       "position": {
-        "x": 788.3834239477397,
-        "y": -56.24898789936293
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 110.21667277809941
-       },
-       "time": 2.6341156770394862
-      },
-      {
-       "position": {
-        "x": 798.6374670976712,
-        "y": -48.567987532676966
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 136.9166727780994
-       },
-       "time": 2.6941156770394863
-      },
-      {
-       "position": {
-        "x": 808.8915102476027,
-        "y": -39.284987165991
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 163.61667277809943
-       },
-       "time": 2.7541156770394863
-      },
-      {
-       "position": {
-        "x": 819.1455533975342,
-        "y": -28.399986799305033
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 190.31667277809944
-       },
-       "time": 2.8141156770394864
-      },
-      {
-       "position": {
-        "x": 829.3995965474656,
-        "y": -15.912986432619068
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 217.01667277809946
-       },
-       "time": 2.8741156770394864
-      },
-      {
-       "position": {
-        "x": 839.6536396973971,
-        "y": -1.823986065933098
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 243.71667277809948
-       },
-       "time": 2.9341156770394865
-      },
-      {
-       "position": {
-        "x": 849.9076828473286,
-        "y": 13.867014300752869
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 270.41667277809944
-       },
-       "time": 2.9941156770394866
-      },
-      {
-       "position": {
-        "x": 860.1617259972601,
-        "y": 31.160014667438833
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 297.11667277809937
-       },
-       "time": 3.0541156770394866
-      },
-      {
-       "position": {
-        "x": 870.4157691471916,
-        "y": 50.05501503412479
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 323.8166727780993
-       },
-       "time": 3.1141156770394867
-      },
-      {
-       "position": {
-        "x": 880.669812297123,
-        "y": 70.55201540081075
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 350.51667277809923
-       },
-       "time": 3.1741156770394867
-      },
-      {
-       "position": {
-        "x": 890.9238554470545,
-        "y": 92.6510157674967
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 377.21667277809917
-       },
-       "time": 3.2341156770394868
-      },
-      {
-       "position": {
-        "x": 901.177898596986,
-        "y": 116.35201613418265
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 403.9166727780991
-       },
-       "time": 3.294115677039487
-      },
-      {
-       "position": {
-        "x": 911.4319417469175,
-        "y": 141.65501650086858
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 430.61667277809903
-       },
-       "time": 3.354115677039487
-      },
-      {
-       "position": {
-        "x": 921.6859848968489,
-        "y": 168.5600168675545
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 457.31667277809896
-       },
-       "time": 3.414115677039487
-      },
-      {
-       "position": {
-        "x": 931.9400280467804,
-        "y": 197.0670172342404
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 484.0166727780989
-       },
-       "time": 3.474115677039487
-      },
-      {
-       "position": {
-        "x": 942.1940711967119,
-        "y": 227.17601760092637
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 510.7166727780988
-       },
-       "time": 3.534115677039487
-      },
-      {
-       "position": {
-        "x": 952.4481143466434,
-        "y": 258.88701796761234
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 537.4166727780988
-       },
-       "time": 3.594115677039487
-      },
-      {
-       "position": {
-        "x": 962.7021574965748,
-        "y": 292.20001833429825
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 564.1166727780987
-       },
-       "time": 3.654115677039487
-      },
-      {
-       "position": {
-        "x": 972.9562006465063,
-        "y": 327.11501870098414
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 590.8166727780987
-       },
-       "time": 3.714115677039487
-      },
-      {
-       "position": {
-        "x": 983.2102437964378,
-        "y": 363.63201906767
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 617.5166727780986
-       },
-       "time": 3.7741156770394872
-      },
-      {
-       "position": {
-        "x": 993.4642869463693,
-        "y": 401.75101943435584
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 644.2166727780985
-       },
-       "time": 3.8341156770394873
-      },
-      {
-       "position": {
-        "x": 1003.7183300963007,
-        "y": 441.4720198010418
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 670.9166727780985
-       },
-       "time": 3.8941156770394874
-      },
-      {
-       "position": {
-        "x": 1013.9723732462322,
-        "y": 482.7950201677278
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 697.6166727780984
-       },
-       "time": 3.9541156770394874
-      },
-      {
-       "position": {
-        "x": 1020.8084020128532,
-        "y": 511.23368707885174
-       },
-       "velocity": {
-        "x": 170.90071916552606,
-        "y": 715.4166727780984
-       },
-       "time": 3.9941156770394874
-      }
-     ],
-     "hitPlayerId": "e1",
-     "explosionPoint": {
-      "x": 1020.8084020128532,
-      "y": 511.23368707885174
-     },
-     "explosionRadius": 78,
-     "craterRadius": 52,
-     "kind": "bomb",
-     "launchDelay": 0.6541156770394848
     }
    ],
    "events": [
     {
      "t": 3.3400000000000025,
      "type": "explode",
-     "projectileId": "proj-9ffd008cfedeb996",
+     "projectileId": "proj-199a4ea9e95c206d",
      "position": {
       "x": 1020.8084020128532,
       "y": 511.23368707885174
@@ -10918,7 +9427,7 @@
      "t": 3.3400000000000025,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-9ffd008cfedeb996",
+     "projectileId": "proj-199a4ea9e95c206d",
      "amount": 133,
      "hp": 1367,
      "cause": "explosion"
@@ -10927,7 +9436,7 @@
      "t": 3.3400000000000025,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-9ffd008cfedeb996",
+     "projectileId": "proj-199a4ea9e95c206d",
      "amount": 50,
      "hp": 1200,
      "cause": "explosion"
@@ -10963,7 +9472,7 @@
     {
      "t": 3.4941156770394874,
      "type": "explode",
-     "projectileId": "proj-c4ae5ff64708a2a9",
+     "projectileId": "proj-0600abbc6344ee44",
      "position": {
       "x": 1020.8084020128532,
       "y": 511.23368707885174
@@ -10976,7 +9485,7 @@
      "t": 3.4941156770394874,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-c4ae5ff64708a2a9",
+     "projectileId": "proj-0600abbc6344ee44",
      "amount": 133,
      "hp": 1234,
      "cause": "explosion"
@@ -10985,7 +9494,7 @@
      "t": 3.4941156770394874,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-c4ae5ff64708a2a9",
+     "projectileId": "proj-0600abbc6344ee44",
      "amount": 50,
      "hp": 1150,
      "cause": "explosion"
@@ -10993,7 +9502,7 @@
     {
      "t": 3.5941156770394875,
      "type": "explode",
-     "projectileId": "proj-58c565a4107eee74",
+     "projectileId": "proj-330d9234b3a19f17",
      "position": {
       "x": 1020.8084020128532,
       "y": 511.23368707885174
@@ -11006,7 +9515,7 @@
      "t": 3.5941156770394875,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-58c565a4107eee74",
+     "projectileId": "proj-330d9234b3a19f17",
      "amount": 133,
      "hp": 1101,
      "cause": "explosion"
@@ -11015,7 +9524,7 @@
      "t": 3.5941156770394875,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-58c565a4107eee74",
+     "projectileId": "proj-330d9234b3a19f17",
      "amount": 50,
      "hp": 1100,
      "cause": "explosion"
@@ -11023,7 +9532,7 @@
     {
      "t": 3.6941156770394876,
      "type": "explode",
-     "projectileId": "proj-f746a2e7f0378866",
+     "projectileId": "proj-c86d62aa4695c370",
      "position": {
       "x": 1020.8084020128532,
       "y": 511.23368707885174
@@ -11036,7 +9545,7 @@
      "t": 3.6941156770394876,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-f746a2e7f0378866",
+     "projectileId": "proj-c86d62aa4695c370",
      "amount": 133,
      "hp": 968,
      "cause": "explosion"
@@ -11045,7 +9554,7 @@
      "t": 3.6941156770394876,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-f746a2e7f0378866",
+     "projectileId": "proj-c86d62aa4695c370",
      "amount": 50,
      "hp": 1050,
      "cause": "explosion"
@@ -11053,7 +9562,7 @@
     {
      "t": 3.7941156770394873,
      "type": "explode",
-     "projectileId": "proj-50e701aa9a4f1bf6",
+     "projectileId": "proj-a0746f206c99540f",
      "position": {
       "x": 1020.8084020128532,
       "y": 511.23368707885174
@@ -11066,7 +9575,7 @@
      "t": 3.7941156770394873,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-50e701aa9a4f1bf6",
+     "projectileId": "proj-a0746f206c99540f",
      "amount": 133,
      "hp": 835,
      "cause": "explosion"
@@ -11075,7 +9584,7 @@
      "t": 3.7941156770394873,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-50e701aa9a4f1bf6",
+     "projectileId": "proj-a0746f206c99540f",
      "amount": 50,
      "hp": 1000,
      "cause": "explosion"
@@ -11083,7 +9592,7 @@
     {
      "t": 3.8941156770394874,
      "type": "explode",
-     "projectileId": "proj-a53b2d86180c18c2",
+     "projectileId": "proj-0d855ad09ea4062f",
      "position": {
       "x": 1020.8084020128532,
       "y": 511.23368707885174
@@ -11096,7 +9605,7 @@
      "t": 3.8941156770394874,
      "type": "damage",
      "playerId": "e1",
-     "projectileId": "proj-a53b2d86180c18c2",
+     "projectileId": "proj-0d855ad09ea4062f",
      "amount": 33,
      "hp": 802,
      "cause": "explosion"
@@ -11105,34 +9614,13 @@
      "t": 3.8941156770394874,
      "type": "damage",
      "playerId": "e2",
-     "projectileId": "proj-a53b2d86180c18c2",
+     "projectileId": "proj-0d855ad09ea4062f",
      "amount": 50,
      "hp": 950,
      "cause": "explosion"
-    },
-    {
-     "t": 3.9941156770394874,
-     "type": "explode",
-     "projectileId": "proj-cbcf9fbaa58b0ba0",
-     "position": {
-      "x": 1020.8084020128532,
-      "y": 511.23368707885174
-     },
-     "radius": 52,
-     "crater": "bowl",
-     "terrainVersion": 7
-    },
-    {
-     "t": 3.9941156770394874,
-     "type": "damage",
-     "playerId": "e2",
-     "projectileId": "proj-cbcf9fbaa58b0ba0",
-     "amount": 50,
-     "hp": 900,
-     "cause": "explosion"
     }
    ],
-   "duration": 3.9941156770394874
+   "duration": 3.8941156770394874
   }
  },
  "vertical": {
@@ -11216,8 +9704,8 @@
   "terrainAfter": {
    "width": 1600,
    "height": 900,
-   "version": 7,
-   "solid": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgapBpkGpQadBqIGoAaeBqQGmgaoBpcGqwaTBq8GkAayBowGtgaIBrsGqgMC2AK+BqgDBtICwgbxAQWvAQvMAsYG6wEJrwEPxwLKBuMBD60BE8ICzgbdAROtARe8AtMG1QEYrQEbtgLXBs8BHasBH7IC2wbIASGrASKtAt8GwQEnqQEnpwLkBroBK6kBKqIC6QazATCnAS+cAu4GqwE1pwEymALyBqQBOacBNZMC9wacAT+lATmOAv0GkwFEpQE8iQKCB4wBSaMBQYMCiAeDAU6jAUT+AY4HeVWhAUj5AZQHcFqhAUv0AZsHZWGfAU/vAaIHWWifAVLqAasHS2+fAVbkAbQHPHidAVreAcIHJYQBnQFd2QHuCJsBYdQB8AibAWTPAfMImQFpyAH2CJkBbMMB+QiXAXC9AfwIlwF0twH/CJUBeLEBggmVAXyqAYYJkwGAAaUB9gi3AXKeAfoItQF3lwH9CLUBe5ABgAm1AX+IAYUJswGEAYEBiAmzAYgBeY0JsQGOAXCRCbEBkwFnlQmxAZgBXpoJrwGfAVKgCa8BpQFGpwmtAa4BN64JrQG5ASK4Ca0BlAurAZULqwGWC6kBlwupAZgLpwGZC6cBmQunAZoLpQGbC6UBnAujAZ0LowGeC6EBnwuhAaALnwGhC58BoQufAaILnQGjC50BpAubAaULmwGmC5kBpwuZAagLlwGpC5cBqguVAasLlQGaC7cBigu1AYsLtQGLC7UBjAuzAY0LswGOC7EBjwuxAY8LsQGQC68BkQuvAZILrQGTC60BkwutAZQLqwGVC6sBlgupAZcLqQGYC6cBmQunAZkLpwGaC6UBmwulAZwLowGdC6MBnguhAZ8LoQGgC58BoQufAaELnwGiC50BowudAaQLmwGlC5sBpguZAacLmQGoC5cBqQuXAaoLlQGrC5UBrAuTAZsLtwGKC7UBiwu1AYsLtQGMC7MBjQuzAY4LsQGPC7EBjwuxAZALrwGRC68BkgutAZMLrQGTC60BlAurAZULqwGWC6kBlwupAZgLpwGZC6cBmQunAZoLpQGbC6UBnAujAZ0LowGeC6EBnwuhAaALnwGhC58BoQufAaILnQGjC50BpAubAaULmwGmC5kBpwuZAagLlwGpC5cBqguVAasLlQGsC5MBmwu3AYoLtQGLC7UBiwu1AYwLswGNC7MBjguxAY8LsQGPC7EBkAuvAZELrwGSC60BkwutAZMLrQGUC6sBlQurAZYLqQGXC6kBmAunAZkLpwGZC6cBmgulAZsLpQGcC6MBnQujAZ4LoQGfC6EBoAufAaELnwGhC58BogudAaMLnQGkC5sBpQubAaYLmQGnC5kBqAuXAakLlwGqC5UBqwuVAawLkwGtC5MBrguRAa8LkQGwC48BsQuPAbILjQGzC40BtAuLAbULiwG2C4kBtwuJAbgLhwG5C4cBuguFAbsLhQG8C4MBvguBAb8LgQHAC3/BC3/CC33DC33EC3vGC3nHC3nIC3fJC3fKC3XMC3PNC3POC3HPC3HQC2/SC23TC23UC2vWC2nXC2nYC2faC2XcC2PdC2PeC2HgC1/iC13jC13kC1vmC1noC1fqC1XrC1XsC1PuC1HwC0/yC030C0v2C0n4C0f6C0X8C0P+C0GADD+DDDuGDDmIDDeKDDWNDDGQDC+TDCuXDCebDCOfDB+jDBuoDBWwDAu4eQ==",
+   "version": 6,
+   "solid": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgapBpkGpQadBqIGoAaeBqQGmgaoBpcGqwaTBq8GkAayBowGtgaIBrsGqgMC2AK+BqgDBtICwgbxAQWvAQvMAsYG6wEJrwEPxwLKBuMBD60BE8ICzgbdAROtARe8AtMG1QEYrQEbtgLXBs8BHasBH7IC2wbIASGrASKtAt8GwQEnqQEnpwLkBroBK6kBKqIC6QazATCnAS+cAu4GqwE1pwEymALyBqQBOacBNZMC9wacAT+lATmOAv0GkwFEpQE8iQKCB4wBSaMBQYMCiAeDAU6jAUT+AY4HeVWhAUj5AZQHcFqhAUv0AZsHZWGfAU/vAaIHWWifAVLqAasHS2+fAVbkAbQHPHidAVreAcIHJYQBnQFd2QHuCJsBYdQB8AibAWTPAfMImQFpyAH2CJkBbMMB+QiXAXC9AfwIlwF0twH/CJUBeLEBggmVAXyqAYYJkwGAAaUB9gi3AXKeAfoItQF3lwH9CLUBe5ABgAm1AX+IAYUJswGEAYEBiAmzAYgBeY0JsQGOAXCRCbEBkwFnlQmxAZgBXpoJrwGfAVKgCa8BpQFGpwmtAa4BN64JrQG5ASK4Ca0BlAurAZULqwGWC6kBlwupAZgLpwGZC6cBmQunAZoLpQGbC6UBnAujAZ0LowGeC6EBnwuhAaALnwGhC58BoQufAaILnQGjC50BpAubAaULmwGmC5kBpwuZAagLlwGpC5cBqguVAasLlQGaC7cBigu1AYsLtQGLC7UBjAuzAY0LswGOC7EBjwuxAY8LsQGQC68BkQuvAZILrQGTC60BkwutAZQLqwGVC6sBlgupAZcLqQGYC6cBmQunAZkLpwGaC6UBmwulAZwLowGdC6MBnguhAZ8LoQGgC58BoQufAaELnwGiC50BowudAaQLmwGlC5sBpguZAacLmQGoC5cBqQuXAaoLlQGrC5UBrAuTAZsLtwGKC7UBiwu1AYsLtQGMC7MBjQuzAY4LsQGPC7EBjwuxAZALrwGRC68BkgutAZMLrQGTC60BlAurAZULqwGWC6kBlwupAZgLpwGZC6cBmQunAZoLpQGbC6UBnAujAZ0LowGeC6EBnwuhAaALnwGhC58BoQufAaILnQGjC50BpAubAaULmwGmC5kBpwuZAagLlwGpC5cBqguVAasLlQGsC5MBrQuTAa4LkQGvC5EBsAuPAbELjwGyC40BswuNAbQLiwG1C4sBtguJAbcLiQG4C4cBuQuHAboLhQG7C4UBvAuDAb4LgQG/C4EBwAt/wQt/wgt9wwt9xAt7xgt5xwt5yAt3yQt3ygt1zAtzzQtzzgtxzwtx0Atv0gtt0wtt1Atr1gtp1wtp2Atn2gtl3Atj3Qtj3gth4Atf4gtd4wtd5Atb5gtZ6AtX6gtV6wtV7AtT7gtR8AtP8gtN9AtL9gtJ+AtH+gtF/AtD/gtBgAw/gww7hgw5iAw3igw1jQwxkAwvkwwrlwwnmwwjnwwfowwbqAwVsAwL+PkE",
    "destructible": "vYgrA7sMBbgMCLUMC7MMDbAMEK0ME6sMFagMGKYMGqMMHaEMH54MIpwMJJkMJ5cMKZQMLJIMLpAMMI0MM4sMNYgMOIYMOoMMPYEMP/4LQvwLRPoLRvcLSfULS/ILTvALUO0LU+oLVugLWOULW+MLXeALYN0LY9oLZtgLaNULa9ILbs8LcYcJJaACdPsIPpACd/MIUIMCeuwIYPcBfeYIbe0BgAHhCHrhAYQB3QiEAdgBhwHYCJABzQGLAdUImQHEAY4B0QijAboBkgHNCK4BrwGWAcoItwGlAZoBxwjAAZsBngHECMoBjwGjAcEI0wGEAagBvgjdAXeuAbsI6AFptAG4CPMBWrsBtgj/AUjDAbMIjgIxzgGxCI8ErgiSBKwIlASqCJYEpwiZBKUImwSjCJ0EoQifBJ8IoQScCKQEmgimBJgIqASWCKoElAisBJMIrQSRCK8EjwixBI0IswSLCLUEiQi3BIcIuQSGCLoEhAi8BIIIvgSACMAE/gfCBP0HwwT7B8UE+QfHBPgHyAT2B8oE9AfMBPMHzQTxB88E7wfRBO4H0gTsB9QE6wfVBOkH1wTnB9kE5gfaBOQH3ATjB90E4QffBOAH4ATeB+ME3AflBNkH6ATXB+sE0wfuBNEH8QTNB/QEywf3BMcH+gTFB/wEwgeABb8HggW8B4YFuQeIBbYHjAWzB44FsAeRBa4HlAWqB5cFqAeaBaQHnQWiB6AFngejBZwHpgWYB6kFlgesBZMHrgWQB7IFjQe0BYoHuAWHB7oFhAe+BYEHwAX+BsQF+wbGBfgGygX1BswF8wbPBe8G0wXsBtUF6QbZBeYG2wXjBt8F4AbiBdwG5QXaBugF1gbrBdQG7gXQBvIFzQb1BckG+AXHBvsFwwb/BcAGgQa9BoUGugaIBrYGjAazBo8GrwaSBqwGlgbZAiepA5kGygJBmgOdBr8CUpEDoAa1AmKHA6QGrAJv/wKoBqQCe/gCqwacAoYB8QKvBpUCkAHrArIGjQKbAeQCtgaGAqQB3gK7Bv4BrgHYAr4G+AG2AdICwgbxAb8BzALGBusBxwHHAsoG4wHPAcICzgbdAdcBvALTBtUB4AG2AtcGzwHnAbIC2wbIAe4BrQLfBsEB9wGnAuQGugH+AaIC6QazAYYCnALuBqsBjgKYAvIGpAGVApMC9wacAZ0CjgL9BpMBpQKJAoIHjAGtAoMCiAeDAbUC/gGOB3m+AvkBlAdwxgL0AZsHZc8C7wGiB1nZAuoBqwdL5ALkAbQHPO8C3gHCByX+AtkB6grUAe8KzwH1CsgB+wrDAYALvQGHC7cBjAuxAZMLqgGZC6UBnwueAaYLlwGtC5ABtAuIAbwLgQHDC3nMC3DVC2feC17oC1L0C0aCDDeUDCLM8xY="
   },
   "shot": {
@@ -11231,7 +9719,7 @@
    },
    "projectiles": [
     {
-     "projectileId": "proj-a95a4f5cc1b9d9cd",
+     "projectileId": "proj-e5fd33b900e36682",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -11366,7 +9854,7 @@
      "kind": "bomb"
     },
     {
-     "projectileId": "proj-4b04f7a4d2cb9749",
+     "projectileId": "proj-2bc3e21645b8307d",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -11535,7 +10023,7 @@
      "launchDelay": 0.1
     },
     {
-     "projectileId": "proj-5a91c6d257114738",
+     "projectileId": "proj-6b3b85d6d57b49f2",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -11737,7 +10225,7 @@
      "launchDelay": 0.2
     },
     {
-     "projectileId": "proj-3b608d16a6778a24",
+     "projectileId": "proj-20bb09f511f3409e",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -11961,7 +10449,7 @@
      "launchDelay": 0.3013330506675147
     },
     {
-     "projectileId": "proj-60651a88d070a63e",
+     "projectileId": "proj-95f9d66f2d67752b",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -12196,7 +10684,7 @@
      "launchDelay": 0.4244218587248221
     },
     {
-     "projectileId": "proj-8060dea355069886",
+     "projectileId": "proj-f6dc2e4f985a8b32",
      "ownerPlayerId": "tanko",
      "skillId": "heavy_bomb",
      "path": [
@@ -12451,281 +10939,13 @@
      "craterRadius": 52,
      "kind": "bomb",
      "launchDelay": 0.5457549093923366
-    },
-    {
-     "projectileId": "proj-a3f0412782f640a7",
-     "ownerPlayerId": "tanko",
-     "skillId": "heavy_bomb",
-     "path": [
-      {
-       "position": {
-        "x": 450,
-        "y": 589
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": -96
-       },
-       "time": 0.688843717449644
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 584.3080000000001
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": -69.29999999999998
-       },
-       "time": 0.7488437174496441
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 581.2180000000002
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": -42.59999999999999
-       },
-       "time": 0.808843717449644
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 579.7300000000002
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": -15.89999999999999
-       },
-       "time": 0.868843717449644
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 579.8440000000003
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 10.800000000000011
-       },
-       "time": 0.928843717449644
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 581.5600000000003
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 37.50000000000001
-       },
-       "time": 0.988843717449644
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 584.8780000000003
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 64.2
-       },
-       "time": 1.048843717449644
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 589.7980000000002
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 90.90000000000002
-       },
-       "time": 1.1088437174496442
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 596.3200000000002
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 117.60000000000004
-       },
-       "time": 1.1688437174496442
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 604.4440000000001
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 144.30000000000004
-       },
-       "time": 1.228843717449644
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 614.17
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 171.00000000000006
-       },
-       "time": 1.288843717449644
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 625.4979999999998
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 197.70000000000007
-       },
-       "time": 1.3488437174496442
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 638.4279999999998
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 224.4000000000001
-       },
-       "time": 1.4088437174496442
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 652.9599999999999
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 251.1000000000001
-       },
-       "time": 1.4688437174496443
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 669.094
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 277.80000000000007
-       },
-       "time": 1.5288437174496443
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 686.8300000000002
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 304.5
-       },
-       "time": 1.5888437174496444
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 706.1680000000002
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 331.19999999999993
-       },
-       "time": 1.6488437174496444
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 727.1080000000003
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 357.89999999999986
-       },
-       "time": 1.7088437174496445
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 749.6500000000003
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 384.5999999999998
-       },
-       "time": 1.7688437174496445
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 773.7940000000003
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 411.2999999999997
-       },
-       "time": 1.8288437174496446
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 799.5400000000003
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 437.99999999999966
-       },
-       "time": 1.8888437174496446
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 826.8880000000003
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 464.6999999999996
-       },
-       "time": 1.9488437174496447
-      },
-      {
-       "position": {
-        "x": 450,
-        "y": 852.5620000000002
-       },
-       "velocity": {
-        "x": 5.878304635907287e-15,
-        "y": 491.3999999999995
-       },
-       "time": 2.0088437174496447
-      }
-     ],
-     "explosionPoint": {
-      "x": 450,
-      "y": 852.5620000000002
-     },
-     "explosionRadius": 78,
-     "craterRadius": 52,
-     "kind": "bomb",
-     "launchDelay": 0.688843717449644
     }
    ],
    "events": [
     {
      "t": 0.5800000000000002,
      "type": "explode",
-     "projectileId": "proj-a95a4f5cc1b9d9cd",
+     "projectileId": "proj-e5fd33b900e36682",
      "position": {
       "x": 450,
       "y": 610.75
@@ -12751,7 +10971,7 @@
     {
      "t": 0.8800000000000003,
      "type": "explode",
-     "projectileId": "proj-4b04f7a4d2cb9749",
+     "projectileId": "proj-2bc3e21645b8307d",
      "position": {
       "x": 450,
       "y": 650.4489999999998
@@ -12777,7 +10997,7 @@
     {
      "t": 1.1200000000000006,
      "type": "explode",
-     "projectileId": "proj-5a91c6d257114738",
+     "projectileId": "proj-6b3b85d6d57b49f2",
      "position": {
       "x": 450,
       "y": 689.9640000000002
@@ -12803,7 +11023,7 @@
     {
      "t": 1.3413330506675152,
      "type": "explode",
-     "projectileId": "proj-3b608d16a6778a24",
+     "projectileId": "proj-20bb09f511f3409e",
      "position": {
       "x": 450,
       "y": 730.7760000000003
@@ -12829,7 +11049,7 @@
     {
      "t": 1.5644218587248226,
      "type": "explode",
-     "projectileId": "proj-60651a88d070a63e",
+     "projectileId": "proj-95f9d66f2d67752b",
      "position": {
       "x": 450,
       "y": 771.0520000000004
@@ -12855,7 +11075,7 @@
     {
      "t": 1.7857549093923373,
      "type": "explode",
-     "projectileId": "proj-8060dea355069886",
+     "projectileId": "proj-f6dc2e4f985a8b32",
      "position": {
       "x": 450,
       "y": 811.516666666667
@@ -12877,35 +11097,9 @@
       "y": 850
      },
      "duration": 0.14308880805730728
-    },
-    {
-     "t": 2.0088437174496447,
-     "type": "explode",
-     "projectileId": "proj-a3f0412782f640a7",
-     "position": {
-      "x": 450,
-      "y": 852.5620000000002
-     },
-     "radius": 52,
-     "crater": "bowl",
-     "terrainVersion": 7
-    },
-    {
-     "t": 2.0088437174496447,
-     "type": "fall",
-     "playerId": "tanko",
-     "from": {
-      "x": 450,
-      "y": 850
-     },
-     "to": {
-      "x": 450,
-      "y": 891
-     },
-     "duration": 0.14308880805730728
     }
    ],
-   "duration": 2.151932525506952
+   "duration": 1.9288437174496447
   }
  }
 }

@@ -28,7 +28,7 @@ func test_server_chain_is_coherent_to_replay() -> void:
 		check(cases.has(k), "case " + k)
 		var tl = ShotTimeline.new(cases[k]["shot"])
 		eq(tl.skill_id, "heavy_bomb", k + " skill")
-		eq(tl.projectiles.size(), 7, k + " bombs at rank 4")
+		eq(tl.projectiles.size(), 6, k + " bombs at rank 4")
 		for i in range(1, tl.projectiles.size()):
 			eq(tl.kind(i), "bomb", "%s bomb %d kind" % [k, i])
 			check(tl.launch_time(i) >= tl.launch_time(i - 1) + 0.1 - 1e-6, "%s bomb %d leaves 0.1 s after the previous" % [k, i])

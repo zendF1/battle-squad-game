@@ -54,7 +54,9 @@ func skill_name() -> String:
 
 
 func describe(rank: int) -> String:
-	return "Bắn %d quả bom lớn liên tiếp cùng đường bay (+1 mỗi cấp súng), đào sâu một hố; tổng %d%% sát thương, mỗi địch nhận tối đa %d%%; địch trúng bị cầm chân lượt sau." % [3 + rank, 180 + 15 * rank, 120 + 15 * rank]
+	# the server's chainCount / chainEach / chainCap (skill_bombchain.go): 2 + rank bombs, each
+	# (180 + 15 × rank)% / (3 + rank) of the base damage
+	return "Bắn %d quả bom lớn liên tiếp cùng đường bay (+1 mỗi cấp súng), đào sâu một hố; mỗi quả %d%% sát thương, mỗi địch nhận tối đa %d%%; địch trúng bị cầm chân lượt sau." % [2 + rank, roundi((180.0 + 15.0 * rank) / (3 + rank)), 120 + 15 * rank]
 
 
 ## The chain's hits on a player count up in one number (DamageTally).
