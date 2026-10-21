@@ -4,8 +4,9 @@ extends RefCounted
 ##   wind (dir × power × WIND_SCALE × windInfluence / projectileWeight), terrain (drilling
 ##   through `pierce` px of it), enemy bodies (the shell stops within HIT_RADIUS of a body
 ##   centre; allies never stop it), MAX_FLIGHT s. Its end X and time T are never drawn;
-## - the guide arc: the same exact flight (wind included), only the first arc_fraction(tier) of
-##   T (shorter the higher the local player's rank tier), its end faded out.
+## - the guide arc: the same exact flight (wind included), only its first arc_length(tier) px
+##   (shorter the higher the local player's rank tier; the same length whatever the power, cut
+##   short only where the flight itself ends), its end faded out.
 ## No landing marker (playtest: too easy to aim): what is shown from the exact flight is
 ## - the guide arc (above);
 ## - "Trúng!" (is_hit(): an animated bullseye on that enemy, aim_input.gd) when the exact path
@@ -18,9 +19,10 @@ extends RefCounted
 const Trajectory := preload("res://match/aim/trajectory_predictor.gd")
 
 # ── Tuning ──────────────────────────────────────────────────────────────────
-## Part of the exact flight time the guide arc covers, by the rank tier
-## (ratingToTier ids). No / an unknown rank counts as DEFAULT_TIER.
-const ARC_FRACTION := {"bronze": 0.6, "silver": 0.5, "gold": 0.4, "platinum": 0.3, "diamond": 0.22, "master": 0.15}
+## The guide arc's length along the path (px), by the rank tier (ratingToTier ids); the same
+## for every power (playtest: it used to be a share of the flight time, so weak shots got a
+## short guide). No / an unknown rank counts as DEFAULT_TIER.
+const ARC_LENGTH := {"bronze": 450.0, "silver": 375.0, "gold": 300.0, "platinum": 225.0, "diamond": 165.0, "master": 115.0}
 const DEFAULT_TIER := "bronze"
 const ARC_FADE_FROM := 0.55 # the arc is solid to this part of its length, then fades out
 ## The "Trúng!" tolerance r = TOL_MAX × min(1, TOL_MIN_PART + (1 − TOL_MIN_PART) ×
@@ -40,8 +42,27 @@ const OUT_RIGHT := 100.0
 const OUT_BELOW := 50.0
 
 
-static func arc_fraction(tier: String) -> float:
-	return float(ARC_FRACTION.get(tier, ARC_FRACTION[DEFAULT_TIER]))
+static func arc_length(tier: String) -> float:
+	return float(ARC_LENGTH.get(tier, ARC_LENGTH[DEFAULT_TIER]))
+
+
+## The start of a path (points) up to `length` px along it, its last point interpolated; the
+## whole path when it is shorter.
+static func trim_to_length(points: PackedVector2Array, length: float) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	if points.is_empty():
+		return out
+	out.append(points[0])
+	var left := length
+	for i in range(1, points.size()):
+		var seg := points[i - 1].distance_to(points[i])
+		if seg >= left:
+			if left > 0.0:
+				out.append(points[i - 1].lerp(points[i], left / seg))
+			return out
+		left -= seg
+		out.append(points[i])
+	return out
 
 
 ## The wind's acceleration on the shell (px/s²): dir × power × WIND_SCALE × influence / weight.

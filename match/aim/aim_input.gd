@@ -10,7 +10,8 @@ extends Node2D
 ## The aiming aid (match/aim/aim_aid.gd, its constants there), one per entry of preview_offsets
 ## (degrees added to the aimed angle, e.g. three for a triple shot):
 ## - the guide arc: the exact flight (the weapon's wind included) over only the first
-##   AimAid.arc_fraction(rank_tier) of its time (60 % at bronze or no rank ... 15 % at master), fading out;
+##   AimAid.arc_length(rank_tier) px (450 at bronze or no rank ... 115 at master, whatever the
+##   power), fading out;
 ## - "Trúng!": the exact path (AimAid.fly(), flown like the server with the weapon's
 ##   wind_influence / projectile_weight, enemies and a drill's pierce) comes within
 ##   AimAid.HIT_RADIUS + hit_tolerance() of an enemy body (enemies: their body centres): that
@@ -48,6 +49,7 @@ const ARC_COLOR := Color(1, 1, 1, 0.55) # the air strike's drop preview
 const ARC_WIDTH := 4.0
 const GUIDE_COLOR := Color(1, 1, 1, 0.48) # the guide arc, over a soft dark shadow (any sky)
 const GUIDE_WIDTH := 3.0
+const GUIDE_MAX_POINTS := 240 # steps simulated for the guide (TIME_STEP each), then trimmed by length
 const GUIDE_SHADOW := Color(0.03, 0.04, 0.12, 0.19)
 const GUIDE_SHADOW_WIDTH := 6.0
 const LINE_COLOR := Color(0.78, 0.97, 1.0, 0.85) # line_mode: the beam preview
@@ -246,7 +248,7 @@ func _update(pointer: Vector2) -> void:
 		return
 	_angle = clampf(rad_to_deg(atan2(d.y, -d.x)), 0.0, 180.0)
 	var accel := AimAid.wind_accel(wind_dir, wind_power, wind_influence, projectile_weight)
-	var part := AimAid.arc_fraction(rank_tier)
+	var guide_len := AimAid.arc_length(rank_tier)
 	for i in range(preview_offsets.size(), _lines.size()):
 		if not _lines[i].points.is_empty():
 			_lines[i].points = PackedVector2Array()
@@ -254,11 +256,10 @@ func _update(pointer: Vector2) -> void:
 		var a := _angle + float(preview_offsets[i])
 		var v := AimAid.launch_velocity(a, _power)
 		var flight: Dictionary = AimAid.fly(origin, v, accel, terrain, enemies, _near, pierce)
-		var t: float = flight["time"]
-		# the guide: the first part of the exact flight (the weapon's wind included; points every
-		# TIME_STEP), so it bends like the shell will
-		var n := maxi(2, roundi(part * t / Trajectory.TIME_STEP) + 1)
-		var guide := Trajectory.simulate(origin.x, origin.y, v.x, v.y, accel, terrain, n)
+		# the guide: the first guide_len px of the exact flight (the weapon's wind included), so it
+		# bends like the shell will and is as long at every power
+		var guide := AimAid.trim_to_length(Trajectory.simulate(origin.x, origin.y, v.x, v.y, accel, terrain,
+			GUIDE_MAX_POINTS), guide_len)
 		if i < _lines.size():
 			_lines[i].points = guide
 			_shadows[i].points = guide
