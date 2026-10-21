@@ -37,6 +37,13 @@ extends Node
 ## means another device or a retry already took it). take_new_milestones() is true once each
 ## time the count rose past what the player saw (the lobby's "Có mốc thưởng mới!").
 ##
+## Daily missions ("Nhiệm Vụ Ngày"): GET /missions/daily (DailyModel.parse, coalesced; loaded
+## each time the lobby or the page is shown: the server resets the day / week lazily and counts
+## the login on that GET). claim_mission(id) / claim_chest(id) run POST /missions/claim
+## {missionId} / /missions/chests/claim {chestId} one at a time (daily_busy) and take the
+## answer's state at once; a refusal (or an answer without a state) reloads the list. A chest
+## claim refreshes the wallet, and the stones / inventory when it gave some.
+##
 ## Rank: GET /rank/me (the current season's {rating, tier, ...}), loaded with the profile when
 ## Home is shown (load_rank(), coalesced); rank_tier() is its tier ("" until loaded, after a
 ## failure or for another account): the match's aiming aid shortens its guide arc by it.
@@ -55,6 +62,7 @@ signal equipment_changed # catalog, owned equipment, their loading / errors, or 
 signal stones_changed # owned stones, their loading / error, or stone_busy changed
 signal milestones_changed # milestones, their loading / error, milestone_count or milestone_busy changed
 signal titles_changed # titles, their loading / error, title_busy or the worn title changed
+signal daily_changed # daily missions, their loading / error or daily_busy changed
 
 const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
 const Coalescer := preload("res://core/coalescer.gd")
@@ -63,6 +71,7 @@ const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
+const DailyModel := preload("res://screens/home/daily_model.gd")
 
 ## What a payment refreshes once it succeeded.
 const AFTER_WALLET := 0 # the wallet only (a top-up)
@@ -144,6 +153,16 @@ var _titles_player := ""
 var _titles_gate := Coalescer.new()
 ## True while POST /player/titles/equip runs.
 var title_busy := false
+
+## DailyModel.parse() of GET /missions/daily; null until loaded.
+var daily: Variant = null
+var daily_loading := false
+var daily_error := "" # Vietnamese; "" after a success
+var daily_version := 0 # bumped each time a daily state is applied
+var _daily_player := ""
+var _daily_gate := Coalescer.new()
+## The id of the mission / chest being claimed, "" when none.
+var daily_busy := ""
 
 ## Last GET /rank/me data; {} until loaded.
 var rank: Dictionary = {}
@@ -835,3 +854,80 @@ func _take_equipped(worn: Dictionary) -> void:
 		return
 	profile["equippedTitle"] = worn.duplicate() if not worn.is_empty() else null
 	changed.emit()
+
+
+# ── Daily missions ──────────────────────────────────────────────────────────
+
+## Loads GET /missions/daily (again after an answer in flight: the newest wins).
+func load_daily() -> void:
+	if _daily_player != Session.player_id:
+		daily = null # another account signed in on this device
+	if not _daily_gate.ask():
+		return
+	daily_loading = true
+	daily_error = ""
+	daily_changed.emit()
+	while true:
+		var t := _daily_gate.ticket()
+		var player := Session.player_id
+		var res: Dictionary = await _api().get_json("/missions/daily")
+		if not _daily_gate.finish(t):
+			continue
+		var parsed = DailyModel.parse(res.data) if res.ok else null
+		if parsed != null:
+			_take_daily(parsed, player)
+		else:
+			daily_error = ErrorText.load_failed(res) if not res.ok else "Dữ liệu nhiệm vụ không hợp lệ"
+		break
+	daily_loading = false
+	daily_changed.emit()
+
+
+func _take_daily(parsed: Dictionary, player: String) -> void:
+	daily = parsed
+	daily_version += 1
+	_daily_player = player
+
+
+## The claimable missions, chests and weekly rewards (the lobby's red dot); 0 until loaded.
+func daily_claimable() -> int:
+	return DailyModel.claimable_count(daily) if _daily_player == Session.player_id else 0
+
+
+## POST /missions/claim {missionId} → {activity, state}. {ok: false, code: "BUSY"} while another
+## claim runs.
+func claim_mission(id: String) -> Dictionary:
+	return await _daily_claim("/missions/claim", {"missionId": id}, id)
+
+
+## POST /missions/chests/claim {chestId} → {rewards, state}; the wallet (and the stones or the
+## inventory it filled) reload.
+func claim_chest(id: String) -> Dictionary:
+	var res: Dictionary = await _daily_claim("/missions/chests/claim", {"chestId": id}, id)
+	if res.ok:
+		var rewards := MilestoneModel.parse_rewards(res.data.get("rewards") if res.data is Dictionary else null)
+		if rewards["items"].any(func(it): return it["kind"] == "stone"):
+			stones_dirty()
+		if rewards["items"].any(func(it): return it["kind"] == "item"):
+			assets_changed() # the wallet too
+		else:
+			refresh()
+	return res
+
+
+func _daily_claim(path: String, body: Dictionary, busy: String) -> Dictionary:
+	if daily_busy != "":
+		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null}
+	daily_busy = busy
+	daily_changed.emit()
+	var player := Session.player_id
+	var res: Dictionary = await _api().post_json(path, body)
+	daily_busy = ""
+	var parsed = DailyModel.parse(res.data.get("state")) if res.ok and res.data is Dictionary else null
+	if parsed != null:
+		_take_daily(parsed, player)
+		daily_changed.emit()
+	else:
+		daily_changed.emit()
+		load_daily() # a refusal (another device took it, the day turned) or no state: the truth
+	return res

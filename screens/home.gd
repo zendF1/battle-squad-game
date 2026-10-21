@@ -25,6 +25,8 @@ const BagPage := preload("res://screens/home/bag_page.gd")
 const CharacterPage := preload("res://screens/home/character_page.gd")
 const UpgradePage := preload("res://screens/home/upgrade_page.gd")
 const MilestonePage := preload("res://screens/home/milestone_page.gd")
+const DailyPage := preload("res://screens/home/daily_page.gd")
+const DailyModel := preload("res://screens/home/daily_model.gd")
 const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
 
 const LOBBY := 0
@@ -34,6 +36,7 @@ const BAG := 3
 const CHARACTER := 4
 const UPGRADE := 5
 const MILESTONE := 6
+const DAILY := 7
 
 var _lobby: Lobby
 var _profile: ProfileTab
@@ -42,6 +45,7 @@ var _bag: BagPage
 var _character: CharacterPage
 var _upgrade: UpgradePage
 var _milestone: MilestonePage
+var _daily: DailyPage
 var _pages := {} # PROFILE / SHOP / BAG / CHARACTER -> the page (header + content)
 var _shown := LOBBY
 
@@ -63,6 +67,7 @@ func _ready() -> void:
 	_lobby.open_character.connect(open_character)
 	_lobby.open_upgrade.connect(open_upgrade)
 	_lobby.open_milestones.connect(open_milestones)
+	_lobby.open_daily.connect(open_daily)
 	_connect_wallet(_lobby.wallet)
 
 	_profile = ProfileTab.new()
@@ -85,10 +90,14 @@ func _ready() -> void:
 	EquipmentUi.open_upgrade = open_upgrade
 	_milestone = MilestonePage.new()
 	_milestone.overlay = self
+	_daily = DailyPage.new()
+	_daily.overlay = self
+	_daily.go.connect(_on_daily_go)
 	_pages[CHARACTER] = _build_page("Nhân vật", _character)
 	_pages[UPGRADE] = _build_page("Nâng cấp", _upgrade)
 	_pages[BAG] = _build_page("Túi đồ", _bag)
 	_pages[MILESTONE] = _build_page("Mốc thưởng", _milestone)
+	_pages[DAILY] = _build_page("Nhiệm Vụ Ngày", _daily, _daily.header_extra())
 	_pages[PROFILE] = _build_page("Hồ sơ", _profile)
 	_pages[SHOP] = _build_page("Shop", _shop)
 	_show(LOBBY)
@@ -102,8 +111,9 @@ func _exit_tree() -> void:
 		EquipmentUi.open_upgrade = Callable()
 
 
-## A full-screen page: the backdrop without the ground, the header row, then `content`.
-func _build_page(title: String, content: Control) -> Control:
+## A full-screen page: the backdrop without the ground, the header row (`extra` after the title,
+## taking the room the title leaves), then `content`.
+func _build_page(title: String, content: Control, extra: Control = null) -> Control:
 	var page := Control.new()
 	page.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	page.visible = false
@@ -131,6 +141,10 @@ func _build_page(title: String, content: Control) -> Control:
 	t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	t.size_flags_horizontal = SIZE_EXPAND_FILL
 	row.add_child(t)
+	if extra != null:
+		t.size_flags_horizontal = SIZE_FILL
+		extra.size_flags_horizontal = SIZE_EXPAND_FILL
+		row.add_child(extra)
 	var wallet := WalletPills.new()
 	row.add_child(wallet)
 	_connect_wallet(wallet)
@@ -177,12 +191,29 @@ func open_milestones(tab: int = -1) -> void:
 	_show(MILESTONE)
 
 
+func open_daily() -> void:
+	_show(DAILY)
+
+
+## "Đi ngay" on a daily mission: play → the lobby's BẮT ĐẦU (its mode, the Loadout), shop → the
+## Shop's Vật phẩm, equipment → Nâng cấp.
+func _on_daily_go(target: String) -> void:
+	match target:
+		DailyModel.GOTO_PLAY:
+			_show(LOBBY)
+			_lobby.start()
+		DailyModel.GOTO_SHOP:
+			open_shop(ShopTab.ITEMS)
+		DailyModel.GOTO_EQUIPMENT:
+			open_upgrade()
+
+
 func open_shop(section: int) -> void:
 	_shop.show_section(section)
 	_show(SHOP)
 
 
-## Which screen shows: LOBBY or a page (PROFILE, SHOP, BAG, CHARACTER, UPGRADE, MILESTONE). Android back quits only from the lobby.
+## Which screen shows: LOBBY or a page (PROFILE, SHOP, BAG, CHARACTER, UPGRADE, MILESTONE, DAILY). Android back quits only from the lobby.
 func _show(which: int) -> void:
 	_shown = which
 	for key in _pages:

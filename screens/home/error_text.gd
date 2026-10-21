@@ -91,6 +91,17 @@ const MILESTONE := {
 	"BUSY": "Đang nhận thưởng, chờ chút",
 }
 
+## POST /missions/claim and /missions/chests/claim (Nhiệm Vụ Ngày).
+const MISSION := {
+	"MISSION_NOT_FOUND": "Nhiệm vụ này không còn",
+	"MISSION_NOT_DONE": "Nhiệm vụ chưa hoàn thành",
+	"MISSION_ALREADY_CLAIMED": "Nhiệm vụ này đã nhận rồi",
+	"CHEST_NOT_FOUND": "Phần thưởng này không còn",
+	"CHEST_LOCKED": "Chưa đủ năng động để nhận",
+	"CHEST_ALREADY_CLAIMED": "Phần thưởng này đã nhận rồi",
+	"BUSY": "Đang nhận thưởng, chờ chút",
+}
+
 ## POST /player/titles/equip.
 const TITLE := {
 	"TITLE_NOT_OWNED": "Bạn chưa có danh hiệu này",
@@ -274,3 +285,13 @@ static func title(res: Dictionary) -> String:
 	if int(res.get("status", 0)) == 0:
 		return OFFLINE
 	return TITLE.get(code, "Đổi danh hiệu thất bại: %s" % res.get("message", ""))
+
+
+## POST /missions/claim or /missions/chests/claim failure; other codes show the server message.
+static func mission(res: Dictionary) -> String:
+	var code := str(res.get("code", ""))
+	if code == "BUSY":
+		return MISSION[code]
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	return MISSION.get(code, "Nhận thưởng thất bại: %s" % res.get("message", ""))

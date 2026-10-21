@@ -5,8 +5,10 @@ extends Control
 ## Nâng cấp, Lịch sử → Hồ sơ, Shop), the
 ## selected character's info card (role, skill, stats; its name and level are on the stage) on
 ## the left, the "Mốc thưởng" button (a red badge with the claimable count, hidden at 0; "Có mốc
-## thưởng mới!" once when the count rose since the player last saw it) above a placeholder chat
-## box bottom-left and the mode card with "BẮT ĐẦU" bottom-right.
+## thưởng mới!" once when the count rose since the player last saw it) and "Nhiệm vụ" (the daily
+## missions; a red dot while a mission, chest or weekly reward is claimable, reloaded each time
+## the lobby shows) above a placeholder chat box bottom-left and the mode card with "BẮT ĐẦU"
+## bottom-right.
 ## Centre stage: the worn title's plate (ui/title_plate.gd; nothing without one) over the selected
 ## character's name and level, the character drawn big on a pedestal with
 ## its hands free; the gun it wears (its basic gun when none) rests on the pedestal at its left
@@ -23,6 +25,7 @@ signal open_bag
 signal open_character
 signal open_upgrade
 signal open_milestones
+signal open_daily
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -39,6 +42,7 @@ const FakeChat := preload("res://screens/home/fake_chat.gd")
 const MilestonePage := preload("res://screens/home/milestone_page.gd")
 const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
+const MissionArt := preload("res://screens/home/mission_art.gd")
 
 const MARGIN := 18
 const STAGE := Vector2(560, 590)
@@ -75,6 +79,7 @@ var _info_buy: Button
 var _drag_from := -1.0
 
 var _milestone_badge: PanelContainer
+var _daily_dot: Control
 
 # Mode card
 var _mode_name: Label
@@ -96,13 +101,17 @@ func _ready() -> void:
 	_pin(_build_shortcuts(), 1, 0, -MARGIN - 6, 112)
 	_pin(_build_info_card(), 0, 0, MARGIN, 150)
 	_pin(_build_chat(), 0, 1, MARGIN, -MARGIN)
-	_pin(_build_milestone_button(), 0, 1, MARGIN + 6, -MARGIN - CHAT_H - 12)
+	var rewards := Ui.hbox(20)
+	rewards.add_child(_build_milestone_button())
+	rewards.add_child(_build_daily_button())
+	_pin(rewards, 0, 1, MARGIN + 6, -MARGIN - CHAT_H - 12)
 	_pin(_build_mode_card(), 1, 1, -MARGIN, -MARGIN)
 
 	PlayerState.changed.connect(_render_player)
 	PlayerState.characters_changed.connect(_render_character)
 	PlayerState.equipment_changed.connect(_render_gun)
 	PlayerState.milestones_changed.connect(_render_milestones)
+	PlayerState.daily_changed.connect(_render_daily)
 	GameSocket.connected.connect(_render_conn)
 	GameSocket.disconnected.connect(_render_conn)
 	visibility_changed.connect(_on_visibility_changed)
@@ -140,8 +149,10 @@ func _on_visibility_changed() -> void:
 		PlayerState.need_characters()
 		PlayerState.need_equipment() # the stage character holds the weapon it wears
 		PlayerState.load_milestone_summary() # back from a match or a page: the badge count
+		PlayerState.load_daily() # the daily missions' red dot (a match or a purchase moves them)
 		_render_character() # back from a page: whatever it loaded or bought
 		_render_milestones()
+		_render_daily()
 
 
 # ── Player ──────────────────────────────────────────────────────────────────
@@ -271,6 +282,25 @@ func _render_milestones() -> void:
 	(_milestone_badge.get_child(0) as Label).text = text
 	if is_visible_in_tree() and PlayerState.take_new_milestones():
 		Ui.toast(self, "Có mốc thưởng mới!")
+
+
+## "Nhiệm vụ": a round button with a clipboard and the red dot (anything claimable today).
+func _build_daily_button() -> Control:
+	var col := LobbyUi.icon_button("check", "Nhiệm vụ", LobbyUi.ICON_COLORS["green"], func(): open_daily.emit(), SHORTCUT)
+	var b: Button = col.get_child(0)
+	b.icon = null # the clipboard is drawn (mission_art.gd)
+	var art := MissionArt.make(MissionArt.Kind.BOARD, Vector2(SHORTCUT, SHORTCUT) * 0.7)
+	art.position = Vector2(SHORTCUT, SHORTCUT) * 0.15
+	b.add_child(art)
+	_daily_dot = MilestonePage.dot(20)
+	_daily_dot.position = Vector2(SHORTCUT - 18, -2)
+	b.add_child(_daily_dot)
+	return col
+
+
+func _render_daily() -> void:
+	if _daily_dot != null:
+		_daily_dot.visible = PlayerState.daily_claimable() > 0
 
 
 ## The chat placeholder: the fake recent lines and an input-looking row; a tap says chat is
@@ -531,5 +561,11 @@ func mode_base() -> Dictionary:
 
 
 func _on_start() -> void:
+	start()
+
+
+## What BẮT ĐẦU does (also a daily mission's "Đi ngay"): the mode's QuickPlay base, then the
+## Loadout.
+func start() -> void:
 	Router.quick_play_base = mode_base()
 	Router.go(Router.LOADOUT)
