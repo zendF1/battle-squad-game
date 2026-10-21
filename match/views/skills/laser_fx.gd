@@ -3,8 +3,9 @@ extends Node2D
 ## coordinates). From the server timeline only (the beam event: from, to, t, duration; the laser
 ## damage events), in the shooter's gun colours (palette(): the shock rifle's tier shells, the
 ## crafted tiers and the Blaster from ShotLook):
-## - charge (0 .. beam t): the tier's shell grows at the muzzle in a pulsing glow, sparks and a
-##   ring closing in on it;
+## - charge (0 .. beam t): a hot energy orb grows at the muzzle in the beam's colours (body,
+##   core, a white-hot centre; the tier's shell only faint inside it) in a pulsing glow, sparks and
+##   a ring closing in on it; it stays over the beam's start while the beam lasts;
 ## - beam (beam t .. + duration): its front sweeps from the muzzle at SWEEP_SPEED (the server's
 ##   laserSweepSpeed, so the front reaches each enemy when its damage event comes) to the map
 ##   edge: a wide soft glow, the beam body and a hot core, flickering, with two crackling bolts
@@ -41,6 +42,17 @@ const SPARKS := 9 # sparks flying off a hit
 const CROSS_MAX := 6 # terrain entry / exit spots
 const CROSS_STEP := 3.0 # px: the beam is sampled this often for them
 const CHARGE_SPARKS := 10
+## The charge orb (_draw_orb()): ORB_MIN px across at the start of the charge, ORB_MIN +
+## ORB_GROW at the beam; its halo, core glow, white glow (half sizes) and solid white-hot centre
+## (radius) as shares of that; its body's alpha and the tier shell's inside it.
+const ORB_MIN := 12.0
+const ORB_GROW := 30.0
+const ORB_HALO := 1.3
+const ORB_BODY := 0.95
+const ORB_CORE := 0.6
+const ORB_WHITE := 0.36
+const ORB_HOT := 0.14
+const SHELL_ALPHA := 0.25
 
 ## gun tier -> beam colours for the shock rifle, matched to its tier shells
 ## (assets/fx/shock_rifle/projectile_<tier>.png): glow (the wide halo), mid (the beam body),
@@ -298,16 +310,12 @@ func _draw() -> void:
 	elif local >= 0.0 and front < length():
 		_refill(bucket, front) # the front is still moving: the bolts follow it
 	var fl := _flicker(t)
-	# Charge: the shell grows at the muzzle, sparks and a ring close in.
+	# Charge: the halo grows at the muzzle, sparks and a ring close in (the orb itself is drawn
+	# over the beam, _draw_orb()).
 	if t < beam_end_t:
-		var k := clampf(t / beam_t, 0.0, 1.0) if beam_t > 0.0 else 1.0
-		var orb := (12.0 + 30.0 * k * k) * fl * (fade if local >= 0.0 else 1.0)
-		var g := orb * 2.4
+		var k := charge_k(t)
+		var g := orb_size(t) * 2.4
 		draw_texture_rect(_glow, Rect2(muzzle - Vector2(g, g), Vector2(g, g) * 2), false, _color("glow", 0.75 * k))
-		draw_texture_rect(_glow, Rect2(muzzle - Vector2(g, g) * 0.45, Vector2(g, g) * 0.9), false, _color("core", 0.8 * k))
-		draw_set_transform(muzzle, t * 7.0)
-		draw_texture_rect(_shell, Rect2(-Vector2(orb, orb) / 2, Vector2(orb, orb)), false, Color(1, 1, 1, minf(1.0, 0.4 + k)))
-		draw_set_transform(Vector2.ZERO)
 		if local < 0.0:
 			for i in CHARGE_SPARKS:
 				var ang := TAU * i / CHARGE_SPARKS + i * 1.7
@@ -349,6 +357,8 @@ func _draw() -> void:
 				var u := Vector2.from_angle(dir.angle() + PI * 0.5 * (1.0 if i % 2 == 0 else -1.0) + _noise(i + c * 4.0, bucket) * 0.9)
 				var sl := 8.0 + 10.0 * absf(_noise(i + 2.0, bucket + c))
 				draw_line(p + u * 6.0, p + u * (6.0 + sl), _color("arc", fade), 2.0, true)
+	if t < beam_end_t:
+		_draw_orb(t)
 	# The hits: a flash, sparks flying off, arcs crackling around the body.
 	var per_hit := ARCS * (ARC_POINTS - 1)
 	var any := false
@@ -380,6 +390,48 @@ func _draw() -> void:
 			var d := 14.0 + 300.0 * age * (1.0 - 0.5 * age)
 			var p0 := at + v * d + Vector2(0, 160.0 * age * age)
 			draw_line(p0, p0 + v * (10.0 * life + 3.0), _color("arc", life), 2.0, true)
+
+
+## How far the charge has come at time t (0..1, 1 from the beam on).
+func charge_k(t: float) -> float:
+	return clampf(t / beam_t, 0.0, 1.0) if beam_t > 0.0 else 1.0
+
+
+## The charge orb's size at time t (px): it grows over the charge, flickers, and shrinks with the
+## beam over its last FADE s.
+func orb_size(t: float) -> float:
+	var local := t - beam_t
+	var fade := clampf((beam_duration - local) / FADE, 0.0, 1.0) if local >= 0.0 else 1.0
+	var k := charge_k(t)
+	return (ORB_MIN + ORB_GROW * k * k) * _flicker(t) * fade
+
+
+## The charge orb's body colour: between the beam's glow and body colours.
+func orb_body(alpha: float) -> Color:
+	return _color("glow", alpha, 0.3).lerp(_color("mid", alpha, 0.3), 0.5)
+
+
+## The charge orb at the muzzle, over the beam's start: a hot energy ball in the beam's colours
+## (a soft halo, orb_body() with a bright rim in the core colour, a core glow, a white-hot centre)
+## with the tier's shell only faint in it (SHELL_ALPHA, turning), so no tier reads as a dark ball.
+func _draw_orb(t: float) -> void:
+	var orb := orb_size(t)
+	if orb <= 0.0:
+		return
+	var k := charge_k(t)
+	var r := orb * 0.5
+	var halo := orb * ORB_HALO
+	draw_texture_rect(_glow, Rect2(muzzle - Vector2(halo, halo), Vector2(halo, halo) * 2), false, _color("glow", 0.8 * k))
+	draw_circle(muzzle, r, orb_body(ORB_BODY * k))
+	draw_set_transform(muzzle, t * 7.0)
+	draw_texture_rect(_shell, Rect2(-Vector2(orb, orb) / 2, Vector2(orb, orb)), false, Color(1, 1, 1, SHELL_ALPHA * k))
+	draw_set_transform(Vector2.ZERO)
+	draw_arc(muzzle, r, 0.0, TAU, 32, _color("core", 0.9 * k), 2.0, true)
+	var c := orb * ORB_CORE
+	draw_texture_rect(_glow, Rect2(muzzle - Vector2(c, c), Vector2(c, c) * 2), false, _color("core", k))
+	var w := orb * ORB_WHITE
+	draw_texture_rect(_glow, Rect2(muzzle - Vector2(w, w), Vector2(w, w) * 2), false, Color(1, 1, 1, k))
+	draw_circle(muzzle, orb * ORB_HOT, Color(1, 1, 1, k))
 
 
 static func _vec(v, fallback: Vector2) -> Vector2:

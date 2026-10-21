@@ -109,6 +109,29 @@ func test_hits_and_lifetime() -> void:
 	fx.free()
 
 
+## The charge orb is a bright energy ball at every tier (the dragon's dark-red shell read as a dark
+## ball): a bright body, a white-hot centre on top, the shell only faint inside; it grows over the
+## charge and is gone when the beam is.
+func test_charge_orb_is_bright_at_every_tier() -> void:
+	var c := _case()
+	var beam: Dictionary = ShotTimeline.new(c["shot"]).events_of("beam")[0]
+	check(LaserFx.SHELL_ALPHA <= 0.35, "the shell only faint in the orb")
+	var styles := []
+	for tier in ShotLook.TIERS:
+		styles.append({"kind": "shock_rifle", "tier": tier})
+	styles.append({"kind": "blaster", "tier": "basic"})
+	styles.append({"kind": "blaster", "tier": "gold"})
+	for st in styles:
+		var fx: Node2D = LaserFx.new()
+		fx.setup(beam, st)
+		var name := "%s %s" % [st["kind"], st["tier"]]
+		check(fx.orb_body(1.0).v >= 0.85, "%s: a bright orb body (v %.2f)" % [name, fx.orb_body(1.0).v])
+		check(fx.colors["core"].v >= 0.95, "%s: a bright core" % name)
+		check(fx.orb_size(fx.beam_t) > fx.orb_size(0.0) * 2.0, "%s: grows over the charge" % name)
+		near(fx.orb_size(fx.beam_t + fx.beam_duration), 0.0, 1e-6, "%s: gone with the beam" % name)
+		fx.free()
+
+
 ## laser.gd: begin adds the beam to the layer, a laser damage event adds a hit and a burst, end
 ## releases it; no beam event (an old server) draws nothing.
 func test_view_hooks() -> void:

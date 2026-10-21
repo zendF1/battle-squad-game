@@ -1,14 +1,15 @@
 extends "res://match/views/skills/skill_view.gd"
 ## Flora — Hoa hồi xuân (server skill healing_bloom, effect bloom): no aim. The seeds (projectile
-## kind "seed", hitPlayerId = the ally; the gun's own per-tier shell, ShotPlayer styles it) rise
-## together out of the top of the screen, split up there and fall straight onto every living ally
-## (Flora too); heal, shield and cleanse events when they land. Drawn by one BloomFx (bloom_fx.gd)
+## kind "seed", hitPlayerId = the ally; the gun's own per-tier shell with a green healing trail at
+## every tier, bloom_seed.gd) rise together out of the top of the screen, split up there and fall
+## straight onto every living ally (Flora too); heal, shield and cleanse events when they land. Drawn by one BloomFx (bloom_fx.gd)
 ## on the fx layer: the burst where the seeds leave the screen, a light shaft over each ally while
 ## its seed falls, the bloom where it lands, the shield bubble when the heal overflows, the
 ## cleanse sparkle. Each seed carries a soft green glow (SeedGlow). The numbers ("+N" green,
 ## "+N khiên" light blue) are match_screen's popups.
 
 const BloomFx := preload("res://match/views/skills/bloom_fx.gd")
+const BloomSeed := preload("res://match/views/skills/bloom_seed.gd")
 
 const SCAN_STEP := 0.02 # s: how finely begin() reads the seeds' paths
 const OFF_SCREEN := -30.0 # px: a seed above this y is out of view (the screen starts at y 0)
@@ -84,11 +85,16 @@ static func seed_plan(tl, i: int) -> Dictionary:
 	return {"exit": exit, "shaft": shaft}
 
 
-## The seed keeps the gun's shell and gains a soft green glow behind it.
+## A seed keeps the gun's shell but flies with a healing trail at every tier (BloomSeed: a green
+## light streak, green-white sparkles, leaves, a green halo, instead of the tier's flight theme)
+## and a soft green glow behind it.
 func projectile_view(_i: int, projectile: Dictionary, view: Node2D) -> Node2D:
-	if str(projectile.get("kind", "")) == "seed":
-		view.add_child(SeedGlow.new())
-	return view
+	if str(projectile.get("kind", "")) != "seed":
+		return view
+	var seed_view: Node2D = BloomSeed.new()
+	seed_view.copy_from(view)
+	seed_view.add_child(SeedGlow.new())
+	return seed_view
 
 
 func on_event(event: Dictionary) -> void:

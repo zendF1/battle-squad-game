@@ -9,6 +9,9 @@ const ShotTimeline := preload("res://match/shot/shot_timeline.gd")
 const Bloom := preload("res://match/views/skills/bloom.gd")
 const BloomFx := preload("res://match/views/skills/bloom_fx.gd")
 const ProjectileView := preload("res://match/views/projectile_view.gd")
+const BloomSeed := preload("res://match/views/skills/bloom_seed.gd")
+const ShotLook := preload("res://match/views/shot_look.gd")
+const Art := preload("res://ui/art.gd")
 
 
 func _case() -> Dictionary:
@@ -85,16 +88,63 @@ func test_begin_plans_the_exit_and_shafts() -> void:
 	r[1].free()
 
 
-func test_seed_glow_only_on_seeds() -> void:
+## A seed is drawn by BloomSeed, set up like the view ShotPlayer made, with the green glow; any
+## other projectile is left alone.
+func test_seed_view_and_glow_only_on_seeds() -> void:
 	var bloom = Bloom.new()
-	var seed_view := Node2D.new()
-	eq(bloom.projectile_view(0, {"kind": "seed"}, seed_view), seed_view, "the gun's own shell stays")
+	var made = ProjectileView.new()
+	made.kind = "seed_launcher"
+	made.tier = "dragon"
+	made.skill = true
+	made.heading = Vector2(0, -1)
+	made.size_k = 1.2
+	made.trail_length = 0.8
+	var seed_view = bloom.projectile_view(0, {"kind": "seed"}, made)
+	check(seed_view is BloomSeed, "a seed flies as a BloomSeed")
+	for p in ["kind", "tier", "skill", "heading", "size_k", "trail_length"]:
+		eq(seed_view.get(p), made.get(p), "%s copied" % p)
 	eq(seed_view.get_child_count(), 1, "a glow behind the seed")
 	var other := Node2D.new()
-	bloom.projectile_view(0, {"kind": ""}, other)
+	eq(bloom.projectile_view(0, {"kind": ""}, other), other, "another projectile: its own view")
 	eq(other.get_child_count(), 0, "no glow on another projectile")
+	made.free()
 	seed_view.free()
 	other.free()
+
+
+## At every tier (crafted and the Blaster too) the seed keeps the gun's shell but flies with the
+## healing trail: a green light streak, green-white sparkles, leaves, no line, a green halo with
+## only a faint tier accent; a normal dragon shot keeps its fire tail.
+func test_seed_trail_is_green_at_every_tier() -> void:
+	var guns := []
+	for tier in ShotLook.TIERS:
+		guns.append(["seed_launcher", tier])
+	guns.append(["blaster", "basic"])
+	guns.append(["blaster", "gold"])
+	for g in guns:
+		var name := "%s %s" % g
+		var v = BloomSeed.new()
+		v.kind = g[0]
+		v.tier = g[1]
+		v.skill = true
+		v._ready() # not in the tree
+		var own: Texture2D = Art.tier_projectile(g[0], g[1])
+		if own != null:
+			eq(v._tex, own, "%s: the tier's own shell" % name)
+		eq(str(v._ribbon_spec.get("style", "")), "heal", "%s: the healing light streak" % name)
+		check(v._k["line"] == null, "%s: no line trail" % name)
+		eq(v._tier_fx["color"], BloomSeed.HEAL_WHITE, "%s: green-white sparkles" % name)
+		check(v._tier_on, "%s: sparkles on" % name)
+		eq(v._trail_tex, BloomSeed.leaf_texture(), "%s: leaves" % name)
+		var halo: Color = v.halo_color()
+		check(halo.g > halo.r + 0.25 and halo.g > halo.b + 0.25, "%s: a green halo (%s)" % [name, halo])
+		v.free()
+	var normal = ProjectileView.new()
+	normal.kind = "seed_launcher"
+	normal.tier = "dragon"
+	normal._ready()
+	eq(str(normal._ribbon_spec.get("style", "")), "fire", "a normal dragon shot keeps its fire tail")
+	normal.free()
 
 
 func test_events_spawn_the_bloom_shield_and_cleanse() -> void:
