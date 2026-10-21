@@ -36,6 +36,9 @@ const ShotLook := preload("res://match/views/shot_look.gd")
 const DamagePopup := preload("res://match/views/damage_popup.gd")
 const DamageTally := preload("res://match/views/damage_tally.gd")
 const SkyView := preload("res://match/views/sky_view.gd")
+const BottomView := preload("res://match/views/bottom_view.gd")
+const MapThemes := preload("res://match/theme/map_themes.gd")
+const Art := preload("res://ui/art.gd")
 const ShotTimeline := preload("res://match/shot/shot_timeline.gd")
 const ShotPlayer := preload("res://match/shot/shot_player.gd")
 const EnergyReveal := preload("res://match/shot/energy_reveal.gd")
@@ -105,6 +108,8 @@ var _mask := TerrainMask.new()
 var _moves := MoveSync.new()
 var _sky: SkyView
 var _terrain_view: TerrainView
+var _bottom: BottomView # the map theme's water / lava / abyss, over the terrain's bottom
+var _theme := "" # the map theme the views show ("" none yet)
 var _players_layer: Node2D
 var _fx_layer: Node2D
 var _aim: AimInput
@@ -130,6 +135,8 @@ func _ready() -> void:
 	add_child(_sky)
 	_terrain_view = TerrainView.new()
 	add_child(_terrain_view)
+	_bottom = BottomView.new()
+	add_child(_bottom)
 	_players_layer = Node2D.new()
 	add_child(_players_layer)
 	_fx_layer = Node2D.new()
@@ -173,6 +180,9 @@ func _ready() -> void:
 	_roster = Router.match_roster
 	Router.match_roster = {}
 	_load_snapshot(snap, false)
+	var map_name := MapThemes.name_of(snap)
+	if map_name != "":
+		_hud.announce_map(map_name)
 	GameSocket.event_received.connect(_on_event)
 	GameSocket.disconnected.connect(_on_disconnected)
 	GameSocket.release()
@@ -217,6 +227,18 @@ func _process(delta: float) -> void:
 
 # ── Snapshot and turn state ──────────────────────────────────────────────────
 
+## The map theme (MatchStarted / MatchStateSync mapTheme, else the map catalog's, else
+## grassland) on the sky, the terrain's materials and the bottom; nothing when unchanged.
+func _apply_theme(theme: String) -> void:
+	if theme == _theme:
+		return
+	_theme = theme
+	_sky.show_theme(theme)
+	_terrain_view.show_theme(theme)
+	if _bottom != null:
+		_bottom.setup(theme, Vector2(_mask.width, _mask.height), Art.SKY_MARGIN)
+
+
 ## Rebuilds the match from a snapshot: MatchStarted (is_sync false) or a MatchStateSync. A
 ## MatchStateSync for the current player continues the turn: during mine MoveSync replays the
 ## Moves the snapshot does not show yet on top of it, and a resolved shot keeps input locked
@@ -231,6 +253,8 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 	_held_badges.clear() # the views are rebuilt: selectedAction brings the current one back
 	var terrain: Dictionary = snap.get("terrain", {})
 	if not terrain.is_empty() and _mask.load_snapshot(terrain):
+		# A sync without mapTheme (an older server) keeps the theme MatchStarted gave.
+		_apply_theme(MapThemes.theme_of(snap) if _theme == "" or not is_sync or snap.has("mapTheme") else _theme)
 		_terrain_view.show_mask(_mask)
 		_sky.size = Vector2(_mask.width, _mask.height)
 	for view in _views.values():

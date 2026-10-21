@@ -1,6 +1,7 @@
 extends "res://tests/test_case.gd"
 
 const HistoryPager := preload("res://screens/home/history_pager.gd")
+const MapCatalog := preload("res://match/theme/map_catalog.gd")
 
 
 static func _page(from: int, n: int) -> Array:
@@ -64,7 +65,11 @@ func test_row_text() -> void:
 
 
 func test_mode_and_map_labels() -> void:
+	MapCatalog.reset("") # names from GET /maps, no cache file
+	MapCatalog.take(MapCatalog.parse([{"mapId": "grassland_valley", "name": "Thung lũng cỏ", "theme": "grassland"}]), false)
 	var t := HistoryPager.row_text({"mode": "pvp_2v2", "mapId": "grassland_valley", "result": "win"}, 0)
 	eq(t["mode"], "Đấu 2v2", "pvp_2v2")
 	eq(t["map"], "Thung lũng cỏ", "grassland_valley")
 	eq(HistoryPager.row_text({"mapId": "lava_pit"}, 0)["map"], "lava_pit", "unknown map raw")
+	MapCatalog.reset("")
+	eq(HistoryPager.row_text({"mapId": "grassland_valley"}, 0)["map"], "grassland_valley", "no catalog yet: raw id")

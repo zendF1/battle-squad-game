@@ -6,6 +6,7 @@ extends RefCounted
 ## the order the cards flip in; and my own card while searching.
 
 const RankModel := preload("res://screens/ranked/rank_model.gd")
+const MapThemes := preload("res://match/theme/map_themes.gd")
 
 const SLOTS := 4
 const TEAM_SIZE := 2
@@ -13,6 +14,15 @@ const TEAM_SIZE := 2
 ## match (counted from MatchFound).
 const FLIP_GAP := 0.45
 const REVEAL_SEC := 2.6
+
+
+## The reveal's map line, "Bản đồ: <name>" (MatchFound's mapName, else the map catalog's name
+## for its mapId, else the raw id); "" without a map.
+static func map_text(data: Variant) -> String:
+	if not data is Dictionary:
+		return ""
+	var n := MapThemes.name_of(data)
+	return "Bản đồ: %s" % n if n != "" else ""
 
 
 static func _num(v: Variant, fallback: int) -> int:

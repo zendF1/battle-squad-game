@@ -51,6 +51,18 @@ Total about 4.0 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   pure black), keyed by `tools/import_projectiles.gd` (config `art_source/fx/projectiles/projectiles.json`:
   the mode per kind, the "✦" watermark, the glow curve per file): add or replace a picture and re-run
   it (`$GODOT --headless --path . -s tools/import_projectiles.gd`, every picture present).
+- **Map themes** (the match's look per map theme: ice, beach, graveyard, desert, sky, temple,
+  steel, city_night, stone, cave; grassland is `env/sky_match.png` + `terrain/dirt.png` /
+  `grass_edge.png`): none shipped, everything is drawn in code (`match/theme/`: backgrounds in
+  `backdrop_painter.gd`, terrain materials in `material_painter.gd`, water / lava / abyss and the
+  particles in shaders). To replace one, drop a PNG (read directly until the editor imports it):
+  `env/sky_<theme>.png` (the background, stretched over the map plus 600 px each side: about
+  2800 × 900, opaque) and `terrain/themes/<material>_fill.png` (square, 64 or 128, seamless both
+  ways, opaque), `<material>_edge.png` (128 wide, seamless horizontally, transparent: the top
+  `cap` rows sit on the surface, the rows under them are the band drawn into the ground) and
+  `<material>_hang.png` (128 wide, transparent, hanging under undersides). Materials and their
+  cap / band / hang rows: `match/theme/material_painter.gd` SPECS; which theme uses which:
+  `match/theme/map_themes.gd` LOOKS.
 - **Status icons** (`ui/status/<id>.png`, ids burn / root / stun / freeze / net / shield: the
   picture inside the small round badge beside a player's HP bar in a match,
   `match/views/status_icons.gd`): none shipped yet, the badges are code-drawn; drop a square PNG

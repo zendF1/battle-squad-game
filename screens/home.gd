@@ -106,6 +106,7 @@ func _ready() -> void:
 	_show(LOBBY)
 	PlayerState.refresh()
 	PlayerState.load_rank() # the rank chip, the ranked mode card; the match's aiming aid reads the tier
+	PlayerState.load_maps() # map names (history, matchmaking, the match toast) and themes from the server
 	if Router.home_notice != "": # a ranked queue that ended with an error
 		Ui.toast(self, Router.home_notice, 3.5)
 		Router.home_notice = ""

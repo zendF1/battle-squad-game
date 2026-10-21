@@ -40,6 +40,7 @@ var _status_row: Control
 var _status: Label
 var _spinner: Control
 var _found_label: Label
+var _map_line: Label # "Bản đồ: …" once the match is found
 var _tip: Label
 var _cancel: Button
 var _me := ""
@@ -187,6 +188,10 @@ func _build_middle() -> Control:
 	_found_label.visible = false
 	_found_label.resized.connect(func() -> void: _found_label.pivot_offset = _found_label.size / 2.0)
 	stack.add_child(_found_label)
+	_map_line = LobbyUi.text("", 26, Color(0.85, 0.93, 1.0), true)
+	_map_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_map_line.modulate.a = 0.0
+	col.add_child(_map_line)
 	var pulse := _vs.create_tween().set_loops()
 	pulse.tween_property(_vs, "scale", Vector2.ONE * 1.05, 0.8).set_trans(Tween.TRANS_SINE)
 	pulse.tween_property(_vs, "scale", Vector2.ONE, 0.8).set_trans(Tween.TRANS_SINE)
@@ -331,6 +336,8 @@ func _on_found(data: Variant) -> void:
 	flash.parallel().tween_property(_vs, "scale", Vector2.ONE * 1.18, 0.12).set_trans(Tween.TRANS_SINE)
 	flash.tween_property(_vs, "flash", 0.0, 0.5)
 	flash.parallel().tween_property(_vs, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK)
+	_map_line.text = MatchmakingModel.map_text(data)
+	_map_line.create_tween().tween_property(_map_line, "modulate:a", 1.0, 0.4).set_delay(0.3)
 	var teams := MatchmakingModel.teams_of_found(data)
 	if not teams.is_empty():
 		_reveal(teams)

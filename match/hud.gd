@@ -45,6 +45,7 @@ const ENEMY_RED := Color(1.0, 0.42, 0.38)
 const RING_CHARGING := Color(0.45, 0.85, 1.0)
 const LOW_TIME := 5
 const MARGIN := 24
+const MAP_TOAST_SEC := 2.6 # the map name's toast at the match start stays this long
 const LEAVE_SIZE := 64
 const CHAT_WIDTH := 440 # the chat lines' width (a longer line wraps)
 const CHAT_LINES := 5 # lines kept, the newest last
@@ -89,6 +90,8 @@ var _result: Control
 var _result_title: Label
 var _result_detail: Label
 var _banner: PanelContainer
+var _map_toast: PanelContainer
+var _map_label: Label
 var _banner_label: Label
 var _banner_tween: Tween
 var _turn_text := ""
@@ -680,6 +683,42 @@ func _announce(text: String, mine: bool) -> void:
 	_banner_tween.tween_property(_banner, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_banner_tween.tween_interval(0.9)
 	_banner_tween.tween_property(_banner, "modulate:a", 0.0, 0.35)
+
+
+## The map's name at the match start, under the timer: "BẢN ĐỒ" over the name, sliding in,
+## held MAP_TOAST_SEC, fading out.
+func announce_map(map_name: String) -> void:
+	if _map_toast != null:
+		_map_toast.queue_free()
+	_map_toast = _ignore(PanelContainer.new())
+	_map_toast.name = "MapToast"
+	var box := LobbyUi.box(Color(0.05, 0.07, 0.18, 0.82), 20, 6, Color(LobbyUi.GOLD, 0.85), 3)
+	box.content_margin_left = 34
+	box.content_margin_right = 34
+	_map_toast.add_theme_stylebox_override("panel", box)
+	var col := Ui.vbox(0)
+	col.mouse_filter = MOUSE_FILTER_IGNORE
+	_map_toast.add_child(col)
+	var cap := LobbyUi.text("BẢN ĐỒ", 15, Color(0.75, 0.88, 1.0), true)
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(cap)
+	_map_label = LobbyUi.text(map_name, 30, LobbyUi.GOLD, true)
+	_map_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(_map_label)
+	_pin(_map_toast, 0.5, 0, Vector2(0, MARGIN + 96))
+	if not is_inside_tree():
+		return
+	_map_toast.modulate.a = 0.0
+	var t := _map_toast.create_tween()
+	t.tween_property(_map_toast, "modulate:a", 1.0, 0.3)
+	t.tween_interval(MAP_TOAST_SEC)
+	t.tween_property(_map_toast, "modulate:a", 0.0, 0.5)
+	t.tween_callback(_map_toast.queue_free)
+
+
+## The map toast's text ("" none shown).
+func map_toast() -> String:
+	return _map_label.text if _map_toast != null and is_instance_valid(_map_toast) and is_instance_valid(_map_label) else ""
 
 
 func _build_result_panel() -> void:

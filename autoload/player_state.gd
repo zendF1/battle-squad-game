@@ -55,6 +55,10 @@ extends Node
 ## title). equip_title(id) / equip_title(null) run POST /player/titles/equip {titleId} one at a
 ## time (title_busy): the profile and the list take the answer's equipped title at once, the
 ## list reloads whatever the answer.
+##
+## Maps: GET /maps (the server DB's active maps) into match/theme/map_catalog.gd (cached in
+## user:// with its version), loaded when Home shows (load_maps(), coalesced; maps_changed when
+## the list changed): the map names and themes outside a match.
 
 signal changed # profile, loading or error changed
 signal assets_dirty # inventory, characters or purchases changed on the server
@@ -66,6 +70,7 @@ signal milestones_changed # milestones, their loading / error, milestone_count o
 signal titles_changed # titles, their loading / error, title_busy or the worn title changed
 signal daily_changed # daily missions, their loading / error or daily_busy changed
 signal rank_changed # a GET /rank/me answer was applied
+signal maps_changed # a GET /maps answer changed the map catalog
 
 const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
 const Coalescer := preload("res://core/coalescer.gd")
@@ -75,6 +80,7 @@ const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
 const DailyModel := preload("res://screens/home/daily_model.gd")
+const MapCatalog := preload("res://match/theme/map_catalog.gd")
 
 ## What a payment refreshes once it succeeded.
 const AFTER_WALLET := 0 # the wallet only (a top-up)
@@ -171,6 +177,7 @@ var daily_busy := ""
 var rank: Dictionary = {}
 var _rank_player := ""
 var _rank_gate := Coalescer.new()
+var _maps_gate := Coalescer.new()
 
 var _equipment_gate := Coalescer.new()
 var _profile_gate := Coalescer.new()
@@ -292,6 +299,21 @@ func load_rank() -> void:
 			rank = res.data
 			_rank_player = player
 			rank_changed.emit()
+		break
+
+
+## Loads GET /maps into the map catalog; a failure keeps the cached list.
+func load_maps() -> void:
+	if not _maps_gate.ask():
+		return
+	while true:
+		var t := _maps_gate.ticket()
+		var res: Dictionary = await _api().get_json("/maps")
+		if not _maps_gate.finish(t):
+			continue
+		var parsed = MapCatalog.parse(res.data) if res.ok else null
+		if parsed is Dictionary and MapCatalog.take(parsed):
+			maps_changed.emit()
 		break
 
 
