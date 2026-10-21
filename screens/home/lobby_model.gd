@@ -1,7 +1,8 @@
 extends RefCounted
-## The lobby's choices, without UI: the play modes ("Luyện tập", "Đấu với máy") and their
-## QuickPlay base, cycling through the four characters, the info card text of a character from
-## the PlayerState characters cache, and the remembered mode. The mode is kept in the same
+## The lobby's choices, without UI: the play modes ("Luyện tập", "Xếp hạng 2v2", "Đấu với
+## máy") and their QuickPlay base (ranked: the queue, is_ranked()), cycling through the four
+## characters, the info card text of a character from the PlayerState characters cache, and the
+## remembered mode. The mode is kept in the same
 ## settings file as the Loadout choice (LoadoutModel.SETTINGS_PATH, section "lobby").
 
 const LoadoutModel := preload("res://screens/loadout_model.gd")
@@ -14,10 +15,18 @@ const SECTION := "lobby"
 const MODE_KEY := "mode"
 
 ## id: the remembered value; base: Router.quick_play_base for the Loadout.
+## Ranked's base is not a QuickPlay: {"queue": RANKED_QUEUE} sends the Loadout to Matchmaking.
 const MODES := [
 	{"id": "practice", "name": "Luyện tập", "description": "Tập bắn với bia đứng yên", "base": {}},
+	{"id": "ranked", "name": "Xếp hạng 2v2", "description": "Ghép 2v2, tính điểm hạng", "base": {"queue": "ranked_2v2"}},
 	{"id": "bot", "name": "Đấu với máy", "description": "Đấu 1v1 với máy biết bắn", "base": {"bot": "ai"}},
 ]
+const RANKED_QUEUE := "ranked_2v2"
+
+
+## The ranked mode's base (the Loadout opens Matchmaking instead of sending QuickPlay).
+static func is_ranked(base: Dictionary) -> bool:
+	return str(base.get("queue", "")) == RANKED_QUEUE
 
 
 ## The mode after `index`, wrapping around.

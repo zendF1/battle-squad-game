@@ -44,9 +44,11 @@ extends Node
 ## answer's state at once; a refusal (or an answer without a state) reloads the list. A chest
 ## claim refreshes the wallet, and the stones / inventory when it gave some.
 ##
-## Rank: GET /rank/me (the current season's {rating, tier, ...}), loaded with the profile when
-## Home is shown (load_rank(), coalesced); rank_tier() is its tier ("" until loaded, after a
-## failure or for another account): the match's aiming aid shortens its guide arc by it.
+## Rank: GET /rank/me (the current season's {rating, tier, division, wins, losses, rankPos,
+## season, ...}), loaded with the profile when Home is shown and after a match (load_rank(),
+## coalesced; rank_changed once applied); my_rank() is it ({} until loaded, after a failure or
+## for another account): the Home tier chip, the ranked mode card, the matchmaking card;
+## rank_tier() is its tier: the match's aiming aid shortens its guide arc by it.
 ##
 ## Titles ("Danh hiệu"): the worn one is the profile's equippedTitle (equipped_title()); the
 ## list GET /player/titles (TitleModel.parse, coalesced, stale after a milestone claim that gave a
@@ -63,6 +65,7 @@ signal stones_changed # owned stones, their loading / error, or stone_busy chang
 signal milestones_changed # milestones, their loading / error, milestone_count or milestone_busy changed
 signal titles_changed # titles, their loading / error, title_busy or the worn title changed
 signal daily_changed # daily missions, their loading / error or daily_busy changed
+signal rank_changed # a GET /rank/me answer was applied
 
 const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
 const Coalescer := preload("res://core/coalescer.gd")
@@ -288,7 +291,15 @@ func load_rank() -> void:
 		if res.ok and res.data is Dictionary:
 			rank = res.data
 			_rank_player = player
+			rank_changed.emit()
 		break
+
+
+## The signed-in player's GET /rank/me data, {} when not loaded (or another account's).
+func my_rank() -> Dictionary:
+	if rank.is_empty() or _rank_player != Session.player_id:
+		return {}
+	return rank
 
 
 ## The signed-in player's rank tier (ratingToTier ids: bronze ... master), "" when unknown.

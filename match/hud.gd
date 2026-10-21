@@ -21,7 +21,9 @@ extends Control
 ## normal shot is the default). A special (the skill or a shot item) once tapped stays armed for
 ## the turn (match/action_lock.gd: the other shot slots go off). A turn change also shows a short
 ## centre banner ("Lượt của bạn" / "Lượt của X"); a lost turn (stun / freeze) shows a longer one
-## under it ("Choáng — mất lượt", announce_skip()).
+## under it ("Choáng — mất lượt", announce_skip()). The small result panel (show_result()) is
+## only for a cancelled match and a lost connection: a match that ended shows the full-screen
+## result (match/result_screen.gd).
 
 signal move_pressed(dir: int)
 signal move_released

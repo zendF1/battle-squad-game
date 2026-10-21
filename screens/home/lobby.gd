@@ -1,6 +1,7 @@
 extends Control
 ## The Home lobby (a Gunny-style mobile lobby). Corners: the player (avatar letter, name, EXP
-## bar, "Lv.N"; tap opens the Nhân vật page) top-left, the wallet pills top-right, the connection
+## bar, "Lv.N"; tap opens the Nhân vật page) top-left with the rank chip beside it (tier badge,
+## "Bạc II", points; tap: the rank popup, screens/ranked/rank_chip.gd), the wallet pills top-right, the connection
 ## state top-centre, one round shortcut per page down the right (Nhân vật, Kho đồ → Túi đồ,
 ## Nâng cấp, Lịch sử → Hồ sơ, Shop), the
 ## selected character's info card (role, skill, stats; its name and level are on the stage) on
@@ -15,8 +16,8 @@ extends Control
 ## (pedestal_gun.gd, no name under it), updated on equip / unequip. ◀ ▶ or a swipe cycles
 ## the four characters. The character is the Loadout's (saved
 ## in the same settings file, so the Loadout opens with it) and the mode is remembered there
-## too. "BẮT ĐẦU" puts the mode's QuickPlay base in Router.quick_play_base and opens the
-## Loadout. Character levels and stats come from the PlayerState characters cache, loaded when
+## too; the ranked mode's card shows the tier badge and "Bạc II · 1.050 điểm" under its name. "BẮT ĐẦU" puts
+## the mode's QuickPlay base in Router.quick_play_base and opens the Loadout. Character levels and stats come from the PlayerState characters cache, loaded when
 ## the lobby is shown; until then the card shows name, role and skill only.
 
 signal open_profile
@@ -43,6 +44,9 @@ const MilestonePage := preload("res://screens/home/milestone_page.gd")
 const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
 const MissionArt := preload("res://screens/home/mission_art.gd")
+const RankChip := preload("res://screens/ranked/rank_chip.gd")
+const TierBadge := preload("res://screens/ranked/tier_badge.gd")
+const RankModel := preload("res://screens/ranked/rank_model.gd")
 
 const MARGIN := 18
 const STAGE := Vector2(560, 590)
@@ -81,9 +85,14 @@ var _drag_from := -1.0
 var _milestone_badge: PanelContainer
 var _daily_dot: Control
 
+var rank_chip: RankChip
+
 # Mode card
 var _mode_name: Label
 var _mode_text: Label
+var _mode_rank: Control # ranked: the tier badge and "Bạc II · 1.050 điểm"
+var _mode_rank_badge: TierBadge
+var _mode_rank_text: Label
 var _start: Button
 
 
@@ -94,6 +103,8 @@ func _ready() -> void:
 
 	_add_stage()
 	_pin(_build_player_block(), 0, 0, MARGIN, MARGIN)
+	rank_chip = RankChip.new()
+	_pin(rank_chip, 0, 0, MARGIN + PLAYER_W + 14, MARGIN + 14)
 	_conn = LobbyUi.text("", 22, Color.WHITE, true)
 	_pin(_conn, 0.5, 0, 0, MARGIN + 6)
 	wallet = WalletPills.new()
@@ -112,6 +123,7 @@ func _ready() -> void:
 	PlayerState.equipment_changed.connect(_render_gun)
 	PlayerState.milestones_changed.connect(_render_milestones)
 	PlayerState.daily_changed.connect(_render_daily)
+	PlayerState.rank_changed.connect(_render_mode)
 	GameSocket.connected.connect(_render_conn)
 	GameSocket.disconnected.connect(_render_conn)
 	visibility_changed.connect(_on_visibility_changed)
@@ -157,12 +169,15 @@ func _on_visibility_changed() -> void:
 
 # ── Player ──────────────────────────────────────────────────────────────────
 
+const PLAYER_W := 380
+
+
 func _build_player_block() -> Control:
 	var b := Button.new()
 	LobbyUi.style_button(b, Color(0, 0, 0, 0), 20, 6)
 	b.add_theme_stylebox_override("hover", LobbyUi.box(Color(1, 1, 1, 0.06), 20, 6))
 	b.add_theme_stylebox_override("pressed", LobbyUi.box(Color(1, 1, 1, 0.12), 20, 6))
-	b.custom_minimum_size = Vector2(380, 104)
+	b.custom_minimum_size = Vector2(PLAYER_W, 104)
 	b.pressed.connect(func(): open_character.emit())
 	var row := Ui.hbox(14)
 	row.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
@@ -529,6 +544,15 @@ func _build_mode_card() -> Control:
 	texts.add_child(_mode_name)
 	_mode_text = LobbyUi.text("", 22, Color(0.75, 0.9, 1.0))
 	texts.add_child(_mode_text)
+	var rank_row := Ui.hbox(8)
+	rank_row.mouse_filter = MOUSE_FILTER_IGNORE
+	_mode_rank_badge = TierBadge.make("", 3, 34)
+	rank_row.add_child(_mode_rank_badge)
+	_mode_rank_text = LobbyUi.text("", 22, Color.WHITE, true)
+	_mode_rank_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	rank_row.add_child(_mode_rank_text)
+	texts.add_child(rank_row)
+	_mode_rank = rank_row
 	var swap := LobbyUi.round_button("swap", 68, LobbyUi.ICON_COLORS["blue"], 0.6)
 	swap.size_flags_vertical = SIZE_SHRINK_CENTER
 	swap.pressed.connect(_next_mode)
@@ -553,6 +577,16 @@ func _render_mode() -> void:
 	var m: Dictionary = LobbyModel.MODES[_mode]
 	_mode_name.text = m["name"]
 	_mode_text.text = m["description"]
+	var ranked := LobbyModel.is_ranked(m["base"])
+	_mode_rank.visible = ranked
+	_mode_text.visible = not ranked # the rank line takes the description's place
+	if ranked:
+		var data := PlayerState.my_rank()
+		var r := RankModel.from_me(data)
+		_mode_rank_badge.tier = r["tier"] if not data.is_empty() else ""
+		_mode_rank_badge.division = r["division"]
+		_mode_rank_text.text = RankModel.mode_line(r) if not data.is_empty() else "Đang tải hạng..."
+		_mode_rank_text.add_theme_color_override("font_color", TierBadge.COLORS[_mode_rank_badge.tier][0])
 
 
 ## The QuickPlay base of the chosen mode.

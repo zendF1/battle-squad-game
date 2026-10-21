@@ -295,3 +295,45 @@ static func mission(res: Dictionary) -> String:
 	if int(res.get("status", 0)) == 0:
 		return OFFLINE
 	return MISSION.get(code, "Nhận thưởng thất bại: %s" % res.get("message", ""))
+
+
+## Ranked lobby / queue errors: LobbyError {"error": {code, message}} (internal/game/lobby
+## handler.go) and the lobby's own "Error" {code, message} (lobby.go, lower-case codes).
+const LOBBY := {
+	"ALREADY_IN_LOBBY": "Bạn vẫn đang ở trong một tổ đội khác",
+	"IN_ROOM": "Bạn vẫn đang ở trong một phòng khác",
+	"LOBBY_CREATE_FAILED": "Không tạo được tổ đội, hãy thử lại",
+	"LOBBY_NOT_FOUND": "Tổ đội không còn tồn tại",
+	"LOBBY_REQUIRED": "Tổ đội không còn tồn tại",
+	"NOT_HOST": "Chỉ chủ tổ đội mới tìm trận được",
+	"INVALID_STATUS": "Tổ đội đang bận, hãy thử lại",
+	"QUEUE_FAILED": "Không vào được hàng chờ, hãy thử lại",
+	"NOT_IN_QUEUE": "Không còn trong hàng chờ",
+	"character_not_owned": "Bạn chưa sở hữu nhân vật này",
+	"too_many_items": "Chỉ mang tối đa 3 vật phẩm",
+	"item_not_owned": "Vật phẩm đã hết hoặc chưa sở hữu",
+	"lobby_full": "Tổ đội đã đủ người",
+	"lobby_not_open": "Tổ đội đang tìm trận",
+}
+
+
+## The code of a LobbyError / lobby Error payload ("" when none).
+static func lobby_code(data: Variant) -> String:
+	if not data is Dictionary:
+		return ""
+	var err: Dictionary = data["error"] if data.get("error") is Dictionary else data
+	return str(err.get("code", ""))
+
+
+## A LobbyError / lobby Error payload in Vietnamese; unknown codes show the server message.
+static func lobby_error(data: Variant) -> String:
+	var code := lobby_code(data)
+	if code == "LOADOUT_INVALID": # the QuickPlay rules and reasons
+		return room_error(data)
+	if LOBBY.has(code):
+		return LOBBY[code]
+	var err: Dictionary = {}
+	if data is Dictionary:
+		err = data["error"] if data.get("error") is Dictionary else data
+	var message := str(err.get("message", ""))
+	return "Lỗi ghép trận: %s" % message if message != "" else "Lỗi ghép trận, hãy thử lại"

@@ -11,11 +11,13 @@ extends Control
 ## Each time Home is shown (first entry, back from Loadout or a match) the profile is refreshed in
 ## the background; the last known values show meanwhile. The cached characters and the owned
 ## equipment are marked stale too (a match changes their EXP), so whatever shows them reloads
-## them once. The Nhân vật page, Túi đồ and the Shop's Trang bị (its weapons) act on the lobby's
+## them once. A message left in Router.home_notice (a ranked queue that ended with an error)
+## shows once as a toast. The Nhân vật page, Túi đồ and the Shop's Trang bị (its weapons) act on the lobby's
 ## character; ◀ ▶ on the Nhân vật page change it in the lobby too.
 
 const Backdrop := preload("res://ui/backdrop.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
+const Ui := preload("res://ui/ui.gd")
 const Modal := preload("res://ui/modal.gd")
 const WalletPills := preload("res://ui/wallet_pills.gd")
 const Lobby := preload("res://screens/home/lobby.gd")
@@ -69,6 +71,7 @@ func _ready() -> void:
 	_lobby.open_milestones.connect(open_milestones)
 	_lobby.open_daily.connect(open_daily)
 	_connect_wallet(_lobby.wallet)
+	_lobby.rank_chip.host = self
 
 	_profile = ProfileTab.new()
 	_profile.overlay = self
@@ -102,7 +105,10 @@ func _ready() -> void:
 	_pages[SHOP] = _build_page("Shop", _shop)
 	_show(LOBBY)
 	PlayerState.refresh()
-	PlayerState.load_rank() # the match's aiming aid reads the tier
+	PlayerState.load_rank() # the rank chip, the ranked mode card; the match's aiming aid reads the tier
+	if Router.home_notice != "": # a ranked queue that ended with an error
+		Ui.toast(self, Router.home_notice, 3.5)
+		Router.home_notice = ""
 
 
 func _exit_tree() -> void:

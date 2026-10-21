@@ -50,6 +50,11 @@ const ActionLock := preload("res://match/action_lock.gd")
 const SkillView := preload("res://match/views/skills/skill_view.gd")
 const HighShellMarker := preload("res://match/views/high_shell_marker.gd")
 const CharacterShopModel := preload("res://screens/home/character_shop_model.gd")
+const RankModel := preload("res://screens/ranked/rank_model.gd")
+const ResultModel := preload("res://match/result_model.gd")
+const ResultScreen := preload("res://match/result_screen.gd")
+const QuickPlay := preload("res://screens/quick_play.gd")
+const LobbyModel := preload("res://screens/home/lobby_model.gd")
 
 const ACTION_INTERVAL := 0.25 # server drops actions closer than 150 ms
 const MOVE_ACK_GAP := 0.16 # Shoot/EndTurn/UseItem wait this long after the last answer to a Move
@@ -70,6 +75,11 @@ const DRILL_PIERCE := 50.0 # px of terrain the drill_bomb shot drills (server it
 const ITEM_BADGE_SEC := 1.5 # an instant item's badge stays this long, then fades
 
 var _me := ""
+var _mode := "" # MatchStarted's mode (ranked_2v2: the result's rating row, the lobby left going Home)
+var _lobby_left := false # LeaveLobby sent (once)
+var _roster := {} # Router.match_roster: the ranked players' level and rank (MatchFound)
+var _damage_by := {} # playerId -> damage dealt to the other team, counted from the replays (the MVP without stats)
+var _replay: QuickPlay # the result screen's "Chơi lại"
 var _players := {} # playerId -> server BattlePlayerState
 var _views := {} # playerId -> PlayerView
 var _current := ""
@@ -159,6 +169,9 @@ func _ready() -> void:
 
 	var snap: Dictionary = Router.match_snapshot
 	Router.match_snapshot = {} # consumed: a later Match scene must not start from it
+	_mode = str(snap.get("mode", ""))
+	_roster = Router.match_roster
+	Router.match_roster = {}
 	_load_snapshot(snap, false)
 	GameSocket.event_received.connect(_on_event)
 	GameSocket.disconnected.connect(_on_disconnected)
@@ -428,6 +441,7 @@ func _apply(event: String, data: Variant) -> void:
 		"ShotResolved":
 			_awaiting_ack = 0.0
 			var shooter := str(data.get("shooterId", ""))
+			_count_damage(shooter, data.get("events"))
 			_turn_resolved = true # the server takes no more actions until TurnStarted
 			_hud.pause_timer() # resumed by the next TurnTimerTick / TurnStarted
 			_snap_to_server(shooter)
@@ -758,18 +772,63 @@ func _on_match_ended(d: Dictionary) -> void:
 	if str(d.get("result", "")) == "no_contest":
 		_hud.show_result("Trận bị huỷ", str(d.get("message", "")))
 		return
+	if _mode == RankModel.RANKED_MODE:
+		PlayerState.load_rank() # Home shows the new rank
+	show_result_screen(result_info(d))
+
+
+## The result screen's data (ResultScreen.setup()) for a MatchEnded {winningTeam, rewards,
+## stats?, mvpPlayerId?}. The server sends "rewards": null when granting them failed: shown as
+## such, never as +0.
+func result_info(d: Dictionary) -> Dictionary:
 	var my_team := int(_players.get(_me, {}).get("teamId", -1))
 	var winning_team := int(d.get("winningTeam", 0)) # 0: no team left alive
-	var title := "Hoà"
-	if winning_team != 0:
-		title = "Chiến thắng!" if winning_team == my_team else "Thất bại"
-	# The server sends "rewards": null when granting them failed; never show that as +0.
 	var rewards = d.get("rewards")
 	var reward = rewards.get(_me) if rewards is Dictionary else null
-	var detail := "Chưa lấy được phần thưởng của trận này"
-	if reward is Dictionary:
-		detail = "+%d EXP   +%d xu" % [int(reward.get("expGained", 0)), int(reward.get("coinGained", 0))]
-	_hud.show_result(title, detail)
+	var stats = d.get("stats")
+	var sides := ResultModel.sides(_players, _me, winning_team)
+	var order: Array = sides["left"] + sides["right"]
+	var my_rank := PlayerState.my_rank()
+	var entries := {"left": [], "right": []}
+	for side in entries:
+		for id in sides[side]:
+			entries[side].append(ResultModel.entry(id, _players[id], _roster.get(id, {}), _me, PlayerState.level(), my_rank,
+				ResultModel.damage_of(id, stats, _damage_by)))
+	var char_id := str(_players.get(_me, {}).get("characterId", ""))
+	return {"outcome": ResultModel.outcome(my_team, winning_team), "left": entries["left"], "right": entries["right"],
+		"mvp": ResultModel.mvp(_players, order, stats, d.get("mvpPlayerId"), _damage_by),
+		"reward": ResultModel.reward(reward, _mode),
+		"exp": {"level": PlayerState.level(), "exp": PlayerState.player_exp()} if PlayerState.is_loaded() else {},
+		"char_name": LobbyModel.character_info(char_id, null)["name"],
+		"again": ResultModel.again_text(_mode, not Router.last_quick_play.is_empty())}
+
+
+## The full-screen result over the match (its own layer, over the HUD).
+func show_result_screen(info: Dictionary) -> ResultScreen:
+	var layer := CanvasLayer.new()
+	layer.layer = 10
+	add_child(layer)
+	var screen := ResultScreen.new()
+	screen.setup(info)
+	screen.home_pressed.connect(_on_leave)
+	screen.again_pressed.connect(_on_again.bind(screen))
+	layer.add_child(screen)
+	return screen
+
+
+## "Chơi tiếp" (ranked: back into the queue with the same loadout) / "Chơi lại" (the same Quick
+## Play again; the server already took me out of this room).
+func _on_again(screen: ResultScreen) -> void:
+	if _mode == RankModel.RANKED_MODE:
+		# The lobby is kept after the match (ReturnToLobby): Matchmaking's CreateLobby gets it back.
+		Router.go(Router.MATCHMAKING if not Router.ranked_loadout.is_empty() else Router.LOADOUT)
+		return
+	if _replay == null:
+		_replay = QuickPlay.new()
+		add_child(_replay)
+		_replay.changed.connect(func() -> void: screen.set_status(_replay.status, _replay.pending))
+	if not _replay.request(Router.last_quick_play):
+		screen.set_status("Mất kết nối, hãy thử lại khi online", false)
 
 
 # ── Local actions ────────────────────────────────────────────────────────────
@@ -908,7 +967,29 @@ static func _since(usec: int) -> float:
 func _on_leave() -> void:
 	if not _disconnected: # a new connection is not in this room; Leave would only be rejected
 		GameSocket.send("Leave", {})
+		if _mode == RankModel.RANKED_MODE:
+			_leave_lobby()
 	Router.go(Router.HOME)
+
+
+## Adds a shot's damage to the other team to its shooter's tally (_damage_by).
+func _count_damage(shooter: String, events: Variant) -> void:
+	if not events is Array or not _players.has(shooter):
+		return
+	var team := int(_players[shooter].get("teamId", 0))
+	for e in events:
+		if e is Dictionary and str(e.get("type", "")) == "damage":
+			var target := str(e.get("playerId", ""))
+			if _players.has(target) and int(_players[target].get("teamId", 0)) != team:
+				_damage_by[shooter] = int(_damage_by.get(shooter, 0)) + int(e.get("amount", 0))
+
+
+## Leaves the ranked queue's lobby once, going back to Home (the server keeps it after the match
+## for "Chơi tiếp"; a solo lobby disbands).
+func _leave_lobby() -> void:
+	if not _lobby_left:
+		_lobby_left = true
+		GameSocket.send("LeaveLobby", {})
 
 
 ## The server treats a lost connection as Leave, so the match cannot be resumed (M2).

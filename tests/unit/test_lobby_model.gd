@@ -11,20 +11,32 @@ const BASE_TANKO := {"maxHp": 1950, "defense": 80, "damageBonus": 0, "moveEnergy
 
 
 func test_modes_and_their_quick_play_base() -> void:
-	eq(LobbyModel.MODES.size(), 2, "two modes")
+	eq(LobbyModel.MODES.size(), 3, "three modes")
 	eq(LobbyModel.MODES[0]["name"], "Luyện tập", "practice first")
+	eq(LobbyModel.MODES[1]["name"], "Xếp hạng 2v2", "ranked second")
+	eq(LobbyModel.MODES[1]["description"], "Ghép 2v2, tính điểm hạng", "ranked description")
 	eq(LobbyModel.mode_base(0), {}, "practice target")
-	eq(LobbyModel.mode_base(1), {"bot": "ai"}, "vs bot")
-	var base := LobbyModel.mode_base(1)
+	eq(LobbyModel.mode_base(1), {"queue": "ranked_2v2"}, "ranked queue")
+	eq(LobbyModel.mode_base(2), {"bot": "ai"}, "vs bot")
+	var base := LobbyModel.mode_base(2)
 	base["characterId"] = "x"
-	eq(LobbyModel.mode_base(1), {"bot": "ai"}, "a copy")
+	eq(LobbyModel.mode_base(2), {"bot": "ai"}, "a copy")
 	eq(LobbyModel.next_mode(0), 1, "next")
-	eq(LobbyModel.next_mode(1), 0, "wraps")
-	eq(LobbyModel.mode_index("bot"), 1, "by id")
-	eq(LobbyModel.mode_index("ranked"), 0, "unknown id is the first")
-	eq(LobbyModel.mode_of_base({"bot": "ai"}), 1, "base of vs bot")
+	eq(LobbyModel.next_mode(2), 0, "wraps")
+	eq(LobbyModel.mode_index("bot"), 2, "by id")
+	eq(LobbyModel.mode_index("ranked"), 1, "ranked by id")
+	eq(LobbyModel.mode_index("arena"), 0, "unknown id is the first")
+	eq(LobbyModel.mode_of_base({"bot": "ai"}), 2, "base of vs bot")
+	eq(LobbyModel.mode_of_base({"queue": "ranked_2v2"}), 1, "base of ranked")
 	eq(LobbyModel.mode_of_base({}), 0, "base of practice")
 	eq(LobbyModel.mode_of_base({"bot": "other"}), 0, "unknown base is the first")
+
+
+func test_ranked_base() -> void:
+	check(LobbyModel.is_ranked(LobbyModel.mode_base(1)), "ranked")
+	check(not LobbyModel.is_ranked(LobbyModel.mode_base(0)), "practice is not")
+	check(not LobbyModel.is_ranked(LobbyModel.mode_base(2)), "vs bot is not")
+	check(not LobbyModel.is_ranked({"queue": "other"}), "another queue is not")
 
 
 func test_cycle_characters_wraps() -> void:
@@ -83,7 +95,7 @@ func test_mode_remembered_next_to_the_loadout() -> void:
 	eq(LobbyModel.restore_mode(TMP), 1, "the loadout save keeps the mode")
 	var cfg := ConfigFile.new()
 	cfg.load(TMP)
-	cfg.set_value("lobby", "mode", "ranked")
+	cfg.set_value("lobby", "mode", "arena")
 	cfg.save(TMP)
 	eq(LobbyModel.restore_mode(TMP), 0, "unknown mode falls back")
 	DirAccess.remove_absolute(TMP)

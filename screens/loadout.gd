@@ -1,7 +1,8 @@
 extends Control
 ## Loadout before Quick Play ("Chuẩn bị", opened by the lobby's "BẮT ĐẦU"): pick up to three
 ## items, then "Vào trận" sends QuickPlay {bot?, characterId, items} through the QuickPlay
-## helper. The character is the one chosen in the lobby (saved in the shared settings file) and
+## helper; on the ranked mode "Tìm trận" opens Matchmaking with {characterId, items}
+## (Router.ranked_loadout) instead. The character is the one chosen in the lobby (saved in the shared settings file) and
 ## shows read-only on the left with its level; the mode ({} practice target, {"bot": "ai"}) is
 ## the lobby's, in Router.quick_play_base, named in the header. The picked items sit in three
 ## slots above the item grid (five per row, scrolling when the window is short); tapping a slot
@@ -439,7 +440,7 @@ func _build_footer() -> Control:
 	_status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(_status)
-	_play = LobbyUi.start_button("VÀO TRẬN")
+	_play = LobbyUi.start_button("TÌM TRẬN" if LobbyModel.is_ranked(_base) else "VÀO TRẬN")
 	_play.custom_minimum_size.x = 380
 	_play.pressed.connect(_on_play)
 	row.add_child(_play)
@@ -508,7 +509,12 @@ func _on_play() -> void:
 		if not dropped.is_empty():
 			return
 	_model.remember(SETTINGS_PATH)
-	_quick_play.request(_model.payload(_base))
+	if LobbyModel.is_ranked(_base):
+		Router.ranked_loadout = _model.payload({}) # {characterId, items}: Matchmaking queues with it
+		Router.go(Router.MATCHMAKING)
+		return
+	Router.last_quick_play = _model.payload(_base)
+	_quick_play.request(Router.last_quick_play)
 
 
 func _on_back() -> void:
