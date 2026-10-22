@@ -39,7 +39,7 @@ func test_sample_interpolates_straight_flight() -> void:
 
 
 func test_sample_follows_velocity_curve() -> void:
-	# Up then down between two samples at the same point: Hermite puts the apex at -2.5.
+	# Up then down between two samples at the same point: the constant-acceleration arc puts the apex at -2.5.
 	var tl = _timeline([_step(0, 0, 0, 0, -10), _step(1, 0, 0, 0, 10)])
 	near(tl.sample(0, 0.5).y, -2.5, 1e-6, "apex")
 

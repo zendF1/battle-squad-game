@@ -2,10 +2,12 @@ extends Node
 ## Replays one ShotResolved: moves projectile views along the server paths and emits each
 ## timeline event when its time comes. Driven by frame delta, so it is smooth at any FPS.
 ## `muzzle` (layer coordinates, set before play()) makes the projectiles that leave near it start
-## drawn at the gun's muzzle and blend into the server path over SPAWN_BLEND seconds (visual
-## only: the path and its events are unchanged). play(timeline, lead_in) holds the whole replay
-## (projectiles hidden, no events) for lead_in seconds first, e.g. while the shooter draws its
-## gun: everything shifts together, the timeline's order is unchanged.
+## drawn at the gun's muzzle and blend into the server path (spawn_offset(); visual only: the
+## path and its events are unchanged). The nose always follows the server path's tangent, never
+## the blend's own motion (that swung it by up to ~70° and back on a slow shot).
+## play(timeline, lead_in) holds the whole replay (projectiles hidden, no events) for lead_in
+## seconds first, e.g. while the shooter draws its gun: everything shifts together, the
+## timeline's order is unchanged.
 ## A projectile leaving later (ShotTimeline.launch_time(), the bomb chain, the missiles) stays
 ## hidden until then; its muzzle blend starts when it leaves. A skill shot's `skill_view`
 ## (match/views/skills/skill_view.gd, set before play()) may restyle or replace each projectile
@@ -18,7 +20,14 @@ signal fired
 signal finished
 
 const ProjectileView := preload("res://match/views/projectile_view.gd")
+## The muzzle blend: an ease with no jump in speed at either end, lasting long enough that it
+## never takes more than SPAWN_MAX_DRAG of the shell's speed (the muzzle is ~30-40 px in front of
+## the path's start: a short blend drew a slow shell going backwards), SPAWN_BLEND..SPAWN_BLEND_MAX
+## s and at most SPAWN_FLIGHT_SHARE of the flight.
 const SPAWN_BLEND := 0.15 # s
+const SPAWN_BLEND_MAX := 0.4 # s
+const SPAWN_MAX_DRAG := 0.35
+const SPAWN_FLIGHT_SHARE := 0.5
 const SPAWN_NEAR := 90.0 # px: a path starting farther from the muzzle (air strike) is not moved
 const ARROW_KINDS := ["", "flare", "bomb"] # high_shells(): the kinds flying a normal arc
 
@@ -34,6 +43,7 @@ var _timeline
 var _t := 0.0
 var _views: Array = []
 var _spawn_offsets: Array = [] # per projectile: muzzle - path start (or zero)
+var _spawn_blends: Array = [] # per projectile: how long its muzzle blend lasts (s)
 var _launch: Array = [] # per projectile: when it leaves
 var _skill_view = null
 var _fired := false
@@ -49,6 +59,7 @@ func play(timeline, lead_in: float = 0.0) -> void:
 	_t = -maxf(0.0, lead_in)
 	_fired = false
 	_spawn_offsets.clear()
+	_spawn_blends.clear()
 	_launch.clear()
 	_skill_view = skill_view
 	skill_view = null
@@ -61,6 +72,7 @@ func play(timeline, lead_in: float = 0.0) -> void:
 			if offset.length() > SPAWN_NEAR:
 				offset = Vector2.ZERO
 		_spawn_offsets.append(offset)
+		_spawn_blends.append(blend_time(offset, timeline.velocity(i, launch).length(), timeline.projectile_end(i) - launch))
 		var view: Node2D = ProjectileView.new()
 		view.kind = str(style.get("kind", ""))
 		view.tier = str(style.get("tier", ""))
@@ -84,23 +96,32 @@ func launch_time(i: int) -> float:
 	return _launch[i] if i < _launch.size() else 0.0
 
 
+## How long a muzzle blend of `offset` lasts for a shell leaving at `speed` px/s that flies
+## `flight` s: the ease's fastest rate (1.5 × offset / time) at most SPAWN_MAX_DRAG × speed.
+static func blend_time(offset: Vector2, speed: float, flight: float) -> float:
+	var t := SPAWN_BLEND
+	if speed > 0.0:
+		t = maxf(t, 1.5 * offset.length() / (SPAWN_MAX_DRAG * speed))
+	return minf(minf(t, SPAWN_BLEND_MAX), maxf(flight * SPAWN_FLIGHT_SHARE, 1e-3))
+
+
+## The blend's share of the offset left at s (0..1 of the blend): 1 → 0, flat at both ends.
+static func blend_left(s: float) -> float:
+	s = clampf(s, 0.0, 1.0)
+	return 1.0 - s * s * (3.0 - 2.0 * s)
+
+
+## How long projectile i's muzzle blend lasts (s).
+func spawn_blend(i: int) -> float:
+	return _spawn_blends[i] if i < _spawn_blends.size() else SPAWN_BLEND
+
+
 ## How far projectile i is drawn off its path at time t: the muzzle offset easing out from its
 ## launch.
 func spawn_offset(i: int, t: float) -> Vector2:
 	if i >= _spawn_offsets.size():
 		return Vector2.ZERO
-	t -= launch_time(i)
-	var k := clampf(1.0 - t / SPAWN_BLEND, 0.0, 1.0)
-	return _spawn_offsets[i] * k * k
-
-
-## How fast projectile i's drawn offset changes at time t (px/s): the muzzle offset's ease.
-func spawn_offset_rate(i: int, t: float) -> Vector2:
-	t -= launch_time(i)
-	if i >= _spawn_offsets.size() or t >= SPAWN_BLEND or t < 0.0:
-		return Vector2.ZERO
-	var k := clampf(1.0 - t / SPAWN_BLEND, 0.0, 1.0)
-	return _spawn_offsets[i] * (-2.0 * k / SPAWN_BLEND)
+	return _spawn_offsets[i] * blend_left((t - launch_time(i)) / spawn_blend(i))
 
 
 ## Shells drawn above the view's top (y < top, world: the camera's view top) that fly like a
@@ -129,7 +150,7 @@ func live_positions() -> PackedVector2Array:
 func high_shell_velocities(top: float = 0.0) -> PackedVector2Array:
 	var out := PackedVector2Array()
 	for i in _high_indices(top):
-		out.append(_timeline.velocity(i, _t) + spawn_offset_rate(i, _t))
+		out.append(_timeline.velocity(i, _t))
 	return out
 
 
@@ -183,7 +204,7 @@ func _process(delta: float) -> void:
 		else:
 			view.position = _timeline.sample(i, _t) + spawn_offset(i, _t)
 			if view.has_method("set_tangent"):
-				view.set_tangent(_timeline.velocity(i, _t) + spawn_offset_rate(i, _t)) # the nose follows the curve
+				view.set_tangent(_timeline.velocity(i, _t)) # the nose follows the server path's curve
 	if _skill_view != null:
 		_skill_view.process(_t)
 	for event in timeline.pop_due(_t):
