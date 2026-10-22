@@ -100,6 +100,9 @@ const LOOK_LIFT := Vector2(0, -60) # the camera centres a player this far above 
 const REMOTE_LOOK := 520.0 # px along a remote player's aim the camera looks
 const START_HOLD := 0.5 # s on me at the match start before the pan to the current player
 const FALL_TAIL := 0.25 # s the camera stays on a fall's end
+## The result screen shows this long after MatchEnded is applied (after the last shot's replay):
+## the match's end stays on screen meanwhile, input locked. A "Trận bị huỷ" shows at once.
+const RESULT_DELAY_SEC := 2.0
 
 var _me := ""
 var _mode := "" # MatchStarted's mode (ranked_2v2: the result's rating row, the lobby left going Home)
@@ -912,7 +915,17 @@ func _on_match_ended(d: Dictionary) -> void:
 		return
 	if RankModel.is_ranked_mode(_mode):
 		PlayerState.load_rank() # Home shows the new rank
-	show_result_screen(result_info(d))
+	var info := result_info(d)
+	# A Timer child: leaving the screen during the wait frees it with the screen, nothing fires.
+	var delay := Timer.new()
+	delay.name = "ResultDelay"
+	delay.one_shot = true
+	delay.wait_time = RESULT_DELAY_SEC
+	delay.autostart = true
+	delay.timeout.connect(func() -> void:
+		delay.queue_free()
+		show_result_screen(info))
+	add_child(delay)
 
 
 ## The result screen's data (ResultScreen.setup()) for a MatchEnded {winningTeam, rewards,
