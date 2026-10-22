@@ -301,6 +301,16 @@ func move_layout() -> Dictionary:
 		"energy": _energy.get_parent().get_parent().get_global_rect(), "notice": _move_notice.get_global_rect()}
 
 
+## The screen rects the off-screen markers keep off (match/views/offscreen_markers.gd): the move
+## buttons and the energy, the skill slot, the item row and the turn portrait (those shown).
+func marker_avoid() -> Array:
+	var out: Array = [_left.get_global_rect(), _right.get_global_rect(), _energy.get_parent().get_parent().get_global_rect()]
+	for c in [_skill_box, _items, _portrait]:
+		if c.is_visible_in_tree() and c.size.x > 0.0:
+			out.append(c.get_global_rect())
+	return out
+
+
 ## Bottom centre: the aim readout over the item slots.
 func _build_bottom_centre() -> void:
 	var col: VBoxContainer = _pin(_ignore(Ui.vbox(10)), 0.5, 1, Vector2(0, -MARGIN))

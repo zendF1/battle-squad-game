@@ -103,32 +103,43 @@ func spawn_offset_rate(i: int, t: float) -> Vector2:
 	return _spawn_offsets[i] * (-2.0 * k / SPAWN_BLEND)
 
 
-## Shells drawn above the top of the screen (y < 0) that fly like a normal shot (ARROW_KINDS:
-## a normal shell, the flare, the bombs; not the rain's missiles dropping in from above): their
-## positions, for the arrows at the top edge (HighShellMarker).
-func high_shells() -> PackedVector2Array:
+## Shells drawn above the view's top (y < top, world: the camera's view top) that fly like a
+## normal shot (ARROW_KINDS: a normal shell, the flare, the bombs; not the rain's missiles dropping
+## in from above): their positions, for the arrows at the top edge (HighShellMarker).
+func high_shells(top: float = 0.0) -> PackedVector2Array:
 	var out := PackedVector2Array()
-	for i in _high_indices():
+	for i in _high_indices(top):
 		out.append(_views[i].position)
+	return out
+
+
+## Where the live projectiles are drawn now (launched, not yet ended): the camera follows them.
+func live_positions() -> PackedVector2Array:
+	var out := PackedVector2Array()
+	if _timeline == null or _t < 0.0:
+		return out
+	for view in _views:
+		if view != null and is_instance_valid(view) and view.visible:
+			out.append(view.position)
 	return out
 
 
 ## The velocities (px/s) of the high_shells(), in the same order: their arrows turn with them
 ## (up-slanted while rising, down-slanted while falling).
-func high_shell_velocities() -> PackedVector2Array:
+func high_shell_velocities(top: float = 0.0) -> PackedVector2Array:
 	var out := PackedVector2Array()
-	for i in _high_indices():
+	for i in _high_indices(top):
 		out.append(_timeline.velocity(i, _t) + spawn_offset_rate(i, _t))
 	return out
 
 
-func _high_indices() -> PackedInt32Array:
+func _high_indices(top: float = 0.0) -> PackedInt32Array:
 	var out := PackedInt32Array()
 	if _timeline == null:
 		return out
 	for i in _views.size():
 		var view = _views[i]
-		if view != null and is_instance_valid(view) and view.visible and view.position.y < 0.0 \
+		if view != null and is_instance_valid(view) and view.visible and view.position.y < top \
 				and ARROW_KINDS.has(_timeline.kind(i)):
 			out.append(i)
 	return out

@@ -317,6 +317,23 @@ func is_sweeping() -> bool:
 	return not _sweep.is_empty()
 
 
+## The angle a remote aim (aim_sweep()) shows now (degrees, the Shoot convention), NAN when none
+## (the camera looks along it).
+func sweep_angle() -> float:
+	if _sweep.is_empty():
+		return NAN
+	return AimSweep.angle_at(float(_sweep["t"]), float(_sweep["duration"]), float(_sweep["angle"]), _sprite.facing,
+		float(_sweep["wobble"]))
+
+
+func is_dead() -> bool:
+	return _dead
+
+
+func display_name() -> String:
+	return _name.text if _name != null else player_id
+
+
 func _apply_sweep() -> void:
 	if _walk_left > 0.0:
 		return # the walk faces the body; the gun comes out once it stops

@@ -6,7 +6,9 @@ It replaces the Flutter demo `../battle-squad-v1` and keeps its user flow.
 ## Target
 
 - Mobile, landscape, touch first. On the Mac, the mouse stands in for touch.
-- Viewport 1600×900, the server's default map size. Stretch mode `canvas_items` + `expand`.
+- Viewport 1600×900. Stretch mode `canvas_items` + `expand`.
+- Maps come in any size (the terrain snapshot's width × height; the battle maps are 2400×1120): the
+  match world is under a camera (match/camera/), see "Match camera" below.
 - Dev servers: API `http://localhost:9090`, game WS `ws://localhost:9091` (from `battle-squad/.env`).
 
 ## User flow (same as the Flutter demo)
@@ -166,3 +168,29 @@ Reconnect UI, rooms, ranked play, skills, items, meta screens, sound, real textu
   - `POST /giftcode/redeem {code}`
   - `GET /account/deletion/status`, `POST /account/deletion/request`, `POST /account/deletion/cancel`
   - `POST /auth/logout {refreshToken}`
+
+## Match camera
+
+The battle world (terrain, bottom band, players, shells, FX, popups, aim lines) is under one
+Camera2D (`match/camera/match_camera.gd`) driven by a pure model (`match/camera/camera_model.gd`,
+unit tested); the HUD, the top-edge shell arrows and the off-screen markers stay on CanvasLayers,
+the sky is a far layer behind the world in parallax (backdrop 0.3, clouds 0.5).
+
+- Clamped to the map rect; while following a shot the view may rise 300 px above the map top. A
+  map narrower than the view is centred, a lower one sits on the view's bottom; neither pans.
+- Match start: on me, then a 0.6 s eased pan to the current player; each turn start pans to its
+  player and follows it walking. An explosion holds the view 0.4 s (falls and teleports longer)
+  before the next pan, with a small shake scaled by the blast.
+- My aim drag: follows the guide arc's far end (the beam's end for the laser), the shooter kept
+  150 px inside the view; air strike: the view scrolls while the pointer is near a screen side. The
+  slingshot vector is screen px, so the camera never changes the aim. Released or cancelled: it
+  stays until the shot. A remote PlayerAiming: looks 520 px along its sweep.
+- Replay: the middle of the box of the live shells and the held points (blasts, falls, teleports,
+  the laser's end).
+- Manual: a left drag pans when aiming is off (not my turn, the replay, input locked); a right /
+  middle drag, two fingers, a trackpad scroll pan at any time (a second finger cancels an aim
+  drag); the wheel / pinch zoom from 1 down to the whole map fitting. A manual look stays until
+  the next turn, aim, shot or remote aim. A tap on an off-screen marker pans there.
+- Off-screen markers (`match/views/offscreen_markers.gd`): a player whose feet and name are out of
+  view gets a marker on the screen edge (portrait in its colour, a pointer, an HP sliver), off the
+  HUD's buttons.

@@ -26,6 +26,7 @@ const ANIMS := {
 	"die": {"frames": 4, "fps": 8.0, "loop": false},
 }
 const PORTRAIT_SIZE := Vector2i(128, 128)
+const HEAD_PART := 0.36 # side_head(): the head's share of the figure's height, from its top
 ## The ground shadow under a character (centred on the feet), drawn at PX_PER_UNIT too.
 const SHADOW := ROOT + "characters/shadow.png"
 ## The hand drawn over the gun's grip (centred on the grip), shared by every character.
@@ -207,6 +208,7 @@ static var _guns_data: Variant = null # parsed weapons.json ({} when missing)
 static var _hug_data: Variant = null # parsed hug.json ({} when missing)
 static var _looks := {} # character id -> character_look()
 static var _sides := {} # side view dir -> parse_side() ({} = none)
+static var _heads := {} # character id -> side_head()
 static var _ready_poses := {} # character id -> ready_pose()
 static var _carry_poses := {} # carry scene path -> carry_pose()
 static var _placeholder: Texture2D
@@ -679,6 +681,54 @@ static func parse_side(dir: String) -> Dictionary:
 		"hand": hand, "hand_scale": scale if hand != null else 1.0, "draw_frames": frames.has_animation(DRAW_ANIM),
 		"fire_frames": frames.has_animation(FIRE_ANIM), "ready": ready, "carry": carry,
 		"gun_draw": data.get("gunDraw", {}) if data.get("gunDraw") is Dictionary else {}})
+	return out
+
+
+## The head of a character's match sprite: its side view's first idle frame (facing right) and the
+## square rect (frame px) round the head, found from the frame's opaque pixels (the figure's top
+## HEAD_PART, centred on them, nudged towards the face); {} without a side view. Cached per
+## character. The off-screen markers draw it (portrait.png is the old cartoon art).
+static func side_head(id: String) -> Dictionary:
+	id = known_character(id)
+	if _heads.has(id):
+		return _heads[id]
+	var out := {}
+	_heads[id] = out
+	var side := side_view(id)
+	if side.is_empty():
+		return out
+	var tex: Texture2D = (side["frames"] as SpriteFrames).get_frame_texture("idle", 0)
+	var img := tex.get_image() if tex != null else null
+	if img == null or img.is_empty():
+		return out
+	if img.is_compressed():
+		img.decompress()
+	var w := img.get_width()
+	var h := img.get_height()
+	var top := -1
+	var bottom := -1
+	for y in h:
+		var n := 0
+		for x in w:
+			if img.get_pixel(x, y).a > 0.5:
+				n += 1
+		if n >= 2:
+			if top < 0:
+				top = y
+			bottom = y
+	if top < 0:
+		return out
+	var band := int((bottom - top) * HEAD_PART)
+	var sum := 0.0
+	var count := 0
+	for y in range(top, top + band):
+		for x in w:
+			if img.get_pixel(x, y).a > 0.5:
+				sum += x
+				count += 1
+	var size := band * 1.2
+	var cx := sum / maxi(count, 1) + band * 0.06
+	out.merge({"texture": tex, "rect": Rect2(cx - size / 2.0, top + band * 0.04, size, size)})
 	return out
 
 

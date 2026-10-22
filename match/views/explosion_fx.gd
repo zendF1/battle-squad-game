@@ -10,8 +10,9 @@ extends Node2D
 ## tint for titan and diamond; diamond's sparkles linger. The kind's size (ShotLook.impact_size,
 ## the cannon 0.75) shrinks the whole impact: everything drawn for the radius (burst, flash,
 ## rings, smoke, cracks, flare) and how far the debris and particles fly. Particles stay within
-## ShotLook.MAX_IMPACT_PARTICLES. There is no camera hook in the match, so nothing shakes the
-## screen. Visuals only: the crater and the radius come from the server. It frees itself when
+## ShotLook.MAX_IMPACT_PARTICLES. The match camera shakes a little for it (match_screen:
+## CameraModel.shake(radius)); its screen tint covers the camera's view (the canvas transform).
+## Visuals only: the crater and the radius come from the server. It frees itself when
 ## its last effect is over. `lite` (one of many quick impacts, the missile rain's) keeps it cheap:
 ## LITE_PARTICLES of the particles, at most one ring, no screen tint, lens flare, cracks or
 ## lingering sparkles.

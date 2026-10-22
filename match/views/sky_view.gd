@@ -1,13 +1,16 @@
 extends Control
 ## The match background behind the terrain, by map theme (show_theme(), match/theme/map_themes.gd).
-## Its rect is the map; everything is painted Art.SKY_MARGIN px past the map's left and right
-## edges too (a viewport wider than the map, stretch "expand", shows sky there). Three layers:
+## A far layer in screen px on its own CanvasLayer behind the world (match/camera/match_camera.gd):
+## fit() sizes it to the screen plus its parallax travel (PARALLAX of how far the camera can move,
+## the sky above the map included) and a PAD for the shake, scroll() moves it (CameraModel.parallax()),
+## so it covers the screen at every camera position. Three layers:
 ## - the backdrop, drawn once (again only when the size or the theme changes): grassland is
 ##   assets/env/sky_match.png (day-sky gradient, sun, distant hills) stretched over the span;
 ##   another theme its picture at assets/env/sky_<theme>.png when an artist dropped one, else the
 ##   code-drawn one (match/theme/backdrop_painter.gd);
 ## - the clouds (the theme's count, tint and height band), drifting slowly with the wind: the
-##   only layer redrawn per frame (a few textured rects);
+##   only layer redrawn per frame (a few textured rects); they wrap around the width and scroll a
+##   little more than the backdrop (CLOUD_PARALLAX: nearer);
 ## - the theme's particles (snow, embers, dust, wisps, stars: match/theme/sky_fx.gdshader on a
 ##   ColorRect, animated on the GPU).
 ## Images via ui/art.gd.
@@ -18,6 +21,9 @@ const Backdrop := preload("res://match/theme/backdrop_painter.gd")
 const FX_SHADER := preload("res://match/theme/sky_fx.gdshader")
 
 const CLOUD_PX := 2.0 # cloud image px per world px at cloud scale 1
+const PARALLAX := 0.3 # the backdrop moves this share of the camera's motion
+const CLOUD_PARALLAX := 0.5 # the clouds this share
+const PAD := 32.0 # px past the screen on every side (the camera's shake)
 
 ## Wind of the current turn: the clouds drift its way, faster with more power.
 var wind_dir := 0
@@ -27,6 +33,7 @@ var map_theme := MapThemes.DEFAULT
 var _clouds: Array = [] # [position, scale, speed factor, texture]
 var _cloud_tint := Color.WHITE
 var _drift := 0.0
+var _cloud_shift := 0.0 # px the clouds are scrolled past the backdrop (their nearer parallax)
 var _sky: Texture2D # the backdrop picture, null = code-drawn
 var _cloud_layer: Control
 var _fx: ColorRect
@@ -82,12 +89,27 @@ static func sky_override_path(theme_id: String) -> String:
 	return Art.ROOT + "env/sky_%s.png" % theme_id
 
 
+## Sizes the layer for a screen of view px and a parallax travel of travel px (CameraModel.parallax_travel(PARALLAX)).
+func fit(view: Vector2, travel: Vector2) -> void:
+	var s := (view + travel + Vector2(PAD, PAD) * 2.0).ceil()
+	if s != size:
+		size = s
+	scroll(Vector2.ZERO)
+
+
+## Puts the layer at offset (CameraModel.parallax(PARALLAX), screen px, <= 0); cloud_dx: the
+## clouds' extra scroll (their parallax minus the backdrop's, screen px).
+func scroll(offset: Vector2, cloud_dx: float = 0.0) -> void:
+	position = (offset - Vector2(PAD, PAD)).round()
+	_cloud_shift = cloud_dx
+
+
 func _layout() -> void:
 	if _cloud_layer == null:
 		return
 	_cloud_layer.size = size
-	_fx.position = Vector2(-Art.SKY_MARGIN, 0)
-	_fx.size = Vector2(size.x + 2.0 * Art.SKY_MARGIN, size.y)
+	_fx.position = Vector2.ZERO
+	_fx.size = size
 	(_fx.material as ShaderMaterial).set_shader_parameter("rect_size", _fx.size)
 	queue_redraw()
 
@@ -101,22 +123,19 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	var x0 := -Art.SKY_MARGIN
-	var x1 := size.x + Art.SKY_MARGIN
 	if _sky != null:
-		draw_texture_rect(_sky, Rect2(x0, 0, x1 - x0, size.y), false)
+		draw_texture_rect(_sky, Rect2(Vector2.ZERO, size), false)
 	else:
-		Backdrop.paint(self, map_theme, size.x, size.y, Art.SKY_MARGIN)
+		Backdrop.paint(self, map_theme, size.x, size.y, 0.0)
 
 
 func _draw_clouds() -> void:
-	# Clouds wrap around the painted width.
-	var x0 := -Art.SKY_MARGIN
-	var span := size.x + 2.0 * Art.SKY_MARGIN
+	# Clouds wrap around the width (a cloud leaving one side comes in on the other, off screen).
+	var span := size.x + 400.0
 	for c in _clouds:
 		var p: Vector2 = c[0]
 		var tex: Texture2D = c[3]
 		var s: float = c[1] / CLOUD_PX
-		var x := fposmod(p.x * span + _drift * float(c[2]), span) + x0
+		var x := fposmod(p.x * span + _drift * float(c[2]) + _cloud_shift, span) - 200.0
 		var sz := tex.get_size() * s
 		_cloud_layer.draw_texture_rect(tex, Rect2(Vector2(x, p.y * size.y) - sz / 2, sz), false, _cloud_tint)

@@ -399,7 +399,7 @@ equipped weapon.
 | `<id>/die_0..3.png` | 512x400 each | once, 8 fps, holds the last frame; falls on its back (the grey tint is code) |
 | `<id>/<id>.tres` | – | SpriteFrames of the five animations |
 | `<id>/gun_anchors.json` | 2 KB | per animation, one entry per frame: `grip` [x, y] px in the frame (the hand's centre, where the gun's grip goes), `angle` degrees (0 = level, + turns the muzzle down; recoil kick, walk lean, hurt wobble), `front` (gun over the body; `false` in `die`: behind), `flash` 0..1 (muzzle flash) |
-| `<id>/portrait.png` | 128x128 | head and shoulders: Profile and Shop character cards |
+| `<id>/portrait.png` | 128x128 | head and shoulders of the old code-drawn cartoon (tools/bake_art.gd, CharacterPainter): no screen uses it any more; the match's off-screen markers crop the head of the side view's idle frame (`Art.side_head()`) |
 | `shadow.png` | 160x38 | ground shadow under every character, centred on the feet |
 | `hand.png` | 32x32 (0.5 KB) | the hand drawn over the gun's grip, centred on the grip (shared) |
 

@@ -12,7 +12,7 @@ extends RefCounted
 ## - "Trúng!" (is_hit(): an animated bullseye on that enemy, aim_input.gd) when the exact path
 ##   comes within HIT_RADIUS + hit_tolerance(D, H) of an enemy body centre, D the horizontal
 ##   distance to its end, H the apex height above the origin.
-## A shell flying above the screen shows on the top edge in flight (high_shell_marker.gd).
+## A shell flying above the view shows on its top edge in flight (high_shell_marker.gd).
 ## The laser (a straight beam) only gets the hit check: laser_hits(), the server's laserHits.
 ## The coefficients are first guesses: tune them in playtests, all here.
 
@@ -94,11 +94,12 @@ static func hit_tolerance(d: float, h: float) -> float:
 ## body centres. near (resized to enemies.size()) gets each enemy's closest distance to the path
 ## flown. Returns {end: Vector2 (the explosion point, or where the flight stopped), time: s,
 ## landed: it exploded (terrain or a body), hit: the index of the enemy body it stopped on, -1,
-## high_x: where a shell that rose above the top of the screen (y < 0) comes back into view, its
-## last x up there if it never does, NAN if it never rose above; high_dir: the unit direction it
-## flies there (coming back: down, slanted the way it falls), Vector2.ZERO with no high_x}.
+## high_x: where a shell that rose above the view's top (y < top: the camera's view top, world y)
+## comes back into view, its last x up there if it never does, NAN if it never rose above;
+## high_dir: the unit direction it flies there (coming back: down, slanted the way it falls),
+## Vector2.ZERO with no high_x}.
 static func fly(origin: Vector2, v: Vector2, accel_x: float, terrain, enemies: PackedVector2Array,
-		near: PackedFloat32Array, pierce: float = 0.0) -> Dictionary:
+		near: PackedFloat32Array, pierce: float = 0.0, top: float = 0.0) -> Dictionary:
 	near.resize(enemies.size())
 	near.fill(INF)
 	var x := origin.x
@@ -120,11 +121,11 @@ static func fly(origin: Vector2, v: Vector2, accel_x: float, terrain, enemies: P
 		x += vx * dt
 		y += vy * dt
 		t += dt
-		if y < 0.0:
+		if y < top:
 			high_x = x
 			high_v = Vector2(vx, vy)
-		elif py < 0.0:
-			high_x = px + (x - px) * (-py / (y - py))
+		elif py < top:
+			high_x = px + (x - px) * ((top - py) / (y - py))
 			high_v = Vector2(vx, vy)
 		var dx := x - px
 		var dy := y - py

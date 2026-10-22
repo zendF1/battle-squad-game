@@ -16,9 +16,16 @@ extends Node2D
 ##   wind_influence / projectile_weight, enemies and a drill's pierce) comes within
 ##   AimAid.HIT_RADIUS + hit_tolerance() of an enemy body (enemies: their body centres): that
 ##   enemy gets an animated bullseye over its body, no text.
-## No landing marker on the ground (playtest: too easy to aim); a shell above the screen shows
-## on the top edge in flight (match/views/high_shell_marker.gd). The bullseye shows from
-## MIN_POWER (the release would not fire below it).
+## No landing marker on the ground (playtest: too easy to aim); a shell above the view shows
+## on the top edge in flight (match/views/high_shell_marker.gd; view_top: the view's top, world y,
+## set by match_screen from the camera). The bullseye shows from MIN_POWER (the release would not
+## fire below it).
+##
+## Under the match camera: the slingshot vector is the pointer's move in SCREEN px (from where the
+## drag started on the screen), so the camera following the aim never changes it, at any zoom;
+## what is in the world (the cancel zone round the shooter, the air strike's column x) goes
+## through the camera's transform, again every frame the view moves (_process). look_point():
+## where the camera looks while aiming (the guide arc's far end, the beam's end, the column).
 ##
 ## target_column (air_strike): no slingshot; while pressed, a vertical target line follows the
 ## pointer and the preview is the drop from the top of the map at that x (the server fires it at
@@ -83,6 +90,14 @@ var projectile_weight := 1.0
 var pierce := 0.0
 ## The alive enemies' body centres (feet − (0, 20)): the exact flight stops on them, "Trúng!".
 var enemies := PackedVector2Array()
+## The view's top (world y): a previewed shell rising above it gets a top-edge arrow.
+var view_top := 0.0:
+	set(value):
+		if absf(value - view_top) < 0.5:
+			return
+		view_top = value
+		if _dragging and not target_column and not line_mode:
+			_update(_pointer)
 var preview_offsets: Array = [0.0]:
 	set(value):
 		preview_offsets = value
@@ -107,7 +122,10 @@ var _start := Vector2.ZERO
 var _angle := 0.0
 var _power := 0.0
 var _in_cancel := false
-var _pointer := Vector2.ZERO
+var _pointer := Vector2.ZERO # screen px
+## world -> screen outside the tree (tests); in the tree the viewport's canvas transform (the camera).
+var canvas := Transform2D()
+var _seen := Transform2D() # the canvas transform the world parts were last computed with
 var _column_x := 0.0
 var _lines: Array[Line2D] = [] # reused; grows to the largest preview_offsets seen
 var _shadows: Array[Line2D] = [] # under each line: the guide arc's shadow (arc mode only)
@@ -165,6 +183,16 @@ func _process(delta: float) -> void:
 	if _dragging and not _hit.is_empty():
 		_anim += delta
 		queue_redraw()
+	if _dragging and _canvas() != _seen:
+		# The camera moved under a still pointer: the world parts follow (the aim does not).
+		_seen = _canvas()
+		if target_column:
+			_update(_pointer)
+		else:
+			var was := _in_cancel
+			_in_cancel = _world(_pointer).distance_to(shooter_pos + BODY_CENTER) <= CANCEL_RADIUS
+			if was != _in_cancel:
+				queue_redraw()
 
 
 ## A press no Control took starts a drag.
@@ -205,9 +233,40 @@ func _drag_event(event: InputEvent) -> bool:
 	return false
 
 
-## The pointer in world coordinates (the event's position outside the tree: the tests).
+## The pointer in screen px: the event's position (the viewport's coordinates, before the camera).
 func _pointer_of(event: InputEventMouse) -> Vector2:
-	return get_global_mouse_position() if is_inside_tree() else event.position
+	return event.position
+
+
+## A screen point in the world (through the camera).
+func _world(screen: Vector2) -> Vector2:
+	return _canvas().affine_inverse() * screen
+
+
+func _canvas() -> Transform2D:
+	return get_canvas_transform() if is_inside_tree() else canvas
+
+
+## The pointer now, screen px (while dragging).
+func pointer_screen() -> Vector2:
+	return _pointer
+
+
+## Ends a drag without a shot (a second finger took over: the camera's pinch).
+func cancel() -> void:
+	_reset()
+
+
+## Where the camera looks while aiming, world px: the guide arc's far end, the beam's end (line
+## mode), the column's drop point (column mode); null when not dragging.
+func look_point() -> Variant:
+	if not _dragging:
+		return null
+	if target_column:
+		return Vector2(_column_x, shooter_pos.y)
+	if line_mode:
+		return _lines[0].points[1] if not _lines.is_empty() and _lines[0].points.size() == 2 else shooter_pos + BODY_CENTER
+	return _guide[_guide.size() - 1] if not _guide.is_empty() else shooter_pos + BODY_CENTER
 
 
 ## Whether a drag is running.
@@ -217,7 +276,8 @@ func is_dragging() -> bool:
 
 func _update(pointer: Vector2) -> void:
 	_pointer = pointer
-	_in_cancel = pointer.distance_to(shooter_pos + BODY_CENTER) <= CANCEL_RADIUS
+	_seen = _canvas()
+	_in_cancel = _world(pointer).distance_to(shooter_pos + BODY_CENTER) <= CANCEL_RADIUS
 	if target_column:
 		_update_column(pointer)
 		return
@@ -255,7 +315,7 @@ func _update(pointer: Vector2) -> void:
 	for i in preview_offsets.size():
 		var a := _angle + float(preview_offsets[i])
 		var v := AimAid.launch_velocity(a, _power)
-		var flight: Dictionary = AimAid.fly(origin, v, accel, terrain, enemies, _near, pierce)
+		var flight: Dictionary = AimAid.fly(origin, v, accel, terrain, enemies, _near, pierce, view_top)
 		# the guide: the first guide_len px of the exact flight (the weapon's wind included), so it
 		# bends like the shell will and is as long at every power
 		var guide := AimAid.trim_to_length(Trajectory.simulate(origin.x, origin.y, v.x, v.y, accel, terrain,
@@ -287,7 +347,7 @@ func aid() -> Dictionary:
 	return {"hits": hits, "guide": _guide, "high_xs": high_xs(), "high_dirs": high_dirs()}
 
 
-## While aiming: for each previewed arc that rises above the top of the screen, the x where the
+## While aiming: for each previewed arc that rises above the view's top (view_top), the x where the
 ## shell comes back into view (HighShellMarker puts its top-edge arrow there; how far it then
 ## falls is left to the shooter's feel and the bullseye).
 func high_xs() -> PackedFloat32Array:
@@ -301,7 +361,7 @@ func high_dirs() -> PackedVector2Array:
 
 
 func _update_column(pointer: Vector2) -> void:
-	_column_x = pointer.x
+	_column_x = _world(pointer).x
 	if terrain != null:
 		_column_x = clampf(_column_x, 0.0, float(terrain.width)) # the server clamps it the same way
 	_hit.clear()

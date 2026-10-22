@@ -6,7 +6,8 @@ extends Node2D
 ##   there, out of view);
 ## - shaft(): while a seed falls onto its ally, a soft green light shaft from the top of the
 ##   screen down to the ally and a pulsing ring at its feet (it reads even with the allies at
-##   both ends of the map: the match shows the whole map, there is no camera);
+##   both ends of the map, the camera following the seeds' box; it fades out to nothing at the
+##   top, so a camera risen over the map never shows where it starts);
 ## - bloom(): where a seed lands (the heal event), a flash, a flower of petals opening on the
 ##   ground around the feet, leaves bursting and drifting down, healing motes and little green
 ##   crosses rising, a rising glow;

@@ -25,6 +25,14 @@ extends Node2D
 ## "weapon", hides) another player's, MatchStateSync's selectedAction restores it. A held badge
 ## goes on into the shot's (no second pop) and is hidden when the turn passes without a shot. A
 ## server without SelectAction ignores it: the others' badges then come with the shot.
+## Camera (match/camera/): the battle world is under one Camera2D (MatchCamera, its CameraModel
+## _cam fed here every frame by _track_camera()); the sky is a far layer behind it in parallax, the
+## HUD, the top-edge arrows and the off-screen markers stay on their CanvasLayers. The map's size
+## is the terrain's (MatchStarted / MatchStateSync terrain width × height, any size). Match start:
+## on me, then a pan to the current player; each turn start pans to its player (after an
+## explosion's hold); my aim drag, a remote PlayerAiming sweep, the replayed shot's shells /
+## blasts / falls / teleports / laser beam each take it; an explosion shakes it a little. A
+## marker tap (OffscreenMarkers) pans to that player; MatchCamera reads the manual pan / zoom.
 ## See docs/superpowers/specs/2026-10-15-godot-client-roadmap-design.md.
 
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
@@ -58,6 +66,9 @@ const ResultModel := preload("res://match/result_model.gd")
 const ResultScreen := preload("res://match/result_screen.gd")
 const QuickPlay := preload("res://screens/quick_play.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
+const CameraModel := preload("res://match/camera/camera_model.gd")
+const MatchCamera := preload("res://match/camera/match_camera.gd")
+const OffscreenMarkers := preload("res://match/views/offscreen_markers.gd")
 
 const ACTION_INTERVAL := 0.25 # server drops actions closer than 150 ms
 const MOVE_ACK_GAP := 0.16 # Shoot/EndTurn/UseItem wait this long after the last answer to a Move
@@ -76,6 +87,10 @@ const DEFAULT_MAX_ENERGY := 100 # maxMoveEnergy from a server that does not send
 const MIN_AIM_SEC := 0.15 # a PlayerAiming with less left (held back by a replay) is not shown
 const DRILL_PIERCE := 50.0 # px of terrain the drill_bomb shot drills (server items.yaml value)
 const ITEM_BADGE_SEC := 1.5 # an instant item's badge stays this long, then fades
+const LOOK_LIFT := Vector2(0, -60) # the camera centres a player this far above its feet
+const REMOTE_LOOK := 520.0 # px along a remote player's aim the camera looks
+const START_HOLD := 0.5 # s on me at the match start before the pan to the current player
+const FALL_TAIL := 0.25 # s the camera stays on a fall's end
 
 var _me := ""
 var _mode := "" # MatchStarted's mode (ranked_2v2: the result's rating row, the lobby left going Home)
@@ -123,6 +138,12 @@ var _popup_row := {} # playerId -> [msec of its last popup, how many came in a r
 var _tallies := {} # playerId -> its running DamageTally in a multi-hit skill shot (SkillView.merges_damage())
 var _skip := "" # the current player loses this turn: "stun" / "freeze" (TurnStarted.skipped), "" none
 var _hud: Hud
+var _cam := CameraModel.new() # what the camera does (MatchCamera applies it)
+var _camera: MatchCamera
+var _markers: OffscreenMarkers
+var _focus: Array = [] # the replay's held camera points: [{pos: Vector2 | view: Node2D, until: _clock s}]
+var _clock := 0.0 # s since the screen started (the focus expiry)
+var _aim_dragging := false # my aim drag was running last frame
 
 var _hold_dir := 0
 var _action_at := -10_000_000 # Time.get_ticks_usec() when my last Move/Shoot/EndTurn/UseItem was sent
@@ -130,9 +151,11 @@ var _action_at := -10_000_000 # Time.get_ticks_usec() when my last Move/Shoot/En
 
 func _ready() -> void:
 	_me = Session.player_id
+	var far := CanvasLayer.new() # the sky: a far layer behind the world, in parallax with the camera
+	far.layer = -1
+	add_child(far)
 	_sky = SkyView.new()
-	_sky.size = get_viewport_rect().size
-	add_child(_sky)
+	far.add_child(_sky)
 	_terrain_view = TerrainView.new()
 	add_child(_terrain_view)
 	_bottom = BottomView.new()
@@ -146,8 +169,17 @@ func _ready() -> void:
 	_shot_player = ShotPlayer.new()
 	_shot_player.layer = _fx_layer
 	add_child(_shot_player)
+	_camera = MatchCamera.new()
+	_camera.model = _cam
+	_camera.sky = _sky
+	_camera.aim = _aim
+	add_child(_camera)
 	var ui := CanvasLayer.new()
 	add_child(ui)
+	_markers = OffscreenMarkers.new() # under the HUD's controls
+	_markers.views = _views
+	_markers.tapped.connect(_on_marker_tapped)
+	ui.add_child(_markers)
 	_hud = Hud.new()
 	ui.add_child(_hud)
 	var over_hud := CanvasLayer.new() # the high shells' arrows on the top edge, over the HUD
@@ -189,6 +221,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_track_camera(delta)
 	if _awaiting_ack > 0.0:
 		_awaiting_ack -= delta
 		if _awaiting_ack <= 0.0:
@@ -256,7 +289,7 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 		# A sync without mapTheme (an older server) keeps the theme MatchStarted gave.
 		_apply_theme(MapThemes.theme_of(snap) if _theme == "" or not is_sync or snap.has("mapTheme") else _theme)
 		_terrain_view.show_mask(_mask)
-		_sky.size = Vector2(_mask.width, _mask.height)
+		_set_map_size(Vector2(_mask.width, _mask.height))
 	for view in _views.values():
 		view.queue_free()
 	_views.clear()
@@ -280,6 +313,10 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 	_skip = Status.skip_effect(_players.get(current, {}).get("statusEffects")) # a lost turn goes on
 	if continuing and _turn_resolved:
 		_hud.pause_timer() # this turn's shot is resolving: the server clock waits for TurnStarted
+	_focus.clear()
+	if not is_sync and _players.has(_me) and _players[_me].has("position"):
+		_cam.snap(_pos(_me) + LOOK_LIFT) # the match starts on me, then pans to whoever plays first
+		_cam.hold(START_HOLD)
 	_set_current(current, energy, continuing)
 	_restore_selection(snap.get("selectedAction"), current)
 
@@ -303,6 +340,8 @@ func _set_current(player_id: String, move_energy: int, continuing: bool = false)
 		_turn_resolved = false
 		if _is_my_turn():
 			_moves.reset(_pos(_me), move_energy)
+		if _players.get(player_id, {}).has("position"):
+			_cam.pan_to(_pos(player_id) + LOOK_LIFT) # waits for an explosion's hold
 	if _views.has(_me) and _players[_me].has("position"):
 		# Leaving my turn with Moves unanswered or unsent (or with my last PlayerMoved in the
 		# same frame) leaves the view on the prediction: walk it to the server's position.
@@ -487,6 +526,8 @@ func _apply(event: String, data: Variant) -> void:
 					"views": _views, "players": _players, "shooter": shooter, "terrain": _mask})
 				_shot_player.skill_view = _skill_view
 			var lead_in := _show_shooting(shooter, timeline)
+			_focus.clear()
+			_cam.start_shot()
 			_shot_player.play(timeline, lead_in)
 			_refresh_controls()
 		"PlayerDamaged": # lava / burn at turn start (shot damage comes in ShotResolved)
@@ -527,6 +568,8 @@ func _on_player_aiming(d: Variant) -> void:
 	if left < MIN_AIM_SEC:
 		return # ShotResolved draws the gun fast, as without PlayerAiming
 	_views[id].aim_sweep(float(d.get("angle", 90.0)), left)
+	var from: Vector2 = _views[id].position + AimInput.BODY_CENTER
+	_cam.start_aim(from, from + _aim_dir(float(d.get("angle", 90.0))) * REMOTE_LOOK)
 
 
 ## Another player armed its skill or a shot item (or went back to the weapon): its badge shows and
@@ -690,6 +733,8 @@ func _on_shot_event(e: Dictionary) -> void:
 			if _skill_view != null:
 				_skill_view.explosion(e, fx)
 			_fx_layer.add_child(fx)
+			_hold_focus({"pos": p}, CameraModel.HOLD_SEC)
+			_cam.shake(fx.radius)
 			var server_version := int(e.get("terrainVersion", _mask.version))
 			if server_version != _mask.version:
 				_mask.version = server_version
@@ -726,6 +771,7 @@ func _on_shot_event(e: Dictionary) -> void:
 			_set_pos(id, to)
 			if _views.has(id):
 				_views[id].move_to(to, float(e.get("duration", 0.0)), Tween.TRANS_QUAD, Tween.EASE_IN)
+				_hold_focus({"view": _views[id]}, float(e.get("duration", 0.0)) + FALL_TAIL)
 		"teleport":
 			var to := _vec(e["to"])
 			_set_pos(id, to)
@@ -733,6 +779,10 @@ func _on_shot_event(e: Dictionary) -> void:
 				if e.get("from") is Dictionary:
 					_views[id].position = _vec(e["from"])
 				_views[id].move_to(to, TELEPORT_SEC, Tween.TRANS_SINE)
+				_hold_focus({"view": _views[id]}, TELEPORT_SEC + CameraModel.HOLD_SEC)
+		"beam": # the laser: the camera looks along it to its end, the shooter kept in view
+			if e.get("from") is Dictionary and e.get("to") is Dictionary:
+				_hold_focus({"pos": _cam.keep_in_view(_vec(e["to"]), _vec(e["from"]))}, float(e.get("duration", 0.0)) + CameraModel.HOLD_SEC)
 		"die":
 			_kill(id)
 		"status":
@@ -1177,6 +1227,79 @@ func _show_shooting(shooter: String, timeline) -> float:
 	var lead_in: float = view.shoot()
 	_shot_player.muzzle = _fx_layer.to_local(view.fire_muzzle_position()) # the recoiled gun's, once out
 	return lead_in
+
+
+# ── Camera ──────────────────────────────────────────────────────────────────
+
+func _set_map_size(map_size: Vector2) -> void:
+	if _camera != null:
+		_camera.set_map(map_size)
+	else:
+		_cam.setup(map_size, _cam.view_size)
+
+
+## Feeds the camera what it follows this frame (CameraModel: each call only acts in its own
+## mode, so a manual look stays until the next take): my aim drag (its start takes the camera;
+## column mode scrolls at the screen's sides), a remote aim's sweep, the replay's live shells and
+## held points, the current player walking.
+func _track_camera(delta: float) -> void:
+	_clock += delta
+	if _aim != null:
+		_aim.view_top = _cam.view_rect().position.y
+		var dragging := _aim.is_dragging()
+		if dragging:
+			var anchor := _aim.shooter_pos + AimInput.BODY_CENTER
+			var look = _aim.look_point()
+			if not _aim_dragging:
+				_cam.start_aim(anchor, _cam.center if _aim.target_column or look == null else look)
+			elif _aim.target_column:
+				_cam.column_scroll(_aim.pointer_screen().x, delta)
+			elif look != null:
+				_cam.aim_at(anchor, look)
+		elif _aim_dragging:
+			_cam.release() # stays until the shot plays
+		_aim_dragging = dragging
+	if _current != _me and _views.has(_current):
+		var angle: float = _views[_current].sweep_angle()
+		if not is_nan(angle):
+			var from: Vector2 = _views[_current].position + AimInput.BODY_CENTER
+			_cam.aim_at(from, from + _aim_dir(angle) * REMOTE_LOOK)
+	if (_shot_player != null and _shot_player.is_playing()) or not _focus.is_empty():
+		var points := _shot_player.live_positions() if _shot_player != null else PackedVector2Array()
+		var kept: Array = []
+		for f in _focus:
+			if float(f["until"]) < _clock:
+				continue
+			kept.append(f)
+			if f.has("view"):
+				if is_instance_valid(f["view"]):
+					points.append(f["view"].position + LOOK_LIFT)
+			else:
+				points.append(f["pos"])
+		_focus = kept
+		_cam.track(points)
+	if _views.has(_current):
+		_cam.retarget(_views[_current].position + LOOK_LIFT)
+	if _markers != null and _hud != null and _hud.is_inside_tree():
+		_markers.avoid = _hud.marker_avoid()
+
+
+## Keeps the camera on a point (pos) or a player (view) for sec, and the next pan waits for it.
+func _hold_focus(f: Dictionary, sec: float) -> void:
+	f["until"] = _clock + sec
+	_focus.append(f)
+	_cam.hold(sec)
+
+
+## The unit direction of an aim angle (degrees, 0 right, 90 up).
+static func _aim_dir(angle: float) -> Vector2:
+	return Vector2(cos(deg_to_rad(angle)), -sin(deg_to_rad(angle)))
+
+
+## A tap on a player's off-screen marker: the camera pans there and stays.
+func _on_marker_tapped(id: String) -> void:
+	if _views.has(id):
+		_cam.look_at(_views[id].position + LOOK_LIFT)
 
 
 func _show_wind() -> void:

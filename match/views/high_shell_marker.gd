@@ -1,13 +1,15 @@
 extends Node2D
-## While a shell flies above the top of the screen (ShotPlayer.high_shells(): normal shells, the
+## While a shell flies above the top of the view (ShotPlayer.high_shells(): normal shells, the
 ## flare, the bombs), a small arrow just inside the top edge under it follows its x and turns with
 ## its velocity (ShotPlayer.high_shell_velocities()): tip up-slanted while it rises, down-slanted
 ## while it falls. While aiming (AimInput.high_xs() / high_dirs()), one where the previewed shell
 ## will come back into view, its tip along the way it falls there (down into the ground, slanted
 ## with its drift), so the shooter can line it up. No height or distance shown. Drawn like the
 ## guide arc: half transparent white over a faint dark rim, readable on any sky. On its own
-## CanvasLayer over the HUD (match_screen), so the top row (timer, wind, portrait) never hides it;
-## screen coordinates are the world's (no camera).
+## CanvasLayer over the HUD (match_screen), so the top row (timer, wind, portrait) never hides it.
+## The world goes through the match camera (the viewport's canvas transform): a shell is high
+## when it is above the view's top, its arrow under its screen x; the aim's re-entry xs are world
+## xs at the view's top (AimInput.view_top).
 
 const LENGTH := 16.0 # tip to tail (60% of the old 26 px arrow)
 const WIDTH := 18.0 # across the head (60% of 30 px)
@@ -44,9 +46,19 @@ static func arrows(shells: PackedVector2Array, width: float, velocities := Packe
 
 func _process(_delta: float) -> void:
 	var width := get_viewport_rect().size.x
-	var now: Array = arrows(shot_player.high_shells(), width, shot_player.high_shell_velocities()) if shot_player != null else []
+	var xf := get_viewport().get_canvas_transform() # world -> screen
+	var top := (xf.affine_inverse() * Vector2.ZERO).y
+	var now: Array = []
+	if shot_player != null:
+		var shells: PackedVector2Array = shot_player.high_shells(top)
+		for i in shells.size():
+			shells[i] = xf * shells[i]
+		now = arrows(shells, width, shot_player.high_shell_velocities(top))
 	if aim != null:
-		now.append_array(aim_arrows(aim.high_xs(), width, aim.high_dirs()))
+		var xs: PackedFloat32Array = aim.high_xs().duplicate()
+		for i in xs.size():
+			xs[i] = (xf * Vector2(xs[i], top)).x
+		now.append_array(aim_arrows(xs, width, aim.high_dirs()))
 	if now.is_empty() and _arrows.is_empty():
 		return
 	_arrows = now
