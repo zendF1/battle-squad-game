@@ -43,10 +43,20 @@ static func view_for_character(character_id: String):
 	return view_for_skill(skill_id) if skill_id != "" else null
 
 
-## A new SkillView for a server skill id: its effect type's script, the base SkillView (default
-## replay) for an unknown type.
+## A boss skill's kind (GET /gamedata bosses skills) -> its client script; summon has none (the
+## base SkillView: match_screen adds the minions).
+const BOSS_VIEWS := {
+	"rain": preload("res://match/views/skills/boss_rain.gd"),
+	"beam": preload("res://match/views/skills/boss_beam.gd"),
+}
+
+
+## A new SkillView for a server skill id: its effect type's script (a boss skill: its kind's), the
+## base SkillView (default replay) for an unknown type.
 static func view_for_skill(skill_id: String):
 	var script = VIEWS.get(GameData.skill_effect_type(skill_id))
+	if script == null and not GameData.has_skill(skill_id):
+		script = BOSS_VIEWS.get(str(GameData.boss_skill("", skill_id).get("kind", "")))
 	var view = script.new() if script != null else SkillView.new()
 	return view.for_skill(skill_id)
 

@@ -43,9 +43,11 @@ func skill_id() -> String:
 	return _skill
 
 
-## The Vietnamese name on the skill slot ("" when the game data does not know the skill).
+## The Vietnamese name on the skill slot (a boss skill: its name in GET /gamedata bosses; "" when
+## the game data does not know the skill).
 func skill_name() -> String:
-	return GameData.skill_name(_skill)
+	var n := GameData.skill_name(_skill)
+	return n if n != "" else str(GameData.boss_skill("", _skill).get("name", ""))
 
 
 ## How the skill is aimed: AIM_ARC, AIM_LINE or AIM_NONE (its aimKind).
@@ -103,6 +105,12 @@ func process(_t: float) -> void:
 
 func end() -> void:
 	pass
+
+
+## True: the camera follows the replay's shells in flight; false (a boss's rain, its shells falling
+## from above the map): it looks at the ground they fall on (the rain event's position).
+func tracks_shells() -> bool:
+	return true
 
 
 ## The aim angle (degrees, Shoot convention) the shooter's gun shows for a shot without

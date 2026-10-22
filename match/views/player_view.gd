@@ -25,6 +25,10 @@ extends Node2D
 ## aura surrounds the character (energy_aura.gd, behind the body) until it drops (the skill
 ## fired, a resync) or the player dies. What the player uses (a skill, a shot item, an instant
 ## item) pops up as a badge over everything above its head (use_badge.gd, show_badge()).
+## A boss or minion (role "boss" / "minion" of the boss mode) is drawn by match/boss/boss_body.gd
+## instead (its art by bossId / minionId, bodySize × a player's 40 px body × BOSS_ART_PER_BODY):
+## the ring is as wide as its body; the boss has no small HP bar (the HUD's big bar) and shows its
+## shield bubble (set_shielded()).
 
 const AimSweep := preload("res://match/aim/aim_sweep.gd")
 const AimSnap := preload("res://scenes/character/aim_snap.gd")
@@ -40,6 +44,9 @@ const EnergyAura := preload("res://match/views/energy_aura.gd")
 const UseBadge := preload("res://match/views/use_badge.gd")
 const Skills := preload("res://match/skills.gd")
 const WalkPath := preload("res://match/move/walk_path.gd")
+const BossBody := preload("res://match/boss/boss_body.gd")
+const BossArt := preload("res://match/boss/boss_art.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const BODY := Vector2(28, 40) # server PlayerHeight = 40
 ## px per art unit: the baked art (about 150 units) stands about 52 px tall over the 28x40
@@ -59,6 +66,9 @@ const TITLE_FONT := 14
 const TITLE_MAX_W := 220.0
 const BADGE_GAP := 4.0 # px between the badge and what is under it
 const BADGE_LIFT := 26.0 # px the badge rises over the shot markers / the turn arrow when shown
+## A boss / minion figure's height over its body (40 px × bodySize): the hit circle
+## (playerHitRadius × bodySize round shotOriginLift × bodySize) covers its lower part.
+const BOSS_ART_PER_BODY := 1.45
 
 var player_id := ""
 var team_id := 1
@@ -89,6 +99,8 @@ var _walk_left := 0.0
 var _t := 0.0
 var _art_top := ART_TOP
 var _sweep := {} # aim_sweep(): {t, duration, angle, wobble}; {} when none
+var role := "" # "boss" / "minion" in the boss mode, "" a player
+var body_size := 1.0 # × a player's body (bodySize)
 
 
 ## my_team: the local player's team; allies are blue, enemies red. -1 colours by team id.
@@ -110,8 +122,15 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	add_child(_ring)
 	_aura = EnergyAura.new() # a child of the ring: over it, under the body (drawn before it)
 	_ring.add_child(_aura)
-	_sprite = CharacterScene.instantiate()
-	_sprite.scale = Vector2.ONE * (ART_SCALE / Art.PX_PER_UNIT)
+	role = str(p.get("role", "")) if p.get("role") is String else ""
+	var art := BossArt.art_of_player(p)
+	if art != "":
+		body_size = body_size_of(p)
+		_sprite = BossBody.new()
+		_sprite.setup(art, BODY.y * body_size * BOSS_ART_PER_BODY)
+	else:
+		_sprite = CharacterScene.instantiate()
+		_sprite.scale = Vector2.ONE * (ART_SCALE / Art.PX_PER_UNIT)
 	_sprite.show_behind_parent = true
 	_sprite.holster = true # drawn (kneeling) to shoot
 	_sprite.idle_gun = true # idle: standing, the gun in hand 45° down-forward; walking: on the back
@@ -122,7 +141,7 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_art_top = maxf(ART_TOP, _sprite.art_height() * _sprite.scale.y + 3.0)
 	_aura.height = _art_top
 
-	_name = LobbyUi.text(str(p.get("displayName", "")), 20, color.lightened(0.55) if not me else LobbyUi.GOLD, true)
+	_name = LobbyUi.text(str(p.get("displayName", "")), 26 if is_boss() else 20, color.lightened(0.55) if not me else LobbyUi.GOLD, true)
 	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_name.size = Vector2(200, 26)
 	_name.position = Vector2(-100, -_art_top - 40)
@@ -152,6 +171,50 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	set_skill_energy(int(p.get("skillEnergy", 0)) if (p.get("skillEnergy") is int or p.get("skillEnergy") is float) else 0)
 	if not bool(p.get("isAlive", true)):
 		set_dead()
+
+
+## A boss / minion's bodySize: the state's, else its game data entry's (GET /gamedata bosses), 1
+## for a player.
+static func body_size_of(p: Dictionary) -> float:
+	var v = p.get("bodySize")
+	if (v is int or v is float) and v > 0:
+		return float(v)
+	match str(p.get("role", "")):
+		"boss":
+			return GameData.body_size_of(GameData.boss(str(p.get("bossId", ""))))
+		"minion":
+			return GameData.body_size_of(GameData.boss_minion(str(p.get("bossId", "")), str(p.get("minionId", ""))))
+	return 1.0
+
+
+func is_boss() -> bool:
+	return role == "boss"
+
+
+## A boss or a minion (drawn by BossBody).
+func is_boss_side() -> bool:
+	return role == "boss" or role == "minion"
+
+
+## The body's centre (the hit circle's): shotOriginLift × bodySize above the feet.
+func body_centre() -> Vector2:
+	return position - Vector2(0, GameData.shot_origin_lift() * body_size)
+
+
+## The boss's shield bubble (a boss only); animate: with its pop.
+func set_shielded(on: bool, animate: bool = true) -> void:
+	if is_boss() and _sprite.has_method("set_shielded"):
+		_sprite.set_shielded(on, animate)
+
+
+## The shield bubble shown (0..1; 0 for anyone but a shielded boss).
+func shield_shown() -> float:
+	return _sprite.shield_shown() if _sprite.has_method("shield_shown") else 0.0
+
+
+## The figure (a BossBody for the boss side, else the character).
+func figure() -> Node2D:
+	return _sprite
 
 
 func _process(delta: float) -> void:
@@ -467,9 +530,10 @@ func _take_walk() -> void:
 
 func _draw_ring() -> void:
 	var c := color if not _dead else Color(0.5, 0.5, 0.55)
+	var r := 20.0 * (body_size * 1.15 if is_boss_side() else 1.0)
 	_ring.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.32))
-	_ring.draw_circle(Vector2.ZERO, 20.0, Color(c, 0.25))
-	_ring.draw_arc(Vector2.ZERO, 20.0, 0.0, TAU, 32, Color(c, 0.9), 3.0, true)
+	_ring.draw_circle(Vector2.ZERO, r, Color(c, 0.25))
+	_ring.draw_arc(Vector2.ZERO, r, 0.0, TAU, 32, Color(c, 0.9), 3.0, true)
 	_ring.draw_set_transform(Vector2.ZERO)
 
 
@@ -478,6 +542,13 @@ func _draw() -> void:
 		return
 	# HP bar: dark rounded back, a fill green → yellow → red, a light top line.
 	var bar := Rect2(-HP_BAR_WIDTH / 2, -_art_top - 12, HP_BAR_WIDTH, 8)
+	if is_boss(): # the HUD's big bar: only the effect icons here, beside the name
+		var icons_only := status_icons()
+		for i in icons_only.size():
+			var ci := Vector2(-HP_BAR_WIDTH / 2 + ICON_SIZE / 2.0 + i * (ICON_SIZE + ICON_GAP), bar.get_center().y)
+			StatusIcons.draw(self, str(icons_only[i]), ci, ICON_SIZE)
+		_draw_turn_arrow()
+		return
 	draw_rect(bar.grow(2), Color(0.02, 0.03, 0.1, 0.85))
 	var health := clampf(float(hp) / max_hp, 0.0, 1.0) # the colour follows the HP share of the max
 	var fill := Color(1.0, 0.3, 0.25).lerp(Color(1.0, 0.85, 0.2), clampf(health * 2.0, 0.0, 1.0))
@@ -497,6 +568,10 @@ func _draw() -> void:
 	for i in icons.size():
 		var c := Vector2(bar.end.x + 4.0 + ICON_SIZE / 2.0 + i * (ICON_SIZE + ICON_GAP), bar.get_center().y)
 		StatusIcons.draw(self, str(icons[i]), c, ICON_SIZE)
+	_draw_turn_arrow()
+
+
+func _draw_turn_arrow() -> void:
 	if _active:
 		var y := -_art_top - 48 - _title_rise - absf(sin(_t * 4.0)) * 6.0
 		var arrow := PackedVector2Array([Vector2(-10, y - 12), Vector2(10, y - 12), Vector2(0, y)])

@@ -24,6 +24,9 @@ extends Control
 ## under it ("Choáng — mất lượt", announce_skip()). The small result panel (show_result()) is
 ## only for a cancelled match and a lost connection: a match that ended shows the full-screen
 ## result (match/result_screen.gd).
+## Boss mode: under the top centre the boss's bar (match/boss/boss_hud.gd: name, HP, shield,
+## "Vòng r/turnLimit", its skill's name on its turn; set_boss(), announce_boss_skill()); the turn
+## portrait of a boss or a minion is its figure (BossArtView).
 
 signal move_pressed(dir: int)
 signal move_released
@@ -39,6 +42,9 @@ const FakeChat := preload("res://screens/home/fake_chat.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const SkillGlyphs := preload("res://match/views/skill_glyphs.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
+const BossHud := preload("res://match/boss/boss_hud.gd")
+const BossArt := preload("res://match/boss/boss_art.gd")
+const BossArtView := preload("res://match/boss/boss_art_view.gd")
 
 const NAVY := Color(0.06, 0.09, 0.22, 0.78)
 const MODE_BG := Color(0.13, 0.2, 0.42, 0.9)
@@ -106,6 +112,9 @@ var _low := false
 var _skill_energy := 0.0 # 0..1 of the ring
 var _skill_ready := false
 var _skill_armed := false
+var _boss: BossHud
+var _portrait_boss: Control # the boss / minion figure of the turn portrait
+var _banner_box: CenterContainer # the turn banner's box (lower under the boss bar)
 var _skill_id := "" # the slot shows its picture (SkillGlyphs) instead of the generic lightning icon
 
 
@@ -121,6 +130,7 @@ func _ready() -> void:
 	_build_skill()
 	_set_turn_style(false)
 	_build_banner()
+	_boss = _pin(BossHud.new(), 0.5, 0, Vector2(0, MARGIN + 96))
 	_build_result_panel()
 
 
@@ -253,6 +263,10 @@ func _build_portrait() -> void:
 	_portrait_art.back_aura = true
 	_portrait_art.aura_level = 0
 	_portrait.add_child(_portrait_art)
+	_portrait_boss = BossArtView.make(BossArt.GENERIC_BOSS, PORTRAIT_ART, -1)
+	_portrait_boss.name = "BossFigure"
+	_portrait_boss.visible = false
+	_portrait.add_child(_portrait_boss)
 	_portrait.visible = false
 
 
@@ -389,10 +403,16 @@ func _set_portrait(player: Dictionary, player_name: String) -> void:
 		_portrait.visible = false
 		_portrait_key = ""
 		return
-	var id := Art.known_character(str(player.get("characterId", "")))
+	var boss_art := BossArt.art_of_player(player)
+	var id := Art.known_character(str(player.get("characterId", ""))) if boss_art == "" else boss_art
 	var key := "%s|%s" % [player.get("playerId", player_name), id]
-	_portrait_art.character_id = id
-	_portrait_art.aura_level = portrait_level(player)
+	_portrait_art.visible = boss_art == ""
+	_portrait_boss.visible = boss_art != ""
+	if boss_art != "":
+		_portrait_boss.art = boss_art
+	else:
+		_portrait_art.character_id = id
+		_portrait_art.aura_level = portrait_level(player)
 	_portrait.visible = true
 	if key == _portrait_key:
 		return
@@ -420,6 +440,25 @@ func _set_portrait(player: Dictionary, player_name: String) -> void:
 func portrait() -> Dictionary:
 	return {"visible": _portrait.visible, "character": _portrait_art.character_id, "aura": _portrait_art.aura().aura(),
 		"node": _portrait}
+
+
+## The boss bar's state (BossHudModel.state(); inactive hides it).
+func set_boss(state: Dictionary) -> void:
+	_boss.set_state(state)
+	_banner_box.offset_top = BOSS_BANNER_TOP if _boss.visible else 0.0 # the turn banner under the boss bar
+
+
+## The turn banner's box top while the boss bar shows (its skill line under it).
+const BOSS_BANNER_TOP := 300.0
+
+
+## The boss's skill name under its bar (its turn's ActionSelected).
+func announce_boss_skill(text: String) -> void:
+	_boss.announce_skill(text)
+
+
+func boss_hud() -> BossHud:
+	return _boss
 
 
 ## Sets the turn clock from a server value and resumes the local countdown.
@@ -674,6 +713,7 @@ func _build_banner() -> void:
 	center.anchor_bottom = 0.55
 	center.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(center)
+	_banner_box = center
 	_banner = _ignore(PanelContainer.new())
 	_banner.modulate.a = 0.0
 	center.add_child(_banner)
@@ -746,7 +786,7 @@ func announce_map(map_name: String) -> void:
 	_map_label = LobbyUi.text(map_name, 30, LobbyUi.GOLD, true)
 	_map_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(_map_label)
-	_pin(_map_toast, 0.5, 0, Vector2(0, MARGIN + 96))
+	_pin(_map_toast, 0.5, 0, Vector2(0, MARGIN + 96 + (150 if _boss != null and _boss.visible else 0)))
 	if not is_inside_tree():
 		return
 	_map_toast.modulate.a = 0.0

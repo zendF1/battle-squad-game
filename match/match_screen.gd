@@ -33,6 +33,15 @@ extends Node2D
 ## explosion's hold); my aim drag, a remote PlayerAiming sweep, the replayed shot's shells /
 ## blasts / falls / teleports / laser beam each take it; an explosion shakes it a little. A
 ## marker tap (OffscreenMarkers) pans to that player; MatchCamera reads the manual pan / zoom.
+## Boss mode (MatchStarted mode boss:<bossId>, a boss block in the state): the boss and its
+## minions are players of team 2 drawn by BossBody (PlayerView); the HUD's boss bar follows
+## BossHudModel (HP, the shield: bossShielded / BossShieldChanged, the round: TurnStarted round),
+## the boss's ActionSelected names its skill under the bar; its rain / beam skills replay with the
+## boss skill views (match/views/skills/boss_rain.gd, boss_beam.gd), a summon event adds the
+## minion where it lands (a pop, the camera on it), a lava event leaves a pool (LavaZones /
+## LavaView, replaced by every lavaZones list), the boss's death takes its minions (die cause
+## boss_defeated). The camera frames a big body by its height (_look_lift()). MatchEnded shows the
+## boss result screen (match/boss/boss_result_screen.gd).
 ## See docs/superpowers/specs/2026-10-15-godot-client-roadmap-design.md.
 
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
@@ -71,6 +80,14 @@ const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const CameraModel := preload("res://match/camera/camera_model.gd")
 const MatchCamera := preload("res://match/camera/match_camera.gd")
 const OffscreenMarkers := preload("res://match/views/offscreen_markers.gd")
+const BossHudModel := preload("res://match/boss/boss_hud_model.gd")
+const LavaZones := preload("res://match/boss/lava_zones.gd")
+const LavaView := preload("res://match/boss/lava_view.gd")
+const BossArt := preload("res://match/boss/boss_art.gd")
+const BossResultModel := preload("res://match/boss/boss_result_model.gd")
+const BossResultScreen := preload("res://match/boss/boss_result_screen.gd")
+const PopFx := preload("res://match/boss/pop_fx.gd")
+const LobbyUi := preload("res://ui/lobby_ui.gd")
 
 ## Actions go out at least the server's timings.actionIntervalSec apart (it drops closer ones)
 ## plus this margin for the network's jitter.
@@ -163,6 +180,10 @@ var _focus: Array = [] # the replay's held camera points: [{pos: Vector2 | view:
 var _clock := 0.0 # s since the screen started (the focus expiry)
 var _aim_dragging := false # my aim drag was running last frame
 
+var _boss := BossHudModel.new() # the boss fight's state (inactive outside the boss mode)
+var _lava := LavaZones.new()
+var _lava_view: LavaView
+
 var _hold_dir := 0
 var _action_at := -10_000_000 # Time.get_ticks_usec() when my last Move/Shoot/EndTurn/UseItem was sent
 
@@ -178,6 +199,8 @@ func _ready() -> void:
 	add_child(_terrain_view)
 	_bottom = BottomView.new()
 	add_child(_bottom)
+	_lava_view = LavaView.new() # on the ground, under the players
+	add_child(_lava_view)
 	_players_layer = Node2D.new()
 	add_child(_players_layer)
 	_fx_layer = Node2D.new()
@@ -331,6 +354,7 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 		view.setup(_players[id], id == _me, my_team)
 		view.face(1.0 if view.position.x < _mask.width / 2.0 else -1.0) # towards the middle
 		_views[id] = view
+	_load_boss(snap)
 	_wind = snap.get("wind", _wind)
 	_turn_index = int(snap.get("turnIndex", _turn_index))
 	var energy := int(_players.get(_me, {}).get("moveEnergy", 0))
@@ -345,7 +369,7 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 		_hud.pause_timer() # this turn's shot is resolving: the server clock waits for TurnStarted
 	_focus.clear()
 	if not is_sync and _players.has(_me) and _players[_me].has("position"):
-		_cam.snap(_pos(_me) + LOOK_LIFT) # the match starts on me, then pans to whoever plays first
+		_cam.snap(_pos(_me) + _look_lift(_me)) # the match starts on me, then pans to whoever plays first
 		_cam.hold(START_HOLD)
 	_set_current(current, energy, continuing)
 	_restore_selection(snap.get("selectedAction"), current)
@@ -371,7 +395,7 @@ func _set_current(player_id: String, move_energy: int, continuing: bool = false)
 		if _is_my_turn():
 			_moves.reset(_pos(_me), move_energy)
 		if _players.get(player_id, {}).has("position"):
-			_cam.pan_to(_pos(player_id) + LOOK_LIFT) # waits for an explosion's hold
+			_cam.pan_to(_pos(player_id) + _look_lift(player_id)) # waits for an explosion's hold
 	if _views.has(_me) and _players[_me].has("position"):
 		# Leaving my turn with Moves unanswered or unsent (or with my last PlayerMoved in the
 		# same frame) leaves the view on the prediction: walk it to the server's position. My
@@ -491,12 +515,16 @@ func _set_aim_aid(me: Dictionary) -> void:
 	_aim.pierce = Items.pierce(_armed)
 	var my_team := int(me.get("teamId", -1))
 	var centres := PackedVector2Array()
+	var radii := PackedFloat32Array()
 	for id in _players:
 		var p: Dictionary = _players[id]
 		if id == _me or not bool(p.get("isAlive", false)) or int(p.get("teamId", -2)) == my_team or not p.has("position"):
 			continue
-		centres.append(_pos(id) + Trajectory.shot_offset())
+		var body := PlayerView.body_size_of(p)
+		centres.append(_pos(id) + Trajectory.shot_offset() * body)
+		radii.append(GameData.player_hit_radius() * body)
 	_aim.enemies = centres
+	_aim.enemy_radii = radii
 
 
 ## The least time between two of my actions: the server's actionIntervalSec plus ACTION_MARGIN.
@@ -597,6 +625,12 @@ func _apply(event: String, data: Variant) -> void:
 			# the effects tell.
 			var skipped = data.get("skipped")
 			_skip = str(skipped) if skipped is String else Status.skip_effect(_players.get(current, {}).get("statusEffects"))
+			if _boss.active:
+				_boss.on_turn_started(data)
+				if data.has("lavaZones"):
+					_lava.set_all(data["lavaZones"])
+					_lava_view.sync(_lava.zones)
+				_hud.set_boss(_boss.state())
 			_set_current(current, int(data.get("moveEnergy", 0)))
 			_announce_skip(current)
 		"TurnTimerTick":
@@ -624,6 +658,10 @@ func _apply(event: String, data: Variant) -> void:
 			# it brought (weaponItemId), its character's basic gun when none (bots).
 			_shot_player.style = ShotLook.style_for(_players.get(shooter, {}), str(data.get("actionMode", "")),
 				str(data.get("itemId", "")), PlayerState.catalog)
+			var boss_look: Dictionary = BossArt.SHOT_LOOK.get(str(_players.get(shooter, {}).get("bossId", "")), {})
+			if str(_players.get(shooter, {}).get("role", "")) == "boss" and not boss_look.is_empty():
+				_shot_player.style["kind"] = boss_look["kind"]
+				_shot_player.style["tier"] = boss_look["tier"]
 			_skill_view = null
 			_tallies.clear() # the last shot's tallies finish on their own
 			if timeline.action_mode == SKILL:
@@ -644,7 +682,7 @@ func _apply(event: String, data: Variant) -> void:
 					_set_shield(id, int(e["shield"]))
 				var amount := int(e.get("damage", 0))
 				if amount > 0 and str(e.get("type", "")) != OUT_OF_MAP: # fallen out: no number, the body is gone below
-					var burn := str(e.get("type", "")) == "burn"
+					var burn := str(e.get("type", "")) in ["burn", "lava"]
 					_popup(id, DamagePopup.damage_text(amount), Color(1.0, 0.55, 0.15) if burn else Color(1, 0.3, 0.3))
 					if burn and _views.has(id): # the burn tick: a fire flash over the body
 						var flash := BurnFx.new()
@@ -654,6 +692,8 @@ func _apply(event: String, data: Variant) -> void:
 					_kill(id)
 		"ItemUsed":
 			_on_item_used(data)
+		"BossShieldChanged":
+			_on_boss_shield(data)
 		"MatchEnded":
 			_on_match_ended(data)
 
@@ -702,6 +742,8 @@ func _on_action_selected(d: Variant) -> void:
 	if id == _me or id != _current or _ended or _turn_resolved or not _views.has(id) \
 			or not bool(_players.get(id, {}).get("isAlive", false)):
 		return
+	if _boss.active and id == _boss.player_id and str(d.get("actionMode", "")) == SKILL:
+		_hud.announce_boss_skill(str(GameData.boss_skill(_boss.boss_id, str(d.get("skillId", ""))).get("name", "")))
 	_hold_badge(id, UseBadge.content(str(d.get("actionMode", "")), str(d.get("skillId", "")), str(d.get("itemId", ""))))
 
 
@@ -940,6 +982,16 @@ func _on_shot_event(e: Dictionary) -> void:
 				_hold_focus({"pos": _cam.keep_in_view(_vec(e["to"]), _vec(e["from"]))}, float(e.get("duration", 0.0)) + CameraModel.HOLD_SEC)
 		"die":
 			_kill(id)
+		"summon":
+			_summon(e)
+		"rain":
+			if _skill_view != null and not _skill_view.tracks_shells() and e.get("position") is Dictionary:
+				# a boss's shells fall from above the map: the camera looks at where they land
+				_hold_focus({"pos": _vec(e["position"]) + LOOK_LIFT * 2.0}, int(e.get("count", 1)) * 0.08 + 1.4)
+		"lava":
+			var zone := _lava.add_event(e, _boss.boss_round)
+			if not zone.is_empty():
+				_lava_view.show_zone(zone, true)
 		"status":
 			if _players.has(id):
 				_players[id]["statusEffects"] = Status.apply(_players[id].get("statusEffects"), str(e.get("effectId", "")), int(e.get("turns", 1)))
@@ -1001,6 +1053,8 @@ func _on_match_ended(d: Dictionary) -> void:
 		return
 	if RankModel.is_ranked_mode(_mode):
 		PlayerState.load_rank() # Home shows the new rank
+	if _boss.active or GameData.is_boss_queue(_mode):
+		PlayerState.boss_runs_stale() # the Boss tab reloads the runs left
 	var info := result_info(d)
 	# A Timer child: leaving the screen during the wait frees it with the screen, nothing fires.
 	var delay := Timer.new()
@@ -1032,6 +1086,8 @@ func result_info(d: Dictionary) -> Dictionary:
 			entries[side].append(ResultModel.entry(id, _players[id], _roster.get(id, {}), _me, PlayerState.level(), my_rank,
 				ResultModel.damage_of(id, stats, _damage_by)))
 	var char_id := str(_players.get(_me, {}).get("characterId", ""))
+	if d.get("boss") is Dictionary or (_boss.active and d.has("result")):
+		return boss_result_info(d, reward, char_id)
 	return {"outcome": ResultModel.outcome(my_team, winning_team), "left": entries["left"], "right": entries["right"],
 		"mvp": ResultModel.mvp(_players, order, stats, d.get("mvpPlayerId"), _damage_by),
 		"reward": ResultModel.reward(reward, _mode),
@@ -1045,12 +1101,25 @@ static func _party_member() -> bool:
 	return Router.party != null and Router.party.model.is_member()
 
 
-## The full-screen result over the match (its own layer, over the HUD).
-func show_result_screen(info: Dictionary) -> ResultScreen:
+## The boss result screen's data (BossResultScreen.setup(): BossResultModel.info() and the
+## buttons) for a boss MatchEnded.
+func boss_result_info(d: Dictionary, reward: Variant, char_id: String) -> Dictionary:
+	var info := BossResultModel.info(d, _players, _me, _boss.boss_id, reward)
+	info["boss_mode"] = true
+	info["exp"] = {"level": PlayerState.level(), "exp": PlayerState.player_exp()} if PlayerState.is_loaded() else {}
+	info["char_name"] = LobbyModel.character_info(char_id, null)["name"]
+	info["character_id"] = char_id
+	info["again"] = "" if _party_member() else ResultModel.again_text(_mode, false)
+	return info
+
+
+## The full-screen result over the match (its own layer, over the HUD); a boss match's is the
+## boss result screen (same signals).
+func show_result_screen(info: Dictionary) -> Control:
 	var layer := CanvasLayer.new()
 	layer.layer = 10
 	add_child(layer)
-	var screen := ResultScreen.new()
+	var screen = BossResultScreen.new() if info.get("boss_mode", false) else ResultScreen.new()
 	screen.setup(info)
 	screen.home_pressed.connect(_on_leave)
 	screen.again_pressed.connect(_on_again.bind(screen))
@@ -1060,7 +1129,7 @@ func show_result_screen(info: Dictionary) -> ResultScreen:
 
 ## "Chơi tiếp" (a queue mode: back into its queue with the same loadout) / "Chơi lại" (the same
 ## Quick Play again; the server already took me out of this room).
-func _on_again(screen: ResultScreen) -> void:
+func _on_again(screen: Control) -> void:
 	if RankModel.is_queue_mode(_mode):
 		# The lobby is kept after the match (ReturnToLobby): Matchmaking's CreateLobby gets it back.
 		Router.queue = _mode
@@ -1245,6 +1314,82 @@ func _on_disconnected() -> void:
 	_hud.show_result("Mất kết nối với trận đấu", "Về sảnh để bắt đầu trận mới")
 
 
+# ── Boss mode ────────────────────────────────────────────────────────────────
+
+const SHIELD_ON := "Khiên bảo vệ!"
+const SHIELD_OFF := "Phá khiên!"
+
+
+## A snapshot's boss fight: the bar, the lava pools (a boss snapshot without lavaZones has none)
+## and the shield on the boss's body (set without its pop).
+func _load_boss(snap: Dictionary) -> void:
+	if not _boss.load_snapshot(snap):
+		_hud.set_boss({})
+		return
+	_lava.set_all(snap.get("lavaZones", []))
+	_lava_view.sync(_lava.zones)
+	if _views.has(_boss.player_id):
+		_views[_boss.player_id].set_shielded(_boss.shielded and _boss.alive, false)
+	_hud.set_boss(_boss.state())
+
+
+## BossShieldChanged: the bubble pops on or off the boss, a line says so.
+func _on_boss_shield(d: Variant) -> void:
+	if not _boss.on_shield(d):
+		return
+	_hud.set_boss(_boss.state())
+	var id := _boss.player_id
+	if _views.has(id):
+		_views[id].set_shielded(_boss.shielded)
+		_popup(id, SHIELD_ON if _boss.shielded else SHIELD_OFF, Color(0.6, 0.92, 1.0) if _boss.shielded else LobbyUi.GOLD,
+			Vector2(0, -_views[id].body_size * 40.0))
+
+
+## A summon event {playerId, minionId, position, hp}: a new minion of the boss's team (its type's
+## name and body size from the game data) pops in where it lands; the camera shows it.
+func _summon(e: Dictionary) -> void:
+	var id := str(e.get("playerId", ""))
+	if id == "" or not e.get("position") is Dictionary:
+		return
+	var pos := _vec(e["position"])
+	if _views.has(id): # already known (a sync): it stands there again
+		_set_pos(id, pos)
+		_views[id].move_to(pos, 0.0)
+		return
+	var boss: Dictionary = _players.get(_boss.player_id, {})
+	var minion_id := str(e.get("minionId", ""))
+	var kind := GameData.boss_minion(_boss.boss_id, minion_id)
+	var hp := int(e.get("hp", kind.get("hp", 1)))
+	var p := {"playerId": id, "displayName": str(kind.get("name", minion_id)), "teamId": int(boss.get("teamId", 2)), "role": "minion",
+		"bossId": _boss.boss_id, "minionId": minion_id, "bodySize": GameData.body_size_of(kind), "characterId": "",
+		"hp": hp, "maxHp": maxi(hp, 1), "isAlive": true, "isBot": true, "position": {"x": pos.x, "y": pos.y}, "statusEffects": [],
+		"items": [], "skillEnergy": 0}
+	_players[id] = p
+	var view := PlayerView.new()
+	view.walk.terrain = _mask
+	_players_layer.add_child(view)
+	view.setup(p, false, int(_players.get(_me, {}).get("teamId", -1)))
+	view.face(1.0 if pos.x < _mask.width / 2.0 else -1.0)
+	_views[id] = view
+	view.scale = Vector2.ONE * 0.2
+	view.create_tween().tween_property(view, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var fx := PopFx.new()
+	fx.position = pos - Vector2(0, PlayerView.BODY.y * view.body_size * 0.6)
+	fx.color = BossArt.accent(BossArt.art_of("", minion_id))
+	_fx_layer.add_child(fx)
+	_hold_focus({"pos": pos + _view_lift(view)}, 0.6)
+
+
+## The boss fight's HUD state (BossHudModel.state(); tests, the harness).
+func boss_state() -> Dictionary:
+	return _boss.state()
+
+
+## The lava pools held (tests, the harness).
+func lava_ids() -> Array:
+	return _lava.ids()
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 func _my_skill() -> Dictionary:
@@ -1299,6 +1444,8 @@ func _set_hp(id: String, hp: int) -> void:
 		return
 	_players[id]["hp"] = hp
 	_views[id].set_hp(hp)
+	if _boss.set_hp(id, hp):
+		_hud.set_boss(_boss.state())
 
 
 func _tick_status(id: String) -> void:
@@ -1311,6 +1458,9 @@ func _kill(id: String) -> void:
 		return
 	_players[id]["isAlive"] = false
 	_views[id].set_dead()
+	if _boss.kill(id):
+		_views[id].set_shielded(false)
+		_hud.set_boss(_boss.state())
 
 
 ## A hit in a multi-hit skill shot: added to the player's running number (DamageTally), a new
@@ -1434,7 +1584,8 @@ func _track_camera(delta: float) -> void:
 			var from: Vector2 = _views[_current].position + Trajectory.shot_offset()
 			_cam.aim_at(from, from + _aim_dir(angle) * REMOTE_LOOK)
 	if (_shot_player != null and _shot_player.is_playing()) or not _focus.is_empty():
-		var points := _shot_player.live_positions() if _shot_player != null else PackedVector2Array()
+		var follow_shells: bool = _shot_player != null and (_skill_view == null or _skill_view.tracks_shells())
+		var points := _shot_player.live_positions() if follow_shells else PackedVector2Array()
 		var kept: Array = []
 		for f in _focus:
 			if float(f["until"]) < _clock:
@@ -1442,13 +1593,13 @@ func _track_camera(delta: float) -> void:
 			kept.append(f)
 			if f.has("view"):
 				if is_instance_valid(f["view"]):
-					points.append(f["view"].position + LOOK_LIFT)
+					points.append(f["view"].position + _view_lift(f["view"]))
 			else:
 				points.append(f["pos"])
 		_focus = kept
 		_cam.track(points)
 	if _views.has(_current):
-		_cam.retarget(_views[_current].position + LOOK_LIFT)
+		_cam.retarget(_views[_current].position + _view_lift(_views[_current]))
 	if _markers != null and _hud != null and _hud.is_inside_tree():
 		_markers.avoid = _hud.marker_avoid()
 
@@ -1460,6 +1611,18 @@ func _hold_focus(f: Dictionary, sec: float) -> void:
 	_cam.hold(sec)
 
 
+## The camera's point above a player's feet: LOOK_LIFT, higher for a big body (a boss: about the
+## middle of its figure, so all of it is framed).
+func _look_lift(id: String) -> Vector2:
+	return _view_lift(_views.get(id))
+
+
+func _view_lift(view) -> Vector2:
+	if view == null or not is_instance_valid(view) or not view.is_boss_side():
+		return LOOK_LIFT
+	return Vector2(0, minf(LOOK_LIFT.y, -PlayerView.BODY.y * view.body_size * PlayerView.BOSS_ART_PER_BODY * 0.6))
+
+
 ## The unit direction of an aim angle (degrees, 0 right, 90 up).
 static func _aim_dir(angle: float) -> Vector2:
 	return Vector2(cos(deg_to_rad(angle)), -sin(deg_to_rad(angle)))
@@ -1468,7 +1631,7 @@ static func _aim_dir(angle: float) -> Vector2:
 ## A tap on a player's off-screen marker: the camera pans there and stays.
 func _on_marker_tapped(id: String) -> void:
 	if _views.has(id):
-		_cam.look_at(_views[id].position + LOOK_LIFT)
+		_cam.look_at(_views[id].position + _view_lift(_views[id]))
 
 
 func _show_wind() -> void:

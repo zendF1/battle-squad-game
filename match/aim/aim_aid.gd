@@ -105,9 +105,10 @@ static func hit_tolerance(d: float, h: float) -> float:
 ## high_x: where a shell that rose above the view's top (y < top: the camera's view top, world y)
 ## comes back into view, its last x up there if it never does, NAN if it never rose above;
 ## high_dir: the unit direction it flies there (coming back: down, slanted the way it falls),
-## Vector2.ZERO with no high_x}.
+## Vector2.ZERO with no high_x}. radii: each enemy's hit radius (a boss's playerHitRadius ×
+## bodySize); an enemy past its end has playerHitRadius.
 static func fly(origin: Vector2, v: Vector2, accel_x: float, terrain, enemies: PackedVector2Array,
-		near: PackedFloat32Array, pierce: float = 0.0, top: float = 0.0) -> Dictionary:
+		near: PackedFloat32Array, pierce: float = 0.0, top: float = 0.0, radii: PackedFloat32Array = PackedFloat32Array()) -> Dictionary:
 	near.resize(enemies.size())
 	near.fill(INF)
 	var x := origin.x
@@ -154,7 +155,8 @@ static func fly(origin: Vector2, v: Vector2, accel_x: float, terrain, enemies: P
 			for k in enemies.size():
 				var ex := sx - enemies[k].x
 				var ey := sy - enemies[k].y
-				if ex * ex + ey * ey <= r2:
+				var rk := radii[k] * radii[k] if k < radii.size() else r2
+				if ex * ex + ey * ey <= rk:
 					_near_segment(enemies, near, px, py, sx, sy)
 					return {"end": Vector2(sx, sy), "time": t, "landed": true, "hit": k, "high_x": high_x, "high_dir": high_v.normalized()}
 			if terrain != null and terrain.is_solid(sx, sy):
@@ -189,22 +191,23 @@ static func _near_segment(enemies: PackedVector2Array, near: PackedFloat32Array,
 			near[k] = d
 
 
-## "Trúng!": the path came within playerHitRadius + r of enemy k's body centre (near from fly()).
-static func is_hit(near: PackedFloat32Array, k: int, r: float) -> bool:
-	return k < near.size() and near[k] <= hit_radius() + r
+## "Trúng!": the path came within playerHitRadius (radii[k] when given: a boss's) + r of enemy k's
+## body centre (near from fly()).
+static func is_hit(near: PackedFloat32Array, k: int, r: float, radii: PackedFloat32Array = PackedFloat32Array()) -> bool:
+	return k < near.size() and near[k] <= (radii[k] if k < radii.size() else hit_radius()) + r
 
 
 ## The enemies (indices into the body centres) a laser beam origin → end crosses: the server's
 ## laserHits, a band laser halfWidth + playerHitRadius wide round the beam (through terrain).
-static func laser_hits(origin: Vector2, end: Vector2, enemies: PackedVector2Array) -> PackedInt32Array:
+static func laser_hits(origin: Vector2, end: Vector2, enemies: PackedVector2Array, radii: PackedFloat32Array = PackedFloat32Array()) -> PackedInt32Array:
 	var out := PackedInt32Array()
 	var d := end - origin
 	var length := d.length()
 	if length <= 0.0:
 		return out
 	var u := d / length
-	var reach := laser_half_width() + hit_radius()
 	for k in enemies.size():
+		var reach := laser_half_width() + (radii[k] if k < radii.size() else hit_radius())
 		var c := enemies[k] - origin
 		var s := c.x * u.x + c.y * u.y
 		if s < -reach or s > length + reach:

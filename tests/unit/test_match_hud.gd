@@ -114,7 +114,8 @@ func test_turn_portrait_is_frameless() -> void:
 	h.set_turn(true, "Smoke", {"playerId": "me", "characterId": "rookie", "title": red})
 	var node: Control = h.portrait()["node"]
 	check(not (node is PanelContainer), "no card")
-	eq(node.get_children().map(func(c): return str(c.name)), ["Figure"], "only the figure in it")
+	eq(node.get_children().filter(func(c): return c.visible).map(func(c): return str(c.name)), ["Figure"],
+		"only the figure in it (the boss figure hidden)")
 	for n in _all(node):
 		check(not (n is Label or n is RichTextLabel or n is PanelContainer), "no name / frame: %s" % n)
 		check(not n.has_method("set_title"), "no title plate")

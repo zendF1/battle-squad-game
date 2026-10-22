@@ -89,6 +89,8 @@ var projectile_weight := 1.0
 var pierce := 0.0
 ## The alive enemies' body centres (feet − (0, 20)): the exact flight stops on them, "Trúng!".
 var enemies := PackedVector2Array()
+## Their hit radii (playerHitRadius × bodySize: a boss is bigger); [] all playerHitRadius.
+var enemy_radii := PackedFloat32Array()
 ## The view's top (world y): a previewed shell rising above it gets a top-edge arrow.
 var view_top := 0.0:
 	set(value):
@@ -300,7 +302,7 @@ func _update(pointer: Vector2) -> void:
 		for i in _lines.size():
 			_lines[i].points = PackedVector2Array([origin, end]) if i == 0 and _power > 0.0 else PackedVector2Array()
 		if _power >= MIN_POWER:
-			for k in AimAid.laser_hits(origin, end, enemies):
+			for k in AimAid.laser_hits(origin, end, enemies, enemy_radii):
 				_hit[k] = true
 		queue_redraw()
 		aim_changed.emit(_angle, _power)
@@ -314,7 +316,7 @@ func _update(pointer: Vector2) -> void:
 	for i in preview_offsets.size():
 		var a := _angle + float(preview_offsets[i])
 		var v := AimAid.launch_velocity(a, _power)
-		var flight: Dictionary = AimAid.fly(origin, v, accel, terrain, enemies, _near, pierce, view_top)
+		var flight: Dictionary = AimAid.fly(origin, v, accel, terrain, enemies, _near, pierce, view_top, enemy_radii)
 		# the guide: the first guide_len px of the exact flight (the weapon's wind included), so it
 		# bends like the shell will and is as long at every power
 		var guide := AimAid.trim_to_length(Trajectory.simulate(origin.x, origin.y, v.x, v.y, accel, terrain,
@@ -332,7 +334,7 @@ func _update(pointer: Vector2) -> void:
 		var end: Vector2 = flight["end"]
 		var r := AimAid.hit_tolerance(end.x - origin.x, AimAid.apex_height(a, _power))
 		for k in enemies.size():
-			if AimAid.is_hit(_near, k, r):
+			if AimAid.is_hit(_near, k, r, enemy_radii):
 				_hit[k] = true
 	queue_redraw()
 	aim_changed.emit(_angle, _power)
