@@ -202,3 +202,10 @@ func test_party_member_searches_at_once() -> void:
 	var found := {"roomId": "r", "matchId": "m", "teams": []}
 	eq(h.on_event("MatchFound", found), [["found", found]], "MatchFound")
 	eq(h.on_event("MatchStarted", {"roomId": "r"}), [["started", {"roomId": "r"}]], "the match")
+
+
+func test_create_lobby_on_the_queue() -> void:
+	var f := RankedFlow.new()
+	eq(f.start(LOADOUT, "casual_2v2"), [["send", "CreateLobby", {"queue": "casual_2v2"}]], "CreateLobby {queue}")
+	f.on_event("LobbyError", {"error": {"code": "IN_ROOM", "message": "x"}})
+	eq(f.tick(RankedFlow.RETRY_SEC), [["send", "CreateLobby", {"queue": "casual_2v2"}]], "again on the same queue")

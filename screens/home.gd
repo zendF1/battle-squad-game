@@ -3,7 +3,9 @@ extends Control
 ## (gear slots, character, Trang bị / Chỉ số), "Túi đồ" (Trang bị / Vật phẩm / Nguyên liệu),
 ## "Nâng cấp" (Nâng cấp / Ghép đá; also from the piece popup's Nâng cấp), "Mốc thưởng" (one-time
 ## progress rewards, milestone_page.gd), "Hồ sơ" (player card,
-## Lịch sử) and "Shop" (Vật phẩm / Trang bị / Đá nâng cấp / Nhân vật / Kim cương / Đổi xu). A page has a
+## Lịch sử), "Shop" (Vật phẩm / Trang bị / Đá nâng cấp / Nhân vật / Kim cương / Đổi xu) and "Chọn chế
+## độ" (the mode card's swap button: one tab per game data category, mode_select.gd; a choice goes
+## back to the lobby on that mode, lobby.gd choose_mode()). A page has a
 ## header with "← Sảnh", its title and the wallet pills; "← Sảnh", Esc (ui_cancel) and the
 ## Android back button return to the lobby. The pages are built with Home but hidden, and each
 ## loads its data the first time it is shown (the tabs' own lazy loading). The wallet "+"
@@ -15,8 +17,8 @@ extends Control
 ## shows once as a toast. The Nhân vật page, Túi đồ and the Shop's Trang bị (its weapons) act on the lobby's
 ## character; ◀ ▶ on the Nhân vật page change it in the lobby too.
 ## A party invite to me (Router.party) shows on its own layer over every page
-## (invite_received_popup.gd): Đồng ý answers it and shows the lobby on the ranked mode, Từ chối
-## answers no. The party's messages (declined, expired, kicked, the host left, errors) are toasts.
+## (invite_received_popup.gd, "… mời bạn chơi <the mode of the invite's queue>"): Đồng ý answers it
+## and shows the lobby on that mode, Từ chối answers no. The party's messages (declined, expired, kicked, the host left, errors) are toasts.
 
 const Backdrop := preload("res://ui/backdrop.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -35,6 +37,8 @@ const DailyModel := preload("res://screens/home/daily_model.gd")
 const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
 const InviteReceivedPopup := preload("res://screens/home/invite_received_popup.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
+const ModeSelect := preload("res://screens/home/mode_select.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const LOBBY := 0
 const PROFILE := 1
@@ -44,6 +48,7 @@ const CHARACTER := 4
 const UPGRADE := 5
 const MILESTONE := 6
 const DAILY := 7
+const MODES := 8
 
 var _lobby: Lobby
 var _profile: ProfileTab
@@ -53,6 +58,7 @@ var _character: CharacterPage
 var _upgrade: UpgradePage
 var _milestone: MilestonePage
 var _daily: DailyPage
+var _modes: ModeSelect
 var _pages := {} # PROFILE / SHOP / BAG / CHARACTER -> the page (header + content)
 var _shown := LOBBY
 var _invite_layer: Control # over every page: the invite to me
@@ -77,6 +83,7 @@ func _ready() -> void:
 	_lobby.open_upgrade.connect(open_upgrade)
 	_lobby.open_milestones.connect(open_milestones)
 	_lobby.open_daily.connect(open_daily)
+	_lobby.open_modes.connect(open_modes)
 	_connect_wallet(_lobby.wallet)
 	_lobby.rank_chip.host = self
 
@@ -108,6 +115,11 @@ func _ready() -> void:
 	_pages[BAG] = _build_page("Túi đồ", _bag)
 	_pages[MILESTONE] = _build_page("Mốc thưởng", _milestone)
 	_pages[DAILY] = _build_page("Nhiệm Vụ Ngày", _daily, _daily.header_extra())
+	_modes = ModeSelect.new()
+	_modes.chosen.connect(func(index: int) -> void:
+		_show(LOBBY)
+		_lobby.choose_mode(index))
+	_pages[MODES] = _build_page("Chọn chế độ", _modes)
 	_pages[PROFILE] = _build_page("Hồ sơ", _profile)
 	_pages[SHOP] = _build_page("Shop", _shop)
 	_show(LOBBY)
@@ -191,14 +203,22 @@ func show_invite(invite: Dictionary) -> InviteReceivedPopup:
 	if is_instance_valid(_invite_popup) and not _invite_popup.is_queued_for_deletion():
 		_invite_popup.close() # a newer invite replaces it
 	_invite_popup = InviteReceivedPopup.new()
-	var ranked := LobbyModel.ranked_index()
-	_invite_popup.open_for(_invite_layer, Router.party, invite, LobbyModel.mode(ranked)["name"] if ranked >= 0 else "")
+	var queue := str(invite.get("mode", ""))
+	if queue == "":
+		queue = GameData.ranked_mode() # an older server: the ranked queue
+	_invite_popup.open_for(_invite_layer, Router.party, invite, LobbyModel.queue_name(queue))
 	_invite_popup.accepted.connect(func() -> void:
 		Router.party.respond(true)
 		_show(LOBBY)
-		_lobby.show_ranked_mode())
+		_lobby.show_queue_mode(queue))
 	_invite_popup.declined.connect(func() -> void: Router.party.respond(false))
 	return _invite_popup
+
+
+## The Mode Select page on the lobby's mode (its tab, the card highlighted).
+func open_modes() -> void:
+	_modes.show_for(_lobby.current_mode())
+	_show(MODES)
 
 
 func open_profile() -> void:
@@ -256,7 +276,7 @@ func open_shop(section: int) -> void:
 	_show(SHOP)
 
 
-## Which screen shows: LOBBY or a page (PROFILE, SHOP, BAG, CHARACTER, UPGRADE, MILESTONE, DAILY). Android back quits only from the lobby.
+## Which screen shows: LOBBY or a page (PROFILE, SHOP, BAG, CHARACTER, UPGRADE, MILESTONE, DAILY, MODES). Android back quits only from the lobby.
 func _show(which: int) -> void:
 	_shown = which
 	for key in _pages:

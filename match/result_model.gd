@@ -204,10 +204,10 @@ static func exp_steps(level: int, level_exp: int, gained: int) -> Dictionary:
 	return {"from": from, "to": float(e) / (lv * per), "levels": levels, "level": lv}
 
 
-## The second button: "Chơi tiếp" (ranked: straight back into the queue), "Chơi lại" (a Quick
-## Play match again), "" none.
+## The second button: "Chơi tiếp" (a queue mode, ranked or casual: straight back into the
+## queue), "Chơi lại" (a Quick Play match again), "" none.
 static func again_text(mode: String, can_replay: bool) -> String:
-	if RankModel.is_ranked_mode(mode):
+	if RankModel.is_queue_mode(mode):
 		return "Chơi tiếp"
 	return "Chơi lại" if can_replay else ""
 

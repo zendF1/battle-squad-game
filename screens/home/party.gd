@@ -1,5 +1,5 @@
 extends Node
-## The ranked 2v2 party over the game socket (screens/home/party_model.gd does the deciding), kept
+## The 2v2 party of a party mode (Đấu thường / Đấu hạng) over the game socket (screens/home/party_model.gd does the deciding), kept
 ## by the Router (Router.party) so it lives through every scene: Home → Loadout → Matchmaking →
 ## Match → Home. It sends what the model asks, re-emits the rest as signals for Home (the slot, the
 ## popups, toasts), and when the host starts the queue while I am the member it takes me to
@@ -66,6 +66,12 @@ func set_character(character_id: String) -> void:
 	_run(model.set_character(character_id, now()))
 
 
+## The mode chosen on Home: its queue for CreateLobby, and SetLobbyQueue when I host a lobby.
+func select_queue(queue: String) -> void:
+	model.me = Session.player_id
+	_run(model.select_queue(queue, now()))
+
+
 ## LeaveLobby (every LeaveLobby of the client goes through here, so the party knows it left).
 func leave() -> void:
 	_run(model.leave())
@@ -90,12 +96,14 @@ func _run(actions: Array) -> void:
 				_to_matchmaking()
 
 
-## The host's queue started: Matchmaking as the member (my lobby character on my card).
+## The host's queue started: Matchmaking as the member (my lobby character on my card), on the
+## lobby's queue.
 func _to_matchmaking() -> void:
 	var scene := get_tree().current_scene
 	if scene != null and scene.scene_file_path == Router.MATCHMAKING:
 		return
 	var mine := model.my_member()
 	Router.ranked_member = true
+	Router.queue = model.lobby_queue()
 	Router.ranked_loadout = {"characterId": str(mine.get("characterId", "")), "items": []}
 	Router.go(Router.MATCHMAKING)

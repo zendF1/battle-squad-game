@@ -1,9 +1,10 @@
 extends RefCounted
-## The ranked 2v2 party (Home's teammate slot and the invite popups), without UI or socket: the
-## lobby from LobbyUpdated, my role in it (host / member), the teammate, the invites I sent with
+## The 2v2 party of a party mode (Đấu thường / Đấu hạng: Home's teammate slot and the invite
+## popups), without UI or socket: the lobby from LobbyUpdated (its queue: the mode the host chose),
+## my role in it (host / member), the teammate, the invites I sent with
 ## their expiry, the invite shown to me, and the rows of the invite popup (OnlinePlayers).
 ## on_event(), tick() and the commands (invite(), respond(), kick(), set_ready(), confirm_ready(),
-## set_character(), leave(), list()) return the actions the owner (screens/home/party.gd) carries out, in order:
+## set_character(), select_queue(), leave(), list()) return the actions the owner (screens/home/party.gd) carries out, in order:
 ##   ["send", event, data]  send it on the game socket
 ##   ["changed"]            the lobby (members, ready, status) changed: redraw the slot
 ##   ["players"]            the popup's rows changed (OnlinePlayers, an invite sent / answered)
@@ -13,6 +14,8 @@ extends RefCounted
 ##   ["queue_started"]      the host started the queue and I am the member: off to Matchmaking
 ## Times are seconds on the owner's clock (`now`). An invite's lifetime is its expiresInSec
 ## (InviteSent / LobbyInvite), else the game data's matchmaking.inviteTimeoutSec.
+## `queue` is the queue of the mode chosen on Home: every CreateLobby asks for it ({queue}), and
+## select_queue() moves my lobby to another one (SetLobbyQueue, the host while preparing).
 ## Before the first invite without a lobby, CreateLobby goes first and the invite follows its
 ## LobbyUpdated; a CreateLobby refused because the server still has me in a lobby / a room leaves
 ## it (LeaveLobby / Leave) and asks again, once; an InviteToLobby answered LOBBY_REQUIRED /
@@ -42,6 +45,7 @@ const READY := "SẴN SÀNG"
 const UNREADY := "HUỶ SẴN SÀNG"
 
 var me := ""
+var queue := "" # the queue of the mode chosen on Home ("" the server's default)
 var lobby := {} # parse_lobby() of the last LobbyUpdated; {} not in a lobby
 var sent := {} # playerId -> expiry (s) of my invites still waiting
 var incoming := {} # the invite shown to me: parse_invite() + expires_at; {} none
@@ -79,8 +83,9 @@ static func parse_member(m: Variant) -> Dictionary:
 		"division": clampi(_num(m.get("division")), 0, 3), "ready": m.get("ready") == true, "gun": gun}
 
 
-## A LobbyState: {lobbyId, hostPlayerId, status, members: [parse_member()]} (the host always
-## ready); {} without a lobbyId.
+## A LobbyState: {lobbyId, hostPlayerId, status, queue, members: [parse_member()]} (the host always
+## ready; queue: the server's, else the game data's rank.rankedMode, its default); {} without a
+## lobbyId.
 static func parse_lobby(d: Variant) -> Dictionary:
 	if not d is Dictionary or _str(d.get("lobbyId")) == "":
 		return {}
@@ -94,7 +99,7 @@ static func parse_lobby(d: Variant) -> Dictionary:
 					p["ready"] = true
 				members.append(p)
 	return {"lobbyId": _str(d.get("lobbyId")), "hostPlayerId": host, "status": _str(d.get("status"), "preparing"),
-		"members": members}
+		"queue": _str(d.get("queue"), GameData.ranked_mode()), "members": members}
 
 
 ## An OnlinePlayer: {playerId, displayName, level, tier, division, characterId, status (idle /
@@ -136,6 +141,11 @@ func is_host() -> bool:
 ## In someone else's lobby.
 func is_member() -> bool:
 	return in_lobby() and lobby["hostPlayerId"] != me
+
+
+## The queue of my lobby (the mode its host chose); "" not in a lobby.
+func lobby_queue() -> String:
+	return str(lobby.get("queue", "")) if in_lobby() else ""
 
 
 ## Two in the lobby: me and a teammate.
@@ -232,9 +242,24 @@ func invite(player_id: String, now: float) -> Array:
 	_create_retried = false
 	if not in_lobby():
 		_invite_after_create = player_id
-		return [["send", "CreateLobby", {}]]
+		return [_create_lobby()]
 	_inviting = player_id
 	return [["send", "InviteToLobby", {"playerId": player_id}]]
+
+
+## CreateLobby {queue} (the mode chosen on Home); {} without one.
+func _create_lobby() -> Array:
+	return ["send", "CreateLobby", {"queue": queue} if queue != "" else {}]
+
+
+## The host chose another mode on Home: remembered for CreateLobby, and my lobby (while preparing)
+## moves to its queue: SetLobbyQueue {queue}.
+func select_queue(q: String, now: float) -> Array:
+	queue = q
+	if q == "" or not is_host() or str(lobby.get("status", "")) != "preparing" or lobby_queue() == q:
+		return []
+	_expect(now)
+	return [["send", "SetLobbyQueue", {"queue": q}]]
 
 
 ## Answers the invite shown to me.
@@ -425,7 +450,7 @@ func _on_error(data: Variant, now: float) -> Array:
 		if not _create_retried and code in ["ALREADY_IN_LOBBY", "IN_ROOM"]:
 			_create_retried = true
 			_expect(now)
-			return [["send", "LeaveLobby" if code == "ALREADY_IN_LOBBY" else "Leave", {}], ["send", "CreateLobby", {}]]
+			return [["send", "LeaveLobby" if code == "ALREADY_IN_LOBBY" else "Leave", {}], _create_lobby()]
 		_invite_after_create = ""
 		return [["toast", ErrorText.lobby_error(data)]]
 	if _inviting != "" and now <= _expect_until:
@@ -437,7 +462,7 @@ func _on_error(data: Variant, now: float) -> Array:
 			_create_retried = true
 			_invite_after_create = id
 			_expect(now)
-			return [["changed"], ["send", "CreateLobby", {}]]
+			return [["changed"], _create_lobby()]
 		return [["toast", ErrorText.lobby_error(data)]]
 	if now > _expect_until or code in ["LOBBY_REQUIRED", "NOT_IN_QUEUE"]:
 		return [] # not an answer to me (a late one to a match's LeaveLobby, the queue's own)

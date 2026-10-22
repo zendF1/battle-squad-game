@@ -107,7 +107,7 @@ const RESULT_DELAY_SEC := 2.0
 const OUT_OF_MAP := "out_of_map" # PlayerDamaged type / ShotResolved cause: fell out of the bottom of the map
 
 var _me := ""
-var _mode := "" # MatchStarted's mode (ranked_2v2: the result's rating row, a solo lobby left going Home)
+var _mode := "" # MatchStarted's mode (a queue: a solo lobby left going Home, "Chơi tiếp"; ranked: the rating row)
 var _lobby_left := false # LeaveLobby sent (once)
 var _roster := {} # Router.match_roster: the ranked players' level and rank (MatchFound)
 var _damage_by := {} # playerId -> damage dealt to the other team, counted from the replays (the MVP without stats)
@@ -1058,11 +1058,12 @@ func show_result_screen(info: Dictionary) -> ResultScreen:
 	return screen
 
 
-## "Chơi tiếp" (ranked: back into the queue with the same loadout) / "Chơi lại" (the same Quick
-## Play again; the server already took me out of this room).
+## "Chơi tiếp" (a queue mode: back into its queue with the same loadout) / "Chơi lại" (the same
+## Quick Play again; the server already took me out of this room).
 func _on_again(screen: ResultScreen) -> void:
-	if RankModel.is_ranked_mode(_mode):
+	if RankModel.is_queue_mode(_mode):
 		# The lobby is kept after the match (ReturnToLobby): Matchmaking's CreateLobby gets it back.
+		Router.queue = _mode
 		Router.go(Router.MATCHMAKING if not Router.ranked_loadout.is_empty() else Router.LOADOUT)
 		return
 	if _replay == null:
@@ -1209,7 +1210,7 @@ static func _since(usec: int) -> float:
 func _on_leave() -> void:
 	if not _disconnected: # a new connection is not in this room; Leave would only be rejected
 		GameSocket.send("Leave", {})
-		if RankModel.is_ranked_mode(_mode) and not (Router.party != null and Router.party.model.in_party()):
+		if RankModel.is_queue_mode(_mode) and not (Router.party != null and Router.party.model.in_party()):
 			_leave_lobby() # a party stays together for the next match
 	Router.go(Router.HOME)
 

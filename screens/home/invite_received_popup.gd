@@ -1,6 +1,7 @@
 extends "res://ui/modal.gd"
 ## A party invite to me (LobbyInvite through Router.party), shown over any Home page: the
-## inviter's head, "<name> mời bạn chơi Xếp hạng 2v2" (the game data's name of the ranked mode),
+## inviter's head, "<name> mời bạn chơi Đấu thường 2vs2" (the game data's name of the mode of the
+## invite's queue),
 ## their level and rank, a bar running down over the invite's expiresInSec, "Đồng ý" / "Từ chối".
 ## accepted / declined tell Home; the bar running out (or InviteExpired) just closes it.
 
@@ -16,7 +17,7 @@ var bar: ProgressBar
 var _done := false
 
 
-## Opens over `host` for the invite (PartyModel.parse_invite()); mode_name: the ranked mode's name.
+## Opens over `host` for the invite (PartyModel.parse_invite()); mode_name: its mode's name.
 func open_for(host: Node, p, invite: Dictionary, mode_name: String) -> void:
 	party = p
 	open(host, "Lời mời vào đội", 720)

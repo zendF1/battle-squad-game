@@ -1,9 +1,10 @@
 extends Control
-## Matchmaking ("Xếp hạng 2v2", opened by the Loadout's "TÌM TRẬN" on the ranked mode): the
-## ranked queue (screens/ranked/ranked_flow.gd) with the Loadout's character and items
-## (Router.ranked_loadout) and the screen around it. Left, my team's two cards (mine filled:
+## Matchmaking (opened by the Loadout's "TÌM TRẬN" on a queue mode: Đấu hạng 2vs2, Đấu thường
+## 2vs2, ...): the queue Router.queue (screens/ranked/ranked_flow.gd) with the Loadout's character
+## and items (Router.ranked_loadout) and the screen around it. Left, my team's two cards (mine filled:
 ## character, name, Lv, tier badge; my teammate a silhouette "Đang ghép..." with a light sweep),
-## right the two enemy silhouettes, in the middle the VS emblem under "XẾP HẠNG 2V2" and over
+## right the two enemy silhouettes, in the middle the VS emblem under the mode's name in capitals
+## and its description (the game data's, "ĐẤU HẠNG 2VS2") and over
 ## "Đang ghép... 0:31" with a spinner ("Đang vào hàng chờ..." until the server says the queue
 ## started). Bottom: a tip changing every TIP_SEC and "Hủy ghép" (also Esc / Android back), which
 ## cancels the queue and goes back to Home. MatchFound: "Hủy ghép" goes, the VS emblem flashes,
@@ -30,6 +31,7 @@ const PlayerCard := preload("res://screens/ranked/player_card.gd")
 const VsEmblem := preload("res://screens/ranked/vs_emblem.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
+const LobbyModel := preload("res://screens/home/lobby_model.gd")
 
 const MARGIN := 18
 const TIP_SEC := 6.0
@@ -59,6 +61,7 @@ var _found_for := -1.0 # seconds since MatchFound, -1 before
 var _revealed := false
 var _snapshot: Variant = null # MatchStarted data
 var _leaving := false
+var _queue := "" # Router.queue, else the game data's ranked mode
 
 
 func _ready() -> void:
@@ -68,6 +71,7 @@ func _ready() -> void:
 	_tip_index = randi() % maxi(RankModel.tips().size(), 1)
 	var as_member := Router.ranked_member # taken once, whatever happens next
 	Router.ranked_member = false
+	_queue = Router.queue if Router.queue != "" else GameData.ranked_mode()
 	_build()
 	_cards[0].show_player(_my_player())
 	var mate := _teammate()
@@ -85,7 +89,7 @@ func _ready() -> void:
 		_run(flow.start_member())
 		return
 	flow.keep_lobby = _in_party()
-	_run(flow.start(Router.ranked_loadout))
+	_run(flow.start(Router.ranked_loadout, _queue))
 
 
 func _in_party() -> bool:
@@ -179,10 +183,12 @@ func _build_middle() -> Control:
 	col.custom_minimum_size.x = CENTRE_W
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.mouse_filter = MOUSE_FILTER_IGNORE
-	var title := LobbyUi.text("XẾP HẠNG 2V2", 40, LobbyUi.GOLD, true)
+	var mode: Dictionary = LobbyModel.mode(LobbyModel.index_of_queue(_queue)) if LobbyModel.index_of_queue(_queue) >= 0 else {}
+	var title := LobbyUi.text(LobbyModel.queue_name(_queue).to_upper(), 40, LobbyUi.GOLD, true)
+	title.name = "ModeTitle"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(title)
-	var sub := LobbyUi.text("Ghép 2v2, tính điểm hạng", 21, Color(0.75, 0.9, 1.0))
+	var sub := LobbyUi.text(str(mode.get("description", "")), 21, Color(0.75, 0.9, 1.0))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(sub)
 	_vs = VsEmblem.new()

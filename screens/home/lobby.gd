@@ -16,15 +16,20 @@ extends Control
 ## (pedestal_gun.gd, no name under it), updated on equip / unequip. ◀ ▶ or a swipe cycles
 ## the four characters. The character is the Loadout's (saved
 ## in the same settings file, so the Loadout opens with it) and the mode is remembered there
-## too; the ranked mode's card shows the tier badge and "Bạc II · 1.050 điểm" under its name. "BẮT ĐẦU" puts
+## too; the card shows the mode's name and description (a ranked mode: the tier badge and "Bạc II ·
+## 1.050 điểm" instead), its swap button (or a tap on the card) opens the Mode Select page
+## (open_modes, mode_select.gd), which calls choose_mode(). "BẮT ĐẦU" puts
 ## the mode's QuickPlay base in Router.quick_play_base and opens the Loadout. Character levels and stats come from the PlayerState characters cache, loaded when
 ## the lobby is shown; until then the card shows name, role and skill only.
-## The ranked mode adds the party (Router.party, screens/home/party.gd): the teammate slot right of
+## A party mode (party size 2 or more: Đấu thường, Đấu hạng) adds the party (Router.party,
+## screens/home/party.gd), on the mode's queue (CreateLobby {queue}): the teammate slot right of
 ## the stage (party_slot.gd: "+" → the invite popup, invite_popup.gd; a teammate drawn there, a
 ## member sees the host), and the start button of PartyModel.start_button(): the host waits for a
 ## ready teammate ("Chờ đồng đội sẵn sàng", disabled), the member gets "SẴN SÀNG" (the Loadout, which
 ## readies) / "HUỶ SẴN SÀNG". With a teammate the stage character goes to the lobby (UpdateLoadout)
-## so their slot shows it, and switching the mode away asks "Rời đội?" first.
+## so their slot shows it. Choosing another party mode in my lobby moves it there (SetLobbyQueue);
+## a solo mode leaves it, asking "Rời đội?" first with a teammate. The member's card shows the
+## host's mode (LobbyUpdated queue) and cannot change it ("Chủ phòng chọn chế độ").
 
 signal open_profile
 signal open_shop(section: int)
@@ -33,6 +38,7 @@ signal open_character
 signal open_upgrade
 signal open_milestones
 signal open_daily
+signal open_modes
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -56,6 +62,7 @@ const RankModel := preload("res://screens/ranked/rank_model.gd")
 const PartySlot := preload("res://screens/home/party_slot.gd")
 const InvitePopup := preload("res://screens/home/invite_popup.gd")
 const Modal := preload("res://ui/modal.gd")
+const ModeSelectModel := preload("res://screens/home/mode_select_model.gd")
 
 const MARGIN := 18
 const STAGE := Vector2(560, 590)
@@ -102,8 +109,10 @@ var _mode_text: Label
 var _mode_rank: Control # ranked: the tier badge and "Bạc II · 1.050 điểm"
 var _mode_rank_badge: TierBadge
 var _mode_rank_text: Label
+var _mode_lock: Label # the member's "Chủ phòng chọn chế độ"
+var _mode_swap: Button
 var _start: Button
-var _slot: PartySlot # the ranked mode's teammate slot
+var _slot: PartySlot # a party mode's teammate slot
 
 
 func _ready() -> void:
@@ -139,7 +148,8 @@ func _ready() -> void:
 	PlayerState.milestones_changed.connect(_render_milestones)
 	PlayerState.daily_changed.connect(_render_daily)
 	PlayerState.rank_changed.connect(_render_mode)
-	Router.party.changed.connect(_render_party)
+	Router.party.changed.connect(_render_mode) # a member follows the host's mode
+	Router.party.select_queue(_party_queue())
 	GameSocket.connected.connect(_render_conn)
 	GameSocket.disconnected.connect(_render_conn)
 	visibility_changed.connect(_on_visibility_changed)
@@ -558,10 +568,17 @@ func _build_mode_card() -> Control:
 	var col := Ui.vbox(12)
 	col.custom_minimum_size.x = 430
 	var card := LobbyUi.panel(18, 20)
+	card.name = "ModeCard"
+	card.mouse_filter = MOUSE_FILTER_STOP
+	card.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+			_open_modes())
 	col.add_child(card)
 	var row := Ui.hbox(12)
+	row.mouse_filter = MOUSE_FILTER_IGNORE
 	card.add_child(row)
 	var texts := Ui.vbox(2)
+	texts.mouse_filter = MOUSE_FILTER_IGNORE
 	texts.size_flags_horizontal = SIZE_EXPAND_FILL
 	row.add_child(texts)
 	_mode_name = LobbyUi.text("", 32, Color.WHITE, true)
@@ -577,10 +594,15 @@ func _build_mode_card() -> Control:
 	rank_row.add_child(_mode_rank_text)
 	texts.add_child(rank_row)
 	_mode_rank = rank_row
-	var swap := LobbyUi.round_button("swap", 68, LobbyUi.ICON_COLORS["blue"], 0.6)
-	swap.size_flags_vertical = SIZE_SHRINK_CENTER
-	swap.pressed.connect(_next_mode)
-	row.add_child(swap)
+	_mode_lock = LobbyUi.text(ModeSelectModel.LOCKED_TEXT, 20, Ui.TEXT_DIM)
+	_mode_lock.name = "ModeLock"
+	_mode_lock.visible = false
+	texts.add_child(_mode_lock)
+	_mode_swap = LobbyUi.round_button("swap", 68, LobbyUi.ICON_COLORS["blue"], 0.6)
+	_mode_swap.name = "ModeSwap"
+	_mode_swap.size_flags_vertical = SIZE_SHRINK_CENTER
+	_mode_swap.pressed.connect(_open_modes)
+	row.add_child(_mode_swap)
 	_start = LobbyUi.start_button("BẮT ĐẦU")
 	_start.pressed.connect(_on_start)
 	_start.resized.connect(func(): _start.pivot_offset = _start.size / 2)
@@ -591,25 +613,51 @@ func _build_mode_card() -> Control:
 	return col
 
 
-func _next_mode() -> void:
+## The swap button or a tap on the card: the Mode Select page; the party's member cannot (the host
+## chooses).
+func _open_modes() -> void:
+	if Router.party.model.is_member():
+		Ui.toast(self, ModeSelectModel.LOCKED_TEXT)
+		return
+	open_modes.emit()
+
+
+## The chosen mode's index (Mode Select highlights it).
+func current_mode() -> int:
+	return _mode
+
+
+## Mode Select's choice (ModeSelectModel.switch_action()): another party mode in my lobby moves it
+## (SetLobbyQueue), a solo mode leaves it ("Rời đội?" first with a teammate).
+func choose_mode(index: int) -> void:
 	var party = Router.party.model
-	if LobbyModel.is_ranked(mode_base()) and party.in_lobby():
-		if party.in_party():
-			_confirm_leave(_switch_mode) # "Rời đội?" first
-			return
-		Router.party.leave() # the lobby made for an invite, alone: no party to keep
-	_switch_mode()
+	match ModeSelectModel.switch_action(_mode, index, party.in_lobby(), party.is_member(), party.in_party()):
+		ModeSelectModel.SWITCH, ModeSelectModel.SET_QUEUE:
+			_switch_mode(index)
+		ModeSelectModel.LEAVE:
+			Router.party.leave() # the lobby made for an invite, alone: no party to keep
+			_switch_mode(index)
+		ModeSelectModel.CONFIRM_LEAVE:
+			_confirm_leave(_switch_mode.bind(index)) # "Rời đội?" first
+		ModeSelectModel.LOCKED:
+			Ui.toast(self, ModeSelectModel.LOCKED_TEXT)
 
 
-func _switch_mode() -> void:
-	_mode = LobbyModel.next_mode(_mode)
+func _switch_mode(index: int) -> void:
+	_mode = clampi(index, 0, maxi(LobbyModel.modes().size() - 1, 0))
 	LobbyModel.remember_mode(settings_path, _mode)
+	Router.party.select_queue(_party_queue()) # my lobby follows a party mode's queue
 	_render_mode()
 
 
-## Shows the ranked mode and remembers it (an invite accepted from any mode).
-func show_ranked_mode() -> void:
-	var i := LobbyModel.ranked_index()
+## The queue the party plays: the chosen mode's when it is a party mode, else "".
+func _party_queue() -> String:
+	return str(mode_base().get("queue", "")) if LobbyModel.is_party(_mode) else ""
+
+
+## Shows the mode of `queue` and remembers it (an invite accepted from any mode: the lobby's queue).
+func show_queue_mode(queue: String) -> void:
+	var i := LobbyModel.index_of_queue(queue)
 	if i < 0 or i == _mode:
 		return
 	_mode = i
@@ -645,12 +693,23 @@ func _host() -> Node:
 
 
 func _render_mode() -> void:
+	if _mode_name == null:
+		return
+	var party = Router.party.model
+	var member: bool = party.is_member()
+	if member: # the host's mode
+		var i := LobbyModel.index_of_queue(party.lobby_queue())
+		if i >= 0 and i != _mode:
+			_mode = i
+			LobbyModel.remember_mode(settings_path, _mode)
+	_mode_lock.visible = member
+	_mode_swap.disabled = member
 	var m: Dictionary = LobbyModel.mode(_mode)
 	_mode_name.text = m["name"]
 	_mode_text.text = m["description"]
 	var ranked := LobbyModel.is_ranked(m["base"])
-	_mode_rank.visible = ranked
-	_mode_text.visible = not ranked # the rank line takes the description's place
+	_mode_rank.visible = ranked and not member
+	_mode_text.visible = not ranked and not member # the rank line (the member: the lock line) takes its place
 	if ranked:
 		var data := PlayerState.my_rank()
 		var r := RankModel.from_me(data)
@@ -665,16 +724,16 @@ const SLOT_X := STAGE.x / 2.0 + 175.0 # the teammate slot's centre right of the 
 const SLOT_Y := -240.0 # its bottom above the screen's bottom: the pedestal clear of the mode card
 
 
-## The ranked mode's teammate slot and the start button (PartyModel.start_button()).
+## A party mode's teammate slot and the start button (PartyModel.start_button()).
 func _render_party() -> void:
 	if _slot == null or _start == null:
 		return
 	var party = Router.party.model
-	var ranked := LobbyModel.is_ranked(mode_base())
-	_slot.visible = ranked
-	if ranked:
+	var with_party := LobbyModel.is_party(_mode)
+	_slot.visible = with_party
+	if with_party:
 		_slot.show_member(party.teammate(), party.is_host())
-	var state: Dictionary = party.start_button() if ranked else {"text": "BẮT ĐẦU", "disabled": false, "action": "start"}
+	var state: Dictionary = party.start_button() if with_party else {"text": "BẮT ĐẦU", "disabled": false, "action": "start"}
 	_start.text = state["text"]
 	_start.disabled = state["disabled"]
 	_start.set_meta("action", state["action"])
@@ -687,7 +746,7 @@ func mode_base() -> Dictionary:
 
 
 func _on_start() -> void:
-	if LobbyModel.is_ranked(mode_base()) and str(_start.get_meta("action", "start")) == "unready":
+	if LobbyModel.is_party(_mode) and str(_start.get_meta("action", "start")) == "unready":
 		Router.party.set_ready(false) # HUỶ SẴN SÀNG
 		return
 	start() # the member's SẴN SÀNG: the Loadout readies

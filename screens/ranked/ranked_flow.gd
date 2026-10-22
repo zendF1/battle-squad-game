@@ -1,5 +1,6 @@
 extends RefCounted
-## The ranked queue over the game socket, without the socket: start(), cancel(), on_event()
+## A queue mode's queue (Đấu hạng, Đấu thường: `queue`, the lobby's) over the game socket, without
+## the socket: start(), cancel(), on_event()
 ## and tick() return the actions the owner (screens/matchmaking.gd) carries out, in order:
 ##   ["send", event, data]  send it on the socket
 ##   ["searching"]          in the queue (QueueStarted): the timer starts
@@ -8,7 +9,7 @@ extends RefCounted
 ##   ["failed", message]    the queue ended with an error (back to Home with the message)
 ##   ["cancelled"]          the player's cancel went through (back to Home)
 ##
-## Each step waits for its answer (the server takes them in order either way): CreateLobby →
+## Each step waits for its answer (the server takes them in order either way): CreateLobby {queue} →
 ## LobbyUpdated → UpdateLoadout {characterId, items} → LobbyUpdated → StartQueue → QueueStarted →
 ## MatchFound → MatchStarted (~3 s later; the server moves the socket into the battle room itself,
 ## nothing is sent to join). The lobby outlives a match, and CreateLobby from its host returns it,
@@ -46,6 +47,7 @@ const DISCONNECTED := "Mất kết nối, hãy thử lại khi online"
 
 var phase := Phase.IDLE
 var loadout := {} # {characterId, items}
+var queue := "" # the queue CreateLobby asks for ("" the server's default)
 var _wait := 0.0 # seconds left before the current step times out (or the retry is sent)
 var _retries := 0
 var _cancel_asked := false # cancel() while the lobby was being created
@@ -59,7 +61,8 @@ static func found_timeout() -> float:
 	return maxf(FOUND_TIMEOUT, GameData.match_start_delay_sec() + STEP_TIMEOUT)
 
 
-func start(chosen: Dictionary) -> Array:
+func start(chosen: Dictionary, on_queue: String = "") -> Array:
+	queue = on_queue
 	loadout = {"characterId": str(chosen.get("characterId", GameData.default_character_id())), "items": chosen.get("items", []).duplicate()}
 	_retries = 0
 	_cancel_asked = false
@@ -78,7 +81,7 @@ func start_member() -> Array:
 func _create() -> Array:
 	phase = Phase.CREATING
 	_wait = STEP_TIMEOUT
-	return [["send", "CreateLobby", {}]]
+	return [["send", "CreateLobby", {"queue": queue} if queue != "" else {}]]
 
 
 ## The player pressed "Hủy ghép". Nothing to do once the match is found.

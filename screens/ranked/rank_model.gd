@@ -45,9 +45,15 @@ static func ranked_mode() -> String:
 	return GameData.ranked_mode()
 
 
-## A match of the ranked mode.
+## A match (MatchStarted mode, the queue's id) that changes rating: the game data's ranked flag of
+## the lobby mode with that queue (GameData.is_ranked_queue).
 static func is_ranked_mode(mode: String) -> bool:
-	return mode != "" and mode == ranked_mode()
+	return GameData.is_ranked_queue(mode)
+
+
+## A match that came from a queue (ranked or casual): "Chơi tiếp" queues again.
+static func is_queue_mode(mode: String) -> bool:
+	return GameData.is_lobby_queue(mode)
 
 
 ## 3 → "III" (the lowest), 1 → "I" (the highest); "" outside 1..3.

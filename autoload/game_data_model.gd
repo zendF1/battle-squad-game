@@ -1069,9 +1069,43 @@ static func tips() -> Array:
 	return _strings(section("matchmaking").get("tips"))
 
 
-## [{modeId, name, description, queue, bot}], the Home mode choices in order.
+## [{modeId, name, description, queue, bot, category, icon, partySize, ranked}], the Home mode
+## choices in order (the server leaves disabled modes out; one marked enabled: false is dropped
+## here too).
 static func lobby_modes() -> Array:
-	return _list_in(section("modes"), "lobby")
+	return _list_in(section("modes"), "lobby").filter(func(m): return m.get("enabled") != false)
+
+
+## [{categoryId, name}], the Mode Select tabs in order (modes.categories); [] from a server without
+## them.
+static func mode_categories() -> Array:
+	return _list_in(section("modes"), "categories").filter(func(c): return _s(c, "categoryId") != "")
+
+
+## The lobby mode that joins `queue` ({} none, also for "").
+static func lobby_mode_of_queue(queue: String) -> Dictionary:
+	if queue == "":
+		return {}
+	for m in lobby_modes():
+		if _s(m, "queue") == queue:
+			return m
+	return {}
+
+
+## A queue (or a match of it: MatchStarted mode = the queue) that changes rating: its lobby mode's
+## ranked flag; without that flag (an older server) the queue is rank.rankedMode.
+static func is_ranked_queue(queue: String) -> bool:
+	if queue == "":
+		return false
+	var m := lobby_mode_of_queue(queue)
+	if m.get("ranked") is bool:
+		return m["ranked"]
+	return queue == ranked_mode()
+
+
+## A queue some lobby mode joins (or rank.rankedMode): a match of it came from Matchmaking.
+static func is_lobby_queue(queue: String) -> bool:
+	return queue != "" and (not lobby_mode_of_queue(queue).is_empty() or queue == ranked_mode())
 
 
 ## A match mode's Vietnamese name (MatchStarted mode, match history); the id itself when unknown.

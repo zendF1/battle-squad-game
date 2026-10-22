@@ -236,3 +236,34 @@ func test_stage_character_goes_to_the_teammate() -> void:
 	eq(p.set_character("rookie", 2.0), [], "unchanged: nothing")
 	p.on_event("LobbyUpdated", _lobby([HOST, MATE], "me", "in_queue"), 3.0)
 	eq(p.set_character("spark", 3.0), [], "not while queued")
+
+
+func test_the_lobby_plays_the_chosen_queue() -> void:
+	var p := _party()
+	eq(p.select_queue("casual_2v2", 0.0), [], "no lobby yet: only remembered")
+	eq(p.invite("p2", 0.0), [["send", "CreateLobby", {"queue": "casual_2v2"}]], "CreateLobby on the chosen queue")
+	eq(p.on_event("LobbyUpdated", _with(_lobby([HOST]), "queue", "casual_2v2"), 0.1),
+		[["changed"], ["send", "InviteToLobby", {"playerId": "p2"}]], "then the invite")
+	eq(p.lobby_queue(), "casual_2v2", "the lobby's queue")
+	eq(p.on_event("LobbyError", _err("LOBBY_REQUIRED"), 0.2), [["changed"], ["send", "CreateLobby", {"queue": "casual_2v2"}]],
+		"a new lobby on the same queue")
+
+
+func test_switching_party_modes_moves_my_lobby() -> void:
+	var p := _party()
+	p.on_event("LobbyUpdated", _with(_lobby([HOST, MATE]), "queue", "ranked_2v2"), 0.0)
+	eq(p.select_queue("casual_2v2", 1.0), [["send", "SetLobbyQueue", {"queue": "casual_2v2"}]], "SetLobbyQueue")
+	eq(p.select_queue("ranked_2v2", 1.0), [], "the lobby's queue already")
+	p.on_event("LobbyUpdated", _with(_lobby([HOST, MATE], "me", "in_queue"), "queue", "ranked_2v2"), 2.0)
+	eq(p.select_queue("casual_2v2", 2.0), [], "not while queued")
+	var m := _party("p2")
+	m.on_event("LobbyUpdated", _with(_lobby([HOST, MATE]), "queue", "casual_2v2"), 0.0)
+	eq(m.select_queue("ranked_2v2", 1.0), [], "the member never sends it")
+	eq(m.lobby_queue(), "casual_2v2", "the member sees the host's queue")
+	eq(PartyModel.parse_lobby(_lobby([HOST]))["queue"], "ranked_2v2", "an older server: the ranked queue")
+	var invite := PartyModel.parse_invite({"inviteId": "i1", "lobbyId": "l1", "mode": "casual_2v2", "from": {"playerId": "p9"}})
+	eq(invite["mode"], "casual_2v2", "the invite's mode is the lobby's queue")
+	var h := _party()
+	h.on_event("LobbyUpdated", _lobby([HOST]), 0.0)
+	eq(h.select_queue("boss_dragon", 1.0), [["send", "SetLobbyQueue", {"queue": "boss_dragon"}]], "a queue the server may not run")
+	eq(h.on_event("LobbyError", _err("INVALID_QUEUE"), 1.5), [["toast", "Chế độ này chưa mở, hãy chọn chế độ khác"]], "INVALID_QUEUE shown")
