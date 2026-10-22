@@ -287,12 +287,15 @@ func get_landing_y(x: float, start_y: float) -> float:
 
 
 ## Terrain.WalkTo: walks column by column toward target_x along the surface; stops at walls
-## taller than maxClimbPerStep or where the body does not fit. Returns the end position.
+## taller than maxClimbPerStep or where the body does not fit. A step into a hole down to the
+## bottom of the map ends the walk there, y = height (the player falls out of the map). Returns
+## the end position. A walk from below the map goes nowhere (that player is dead: no walking along
+## the bottom).
 func walk_to(start_x: float, start_y: float, target_x: float) -> Vector2:
 	var cur_x := roundi(start_x)
 	var cur_y := roundi(start_y)
 	var end_x := roundi(target_x)
-	if cur_x == end_x:
+	if cur_x == end_x or cur_y >= height:
 		return Vector2(start_x, start_y)
 	var dir := 1 if end_x > cur_x else -1
 	var climb := GameData.max_climb_per_step()
@@ -305,6 +308,8 @@ func walk_to(start_x: float, start_y: float, target_x: float) -> Vector2:
 			break
 		cur_x = next_x
 		cur_y = next_y
+		if cur_y >= height:
+			break # fell out of the map
 	return Vector2(cur_x, cur_y)
 
 

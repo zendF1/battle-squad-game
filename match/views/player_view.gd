@@ -11,7 +11,9 @@ extends Node2D
 ## Walking is read from the position changes (prediction or tweens), so callers only move it.
 ## A walk is drawn by `walk` (match/move/walk_path.gd: along the surface, a ledge drop as a fall,
 ## a correction eased out): follow_walk() for the local prediction, walk_to() for a PlayerMoved;
-## move_to() (a tween: a shot's fall, knockback, teleport) takes over from it.
+## move_to() (a tween: a shot's fall, knockback, teleport) takes over from it. Below the map's
+## bottom (a fall out of the map, a walk's or a shot's) the whole player fades out over
+## WalkPath.OUT_DROP px; falling_out() is true while a walk's fall out of the map is still drawn.
 ## Idle, the character stands breathing with the gun in its hand in a low carry, 45° down-forward
 ## (scenes/character/character.gd holster + idle_gun); walking slings it across the back: aim() /
 ## draw_gun() kneel on the ready pose and turn it up, shoot() fires it (returning the wait while
@@ -156,6 +158,12 @@ func _process(delta: float) -> void:
 	_t += delta
 	if walk.active():
 		position = walk.step(delta)
+	var below := position.y - _bottom()
+	var alpha := clampf(1.0 - below / WalkPath.OUT_DROP, 0.0, 1.0) if below > 0.0 else 1.0
+	if _dead and below >= 0.0:
+		alpha = 0.0 # fell out of the map (a snapshot puts it on the bottom edge): gone
+	if modulate.a != alpha:
+		modulate.a = alpha
 	var dx := position.x - _last_x
 	_last_x = position.x
 	if absf(dx) > 0.01:
@@ -425,6 +433,21 @@ func follow_walk(target: Vector2) -> void:
 func walk_to(target: Vector2, max_sec: float) -> void:
 	_take_walk()
 	walk.walk(target, max_sec)
+
+
+## True while the walk under way falls out of the bottom of the map and is still drawn.
+func falling_out() -> bool:
+	return walk.falling_out()
+
+
+## True when the feet are at or below the map's bottom (fallen out of the map).
+func below_map() -> bool:
+	return position.y >= _bottom()
+
+
+## The map's bottom (the terrain's height); INF without a terrain.
+func _bottom() -> float:
+	return float(walk.terrain.height) if walk.terrain != null and walk.terrain.height > 0 else INF
 
 
 ## The player acts from the server's position: the walk under way ends within about sec.

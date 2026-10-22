@@ -7,6 +7,7 @@ extends Control
 ## the camera there. Screen px, on the HUD's CanvasLayer under the HUD's own controls; the rest
 ## of the screen lets presses through (_has_point is only the markers). Redrawn only when a
 ## marker changes.
+## A dead player, or one fallen below the map's bottom (PlayerView.below_map()), gets none.
 ## A player counts as on screen while its feet or its name are. place() is the layout (pure):
 ## the player's screen point clamped into the screen inset by EDGE / TOP / BOTTOM (the HUD's top
 ## row stays clear), moved off the rects in `avoid` (Hud.marker_avoid(): the move buttons, the
@@ -100,7 +101,7 @@ func _process(_delta: float) -> void:
 	var seen := Rect2(Vector2.ZERO, size).grow(-SEEN_INSET)
 	for id in views:
 		var v = views[id]
-		if v == null or not is_instance_valid(v) or v.is_dead():
+		if v == null or not is_instance_valid(v) or v.is_dead() or (v.has_method("below_map") and v.below_map()):
 			continue
 		var head: Vector2 = xf * (v.position + Vector2(0, -HEAD_UP))
 		var feet: Vector2 = xf * (v.position + Vector2(0, -FEET_UP))

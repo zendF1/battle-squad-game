@@ -17,6 +17,9 @@ extends RefCounted
 ## - a step down taller than FALL_MIN is a fall: the body steps into the column and falls with the
 ##   game data's gravity, in sqrt(2·drop / gravity) like the shot replay's falls (the server lands
 ##   a walk drop at once and with no damage), then walks on;
+## - a walk that ends below the map (a step into a hole down to its bottom: WalkTo ends there,
+##   y = the map height) falls on past the bottom, OUT_DROP px further with the same gravity, so
+##   the body leaves the screen (PlayerView fades it); falls_out() / falling_out() tell;
 ## - a target the path cannot reach by walking (a server correction the prediction did not
 ##   foresee, a teleport) starts a new path there; the gap eases out over a few frames (SETTLE_SEC)
 ##   instead of jumping.
@@ -35,6 +38,9 @@ const SETTLE_SEC := 0.06 # time constant of a correction's ease-out
 const END_EPS := 0.02 # steps: closer than this to the end is there
 const MIN_WALK_SEC := 0.2 # walk(): the shortest time a walk is given
 const MAX_WALK_SPEED := 2.0 * WALK_SPEED # walk(): never faster (a long walk with a fall may run over its time)
+## px below the map's bottom a fall out of the map is drawn to (the body, about 60 px tall, is
+## out of sight by then), and the span PlayerView fades it over.
+const OUT_DROP := 140.0
 
 var terrain # TerrainMask (match/terrain/terrain_mask.gd); null: every target is a correction
 var drawn := Vector2.ZERO # where to draw the body this frame
@@ -98,6 +104,16 @@ func active() -> bool:
 	return _s < _pts.size() - 1 or _fall_t >= 0.0 or _resid.length_squared() > 0.0
 
 
+## True when the walk ends below the map (y >= the terrain's height): a fall out of the map.
+func falls_out() -> bool:
+	return _is_out(_pts.size() - 1)
+
+
+## True while a fall out of the map is still being drawn.
+func falling_out() -> bool:
+	return falls_out() and active()
+
+
 ## Advances dt seconds; returns the new drawn point.
 func step(dt: float) -> Vector2:
 	var end := float(_pts.size() - 1)
@@ -106,7 +122,7 @@ func step(dt: float) -> Vector2:
 		if _fall_t >= 0.0:
 			var i := int(_s)
 			var j := _fall_end(i)
-			var land := _fall_time(_pts[j].y - _pts[i].y)
+			var land := _fall_time(_drop(i, j))
 			_fall_t += left
 			if _fall_t < land:
 				break
@@ -189,7 +205,17 @@ func _correct(target: Vector2) -> void:
 
 
 func _is_fall(i: int) -> bool:
-	return i + 1 < _pts.size() and _pts[i + 1].y - _pts[i].y > FALL_MIN
+	return i + 1 < _pts.size() and (_pts[i + 1].y - _pts[i].y > FALL_MIN or _is_out(i + 1))
+
+
+## Step i is the path's end and below the map: the fall into it goes on OUT_DROP px past it.
+func _is_out(i: int) -> bool:
+	return terrain != null and i == _pts.size() - 1 and i > 0 and _pts[i].y >= float(terrain.height)
+
+
+## The height the fall from step i to step j drops (past the bottom when j is out of the map).
+func _drop(i: int, j: int) -> float:
+	return _pts[j].y - _pts[i].y + (OUT_DROP if _is_out(j) else 0.0)
 
 
 ## The end of the fall that starts at step i: the steps after it go on down as long as each is a
@@ -219,7 +245,7 @@ func _falls_sec() -> float:
 	while i < _pts.size() - 1:
 		if _is_fall(i):
 			var j := _fall_end(i)
-			t += _fall_time(_pts[j].y - _pts[i].y)
+			t += _fall_time(_drop(i, j))
 			i = j
 		else:
 			i += 1
@@ -255,10 +281,12 @@ func _draw_point() -> Vector2:
 		while k < j and _pts[k + 1].y < y:
 			k += 1
 		if k >= j:
-			return _pts[j]
+			return Vector2(_pts[j].x, minf(y, _pts[j].y + OUT_DROP)) if _is_out(j) else _pts[j]
 		var f := clampf((y - _pts[k].y) / maxf(_pts[k + 1].y - _pts[k].y, 1e-6), 0.0, 1.0)
 		return Vector2(lerpf(_pts[k].x, _pts[k + 1].x, f), y)
 	var p := _point()
+	if _s >= float(_pts.size() - 1) and _is_out(_pts.size() - 1):
+		return p + Vector2(0, OUT_DROP) # fallen out: below the bottom, out of sight
 	var w := minf(SMOOTH_PX, minf(_s - _run_start(), _run_end() - _s))
 	if w <= 0.0:
 		return p

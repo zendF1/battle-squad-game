@@ -55,6 +55,7 @@ const AimInput := preload("res://match/aim/aim_input.gd")
 const Trajectory := preload("res://match/aim/trajectory_predictor.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const MoveSync := preload("res://match/move/move_sync.gd")
+const WalkPath := preload("res://match/move/walk_path.gd")
 const Hud := preload("res://match/hud.gd")
 const Skills := preload("res://match/skills.gd")
 const Items := preload("res://match/items.gd")
@@ -103,6 +104,7 @@ const FALL_TAIL := 0.25 # s the camera stays on a fall's end
 ## The result screen shows this long after MatchEnded is applied (after the last shot's replay):
 ## the match's end stays on screen meanwhile, input locked. A "Trận bị huỷ" shows at once.
 const RESULT_DELAY_SEC := 2.0
+const OUT_OF_MAP := "out_of_map" # PlayerDamaged type / ShotResolved cause: fell out of the bottom of the map
 
 var _me := ""
 var _mode := "" # MatchStarted's mode (ranked_2v2: the result's rating row, the lobby left going Home)
@@ -116,6 +118,9 @@ var _current := ""
 var _wind := {"direction": 0, "power": 0.0}
 var _ended := false
 var _deferred: Array = []
+## A walk's fall out of the map is still drawn: its PlayerDamaged out_of_map and every event after
+## it wait in _deferred until the body has dropped out of sight (then the death plays).
+var _fall_hold := false
 var _awaiting_ack := 0.0 # seconds left for the server to answer a sent Shoot/EndTurn/UseItem
 var _awaiting_item := "" # the instant item a sent UseItem waits for ("" for Shoot/EndTurn)
 var _committing := false # an action requested: input locked until it is answered
@@ -242,6 +247,7 @@ func _exit_tree() -> void:
 
 func _process(delta: float) -> void:
 	_track_camera(delta)
+	_release_fall_hold()
 	if _awaiting_ack > 0.0:
 		_awaiting_ack -= delta
 		if _awaiting_ack <= 0.0:
@@ -274,6 +280,8 @@ func _process(delta: float) -> void:
 		if changes.has("position"):
 			_views[_me].follow_walk(changes["position"]) # drawn along the surface (WalkPath)
 			_aim.shooter_pos = changes["position"]
+			if _fell_out():
+				_refresh_controls() # walked into a hole to the bottom: no more input
 		if changes.has("energy"): # may change alone, e.g. when dropped Moves were not charged
 			_hud.set_energy(changes["energy"])
 
@@ -301,6 +309,7 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 	var continuing := is_sync and current == _current
 	_shot_player.stop()
 	_deferred.clear()
+	_fall_hold = false
 	_energy_reveal.clear() # the snapshot's energies are shown as they are
 	_shot_badge = {}
 	_held_badges.clear() # the views are rebuilt: selectedAction brings the current one back
@@ -399,7 +408,12 @@ func _is_my_turn() -> bool:
 
 func _can_act() -> bool:
 	return _is_my_turn() and not _shot_player.is_playing() and not _committing and not _turn_resolved \
-		and not _moves.needs_resync() and _skip == "" and not _data_wait
+		and not _moves.needs_resync() and _skip == "" and not _data_wait and not _fell_out()
+
+
+## My walk (the prediction) ended below the map: I am falling out, the server takes nothing more.
+func _fell_out() -> bool:
+	return _mask.height > 0 and _moves.position.y >= _mask.height
 
 
 ## A blocksMove effect (root, stun, freeze) keeps me from walking and teleporting this turn.
@@ -527,10 +541,38 @@ func _on_event(event: String, data: Variant) -> void:
 	if event == "PlayerAiming" and data is Dictionary:
 		data = data.duplicate()
 		data["receivedAt"] = Time.get_ticks_usec() # a replay may hold it back: show only what is left
-	if _shot_player.is_playing():
+	if _shot_player.is_playing() or _fall_hold:
+		_deferred.append([event, data])
+		return
+	if _waits_for_fall(event, data):
+		_fall_hold = true
 		_deferred.append([event, data])
 		return
 	_apply(event, data)
+
+
+## A PlayerDamaged out_of_map for a player whose walk still falls out of the map on screen
+## (PlayerMoved outOfMap came first): its death waits for the fall.
+func _waits_for_fall(event: String, data: Variant) -> bool:
+	if event != "PlayerDamaged" or not data is Array:
+		return false
+	for e in data:
+		if e is Dictionary and str(e.get("type", "")) == OUT_OF_MAP:
+			var view = _views.get(str(e.get("playerId", "")))
+			if view != null and view.falling_out():
+				return true
+	return false
+
+
+## Applies the events held back by a replay or a fall, in order, until another one holds them.
+func _flush_deferred() -> void:
+	while not _deferred.is_empty() and not _shot_player.is_playing() and not _fall_hold:
+		var item: Array = _deferred[0]
+		if _waits_for_fall(item[0], item[1]):
+			_fall_hold = true
+			break
+		_deferred.pop_front()
+		_apply(item[0], item[1])
 
 
 func _apply(event: String, data: Variant) -> void:
@@ -594,14 +636,14 @@ func _apply(event: String, data: Variant) -> void:
 			_cam.start_shot()
 			_shot_player.play(timeline, lead_in)
 			_refresh_controls()
-		"PlayerDamaged": # lava / burn at turn start (shot damage comes in ShotResolved)
+		"PlayerDamaged": # lava / burn at turn start, out_of_map after a walk's fall (shot damage comes in ShotResolved)
 			for e in data:
 				var id := str(e.get("playerId", ""))
 				_set_hp(id, int(e.get("hp", 0)))
 				if e.get("shield") is int or e.get("shield") is float:
 					_set_shield(id, int(e["shield"]))
 				var amount := int(e.get("damage", 0))
-				if amount > 0:
+				if amount > 0 and str(e.get("type", "")) != OUT_OF_MAP: # fallen out: no number, the body is gone below
 					var burn := str(e.get("type", "")) == "burn"
 					_popup(id, DamagePopup.damage_text(amount), Color(1.0, 0.55, 0.15) if burn else Color(1, 0.3, 0.3))
 					if burn and _views.has(id): # the burn tick: a fire flash over the body
@@ -614,6 +656,21 @@ func _apply(event: String, data: Variant) -> void:
 			_on_item_used(data)
 		"MatchEnded":
 			_on_match_ended(data)
+
+
+## The fall out of the map is drawn (the body out of sight): its death and what came after it.
+func _release_fall_hold() -> void:
+	if _fall_hold and not _any_falling_out():
+		_fall_hold = false
+		_flush_deferred()
+		_refresh_controls()
+
+
+func _any_falling_out() -> bool:
+	for view in _views.values():
+		if view.falling_out():
+			return true
+	return false
 
 
 ## Another player aims (the server sends it for bots): its gun swings onto the angle the shot will
@@ -765,8 +822,27 @@ func _on_player_moved(d: Dictionary) -> void:
 		if was_lost and not _moves.needs_resync():
 			_resync_in = 0.0
 			_refresh_controls() # the newest Move's late answer unlocks input
+		if bool(d.get("outOfMap", false)):
+			# The walk ended in a hole down to the bottom (nothing walks on from there): drawn
+			# now, so the PlayerDamaged right behind it waits for the fall.
+			_views[id].follow_walk(_moves.position)
+			_drop_out_of_sight(id, pos)
 		return
 	_views[id].walk_to(pos, _other_walk_max()) # along the surface, a drop as a fall
+	if bool(d.get("outOfMap", false)):
+		_drop_out_of_sight(id, pos)
+
+
+## A walk out of the map the drawn path does not reach (a correction): the body still drops out
+## of sight below the bottom.
+func _drop_out_of_sight(id: String, pos: Vector2) -> void:
+	var view = _views[id]
+	if view.falling_out() or view.walk.falls_out():
+		return
+	var g := GameData.gravity()
+	var below := Vector2(pos.x, pos.y + WalkPath.OUT_DROP)
+	var drop := maxf(below.y - view.position.y, 1.0)
+	view.move_to(below, sqrt(2.0 * drop / g) if g > 0.0 else 0.3, Tween.TRANS_QUAD, Tween.EASE_IN)
 
 
 ## The shell leaves from the server's position: a walk still under way to it ends within
@@ -811,7 +887,9 @@ func _on_shot_event(e: Dictionary) -> void:
 			if e.get("shield") is int or e.get("shield") is float:
 				_set_shield(id, int(e["shield"]))
 			var crit := bool(e.get("critical", false))
-			if _skill_view != null and _skill_view.merges_damage():
+			if str(e.get("cause", "")) == OUT_OF_MAP:
+				pass # fell out of the bottom: no number, the body drops out of sight
+			elif _skill_view != null and _skill_view.merges_damage():
 				_tally(id, int(e.get("amount", 0)), crit)
 			else:
 				_popup(id, DamagePopup.damage_text(int(e.get("amount", 0))), Color(1, 0.85, 0.2) if crit else Color(1, 0.3, 0.3))
@@ -837,8 +915,18 @@ func _on_shot_event(e: Dictionary) -> void:
 			var to := _vec(e["to"])
 			_set_pos(id, to)
 			if _views.has(id):
-				_views[id].move_to(to, float(e.get("duration", 0.0)), Tween.TRANS_QUAD, Tween.EASE_IN)
-				_hold_focus({"view": _views[id]}, float(e.get("duration", 0.0)) + FALL_TAIL)
+				var sec := float(e.get("duration", 0.0))
+				var drawn_to := to
+				if to.y >= _mask.height and _mask.height > 0:
+					# Out of the bottom of the map: on down past it with the same gravity, out of
+					# sight (the view fades below the bottom); its damage and die come at the bottom.
+					drawn_to.y += WalkPath.OUT_DROP
+					if e.get("from") is Dictionary:
+						var drop := to.y - _vec(e["from"]).y
+						if drop > 0.0:
+							sec *= sqrt((drop + WalkPath.OUT_DROP) / drop)
+				_views[id].move_to(drawn_to, sec, Tween.TRANS_QUAD, Tween.EASE_IN)
+				_hold_focus({"view": _views[id]}, sec + FALL_TAIL)
 		"teleport":
 			var to := _vec(e["to"])
 			_set_pos(id, to)
@@ -896,9 +984,7 @@ func _on_shot_finished() -> void:
 	_shot_badge = {}
 	for view in _views.values():
 		view.clear_aim()
-	while not _deferred.is_empty() and not _shot_player.is_playing():
-		var item: Array = _deferred.pop_front()
-		_apply(item[0], item[1])
+	_flush_deferred()
 	_refresh_controls()
 
 

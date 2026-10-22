@@ -199,3 +199,79 @@ func test_tween_takes_over_and_walk_starts_from_it() -> void:
 	w.reset(Vector2(100, 250)) # a shot's knockback tween took the body there
 	check(not w.active(), "a tween owns the body: the walk does not draw")
 	eq(w.target(), Vector2(100, 250), "and the next walk starts from its end")
+
+
+## The server's TestWalkToStopsAtBottomlessHole: 96 x 64 px, ground 16 px thick on columns 0-31
+## and 64-95, a hole down to the bottom of the map on columns 32-63.
+func _hole():
+	return _mask(96, 64, func(x: int) -> int: return 48 if x < 32 or x >= 64 else 64)
+
+
+func test_walk_into_a_bottomless_hole_stops_there() -> void:
+	var t = _hole()
+	eq(t.walk_to(8, 48, 88), Vector2(32, 64), "the walk ends in the hole's first column, y = the map height (server WalkTo)")
+	eq(t.walk_to(32, 64, 60), Vector2(32, 64), "nothing walks on along the bottom")
+	eq(t.walk_to(32, 64, 10), Vector2(32, 64), "nor back out")
+
+
+func test_held_walk_into_the_hole_stops_at_its_edge() -> void:
+	var t = _hole()
+	var s := MoveSync.new()
+	s.terrain = t
+	s.reset(Vector2(8, 48), 100)
+	for f in 90:
+		s.hold(1, DT)
+	eq(s.position, Vector2(32, 64), "the prediction stops where the server does")
+	s.release()
+	var cmd := s.update(10.0, true)
+	eq(float(cmd.get("targetX", -1)), 32.0, "one Move to the hole")
+	s.on_server_moved(Vector2(32, 64), s.energy, int(cmd.get("seq", 0)))
+	for f in 30:
+		s.hold(1, DT)
+	eq(s.position, Vector2(32, 64), "the server's position: no walk along the bottom after it")
+
+
+func test_walk_into_a_bottomless_hole_falls_past_the_bottom() -> void:
+	var t = _hole()
+	var w = _walker(t, Vector2(20, 48))
+	w.walk(t.walk_to(20, 48, 88), 1.0)
+	check(w.falls_out(), "the walk ends below the map")
+	check(w.falling_out(), "and is drawn falling out")
+	var frames: Array = []
+	for f in 240:
+		frames.append(w.step(DT))
+		if not w.active():
+			break
+	check(not w.active() and not w.falling_out(), "the fall ends")
+	eq(w.drawn, Vector2(32, 64 + WalkPath.OUT_DROP), "OUT_DROP px below the bottom: out of sight")
+	var below := 0
+	for i in range(1, frames.size()):
+		var a: Vector2 = frames[i - 1]
+		var b: Vector2 = frames[i]
+		check(b.y >= a.y - 1e-3, "never rises")
+		if a.y > 48.0:
+			check(b.x >= 31.0 and b.x <= 32.0, "straight down the hole's edge (x %.2f)" % b.x)
+			check(b.y - a.y >= 0.0, "on down")
+		if b.y > 64.0:
+			below += 1
+	check(below > 3, "keeps falling past the bottom (%d frames below it)" % below)
+	var fall := sqrt(2.0 * (16.0 + WalkPath.OUT_DROP) / GameData.gravity())
+	var falling := 0
+	for p in frames:
+		if p.y > 48.0 and p.y < 64.0 + WalkPath.OUT_DROP:
+			falling += 1
+	near(falling * DT, fall, 2.5 * DT, "falls with gravity, %.2f s" % fall)
+
+
+func test_local_walk_into_the_hole_falls_out() -> void:
+	var t = _hole()
+	var s := MoveSync.new()
+	s.terrain = t
+	s.reset(Vector2(8, 48), 100)
+	var w = _walker(t, s.position)
+	for f in 240:
+		s.hold(1, DT)
+		w.follow(s.position)
+		w.step(DT)
+	eq(w.drawn, Vector2(32, 64 + WalkPath.OUT_DROP), "the drawn body drops out of sight too")
+	check(not w.falling_out(), "and the fall is over")
