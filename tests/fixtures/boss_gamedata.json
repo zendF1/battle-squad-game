@@ -1,0 +1,244 @@
+{
+ "_comment": "GET /gamedata boss additions (server dd22fa8, migrations 044-046): modes.lobby / modes.categories / extra modes.match and bosses, merged over tests/fixtures/gamedata.json by tests/boss_fixture.gd. Bosses from the server's gamedata.DefaultBosses() through api/gamedata.Build.",
+ "categories": [
+  {
+   "categoryId": "pvp",
+   "name": "PvP"
+  },
+  {
+   "categoryId": "boss",
+   "name": "Boss"
+  }
+ ],
+ "lobby": [
+  {
+   "modeId": "casual",
+   "name": "Đấu thường 2vs2",
+   "description": "Ghép 2v2, không tính điểm hạng",
+   "queue": "casual_2v2",
+   "bot": "",
+   "category": "pvp",
+   "icon": "swords",
+   "partySize": 2,
+   "ranked": false
+  },
+  {
+   "modeId": "ranked",
+   "name": "Đấu hạng 2vs2",
+   "description": "Ghép 2v2, tính điểm hạng",
+   "queue": "ranked_2v2",
+   "bot": "",
+   "category": "pvp",
+   "icon": "trophy",
+   "partySize": 2,
+   "ranked": true
+  },
+  {
+   "modeId": "bot",
+   "name": "Đấu máy",
+   "description": "Đấu 1v1 với máy biết bắn",
+   "queue": "",
+   "bot": "ai",
+   "category": "pvp",
+   "icon": "robot",
+   "partySize": 1,
+   "ranked": false
+  },
+  {
+   "modeId": "practice",
+   "name": "Luyện tập",
+   "description": "Tập bắn với bia đứng yên",
+   "queue": "",
+   "bot": "",
+   "category": "pvp",
+   "icon": "target",
+   "partySize": 1,
+   "ranked": false
+  },
+  {
+   "modeId": "boss_steel_robot",
+   "name": "Rô-bốt Thép",
+   "description": "Đánh boss, tối đa 4 người",
+   "queue": "boss:steel_robot",
+   "bot": "",
+   "category": "boss",
+   "icon": "boss",
+   "partySize": 4,
+   "ranked": false
+  },
+  {
+   "modeId": "boss_lava_crab",
+   "name": "Cua Dung Nham",
+   "description": "Đánh boss, tối đa 4 người",
+   "queue": "boss:lava_crab",
+   "bot": "",
+   "category": "boss",
+   "icon": "boss",
+   "partySize": 4,
+   "ranked": false
+  },
+  {
+   "modeId": "boss_ice_witch",
+   "name": "Phù Thuỷ Băng",
+   "description": "Đánh boss, tối đa 4 người",
+   "queue": "boss:ice_witch",
+   "bot": "",
+   "category": "boss",
+   "icon": "boss",
+   "partySize": 4,
+   "ranked": false
+  }
+ ],
+ "match": [
+  {
+   "modeId": "casual_2v2",
+   "name": "Đấu thường 2vs2"
+  },
+  {
+   "modeId": "boss:steel_robot",
+   "name": "Rô-bốt Thép"
+  },
+  {
+   "modeId": "boss:lava_crab",
+   "name": "Cua Dung Nham"
+  },
+  {
+   "modeId": "boss:ice_witch",
+   "name": "Phù Thuỷ Băng"
+  }
+ ],
+ "bosses": [
+  {
+   "bossId": "steel_robot",
+   "name": "Rô-bốt Thép",
+   "description": "Người khổng lồ cơ khí canh giữ xưởng sắt bỏ hoang. Nã pháo dồn dập, bắn tia laze xuyên đất và gọi drone che chắn.",
+   "recommendedLevel": 10,
+   "modeId": "boss_steel_robot",
+   "queue": "boss:steel_robot",
+   "mapId": "arena_steel_robot",
+   "hp": 12000,
+   "bodySize": 3,
+   "turnLimit": 15,
+   "shieldedDamageFactor": 0.1,
+   "minions": [
+    {
+     "minionId": "drone",
+     "name": "Drone",
+     "hp": 650,
+     "bodySize": 0.7
+    }
+   ],
+   "skills": [
+    {
+     "skillId": "shell_barrage",
+     "name": "Mưa đạn pháo",
+     "description": "Mười quả đạn pháo dội xuống quanh một người chơi.",
+     "kind": "rain"
+    },
+    {
+     "skillId": "laser_beam",
+     "name": "Tia laze nghiền",
+     "description": "Tia laze xuyên địa hình bắn thẳng vào người yếu nhất, trúng mọi người trên đường.",
+     "kind": "beam"
+    },
+    {
+     "skillId": "drone_wave",
+     "name": "Gọi drone",
+     "description": "Thả hai drone. Còn drone thì Rô-bốt Thép được che chắn.",
+     "kind": "summon"
+    }
+   ],
+   "dailyBonusRuns": 3
+  },
+  {
+   "bossId": "lava_crab",
+   "name": "Cua Dung Nham",
+   "description": "Con cua khổng lồ sống trong miệng núi lửa. Ném bom dung nham để lại vũng lửa, kẹp càng nghiền nát người đến gần.",
+   "recommendedLevel": 25,
+   "modeId": "boss_lava_crab",
+   "queue": "boss:lava_crab",
+   "mapId": "arena_lava_crab",
+   "hp": 18000,
+   "bodySize": 3.2,
+   "turnLimit": 15,
+   "shieldedDamageFactor": 0.1,
+   "minions": [
+    {
+     "minionId": "crab",
+     "name": "Cua con",
+     "hp": 800,
+     "bodySize": 0.75
+    }
+   ],
+   "skills": [
+    {
+     "skillId": "fire_bombs",
+     "name": "Bom dung nham",
+     "description": "Bốn quả bom lửa rơi xuống, gây bỏng và để lại vũng dung nham hai lượt.",
+     "kind": "rain"
+    },
+    {
+     "skillId": "claw_slam",
+     "name": "Càng nghiền",
+     "description": "Một cú kẹp nặng giáng xuống người đứng gần nhất.",
+     "kind": "rain"
+    },
+    {
+     "skillId": "crab_wave",
+     "name": "Gọi cua con",
+     "description": "Hai cua con bò ra. Còn cua con thì Cua Dung Nham được che chắn.",
+     "kind": "summon"
+    }
+   ],
+   "dailyBonusRuns": 3
+  },
+  {
+   "bossId": "ice_witch",
+   "name": "Phù Thuỷ Băng",
+   "description": "Phù thuỷ của đỉnh tuyết vĩnh cửu. Gai băng đóng băng người trúng, tia băng giá giữ chân, bão tuyết phủ cả chiến trường.",
+   "recommendedLevel": 40,
+   "modeId": "boss_ice_witch",
+   "queue": "boss:ice_witch",
+   "mapId": "arena_ice_witch",
+   "hp": 24000,
+   "bodySize": 2.8,
+   "turnLimit": 15,
+   "shieldedDamageFactor": 0.1,
+   "minions": [
+    {
+     "minionId": "snowman",
+     "name": "Người tuyết",
+     "hp": 900,
+     "bodySize": 0.85
+    }
+   ],
+   "skills": [
+    {
+     "skillId": "ice_spikes",
+     "name": "Gai băng",
+     "description": "Tám gai băng rơi quanh một người chơi; ai trúng bị đóng băng một lượt.",
+     "kind": "rain"
+    },
+    {
+     "skillId": "frost_beam",
+     "name": "Tia băng giá",
+     "description": "Tia băng xuyên địa hình bắn vào người yếu nhất, giữ chân mọi người trúng một lượt.",
+     "kind": "beam"
+    },
+    {
+     "skillId": "blizzard",
+     "name": "Bão tuyết",
+     "description": "Mười sáu mảnh băng rải khắp chiến trường, ai trúng bị lưới băng làm chậm.",
+     "kind": "rain"
+    },
+    {
+     "skillId": "snowman_wave",
+     "name": "Gọi người tuyết",
+     "description": "Hai người tuyết hiện ra. Còn người tuyết thì Phù Thuỷ Băng được che chắn.",
+     "kind": "summon"
+    }
+   ],
+   "dailyBonusRuns": 3
+  }
+ ]
+}

@@ -3,7 +3,7 @@ extends RefCounted
 ## gameplay rule, balance number and Vietnamese display text the client uses (physics, aim, aim
 ## aid, terrain, movement, timings, skills, characters, weapons, items, status effects, rank tiers,
 ## levels, equipment rules / slots / item type words, economy, matchmaking, modes, map themes, gun
-## kinds). The client hardcodes none of them: this is the only source, and the only fallback is
+## kinds, bosses). The client hardcodes none of them: this is the only source, and the only fallback is
 ## the last copy cached in CACHE_PATH.
 ## The client keeps only presentation (colours, layout, art per id, animation feel).
 ##
@@ -298,6 +298,7 @@ static func _build_index() -> void:
 	_index["equipmentSlots"] = _by(_list_in(section("equipment"), "slots"), "id")
 	_index["typeWords"] = _by(_list_in(section("equipment"), "typeWords"), "word")
 	_index["gunKinds"] = _by(list("gunKinds"), "id")
+	_index["bosses"] = _by(list("bosses"), "bossId")
 
 
 static func _by(entries: Array, key: String) -> Dictionary:
@@ -1130,3 +1131,83 @@ static func gun_kinds() -> Array:
 ## A gun kind's Vietnamese name ("cannon" → "Đại pháo"); "" for an unknown kind.
 static func gun_kind_name(kind: String) -> String:
 	return _s(_entry("gunKinds", kind), "name")
+
+
+# ── bosses ──────────────────────────────────────────────────────────────────
+
+## The queue prefix of a boss mode (boss:<bossId>).
+const BOSS_QUEUE_PREFIX := "boss:"
+
+
+## [{bossId, name, description, recommendedLevel, modeId, queue, mapId, hp, bodySize, turnLimit,
+## shieldedDamageFactor, minions: [{minionId, name, hp, bodySize}], skills: [{skillId, name,
+## description, kind}], dailyBonusRuns}], the enabled bosses in display order; [] from a server
+## without them.
+static func bosses() -> Array:
+	return list("bosses")
+
+
+## A boss by id ({} unknown).
+static func boss(boss_id: String) -> Dictionary:
+	return _entry("bosses", boss_id)
+
+
+## The boss a queue (or a boss match's mode: the same id) fights: the bosses entry with that queue,
+## else the id after "boss:"; {} for any other queue.
+static func boss_of_queue(queue: String) -> Dictionary:
+	if queue == "":
+		return {}
+	for b in bosses():
+		if _s(b, "queue") == queue:
+			return b
+	return boss(queue.trim_prefix(BOSS_QUEUE_PREFIX)) if queue.begins_with(BOSS_QUEUE_PREFIX) else {}
+
+
+## A boss queue or match mode (boss:<bossId>).
+static func is_boss_queue(queue: String) -> bool:
+	return queue.begins_with(BOSS_QUEUE_PREFIX) or not boss_of_queue(queue).is_empty()
+
+
+## The boss a lobby mode (modes.lobby modeId) fights ({} none).
+static func boss_of_mode(mode_id: String) -> Dictionary:
+	if mode_id == "":
+		return {}
+	for b in bosses():
+		if _s(b, "modeId") == mode_id:
+			return b
+	var m := _entry("lobbyModes", mode_id)
+	return boss_of_queue(_s(m, "queue")) if not m.is_empty() else {}
+
+
+## The boss's name; the id itself when unknown.
+static func boss_name(boss_id: String) -> String:
+	var n := _s(boss(boss_id), "name")
+	return n if n != "" else boss_id
+
+
+## A minion type ({minionId, name, hp, bodySize}) of the boss boss_id, or of any boss when boss_id
+## is "" or does not have it; {} unknown.
+static func boss_minion(boss_id: String, minion_id: String) -> Dictionary:
+	for b in ([boss(boss_id)] if boss_id != "" else []) + bosses():
+		for m in _list_in(b, "minions"):
+			if _s(m, "minionId") == minion_id:
+				return m
+	return {}
+
+
+## A boss skill ({skillId, name, description, kind}) of the boss boss_id, or of any boss when
+## boss_id is "" or does not have it; {} unknown.
+static func boss_skill(boss_id: String, skill_id: String) -> Dictionary:
+	if skill_id == "":
+		return {}
+	for b in ([boss(boss_id)] if boss_id != "" else []) + bosses():
+		for s in _list_in(b, "skills"):
+			if _s(s, "skillId") == skill_id:
+				return s
+	return {}
+
+
+## A body size of the game data (a boss's or a minion's bodySize): 1 when not positive.
+static func body_size_of(entry: Dictionary) -> float:
+	var v := _f(entry, "bodySize")
+	return v if v > 0.0 else 1.0

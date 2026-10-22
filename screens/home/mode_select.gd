@@ -6,6 +6,11 @@ extends Control
 ## ranked mode the player's tier badge and "Bạc II · 1.050 điểm"; the chosen mode framed and tagged
 ## "Đang chọn". A grid section (Boss) shows a grid of small cards, one per mode. A section without
 ## modes shows one disabled card: "Sắp ra mắt" and its line ("Phòng 4 người cùng đánh boss").
+## The Boss section shows one card per boss mode (screens/home/boss_card_model.gd): the boss's
+## figure (match/boss/boss_art_view.gd) on a glow of its colour, its name, "Lv đề xuất N", its
+## description and "Lượt thưởng lớn: x/N" with "Làm mới lúc HH:MM" from GET /boss/runs (loaded
+## when the tab shows, kept BOSS_RUNS_MAX_AGE_MSEC by PlayerState); the placeholder only without
+## bosses.
 ## A tap emits chosen(index); Home goes back to the lobby, which switches to it (choose_mode()).
 ## Rebuilt by show_for() each time it opens, so a mode or category an admin added shows.
 
@@ -16,9 +21,13 @@ const LobbyUi := preload("res://ui/lobby_ui.gd")
 const ModeSelectModel := preload("res://screens/home/mode_select_model.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const TierBadge := preload("res://screens/ranked/tier_badge.gd")
+const BossCardModel := preload("res://screens/home/boss_card_model.gd")
+const BossArt := preload("res://match/boss/boss_art.gd")
+const BossArtView := preload("res://match/boss/boss_art_view.gd")
 
 const CARD := Vector2(350, 520)
 const SMALL := Vector2(300, 250)
+const BOSS_CARD := Vector2(360, 500)
 const ICON := 132
 const ICON_SMALL := 96
 const PLATES := ["blue", "orange", "purple", "green", "red"] # the icon plate's colour by card order
@@ -45,6 +54,9 @@ func _ready() -> void:
 	col.add_child(_body)
 	PlayerState.rank_changed.connect(func() -> void:
 		if is_visible_in_tree():
+			_render())
+	PlayerState.boss_runs_changed.connect(func() -> void:
+		if is_visible_in_tree() and _on_boss_tab():
 			_render())
 	_render()
 
@@ -81,6 +93,8 @@ func _render() -> void:
 	if sections.is_empty():
 		return
 	var section: Dictionary = sections[_tab]
+	if section["categoryId"] == BossCardModel.CATEGORY:
+		PlayerState.load_boss_runs() # a fresh answer re-renders
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -95,6 +109,11 @@ func _render() -> void:
 	var grid: bool = section["layout"] == ModeSelectModel.GRID
 	if section["modes"].is_empty():
 		flow.add_child(_soon_card(ModeSelectModel.placeholder(section["categoryId"]), grid))
+		return
+	if section["categoryId"] == BossCardModel.CATEGORY:
+		var bias := int(Time.get_time_zone_from_system().get("bias", 0))
+		for c in BossCardModel.cards(_current, PlayerState.my_boss_runs(), bias):
+			flow.add_child(_boss_card(c))
 		return
 	var order := 0
 	for c in section["modes"]:
@@ -214,6 +233,62 @@ func _small_card(c: Dictionary, order: int) -> Button:
 	col.add_child(_centered(c["name"], 28, Color.WHITE, true))
 	if c["badge"] != "":
 		col.add_child(_pill(c["badge"], LobbyUi.ICON_COLORS["blue"], Color.WHITE))
+	b.pressed.connect(func() -> void: chosen.emit(int(c["index"])))
+	return b
+
+
+## The Boss section is shown.
+func _on_boss_tab() -> bool:
+	var sections := ModeSelectModel.sections(_current)
+	return _tab < sections.size() and sections[_tab]["categoryId"] == BossCardModel.CATEGORY
+
+
+## A boss card: the figure on its colour's glow, the name, "Lv đề xuất N", the description, the
+## big-reward runs left and when they refill; "Đang chọn" on the chosen one.
+func _boss_card(c: Dictionary) -> Button:
+	var parts := _card_button(BOSS_CARD, c["selected"])
+	var b: Button = parts[0]
+	var col: VBoxContainer = parts[1]
+	col.alignment = BoxContainer.ALIGNMENT_BEGIN
+	col.add_theme_constant_override("separation", 6)
+	b.name = "Boss_%s" % c["id"]
+	var art := BossArt.art_of(str(c["boss_id"]))
+	var stage := Control.new()
+	stage.custom_minimum_size = Vector2(BOSS_CARD.x - 44, 210)
+	stage.mouse_filter = MOUSE_FILTER_IGNORE
+	var tint := BossArt.accent(art)
+	stage.draw.connect(func() -> void:
+		var centre := Vector2(stage.size.x / 2.0, stage.size.y * 0.62)
+		for i in 5:
+			stage.draw_circle(centre, stage.size.y * (0.52 - i * 0.08), Color(tint, 0.06 + i * 0.03))
+		stage.draw_set_transform(Vector2(stage.size.x / 2.0, stage.size.y - 8), 0.0, Vector2(1.0, 0.22))
+		stage.draw_circle(Vector2.ZERO, stage.size.x * 0.4, Color(0, 0, 0, 0.35))
+		stage.draw_set_transform(Vector2.ZERO))
+	var figure := BossArtView.make(art, stage.custom_minimum_size, -1)
+	figure.name = "Figure"
+	stage.add_child(figure)
+	col.add_child(stage)
+	col.add_child(_centered(c["name"], 32, Color.WHITE, true))
+	var badges := Ui.hbox(8)
+	badges.alignment = BoxContainer.ALIGNMENT_CENTER
+	badges.mouse_filter = MOUSE_FILTER_IGNORE
+	if c["level_text"] != "":
+		badges.add_child(_pill(c["level_text"], Color(tint.darkened(0.35), 0.95), Color.WHITE))
+	if c["selected"]:
+		badges.add_child(_pill("Đang chọn", LobbyUi.GOLD, LobbyUi.TEXT_DARK))
+	col.add_child(badges)
+	var desc := _centered(c["description"], 19, Color(0.75, 0.9, 1.0))
+	desc.custom_minimum_size = Vector2(BOSS_CARD.x - 44, 0)
+	desc.max_lines_visible = 3
+	desc.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	desc.size_flags_vertical = SIZE_EXPAND_FILL
+	col.add_child(desc)
+	if c["runs_text"] != "":
+		var runs := _centered(c["runs_text"], 22, LobbyUi.GOLD if int(c["runs_left"]) != 0 else Ui.TEXT_DIM, true)
+		runs.name = "Runs"
+		col.add_child(runs)
+	if c["reset_text"] != "":
+		col.add_child(_centered(c["reset_text"], 18, Ui.TEXT_DIM))
 	b.pressed.connect(func() -> void: chosen.emit(int(c["index"])))
 	return b
 

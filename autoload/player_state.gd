@@ -79,6 +79,7 @@ signal milestones_changed # milestones, their loading / error, milestone_count o
 signal titles_changed # titles, their loading / error, title_busy or the worn title changed
 signal daily_changed # daily missions, their loading / error or daily_busy changed
 signal rank_changed # a GET /rank/me answer was applied
+signal boss_runs_changed # a GET /boss/runs answer was applied
 signal maps_changed # a GET /maps answer changed the map catalog
 signal gamedata_changed # a GET /gamedata answer brought a new game data version
 signal _gamedata_done # a load_gamedata() fetch ended
@@ -190,6 +191,13 @@ var rank: Dictionary = {}
 var _rank_player := ""
 var _rank_gate := Coalescer.new()
 var _maps_gate := Coalescer.new()
+## Last GET /boss/runs data ({day, resetAt, bosses: [{bossId, dailyBonusRuns, runsToday,
+## bonusRunsLeft}]}); {} until loaded. Reloaded when older than BOSS_RUNS_MAX_AGE_MSEC.
+var boss_runs: Dictionary = {}
+var _boss_runs_player := ""
+var _boss_runs_msec := -1 # Time.get_ticks_msec() of the last answer; -1 none (or stale)
+var _boss_runs_gate := Coalescer.new()
+const BOSS_RUNS_MAX_AGE_MSEC := 30 * 1000
 var _gamedata_gate := Coalescer.new()
 
 var _equipment_gate := Coalescer.new()
@@ -313,6 +321,40 @@ func load_rank() -> void:
 			_rank_player = player
 			rank_changed.emit()
 		break
+
+
+## Loads GET /boss/runs (the big-reward runs left today per boss) unless the last answer for this
+## account is younger than BOSS_RUNS_MAX_AGE_MSEC; a failure keeps the last answer.
+func load_boss_runs(force: bool = false) -> void:
+	if not force and not my_boss_runs().is_empty() and _boss_runs_msec >= 0 \
+			and Time.get_ticks_msec() - _boss_runs_msec < BOSS_RUNS_MAX_AGE_MSEC:
+		return
+	if not _boss_runs_gate.ask():
+		return
+	while true:
+		var t := _boss_runs_gate.ticket()
+		var player := Session.player_id
+		var res: Dictionary = await _api().get_json("/boss/runs")
+		if not _boss_runs_gate.finish(t):
+			continue
+		if res.ok and res.data is Dictionary:
+			boss_runs = res.data
+			_boss_runs_player = player
+			_boss_runs_msec = Time.get_ticks_msec()
+			boss_runs_changed.emit()
+		break
+
+
+## The last GET /boss/runs of this account ({} none).
+func my_boss_runs() -> Dictionary:
+	if boss_runs.is_empty() or _boss_runs_player != Session.player_id:
+		return {}
+	return boss_runs
+
+
+## A boss match ended: the next load_boss_runs() fetches again.
+func boss_runs_stale() -> void:
+	_boss_runs_msec = -1
 
 
 ## Loads GET /maps into the map catalog; a failure keeps the cached list.
