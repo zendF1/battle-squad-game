@@ -148,7 +148,7 @@ func _build() -> void:
 	bar.offset_bottom = -MARGIN
 	add_child(bar)
 	bar.add_child(_build_tip())
-	_cancel = LobbyUi.pill_button("Hủy ghép", 30, 84, "close")
+	_cancel = LobbyUi.pill_button("Hủy ghép", 30, 84)
 	LobbyUi.texture_button(_cancel, "button_orange", 24)
 	_cancel.custom_minimum_size.x = 300
 	_cancel.pressed.connect(cancel)

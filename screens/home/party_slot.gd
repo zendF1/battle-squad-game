@@ -60,7 +60,7 @@ func _ready() -> void:
 	_plus.custom_minimum_size = Vector2(PLUS, PLUS)
 	_plus.size = Vector2(PLUS, PLUS)
 	_plus.position = Vector2(FEET.x - PLUS / 2.0, FEET.y - PLUS - 30.0)
-	LobbyUi.style_button(_plus, Color(0.05, 0.08, 0.2, 0.55), 28, 0, Color(1, 1, 1, 0.75), 4)
+	LobbyUi.style_button(_plus, Color(1, 1, 1, 0), 28, 0) # just the "+", no box
 	_plus.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_plus.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
 	LobbyUi.set_icon(_plus, "plus", 76)
