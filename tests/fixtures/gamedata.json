@@ -1,7 +1,7 @@
 {
   "success": true,
   "data": {
-    "version": "13f9f9a13a6a316c",
+    "version": "4eedfeb2e6a5a751",
     "physics": {
       "gravity": 445,
       "speedPerPower": 9.6,
@@ -46,7 +46,8 @@
     "combat": {
       "defenseK": 600,
       "powerShotFactor": 1.5,
-      "lavaDamage": 75
+      "lavaDamage": 75,
+      "critMultiplier": 1.5
     },
     "terrain": {
       "playerHeight": 40,
@@ -1161,6 +1162,89 @@
           "idSuffix": "",
           "skillRank": 4
         }
+      ],
+      "slots": [
+        {
+          "id": "helmet",
+          "name": "Mũ"
+        },
+        {
+          "id": "armor",
+          "name": "Áo"
+        },
+        {
+          "id": "gloves",
+          "name": "Găng tay"
+        },
+        {
+          "id": "pants",
+          "name": "Quần"
+        },
+        {
+          "id": "boots",
+          "name": "Giày"
+        },
+        {
+          "id": "weapon",
+          "name": "Vũ khí"
+        }
+      ],
+      "typeWords": [
+        {
+          "word": "sword",
+          "name": "Kiếm",
+          "gunKind": ""
+        },
+        {
+          "word": "vest",
+          "name": "Áo giáp",
+          "gunKind": ""
+        },
+        {
+          "word": "cap",
+          "name": "Mũ",
+          "gunKind": ""
+        },
+        {
+          "word": "pants",
+          "name": "Quần",
+          "gunKind": ""
+        },
+        {
+          "word": "boots",
+          "name": "Giày",
+          "gunKind": ""
+        },
+        {
+          "word": "gloves",
+          "name": "Găng",
+          "gunKind": ""
+        },
+        {
+          "word": "bazooka",
+          "name": "Bazooka",
+          "gunKind": "bazooka"
+        },
+        {
+          "word": "cannon",
+          "name": "Đại pháo",
+          "gunKind": "cannon"
+        },
+        {
+          "word": "shock rifle",
+          "name": "Súng điện",
+          "gunKind": "shock_rifle"
+        },
+        {
+          "word": "seed launcher",
+          "name": "Súng hạt",
+          "gunKind": "seed_launcher"
+        },
+        {
+          "word": "blaster",
+          "name": "Súng",
+          "gunKind": "blaster"
+        }
       ]
     },
     "economy": {
@@ -1241,6 +1325,28 @@
         "stone",
         "cave"
       ]
-    }
+    },
+    "gunKinds": [
+      {
+        "id": "bazooka",
+        "name": "Bazooka"
+      },
+      {
+        "id": "cannon",
+        "name": "Đại pháo"
+      },
+      {
+        "id": "shock_rifle",
+        "name": "Súng điện"
+      },
+      {
+        "id": "seed_launcher",
+        "name": "Súng hạt"
+      },
+      {
+        "id": "blaster",
+        "name": "Súng"
+      }
+    ]
   }
 }

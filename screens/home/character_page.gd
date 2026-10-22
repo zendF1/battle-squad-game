@@ -149,7 +149,7 @@ func _build_slots() -> void:
 	box.offset_top = -(STEP.y * 3 + HEX.y) / 2 - 60
 	box.offset_bottom = box.offset_top + STEP.y * 3 + HEX.y
 	add_child(box)
-	for slot in EquipmentModel.SLOTS:
+	for slot in EquipmentModel.slots():
 		var cell: Vector2 = CELLS[slot]
 		var b := Button.new()
 		b.flat = true
@@ -216,7 +216,7 @@ func _filter(slot: String) -> void:
 
 func _render_slots() -> void:
 	var worn := EquipmentModel.worn(PlayerState.equipment, _character)
-	for slot in EquipmentModel.SLOTS:
+	for slot in EquipmentModel.slots():
 		var piece: Dictionary = worn.get(slot, {})
 		var filled := not piece.is_empty()
 		var frame := "hex_selected" if slot == _slot else ("hex_filled" if filled else "hex_empty")

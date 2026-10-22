@@ -96,12 +96,13 @@ static func tag(text_value: String, bg: Color, font_size: int = 18) -> PanelCont
 	return p
 
 
-## "Tất cả" and one chip per slot (EquipmentModel.SLOTS order); on_select(slot) gets "" for all.
+## "Tất cả" and one chip per slot (EquipmentModel.slots() order); on_select(slot) gets "" for all.
 static func slot_chips(on_select: Callable, font_size: int = 22, height: int = 52) -> Array[Button]:
+	var order := EquipmentModel.slots()
 	var names := ["Tất cả"]
-	for s in EquipmentModel.SLOTS:
+	for s in order:
 		names.append(EquipmentModel.slot_name(s))
-	var chips := Ui.tab_row(names, font_size, func(i: int): on_select.call("" if i == 0 else EquipmentModel.SLOTS[i - 1]), height)
+	var chips := Ui.tab_row(names, font_size, func(i: int): on_select.call("" if i == 0 else order[i - 1]), height)
 	for c in chips:
 		c.size_flags_horizontal = Control.SIZE_FILL
 		c.custom_minimum_size.x = 96
@@ -110,7 +111,7 @@ static func slot_chips(on_select: Callable, font_size: int = 22, height: int = 5
 
 ## Selects the chip of `slot` ("" = Tất cả).
 static func select_chip(chips: Array[Button], slot: String) -> void:
-	Ui.select_tab(chips, 0 if slot == "" else EquipmentModel.SLOTS.find(slot) + 1)
+	Ui.select_tab(chips, 0 if slot == "" else EquipmentModel.slots().find(slot) + 1)
 
 
 ## The per-point stat values (GET /player/characters statMultipliers), {} until the characters

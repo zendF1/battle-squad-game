@@ -225,7 +225,7 @@ func _build_character_panel() -> Control:
 	return card
 
 
-## The worn gear: one small hexagon per slot (EquipmentModel.SLOTS order), read-only.
+## The worn gear: one small hexagon per slot (EquipmentModel.slots() order), read-only.
 func _build_gear_row() -> Control:
 	var col := Ui.vbox(4)
 	var tag := LobbyUi.text("Trang bị", 20, Ui.TEXT_DIM, true)
@@ -234,7 +234,7 @@ func _build_gear_row() -> Control:
 	var row := Ui.hbox(4)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_child(row)
-	for slot in EquipmentModel.SLOTS:
+	for slot in EquipmentModel.slots():
 		var frame := TextureRect.new()
 		frame.texture = Art.equipment_frame("hex_empty")
 		frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -260,7 +260,7 @@ func _build_gear_row() -> Control:
 func _render_gear() -> void:
 	_render_gun()
 	var worn := EquipmentModel.worn(PlayerState.equipment, _model.character_id)
-	for slot in EquipmentModel.SLOTS:
+	for slot in EquipmentModel.slots():
 		var piece: Dictionary = worn.get(slot, {})
 		var icon: TextureRect = _gear_icons[slot]
 		var level := int(piece.get("upgradeLevel", 0)) if not piece.is_empty() else 0

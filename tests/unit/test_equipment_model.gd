@@ -2,6 +2,7 @@ extends "res://tests/test_case.gd"
 
 const M := preload("res://screens/home/equipment_model.gd")
 const Art := preload("res://ui/art.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 ## Design levels: normal 10/20/30/40, crafted 75 for diamond. Weapons are per character; the
 ## generic Iron/Mithril Blaster are retired (inactive) but owned pieces still need them.
@@ -67,7 +68,8 @@ func test_parse_owned() -> void:
 
 
 func test_slot_names_and_order() -> void:
-	eq(M.SLOTS, ["helmet", "armor", "gloves", "pants", "boots", "weapon"], "order")
+	eq(M.slots(), ["helmet", "armor", "gloves", "pants", "boots", "weapon"], "order (game data equipment.slots)")
+	eq([M.slot_index("helmet"), M.slot_index("weapon"), M.slot_index("ring")], [0, 5, 6], "indexes; an unknown slot last")
 	eq(M.slot_name("weapon"), "Vũ khí", "weapon")
 	eq(M.slot_name("armor"), "Áo", "armor")
 	eq(M.slot_name("helmet"), "Mũ", "helmet")
@@ -75,6 +77,23 @@ func test_slot_names_and_order() -> void:
 	eq(M.slot_name("boots"), "Giày", "boots")
 	eq(M.slot_name("gloves"), "Găng tay", "gloves")
 	eq(M.slot_name("ring"), "ring", "unknown slot")
+
+
+## The slot names and order, the item type words and the gun kinds are the game data's: an admin
+## edit shows at once.
+func test_texts_from_the_game_data() -> void:
+	var d: Dictionary = GameData.data.duplicate(true)
+	d["version"] = "edited"
+	d["equipment"]["slots"] = [{"id": "weapon", "name": "Súng ống"}, {"id": "helmet", "name": "Nón"}]
+	d["equipment"]["typeWords"].append({"word": "laser cannon", "name": "Pháo laze", "gunKind": "cannon"})
+	d["equipment"]["typeWords"][0]["name"] = "Gươm"
+	d["gunKinds"][1]["name"] = "Pháo"
+	GameData.take(d, "", false)
+	eq(M.slots(), ["weapon", "helmet"], "the game data's order")
+	eq([M.slot_name("weapon"), M.slot_name("helmet"), M.slot_name("boots")], ["Súng ống", "Nón", "boots"], "its names; a slot it lacks raw")
+	eq([M.display_name({"name": "Iron Sword"}), M.display_name({"name": "Gold Laser Cannon"})], ["Gươm Sắt", "Pháo laze Vàng"], "its type words")
+	eq(M.weapon_kind({"slot": "weapon", "name": "Gold Laser Cannon"}), "cannon", "a new type word's gun kind")
+	eq(M.gun_name("cannon"), "Pháo", "its gun kind names")
 
 
 func test_display_names_and_tiers() -> void:
@@ -268,7 +287,8 @@ func test_worn_gun() -> void:
 
 func test_gun_names_and_player_gun() -> void:
 	for kind in preload("res://ui/art.gd").GUN_KINDS:
-		check(M.GUN_NAMES.has(kind), "gun %s has a name" % kind)
+		check(GameData.gun_kind_name(kind) != "", "gun %s has a name (game data gunKinds)" % kind)
+	eq([M.gun_name("cannon"), M.gun_name("shock_rifle"), M.gun_name("laser_gun")], ["Đại pháo", "Súng điện", "Súng"], "gun names; an unknown kind: the blaster's")
 	eq(M.player_gun({"characterId": "flora", "weaponItemId": "crafted_weapon_titan"}), {"kind": "blaster", "tier": "titan"}, "match player's weapon")
 	eq(M.player_gun({"characterId": "flora", "weaponItemId": null}), {"kind": "seed_launcher", "tier": "basic"}, "bot: basic gun")
 	eq(M.player_gun({"characterId": "spark"}), {"kind": "shock_rifle", "tier": "basic"}, "no weaponItemId")

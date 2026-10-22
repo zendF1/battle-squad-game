@@ -43,7 +43,7 @@ func test_parse() -> void:
 	var raw := _raw()
 	var d = GameData.parse(raw)
 	check(d is Dictionary, "the envelope")
-	eq(d["version"], "13f9f9a13a6a316c", "its version")
+	eq(d["version"], "4eedfeb2e6a5a751", "its version")
 	eq(GameData.parse(raw["data"]), d, "the data itself")
 	eq(GameData.parse(null), null, "nothing")
 	eq(GameData.parse({"success": true, "data": {"physics": {}}}), null, "no version: not game data")
@@ -53,7 +53,7 @@ func test_parse() -> void:
 
 func test_fixture_is_loaded_for_every_test() -> void:
 	check(GameData.is_loaded(), "loaded by tests/run_tests.gd")
-	eq(GameData.version, "13f9f9a13a6a316c", "the fixture's version")
+	eq(GameData.version, "4eedfeb2e6a5a751", "the fixture's version")
 	eq(GameData.cache_path, "", "no cache file in tests")
 
 
@@ -125,6 +125,16 @@ func test_status_rank_levels_equipment() -> void:
 	eq([GameData.default_theme(), GameData.themes().size()], ["grassland", 11], "themes")
 
 
+func test_slots_type_words_gun_kinds() -> void:
+	eq(GameData.equipment_slot_ids(), ["helmet", "armor", "gloves", "pants", "boots", "weapon"], "slots in order")
+	eq([GameData.equipment_slot_name("gloves"), GameData.equipment_slot_name("ring")], ["Găng tay", "ring"], "slot names; an unknown one raw")
+	eq([GameData.type_word_name("shock rifle"), GameData.type_word_gun_kind("shock rifle")], ["Súng điện", "shock_rifle"], "a gun's type word")
+	eq([GameData.type_word_name("vest"), GameData.type_word_gun_kind("vest")], ["Áo giáp", ""], "an armour's")
+	eq([GameData.type_word_name("laser"), GameData.type_word_gun_kind("laser")], ["", ""], "unknown")
+	eq(GameData.gun_kinds().map(func(g): return g["id"]), ["bazooka", "cannon", "shock_rifle", "seed_launcher", "blaster"], "gun kinds in order")
+	eq([GameData.gun_kind_name("seed_launcher"), GameData.gun_kind_name("laser")], ["Súng hạt", ""], "gun kind names")
+
+
 func test_unknown_ids_never_crash() -> void:
 	eq([GameData.character_name("ghost"), GameData.item_name("ghost"), GameData.skill_name("ghost"), GameData.status_name("ghost")],
 		["ghost", "ghost", "", ""], "names: the id for characters and items, none for a skill / effect")
@@ -159,8 +169,8 @@ func test_description_templates() -> void:
 
 func test_take_and_answers() -> void:
 	GameData.reset("")
-	eq(GameData.apply_response(_ok(_raw(), "\"13f9f9a13a6a316c\""), 1000), GameData.UPDATED, "a 200: taken")
-	eq(GameData.if_none_match(), "\"13f9f9a13a6a316c\"", "the server's ETag is sent back")
+	eq(GameData.apply_response(_ok(_raw(), "\"4eedfeb2e6a5a751\""), 1000), GameData.UPDATED, "a 200: taken")
+	eq(GameData.if_none_match(), "\"4eedfeb2e6a5a751\"", "the server's ETag is sent back")
 	eq(GameData.checked_msec, 1000, "checked")
 	eq(GameData.apply_response(_ok(_raw()), 2000), GameData.SAME, "the same version: nothing changes")
 	eq(GameData.apply_response(_not_modified(), 3000), GameData.SAME, "304: kept")
@@ -169,7 +179,7 @@ func test_take_and_answers() -> void:
 	eq(GameData.apply_response(_fail(500), 4000), GameData.FAILED, "a server error")
 	eq(GameData.apply_response(_ok({"version": ""}), 4000), GameData.FAILED, "not game data")
 	eq(GameData.checked_msec, 3000, "failures are not checks")
-	eq(GameData.version, "13f9f9a13a6a316c", "the data held stays")
+	eq(GameData.version, "4eedfeb2e6a5a751", "the data held stays")
 	eq(GameData.apply_response(_ok({"success": true, "data": _edited("v2")}), 5000), GameData.UPDATED, "a new version")
 	eq([GameData.version, GameData.if_none_match()], ["v2", "\"v2\""], "no ETag header: made from the version")
 	GameData.reset("")
@@ -180,11 +190,11 @@ func test_cache_file() -> void:
 	_remove_cache()
 	GameData.reset(CACHE)
 	check(not GameData.is_loaded(), "no cache yet")
-	GameData.apply_response(_ok(_raw(), "\"13f9f9a13a6a316c\""), 10)
+	GameData.apply_response(_ok(_raw(), "\"4eedfeb2e6a5a751\""), 10)
 	check(FileAccess.file_exists(CACHE), "cached")
 	GameData.reset(CACHE) # a new launch
 	check(GameData.is_loaded(), "read back from the cache")
-	eq([GameData.version, GameData.if_none_match()], ["13f9f9a13a6a316c", "\"13f9f9a13a6a316c\""], "with its version and ETag")
+	eq([GameData.version, GameData.if_none_match()], ["4eedfeb2e6a5a751", "\"4eedfeb2e6a5a751\""], "with its version and ETag")
 	eq(GameData.turn_sec(), 20, "and its numbers")
 	eq(GameData.checked_msec, -1, "not checked yet this launch")
 	eq(GameData.apply_response(_fail(0), 20), GameData.FAILED, "offline on the next launch")
@@ -202,7 +212,7 @@ func test_cache_file() -> void:
 
 
 func test_match_version_and_recheck() -> void:
-	check(not GameData.needs_refetch("13f9f9a13a6a316c"), "the same version")
+	check(not GameData.needs_refetch("4eedfeb2e6a5a751"), "the same version")
 	check(GameData.needs_refetch("0123456789abcdef"), "another version")
 	check(not GameData.needs_refetch(null), "an older server sends none")
 	check(not GameData.needs_refetch(""), "empty")
@@ -211,6 +221,104 @@ func test_match_version_and_recheck() -> void:
 	GameData.checked_msec = 1000
 	check(not GameData.check_due(1000 + GameData.RECHECK_MSEC - 1), "checked a moment ago")
 	check(GameData.check_due(1000 + GameData.RECHECK_MSEC), "old enough")
+
+
+# ── The match's version ─────────────────────────────────────────────────────
+
+const VERSIONS_CACHE := "user://test_gamedata_cache_versions.json"
+
+
+func _remove_caches() -> void:
+	_remove_cache()
+	if FileAccess.file_exists(VERSIONS_CACHE):
+		DirAccess.remove_absolute(VERSIONS_CACHE)
+
+
+static func _turn(version: String, turn_sec: int) -> Dictionary:
+	var d := _edited(version)
+	d["timings"]["turnSec"] = turn_sec
+	return d
+
+
+func test_match_plays_with_its_version() -> void:
+	var lobby_version := GameData.version
+	check(GameData.use_match(lobby_version), "the lobby copy's version: in use at once")
+	check(not GameData.needs_refetch(lobby_version), "no fetch")
+	GameData.take(_turn("newer", 30), "", false) # an admin saved mid-match: a plain GET is newer
+	eq([GameData.lobby_version, GameData.version, GameData.turn_sec()], ["newer", lobby_version, 20], "the match keeps its own")
+	GameData.end_match()
+	eq([GameData.version, GameData.turn_sec()], ["newer", 30], "after the match: the newest")
+	check(not GameData.use_match("m1"), "a version not held")
+	eq(GameData.version, "newer", "the lobby copy meanwhile")
+	check(GameData.needs_refetch("m1"), "it must be fetched")
+	eq(GameData.apply_version_response(_ok({"success": true, "data": _turn("m1", 15)}), "m1"), GameData.UPDATED, "taken")
+	eq([GameData.version, GameData.turn_sec(), GameData.lobby_version], ["m1", 15, "newer"], "in use; the lobby copy stays")
+	eq(GameData.if_none_match(), "\"newer\"", "a plain GET still asks with the lobby copy's ETag")
+	GameData.take(_turn("newest", 40), "", false)
+	eq(GameData.version, "m1", "a plain answer does not change the match's")
+	GameData.end_match()
+	eq(GameData.version, "newest", "back to the lobby")
+	check(GameData.use_match("m1") and GameData.turn_sec() == 15, "the next match on m1 uses the copy held")
+	GameData.end_match()
+	check(GameData.use_match(null) and GameData.version == "newest", "an older server sends none: the lobby copy")
+
+
+func test_version_answers() -> void:
+	GameData.use_match("m2")
+	eq(GameData.apply_version_response({"ok": false, "status": 404, "code": "GAMEDATA_VERSION_NOT_FOUND", "message": "", "data": null}, "m2"),
+		GameData.NOT_FOUND, "404: fall back to the plain GET")
+	eq(GameData.apply_version_response(_fail(0), "m2"), GameData.FAILED, "offline")
+	eq(GameData.apply_version_response(_ok(_edited("other")), "m2"), GameData.FAILED, "another version")
+	eq(GameData.version, "4eedfeb2e6a5a751", "the copy in use stays")
+	eq(GameData.apply_version_response(_ok(_edited("m2")), "m2"), GameData.UPDATED, "the match's")
+	eq(GameData.apply_version_response(_ok(_edited("m2")), "m2"), GameData.SAME, "again: held")
+
+
+func test_match_copies_cached_by_version() -> void:
+	_remove_caches()
+	GameData.reset(CACHE)
+	eq(GameData.versions_path(), VERSIONS_CACHE, "next to the lobby cache")
+	GameData.apply_response(_ok(_raw()), 1)
+	for v in ["a", "b", "c", "d"]:
+		GameData.use_match(v)
+		GameData.apply_version_response(_ok(_turn(v, 11)), v)
+	GameData.end_match()
+	GameData.reset(CACHE) # a new launch
+	check(GameData.is_loaded(), "read back")
+	eq(GameData.version, "4eedfeb2e6a5a751", "the lobby copy in use")
+	check(not GameData.has_version("a"), "the oldest pruned")
+	check(GameData.has_version("b") and GameData.has_version("d"), "the newest %d kept" % GameData.MAX_VERSIONS)
+	check(GameData.use_match("c") and GameData.turn_sec() == 11, "a reconnect plays with the cached copy")
+	_remove_caches()
+
+
+func test_player_state_fetches_the_match_version() -> void:
+	var api := FakeApi.new()
+	api.answers = [_ok(_turn("m3", 25), "\"m3\"")]
+	var s = _state(api)
+	var ok: bool = await s.load_match_gamedata(GameData.version)
+	check(ok and api.calls.is_empty(), "held: no fetch")
+	ok = await s.load_match_gamedata("m3")
+	check(ok, "the match's version")
+	eq(api.calls, [["/gamedata?version=m3", ""]], "GET /gamedata?version=")
+	eq([GameData.version, GameData.turn_sec()], ["m3", 25], "in use")
+	GameData.end_match()
+	s.free()
+
+
+func test_player_state_falls_back_on_404() -> void:
+	var api := FakeApi.new()
+	api.answers = [{"ok": false, "status": 404, "code": "GAMEDATA_VERSION_NOT_FOUND", "message": "", "data": null},
+		_ok(_turn("plain", 35), "\"plain\"")]
+	var s = _state(api)
+	var ok: bool = await s.load_match_gamedata("pruned")
+	check(not ok, "not the match's own version")
+	eq(api.calls, [["/gamedata?version=pruned", ""], ["/gamedata", "\"4eedfeb2e6a5a751\""]], "then the plain GET")
+	eq([GameData.version, GameData.match_version, GameData.turn_sec()], ["plain", "plain", 35], "the match plays with the newest")
+	GameData.take(_turn("later", 45), "", false)
+	eq(GameData.version, "plain", "and keeps it")
+	GameData.end_match()
+	s.free()
 
 
 # ── PlayerState.load_gamedata() ─────────────────────────────────────────────
@@ -234,7 +342,7 @@ func _state(api: FakeApi):
 func test_player_state_loads_and_keeps_on_304() -> void:
 	GameData.reset("")
 	var api := FakeApi.new()
-	api.answers = [_ok(_raw(), "\"13f9f9a13a6a316c\"")]
+	api.answers = [_ok(_raw(), "\"4eedfeb2e6a5a751\"")]
 	var s = _state(api)
 	var changed := [0]
 	s.gamedata_changed.connect(func(): changed[0] += 1)
@@ -245,12 +353,12 @@ func test_player_state_loads_and_keeps_on_304() -> void:
 	api.answers = [_not_modified()]
 	ok = await s.load_gamedata()
 	check(ok, "still usable")
-	eq(api.calls[1], ["/gamedata", "\"13f9f9a13a6a316c\""], "If-None-Match with the ETag")
+	eq(api.calls[1], ["/gamedata", "\"4eedfeb2e6a5a751\""], "If-None-Match with the ETag")
 	eq(changed[0], 1, "a 304 changes nothing")
 	api.answers = [_fail(0)]
 	ok = await s.load_gamedata()
 	check(ok, "offline with a copy held: usable")
-	eq(GameData.version, "13f9f9a13a6a316c", "kept")
+	eq(GameData.version, "4eedfeb2e6a5a751", "kept")
 	s.free()
 
 

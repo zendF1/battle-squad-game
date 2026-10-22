@@ -221,6 +221,7 @@ func _ready() -> void:
 	_mode = str(snap.get("mode", ""))
 	_roster = Router.match_roster
 	Router.match_roster = {}
+	GameData.use_match(snap.get("gamedataVersion")) # its game data when held, before anything reads it
 	_load_snapshot(snap, false)
 	_check_gamedata(snap)
 	var map_name := MapThemes.name_of(snap)
@@ -229,6 +230,11 @@ func _ready() -> void:
 	GameSocket.event_received.connect(_on_event)
 	GameSocket.disconnected.connect(_on_disconnected)
 	GameSocket.release()
+
+
+## Leaving the match: the lobby's game data is in use again.
+func _exit_tree() -> void:
+	GameData.end_match()
 
 
 func _process(delta: float) -> void:
@@ -486,9 +492,11 @@ func _other_walk_max() -> float:
 	return maxf(GameData.bot_follow_up_delay_sec() - OTHER_WALK_LEAD, 0.0)
 
 
-## A MatchStarted / MatchStateSync whose gamedataVersion is not the cached game data's: fetch it
-## again before I may aim or act (_data_wait keeps _can_act() false), "Đang cập nhật dữ liệu..."
-## after DATA_NOTICE_SEC. A failed fetch keeps the cached copy and lets the match go on.
+## A MatchStarted / MatchStateSync whose gamedataVersion is not held: fetch that version
+## (PlayerState.load_match_gamedata(): GET /gamedata?version=, the plain GET on a 404) before I
+## may aim or act (_data_wait keeps _can_act() false), "Đang cập nhật dữ liệu..." after
+## DATA_NOTICE_SEC. A failed fetch keeps the copy in use and lets the match go on. The match
+## keeps its version to the end (_exit_tree(): GameData.end_match()).
 func _check_gamedata(snap: Variant) -> void:
 	if _data_wait or not snap is Dictionary or not GameData.needs_refetch(snap.get("gamedataVersion")):
 		return
@@ -497,7 +505,7 @@ func _check_gamedata(snap: Variant) -> void:
 	get_tree().create_timer(DATA_NOTICE_SEC).timeout.connect(func() -> void:
 		if _data_wait and is_instance_valid(_hud):
 			_hud.set_data_notice(DATA_NOTICE))
-	await PlayerState.load_gamedata()
+	await PlayerState.load_match_gamedata(str(snap["gamedataVersion"]))
 	_data_wait = false
 	if is_instance_valid(_hud):
 		_hud.set_data_notice("")
@@ -508,6 +516,8 @@ func _check_gamedata(snap: Variant) -> void:
 
 func _on_event(event: String, data: Variant) -> void:
 	if event == "MatchStateSync":
+		if data is Dictionary:
+			GameData.use_match(data.get("gamedataVersion"))
 		_load_snapshot(data, true)
 		_check_gamedata(data)
 		return

@@ -185,7 +185,7 @@ static func info(id: String) -> Dictionary:
 		"name": character_name(id),
 		"role": role(id),
 		"tint": tint(id),
-		"weapon": {"kind": kind, "tier": Art.GUN_BASIC, "name": str(EquipmentModel.GUN_NAMES.get(kind, EquipmentModel.GUN_NAMES["blaster"])),
+		"weapon": {"kind": kind, "tier": Art.GUN_BASIC, "name": EquipmentModel.gun_name(kind),
 			"wind": "Gió đẩy %s" % factor_text(wind_factor(id))},
 		"skill": {"name": str(skill.get("name", "")), "text": Skills.describe(id, 0),
 			"energy": "Cần %d năng lượng (+%d mỗi lượt, +%d khi bị trúng đòn)" % [GameData.skill_energy_max(),

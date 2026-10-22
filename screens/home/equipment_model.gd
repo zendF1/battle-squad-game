@@ -25,27 +25,15 @@ const Fmt := preload("res://core/fmt.gd")
 const Art := preload("res://ui/art.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
-## Display order (the Nhân vật page's slots, filters, sorting).
-const SLOTS := ["helmet", "armor", "gloves", "pants", "boots", "weapon"]
-const SLOT_NAMES := {
-	"weapon": "Vũ khí", "armor": "Áo", "helmet": "Mũ", "pants": "Quần", "boots": "Giày", "gloves": "Găng tay",
-}
-## Normal item ids end in their tier's idSuffix (lv10 … lv40, the required level): the shop
-## tier. Weapons are guns, per character (<character>_weapon_lvN, "Iron Bazooka"); the other
-## slots are shared.
-## The type part of "<Tier> <Type>" server names (one or two words).
-const TYPE_WORDS := {
-	"sword": "Kiếm", "vest": "Áo giáp", "cap": "Mũ", "pants": "Quần", "boots": "Giày", "gloves": "Găng",
-	"bazooka": "Bazooka", "cannon": "Đại pháo", "shock rifle": "Súng điện", "seed launcher": "Súng hạt", "blaster": "Súng",
-}
-## The gun each character fires (its weapons' icon kind, from its gunKind: GUN_OF_KIND inverted);
-## generic and crafted weapons are blasters ("").
-const KIND_OF_TYPE := {"bazooka": "bazooka", "cannon": "cannon", "shock rifle": "rifle", "seed launcher": "launcher"}
-## The held gun sprite (ui/art.gd GUN_KINDS) of a weapon_kind() icon kind; "" (generic and
-## crafted weapons) is the blaster.
+## The slots (ids, Vietnamese names, display order), the type words of the catalog's "<Tier>
+## <Type>" names and the gun kinds' names are the game data's (GET /gamedata equipment.slots,
+## equipment.typeWords, gunKinds). Normal item ids end in their tier's idSuffix (lv10 … lv40, the
+## required level): the shop tier. Weapons are guns, per character (<character>_weapon_lvN,
+## "Iron Bazooka"); the other slots are shared.
+##
+## The held gun sprite (ui/art.gd GUN_KINDS, the game data's gun kinds) of a weapon_kind() icon
+## kind (ui/art.gd EQUIP_WEAPON_KINDS); "" (generic and crafted weapons) is the blaster.
 const GUN_OF_KIND := {"bazooka": "bazooka", "cannon": "cannon", "rifle": "shock_rifle", "launcher": "seed_launcher", "": "blaster"}
-## A gun kind's name (ui/art.gd GUN_KINDS), for the basic gun of a character with no weapon.
-const GUN_NAMES := {"bazooka": "Bazooka", "cannon": "Đại pháo", "shock_rifle": "Súng điện", "seed_launcher": "Súng hạt", "blaster": "Súng"}
 ## key: the catalog field; point: the statMultipliers / stats.equipmentPoints key ("" for crit);
 ## unit "%" for the crit chance; total: the stats.fromEquipment field.
 const STATS := [
@@ -58,13 +46,26 @@ const STATS := [
 const MINUS := "−"
 
 
+## The slot ids in display order (the Nhân vật page's slots, filters, sorting).
+static func slots() -> Array:
+	return GameData.equipment_slot_ids()
+
+
 static func slot_name(slot: String) -> String:
-	return str(SLOT_NAMES.get(slot, slot))
+	return GameData.equipment_slot_name(slot)
 
 
 static func slot_index(slot: String) -> int:
-	var i := SLOTS.find(slot)
-	return i if i >= 0 else SLOTS.size()
+	var order := slots()
+	var i := order.find(slot)
+	return i if i >= 0 else order.size()
+
+
+## A gun kind's name (ui/art.gd GUN_KINDS), for the basic gun of a character with no weapon; the
+## blaster's for an unknown kind.
+static func gun_name(kind: String) -> String:
+	var n := GameData.gun_kind_name(kind)
+	return n if n != "" else GameData.gun_kind_name("blaster")
 
 
 static func character_name(id: String) -> String:
@@ -210,8 +211,9 @@ static func display_name(item: Dictionary) -> String:
 	var words := name.to_lower().split(" ", false)
 	if words.size() >= 2 and is_tier(words[0]):
 		var type := " ".join(words.slice(1))
-		if TYPE_WORDS.has(type):
-			return "%s %s" % [TYPE_WORDS[type], tier_word(words[0])]
+		var word := GameData.type_word_name(type)
+		if word != "":
+			return "%s %s" % [word, tier_word(words[0])]
 	if name != "":
 		return name
 	var slot := str(item.get("slot", ""))
@@ -230,14 +232,19 @@ static func weapon_kind(item: Dictionary) -> String:
 		return character_weapon_kind(str(only))
 	var words := str(item.get("name", "")).to_lower().split(" ", false)
 	if words.size() >= 2:
-		return str(KIND_OF_TYPE.get(" ".join(words.slice(1)), ""))
+		return icon_kind_of_gun(GameData.type_word_gun_kind(" ".join(words.slice(1))))
 	return ""
 
 
 ## The icon kind of a character's own weapons ("bazooka", "cannon", "rifle", "launcher"; "" a
 ## blaster): its gunKind (game data) through GUN_OF_KIND.
 static func character_weapon_kind(character_id: String) -> String:
-	var gun_kind := GameData.character_gun_kind(character_id)
+	return icon_kind_of_gun(GameData.character_gun_kind(character_id))
+
+
+## The icon kind of a gun kind (GUN_OF_KIND inverted: "shock_rifle" → "rifle"); "" for the
+## blaster, an armour type word ("") or an unknown kind.
+static func icon_kind_of_gun(gun_kind: String) -> String:
 	for kind in GUN_OF_KIND:
 		if GUN_OF_KIND[kind] == gun_kind and kind != "":
 			return kind

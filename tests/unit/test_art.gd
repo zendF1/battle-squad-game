@@ -66,7 +66,7 @@ func test_fallbacks() -> void:
 
 func test_equipment_art_covers_the_model() -> void:
 	var M := preload("res://screens/home/equipment_model.gd")
-	for slot in M.SLOTS:
+	for slot in M.slots():
 		check(Art.EQUIP_SLOTS.has(slot), "slot %s has art" % slot)
 	for tier in M.normal_tiers() + M.crafted_tiers():
 		check(Art.EQUIP_TIERS.has(tier), "tier %s has art" % tier)

@@ -64,9 +64,10 @@ extends Node
 ## autoload/game_data_model.gd, cached in user://gamedata.json with its version and ETag.
 ## load_gamedata() sends If-None-Match with the cached ETag (304 keeps the cache), coalesced, and
 ## returns whether game data is usable (fetched now or cached); gamedata_changed when a new version
-## was taken. Splash runs it before anything else; a match whose gamedataVersion differs from the
-## cached one runs it before the player may act; coming back to the foreground runs it when the
-## last good answer is older than GameData.RECHECK_MSEC.
+## was taken. Splash runs it before anything else; coming back to the foreground runs it when the
+## last good answer is older than GameData.RECHECK_MSEC. A match whose gamedataVersion is not
+## held runs load_match_gamedata() before the player may act: GET /gamedata?version=<it> (cached
+## by version), the plain GET on a 404.
 
 signal changed # profile, loading or error changed
 signal assets_dirty # inventory, characters or purchases changed on the server
@@ -348,6 +349,25 @@ func load_gamedata() -> bool:
 		break
 	_gamedata_done.emit()
 	return GameData.is_loaded()
+
+
+## A match plays with the game data of version v (MatchStarted / MatchStateSync gamedataVersion):
+## GameData.use_match(v), and GET /gamedata?version=v when it is not held (a plain GET /gamedata
+## may already be newer than the match). A 404 (never published, or pruned) falls back to the
+## plain GET /gamedata, which the match then keeps; any other failure keeps the copy in use.
+## Returns true when the match's own version is in use.
+func load_match_gamedata(v: String) -> bool:
+	if GameData.use_match(v):
+		return true
+	var res: Dictionary = await _api().get_cached("/gamedata?version=" + v.uri_encode(), "")
+	if GameData.match_version != v:
+		return false # the match ended (or another version was asked) meanwhile
+	if GameData.apply_version_response(res, v) == GameData.NOT_FOUND:
+		await load_gamedata()
+		if GameData.match_version == v:
+			GameData.use_match(GameData.lobby_version)
+		return false
+	return GameData.version == v
 
 
 ## Back in the foreground: check the game data again when the last good answer is old.

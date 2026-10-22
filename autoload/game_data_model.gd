@@ -2,17 +2,24 @@ extends RefCounted
 ## The server's game data (GET /gamedata, contract: server docs, internal/api/gamedata): every
 ## gameplay rule, balance number and Vietnamese display text the client uses (physics, aim, aim
 ## aid, terrain, movement, timings, skills, characters, weapons, items, status effects, rank tiers,
-## levels, equipment rules, economy, matchmaking, modes, map themes). The client hardcodes none of
-## them: this is the only source, and the only fallback is the last copy cached in CACHE_PATH.
+## levels, equipment rules / slots / item type words, economy, matchmaking, modes, map themes, gun
+## kinds). The client hardcodes none of them: this is the only source, and the only fallback is
+## the last copy cached in CACHE_PATH.
 ## The client keeps only presentation (colours, layout, art per id, animation feel).
 ##
 ## Pure and static, like match/theme/map_catalog.gd: PlayerState.load_gamedata() does the network
 ## part (a conditional GET with If-None-Match: if_none_match(); apply_response() takes the answer:
 ## 200 replaces the data and the cache, 304 keeps both). Splash loads it before anything needs it;
-## with no cache and no network it shows a retry screen. A match whose MatchStarted /
-## MatchStateSync gamedataVersion differs from `version` refetches before the player may act
-## (needs_refetch()); the app refetches when it comes back to the foreground if the last check is
-## older than RECHECK_MSEC (check_due()).
+## with no cache and no network it shows a retry screen. The app refetches when it comes back to
+## the foreground if the last check is older than RECHECK_MSEC (check_due()).
+##
+## Two kinds of copies: the lobby copy (the latest plain GET /gamedata, cached in CACHE_PATH) and
+## the match copies (GET /gamedata?version=<v>, cached by version next to it, the newest
+## MAX_VERSIONS). A match plays with the game data of its MatchStarted / MatchStateSync
+## gamedataVersion from its start to its end, even after an admin save made the plain answer
+## newer: use_match(v) pins it (and uses it at once when it is held), needs_refetch() says it must
+## be fetched (PlayerState.load_match_gamedata(): a 404 falls back to the plain GET), end_match()
+## goes back to the lobby copy. `data` / `version` are the copy in use, which every accessor reads.
 ##
 ## Accessors are typed and never crash: a missing section, field or id reads as 0 / "" / false /
 ## {} / [] (and an unknown id's name as the id itself). Ids are open sets: an admin may add a
@@ -22,17 +29,25 @@ extends RefCounted
 const CACHE_PATH := "user://gamedata.json"
 ## The foreground refetch runs when the last good answer is older than this.
 const RECHECK_MSEC := 5 * 60 * 1000
+## Match copies (GET /gamedata?version=) kept in memory and in the cache, the newest.
+const MAX_VERSIONS := 3
 
-## apply_response() outcomes.
+## apply_response() / apply_version_response() outcomes.
 const UPDATED := 1 # a new version was taken (and cached)
 const SAME := 0 # 304, or a 200 with the version already held
 const FAILED := -1 # network / server error or an unusable body: the data held stays
+const NOT_FOUND := -2 # ?version= 404 (GAMEDATA_VERSION_NOT_FOUND: never published, or pruned)
 
-static var data := {} # the /gamedata `data` ({} none)
+static var data := {} # the copy in use ({} none): the match's while a match plays with a held copy, else the lobby's
 static var version := "" # data.version ("" none); read it after an accessor (or is_loaded()) ran
-static var etag := "" # the ETag of the copy held, as the server sent it ("" none: one is made from version)
+static var etag := "" # the lobby copy's ETag, as the server sent it ("" none: one is made from its version)
+static var lobby := {} # the latest plain GET /gamedata data ({} none)
+static var lobby_version := ""
+static var match_version := "" # the gamedataVersion the running match plays with ("" outside a match)
 static var cache_path := CACHE_PATH # "" = no cache (tests)
 static var checked_msec := -1 # Time.get_ticks_msec() of the last good answer (200 / 304); -1 never
+static var _versions := {} # version -> data: the match copies
+static var _version_order: Array = [] # their versions, oldest first
 static var _cache_read := false
 static var _index := {} # section -> {id -> entry}
 
@@ -53,22 +68,36 @@ static func parse(raw: Variant) -> Variant:
 	return d
 
 
-## Takes parsed game data (parse()) with its ETag. Returns true when it changed what is held
-## (another version, or the first copy).
+## Takes parsed plain game data (parse()) with its ETag as the lobby copy (in use unless a match
+## plays with another held copy). Returns true when the lobby copy changed (another version, or
+## the first copy).
 static func take(d: Dictionary, new_etag: String = "", save: bool = true) -> bool:
 	_ensure_cache()
 	var v := str(d.get("version", ""))
 	if new_etag != "":
 		etag = new_etag
-	if v == version and not data.is_empty():
+	if v == lobby_version and not lobby.is_empty():
 		return false
-	data = d.duplicate(true)
-	version = v
+	lobby = d.duplicate(true)
+	lobby_version = v
 	etag = new_etag if new_etag != "" else quoted(v)
-	_build_index()
+	_activate()
 	if save:
 		save_cache()
 	return true
+
+
+## Takes parsed game data of one version (GET /gamedata?version=) as a match copy (in use when it
+## is the match's). Returns true when it was not held.
+static func take_version(d: Dictionary, save: bool = true) -> bool:
+	_ensure_cache()
+	var v := str(d.get("version", ""))
+	var fresh := not _versions.has(v)
+	_keep_version(v, d.duplicate(true))
+	_activate()
+	if save:
+		_save_versions()
+	return fresh
 
 
 ## Takes a GET /gamedata answer from Api.get_cached() ({ok, status, data, etag}): 200 with game
@@ -78,7 +107,7 @@ static func apply_response(res: Dictionary, now_msec: int) -> int:
 	if not bool(res.get("ok", false)):
 		return FAILED
 	if int(res.get("status", 0)) == 304:
-		if not is_loaded():
+		if lobby.is_empty():
 			return FAILED # a 304 with nothing to keep (the cache was lost): ask again without one
 		checked_msec = now_msec
 		return SAME
@@ -89,27 +118,64 @@ static func apply_response(res: Dictionary, now_msec: int) -> int:
 	return UPDATED if take(d, str(res.get("etag", ""))) else SAME
 
 
+## Takes a GET /gamedata?version=<v> answer: 200 with the game data of v → take_version()
+## (UPDATED, or SAME when held), 404 → NOT_FOUND (fall back to the plain GET), anything else (or
+## another version) → FAILED.
+static func apply_version_response(res: Dictionary, v: String) -> int:
+	if not bool(res.get("ok", false)):
+		return NOT_FOUND if int(res.get("status", 0)) == 404 else FAILED
+	var d = parse(res.get("data"))
+	if not d is Dictionary or str(d["version"]) != v:
+		return FAILED
+	return UPDATED if take_version(d) else SAME
+
+
 ## True once game data is held (fetched or read from the cache).
 static func is_loaded() -> bool:
 	_ensure_cache()
 	return not data.is_empty()
 
 
-## The If-None-Match value for the next GET /gamedata: the held copy's ETag, "" with none.
+## The If-None-Match value for the next plain GET /gamedata: the lobby copy's ETag, "" with none.
 static func if_none_match() -> String:
 	_ensure_cache()
-	if data.is_empty():
+	if lobby.is_empty():
 		return ""
-	return etag if etag != "" else quoted(version)
+	return etag if etag != "" else quoted(lobby_version)
+
+
+## True when the game data of version v is held (the lobby copy or a match copy).
+static func has_version(v: String) -> bool:
+	_ensure_cache()
+	return v != "" and ((v == lobby_version and not lobby.is_empty()) or _versions.has(v))
+
+
+## A match plays with the game data of its gamedataVersion (MatchStarted / MatchStateSync; "" or
+## absent from an older server: the lobby copy) until end_match(). Uses it at once when it is
+## held; returns true when the match's game data is in use (false: needs_refetch()). A match on
+## the lobby copy keeps it even when a plain GET brings a newer one meanwhile.
+static func use_match(match_v: Variant) -> bool:
+	_ensure_cache()
+	match_version = str(match_v) if match_v is String else ""
+	if match_version != "" and match_version == lobby_version and not _versions.has(match_version) and not lobby.is_empty():
+		_keep_version(match_version, lobby) # pinned: a newer lobby copy does not replace it mid-match
+	_activate()
+	return match_version == "" or version == match_version
+
+
+## The match is over: the lobby copy is in use again.
+static func end_match() -> void:
+	match_version = ""
+	_activate()
 
 
 ## A MatchStarted / MatchStateSync gamedataVersion asks for a refetch: it is set and is not the
-## version held ("" or absent from an older server: no).
-static func needs_refetch(match_version: Variant) -> bool:
-	if not match_version is String or str(match_version) == "":
+## version in use ("" or absent from an older server: no).
+static func needs_refetch(match_v: Variant) -> bool:
+	if not match_v is String or str(match_v) == "":
 		return false
 	_ensure_cache()
-	return str(match_version) != version
+	return str(match_v) != version
 
 
 ## The foreground check is due: no good answer yet, or the last one is older than max_age.
@@ -121,31 +187,87 @@ static func quoted(v: String) -> String:
 	return "\"%s\"" % v if v != "" else ""
 
 
+## Saves the lobby copy (CACHE_PATH).
 static func save_cache() -> void:
-	if cache_path == "" or data.is_empty():
+	if cache_path == "" or lobby.is_empty():
 		return
 	var f := FileAccess.open(cache_path, FileAccess.WRITE)
 	if f != null:
-		f.store_string(JSON.stringify({"version": version, "etag": etag, "data": data}))
+		f.store_string(JSON.stringify({"version": lobby_version, "etag": etag, "data": lobby}))
 
 
-## Reads the cache once (the first lookup), unless something was taken already.
+## The match copies' cache file: user://gamedata_versions.json next to CACHE_PATH ("" none).
+static func versions_path() -> String:
+	return "" if cache_path == "" else cache_path.get_basename() + "_versions.json"
+
+
+static func _save_versions() -> void:
+	var path := versions_path()
+	if path == "":
+		return
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f != null:
+		f.store_string(JSON.stringify({"copies": _version_order.map(func(v): return _versions[v])}))
+
+
+## Holds a match copy as the newest; the oldest past MAX_VERSIONS go (never the match's own).
+static func _keep_version(v: String, d: Dictionary) -> void:
+	_versions[v] = d
+	_version_order.erase(v)
+	_version_order.append(v)
+	var i := 0
+	while _version_order.size() > MAX_VERSIONS and i < _version_order.size():
+		var old: String = _version_order[i]
+		if old == match_version or old == v:
+			i += 1
+			continue
+		_version_order.remove_at(i)
+		_versions.erase(old)
+
+
+## Puts the copy the moment wants in use: the match's when it is held, else the lobby's.
+static func _activate() -> void:
+	var v := lobby_version
+	var d := lobby
+	if match_version != "" and _versions.has(match_version):
+		v = match_version
+		d = _versions[v]
+	if v == version and is_same(d, data):
+		return
+	data = d
+	version = v if not d.is_empty() else ""
+	_build_index()
+
+
+## Reads the caches once (the first lookup), unless something was taken already.
 static func _ensure_cache() -> void:
 	if _cache_read:
 		return
 	_cache_read = true
-	if cache_path == "" or not FileAccess.file_exists(cache_path):
-		return
+	var raw = _read_json(cache_path)
+	if raw is Dictionary:
+		var d = parse(raw.get("data"))
+		if d is Dictionary:
+			lobby = d
+			lobby_version = str(d["version"])
+			etag = str(raw.get("etag", "")) if raw.get("etag") is String else ""
+	var saved = _read_json(versions_path())
+	if saved is Dictionary and saved.get("copies") is Array:
+		for c in saved["copies"]:
+			var d = parse(c)
+			if d is Dictionary:
+				_keep_version(str(d["version"]), d)
+	_activate()
+
+
+## A JSON file's value, null when it is missing or broken.
+static func _read_json(path: String) -> Variant:
+	if path == "" or not FileAccess.file_exists(path):
+		return null
 	var json := JSON.new()
-	if json.parse(FileAccess.get_file_as_string(cache_path)) != OK or not json.data is Dictionary:
-		return # a broken cache is no game data
-	var raw: Dictionary = json.data
-	var d = parse(raw.get("data"))
-	if d is Dictionary:
-		data = d
-		version = str(d["version"])
-		etag = str(raw.get("etag", "")) if raw.get("etag") is String else ""
-		_build_index()
+	if json.parse(FileAccess.get_file_as_string(path)) != OK:
+		return null # a broken cache is no game data
+	return json.data
 
 
 ## Empties the held data; `path` is the cache to use from now on ("" none: tests).
@@ -153,8 +275,13 @@ static func reset(path: String = CACHE_PATH) -> void:
 	data = {}
 	version = ""
 	etag = ""
+	lobby = {}
+	lobby_version = ""
+	match_version = ""
 	cache_path = path
 	checked_msec = -1
+	_versions = {}
+	_version_order = []
 	_cache_read = false
 	_index = {}
 
@@ -168,6 +295,9 @@ static func _build_index() -> void:
 	_index["equipmentTiers"] = _by(_list_in(section("equipment"), "tiers"), "tier")
 	_index["matchModes"] = _by(_list_in(section("modes"), "match"), "modeId")
 	_index["lobbyModes"] = _by(_list_in(section("modes"), "lobby"), "modeId")
+	_index["equipmentSlots"] = _by(_list_in(section("equipment"), "slots"), "id")
+	_index["typeWords"] = _by(_list_in(section("equipment"), "typeWords"), "word")
+	_index["gunKinds"] = _by(list("gunKinds"), "id")
 
 
 static func _by(entries: Array, key: String) -> Dictionary:
@@ -885,7 +1015,34 @@ static func equipment_suffixes() -> Dictionary:
 	return out
 
 
-# ── economy, matchmaking, modes, themes ─────────────────────────────────────
+## [{id, name}], the equipment slots in display order.
+static func equipment_slots() -> Array:
+	return _list_in(section("equipment"), "slots")
+
+
+## The slot ids in display order (the Nhân vật page's slots, filters, sorting).
+static func equipment_slot_ids() -> Array:
+	return equipment_slots().map(func(e): return _s(e, "id")).filter(func(id): return id != "")
+
+
+## "Găng tay"; the id itself for an unknown slot.
+static func equipment_slot_name(slot: String) -> String:
+	var n := _s(_entry("equipmentSlots", slot), "name")
+	return n if n != "" else slot
+
+
+## The Vietnamese word of a catalog item name's type part (lower case, "shock rifle" → "Súng
+## điện"); "" for an unknown type.
+static func type_word_name(word: String) -> String:
+	return _s(_entry("typeWords", word), "name")
+
+
+## The gun kind of a weapon type word ("shock rifle" → "shock_rifle"); "" for armour or unknown.
+static func type_word_gun_kind(word: String) -> String:
+	return _s(_entry("typeWords", word), "gunKind")
+
+
+# ── economy, matchmaking, modes, themes, gun kinds ──────────────────────────
 
 static func coins_per_gem() -> int:
 	return _i(section("economy"), "coinsPerGem")
@@ -924,3 +1081,13 @@ static func default_theme() -> String:
 
 static func themes() -> Array:
 	return _strings(section("mapThemes").get("themes"))
+
+
+## [{id, name}], every gun art kind in display order.
+static func gun_kinds() -> Array:
+	return list("gunKinds")
+
+
+## A gun kind's Vietnamese name ("cannon" → "Đại pháo"); "" for an unknown kind.
+static func gun_kind_name(kind: String) -> String:
+	return _s(_entry("gunKinds", kind), "name")
