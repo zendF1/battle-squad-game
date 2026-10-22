@@ -14,6 +14,9 @@ extends Control
 ## them once. A message left in Router.home_notice (a ranked queue that ended with an error)
 ## shows once as a toast. The Nhân vật page, Túi đồ and the Shop's Trang bị (its weapons) act on the lobby's
 ## character; ◀ ▶ on the Nhân vật page change it in the lobby too.
+## A party invite to me (Router.party) shows on its own layer over every page
+## (invite_received_popup.gd): Đồng ý answers it and shows the lobby on the ranked mode, Từ chối
+## answers no. The party's messages (declined, expired, kicked, the host left, errors) are toasts.
 
 const Backdrop := preload("res://ui/backdrop.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -30,6 +33,8 @@ const MilestonePage := preload("res://screens/home/milestone_page.gd")
 const DailyPage := preload("res://screens/home/daily_page.gd")
 const DailyModel := preload("res://screens/home/daily_model.gd")
 const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
+const InviteReceivedPopup := preload("res://screens/home/invite_received_popup.gd")
+const LobbyModel := preload("res://screens/home/lobby_model.gd")
 
 const LOBBY := 0
 const PROFILE := 1
@@ -50,6 +55,8 @@ var _milestone: MilestonePage
 var _daily: DailyPage
 var _pages := {} # PROFILE / SHOP / BAG / CHARACTER -> the page (header + content)
 var _shown := LOBBY
+var _invite_layer: Control # over every page: the invite to me
+var _invite_popup: InviteReceivedPopup
 
 
 func _ready() -> void:
@@ -107,6 +114,16 @@ func _ready() -> void:
 	PlayerState.refresh()
 	PlayerState.load_rank() # the rank chip, the ranked mode card; the match's aiming aid reads the tier
 	PlayerState.load_maps() # map names (history, matchmaking, the match toast) and themes from the server
+	var layer := CanvasLayer.new()
+	layer.layer = 20
+	add_child(layer)
+	_invite_layer = Control.new()
+	_invite_layer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_invite_layer.mouse_filter = MOUSE_FILTER_IGNORE
+	_invite_layer.theme = theme
+	layer.add_child(_invite_layer)
+	Router.party.invite_received.connect(show_invite)
+	Router.party.notice.connect(func(text: String) -> void: Ui.toast(self, text, 2.5))
 	if Router.home_notice != "": # a ranked queue that ended with an error
 		Ui.toast(self, Router.home_notice, 3.5)
 		Router.home_notice = ""
@@ -114,6 +131,10 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	get_tree().quit_on_go_back = true
+	for sig in [Router.party.invite_received, Router.party.notice]:
+		for c in sig.get_connections():
+			if c["callable"].get_object() == self:
+				sig.disconnect(c["callable"])
 	if EquipmentUi.open_upgrade == open_upgrade:
 		EquipmentUi.open_upgrade = Callable()
 
@@ -163,6 +184,21 @@ func _build_page(title: String, content: Control, extra: Control = null) -> Cont
 func _connect_wallet(wallet: WalletPills) -> void:
 	wallet.gem_plus.connect(open_shop.bind(ShopTab.GEMS))
 	wallet.coin_plus.connect(open_shop.bind(ShopTab.EXCHANGE))
+
+
+## An invite to me (PartyModel.parse_invite()): its popup over whatever page shows.
+func show_invite(invite: Dictionary) -> InviteReceivedPopup:
+	if is_instance_valid(_invite_popup) and not _invite_popup.is_queued_for_deletion():
+		_invite_popup.close() # a newer invite replaces it
+	_invite_popup = InviteReceivedPopup.new()
+	var ranked := LobbyModel.ranked_index()
+	_invite_popup.open_for(_invite_layer, Router.party, invite, LobbyModel.mode(ranked)["name"] if ranked >= 0 else "")
+	_invite_popup.accepted.connect(func() -> void:
+		Router.party.respond(true)
+		_show(LOBBY)
+		_lobby.show_ranked_mode())
+	_invite_popup.declined.connect(func() -> void: Router.party.respond(false))
+	return _invite_popup
 
 
 func open_profile() -> void:

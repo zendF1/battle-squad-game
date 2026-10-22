@@ -168,3 +168,37 @@ func test_disconnect() -> void:
 	eq(_kinds(a), ["failed"], "nothing to send: the server drops the queue")
 	eq(a[0][1], RankedFlow.DISCONNECTED, "message")
 	eq(RankedFlow.new().on_disconnected(), [], "idle")
+
+
+func test_party_host_never_leaves_the_lobby() -> void:
+	var f := RankedFlow.new()
+	f.keep_lobby = true
+	eq(f.start(LOADOUT), [["send", "CreateLobby", {}]], "CreateLobby returns the party's lobby")
+	eq(f.on_event("LobbyError", _err("ALREADY_IN_LOBBY"), ), [], "not reopened since the match yet: no LeaveLobby")
+	eq(f.tick(1.0), [["send", "CreateLobby", {}]], "asked again")
+	f.on_event("LobbyUpdated", LOBBY)
+	f.on_event("LobbyUpdated", LOBBY)
+	eq(f.on_event("LobbyError", _err("MEMBER_NOT_READY")), [["failed", "Đồng đội chưa sẵn sàng"]], "an error: Home, the lobby kept")
+	var g := RankedFlow.new()
+	g.keep_lobby = true
+	g.start(LOADOUT)
+	g.on_event("LobbyUpdated", LOBBY)
+	g.on_event("LobbyUpdated", LOBBY)
+	g.on_event("QueueStarted", {})
+	eq(g.cancel(), [["send", "CancelQueue", {}]], "the host cancels the queue")
+	eq(g.on_event("QueueCancelled", {"reason": "cancelled"}), [["cancelled"]], "back Home in the party")
+
+
+func test_party_member_searches_at_once() -> void:
+	var f := RankedFlow.new()
+	eq(f.start_member(), [["searching"]], "the host's queue is running")
+	check(f.busy(), "searching")
+	eq(f.on_event("QueueCancelled", {"reason": "cancelled"}), [["failed", RankedFlow.QUEUE_ENDED]], "the host cancelled: Home, still in the party")
+	var g := RankedFlow.new()
+	g.start_member()
+	eq(g.cancel(), [["send", "LeaveLobby", {}], ["cancelled"]], "the member's cancel leaves the lobby")
+	var h := RankedFlow.new()
+	h.start_member()
+	var found := {"roomId": "r", "matchId": "m", "teams": []}
+	eq(h.on_event("MatchFound", found), [["found", found]], "MatchFound")
+	eq(h.on_event("MatchStarted", {"roomId": "r"}), [["started", {"roomId": "r"}]], "the match")

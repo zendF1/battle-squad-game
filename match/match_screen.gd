@@ -107,7 +107,7 @@ const RESULT_DELAY_SEC := 2.0
 const OUT_OF_MAP := "out_of_map" # PlayerDamaged type / ShotResolved cause: fell out of the bottom of the map
 
 var _me := ""
-var _mode := "" # MatchStarted's mode (ranked_2v2: the result's rating row, the lobby left going Home)
+var _mode := "" # MatchStarted's mode (ranked_2v2: the result's rating row, a solo lobby left going Home)
 var _lobby_left := false # LeaveLobby sent (once)
 var _roster := {} # Router.match_roster: the ranked players' level and rank (MatchFound)
 var _damage_by := {} # playerId -> damage dealt to the other team, counted from the replays (the MVP without stats)
@@ -1037,7 +1037,12 @@ func result_info(d: Dictionary) -> Dictionary:
 		"reward": ResultModel.reward(reward, _mode),
 		"exp": {"level": PlayerState.level(), "exp": PlayerState.player_exp()} if PlayerState.is_loaded() else {},
 		"char_name": LobbyModel.character_info(char_id, null)["name"],
-		"again": ResultModel.again_text(_mode, not Router.last_quick_play.is_empty())}
+		"again": "" if _party_member() else ResultModel.again_text(_mode, not Router.last_quick_play.is_empty())}
+
+
+## The party's member: no "Chơi tiếp" (the host starts the queue; Home keeps me in the party, ready).
+static func _party_member() -> bool:
+	return Router.party != null and Router.party.model.is_member()
 
 
 ## The full-screen result over the match (its own layer, over the HUD).
@@ -1204,8 +1209,8 @@ static func _since(usec: int) -> float:
 func _on_leave() -> void:
 	if not _disconnected: # a new connection is not in this room; Leave would only be rejected
 		GameSocket.send("Leave", {})
-		if RankModel.is_ranked_mode(_mode):
-			_leave_lobby()
+		if RankModel.is_ranked_mode(_mode) and not (Router.party != null and Router.party.model.in_party()):
+			_leave_lobby() # a party stays together for the next match
 	Router.go(Router.HOME)
 
 
@@ -1221,12 +1226,12 @@ func _count_damage(shooter: String, events: Variant) -> void:
 				_damage_by[shooter] = int(_damage_by.get(shooter, 0)) + int(e.get("amount", 0))
 
 
-## Leaves the ranked queue's lobby once, going back to Home (the server keeps it after the match
-## for "Chơi tiếp"; a solo lobby disbands).
+## Leaves the ranked queue's solo lobby once, going back to Home (the server keeps it after the
+## match for "Chơi tiếp"; a solo lobby disbands). A party (two in the lobby) is never left here.
 func _leave_lobby() -> void:
 	if not _lobby_left:
 		_lobby_left = true
-		GameSocket.send("LeaveLobby", {})
+		Router.party.leave()
 
 
 ## The server treats a lost connection as Leave, so the match cannot be resumed (M2).

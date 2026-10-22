@@ -2,7 +2,8 @@ extends Control
 ## Loadout before Quick Play ("Chuẩn bị", opened by the lobby's "BẮT ĐẦU"): pick up to three
 ## items, then "Vào trận" sends QuickPlay {bot?, characterId, items} through the QuickPlay
 ## helper; on the ranked mode "Tìm trận" opens Matchmaking with {characterId, items}
-## (Router.ranked_loadout) instead. The character is the one chosen in the lobby (saved in the shared settings file) and
+## (Router.ranked_loadout) instead; the party's member (Router.party) gets "SẴN SÀNG" there, which
+## sends UpdateLoadout {characterId, items} + SetReady true and goes back Home. The character is the one chosen in the lobby (saved in the shared settings file) and
 ## shows read-only on the left with its level; the mode ({} practice target, {"bot": "ai"}) is
 ## the lobby's, in Router.quick_play_base, named in the header. The picked items sit in three
 ## slots above the item grid (five per row, scrolling when the window is short); tapping a slot
@@ -22,6 +23,7 @@ const Art := preload("res://ui/art.gd")
 const Items := preload("res://match/items.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
+const PartyModel := preload("res://screens/home/party_model.gd")
 const QuickPlay := preload("res://screens/quick_play.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
@@ -78,11 +80,13 @@ var _back: Button
 var _play: Button
 var _inventory_seq := 0 # the latest GET /player/inventory; older answers are dropped
 var _checking := false # "Vào trận" waits for the counts
+var _member := false # the ranked party's member: "SẴN SÀNG" readies instead of queueing
 
 
 func _ready() -> void:
 	theme = LobbyUi.theme()
 	_base = Router.quick_play_base.duplicate()
+	_member = LobbyModel.is_ranked(_base) and Router.party != null and Router.party.model.is_member()
 	_model.restore(SETTINGS_PATH)
 	_quick_play = QuickPlay.new()
 	add_child(_quick_play)
@@ -440,7 +444,7 @@ func _build_footer() -> Control:
 	_status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(_status)
-	_play = LobbyUi.start_button("TÌM TRẬN" if LobbyModel.is_ranked(_base) else "VÀO TRẬN")
+	_play = LobbyUi.start_button(PartyModel.READY if _member else "TÌM TRẬN" if LobbyModel.is_ranked(_base) else "VÀO TRẬN")
 	_play.custom_minimum_size.x = 380
 	_play.pressed.connect(_on_play)
 	row.add_child(_play)
@@ -509,6 +513,11 @@ func _on_play() -> void:
 		if not dropped.is_empty():
 			return
 	_model.remember(SETTINGS_PATH)
+	if _member:
+		Router.ranked_loadout = _model.payload({})
+		Router.party.confirm_ready(Router.ranked_loadout) # my character and items, then ready
+		Router.go(Router.HOME)
+		return
 	if LobbyModel.is_ranked(_base):
 		Router.ranked_loadout = _model.payload({}) # {characterId, items}: Matchmaking queues with it
 		Router.go(Router.MATCHMAKING)

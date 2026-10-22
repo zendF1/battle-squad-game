@@ -46,6 +46,15 @@ static func is_ranked(base: Dictionary) -> bool:
 	return str(base.get("queue", "")) != "" and str(base.get("queue", "")) == GameData.ranked_mode()
 
 
+## The index of the ranked mode (its queue is the game data's rank.rankedMode); -1 without one.
+static func ranked_index() -> int:
+	var all := modes()
+	for i in all.size():
+		if is_ranked(all[i]["base"]):
+			return i
+	return -1
+
+
 ## The mode after `index`, wrapping around.
 static func next_mode(index: int) -> int:
 	return posmod(index + 1, maxi(modes().size(), 1))

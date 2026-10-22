@@ -1060,6 +1060,11 @@ static func match_start_delay_sec() -> float:
 	return _f(section("matchmaking"), "matchStartDelaySec")
 
 
+## How long a party invite waits for its answer (matchmaking.inviteTimeoutSec); 0 unknown.
+static func invite_timeout_sec() -> int:
+	return _i(section("matchmaking"), "inviteTimeoutSec")
+
+
 static func tips() -> Array:
 	return _strings(section("matchmaking").get("tips"))
 

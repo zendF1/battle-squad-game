@@ -22,6 +22,11 @@ var last_quick_play: Dictionary = {}
 var match_roster: Dictionary = {}
 ## A message for Home to show once (a ranked queue that ended with an error); "" none.
 var home_notice := ""
+## Matchmaking opens as the party's member (the host started the queue, screens/home/party.gd);
+## the Matchmaking scene takes it.
+var ranked_member := false
+## The ranked 2v2 party (screens/home/party.gd), kept here so it outlives the scenes.
+var party: Node
 
 
 func go(scene: String) -> void:
@@ -30,6 +35,9 @@ func go(scene: String) -> void:
 
 func _ready() -> void:
 	GameSocket.session_lost.connect(_on_session_lost)
+	party = load("res://screens/home/party.gd").new()
+	party.name = "Party"
+	add_child(party)
 
 
 func _on_session_lost() -> void:

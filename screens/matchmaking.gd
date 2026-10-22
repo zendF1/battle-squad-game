@@ -12,7 +12,12 @@ extends Control
 ## MatchmakingModel.reveal_sec() (the socket is held from MatchStarted, so the first turn's events
 ## wait for the Match scene). A server sending MatchFound without teams: the cards flip from
 ## MatchStarted's players. An error, a dropped queue or a lost connection goes back to Home with
-## its message (Router.home_notice). offline_preview (the preview harness, set before it enters
+## its message (Router.home_notice). In a party (Router.party with a teammate) the teammate's card
+## shows from the start and the queue never leaves the lobby (RankedFlow.keep_lobby): a cancel or an
+## error goes back Home still in the party. Opened for the party's member (Router.ranked_member:
+## the host started the queue) it searches at once; the member's "Hủy ghép" leaves the lobby (the
+## server cancels the queue for both). Every LeaveLobby goes through Router.party.leave().
+## offline_preview (the preview harness, set before it enters
 ## the tree): no socket; the harness feeds on_event().
 
 const Ui := preload("res://ui/ui.gd")
@@ -61,8 +66,13 @@ func _ready() -> void:
 	get_tree().quit_on_go_back = false # Android back cancels the queue
 	_me = Session.player_id
 	_tip_index = randi() % maxi(RankModel.tips().size(), 1)
+	var as_member := Router.ranked_member # taken once, whatever happens next
+	Router.ranked_member = false
 	_build()
 	_cards[0].show_player(_my_player())
+	var mate := _teammate()
+	if not mate.is_empty():
+		_cards[1].show_player(mate)
 	PlayerState.rank_changed.connect(_on_rank_changed)
 	PlayerState.need_titles() # the other players' titles (MatchFound gives their ids)
 	if not offline_preview:
@@ -71,7 +81,22 @@ func _ready() -> void:
 		if not GameSocket.is_open():
 			_run([["failed", RankedFlow.DISCONNECTED]])
 			return
+	if as_member:
+		_run(flow.start_member())
+		return
+	flow.keep_lobby = _in_party()
 	_run(flow.start(Router.ranked_loadout))
+
+
+func _in_party() -> bool:
+	return Router.party != null and Router.party.model.in_party()
+
+
+## The party's teammate as a card player (MatchmakingModel.parse_player); {} alone.
+func _teammate() -> Dictionary:
+	if not _in_party():
+		return {}
+	return MatchmakingModel.parse_player(Router.party.model.teammate())
 
 
 func _exit_tree() -> void:
@@ -238,6 +263,8 @@ func _draw_spinner() -> void:
 # ── Flow ────────────────────────────────────────────────────────────────────
 
 func on_event(event: String, data: Variant) -> void:
+	if not flow.member:
+		flow.keep_lobby = _in_party() # Router.party has applied this event already
 	_run(flow.on_event(event, data))
 
 
@@ -258,7 +285,11 @@ func _run(actions: Array) -> void:
 	for a in actions:
 		match a[0]:
 			"send":
-				if not offline_preview:
+				if offline_preview:
+					pass
+				elif a[1] == "LeaveLobby":
+					Router.party.leave()
+				else:
 					GameSocket.send(a[1], a[2])
 			"searching":
 				_searching = true

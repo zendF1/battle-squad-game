@@ -19,6 +19,12 @@ extends Control
 ## too; the ranked mode's card shows the tier badge and "Bạc II · 1.050 điểm" under its name. "BẮT ĐẦU" puts
 ## the mode's QuickPlay base in Router.quick_play_base and opens the Loadout. Character levels and stats come from the PlayerState characters cache, loaded when
 ## the lobby is shown; until then the card shows name, role and skill only.
+## The ranked mode adds the party (Router.party, screens/home/party.gd): the teammate slot right of
+## the stage (party_slot.gd: "+" → the invite popup, invite_popup.gd; a teammate drawn there, a
+## member sees the host), and the start button of PartyModel.start_button(): the host waits for a
+## ready teammate ("Chờ đồng đội sẵn sàng", disabled), the member gets "SẴN SÀNG" (the Loadout, which
+## readies) / "HUỶ SẴN SÀNG". With a teammate the stage character goes to the lobby (UpdateLoadout)
+## so their slot shows it, and switching the mode away asks "Rời đội?" first.
 
 signal open_profile
 signal open_shop(section: int)
@@ -47,6 +53,9 @@ const MissionArt := preload("res://screens/home/mission_art.gd")
 const RankChip := preload("res://screens/ranked/rank_chip.gd")
 const TierBadge := preload("res://screens/ranked/tier_badge.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
+const PartySlot := preload("res://screens/home/party_slot.gd")
+const InvitePopup := preload("res://screens/home/invite_popup.gd")
+const Modal := preload("res://ui/modal.gd")
 
 const MARGIN := 18
 const STAGE := Vector2(560, 590)
@@ -94,6 +103,7 @@ var _mode_rank: Control # ranked: the tier badge and "Bạc II · 1.050 điểm"
 var _mode_rank_badge: TierBadge
 var _mode_rank_text: Label
 var _start: Button
+var _slot: PartySlot # the ranked mode's teammate slot
 
 
 func _ready() -> void:
@@ -102,6 +112,11 @@ func _ready() -> void:
 	_mode = LobbyModel.restore_mode(settings_path)
 
 	_add_stage()
+	_slot = PartySlot.new()
+	_pin(_slot, 0.5, 1, SLOT_X, SLOT_Y)
+	_slot.invite_pressed.connect(open_invite)
+	_slot.kick_pressed.connect(func() -> void: Router.party.kick())
+	_slot.leave_pressed.connect(_confirm_leave.bind(Callable()))
 	_pin(_build_player_block(), 0, 0, MARGIN, MARGIN)
 	rank_chip = RankChip.new()
 	_pin(rank_chip, 0, 0, MARGIN + PLAYER_W + 14, MARGIN + 14)
@@ -124,6 +139,7 @@ func _ready() -> void:
 	PlayerState.milestones_changed.connect(_render_milestones)
 	PlayerState.daily_changed.connect(_render_daily)
 	PlayerState.rank_changed.connect(_render_mode)
+	Router.party.changed.connect(_render_party)
 	GameSocket.connected.connect(_render_conn)
 	GameSocket.disconnected.connect(_render_conn)
 	visibility_changed.connect(_on_visibility_changed)
@@ -454,6 +470,7 @@ func _cycle(delta: int) -> void:
 	_model.select_character(LobbyModel.cycle_character(_model.character_id, delta))
 	_model.remember(settings_path)
 	_render_character()
+	_send_character()
 
 
 ## The id of the character on the stage.
@@ -466,6 +483,13 @@ func select_character(id: String) -> void:
 	_model.select_character(id)
 	_model.remember(settings_path)
 	_render_character()
+	_send_character()
+
+
+## With a teammate in the lobby: the stage character (one I own) goes to it, their slot shows it.
+func _send_character() -> void:
+	if LobbyModel.character_info(_model.character_id, PlayerState.characters)["owned"] == true:
+		Router.party.set_character(_model.character_id)
 
 
 # ── Info card ───────────────────────────────────────────────────────────────
@@ -568,9 +592,56 @@ func _build_mode_card() -> Control:
 
 
 func _next_mode() -> void:
+	var party = Router.party.model
+	if LobbyModel.is_ranked(mode_base()) and party.in_lobby():
+		if party.in_party():
+			_confirm_leave(_switch_mode) # "Rời đội?" first
+			return
+		Router.party.leave() # the lobby made for an invite, alone: no party to keep
+	_switch_mode()
+
+
+func _switch_mode() -> void:
 	_mode = LobbyModel.next_mode(_mode)
 	LobbyModel.remember_mode(settings_path, _mode)
 	_render_mode()
+
+
+## Shows the ranked mode and remembers it (an invite accepted from any mode).
+func show_ranked_mode() -> void:
+	var i := LobbyModel.ranked_index()
+	if i < 0 or i == _mode:
+		return
+	_mode = i
+	LobbyModel.remember_mode(settings_path, _mode)
+	_render_mode()
+
+
+## "Rời đội?": Rời đội sends LeaveLobby, then `then` (the mode switch) when given.
+func _confirm_leave(then: Callable) -> void:
+	var m := Modal.new()
+	m.open(_host(), "Rời đội?", 640)
+	m.add_text("Bạn sẽ rời đội hiện tại và không chơi cùng đồng đội này nữa.")
+	m.add_button("Ở lại", m.close)
+	var leave := m.add_button("Rời đội", func() -> void:
+		m.close()
+		Router.party.leave()
+		if then.is_valid():
+			then.call())
+	leave.name = "ConfirmLeave"
+
+
+## The invite popup ("Mời đồng đội").
+func open_invite() -> InvitePopup:
+	var popup := InvitePopup.new()
+	popup.open_for(_host(), Router.party)
+	return popup
+
+
+## Where dialogs go: Home (the screen root) when the lobby is in it.
+func _host() -> Node:
+	var p := get_parent()
+	return p if p is Control else self
 
 
 func _render_mode() -> void:
@@ -587,6 +658,27 @@ func _render_mode() -> void:
 		_mode_rank_badge.division = r["division"]
 		_mode_rank_text.text = RankModel.mode_line(r) if not data.is_empty() else "Đang tải hạng..."
 		_mode_rank_text.add_theme_color_override("font_color", TierBadge.COLORS[_mode_rank_badge.tier][0])
+	_render_party()
+
+
+const SLOT_X := STAGE.x / 2.0 + 175.0 # the teammate slot's centre right of the stage's centre
+const SLOT_Y := -240.0 # its bottom above the screen's bottom: the pedestal clear of the mode card
+
+
+## The ranked mode's teammate slot and the start button (PartyModel.start_button()).
+func _render_party() -> void:
+	if _slot == null or _start == null:
+		return
+	var party = Router.party.model
+	var ranked := LobbyModel.is_ranked(mode_base())
+	_slot.visible = ranked
+	if ranked:
+		_slot.show_member(party.teammate(), party.is_host())
+	var state: Dictionary = party.start_button() if ranked else {"text": "BẮT ĐẦU", "disabled": false, "action": "start"}
+	_start.text = state["text"]
+	_start.disabled = state["disabled"]
+	_start.set_meta("action", state["action"])
+	_start.add_theme_font_size_override("font_size", 40 if str(state["text"]).length() <= 14 else 30)
 
 
 ## The QuickPlay base of the chosen mode.
@@ -595,7 +687,10 @@ func mode_base() -> Dictionary:
 
 
 func _on_start() -> void:
-	start()
+	if LobbyModel.is_ranked(mode_base()) and str(_start.get_meta("action", "start")) == "unready":
+		Router.party.set_ready(false) # HUỶ SẴN SÀNG
+		return
+	start() # the member's SẴN SÀNG: the Loadout readies
 
 
 ## What BẮT ĐẦU does (also a daily mission's "Đi ngay"): the mode's QuickPlay base, then the

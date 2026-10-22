@@ -19,6 +19,12 @@ extends RefCounted
 ## the lobby exists leaves it too. A step without an answer for STEP_TIMEOUT fails; a cancel
 ## without one after CANCEL_TIMEOUT leaves anyway; MatchStarted not coming FOUND_TIMEOUT after
 ## MatchFound fails.
+## A party (keep_lobby, set by the owner while the lobby has two members): no step ever leaves
+## the lobby (the teammate stays in it): a cancel is CancelQueue → QueueCancelled → back Home, an
+## error goes Home with its message, ALREADY_IN_LOBBY (the lobby not reopened since the match yet)
+## is asked again without leaving. start_member(): the party's member, whose host started the queue
+## (QueueStarted already came): searching at once; its cancel leaves the lobby (LeaveLobby: the
+## server cancels the queue for both), a host's cancel or an error ends it without leaving.
 
 const ErrorText := preload("res://screens/home/error_text.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
@@ -44,6 +50,8 @@ var _wait := 0.0 # seconds left before the current step times out (or the retry 
 var _retries := 0
 var _cancel_asked := false # cancel() while the lobby was being created
 var _found := false # MatchFound came
+var keep_lobby := false # a party: never leave the lobby (see above)
+var member := false # start_member(): the party's member, in the host's queue
 
 
 ## How long MatchStarted may take after MatchFound.
@@ -56,6 +64,15 @@ func start(chosen: Dictionary) -> Array:
 	_retries = 0
 	_cancel_asked = false
 	return _create()
+
+
+## The party's member in the host's queue: searching at once.
+func start_member() -> Array:
+	member = true
+	keep_lobby = true
+	_cancel_asked = false
+	phase = Phase.SEARCHING
+	return [["searching"]]
 
 
 func _create() -> Array:
@@ -73,8 +90,10 @@ func cancel() -> Array:
 		Phase.WAIT_RETRY:
 			return _finish([["cancelled"]])
 		Phase.LOADOUT:
-			return _finish([["send", "LeaveLobby", {}], ["cancelled"]])
+			return _finish(_leave_then([["cancelled"]]))
 		Phase.QUEUEING, Phase.SEARCHING:
+			if member:
+				return _finish([["send", "LeaveLobby", {}], ["cancelled"]])
 			phase = Phase.CANCELLING
 			_wait = CANCEL_TIMEOUT
 			return [["send", "CancelQueue", {}]]
@@ -96,7 +115,7 @@ func _finish(actions: Array) -> Array:
 
 
 func _fail(message: String, leave: bool) -> Array:
-	var out: Array = [["send", "LeaveLobby", {}]] if leave else []
+	var out: Array = [["send", "LeaveLobby", {}]] if leave and not keep_lobby else []
 	out.append(["failed", message])
 	return _finish(out)
 
@@ -117,7 +136,7 @@ func tick(delta: float) -> Array:
 		Phase.LOADOUT, Phase.QUEUEING:
 			return _fail(NO_ANSWER, true)
 		Phase.CANCELLING:
-			return _finish([["send", "LeaveLobby", {}], ["cancelled"]])
+			return _finish(_leave_then([["cancelled"]]))
 		Phase.FOUND:
 			return _fail(NOT_STARTED, false)
 	return []
@@ -145,7 +164,7 @@ func on_event(event: String, data: Variant) -> Array:
 		Phase.CREATING:
 			if event == "LobbyUpdated":
 				if _cancel_asked:
-					return _finish([["send", "LeaveLobby", {}], ["cancelled"]])
+					return _finish(_leave_then([["cancelled"]]))
 				phase = Phase.LOADOUT
 				_wait = STEP_TIMEOUT
 				return [["send", "UpdateLoadout", loadout.duplicate(true)]]
@@ -175,10 +194,15 @@ func on_event(event: String, data: Variant) -> Array:
 				return _fail(ErrorText.lobby_error(data), true)
 		Phase.CANCELLING:
 			if event == "QueueCancelled" or err:
-				return _finish([["send", "LeaveLobby", {}], ["cancelled"]])
+				return _finish(_leave_then([["cancelled"]]))
 			if event == "LobbyDisbanded":
 				return _finish([["cancelled"]])
 	return []
+
+
+## LeaveLobby then `actions`; a party keeps its lobby: `actions` only.
+func _leave_then(actions: Array) -> Array:
+	return actions if keep_lobby else [["send", "LeaveLobby", {}]] + actions
 
 
 ## CreateLobby refused: still in the last lobby or a room (leave it and try again), the old
@@ -188,7 +212,7 @@ func _on_create_error(data: Variant) -> Array:
 	var leave := []
 	match code:
 		"ALREADY_IN_LOBBY":
-			leave = [["send", "LeaveLobby", {}]]
+			leave = [] if keep_lobby else [["send", "LeaveLobby", {}]] # a party: the lobby reopens, ask again
 		"IN_ROOM":
 			leave = [["send", "Leave", {}]]
 		"LOBBY_CREATE_FAILED":
