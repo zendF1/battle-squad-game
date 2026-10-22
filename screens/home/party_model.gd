@@ -1,7 +1,8 @@
 extends RefCounted
-## The 2v2 party of a party mode (Đấu thường / Đấu hạng: Home's teammate slot and the invite
-## popups), without UI or socket: the lobby from LobbyUpdated (its queue: the mode the host chose),
-## my role in it (host / member), the teammate, the invites I sent with
+## The party of a party mode (Đấu thường / Đấu hạng 2v2: one teammate; a boss: up to three; Home's
+## teammate slots and the invite popups), without UI or socket: the lobby from LobbyUpdated (its
+## queue: the mode the host chose; its size: that mode's partySize, capacity()), my role in it
+## (host / member), the teammates, the invites I sent with
 ## their expiry, the invite shown to me, and the rows of the invite popup (OnlinePlayers).
 ## on_event(), tick() and the commands (invite(), respond(), kick(), set_ready(), confirm_ready(),
 ## set_character(), select_queue(), leave(), list()) return the actions the owner (screens/home/party.gd) carries out, in order:
@@ -12,6 +13,7 @@ extends RefCounted
 ##   ["invite_closed"]      the invite shown to me is gone (answered, expired)
 ##   ["toast", text]        tell the player
 ##   ["queue_started"]      the host started the queue and I am the member: off to Matchmaking
+##   ["queue_refused"]      SetLobbyQueue refused (PARTY_TOO_LARGE): Home goes back to the lobby's queue
 ## Times are seconds on the owner's clock (`now`). An invite's lifetime is its expiresInSec
 ## (InviteSent / LobbyInvite), else the game data's matchmaking.inviteTimeoutSec.
 ## `queue` is the queue of the mode chosen on Home: every CreateLobby asks for it ({queue}), and
@@ -21,7 +23,7 @@ extends RefCounted
 ## it (LeaveLobby / Leave) and asks again, once; an InviteToLobby answered LOBBY_REQUIRED /
 ## LOBBY_NOT_FOUND (my lobby is gone on the server) creates a new one and invites again. The lobby
 ## filling up cancels my other invites on the server (it tells only their invitees): the
-## "Đã mời" rows clear with the LobbyUpdated of two members. Lobby errors are shown only within ERROR_WINDOW of
+## "Đã mời" rows clear with the LobbyUpdated that fills it. Lobby errors are shown only within ERROR_WINDOW of
 ## a request of mine (other screens handle their own: the ranked queue, a match's leave).
 
 const ErrorText := preload("res://screens/home/error_text.gd")
@@ -148,19 +150,43 @@ func lobby_queue() -> String:
 	return str(lobby.get("queue", "")) if in_lobby() else ""
 
 
-## Two in the lobby: me and a teammate.
+## Me and at least one teammate in the lobby.
 func in_party() -> bool:
 	return not teammate().is_empty()
 
 
-## The other member of my lobby; {} none.
+## The first other member of my lobby; {} none.
 func teammate() -> Dictionary:
+	var all := teammates()
+	return all[0] if not all.is_empty() else {}
+
+
+## The other members of my lobby, in its order; [] none.
+func teammates() -> Array:
 	if not in_lobby():
-		return {}
-	for m in lobby["members"]:
-		if m["playerId"] != me:
-			return m
-	return {}
+		return []
+	return lobby["members"].filter(func(m): return m["playerId"] != me)
+
+
+## How many the party holds: the partySize of the mode with my lobby's queue (else the queue chosen
+## on Home): 2 for 2v2, 4 for a boss; 2 when the game data does not say.
+func capacity() -> int:
+	return capacity_of(lobby_queue() if in_lobby() else queue)
+
+
+static func capacity_of(q: String) -> int:
+	var size = GameData.lobby_mode_of_queue(q).get("partySize")
+	return maxi(int(size), 1) if size is int or size is float else 2
+
+
+## My lobby has as many members as its mode holds (no more invites).
+func is_full() -> bool:
+	return in_lobby() and lobby["members"].size() >= capacity()
+
+
+## The members (me too); 1 not in a lobby.
+func member_count() -> int:
+	return lobby["members"].size() if in_lobby() else 1
 
 
 ## My member entry; {} not in a lobby.
@@ -184,7 +210,7 @@ func start_button() -> Dictionary:
 	if is_member():
 		return {"text": UNREADY, "disabled": false, "action": "unready"} if my_ready() \
 			else {"text": READY, "disabled": false, "action": "ready"}
-	if in_party() and not bool(teammate().get("ready", false)):
+	if teammates().any(func(m): return not bool(m.get("ready", false))):
 		return {"text": WAIT_MATE, "disabled": true, "action": "start"}
 	return {"text": START, "disabled": false, "action": "start"}
 
@@ -207,7 +233,7 @@ func row_button(p: Dictionary, now: float) -> Dictionary:
 	var left := sent_left(str(p.get("playerId", "")), now)
 	if left > 0:
 		return {"text": "Đã mời (%ds)" % left, "disabled": true}
-	return {"text": "Mời", "disabled": in_party() or is_member()}
+	return {"text": "Mời", "disabled": is_full() or is_member()}
 
 
 ## Seconds left of the invite shown to me.
@@ -236,7 +262,7 @@ func list(query: String) -> Array:
 
 ## Invites player_id; without a lobby CreateLobby goes first (the invite follows LobbyUpdated).
 func invite(player_id: String, now: float) -> Array:
-	if player_id == "" or player_id == me or in_party() or is_member():
+	if player_id == "" or player_id == me or is_full() or is_member():
 		return []
 	_expect(now)
 	_create_retried = false
@@ -272,9 +298,14 @@ func respond(accept: bool, now: float) -> Array:
 	return [["send", "RespondInvite", {"inviteId": id, "accept": accept}], ["invite_closed"]]
 
 
-## The host takes the teammate out.
-func kick(now: float) -> Array:
+## The host takes a teammate out: player_id, or the first teammate for "".
+func kick(now: float, player_id: String = "") -> Array:
 	var mate := teammate()
+	if player_id != "":
+		mate = {}
+		for m in teammates():
+			if m["playerId"] == player_id:
+				mate = m
 	if not is_host() or mate.is_empty():
 		return []
 	_expect(now)
@@ -431,13 +462,13 @@ func _on_lobby(data: Variant) -> Array:
 		return [] # not about my lobby
 	lobby = next
 	var out: Array = [["changed"]]
-	if in_party():
+	if is_full():
 		sent.clear() # the server cancelled the other invites
 		out.append(["players"])
 	if _invite_after_create != "":
 		var id := _invite_after_create
 		_invite_after_create = ""
-		if is_host() and not in_party():
+		if is_host() and not is_full():
 			_inviting = id
 			out.append(["send", "InviteToLobby", {"playerId": id}])
 	return out
@@ -445,6 +476,10 @@ func _on_lobby(data: Variant) -> Array:
 
 func _on_error(data: Variant, now: float) -> Array:
 	var code := ErrorText.lobby_code(data)
+	if code == "PARTY_TOO_LARGE":
+		# SetLobbyQueue to a mode smaller than the party: the lobby keeps its queue.
+		_expect_until = -1.0
+		return [["toast", ErrorText.lobby_error(data)], ["queue_refused"], ["changed"]]
 	if _invite_after_create != "":
 		# The CreateLobby before an invite was refused.
 		if not _create_retried and code in ["ALREADY_IN_LOBBY", "IN_ROOM"]:

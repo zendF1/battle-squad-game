@@ -6,7 +6,9 @@ extends Control
 ## with their gun on the pedestal (PedestalGun of their gun {kind, tier}); for the host a ready
 ## mark under it ("Sẵn sàng" green tick / "Chưa sẵn sàng" grey) and a small "×" (kick_pressed), for
 ## the member (the host shown, always ready) "Rời đội" there instead (leave_pressed). Each player sees the other here: a
-## member sees the host.
+## member sees the host. A boss party has three slots (screens/home/party_layout.gd, the slot
+## scaled down): a member sees the host ("Rời đội") and the other members (their ready mark); an
+## empty slot in a member's view is a dim "+" with "Trống" (only the host invites).
 
 signal invite_pressed
 signal kick_pressed
@@ -133,16 +135,21 @@ func _ready() -> void:
 
 
 ## Shows the teammate `m` (PartyModel.parse_member()) or, with {}, the "+". host_view: I am the
-## host (the "×"); otherwise the member (the "Rời đội").
-func show_member(m: Dictionary, host_view: bool) -> void:
+## host (the "×"); otherwise the member ("Rời đội" on the host's card, is_host_card; another
+## member's card shows its ready mark). can_invite false: the "+" is off ("Trống").
+func show_member(m: Dictionary, host_view: bool, is_host_card: bool = true, can_invite: bool = true) -> void:
 	_member = m
 	var empty := m.is_empty()
 	_plus.visible = empty
 	_plus_label.visible = empty
+	_plus.disabled = not can_invite
+	_plus.modulate.a = 1.0 if can_invite else 0.4
+	_plus_label.text = "Mời" if can_invite else "Trống"
+	_plus_label.modulate.a = 1.0 if can_invite else 0.6
 	for c in [_art, _gun, _head, _ready_mark]:
 		c.visible = not empty
 	_kick.visible = not empty and host_view
-	_leave.visible = not empty and not host_view
+	_leave.visible = not empty and not host_view and is_host_card
 	if empty:
 		_pedestal.queue_redraw()
 		return
@@ -156,7 +163,7 @@ func show_member(m: Dictionary, host_view: bool) -> void:
 	_badge.division = int(m.get("division", 3))
 	_badge.visible = _badge.tier != ""
 	var ready := bool(m.get("ready", false))
-	_ready_mark.visible = host_view # the member sees the host, always ready: "Rời đội" there instead
+	_ready_mark.visible = host_view or not is_host_card # the member sees the host, always ready: "Rời đội" there instead
 	_ready_text.text = "Sẵn sàng" if ready else "Chưa sẵn sàng"
 	_ready_text.add_theme_color_override("font_color", READY_COLOR if ready else Ui.TEXT_DIM)
 	_ready_mark.get_child(0).get_node("Tick").visible = ready

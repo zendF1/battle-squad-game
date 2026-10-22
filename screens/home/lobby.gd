@@ -30,6 +30,10 @@ extends Control
 ## so their slot shows it. Choosing another party mode in my lobby moves it there (SetLobbyQueue);
 ## a solo mode leaves it, asking "Rời đội?" first with a teammate. The member's card shows the
 ## host's mode (LobbyUpdated queue) and cannot change it ("Chủ phòng chọn chế độ").
+## A boss mode (party size 4) has three teammate slots, smaller, two right of the stage and one
+## left (screens/home/party_layout.gd); switching a party bigger than a mode holds is refused
+## ("Đội đông hơn số người của chế độ này", also the server's PARTY_TOO_LARGE, which puts the
+## lobby's mode back).
 
 signal open_profile
 signal open_shop(section: int)
@@ -63,6 +67,8 @@ const PartySlot := preload("res://screens/home/party_slot.gd")
 const InvitePopup := preload("res://screens/home/invite_popup.gd")
 const Modal := preload("res://ui/modal.gd")
 const ModeSelectModel := preload("res://screens/home/mode_select_model.gd")
+const PartyLayout := preload("res://screens/home/party_layout.gd")
+const BossCardModel := preload("res://screens/home/boss_card_model.gd")
 
 const MARGIN := 18
 const STAGE := Vector2(560, 590)
@@ -110,9 +116,10 @@ var _mode_rank: Control # ranked: the tier badge and "Bạc II · 1.050 điểm"
 var _mode_rank_badge: TierBadge
 var _mode_rank_text: Label
 var _mode_lock: Label # the member's "Chủ phòng chọn chế độ"
+var _mode_runs: Label # a boss mode's "Lv đề xuất 10 · Lượt thưởng lớn: 2/3"
 var _mode_swap: Button
 var _start: Button
-var _slot: PartySlot # a party mode's teammate slot
+var _slots: Array[PartySlot] = [] # a party mode's teammate slots (PartyLayout: 1 for 2v2, 3 for a boss)
 
 
 func _ready() -> void:
@@ -121,11 +128,14 @@ func _ready() -> void:
 	_mode = LobbyModel.restore_mode(settings_path)
 
 	_add_stage()
-	_slot = PartySlot.new()
-	_pin(_slot, 0.5, 1, SLOT_X, SLOT_Y)
-	_slot.invite_pressed.connect(open_invite)
-	_slot.kick_pressed.connect(func() -> void: Router.party.kick())
-	_slot.leave_pressed.connect(_confirm_leave.bind(Callable()))
+	for i in PartyLayout.THREE.size():
+		var slot := PartySlot.new()
+		slot.name = "PartySlot%d" % i
+		_pin(slot, 0.5, 1, SLOT_X, SLOT_Y)
+		slot.invite_pressed.connect(open_invite)
+		slot.kick_pressed.connect(func() -> void: _kick(slot))
+		slot.leave_pressed.connect(_confirm_leave.bind(Callable()))
+		_slots.append(slot)
 	_pin(_build_player_block(), 0, 0, MARGIN, MARGIN)
 	rank_chip = RankChip.new()
 	_pin(rank_chip, 0, 0, MARGIN + PLAYER_W + 14, MARGIN + 14)
@@ -148,7 +158,9 @@ func _ready() -> void:
 	PlayerState.milestones_changed.connect(_render_milestones)
 	PlayerState.daily_changed.connect(_render_daily)
 	PlayerState.rank_changed.connect(_render_mode)
+	PlayerState.boss_runs_changed.connect(_render_mode)
 	Router.party.changed.connect(_render_mode) # a member follows the host's mode
+	Router.party.queue_refused.connect(_on_queue_refused)
 	Router.party.select_queue(_party_queue())
 	GameSocket.connected.connect(_render_conn)
 	GameSocket.disconnected.connect(_render_conn)
@@ -584,7 +596,13 @@ func _build_mode_card() -> Control:
 	_mode_name = LobbyUi.text("", 32, Color.WHITE, true)
 	texts.add_child(_mode_name)
 	_mode_text = LobbyUi.text("", 22, Color(0.75, 0.9, 1.0))
+	_mode_text.clip_text = true
+	_mode_text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	texts.add_child(_mode_text)
+	_mode_runs = LobbyUi.text("", 22, LobbyUi.GOLD, true)
+	_mode_runs.name = "ModeRuns"
+	_mode_runs.visible = false
+	texts.add_child(_mode_runs)
 	var rank_row := Ui.hbox(8)
 	rank_row.mouse_filter = MOUSE_FILTER_IGNORE
 	_mode_rank_badge = TierBadge.make("", 3, 34)
@@ -631,7 +649,7 @@ func current_mode() -> int:
 ## (SetLobbyQueue), a solo mode leaves it ("Rời đội?" first with a teammate).
 func choose_mode(index: int) -> void:
 	var party = Router.party.model
-	match ModeSelectModel.switch_action(_mode, index, party.in_lobby(), party.is_member(), party.in_party()):
+	match ModeSelectModel.switch_action(_mode, index, party.in_lobby(), party.is_member(), party.in_party(), party.member_count()):
 		ModeSelectModel.SWITCH, ModeSelectModel.SET_QUEUE:
 			_switch_mode(index)
 		ModeSelectModel.LEAVE:
@@ -641,6 +659,13 @@ func choose_mode(index: int) -> void:
 			_confirm_leave(_switch_mode.bind(index)) # "Rời đội?" first
 		ModeSelectModel.LOCKED:
 			Ui.toast(self, ModeSelectModel.LOCKED_TEXT)
+		ModeSelectModel.TOO_LARGE:
+			Ui.toast(self, ModeSelectModel.TOO_LARGE_TEXT)
+
+
+## The server refused SetLobbyQueue (PARTY_TOO_LARGE): Home shows the lobby's mode again.
+func _on_queue_refused() -> void:
+	show_queue_mode(Router.party.model.lobby_queue())
 
 
 func _switch_mode(index: int) -> void:
@@ -709,7 +734,15 @@ func _render_mode() -> void:
 	_mode_text.text = m["description"]
 	var ranked := LobbyModel.is_ranked(m["base"])
 	_mode_rank.visible = ranked and not member
-	_mode_text.visible = not ranked and not member # the rank line (the member: the lock line) takes its place
+	var boss: bool = m["category"] == BossCardModel.CATEGORY
+	# the rank line (the member: the lock line; a boss: its level and runs) takes the description's place
+	_mode_text.visible = not ranked and not member and not boss
+	_mode_runs.visible = boss
+	if boss: # the recommended level and the big-reward runs left today
+		if is_visible_in_tree():
+			PlayerState.load_boss_runs()
+		var c := BossCardModel.card(_mode, m, _mode, PlayerState.my_boss_runs(), 0)
+		_mode_runs.text = " · ".join(PackedStringArray([c["level_text"], c["runs_text"]].filter(func(t): return t != "")))
 	if ranked:
 		var data := PlayerState.my_rank()
 		var r := RankModel.from_me(data)
@@ -724,15 +757,44 @@ const SLOT_X := STAGE.x / 2.0 + 175.0 # the teammate slot's centre right of the 
 const SLOT_Y := -240.0 # its bottom above the screen's bottom: the pedestal clear of the mode card
 
 
-## A party mode's teammate slot and the start button (PartyModel.start_button()).
+## The host's × on a slot: KickMember for the member shown there.
+func _kick(slot: PartySlot) -> void:
+	var id := str(slot.member().get("playerId", ""))
+	if id != "":
+		Router.party.kick(id)
+
+
+## The slots shown for the mode (PartyLayout); tests and the preview harness.
+func party_slots() -> Array:
+	return _slots.filter(func(s): return s.visible)
+
+
+## A party mode's teammate slots (PartyLayout.slots() of its party size, the lobby's other members
+## in them) and the start button (PartyModel.start_button()).
 func _render_party() -> void:
-	if _slot == null or _start == null:
+	if _slots.is_empty() or _start == null:
 		return
 	var party = Router.party.model
 	var with_party := LobbyModel.is_party(_mode)
-	_slot.visible = with_party
-	if with_party:
-		_slot.show_member(party.teammate(), party.is_host())
+	var capacity := int(LobbyModel.mode(_mode)["party_size"]) if with_party else 1
+	var layout := PartyLayout.slots(capacity)
+	var shown := PartyLayout.fill(party.teammates(), capacity)
+	var host_view: bool = not party.is_member()
+	for i in _slots.size():
+		var slot := _slots[i]
+		slot.visible = i < layout.size()
+		if not slot.visible:
+			continue
+		var at: Dictionary = layout[i]
+		var k: float = float(at["scale"])
+		slot.scale = Vector2.ONE * k
+		slot.pivot_offset = Vector2(PartySlot.SIZE.x / 2.0, PartySlot.SIZE.y)
+		slot.offset_left = float(at["x"])
+		slot.offset_right = float(at["x"])
+		slot.offset_top = float(at["y"])
+		slot.offset_bottom = float(at["y"])
+		var m: Dictionary = shown[i]
+		slot.show_member(m, host_view, str(m.get("playerId", "")) == str(party.lobby.get("hostPlayerId", "")), host_view)
 	var state: Dictionary = party.start_button() if with_party else {"text": "BẮT ĐẦU", "disabled": false, "action": "start"}
 	_start.text = state["text"]
 	_start.disabled = state["disabled"]

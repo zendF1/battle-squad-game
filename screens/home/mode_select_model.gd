@@ -37,8 +37,10 @@ const SWITCH := "switch" # not in a lobby: just switch
 const SET_QUEUE := "set_queue" # in my lobby, to another party mode: SetLobbyQueue {queue}, then switch
 const LEAVE := "leave" # alone in my lobby, to a solo mode: LeaveLobby, then switch
 const CONFIRM_LEAVE := "confirm_leave" # with a teammate, to a solo mode: "Rời đội?" first
+const TOO_LARGE := "too_large" # in my lobby, to a party mode smaller than the party: refused (TOO_LARGE_TEXT)
 
 const LOCKED_TEXT := "Chủ phòng chọn chế độ"
+const TOO_LARGE_TEXT := "Đội đông hơn số người của chế độ này" # = the server's PARTY_TOO_LARGE
 
 
 ## The icon (assets/icons name) of an icon key.
@@ -97,9 +99,11 @@ static func placeholder(category_id: String) -> Dictionary:
 
 
 ## What choosing the mode `to` (from `from`) does, given the party: NOTHING, LOCKED, SWITCH,
-## SET_QUEUE, LEAVE or CONFIRM_LEAVE. In my lobby, a party mode (a queue for two or more) keeps it
-## (SetLobbyQueue); a solo mode leaves it, asking "Rời đội?" first with a teammate.
-static func switch_action(from: int, to: int, in_lobby: bool, is_member: bool, in_party: bool) -> String:
+## SET_QUEUE, LEAVE, CONFIRM_LEAVE or TOO_LARGE. In my lobby, a party mode (a queue for two or more)
+## keeps it (SetLobbyQueue) unless the party (`members`, me too) is bigger than that mode holds
+## (TOO_LARGE: a boss party of 3 to a 2v2); a solo mode leaves it, asking "Rời đội?" first with a
+## teammate.
+static func switch_action(from: int, to: int, in_lobby: bool, is_member: bool, in_party: bool, members: int = 1) -> String:
 	if to < 0 or to >= LobbyModel.modes().size() or to == from:
 		return NOTHING
 	if is_member:
@@ -107,5 +111,5 @@ static func switch_action(from: int, to: int, in_lobby: bool, is_member: bool, i
 	if not in_lobby:
 		return SWITCH
 	if LobbyModel.is_party(to) and LobbyModel.is_queue(LobbyModel.mode_base(to)):
-		return SET_QUEUE
+		return TOO_LARGE if members > int(LobbyModel.mode(to)["party_size"]) else SET_QUEUE
 	return CONFIRM_LEAVE if in_party else LEAVE

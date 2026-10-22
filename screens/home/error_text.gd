@@ -327,6 +327,7 @@ const LOBBY := {
 	"INVALID_PAYLOAD": "Yêu cầu không hợp lệ",
 	"MEMBER_NOT_READY": "Đồng đội chưa sẵn sàng",
 	"INVALID_QUEUE": "Chế độ này chưa mở, hãy chọn chế độ khác",
+	"PARTY_TOO_LARGE": "Đội đông hơn số người của chế độ này",
 	"character_not_owned": "Bạn chưa sở hữu nhân vật này",
 	"too_many_items": "Chỉ mang tối đa 3 vật phẩm",
 	"item_not_owned": "Vật phẩm đã hết hoặc chưa sở hữu",

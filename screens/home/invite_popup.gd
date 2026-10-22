@@ -76,8 +76,8 @@ func _process(delta: float) -> void:
 
 
 func _on_party_changed() -> void:
-	if party.model.in_party():
-		close() # the teammate is in
+	if party.model.is_full():
+		close() # the party is full
 	else:
 		_render_buttons()
 

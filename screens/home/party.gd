@@ -1,5 +1,5 @@
 extends Node
-## The 2v2 party of a party mode (Đấu thường / Đấu hạng) over the game socket (screens/home/party_model.gd does the deciding), kept
+## The party of a party mode (Đấu thường / Đấu hạng 2v2, a boss) over the game socket (screens/home/party_model.gd does the deciding), kept
 ## by the Router (Router.party) so it lives through every scene: Home → Loadout → Matchmaking →
 ## Match → Home. It sends what the model asks, re-emits the rest as signals for Home (the slot, the
 ## popups, toasts), and when the host starts the queue while I am the member it takes me to
@@ -10,6 +10,7 @@ signal players_changed
 signal invite_received(invite: Dictionary)
 signal invite_closed
 signal notice(text: String)
+signal queue_refused # SetLobbyQueue refused (PARTY_TOO_LARGE): Home shows the lobby's mode again
 
 const PartyModel := preload("res://screens/home/party_model.gd")
 
@@ -48,8 +49,9 @@ func respond(accept: bool) -> void:
 	_run(model.respond(accept, now()))
 
 
-func kick() -> void:
-	_run(model.kick(now()))
+## KickMember for player_id (the first teammate for "").
+func kick(player_id: String = "") -> void:
+	_run(model.kick(now(), player_id))
 
 
 func set_ready(value: bool) -> void:
@@ -94,6 +96,8 @@ func _run(actions: Array) -> void:
 				notice.emit(str(a[1]))
 			"queue_started":
 				_to_matchmaking()
+			"queue_refused":
+				queue_refused.emit()
 
 
 ## The host's queue started: Matchmaking as the member (my lobby character on my card), on the
