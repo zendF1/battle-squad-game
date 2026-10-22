@@ -77,10 +77,10 @@ const ACTION_MARGIN := 0.1
 const MOVE_ACK_GAP := 0.16 # Shoot/EndTurn/UseItem wait this long after the last answer to a Move
 # Both waits are measured with Time.get_ticks_usec() from the moment they start, not by summing
 # frame deltas: a long frame right before an answer is read would count time from before it.
-const OTHER_WALK_SPEED := 90.0
-## Another player's walk ends this long before a bot's next action (timings.botFollowUpDelaySec
-## after its Move) at the latest.
-const OTHER_WALK_LEAD := 0.5
+## Another player's walk (PlayerMoved) is drawn along the surface (PlayerView.walk_to) and ends
+## this long before a bot's next action (timings.botFollowUpDelaySec after its Move) at the latest.
+const OTHER_WALK_LEAD := 0.1
+const SNAP_WALK_SEC := 0.12 # a shooter's walk still under way ends within this when its shot resolves
 const SHOT_ACK_TIMEOUT := 3.0
 const ITEM_ACK_TIMEOUT := 1.5 # input waits this long for ItemUsed after a UseItem
 const TELEPORT_SEC := 0.3
@@ -263,7 +263,7 @@ func _process(delta: float) -> void:
 	if not _shot_player.is_playing():
 		var changes := _moves.take_changes()
 		if changes.has("position"):
-			_views[_me].position = changes["position"]
+			_views[_me].follow_walk(changes["position"]) # drawn along the surface (WalkPath)
 			_aim.shooter_pos = changes["position"]
 		if changes.has("energy"): # may change alone, e.g. when dropped Moves were not charged
 			_hud.set_energy(changes["energy"])
@@ -308,6 +308,7 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 	var my_team := int(_players.get(_me, {}).get("teamId", -1))
 	for id in _players:
 		var view := PlayerView.new()
+		view.walk.terrain = _mask
 		_players_layer.add_child(view)
 		view.setup(_players[id], id == _me, my_team)
 		view.face(1.0 if view.position.x < _mask.width / 2.0 else -1.0) # towards the middle
@@ -355,10 +356,14 @@ func _set_current(player_id: String, move_energy: int, continuing: bool = false)
 			_cam.pan_to(_pos(player_id) + LOOK_LIFT) # waits for an explosion's hold
 	if _views.has(_me) and _players[_me].has("position"):
 		# Leaving my turn with Moves unanswered or unsent (or with my last PlayerMoved in the
-		# same frame) leaves the view on the prediction: walk it to the server's position.
+		# same frame) leaves the view on the prediction: walk it to the server's position. My
+		# turn starts there (a walk already heading there goes on).
 		var view = _views[_me]
 		var to := _pos(_me)
-		view.move_to(to, 0.0 if _is_my_turn() else view.position.distance_to(to) / OTHER_WALK_SPEED)
+		if not _is_my_turn():
+			view.walk_to(to, _other_walk_max())
+		elif not view.walk.active() or view.walk.target() != to:
+			view.move_to(to, 0.0)
 	var turn_player: Dictionary = _players.get(player_id, {})
 	var my_team := int(_players.get(_me, {}).get("teamId", -1))
 	_hud.set_turn(_is_my_turn(), str(turn_player.get("displayName", "")), turn_player,
@@ -748,15 +753,18 @@ func _on_player_moved(d: Dictionary) -> void:
 			_resync_in = 0.0
 			_refresh_controls() # the newest Move's late answer unlocks input
 		return
-	var view = _views[id]
-	view.move_to(pos, minf(view.position.distance_to(pos) / OTHER_WALK_SPEED, _other_walk_max()))
+	_views[id].walk_to(pos, _other_walk_max()) # along the surface, a drop as a fall
 
 
-## The shell leaves from the server's position: stop a walk still under way and put the
-## shooter there before the replay starts.
+## The shell leaves from the server's position: a walk still under way to it ends within
+## SNAP_WALK_SEC; a shooter drawn anywhere else is put there before the replay starts.
 func _snap_to_server(id: String) -> void:
 	if _views.has(id) and _players.has(id) and _players[id].has("position"):
-		_views[id].move_to(_pos(id), 0.0)
+		var view = _views[id]
+		if view.walk.active() and view.walk.target() == _pos(id):
+			view.hurry_walk(SNAP_WALK_SEC)
+		else:
+			view.move_to(_pos(id), 0.0)
 
 
 func _on_shot_event(e: Dictionary) -> void:

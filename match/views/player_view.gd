@@ -9,6 +9,9 @@ extends Node2D
 ## (match/views/status_icons.gd); the shield also shows on the HP bar as a light-blue segment after
 ## the HP (the bar then spans HP + shield when they pass the max HP).
 ## Walking is read from the position changes (prediction or tweens), so callers only move it.
+## A walk is drawn by `walk` (match/move/walk_path.gd: along the surface, a ledge drop as a fall,
+## a correction eased out): follow_walk() for the local prediction, walk_to() for a PlayerMoved;
+## move_to() (a tween: a shot's fall, knockback, teleport) takes over from it.
 ## Idle, the character stands breathing with the gun in its hand in a low carry, 45° down-forward
 ## (scenes/character/character.gd holster + idle_gun); walking slings it across the back: aim() /
 ## draw_gun() kneel on the ready pose and turn it up, shoot() fires it (returning the wait while
@@ -34,6 +37,7 @@ const TitlePlate := preload("res://ui/title_plate.gd")
 const EnergyAura := preload("res://match/views/energy_aura.gd")
 const UseBadge := preload("res://match/views/use_badge.gd")
 const Skills := preload("res://match/skills.gd")
+const WalkPath := preload("res://match/move/walk_path.gd")
 
 const BODY := Vector2(28, 40) # server PlayerHeight = 40
 ## px per art unit: the baked art (about 150 units) stands about 52 px tall over the 28x40
@@ -64,7 +68,9 @@ var skill_energy := 0
 var _icons: Array = [] # Status.icons() of the effects
 var color := ALLY
 
+var walk := WalkPath.new() # set walk.terrain to the match's TerrainMask
 var _tween: Tween
+var _tween_to := Vector2.ZERO
 var _status: Label
 var _name: Label
 var _title: TitlePlate
@@ -94,6 +100,7 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 		color = TEAM_COLORS.get(team_id, Color.WHITE)
 	position = Vector2(float(p["position"]["x"]), float(p["position"]["y"]))
 	_last_x = position.x
+	walk.reset(position)
 
 	_ring = Node2D.new()
 	_ring.show_behind_parent = true
@@ -147,6 +154,8 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	if walk.active():
+		position = walk.step(delta)
 	var dx := position.x - _last_x
 	_last_x = position.x
 	if absf(dx) > 0.01:
@@ -393,15 +402,44 @@ func character_id() -> String:
 	return _sprite.character_id
 
 
-## Tweens to target over duration seconds (0 = jump there).
+## Tweens to target over duration seconds (0 = jump there). Ends a walk under way.
 func move_to(target: Vector2, duration: float, trans: Tween.TransitionType = Tween.TRANS_LINEAR, ease_type: Tween.EaseType = Tween.EASE_IN_OUT) -> void:
 	if _tween:
 		_tween.kill()
+	walk.reset(target)
 	if duration <= 0.0:
 		position = target
 		return
+	_tween_to = target
 	_tween = create_tween()
 	_tween.tween_property(self, "position", target, duration).set_trans(trans).set_ease(ease_type)
+
+
+## The local player's walk: target is MoveSync's predicted position (see WalkPath.follow).
+func follow_walk(target: Vector2) -> void:
+	_take_walk()
+	walk.follow(target)
+
+
+## Another player's walk to the server's target, drawn within max_sec (WalkPath.walk).
+func walk_to(target: Vector2, max_sec: float) -> void:
+	_take_walk()
+	walk.walk(target, max_sec)
+
+
+## The player acts from the server's position: the walk under way ends within about sec.
+func hurry_walk(sec: float) -> void:
+	walk.hurry(sec)
+
+
+## A tween still running is cut short: the walk starts from its target, the body eases over
+## from where the tween left it.
+func _take_walk() -> void:
+	if _tween and _tween.is_running():
+		_tween.kill()
+		walk.reset(_tween_to)
+		walk.ease_from(position)
+	_tween = null
 
 
 func _draw_ring() -> void:
