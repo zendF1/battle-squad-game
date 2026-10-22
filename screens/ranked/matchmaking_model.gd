@@ -103,9 +103,11 @@ static func teams_of_started(data: Variant) -> Dictionary:
 	return out
 
 
-## The four slots, left to right: my team (me first, then my teammate), then the other team;
-## an empty slot is {}. Without me in any team the first team is mine.
-static func slots(teams: Dictionary, me: String) -> Array:
+## The slots, left to right: my team (me first, then my teammates), then the other team, each
+## side padded to its size (left / right; -1 the team size: two each for 2v2; a boss queue asks
+## for 4 and 0: the boss side is its own card); an empty slot is {}. Without me in any team the
+## first team is mine.
+static func slots(teams: Dictionary, me: String, left_size: int = -1, right_size: int = -1) -> Array:
 	var mine := -1
 	for team in teams:
 		for p in teams[team]:
@@ -121,12 +123,12 @@ static func slots(teams: Dictionary, me: String) -> Array:
 	for team in keys:
 		if team != mine:
 			right.append_array(teams[team])
-	return _pad(left) + _pad(right)
+	return _pad(left, left_size if left_size >= 0 else team_size()) + _pad(right, right_size if right_size >= 0 else team_size())
 
 
-static func _pad(players: Array) -> Array:
-	var out: Array = players.slice(0, team_size())
-	while out.size() < team_size():
+static func _pad(players: Array, n: int) -> Array:
+	var out: Array = players.slice(0, n)
+	while out.size() < n:
 		out.append({})
 	return out
 

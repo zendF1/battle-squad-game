@@ -18,6 +18,10 @@ extends Control
 ## error goes back Home still in the party. Opened for the party's member (Router.ranked_member:
 ## the host started the queue) it searches at once; the member's "Hủy ghép" leaves the lobby (the
 ## server cancels the queue for both). Every LeaveLobby goes through Router.party.leave().
+## A boss queue (boss:<bossId>): the title is the boss's name over "Lv đề xuất N"; left, the
+## party's four cards (smaller; my teammates from the start), right one card of the boss (its
+## figure, name, level and HP from the game data), which stays: only the party's cards flip at
+## MatchFound (bot teammates included).
 ## offline_preview (the preview harness, set before it enters
 ## the tree): no socket; the harness feeds on_event().
 
@@ -32,6 +36,11 @@ const VsEmblem := preload("res://screens/ranked/vs_emblem.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
+const BossArt := preload("res://match/boss/boss_art.gd")
+const BossArtView := preload("res://match/boss/boss_art_view.gd")
+const Fmt := preload("res://core/fmt.gd")
+
+const BOSS_CARD_SCALE := 0.74 # the party's cards in a boss queue
 
 const MARGIN := 18
 const TIP_SEC := 6.0
@@ -62,6 +71,7 @@ var _revealed := false
 var _snapshot: Variant = null # MatchStarted data
 var _leaving := false
 var _queue := "" # Router.queue, else the game data's ranked mode
+var _boss := {} # the boss of a boss queue (GET /gamedata bosses), {} otherwise
 
 
 func _ready() -> void:
@@ -72,11 +82,12 @@ func _ready() -> void:
 	var as_member := Router.ranked_member # taken once, whatever happens next
 	Router.ranked_member = false
 	_queue = Router.queue if Router.queue != "" else GameData.ranked_mode()
+	_boss = GameData.boss_of_queue(_queue)
 	_build()
 	_cards[0].show_player(_my_player())
-	var mate := _teammate()
-	if not mate.is_empty():
-		_cards[1].show_player(mate)
+	var mates := _teammates()
+	for i in mini(mates.size(), _cards.size() - 1):
+		_cards[i + 1].show_player(mates[i])
 	PlayerState.rank_changed.connect(_on_rank_changed)
 	PlayerState.need_titles() # the other players' titles (MatchFound gives their ids)
 	if not offline_preview:
@@ -96,11 +107,22 @@ func _in_party() -> bool:
 	return Router.party != null and Router.party.model.in_party()
 
 
-## The party's teammate as a card player (MatchmakingModel.parse_player); {} alone.
-func _teammate() -> Dictionary:
+## The party's teammates as card players (MatchmakingModel.parse_player); [] alone.
+func _teammates() -> Array:
 	if not _in_party():
-		return {}
-	return MatchmakingModel.parse_player(Router.party.model.teammate())
+		return []
+	return Router.party.model.teammates().map(func(m): return MatchmakingModel.parse_player(m))
+
+
+## A boss queue: the party's cards (4) on the left, the boss on the right.
+func _is_boss() -> bool:
+	return not _boss.is_empty() or GameData.is_boss_queue(_queue)
+
+
+## The cards on my side: the boss party's size, else the team size.
+func _left_size() -> int:
+	return maxi(int(LobbyModel.mode(LobbyModel.index_of_queue(_queue))["party_size"]), 1) if _is_boss() \
+		else MatchmakingModel.team_size()
 
 
 func _exit_tree() -> void:
@@ -139,7 +161,7 @@ func _build() -> void:
 	centre.add_child(row)
 	row.add_child(_team("ĐỘI CỦA BẠN", BLUE, false))
 	row.add_child(_build_middle())
-	row.add_child(_team("ĐỐI THỦ", RED, true))
+	row.add_child(_boss_side() if _is_boss() else _team("ĐỐI THỦ", RED, true))
 
 	var bar := Ui.hbox(18)
 	bar.anchor_left = 0
@@ -169,13 +191,63 @@ func _team(caption: String, color: Color, enemy: bool) -> Control:
 	var cards := Ui.hbox(18)
 	cards.mouse_filter = MOUSE_FILTER_IGNORE
 	col.add_child(cards)
-	for i in MatchmakingModel.team_size():
+	var boss := _is_boss() and not enemy
+	for i in (_left_size() if boss else MatchmakingModel.team_size()):
 		var card := PlayerCard.new()
 		card.enemy = enemy
 		card.mine = not enemy and i == 0
-		cards.add_child(card)
+		if boss: # smaller: four fit
+			var holder := Control.new()
+			holder.custom_minimum_size = PlayerCard.SIZE * BOSS_CARD_SCALE
+			holder.mouse_filter = MOUSE_FILTER_IGNORE
+			var inner := Control.new()
+			inner.scale = Vector2.ONE * BOSS_CARD_SCALE
+			inner.mouse_filter = MOUSE_FILTER_IGNORE
+			holder.add_child(inner)
+			inner.add_child(card)
+			cards.add_child(holder)
+		else:
+			cards.add_child(card)
 		_cards.append(card)
 	return col
+
+
+## The boss's side: "BOSS" over one card with its figure, name, level and HP.
+func _boss_side() -> Control:
+	var col := Ui.vbox(10)
+	col.mouse_filter = MOUSE_FILTER_IGNORE
+	var label := LobbyUi.text("BOSS", 26, RED, true)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(label)
+	var card := PanelContainer.new()
+	card.name = "BossCard"
+	card.custom_minimum_size = Vector2(PlayerCard.SIZE.x * 1.05, PlayerCard.SIZE.y * BOSS_CARD_SCALE)
+	card.mouse_filter = MOUSE_FILTER_IGNORE
+	var art := BossArt.art_of(str(_boss.get("bossId", "")))
+	card.add_theme_stylebox_override("panel", LobbyUi.box(Color(0.12, 0.04, 0.1, 0.92), 22, 10, Color(BossArt.accent(art), 0.95), 4))
+	col.add_child(card)
+	var inner := Ui.vbox(4)
+	inner.mouse_filter = MOUSE_FILTER_IGNORE
+	card.add_child(inner)
+	var figure := BossArtView.make(art, Vector2(PlayerCard.SIZE.x * 1.05 - 20, 230), -1)
+	figure.name = "BossFigure"
+	inner.add_child(figure)
+	for t in [[str(_boss.get("name", LobbyModel.queue_name(_queue))), 30, Color.WHITE],
+			[_level_line(), 22, LobbyUi.GOLD],
+			["Máu %s" % Fmt.thousands(int(_boss.get("hp", 0))) if int(_boss.get("hp", 0)) > 0 else "", 20, Color(1.0, 0.6, 0.55)]]:
+		if t[0] == "":
+			continue
+		var l := LobbyUi.text(t[0], t[1], t[2], true)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.mouse_filter = MOUSE_FILTER_IGNORE
+		inner.add_child(l)
+	return col
+
+
+## "Lv đề xuất 10" of the boss ("" none).
+func _level_line() -> String:
+	var lv := int(_boss.get("recommendedLevel", 0))
+	return "Lv đề xuất %d" % lv if lv > 0 else ""
 
 
 func _build_middle() -> Control:
@@ -184,11 +256,14 @@ func _build_middle() -> Control:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.mouse_filter = MOUSE_FILTER_IGNORE
 	var mode: Dictionary = LobbyModel.mode(LobbyModel.index_of_queue(_queue)) if LobbyModel.index_of_queue(_queue) >= 0 else {}
-	var title := LobbyUi.text(LobbyModel.queue_name(_queue).to_upper(), 40, LobbyUi.GOLD, true)
+	var title_text := str(_boss.get("name", "")) if str(_boss.get("name", "")) != "" else LobbyModel.queue_name(_queue)
+	var title := LobbyUi.text(title_text.to_upper(), 40, LobbyUi.GOLD, true)
 	title.name = "ModeTitle"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.custom_minimum_size.x = CENTRE_W
 	col.add_child(title)
-	var sub := LobbyUi.text(str(mode.get("description", "")), 21, Color(0.75, 0.9, 1.0))
+	var sub := LobbyUi.text(_level_line() if _is_boss() else str(mode.get("description", "")), 21, Color(0.75, 0.9, 1.0))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(sub)
 	_vs = VsEmblem.new()
@@ -386,7 +461,7 @@ func _reveal(teams: Dictionary) -> void:
 	if teams.is_empty():
 		return
 	_revealed = true
-	var slots := MatchmakingModel.slots(teams, _me)
+	var slots := MatchmakingModel.slots(teams, _me, _left_size(), 0) if _is_boss() else MatchmakingModel.slots(teams, _me)
 	var order := MatchmakingModel.reveal_order(slots, _me)
 	for i in slots.size():
 		var p: Dictionary = slots[i]
