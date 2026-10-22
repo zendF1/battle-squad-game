@@ -1,8 +1,8 @@
 extends RefCounted
 ## The end-of-match screen without UI (match/result_screen.gd): the outcome and its title, who
-## stands where (the winners on the left, on the podium; a draw puts my team left), the MVP, each
-## player's labels, my rewards (EXP bar steps, coins, level ups, the ranked rating line) and the
-## buttons' texts.
+## stands where (the winners on the left, on the podium, the MVP on its top step; a draw puts my
+## team left), the MVP, each player's labels, my rewards (EXP bar steps, coins, the level-up
+## popup's stages, the ranked rating line) and the buttons' texts.
 
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
@@ -118,16 +118,69 @@ static func damage_text(damage: int) -> String:
 
 
 ## My rewards from MatchEnded.rewards[me] (null: granting failed) for a match in `mode`:
-## {ok, exp, coin, level_up, new_level, char_level_up, char_level, rank (RankModel.result_of)}.
+## {ok, exp, coin, level_up, new_level, char_level_up, char_level, char_gained (levels), rank
+## (RankModel.result_of)}.
 static func reward(r: Variant, mode: String) -> Dictionary:
 	if not r is Dictionary:
 		return {"ok": false, "exp": 0, "coin": 0, "level_up": false, "new_level": 0, "char_level_up": false,
-			"char_level": 0, "rank": {}}
+			"char_level": 0, "char_gained": 0, "rank": {}}
 	return {"ok": true, "exp": int(_num(r.get("expGained"))) if _num(r.get("expGained")) > 0 else 0,
 		"coin": int(_num(r.get("coinGained"))) if _num(r.get("coinGained")) > 0 else 0,
 		"level_up": r.get("levelUp") is bool and r["levelUp"], "new_level": maxi(0, int(_num(r.get("newLevel")))),
 		"char_level_up": r.get("charLevelUp") is bool and r["charLevelUp"], "char_level": maxi(0, int(_num(r.get("charNewLevel")))),
-		"rank": RankModel.result_of(mode, r)}
+		"char_gained": maxi(0, int(_num(r.get("charLevelsGained")))), "rank": RankModel.result_of(mode, r)}
+
+
+## The levels a popup counts through from `from` to `to`, one per step: (3, 5) → [4, 5]; [] when
+## `to` is not higher.
+static func count_steps(from: int, to: int) -> Array:
+	var out: Array = []
+	for lv in range(from + 1, to + 1):
+		out.append(lv)
+	return out
+
+
+## The level-up popup's stages, the player's level first, then my character's: [{kind: "player",
+## from, to, steps (count_steps)}, {kind: "character", character_id, name, from, to, steps}]; []
+## without a level up. `r` is reward(); `before` the cached profile's {level, exp} before the match
+## ({} unknown). The new levels are MatchEnded's (newLevel, charNewLevel); the old player level is
+## the profile's (one below the new one when unknown or stale), the old character level
+## charNewLevel - charLevelsGained (one level when the server sent no count).
+static func level_ups(r: Dictionary, before: Dictionary, character_id: String, char_name: String) -> Array:
+	var out: Array = []
+	if not r.get("ok", false):
+		return out
+	if r.get("level_up", false):
+		var to := int(r.get("new_level", 0))
+		var old := int(before.get("level", 0))
+		if to <= 0 and old > 0:
+			to = int(exp_steps(old, int(before.get("exp", 0)), int(r.get("exp", 0)))["level"])
+		if to > 1:
+			var from := old if old > 0 and old < to else to - 1
+			out.append({"kind": "player", "from": from, "to": to, "steps": count_steps(from, to)})
+	if r.get("char_level_up", false) and int(r.get("char_level", 0)) > 1:
+		var to := int(r["char_level"])
+		var gained := int(r.get("char_gained", 0))
+		var from := clampi(to - (gained if gained > 0 else 1), 1, to - 1)
+		out.append({"kind": "character", "character_id": character_id, "name": char_name, "from": from, "to": to,
+			"steps": count_steps(from, to)})
+	return out
+
+
+## The winner standing on the podium's top step: the MVP when they won, else the winner who dealt
+## the most damage (the first of `left` on a tie); "" with fewer than two winners or no damage.
+static func podium_top(left: Array, mvp_id: String) -> String:
+	if left.size() < 2:
+		return ""
+	var best := ""
+	var best_damage := 0
+	for e in left:
+		if e["playerId"] == mvp_id:
+			return mvp_id
+		if int(e["damage"]) > best_damage:
+			best = e["playerId"]
+			best_damage = int(e["damage"])
+	return best
 
 
 ## The EXP bar from (level, exp within it) plus `gained` (a level needs level × expPerLevel, as

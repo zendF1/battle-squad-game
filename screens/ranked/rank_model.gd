@@ -199,6 +199,65 @@ static func move_text(move: int) -> String:
 	return ""
 
 
+## The rank one division above [tier, division] (the next tier's lowest division after a tier's
+## highest); [] at the top.
+static func next_rank(rank: Array) -> Array:
+	var t := str(rank[0])
+	var d := int(rank[1])
+	if not single_division(t) and d > 1:
+		return [t, d - 1]
+	var i := tier_index(t)
+	if i < 0 or i + 1 >= tiers().size():
+		return []
+	var up: String = tiers()[i + 1]
+	return [up, maxi(GameData.tier_divisions(up), 1)]
+
+
+## The rank one division below [tier, division] (the lower tier's highest division under a tier's
+## lowest); [] at the bottom.
+static func prev_rank(rank: Array) -> Array:
+	var t := str(rank[0])
+	var d := int(rank[1])
+	if not single_division(t) and d < GameData.tier_divisions(t):
+		return [t, d + 1]
+	var i := tier_index(t)
+	if i <= 0:
+		return []
+	return [tiers()[i - 1], 1]
+
+
+## The rank popup of a match result (result_of()): {} when the rank did not move (only the
+## rating did: the rewards panel's line says it). Else {move, kind ("division": a division up
+## inside a tier, "tier": up into a higher tier, "down": a demotion), old_rank, new_rank, old,
+## new, change (the ratings), steps (every rank passed on the way, [tier, division], the new one
+## last), crown (the new tier is the top one), title, label (the new rank's)}.
+static func popup_of(result: Dictionary) -> Dictionary:
+	if result.is_empty() or int(result.get("move", SAME)) == SAME:
+		return {}
+	var old_rank: Array = result["old_rank"]
+	var new_rank: Array = result["new_rank"]
+	if tier_index(str(old_rank[0])) < 0 or tier_index(str(new_rank[0])) < 0:
+		return {}
+	var move := int(result["move"])
+	var steps: Array = []
+	var at := old_rank
+	while compare(at, new_rank) == move and steps.size() < 64:
+		at = next_rank(at) if move == UP else prev_rank(at)
+		if at.is_empty():
+			break
+		steps.append(at)
+	if steps.is_empty():
+		return {}
+	steps[-1] = new_rank
+	var kind := "down"
+	if move == UP:
+		kind = "tier" if str(old_rank[0]) != str(new_rank[0]) else "division"
+	var top: bool = str(new_rank[0]) == str(tiers().back())
+	return {"move": move, "kind": kind, "old_rank": old_rank, "new_rank": new_rank, "old": result["old"],
+		"new": result["new"], "change": result["change"], "steps": steps, "crown": move == UP and top,
+		"title": "THĂNG HẠNG!" if move == UP else "RỚT HẠNG", "label": label(str(new_rank[0]), int(new_rank[1]))}
+
+
 ## Matchmaking elapsed time: 31 → "0:31", 65 → "1:05", 600 → "10:00".
 static func timer_text(seconds: int) -> String:
 	var s := maxi(seconds, 0)

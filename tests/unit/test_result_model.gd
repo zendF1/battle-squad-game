@@ -92,3 +92,61 @@ func test_lobby_error_texts() -> void:
 	eq(ErrorText.lobby_error({"error": {"code": "X", "message": "boom"}}), "Lỗi ghép trận: boom", "unknown")
 	eq(ErrorText.lobby_error(null), "Lỗi ghép trận, hãy thử lại", "nothing")
 	eq(ErrorText.lobby_code({"error": {"code": "IN_ROOM"}}), "IN_ROOM", "code")
+
+
+func _levels(raw: Dictionary) -> Dictionary:
+	return ResultModel.reward(raw, "pvp_1v1")
+
+
+func test_count_steps() -> void:
+	eq(ResultModel.count_steps(3, 4), [4], "one level")
+	eq(ResultModel.count_steps(3, 6), [4, 5, 6], "each level counted")
+	eq(ResultModel.count_steps(5, 5), [], "no level")
+	eq(ResultModel.count_steps(6, 5), [], "never down")
+
+
+func test_level_ups_player_only() -> void:
+	var r := _levels({"expGained": 120, "levelUp": true, "newLevel": 4})
+	eq(ResultModel.level_ups(r, {"level": 3, "exp": 250}, "spark", "Spark"),
+		[{"kind": "player", "from": 3, "to": 4, "steps": [4]}], "old from the profile, new from MatchEnded")
+
+
+func test_level_ups_multiple_levels() -> void:
+	var r := _levels({"expGained": 520, "levelUp": true, "newLevel": 5})
+	eq(ResultModel.level_ups(r, {"level": 3, "exp": 250}, "spark", "Spark")[0]["steps"], [4, 5], "two levels")
+	eq(ResultModel.level_ups(r, {}, "spark", "Spark")[0], {"kind": "player", "from": 4, "to": 5, "steps": [5]},
+		"no profile: one level")
+	eq(ResultModel.level_ups(r, {"level": 9, "exp": 0}, "spark", "Spark")[0]["from"], 4, "a stale profile: one level")
+	var no_new := _levels({"expGained": 520, "levelUp": true})
+	eq(ResultModel.level_ups(no_new, {"level": 3, "exp": 250}, "spark", "Spark")[0]["to"], 5,
+		"no newLevel: from the EXP gained")
+
+
+func test_level_ups_character_only() -> void:
+	var r := _levels({"expGained": 120, "levelUp": false, "newLevel": 3, "charLevelUp": true, "charNewLevel": 13,
+		"charLevelsGained": 3})
+	eq(ResultModel.level_ups(r, {"level": 3, "exp": 0}, "spark", "Spark"),
+		[{"kind": "character", "character_id": "spark", "name": "Spark", "from": 10, "to": 13, "steps": [11, 12, 13]}],
+		"the character's levels gained")
+	var no_count := _levels({"charLevelUp": true, "charNewLevel": 13})
+	eq(ResultModel.level_ups(no_count, {}, "spark", "Spark")[0]["from"], 12, "no count: one level")
+
+
+func test_level_ups_both_and_none() -> void:
+	var r := _levels({"expGained": 520, "levelUp": true, "newLevel": 5, "charLevelUp": true, "charNewLevel": 13,
+		"charLevelsGained": 1})
+	var stages := ResultModel.level_ups(r, {"level": 3, "exp": 250}, "spark", "Spark")
+	eq(stages.map(func(s): return s["kind"]), ["player", "character"], "the player first, then the character")
+	eq(stages[1]["steps"], [13], "the character's step")
+	eq(ResultModel.level_ups(_levels({"expGained": 50, "newLevel": 3}), {"level": 3, "exp": 0}, "spark", "Spark"), [],
+		"no level up")
+	eq(ResultModel.level_ups(ResultModel.reward(null, "pvp_1v1"), {}, "spark", "Spark"), [], "granting failed")
+
+
+func test_podium_top() -> void:
+	var a := {"playerId": "a", "damage": 300}
+	var b := {"playerId": "b", "damage": 900}
+	eq(ResultModel.podium_top([a, b], "a"), "a", "the MVP won: the top step")
+	eq(ResultModel.podium_top([a, b], "x"), "b", "the MVP lost: the winner with the most damage")
+	eq(ResultModel.podium_top([a], "a"), "", "one winner: one step")
+	eq(ResultModel.podium_top([{"playerId": "a", "damage": 0}, {"playerId": "b", "damage": 0}], ""), "", "no damage: level")

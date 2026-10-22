@@ -104,3 +104,45 @@ func test_timer_and_tips() -> void:
 	eq(RankModel.tip(0), RankModel.tips()[0], "first tip")
 	eq(RankModel.tip(RankModel.tips().size()), RankModel.tips()[0], "wraps")
 	eq(RankModel.tip(-1), RankModel.tips()[-1], "wraps back")
+
+
+func _popup(old_rank: Array, new_rank: Array, old := 1290, new := 1310) -> Dictionary:
+	return RankModel.popup_of({"old": old, "new": new, "change": new - old, "old_rank": old_rank, "new_rank": new_rank,
+		"move": RankModel.compare(old_rank, new_rank)})
+
+
+func test_rank_popup_division_up() -> void:
+	var p := _popup(["gold", 2], ["gold", 1])
+	eq([p["kind"], p["move"], p["steps"], p["crown"], p["title"], p["label"]],
+		["division", RankModel.UP, [["gold", 1]], false, "THĂNG HẠNG!", "Vàng I"], "Vàng II → Vàng I")
+
+
+func test_rank_popup_tier_up() -> void:
+	var p := _popup(["gold", 1], ["platinum", 3], 1490, 1512)
+	eq([p["kind"], p["steps"], p["label"], p["old"], p["new"]], ["tier", [["platinum", 3]], "Bạch kim III", 1490, 1512],
+		"Vàng I → Bạch kim III")
+	var far := _popup(["gold", 3], ["platinum", 2])
+	eq(far["kind"], "tier", "across several divisions")
+	eq(far["steps"], [["gold", 2], ["gold", 1], ["platinum", 3], ["platinum", 2]], "every division passed")
+
+
+func test_rank_popup_demotion() -> void:
+	var p := _popup(["platinum", 3], ["gold", 1], 1505, 1490)
+	eq([p["kind"], p["move"], p["steps"], p["title"], p["crown"]], ["down", RankModel.DOWN, [["gold", 1]], "RỚT HẠNG", false],
+		"Bạch kim III → Vàng I")
+	eq(_popup(["gold", 1], ["gold", 3])["steps"], [["gold", 2], ["gold", 3]], "two divisions down")
+
+
+func test_rank_popup_no_change() -> void:
+	eq(_popup(["gold", 2], ["gold", 2]), {}, "only the rating moved: no popup")
+	eq(RankModel.popup_of({}), {}, "not ranked")
+	eq(_popup(["master", 1], ["master", 1], 2300, 2330), {}, "master to master")
+
+
+func test_rank_popup_master() -> void:
+	var p := _popup(["diamond", 1], ["master", 1], 2190, 2215)
+	eq([p["kind"], p["steps"], p["crown"], p["label"]], ["tier", [["master", 1]], true, "Cao thủ"], "the crown")
+	eq(RankModel.next_rank(["master", 1]), [], "nothing above master")
+	eq(RankModel.prev_rank(["bronze", 3]), [], "nothing under bronze")
+	eq(RankModel.next_rank(["silver", 1]), ["gold", 3], "a tier's top → the next tier's lowest")
+	eq(RankModel.prev_rank(["gold", 3]), ["silver", 1], "a tier's lowest → the lower tier's top")

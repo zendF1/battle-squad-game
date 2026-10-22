@@ -2,15 +2,21 @@ extends Control
 ## The end-of-match screen (every mode; a cancelled match keeps the HUD's small panel): the
 ## lobby backdrop, "CHIẾN THẮNG" (gold, confetti over the winners) / "THẤT BẠI" (grey-blue, rain)
 ## / "HOÀ" slamming in at the top; the winning team on the left on a lit pink podium under a
-## spotlight, the other team on the right, dimmed, on the ground (a draw: my team left, no
-## podium); each player in full pose (ui/character_view.gd, bots too) under their title plate, the
-## tier badge with the name (mine gold) and "Lv.N" / the damage dealt, "MVP" on the best one,
-## "ĐỘI CỦA BẠN" / "ĐỐI THỦ" under each team. Bottom left my rewards card: "+N EXP" counting with
-## its bar filling ("Lên cấp! Lv.N" when the level went up), "+N xu", the character's level up, and
-## for ranked the tier badge with "Điểm hạng a → b (+c)" counting and "Thăng hạng!" / "Rớt hạng"
-## popping the new badge; one after another. Bottom right "Chơi tiếp" (ranked) / "Chơi lại"
-## (Quick Play), "Về sảnh" and "Tự động về sảnh sau N giây" (AUTO_EXIT_SEC, then home_pressed).
-## The players rise onto their places one by one after the title.
+## spotlight (two winners: one step each, the MVP's higher with a gold star; an MVP of the losing
+## side: the winner with the most damage stands higher, ResultModel.podium_top()), the other team
+## on the right, dimmed, on the ground (a draw: my team left, no podium); each player in full pose
+## (ui/character_view.gd, bots too) on their own step under their title plate, the tier badge with
+## the name (mine gold) and "Lv.N" / the damage dealt, "MVP" on the best one, "ĐỘI CỦA BẠN" /
+## "ĐỐI THỦ" under each team. Bottom left my rewards card (its size never changes: what grew it
+## is in the popups): "+N EXP" counting with its bar filling, "+N xu", a small gold chip by
+## "PHẦN THƯỞNG" with the new levels after a level up, and for ranked the tier badge with
+## "Điểm hạng a → b (+c)". One after another: the EXP, then "LÊN CẤP!" (match/level_up_popup.gd)
+## when the player or the character levelled up, the coins, then the rank popup
+## (match/rank_popup.gd) when the division or tier changed (the badge then flips to the new rank),
+## else the rating line counting. Bottom right, always in place: "Chơi tiếp" (ranked) /
+## "Chơi lại" (Quick Play), "Về sảnh" and "Tự động về sảnh sau N giây" (AUTO_EXIT_SEC, then
+## home_pressed; paused while a popup is open). The players rise onto their places one by one
+## after the title.
 ##
 ## setup(info) before it enters the tree: {outcome, left: [ResultModel.entry()], right, mvp,
 ## reward (ResultModel.reward()), exp: {level, exp} before the match ({} unknown: no bar),
@@ -28,6 +34,8 @@ const TitlePlate := preload("res://ui/title_plate.gd")
 const TierBadge := preload("res://screens/ranked/tier_badge.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const ResultModel := preload("res://match/result_model.gd")
+const LevelUpPopup := preload("res://match/level_up_popup.gd")
+const RankPopup := preload("res://match/rank_popup.gd")
 const Fmt := preload("res://core/fmt.gd")
 
 const SLOT_W := 250.0
@@ -35,6 +43,10 @@ const SLOT_GAP := 24.0
 const ART_H := 270.0
 const HEAD_H := 136.0 # title plate, name row, level line, damage line over the figure
 const PODIUM_H := 64.0
+const STEP_LOW_H := 48.0 # two winners: the lower step and the top one
+const STEP_TOP_H := 90.0
+const RIGHT_W := 330.0 # the buttons' column
+const BOTTOM_H := 184.0
 const GOLD := Color(1.0, 0.8, 0.22)
 const LOSE_TITLE := Color(0.62, 0.72, 0.9)
 const DIM := Color(0.6, 0.62, 0.76)
@@ -59,13 +71,16 @@ var _counting := true
 var _particles: Array = []
 var _exp_value: Label
 var _exp_bar: ProgressBar
-var _level_up: Label
 var _coin_value: Label
-var _char_line: Label
+var _level_chip: PanelContainer
+var _level_chip_text: Label
+var _card_clip: Control
+var _card: Control
+var _right: Control
 var _rank_badge: TierBadge
 var _rank_line: Label
-var _rank_move: Label
-var _status: Label
+var _popup_open := false
+var _top_id := "" # the winner on the podium's top step
 
 
 func setup(value: Dictionary) -> void:
@@ -89,6 +104,8 @@ func _ready() -> void:
 	_stage.mouse_filter = MOUSE_FILTER_IGNORE
 	_stage.draw.connect(_draw_stage)
 	add_child(_stage)
+	if _podium():
+		_top_id = ResultModel.podium_top(info.get("left", []), str(info.get("mvp", "")))
 	for e in info.get("left", []):
 		_add_slot(e, true)
 	for e in info.get("right", []):
@@ -132,9 +149,19 @@ func _podium() -> bool:
 
 # ── Layout ──────────────────────────────────────────────────────────────────
 
+func _base_y() -> float:
+	return size.y - 270.0 # above the bottom bar
+
+
 func _floor_y(left: bool) -> float:
-	var base := size.y - 270.0 # above the bottom bar
-	return base - PODIUM_H if left and _podium() else base
+	return _base_y() - PODIUM_H if left and _podium() else _base_y()
+
+
+## Where a player stands: their step's top (two winners: the top step or the lower one).
+func _slot_floor(s: Dictionary) -> float:
+	if not s["left"] or _top_id == "":
+		return _floor_y(s["left"])
+	return _base_y() - (STEP_TOP_H if s["entry"]["playerId"] == _top_id else STEP_LOW_H)
 
 
 func _group_x(left: bool) -> float:
@@ -155,14 +182,21 @@ func _layout() -> void:
 		for i in group.size():
 			var node: Control = group[i]["node"]
 			var x := _group_x(side) - w / 2.0 + i * (SLOT_W + SLOT_GAP)
-			node.position = Vector2(x, _floor_y(side) - ART_H - HEAD_H)
+			node.position = Vector2(x, _slot_floor(group[i]) - ART_H - HEAD_H)
 			node.set_meta("home_y", node.position.y)
 	for l in _team_labels:
 		var left: bool = l.get_meta("left")
 		l.size = Vector2(_group_w(maxi(1, _slots.filter(func(s): return s["left"] == left).size())), 36)
-		l.position = Vector2(_group_x(left) - l.size.x / 2.0, _floor_y(left) + (14.0 if left and _podium() else 8.0))
-	_bottom.position = Vector2(24, size.y - 200)
-	_bottom.size = Vector2(size.x - 48, 184)
+		var on_podium := left and _podium() and _top_id == "" # one step: the name on its front
+		l.position = Vector2(_group_x(left) - l.size.x / 2.0, (_floor_y(left) + 14.0) if on_podium else _base_y() + 8.0)
+	_bottom.position = Vector2(24, size.y - BOTTOM_H - 16)
+	_bottom.size = Vector2(size.x - 48, BOTTOM_H)
+	_right.position = Vector2(_bottom.size.x - RIGHT_W, 0)
+	_right.size = Vector2(RIGHT_W, BOTTOM_H)
+	_card_clip.position = Vector2.ZERO
+	_card_clip.size = Vector2(_bottom.size.x - RIGHT_W - 24, BOTTOM_H)
+	_card.position = Vector2.ZERO
+	_card.size = _card_clip.size
 	_stage.queue_redraw()
 
 
@@ -222,13 +256,18 @@ func _add_slot(e: Dictionary, left: bool) -> void:
 	_slots.append({"node": slot, "entry": e, "left": left})
 
 
-## The rewards card (left) and the buttons with the countdown (right).
+## The rewards card (left) and the buttons with the countdown (right), each placed by _layout():
+## the card is clipped to its place, so nothing in it can push or cover the buttons.
 func _build_bottom() -> Control:
-	var bar := Ui.hbox(24)
+	var bar := Control.new()
 	bar.mouse_filter = MOUSE_FILTER_IGNORE
+	_card_clip = Control.new()
+	_card_clip.clip_contents = true
+	_card_clip.mouse_filter = MOUSE_FILTER_IGNORE
+	bar.add_child(_card_clip)
 	var card := LobbyUi.panel(0, 22)
-	card.size_flags_horizontal = SIZE_EXPAND_FILL
-	bar.add_child(card)
+	_card = card
+	_card_clip.add_child(card)
 	var inner := MarginContainer.new()
 	for side in ["left", "right", "top", "bottom"]:
 		inner.add_theme_constant_override("margin_" + side, 16 if side in ["top", "bottom"] else 26)
@@ -240,7 +279,26 @@ func _build_bottom() -> Control:
 	col.size_flags_horizontal = SIZE_EXPAND_FILL
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_child(col)
-	col.add_child(LobbyUi.text("PHẦN THƯỞNG", 20, Ui.TEXT_DIM, true))
+	var head := Ui.hbox(12)
+	col.add_child(head)
+	head.add_child(LobbyUi.text("PHẦN THƯỞNG", 20, Ui.TEXT_DIM, true))
+	_level_chip = PanelContainer.new()
+	_level_chip.add_theme_stylebox_override("panel", LobbyUi.box(GOLD, 12, 0, Color(0.45, 0.2, 0.02), 2))
+	_level_chip.size_flags_vertical = SIZE_SHRINK_CENTER
+	_level_chip.visible = false
+	var chip_row := Ui.hbox(4)
+	var chip_margin := MarginContainer.new()
+	for side in ["left", "right"]:
+		chip_margin.add_theme_constant_override("margin_" + side, 10)
+	chip_margin.add_child(chip_row)
+	_level_chip.add_child(chip_margin)
+	chip_row.add_child(LobbyUi.icon("upgrade", 20))
+	_level_chip_text = Ui.text("", 18, LobbyUi.TEXT_DARK)
+	_level_chip_text.add_theme_font_override("font", LobbyUi.bold())
+	_level_chip_text.clip_text = true
+	_level_chip_text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	chip_row.add_child(_level_chip_text)
+	head.add_child(_level_chip)
 	if not reward.get("ok", false):
 		col.add_child(LobbyUi.text("Chưa lấy được phần thưởng của trận này", 24, Color.WHITE, true))
 	else:
@@ -265,17 +323,9 @@ func _build_bottom() -> Control:
 		_exp_value = LobbyUi.text("+0 EXP", 28, Color.WHITE, true)
 		_exp_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		exp_row.add_child(_exp_value)
-		_level_up = LobbyUi.text("", 26, GOLD, true)
-		_level_up.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		_level_up.modulate.a = 0.0
-		exp_row.add_child(_level_up)
 		var coin_row := Ui.hbox(18)
 		col.add_child(coin_row)
 		_coin_value = LobbyUi.icon_text(coin_row, "coin", "+0 xu", 28, Color.WHITE, true, 36)
-		_char_line = LobbyUi.text("", 24, Color(0.6, 1.0, 0.65), true)
-		_char_line.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		_char_line.modulate.a = 0.0
-		coin_row.add_child(_char_line)
 	var rank: Dictionary = reward.get("rank", {})
 	if not rank.is_empty():
 		var sep := ColorRect.new()
@@ -294,13 +344,9 @@ func _build_bottom() -> Control:
 		texts.add_child(LobbyUi.text("XẾP HẠNG", 20, Ui.TEXT_DIM, true))
 		_rank_line = LobbyUi.text(RankModel.rating_line(rank, rank["old"]), 28, Color.WHITE, true)
 		texts.add_child(_rank_line)
-		_rank_move = LobbyUi.text(RankModel.move_text(rank["move"]), 32, GOLD if rank["move"] == RankModel.UP else Color(1.0, 0.5, 0.45), true)
-		_rank_move.modulate.a = 0.0
-		_rank_move.visible = rank["move"] != RankModel.SAME
-		texts.add_child(_rank_move)
 	var right := Ui.vbox(8)
-	right.custom_minimum_size.x = 330
 	right.alignment = BoxContainer.ALIGNMENT_END
+	_right = right
 	bar.add_child(right)
 	var again_text := str(info.get("again", ""))
 	if again_text != "":
@@ -339,26 +385,59 @@ func set_status(text: String, busy: bool) -> void:
 func _draw_stage() -> void:
 	if not _podium():
 		return
-	var n := maxi(1, _slots.filter(func(s): return s["left"]).size())
+	var left: Array = _slots.filter(func(s): return s["left"])
+	var n := maxi(1, left.size())
 	var cx := _group_x(true)
 	var w := _group_w(n) + 90.0
-	var top := _floor_y(true)
+	var base := _base_y()
+	var top := base - (STEP_TOP_H if _top_id != "" else PODIUM_H)
 	var light := 1.0 if _outcome() == ResultModel.WIN else 0.55
 	# the spotlight from above, a pool of light on the podium
 	var cone := PackedVector2Array([Vector2(cx - 70, -10), Vector2(cx + 70, -10), Vector2(cx + w * 0.55, top + 8), Vector2(cx - w * 0.55, top + 8)])
 	_stage.draw_polygon(cone, PackedColorArray([Color(1, 1, 1, 0.2 * light), Color(1, 1, 1, 0.2 * light), Color(1, 0.95, 0.9, 0.05 * light), Color(1, 0.95, 0.9, 0.05 * light)]))
-	_ellipse(Vector2(cx, top + 4), Vector2(w * 0.56, 30), Color(1, 0.9, 0.95, 0.22 * light))
-	# the podium: its top, the front with light bars, the glowing edge
-	var r := Rect2(cx - w / 2.0, top, w, PODIUM_H)
+	if _top_id == "":
+		_ellipse(Vector2(cx, top + 4), Vector2(w * 0.56, 30), Color(1, 0.9, 0.95, 0.22 * light))
+		_block(Rect2(cx - w / 2.0, top, w, PODIUM_H), false)
+		return
+	# two winners: a step each, the lower first, the top one over it
+	_ellipse(Vector2(cx, base - STEP_LOW_H + 4), Vector2(w * 0.56, 30), Color(1, 0.9, 0.95, 0.22 * light))
+	var x0 := cx - _group_w(left.size()) / 2.0
+	var blocks: Array = []
+	for i in left.size():
+		var sx := x0 + i * (SLOT_W + SLOT_GAP)
+		var a := sx - (45.0 if i == 0 else SLOT_GAP / 2.0)
+		var b := sx + SLOT_W + (45.0 if i == left.size() - 1 else SLOT_GAP / 2.0)
+		var top_step: bool = left[i]["entry"]["playerId"] == _top_id
+		var h := STEP_TOP_H if top_step else STEP_LOW_H
+		blocks.append([Rect2(a, base - h, b - a, h), top_step])
+	blocks.sort_custom(func(p, q): return not p[1] and q[1])
+	for blk in blocks:
+		_block(blk[0], blk[1])
+
+
+## One podium step: its top, the front with light bars, the glowing edge; the top step a gold
+## star on its front.
+func _block(r: Rect2, star: bool) -> void:
+	var w := r.size.x
+	var top := r.position.y
 	var face := PackedVector2Array([r.position + Vector2(0, 14), r.position + Vector2(w, 14), r.end, Vector2(r.position.x, r.end.y)])
 	_stage.draw_polygon(face, PackedColorArray([PINK, PINK, PINK_DARK, PINK_DARK]))
-	for x in [r.position.x + 22.0, r.end.x - 30.0]: # light bars at the ends, the team's name between
-		_stage.draw_rect(Rect2(x, top + 20, 8, PODIUM_H - 26), Color(0.6, 0.95, 1.0, 0.5))
+	for x in [r.position.x + 22.0, r.end.x - 30.0]: # light bars at the ends
+		_stage.draw_rect(Rect2(x, top + 20, 8, r.size.y - 26), Color(0.6, 0.95, 1.0, 0.5))
 	var top_face := PackedVector2Array([r.position + Vector2(10, -6), r.position + Vector2(w - 10, -6), r.position + Vector2(w, 14), r.position + Vector2(0, 14)])
 	_stage.draw_colored_polygon(top_face, PINK_TOP)
 	_stage.draw_line(r.position + Vector2(0, 14), r.position + Vector2(w, 14), Color(1, 1, 1, 0.75), 3.0, true)
 	_stage.draw_polyline(PackedVector2Array([r.position + Vector2(0, 14), Vector2(r.position.x, r.end.y), r.end, r.position + Vector2(w, 14)]),
 		Color(0.12, 0.02, 0.1, 0.8), 3.0, true)
+	if star:
+		var c := Vector2(r.get_center().x, top + 14 + (r.size.y - 14) / 2.0)
+		var pts := PackedVector2Array()
+		for i in 10:
+			var rad := 26.0 if i % 2 == 0 else 11.0
+			var a := TAU * i / 10.0 - PI / 2.0
+			pts.append(c + Vector2(cos(a), sin(a)) * rad)
+		_stage.draw_colored_polygon(pts, GOLD)
+		_stage.draw_polyline(pts + PackedVector2Array([pts[0]]), Color(0.45, 0.12, 0.02), 3.0, true)
 
 
 func _ellipse(c: Vector2, radii: Vector2, color: Color) -> void:
@@ -410,7 +489,7 @@ func _process(delta: float) -> void:
 			_particles[i] = _particle(false)
 	if not _particles.is_empty():
 		_fx.queue_redraw()
-	if _counting:
+	if _counting and not _popup_open:
 		var before := ceili(_left_sec)
 		_left_sec -= delta
 		if ceili(_left_sec) != before:
@@ -448,7 +527,7 @@ func _animate() -> void:
 	_count_rewards(reveal)
 
 
-## EXP (and its bar, a level up), coins, the character's level up, the rating: one after another.
+## The EXP and its bar, then the level-up popup (when there is one), the coins and the rank.
 func _count_rewards(t: Tween) -> void:
 	var reward: Dictionary = info.get("reward", {})
 	if reward.get("ok", false):
@@ -459,41 +538,83 @@ func _count_rewards(t: Tween) -> void:
 			_exp_bar.value = steps["from"]
 		t.tween_method(func(v: float) -> void: _exp_value.text = "+%s EXP" % Fmt.thousands(roundi(v)), 0.0, float(reward["exp"]), 0.7)
 		if not steps.is_empty():
-			var levelled: bool = reward["level_up"] or steps["levels"] > 0
-			if levelled:
+			if reward["level_up"] or steps["levels"] > 0:
 				t.parallel().tween_property(_exp_bar, "value", 1.0, 0.5)
-				var lv: int = reward["new_level"] if reward["new_level"] > 0 else steps["level"]
-				t.tween_callback(func() -> void:
-					_exp_bar.value = 0.0
-					_level_up.text = "Lên cấp! Lv.%d" % lv
-					_pop(_level_up))
+				t.tween_callback(func() -> void: _exp_bar.value = 0.0)
 				t.tween_property(_exp_bar, "value", steps["to"], 0.35)
 			else:
 				t.parallel().tween_property(_exp_bar, "value", steps["to"], 0.7)
-		elif reward["level_up"] and reward["new_level"] > 0:
-			t.tween_callback(func() -> void:
-				_level_up.text = "Lên cấp! Lv.%d" % reward["new_level"]
-				_pop(_level_up))
+	t.tween_callback(_after_exp)
+
+
+## My character's id (my entry's).
+func _my_character() -> String:
+	for e in info.get("left", []) + info.get("right", []):
+		if e["mine"]:
+			return str(e["characterId"])
+	return ""
+
+
+func _after_exp() -> void:
+	var stages := ResultModel.level_ups(info.get("reward", {}), info.get("exp", {}), _my_character(),
+		str(info.get("char_name", "")))
+	if stages.is_empty():
+		_count_rest()
+		return
+	var parts: Array = []
+	for s in stages:
+		parts.append("Lv.%d" % s["to"] if s["kind"] == "player" else "%s Lv.%d" % [s["name"], s["to"]])
+	_level_chip_text.text = " · ".join(parts)
+	var font: Font = _level_chip_text.get_theme_font("font")
+	_level_chip_text.custom_minimum_size.x = minf(font.get_string_size(_level_chip_text.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x + 2.0, 240.0)
+	_level_chip.visible = true
+	_pop(_level_chip)
+	var popup = LevelUpPopup.new()
+	popup.setup(stages)
+	_open_popup(popup, _count_rest)
+
+
+## A popup over everything; the auto return waits while it is open, `then` runs once it closed.
+func _open_popup(popup: Control, then: Callable) -> void:
+	_popup_open = true
+	popup.closed.connect(func() -> void:
+		_popup_open = false
+		then.call())
+	add_child(popup)
+
+
+## The coins, then the rank: its popup when the division or tier changed, else the rating line.
+func _count_rest() -> void:
+	var t := create_tween()
+	t.tween_interval(0.1)
+	var reward: Dictionary = info.get("reward", {})
+	if reward.get("ok", false):
 		t.tween_method(func(v: float) -> void: _coin_value.text = "+%s xu" % Fmt.thousands(roundi(v)), 0.0, float(reward["coin"]), 0.5)
-		if reward["char_level_up"]:
-			var who := str(info.get("char_name", "Nhân vật"))
-			t.tween_callback(func() -> void:
-				_char_line.text = "%s lên Lv.%d!" % [who, reward["char_level"]] if reward["char_level"] > 0 else "%s lên cấp!" % who
-				_pop(_char_line))
 	var rank: Dictionary = reward.get("rank", {})
 	if rank.is_empty():
 		return
-	t.tween_interval(0.15)
-	t.tween_method(func(v: float) -> void: _rank_line.text = RankModel.rating_line(rank, roundi(v)),
-		float(rank["old"]), float(rank["new"]), 1.0).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	if rank["move"] == RankModel.SAME:
+	var popup_data := RankModel.popup_of(rank)
+	if popup_data.is_empty():
+		t.tween_interval(0.15)
+		t.tween_method(func(v: float) -> void: _rank_line.text = RankModel.rating_line(rank, roundi(v)),
+			float(rank["old"]), float(rank["new"]), 1.0).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		return
+	t.tween_interval(0.25)
+	t.tween_callback(func() -> void:
+		var popup = RankPopup.new()
+		popup.setup(popup_data)
+		_open_popup(popup, _rank_settled.bind(rank)))
+
+
+## After the rank popup: the card's badge flips to the new rank, its line shows the new rating.
+func _rank_settled(rank: Dictionary) -> void:
+	_rank_line.text = RankModel.rating_line(rank)
 	_rank_badge.pivot_offset = _rank_badge.size / 2.0
+	var t := create_tween()
 	t.tween_property(_rank_badge, "scale", Vector2.ONE * 0.2, 0.14).set_trans(Tween.TRANS_SINE)
 	t.tween_callback(func() -> void:
 		_rank_badge.tier = rank["new_rank"][0]
-		_rank_badge.division = rank["new_rank"][1]
-		_pop(_rank_move))
+		_rank_badge.division = rank["new_rank"][1])
 	t.tween_property(_rank_badge, "scale", Vector2.ONE * 1.3, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	t.tween_property(_rank_badge, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_SINE)
 
