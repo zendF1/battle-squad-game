@@ -52,6 +52,8 @@ const ShotPlayer := preload("res://match/shot/shot_player.gd")
 const EnergyReveal := preload("res://match/shot/energy_reveal.gd")
 const UseBadge := preload("res://match/views/use_badge.gd")
 const AimInput := preload("res://match/aim/aim_input.gd")
+const Trajectory := preload("res://match/aim/trajectory_predictor.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 const MoveSync := preload("res://match/move/move_sync.gd")
 const Hud := preload("res://match/hud.gd")
 const Skills := preload("res://match/skills.gd")
@@ -60,7 +62,6 @@ const Status := preload("res://match/status_effects.gd")
 const ActionLock := preload("res://match/action_lock.gd")
 const SkillView := preload("res://match/views/skills/skill_view.gd")
 const HighShellMarker := preload("res://match/views/high_shell_marker.gd")
-const CharacterShopModel := preload("res://screens/home/character_shop_model.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const ResultModel := preload("res://match/result_model.gd")
 const ResultScreen := preload("res://match/result_screen.gd")
@@ -70,22 +71,30 @@ const CameraModel := preload("res://match/camera/camera_model.gd")
 const MatchCamera := preload("res://match/camera/match_camera.gd")
 const OffscreenMarkers := preload("res://match/views/offscreen_markers.gd")
 
-const ACTION_INTERVAL := 0.25 # server drops actions closer than 150 ms
+## Actions go out at least the server's timings.actionIntervalSec apart (it drops closer ones)
+## plus this margin for the network's jitter.
+const ACTION_MARGIN := 0.1
 const MOVE_ACK_GAP := 0.16 # Shoot/EndTurn/UseItem wait this long after the last answer to a Move
 # Both waits are measured with Time.get_ticks_usec() from the moment they start, not by summing
 # frame deltas: a long frame right before an answer is read would count time from before it.
 const OTHER_WALK_SPEED := 90.0
-const OTHER_WALK_MAX_SEC := 1.0 # a bot fires 1.5 s after its Move: finish the walk before that
+## Another player's walk ends this long before a bot's next action (timings.botFollowUpDelaySec
+## after its Move) at the latest.
+const OTHER_WALK_LEAD := 0.5
 const SHOT_ACK_TIMEOUT := 3.0
 const ITEM_ACK_TIMEOUT := 1.5 # input waits this long for ItemUsed after a UseItem
 const TELEPORT_SEC := 0.3
 const WEAPON := "weapon"
 const SKILL := "skill"
 const RESYNC_RETRY := 3.0 # re-ask for MatchStateSync if none arrived
-const TURN_SECONDS := 20
-const DEFAULT_MAX_ENERGY := 100 # maxMoveEnergy from a server that does not send it
+## Before the player may aim or act in a match whose gamedataVersion is not the cached one, the
+## game data is fetched again; "Đang cập nhật dữ liệu..." shows if that takes longer than this.
+const DATA_NOTICE_SEC := 0.3
+const DATA_NOTICE := "Đang cập nhật dữ liệu..."
+## A lost turn's banner holds until about when the server ends that turn (skipTurnDelaySec), less
+## its fade.
+const SKIP_BANNER_FADE := 0.2
 const MIN_AIM_SEC := 0.15 # a PlayerAiming with less left (held back by a replay) is not shown
-const DRILL_PIERCE := 50.0 # px of terrain the drill_bomb shot drills (server items.yaml value)
 const ITEM_BADGE_SEC := 1.5 # an instant item's badge stays this long, then fades
 const LOOK_LIFT := Vector2(0, -60) # the camera centres a player this far above its feet
 const REMOTE_LOOK := 520.0 # px along a remote player's aim the camera looks
@@ -118,6 +127,7 @@ var _sent_select := WEAPON # the armed mode the server has from me this turn (my
 var _held_badges := {} # playerId -> the badge its armed skill / shot item holds (UseBadge.content()) until its shot fires
 var send_hook := Callable() # tests: takes (event, data) instead of GameSocket for SelectAction
 var _turn_index := -1
+var _data_wait := false # the game data is being fetched again (gamedataVersion changed): no aiming or actions
 
 var _mask := TerrainMask.new()
 var _moves := MoveSync.new()
@@ -212,6 +222,7 @@ func _ready() -> void:
 	_roster = Router.match_roster
 	Router.match_roster = {}
 	_load_snapshot(snap, false)
+	_check_gamedata(snap)
 	var map_name := MapThemes.name_of(snap)
 	if map_name != "":
 		_hud.announce_map(map_name)
@@ -243,7 +254,7 @@ func _process(delta: float) -> void:
 		_moves.hold(_hold_dir, delta)
 	# Runs while a Shoot/EndTurn waits too, so the rest of the walk (and a re-send of an
 	# unanswered Move) still goes out before it; _commit_action waits for them.
-	var cmd := _moves.update(Time.get_ticks_msec() / 1000.0, _since(_action_at) >= ACTION_INTERVAL)
+	var cmd := _moves.update(Time.get_ticks_msec() / 1000.0, _since(_action_at) >= _action_interval())
 	if not cmd.is_empty():
 		GameSocket.send("Move", cmd)
 		_mark_action()
@@ -309,7 +320,7 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 		# says which of my Moves the snapshot already shows.
 		var last_seq = snap.get("lastMoveSeq")
 		_moves.apply_snapshot(_pos(_me), energy, int(last_seq) if (last_seq is int or last_seq is float) else -1)
-	_hud.set_time(int(snap.get("turnTimeLeft", TURN_SECONDS)))
+	_hud.set_time(int(snap.get("turnTimeLeft", GameData.turn_sec())))
 	_skip = Status.skip_effect(_players.get(current, {}).get("statusEffects")) # a lost turn goes on
 	if continuing and _turn_resolved:
 		_hud.pause_timer() # this turn's shot is resolving: the server clock waits for TurnStarted
@@ -361,10 +372,11 @@ func _set_current(player_id: String, move_energy: int, continuing: bool = false)
 
 
 ## My full move energy (BattlePlayerState.maxMoveEnergy: the character's base + bonuses), the
-## energy bar's maximum; 100 from a server that does not send it.
+## energy bar's maximum; the game data's movement.defaultMoveEnergy from a server that does not
+## send it.
 func _max_energy() -> int:
 	var v = _players.get(_me, {}).get("maxMoveEnergy")
-	return int(v) if (v is int or v is float) and v > 0 else DEFAULT_MAX_ENERGY
+	return int(v) if (v is int or v is float) and v > 0 else GameData.default_move_energy()
 
 
 func _is_my_turn() -> bool:
@@ -373,16 +385,17 @@ func _is_my_turn() -> bool:
 
 func _can_act() -> bool:
 	return _is_my_turn() and not _shot_player.is_playing() and not _committing and not _turn_resolved \
-		and not _moves.needs_resync() and _skip == ""
+		and not _moves.needs_resync() and _skip == "" and not _data_wait
 
 
-## Root (and stun / freeze) keeps me from walking and teleporting this turn.
+## A blocksMove effect (root, stun, freeze) keeps me from walking and teleporting this turn.
 func _is_rooted() -> bool:
 	return Status.blocks_move(_players.get(_me, {}).get("statusEffects"))
 
 
+## A skipsTurn effect (stun, freeze) is on me: no shot this turn.
 func _is_frozen() -> bool:
-	return Status.has(_players.get(_me, {}).get("statusEffects"), "freeze")
+	return Status.skip_effect(_players.get(_me, {}).get("statusEffects")) != ""
 
 
 ## Also drops the armed mode back to the weapon when it can no longer be fired: not my turn, the
@@ -400,7 +413,7 @@ func _refresh_controls() -> void:
 	var can_shoot := can and not frozen
 	var may_shoot := _is_my_turn() and not _turn_resolved and not frozen # armed mode may stay
 	_hud.set_controls_enabled(can and not rooted)
-	_hud.set_move_notice(Status.ROOT_TEXT if rooted and _skip == "" else "")
+	_hud.set_move_notice(Status.move_block_text(me.get("statusEffects")) if rooted and _skip == "" else "")
 	var skill := _my_skill()
 	var energy := int(me.get("skillEnergy", 0))
 	var armed_ok := _armed == WEAPON or (_armed == SKILL and may_shoot and not skill.is_empty() and Skills.is_ready(energy))
@@ -413,7 +426,7 @@ func _refresh_controls() -> void:
 	var buttons: Array = []
 	for it in Items.hand(me.get("items")):
 		var usable := can if Items.is_instant(it["id"]) else ActionLock.slot_enabled(_armed, it["id"], can_shoot)
-		if it["id"] == "teleport" and rooted:
+		if Items.moves_user(it["id"]) and rooted:
 			usable = false
 		buttons.append({"id": it["id"], "count": it["count"], "name": Items.label(it["id"]), "enabled": usable})
 	_hud.set_actions(skill, energy, skill_usable, _armed, buttons)
@@ -437,22 +450,53 @@ func _refresh_controls() -> void:
 
 
 ## What the aiming aid needs for my next shot: my rank tier (the guide arc's length), my
-## weapon's wind response (server configs/weapons.yaml via CharacterShopModel.WEAPONS), a drill's
-## pierce, and the alive enemies' body centres (the exact flight stops on them; "Trúng!").
+## character's weapon's wind response (the game data's weapons: windInfluence / projectileWeight;
+## 1 / 1 for a weapon it does not know), a drill's pierce (Items.pierce()), and the alive enemies'
+## body centres (the exact flight stops on them; "Trúng!").
 func _set_aim_aid(me: Dictionary) -> void:
 	_aim.rank_tier = PlayerState.rank_tier()
-	var weapon: Dictionary = CharacterShopModel.WEAPONS.get(str(me.get("characterId", "")), {})
-	_aim.wind_influence = float(weapon.get("windInfluence", 1.0))
-	_aim.projectile_weight = float(weapon.get("projectileWeight", 1.0))
-	_aim.pierce = DRILL_PIERCE if _armed == "drill_bomb" else 0.0
+	var weapon_id := GameData.character_weapon_id(str(me.get("characterId", "")))
+	var influence := GameData.weapon_wind_influence(weapon_id)
+	var weight := GameData.weapon_projectile_weight(weapon_id)
+	_aim.wind_influence = influence if GameData.weapon(weapon_id).has("windInfluence") else 1.0
+	_aim.projectile_weight = weight if weight > 0.0 else 1.0
+	_aim.pierce = Items.pierce(_armed)
 	var my_team := int(me.get("teamId", -1))
 	var centres := PackedVector2Array()
 	for id in _players:
 		var p: Dictionary = _players[id]
 		if id == _me or not bool(p.get("isAlive", false)) or int(p.get("teamId", -2)) == my_team or not p.has("position"):
 			continue
-		centres.append(_pos(id) + AimInput.BODY_CENTER)
+		centres.append(_pos(id) + Trajectory.shot_offset())
 	_aim.enemies = centres
+
+
+## The least time between two of my actions: the server's actionIntervalSec plus ACTION_MARGIN.
+func _action_interval() -> float:
+	return GameData.action_interval_sec() + ACTION_MARGIN
+
+
+## The longest another player's walk is drawn: it ends before a bot's next action.
+func _other_walk_max() -> float:
+	return maxf(GameData.bot_follow_up_delay_sec() - OTHER_WALK_LEAD, 0.0)
+
+
+## A MatchStarted / MatchStateSync whose gamedataVersion is not the cached game data's: fetch it
+## again before I may aim or act (_data_wait keeps _can_act() false), "Đang cập nhật dữ liệu..."
+## after DATA_NOTICE_SEC. A failed fetch keeps the cached copy and lets the match go on.
+func _check_gamedata(snap: Variant) -> void:
+	if _data_wait or not snap is Dictionary or not GameData.needs_refetch(snap.get("gamedataVersion")):
+		return
+	_data_wait = true
+	_refresh_controls()
+	get_tree().create_timer(DATA_NOTICE_SEC).timeout.connect(func() -> void:
+		if _data_wait and is_instance_valid(_hud):
+			_hud.set_data_notice(DATA_NOTICE))
+	await PlayerState.load_gamedata()
+	_data_wait = false
+	if is_instance_valid(_hud):
+		_hud.set_data_notice("")
+		_refresh_controls()
 
 
 # ── Server events ────────────────────────────────────────────────────────────
@@ -460,6 +504,7 @@ func _set_aim_aid(me: Dictionary) -> void:
 func _on_event(event: String, data: Variant) -> void:
 	if event == "MatchStateSync":
 		_load_snapshot(data, true)
+		_check_gamedata(data)
 		return
 	if event == "PlayerAiming" and data is Dictionary:
 		data = data.duplicate()
@@ -481,7 +526,8 @@ func _apply(event: String, data: Variant) -> void:
 			var energies = data.get("skillEnergy") # every player's (the end-of-turn +20 in it)
 			if energies is Dictionary:
 				_show_energies(energies)
-			_hud.set_time(TURN_SECONDS)
+			var left = data.get("turnTimeLeft")
+			_hud.set_time(int(left) if left is int or left is float else GameData.turn_sec())
 			for view in _views.values():
 				view.clear_aim() # guns put away
 			var current := str(data.get("currentPlayerId", ""))
@@ -568,7 +614,7 @@ func _on_player_aiming(d: Variant) -> void:
 	if left < MIN_AIM_SEC:
 		return # ShotResolved draws the gun fast, as without PlayerAiming
 	_views[id].aim_sweep(float(d.get("angle", 90.0)), left)
-	var from: Vector2 = _views[id].position + AimInput.BODY_CENTER
+	var from: Vector2 = _views[id].position + Trajectory.shot_offset()
 	_cam.start_aim(from, from + _aim_dir(float(d.get("angle", 90.0))) * REMOTE_LOOK)
 
 
@@ -703,7 +749,7 @@ func _on_player_moved(d: Dictionary) -> void:
 			_refresh_controls() # the newest Move's late answer unlocks input
 		return
 	var view = _views[id]
-	view.move_to(pos, minf(view.position.distance_to(pos) / OTHER_WALK_SPEED, OTHER_WALK_MAX_SEC))
+	view.move_to(pos, minf(view.position.distance_to(pos) / OTHER_WALK_SPEED, _other_walk_max()))
 
 
 ## The shell leaves from the server's position: stop a walk still under way and put the
@@ -846,7 +892,7 @@ func _on_match_ended(d: Dictionary) -> void:
 	if str(d.get("result", "")) == "no_contest":
 		_hud.show_result("Trận bị huỷ", str(d.get("message", "")))
 		return
-	if _mode == RankModel.RANKED_MODE:
+	if RankModel.is_ranked_mode(_mode):
 		PlayerState.load_rank() # Home shows the new rank
 	show_result_screen(result_info(d))
 
@@ -893,7 +939,7 @@ func show_result_screen(info: Dictionary) -> ResultScreen:
 ## "Chơi tiếp" (ranked: back into the queue with the same loadout) / "Chơi lại" (the same Quick
 ## Play again; the server already took me out of this room).
 func _on_again(screen: ResultScreen) -> void:
-	if _mode == RankModel.RANKED_MODE:
+	if RankModel.is_ranked_mode(_mode):
 		# The lobby is kept after the match (ReturnToLobby): Matchmaking's CreateLobby gets it back.
 		Router.go(Router.MATCHMAKING if not Router.ranked_loadout.is_empty() else Router.LOADOUT)
 		return
@@ -952,7 +998,7 @@ func _on_skill_pressed() -> void:
 		return
 	# Fired at the tap (no SelectAction: the Shoot follows at once); my badge shows right away
 	_hold_badge(_me, UseBadge.content(SKILL, str(skill.get("id", "")), ""))
-	await _fire({"angle": Skills.NO_AIM_ANGLE, "power": Skills.NO_AIM_POWER, "actionMode": SKILL})
+	await _fire({"angle": GameData.no_aim_angle(), "power": GameData.no_aim_power(), "actionMode": SKILL})
 	if not _commit_sent and not _turn_resolved and _armed == WEAPON:
 		_hold_badge(_me, {}) # never sent
 
@@ -978,7 +1024,7 @@ func _on_item_pressed(item_id: String) -> void:
 ## Sends Shoot/EndTurn/UseItem once:
 ## - every Move has been answered (MoveSync.is_settled), so the server fires from the position
 ##   on screen; a dropped Move is re-sent first;
-## - ACTION_INTERVAL has passed since the last action; and
+## - _action_interval() has passed since the last action; and
 ## - MOVE_ACK_GAP has passed since the last PlayerMoved for my Moves was handled. Spacing sends
 ##   alone does not survive jitter: a Move delayed on the way can reach the server less than
 ##   150 ms before the Shoot, which is then dropped. The server processed that Move before it
@@ -998,7 +1044,7 @@ func _commit_action(event: String, data: Dictionary, instant_item: String = "") 
 	_moves.release()
 	_refresh_controls()
 	while _committing and _is_my_turn() and not _turn_resolved and (not _moves.is_settled() \
-			or _since(_action_at) < ACTION_INTERVAL or _since(_move_ack_at) < MOVE_ACK_GAP):
+			or _since(_action_at) < _action_interval() or _since(_move_ack_at) < MOVE_ACK_GAP):
 		await get_tree().process_frame
 	if not _is_my_turn() or not _committing or _turn_resolved:
 		return false
@@ -1041,7 +1087,7 @@ static func _since(usec: int) -> float:
 func _on_leave() -> void:
 	if not _disconnected: # a new connection is not in this room; Leave would only be rejected
 		GameSocket.send("Leave", {})
-		if _mode == RankModel.RANKED_MODE:
+		if RankModel.is_ranked_mode(_mode):
 			_leave_lobby()
 	Router.go(Router.HOME)
 
@@ -1119,10 +1165,10 @@ func _announce_skip(id: String) -> void:
 	if _skip == "" or _ended:
 		_hud.announce_skip("")
 		return
-	var text := str(Status.SKIP_TEXT.get(_skip, ""))
+	var text := Status.skip_text(_skip)
 	if id != _me:
 		text = "%s: %s" % [str(_players.get(id, {}).get("displayName", "")), text]
-	_hud.announce_skip(text)
+	_hud.announce_skip(text, maxf(GameData.skip_turn_delay_sec() - SKIP_BANNER_FADE, 0.5))
 
 
 func _set_hp(id: String, hp: int) -> void:
@@ -1248,7 +1294,7 @@ func _track_camera(delta: float) -> void:
 		_aim.view_top = _cam.view_rect().position.y
 		var dragging := _aim.is_dragging()
 		if dragging:
-			var anchor := _aim.shooter_pos + AimInput.BODY_CENTER
+			var anchor := _aim.shooter_pos + Trajectory.shot_offset()
 			var look = _aim.look_point()
 			if not _aim_dragging:
 				_cam.start_aim(anchor, _cam.center if _aim.target_column or look == null else look)
@@ -1262,7 +1308,7 @@ func _track_camera(delta: float) -> void:
 	if _current != _me and _views.has(_current):
 		var angle: float = _views[_current].sweep_angle()
 		if not is_nan(angle):
-			var from: Vector2 = _views[_current].position + AimInput.BODY_CENTER
+			var from: Vector2 = _views[_current].position + Trajectory.shot_offset()
 			_cam.aim_at(from, from + _aim_dir(angle) * REMOTE_LOOK)
 	if (_shot_player != null and _shot_player.is_playing()) or not _focus.is_empty():
 		var points := _shot_player.live_positions() if _shot_player != null else PackedVector2Array()

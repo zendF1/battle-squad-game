@@ -20,7 +20,7 @@ const APRON_BOTTOM := 8 # caps look up to 8 px down
 const APRON_SIDE := 4 # the burnt rim looks 2 px sideways
 
 var uploads := 0 # tile uploads so far (tests)
-var map_theme := MapThemes.DEFAULT
+var map_theme := MapThemes.default_theme()
 var _soft: Dictionary = {}
 var _hard: Dictionary = {}
 var _mask
@@ -28,9 +28,9 @@ var _tiles: Array[Dictionary] = [] # {rect, tex_rect: Rect2i (world px), sprite,
 
 
 ## The materials of a theme (MapThemes.LOOKS soft / hard); call before show_mask(). An unknown
-## theme is grassland.
+## theme is the default one.
 func show_theme(theme_id: String) -> void:
-	map_theme = theme_id if MapThemes.is_theme(theme_id) else MapThemes.DEFAULT
+	map_theme = theme_id if MapThemes.is_theme(theme_id) else MapThemes.default_theme()
 	var look := MapThemes.look(map_theme)
 	_soft = Materials.material(look["soft"])
 	_hard = Materials.material(look["hard"])

@@ -6,8 +6,8 @@ extends Node2D
 ## - charge (0 .. beam t): a hot energy orb grows at the muzzle in the beam's colours (body,
 ##   core, a white-hot centre; the tier's shell only faint inside it) in a pulsing glow, sparks and
 ##   a ring closing in on it; it stays over the beam's start while the beam lasts;
-## - beam (beam t .. + duration): its front sweeps from the muzzle at SWEEP_SPEED (the server's
-##   laserSweepSpeed, so the front reaches each enemy when its damage event comes) to the map
+## - beam (beam t .. + duration): its front sweeps from the muzzle at sweep_speed (the laser
+##   skill's params.sweepSpeed, so the front reaches each enemy when its damage event comes) to the map
 ##   edge: a wide soft glow, the beam body and a hot core, flickering, with two crackling bolts
 ##   along it; it goes THROUGH the terrain (nothing is carved), a molten spot spitting sparks
 ##   where it enters and leaves the ground; it thins out over the last FADE s;
@@ -20,10 +20,8 @@ extends Node2D
 
 const ShotLook := preload("res://match/views/shot_look.gd")
 const Art := preload("res://ui/art.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
-const SWEEP_SPEED := 12000.0 # px/s, the server's laserSweepSpeed
-const CHARGE_DEFAULT := 0.3 # s before the beam (server laserChargeTime) when the event has no t
-const BEAM_DEFAULT := 0.6 # s the beam shows when the event has no duration
 const FADE := 0.22 # s: the beam thins out at the end
 const HIT_LIFE := 0.7 # s an enemy hit crackles
 const FLASH_SEC := 0.28
@@ -69,8 +67,9 @@ const PALETTES := {
 var from := Vector2.ZERO # the server's beam start (the shooter's body centre)
 var to := Vector2.ZERO # where it leaves the map
 var dir := Vector2.RIGHT
-var beam_t := CHARGE_DEFAULT
-var beam_duration := BEAM_DEFAULT
+var beam_t := 0.0 # the beam's start (the event's t, else the skill's chargeTime)
+var beam_duration := 0.0 # how long it shows (the event's duration, else the skill's beamTime)
+var sweep_speed := 0.0 # px/s of the beam front (the skill's sweepSpeed)
 var muzzle := Vector2.ZERO # where it is drawn from (the gun's muzzle once known, else from)
 var colors := {}
 var prismatic := false
@@ -95,15 +94,19 @@ var _bucket := -1 # the jitter bucket the point arrays were last filled for
 static var _band_cache: GradientTexture2D
 
 
-## From the beam event, the shot style ({kind, tier}) and the terrain mask before the shot (null:
-## no ground spots).
-func setup(beam: Dictionary, style: Dictionary, terrain = null) -> void:
+## From the beam event, the shot style ({kind, tier}), the terrain mask before the shot (null:
+## no ground spots) and the skill's tuning ({sweepSpeed, chargeTime, beamTime}: its game data
+## params; {} reads the first laser skill's).
+func setup(beam: Dictionary, style: Dictionary, terrain = null, tuning: Dictionary = {}) -> void:
 	from = _vec(beam.get("from"), Vector2.ZERO)
 	to = _vec(beam.get("to"), from + Vector2.RIGHT)
 	dir = (to - from).normalized() if to.distance_to(from) > 0.01 else Vector2.RIGHT
 	muzzle = from
-	beam_t = float(beam.get("t", CHARGE_DEFAULT))
-	beam_duration = maxf(0.05, float(beam.get("duration", BEAM_DEFAULT)))
+	var tune := func(key: String) -> float:
+		return float(tuning[key]) if tuning.has(key) else GameData.effect_param("laser", key)
+	sweep_speed = tune.call("sweepSpeed")
+	beam_t = float(beam.get("t", tune.call("chargeTime")))
+	beam_duration = maxf(0.05, float(beam.get("duration", tune.call("beamTime"))))
 	var kind := ShotLook.known_kind(str(style.get("kind", "shock_rifle")))
 	var tier := ShotLook.known_tier(str(style.get("tier", "")))
 	colors = palette(kind, tier)
@@ -163,7 +166,7 @@ func done_at() -> float:
 
 ## How far the beam's front is from the muzzle at time t (px; 0 before the beam).
 func front_at(t: float) -> float:
-	return clampf((t - beam_t) * SWEEP_SPEED, 0.0, length())
+	return clampf((t - beam_t) * sweep_speed, 0.0, length())
 
 
 ## The beam's drawn length: from the muzzle to the map edge along dir.

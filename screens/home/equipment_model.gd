@@ -8,8 +8,11 @@ extends RefCounted
 ## characterId?, gemSlots, statHp, statDamage, statDefense, statCrit, statMoveEnergy, priceCoin,
 ## priceGem, isActive}. An owned piece: {equipmentId, itemId, slot, category, tier?,
 ## upgradeLevel, isEquipped, equippedOn? (characterId), ...}. A piece's stats are its item's
-## upgraded like the server does (upgraded(): ×(1 + 0.02 × level + reached milestone bonuses),
-## rounded per item; piece_item()); shop items are +0.
+## upgraded like the server does (upgraded(): ×(1 + upgradeStepPerLevel × level + reached
+## milestone bonuses), rounded per item; piece_item()); shop items are +0. The tiers (ids, names,
+## normal / crafted, the lvN id suffixes), the upgrade step, the milestones, the highest level and
+## the sell rate are the game data's (GET /gamedata equipment); the catalog's own milestones and
+## sell rate win when it sends them.
 ##
 ## Item stats are stat points, like the points a character allocates: each becomes battle stats
 ## through the GET /player/characters statMultipliers (hp → Máu, damage → Sát thương, defense →
@@ -20,29 +23,23 @@ const LoadoutModel := preload("res://screens/loadout_model.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
 const Fmt := preload("res://core/fmt.gd")
 const Art := preload("res://ui/art.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 ## Display order (the Nhân vật page's slots, filters, sorting).
 const SLOTS := ["helmet", "armor", "gloves", "pants", "boots", "weapon"]
 const SLOT_NAMES := {
 	"weapon": "Vũ khí", "armor": "Áo", "helmet": "Mũ", "pants": "Quần", "boots": "Giày", "gloves": "Găng tay",
 }
-## Art tiers (ui/art.gd equipment icons): normal items by shop tier, crafted by their tier.
-const NORMAL_TIERS := ["iron", "steel", "mithril", "dragon"]
-const CRAFTED_TIERS := ["silver", "gold", "titan", "diamond"]
-const TIER_WORDS := {
-	"iron": "Sắt", "steel": "Thép", "mithril": "Mithril", "dragon": "Rồng",
-	"silver": "Bạc", "gold": "Vàng", "titan": "Titan", "diamond": "Kim cương",
-}
-## Normal item ids end in lvN, the required level (10/20/30/40): the shop tier. Weapons are guns,
-## per character (<character>_weapon_lvN, "Iron Bazooka"); the other slots are shared.
-const ID_SUFFIX_TIERS := {"lv10": "iron", "lv20": "steel", "lv30": "mithril", "lv40": "dragon"}
+## Normal item ids end in their tier's idSuffix (lv10 … lv40, the required level): the shop
+## tier. Weapons are guns, per character (<character>_weapon_lvN, "Iron Bazooka"); the other
+## slots are shared.
 ## The type part of "<Tier> <Type>" server names (one or two words).
 const TYPE_WORDS := {
 	"sword": "Kiếm", "vest": "Áo giáp", "cap": "Mũ", "pants": "Quần", "boots": "Giày", "gloves": "Găng",
 	"bazooka": "Bazooka", "cannon": "Đại pháo", "shock rifle": "Súng điện", "seed launcher": "Súng hạt", "blaster": "Súng",
 }
-## The gun each character fires (its weapons' icon); generic and crafted weapons are blasters ("").
-const WEAPON_KINDS := {"rookie": "bazooka", "tanko": "cannon", "spark": "rifle", "flora": "launcher"}
+## The gun each character fires (its weapons' icon kind, from its gunKind: GUN_OF_KIND inverted);
+## generic and crafted weapons are blasters ("").
 const KIND_OF_TYPE := {"bazooka": "bazooka", "cannon": "cannon", "shock rifle": "rifle", "seed launcher": "launcher"}
 ## The held gun sprite (ui/art.gd GUN_KINDS) of a weapon_kind() icon kind; "" (generic and
 ## crafted weapons) is the blaster.
@@ -59,8 +56,6 @@ const STATS := [
 	{"key": "statMoveEnergy", "label": "Di chuyển", "unit": "", "point": "mobility", "total": "moveEnergy"},
 ]
 const MINUS := "−"
-## Share of the buy price POST /player/equipment/sell gives back when the catalog has no sellRate.
-const DEFAULT_SELL_RATE := 0.25
 
 
 static func slot_name(slot: String) -> String:
@@ -73,10 +68,7 @@ static func slot_index(slot: String) -> int:
 
 
 static func character_name(id: String) -> String:
-	for c in LoadoutModel.CHARACTERS:
-		if c["id"] == id:
-			return c["name"]
-	return id
+	return GameData.character_name(id)
 
 
 # ── Parsing ─────────────────────────────────────────────────────────────────
@@ -84,7 +76,7 @@ static func character_name(id: String) -> String:
 ## The GET /equipment/catalog data → {items: {itemId: item}, order: [itemId...], upgradeRates,
 ## setBonuses, stones, sellRate}, or null when it has no items array. Inactive items are kept (an
 ## owned piece still needs its name and stats) and flagged by isActive. sellRate: the share of the
-## buy price selling gives back (DEFAULT_SELL_RATE when missing or outside (0, 1]).
+## buy price selling gives back (the game data's sellRate when missing or outside (0, 1]).
 static func parse_catalog(data: Variant) -> Variant:
 	if not data is Dictionary or not data.get("items") is Array:
 		return null
@@ -106,37 +98,38 @@ static func parse_catalog(data: Variant) -> Variant:
 	return out
 
 
-## Milestone bonuses of the server's battlestats: from level 6, 10, 14, 16 on, item stats get
-## a further +0.10, +0.20, +0.40, +1.00 (game_settings, sent as the catalog's upgradeMilestones).
-const DEFAULT_MILESTONES := [[6, 0.10], [10, 0.20], [14, 0.40], [16, 1.00]]
+## The milestone bonuses of the server's battlestats (the game data's equipment.milestones: from
+## level 6, 10, 14, 16 on, item stats get a further +0.10, +0.20, +0.40, +1.00), [[level, bonus]].
+static func default_milestones() -> Array:
+	return GameData.upgrade_milestones()
 
 
-## A catalog upgradeMilestones ([{level, bonus}]) → [[level, bonus]...] ascending;
-## DEFAULT_MILESTONES when missing or malformed (an older server).
+## A catalog upgradeMilestones ([{level, bonus}]) → [[level, bonus]...] ascending; the game
+## data's when missing or malformed (an older server).
 static func parse_milestones(v: Variant) -> Array:
 	if not v is Array or v.is_empty():
-		return DEFAULT_MILESTONES.duplicate(true)
+		return default_milestones()
 	var out: Array = []
 	for m in v:
 		if not m is Dictionary or not (m.get("level") is int or m.get("level") is float) or not (m.get("bonus") is int or m.get("bonus") is float):
-			return DEFAULT_MILESTONES.duplicate(true)
+			return default_milestones()
 		out.append([int(m["level"]), float(m["bonus"])])
 	out.sort_custom(func(a, b): return a[0] < b[0])
 	return out
 
 
-## The milestone bonuses of a parsed catalog (DEFAULT_MILESTONES before it loads).
+## The milestone bonuses of a parsed catalog (the game data's before it loads).
 static func milestones(catalog: Variant) -> Array:
 	if catalog is Dictionary and catalog.get("upgradeMilestones") is Array:
 		return catalog["upgradeMilestones"]
-	return DEFAULT_MILESTONES
+	return default_milestones()
 
 
-## A catalog sellRate, DEFAULT_SELL_RATE when it is not a number in (0, 1] (an older server).
+## A catalog sellRate, the game data's when it is not a number in (0, 1] (an older server).
 static func parse_sell_rate(v: Variant) -> float:
 	if (v is int or v is float) and float(v) > 0.0 and float(v) <= 1.0:
 		return float(v)
-	return DEFAULT_SELL_RATE
+	return GameData.sell_rate()
 
 
 ## The GET /player/equipment data (a bare array, newest first) → the pieces, or null.
@@ -172,20 +165,41 @@ static func item_of_piece(catalog: Variant, piece: Dictionary) -> Dictionary:
 
 # ── Names and art ───────────────────────────────────────────────────────────
 
+## A tier id of the game data's equipment.tiers.
+static func is_tier(t: String) -> bool:
+	return not GameData.equipment_tier(t).is_empty()
+
+
+## The tier's Vietnamese word ("Sắt"), "" for an unknown tier.
+static func tier_word(t: String) -> String:
+	return GameData.equipment_tier_name(t)
+
+
+## The tier ids of the normal (shop) items and of the crafted ones, in order.
+static func normal_tiers() -> Array:
+	return GameData.equipment_tier_ids("normal")
+
+
+static func crafted_tiers() -> Array:
+	return GameData.equipment_tier_ids("crafted")
+
+
 ## The art tier of an item: its tier, else the tier word of its name ("Iron Sword"), else the
-## lvN suffix of its id; "iron" (normal) / "silver" (crafted) when none matches.
+## idSuffix of its id; the first normal / crafted tier when none matches.
 static func tier(item: Dictionary) -> String:
 	var t = item.get("tier")
-	if t != null and TIER_WORDS.has(str(t).to_lower()):
+	if t != null and is_tier(str(t).to_lower()):
 		return str(t).to_lower()
 	var words := str(item.get("name", "")).to_lower().split(" ", false)
-	if not words.is_empty() and TIER_WORDS.has(words[0]):
+	if not words.is_empty() and is_tier(words[0]):
 		return words[0]
 	var id := str(item.get("itemId", ""))
-	for suffix in ID_SUFFIX_TIERS:
+	var suffixes := GameData.equipment_suffixes()
+	for suffix in suffixes:
 		if id.ends_with("_" + suffix):
-			return ID_SUFFIX_TIERS[suffix]
-	return "silver" if str(item.get("category", "")) == "crafted" else "iron"
+			return suffixes[suffix]
+	var first: Array = crafted_tiers() if str(item.get("category", "")) == "crafted" else normal_tiers()
+	return str(first[0]) if not first.is_empty() else ""
 
 
 ## "Bazooka Sắt", "Đại pháo Rồng", "Súng điện Thép", "Súng hạt Mithril", "Súng Kim cương",
@@ -194,16 +208,16 @@ static func tier(item: Dictionary) -> String:
 static func display_name(item: Dictionary) -> String:
 	var name := str(item.get("name", "")).strip_edges()
 	var words := name.to_lower().split(" ", false)
-	if words.size() >= 2 and TIER_WORDS.has(words[0]):
+	if words.size() >= 2 and is_tier(words[0]):
 		var type := " ".join(words.slice(1))
 		if TYPE_WORDS.has(type):
-			return "%s %s" % [TYPE_WORDS[type], TIER_WORDS[words[0]]]
+			return "%s %s" % [TYPE_WORDS[type], tier_word(words[0])]
 	if name != "":
 		return name
 	var slot := str(item.get("slot", ""))
 	if slot == "":
 		return str(item.get("itemId", ""))
-	return "%s %s" % [slot_name(slot), TIER_WORDS.get(tier(item), "")]
+	return "%s %s" % [slot_name(slot), tier_word(tier(item))]
 
 
 ## The gun of a weapon for its icon: "bazooka", "cannon", "rifle", "launcher" (by characterId,
@@ -212,11 +226,21 @@ static func weapon_kind(item: Dictionary) -> String:
 	if str(item.get("slot", "")) != "weapon":
 		return ""
 	var only = item.get("characterId")
-	if only != null and WEAPON_KINDS.has(str(only)):
-		return WEAPON_KINDS[str(only)]
+	if only != null and GameData.is_character(str(only)):
+		return character_weapon_kind(str(only))
 	var words := str(item.get("name", "")).to_lower().split(" ", false)
 	if words.size() >= 2:
 		return str(KIND_OF_TYPE.get(" ".join(words.slice(1)), ""))
+	return ""
+
+
+## The icon kind of a character's own weapons ("bazooka", "cannon", "rifle", "launcher"; "" a
+## blaster): its gunKind (game data) through GUN_OF_KIND.
+static func character_weapon_kind(character_id: String) -> String:
+	var gun_kind := GameData.character_gun_kind(character_id)
+	for kind in GUN_OF_KIND:
+		if GUN_OF_KIND[kind] == gun_kind and kind != "":
+			return kind
 	return ""
 
 
@@ -228,7 +252,7 @@ static func weapon_kind(item: Dictionary) -> String:
 ## blaster/iron, "" for Tanko → cannon/basic.
 static func gun(item_id: String, item: Dictionary = {}, character_id: String = "") -> Dictionary:
 	if item_id == "" and item.is_empty():
-		return {"kind": str(Art.CHARACTER_GUNS.get(character_id, Art.DEFAULT_GUN_KIND)), "tier": Art.GUN_BASIC}
+		return {"kind": Art.character_gun(character_id), "tier": Art.GUN_BASIC}
 	var it := item if not item.is_empty() else weapon_from_id(item_id)
 	return {"kind": str(GUN_OF_KIND.get(weapon_kind(it), "blaster")), "tier": tier(it)}
 
@@ -242,10 +266,11 @@ static func player_gun(player: Dictionary, catalog: Variant = null) -> Dictionar
 
 
 ## The upgrade level of the weapon a match player brought (weaponUpgradeLevel: 0 for none and
-## bots; missing from an older server → 0), clamped to 0..16: its back aura (back_aura.gd).
+## bots; missing from an older server → 0), clamped to 0..maxUpgradeLevel: its back aura
+## (back_aura.gd).
 static func player_weapon_level(player: Dictionary) -> int:
 	var v = player.get("weaponUpgradeLevel")
-	return clampi(int(v), 0, 16) if v is int or v is float else 0
+	return clampi(int(v), 0, GameData.max_upgrade_level()) if v is int or v is float else 0
 
 
 ## A stand-in catalog entry for a weapon id the catalog does not give: {itemId, slot, category,
@@ -255,11 +280,11 @@ static func weapon_from_id(item_id: String) -> Dictionary:
 	if item_id.begins_with("crafted_"):
 		out["category"] = "crafted"
 		var t := item_id.get_slice("_", item_id.get_slice_count("_") - 1)
-		if TIER_WORDS.has(t):
+		if is_tier(t):
 			out["tier"] = t
 		return out
 	var owner := item_id.get_slice("_", 0)
-	if WEAPON_KINDS.has(owner) and item_id.begins_with(owner + "_weapon_"):
+	if GameData.is_character(owner) and item_id.begins_with(owner + "_weapon_"):
 		out["characterId"] = owner
 	return out
 
@@ -294,11 +319,12 @@ static func piece_tooltip(catalog: Variant, piece: Dictionary, mult: Dictionary 
 
 # ── Stats ───────────────────────────────────────────────────────────────────
 
-## The stat multiplier of an upgrade level: 1 + 0.02 × level + each reached milestone bonus, added
-## in the server's order (battlestats upgradeMultiplier), so the float is the same.
-static func upgrade_multiplier(level: int, ms: Array = DEFAULT_MILESTONES) -> float:
-	var mul := 1.0 + float(level) * 0.02
-	for m in ms:
+## The stat multiplier of an upgrade level: 1 + upgradeStepPerLevel × level + each reached
+## milestone bonus (ms; null: the game data's), added in the server's order (battlestats
+## upgradeMultiplier), so the float is the same.
+static func upgrade_multiplier(level: int, ms: Variant = null) -> float:
+	var mul := 1.0 + float(level) * GameData.upgrade_step_per_level()
+	for m in (ms if ms is Array else default_milestones()):
 		if level >= int(m[0]):
 			mul += float(m[1])
 	return mul
@@ -307,7 +333,7 @@ static func upgrade_multiplier(level: int, ms: Array = DEFAULT_MILESTONES) -> fl
 ## A copy of `item` with its stats at upgrade `level` (battlestats SumEquipment per item): hp,
 ## damage, defense and move energy points × upgrade_multiplier(), rounded half away from zero;
 ## crit × the multiplier, unrounded.
-static func upgraded(item: Dictionary, level: int, ms: Array = DEFAULT_MILESTONES) -> Dictionary:
+static func upgraded(item: Dictionary, level: int, ms: Variant = null) -> Dictionary:
 	if level <= 0:
 		return item
 	var mul := upgrade_multiplier(level, ms)

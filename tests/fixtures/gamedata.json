@@ -1,0 +1,1246 @@
+{
+  "success": true,
+  "data": {
+    "version": "13f9f9a13a6a316c",
+    "physics": {
+      "gravity": 445,
+      "speedPerPower": 9.6,
+      "windScale": 67,
+      "timeStep": 0.02,
+      "pathRecordStep": 0.05,
+      "maxFlightSec": 4.5,
+      "playerHitRadius": 24,
+      "collisionStepPx": 4,
+      "shotOriginLift": 20,
+      "outOfBounds": {
+        "left": 100,
+        "right": 100,
+        "below": 50
+      }
+    },
+    "aim": {
+      "powerMin": 0,
+      "powerMax": 100,
+      "angleMin": 0,
+      "angleMax": 180,
+      "noAimAngle": 90,
+      "noAimPower": 50
+    },
+    "aimAid": {
+      "guideArcLength": {
+        "bronze": 700,
+        "diamond": 500,
+        "gold": 600,
+        "master": 450,
+        "platinum": 550,
+        "silver": 650
+      },
+      "defaultTier": "bronze",
+      "hitTolerance": {
+        "max": 20,
+        "minPart": 0.2,
+        "farPx": 1200,
+        "highPx": 700
+      }
+    },
+    "combat": {
+      "defenseK": 600,
+      "powerShotFactor": 1.5,
+      "lavaDamage": 75
+    },
+    "terrain": {
+      "playerHeight": 40,
+      "maxClimbPerStep": 3,
+      "craterPxPerTerrainDamage": 0.6,
+      "bowlDepth": 0.72,
+      "bowlCeiling": 1.5,
+      "maxTerrainDamageBonusPercent": 50,
+      "fallDamageThresholdPx": 150,
+      "fallDamagePerPx": 3.75
+    },
+    "movement": {
+      "pxPerEnergy": 2,
+      "energyPerPx": 0.5,
+      "defaultMoveEnergy": 100,
+      "netMoveEnergyCap": 50
+    },
+    "timings": {
+      "turnSec": 20,
+      "actionIntervalSec": 0.15,
+      "botFollowUpDelaySec": 1.5,
+      "skipTurnDelaySec": 2
+    },
+    "skillEnergy": {
+      "max": 100,
+      "perTurn": 20,
+      "onHit": 10
+    },
+    "skillRanks": {
+      "byTierWord": {
+        "diamond": 4,
+        "dragon": 4,
+        "gold": 3,
+        "iron": 1,
+        "lv10": 1,
+        "lv20": 2,
+        "lv30": 3,
+        "lv40": 4,
+        "mithril": 3,
+        "silver": 2,
+        "steel": 2,
+        "titan": 4
+      },
+      "default": 0,
+      "max": 4
+    },
+    "weapons": [
+      {
+        "weaponId": "basic_rocket",
+        "name": "Basic Rocket",
+        "damage": 480,
+        "explosionRadius": 40,
+        "terrainDamage": 20,
+        "craterRadius": 12,
+        "projectileWeight": 1,
+        "windInfluence": 1,
+        "multiHit": 1
+      },
+      {
+        "weaponId": "cannon_ball",
+        "name": "Cannon Ball",
+        "damage": 420,
+        "explosionRadius": 60,
+        "terrainDamage": 30,
+        "craterRadius": 18,
+        "projectileWeight": 1.5,
+        "windInfluence": 0.5,
+        "multiHit": 1
+      },
+      {
+        "weaponId": "electric_orb",
+        "name": "Electric Orb",
+        "damage": 620,
+        "explosionRadius": 30,
+        "terrainDamage": 20,
+        "craterRadius": 12,
+        "projectileWeight": 0.8,
+        "windInfluence": 1.3,
+        "multiHit": 1
+      },
+      {
+        "weaponId": "seed_bomb",
+        "name": "Seed Bomb",
+        "damage": 380,
+        "explosionRadius": 40,
+        "terrainDamage": 24,
+        "craterRadius": 14.399999999999999,
+        "projectileWeight": 0.9,
+        "windInfluence": 1,
+        "multiHit": 1
+      }
+    ],
+    "skills": [
+      {
+        "skillId": "triple_shot",
+        "characterId": "rookie",
+        "name": "Mưa tên lửa",
+        "description": "Bắn pháo hiệu, {count} tên lửa rơi quanh chỗ đáp (+{countPerRank} mỗi cấp súng), mỗi quả {damagePct}% sát thương; địch trúng bị bỏng: mất {burnPct}% máu tối đa đầu lượt sau.",
+        "effectType": "missile_rain",
+        "statusEffectId": "burn",
+        "aimKind": "arc",
+        "cooldownTurn": 2,
+        "projectileCount": 12,
+        "damageMultiplier": 1,
+        "params": {
+          "baseCount": 12,
+          "blast": 0.7,
+          "burnMaxHpPercent": 10,
+          "burnTurns": 1,
+          "cap": 2,
+          "countPerRank": 4,
+          "crater": 1,
+          "damage": 0.25,
+          "delay": 0.5,
+          "dropSpeed": 1500,
+          "focus": 2,
+          "interval": 0.05,
+          "spreadBase": 90,
+          "spreadPerRank": 15,
+          "startY": -60
+        },
+        "ranks": [
+          {
+            "rank": 0,
+            "values": {
+              "burnPct": 10,
+              "capPct": 200,
+              "count": 12,
+              "countPerRank": 4,
+              "damagePct": 25,
+              "spread": 90
+            }
+          },
+          {
+            "rank": 1,
+            "values": {
+              "burnPct": 10,
+              "capPct": 200,
+              "count": 16,
+              "countPerRank": 4,
+              "damagePct": 25,
+              "spread": 105
+            }
+          },
+          {
+            "rank": 2,
+            "values": {
+              "burnPct": 10,
+              "capPct": 200,
+              "count": 20,
+              "countPerRank": 4,
+              "damagePct": 25,
+              "spread": 120
+            }
+          },
+          {
+            "rank": 3,
+            "values": {
+              "burnPct": 10,
+              "capPct": 200,
+              "count": 24,
+              "countPerRank": 4,
+              "damagePct": 25,
+              "spread": 135
+            }
+          },
+          {
+            "rank": 4,
+            "values": {
+              "burnPct": 10,
+              "capPct": 200,
+              "count": 28,
+              "countPerRank": 4,
+              "damagePct": 25,
+              "spread": 150
+            }
+          }
+        ]
+      },
+      {
+        "skillId": "heavy_bomb",
+        "characterId": "tanko",
+        "name": "Bom liên hoàn",
+        "description": "Bắn {count} quả bom lớn liên tiếp cùng đường bay (+{countPerRank} mỗi cấp súng), đào sâu một hố; mỗi quả {eachPct}% sát thương, mỗi địch nhận tối đa {capPct}%; địch trúng bị cầm chân lượt sau.",
+        "effectType": "bomb_chain",
+        "statusEffectId": "root",
+        "aimKind": "arc",
+        "cooldownTurn": 3,
+        "projectileCount": 2,
+        "damageMultiplier": 1,
+        "params": {
+          "baseCount": 2,
+          "blast": 1.3,
+          "capBase": 1.2,
+          "capPerRank": 0.15,
+          "countPerRank": 1,
+          "fallSpeed": 3,
+          "hitGap": 0.08,
+          "launchGap": 0.1,
+          "rootTurns": 1,
+          "totalBase": 1.8,
+          "totalPerRank": 0.15
+        },
+        "ranks": [
+          {
+            "rank": 0,
+            "values": {
+              "capPct": 120,
+              "count": 2,
+              "countPerRank": 1,
+              "eachPct": 60
+            }
+          },
+          {
+            "rank": 1,
+            "values": {
+              "capPct": 135,
+              "count": 3,
+              "countPerRank": 1,
+              "eachPct": 49
+            }
+          },
+          {
+            "rank": 2,
+            "values": {
+              "capPct": 150,
+              "count": 4,
+              "countPerRank": 1,
+              "eachPct": 42
+            }
+          },
+          {
+            "rank": 3,
+            "values": {
+              "capPct": 165,
+              "count": 5,
+              "countPerRank": 1,
+              "eachPct": 38
+            }
+          },
+          {
+            "rank": 4,
+            "values": {
+              "capPct": 180,
+              "count": 6,
+              "countPerRank": 1,
+              "eachPct": 34
+            }
+          }
+        ]
+      },
+      {
+        "skillId": "shock_field",
+        "characterId": "spark",
+        "name": "Tia laze",
+        "description": "Tia thẳng xuyên địa hình tới mép bản đồ, trúng mọi địch trên đường: {firstPct}% sát thương, mỗi địch sau giảm {decayPct}%; địch trúng bị choáng, mất lượt sau.",
+        "effectType": "laser",
+        "statusEffectId": "stun",
+        "aimKind": "line",
+        "cooldownTurn": 3,
+        "projectileCount": 1,
+        "damageMultiplier": 1,
+        "params": {
+          "beamTime": 0.6,
+          "chargeTime": 0.3,
+          "decay": 0.8,
+          "firstBase": 1.5,
+          "firstPerRank": 0.1,
+          "halfWidth": 10,
+          "stunTurns": 1,
+          "sweepSpeed": 12000
+        },
+        "ranks": [
+          {
+            "rank": 0,
+            "values": {
+              "decayPct": 20,
+              "firstPct": 150
+            }
+          },
+          {
+            "rank": 1,
+            "values": {
+              "decayPct": 20,
+              "firstPct": 160
+            }
+          },
+          {
+            "rank": 2,
+            "values": {
+              "decayPct": 20,
+              "firstPct": 170
+            }
+          },
+          {
+            "rank": 3,
+            "values": {
+              "decayPct": 20,
+              "firstPct": 180
+            }
+          },
+          {
+            "rank": 4,
+            "values": {
+              "decayPct": 20,
+              "firstPct": 190
+            }
+          }
+        ]
+      },
+      {
+        "skillId": "healing_bloom",
+        "characterId": "flora",
+        "name": "Hoa hồi xuân",
+        "description": "Hồi máu cả đội: Flora {selfPct}%, đồng đội {allyPct}% máu tối đa (+{perRankPct}% mỗi cấp súng); máu dư thành khiên (tối đa {shieldCapPct}% máu); giải mọi hiệu ứng xấu.",
+        "effectType": "bloom",
+        "statusEffectId": "",
+        "aimKind": "none",
+        "cooldownTurn": 3,
+        "projectileCount": 1,
+        "damageMultiplier": 1,
+        "params": {
+          "allyBase": 30,
+          "crossTime": 0.2,
+          "fallSpeed": 400,
+          "fallTime": 0.65,
+          "linger": 0.9,
+          "perRank": 5,
+          "riseTime": 0.55,
+          "seedTime": 1.4,
+          "selfBase": 40,
+          "shieldCapPercent": 50,
+          "skyY": -140
+        },
+        "ranks": [
+          {
+            "rank": 0,
+            "values": {
+              "allyPct": 30,
+              "perRankPct": 5,
+              "selfPct": 40,
+              "shieldCapPct": 50
+            }
+          },
+          {
+            "rank": 1,
+            "values": {
+              "allyPct": 35,
+              "perRankPct": 5,
+              "selfPct": 45,
+              "shieldCapPct": 50
+            }
+          },
+          {
+            "rank": 2,
+            "values": {
+              "allyPct": 40,
+              "perRankPct": 5,
+              "selfPct": 50,
+              "shieldCapPct": 50
+            }
+          },
+          {
+            "rank": 3,
+            "values": {
+              "allyPct": 45,
+              "perRankPct": 5,
+              "selfPct": 55,
+              "shieldCapPct": 50
+            }
+          },
+          {
+            "rank": 4,
+            "values": {
+              "allyPct": 50,
+              "perRankPct": 5,
+              "selfPct": 60,
+              "shieldCapPct": 50
+            }
+          }
+        ]
+      }
+    ],
+    "characters": [
+      {
+        "characterId": "rookie",
+        "name": "Rookie",
+        "role": "balanced",
+        "roleName": "Cân bằng",
+        "playstyle": "Không nổi bật hẳn mặt nào nhưng cũng chẳng có điểm yếu rõ ràng: máu, sát thương và tầm di chuyển đều vừa phải, đạn chịu gió bình thường. Hợp để tập căn góc và lực; khi đầy năng lượng, Mưa tên lửa trút xuống cả một vùng quanh pháo hiệu, khó né và đốt máu đối thủ ở lượt sau. Đổi lại, Rookie đánh không đau bằng Spark và không lì bằng Flora.",
+        "weaponId": "basic_rocket",
+        "skillId": "triple_shot",
+        "gunKind": "bazooka",
+        "hp": 1500,
+        "damage": 480,
+        "mobility": 100,
+        "defense": 50,
+        "skillPower": 50,
+        "terrainDamage": 20,
+        "difficulty": 1
+      },
+      {
+        "characterId": "tanko",
+        "name": "Tanko",
+        "role": "demolisher",
+        "roleName": "Phá địa hình",
+        "playstyle": "Chuyên phá địa hình: đại pháo khoét hố sâu hơn hẳn mọi người, phá chỗ nấp và đào đất ngay dưới chân đối thủ. Đạn nặng ít bị gió đẩy nên vẫn bắn chuẩn khi trời gió lớn; để dành Bom liên hoàn bắn thẳng vào địch: từng quả đào sâu thêm, địch rơi xuống đáy hố, trúng tiếp và bị cầm chân. Bù lại mỗi phát gây ít sát thương và Tanko đi được ngắn nhất, khó thoát khỏi chỗ đứng xấu.",
+        "weaponId": "cannon_ball",
+        "skillId": "heavy_bomb",
+        "gunKind": "cannon",
+        "hp": 1650,
+        "damage": 420,
+        "mobility": 80,
+        "defense": 60,
+        "skillPower": 65,
+        "terrainDamage": 30,
+        "difficulty": 2
+      },
+      {
+        "characterId": "spark",
+        "name": "Spark",
+        "role": "striker",
+        "roleName": "Sát thương",
+        "playstyle": "Đánh đau nhất: chỉ vài phát trúng là hạ được đối thủ, còn Tia laze xuyên địa hình, trúng mọi địch trên đường và làm họ mất lượt sau. Spark chạy xa nhất nên dễ đổi chỗ tìm góc bắn hoặc né khỏi tầm ngắm. Điểm yếu là máu và phòng thủ mỏng nhất, đạn nhẹ bị gió đẩy mạnh nên phải tính gió thật kỹ.",
+        "weaponId": "electric_orb",
+        "skillId": "shock_field",
+        "gunKind": "shock_rifle",
+        "hp": 1250,
+        "damage": 620,
+        "mobility": 120,
+        "defense": 30,
+        "skillPower": 80,
+        "terrainDamage": 20,
+        "difficulty": 2
+      },
+      {
+        "characterId": "flora",
+        "name": "Flora",
+        "role": "sustain",
+        "roleName": "Bền bỉ",
+        "playstyle": "Lì đòn nhất: máu và phòng thủ cao nhất, lại có Hoa hồi xuân hồi máu cả đội, máu dư thành khiên, nên càng đánh lâu càng có lợi. Hãy đứng vững, bắn chắc tay và kéo trận dài để đối thủ cạn máu trước. Bù lại sát thương thấp và đạn gần như không khoét đất, nên khó kết thúc trận nhanh.",
+        "weaponId": "seed_bomb",
+        "skillId": "healing_bloom",
+        "gunKind": "seed_launcher",
+        "hp": 1900,
+        "damage": 380,
+        "mobility": 100,
+        "defense": 90,
+        "skillPower": 85,
+        "terrainDamage": 24,
+        "difficulty": 1
+      }
+    ],
+    "defaultCharacterId": "rookie",
+    "items": [
+      {
+        "itemId": "medkit",
+        "name": "Hộp cứu thương",
+        "type": "heal",
+        "targetType": "self",
+        "value": 450,
+        "maxUsePerMatch": 1,
+        "cooldown": 0,
+        "instant": true,
+        "aimKind": "none"
+      },
+      {
+        "itemId": "teleport",
+        "name": "Dịch chuyển",
+        "type": "teleport",
+        "targetType": "position",
+        "value": 0,
+        "maxUsePerMatch": 1,
+        "cooldown": 0,
+        "instant": false,
+        "aimKind": "arc"
+      },
+      {
+        "itemId": "power_shot",
+        "name": "Tăng lực",
+        "type": "attack_boost",
+        "targetType": "self",
+        "value": 1.5,
+        "maxUsePerMatch": 1,
+        "cooldown": 0,
+        "instant": false,
+        "aimKind": "arc"
+      },
+      {
+        "itemId": "drill_bomb",
+        "name": "Bom khoan",
+        "type": "terrain_pierce",
+        "targetType": "shoot",
+        "value": 50,
+        "maxUsePerMatch": 1,
+        "cooldown": 0,
+        "instant": false,
+        "aimKind": "arc"
+      },
+      {
+        "itemId": "spider_net",
+        "name": "Lưới nhện",
+        "type": "move_debuff",
+        "targetType": "shoot",
+        "value": 50,
+        "maxUsePerMatch": 1,
+        "cooldown": 0,
+        "instant": false,
+        "aimKind": "arc"
+      },
+      {
+        "itemId": "freeze_bomb",
+        "name": "Bom băng",
+        "type": "freeze",
+        "targetType": "shoot",
+        "value": 1,
+        "maxUsePerMatch": 1,
+        "cooldown": 0,
+        "instant": false,
+        "aimKind": "arc"
+      },
+      {
+        "itemId": "air_strike",
+        "name": "Không kích",
+        "type": "air_attack",
+        "targetType": "position",
+        "value": 30,
+        "maxUsePerMatch": 1,
+        "cooldown": 0,
+        "instant": false,
+        "aimKind": "targetX"
+      },
+      {
+        "itemId": "wind_stopper",
+        "name": "Dừng gió",
+        "type": "wind_cancel",
+        "targetType": "self",
+        "value": 2,
+        "maxUsePerMatch": 1,
+        "cooldown": 0,
+        "instant": true,
+        "aimKind": "none"
+      }
+    ],
+    "itemRules": {
+      "maxLoadout": 3,
+      "airStrike": {
+        "angle": 270,
+        "power": 80
+      }
+    },
+    "statusEffects": [
+      {
+        "effectId": "burn",
+        "name": "Bỏng",
+        "marker": "",
+        "banner": "",
+        "bad": true,
+        "skipsTurn": false,
+        "blocksMove": false
+      },
+      {
+        "effectId": "root",
+        "name": "Bị cầm chân",
+        "marker": "",
+        "banner": "Bị cầm chân",
+        "bad": true,
+        "skipsTurn": false,
+        "blocksMove": true
+      },
+      {
+        "effectId": "stun",
+        "name": "Choáng",
+        "marker": "",
+        "banner": "Choáng — mất lượt",
+        "bad": true,
+        "skipsTurn": true,
+        "blocksMove": true
+      },
+      {
+        "effectId": "freeze",
+        "name": "Bị đóng băng",
+        "marker": "",
+        "banner": "Đóng băng — mất lượt",
+        "bad": true,
+        "skipsTurn": true,
+        "blocksMove": true
+      },
+      {
+        "effectId": "net",
+        "name": "Bị lưới",
+        "marker": "",
+        "banner": "",
+        "bad": true,
+        "skipsTurn": false,
+        "blocksMove": false
+      },
+      {
+        "effectId": "power_shot",
+        "name": "Tăng lực",
+        "marker": "x1.5",
+        "banner": "",
+        "bad": false,
+        "skipsTurn": false,
+        "blocksMove": false
+      },
+      {
+        "effectId": "drill_bomb",
+        "name": "Bom khoan",
+        "marker": "Khoan",
+        "banner": "",
+        "bad": false,
+        "skipsTurn": false,
+        "blocksMove": false
+      },
+      {
+        "effectId": "spider_net",
+        "name": "Lưới nhện",
+        "marker": "Đạn lưới",
+        "banner": "",
+        "bad": false,
+        "skipsTurn": false,
+        "blocksMove": false
+      },
+      {
+        "effectId": "freeze_bomb",
+        "name": "Bom băng",
+        "marker": "Đạn băng",
+        "banner": "",
+        "bad": false,
+        "skipsTurn": false,
+        "blocksMove": false
+      },
+      {
+        "effectId": "air_strike",
+        "name": "Không kích",
+        "marker": "Không kích",
+        "banner": "",
+        "bad": false,
+        "skipsTurn": false,
+        "blocksMove": false
+      },
+      {
+        "effectId": "wind_stop",
+        "name": "Dừng gió",
+        "marker": "",
+        "banner": "",
+        "bad": false,
+        "skipsTurn": false,
+        "blocksMove": false
+      }
+    ],
+    "rank": {
+      "tiers": [
+        {
+          "tier": "bronze",
+          "name": "Đồng",
+          "minRating": 0,
+          "divisions": 3,
+          "divisionSize": 333
+        },
+        {
+          "tier": "silver",
+          "name": "Bạc",
+          "minRating": 1000,
+          "divisions": 3,
+          "divisionSize": 66
+        },
+        {
+          "tier": "gold",
+          "name": "Vàng",
+          "minRating": 1200,
+          "divisions": 3,
+          "divisionSize": 100
+        },
+        {
+          "tier": "platinum",
+          "name": "Bạch kim",
+          "minRating": 1500,
+          "divisions": 3,
+          "divisionSize": 100
+        },
+        {
+          "tier": "diamond",
+          "name": "Kim cương",
+          "minRating": 1800,
+          "divisions": 3,
+          "divisionSize": 133
+        },
+        {
+          "tier": "master",
+          "name": "Cao thủ",
+          "minRating": 2200,
+          "divisions": 1,
+          "divisionSize": 0
+        }
+      ],
+      "defaultRating": 1000,
+      "rankedMode": "ranked_2v2"
+    },
+    "levels": {
+      "character": {
+        "levels": [
+          {
+            "level": 1,
+            "expRequired": 0
+          },
+          {
+            "level": 2,
+            "expRequired": 200
+          },
+          {
+            "level": 3,
+            "expRequired": 400
+          },
+          {
+            "level": 4,
+            "expRequired": 700
+          },
+          {
+            "level": 5,
+            "expRequired": 1100
+          },
+          {
+            "level": 6,
+            "expRequired": 1600
+          },
+          {
+            "level": 7,
+            "expRequired": 2200
+          },
+          {
+            "level": 8,
+            "expRequired": 3000
+          },
+          {
+            "level": 9,
+            "expRequired": 4000
+          },
+          {
+            "level": 10,
+            "expRequired": 5200
+          },
+          {
+            "level": 11,
+            "expRequired": 6425
+          },
+          {
+            "level": 12,
+            "expRequired": 7675
+          },
+          {
+            "level": 13,
+            "expRequired": 8950
+          },
+          {
+            "level": 14,
+            "expRequired": 10250
+          },
+          {
+            "level": 15,
+            "expRequired": 11575
+          },
+          {
+            "level": 16,
+            "expRequired": 12925
+          },
+          {
+            "level": 17,
+            "expRequired": 14300
+          },
+          {
+            "level": 18,
+            "expRequired": 15700
+          },
+          {
+            "level": 19,
+            "expRequired": 17125
+          },
+          {
+            "level": 20,
+            "expRequired": 18575
+          },
+          {
+            "level": 21,
+            "expRequired": 20050
+          },
+          {
+            "level": 22,
+            "expRequired": 21550
+          },
+          {
+            "level": 23,
+            "expRequired": 23075
+          },
+          {
+            "level": 24,
+            "expRequired": 24625
+          },
+          {
+            "level": 25,
+            "expRequired": 26200
+          },
+          {
+            "level": 26,
+            "expRequired": 27800
+          },
+          {
+            "level": 27,
+            "expRequired": 29425
+          },
+          {
+            "level": 28,
+            "expRequired": 31075
+          },
+          {
+            "level": 29,
+            "expRequired": 32750
+          },
+          {
+            "level": 30,
+            "expRequired": 34450
+          },
+          {
+            "level": 31,
+            "expRequired": 36175
+          },
+          {
+            "level": 32,
+            "expRequired": 37925
+          },
+          {
+            "level": 33,
+            "expRequired": 39700
+          },
+          {
+            "level": 34,
+            "expRequired": 41500
+          },
+          {
+            "level": 35,
+            "expRequired": 43325
+          },
+          {
+            "level": 36,
+            "expRequired": 45175
+          },
+          {
+            "level": 37,
+            "expRequired": 47050
+          },
+          {
+            "level": 38,
+            "expRequired": 48950
+          },
+          {
+            "level": 39,
+            "expRequired": 50875
+          },
+          {
+            "level": 40,
+            "expRequired": 52825
+          },
+          {
+            "level": 41,
+            "expRequired": 54800
+          },
+          {
+            "level": 42,
+            "expRequired": 56800
+          },
+          {
+            "level": 43,
+            "expRequired": 58825
+          },
+          {
+            "level": 44,
+            "expRequired": 60875
+          },
+          {
+            "level": 45,
+            "expRequired": 62950
+          },
+          {
+            "level": 46,
+            "expRequired": 65050
+          },
+          {
+            "level": 47,
+            "expRequired": 67175
+          },
+          {
+            "level": 48,
+            "expRequired": 69325
+          },
+          {
+            "level": 49,
+            "expRequired": 71500
+          },
+          {
+            "level": 50,
+            "expRequired": 73700
+          },
+          {
+            "level": 51,
+            "expRequired": 75925
+          },
+          {
+            "level": 52,
+            "expRequired": 78175
+          },
+          {
+            "level": 53,
+            "expRequired": 80450
+          },
+          {
+            "level": 54,
+            "expRequired": 82750
+          },
+          {
+            "level": 55,
+            "expRequired": 85075
+          },
+          {
+            "level": 56,
+            "expRequired": 87425
+          },
+          {
+            "level": 57,
+            "expRequired": 89800
+          },
+          {
+            "level": 58,
+            "expRequired": 92200
+          },
+          {
+            "level": 59,
+            "expRequired": 94625
+          },
+          {
+            "level": 60,
+            "expRequired": 97075
+          },
+          {
+            "level": 61,
+            "expRequired": 99550
+          },
+          {
+            "level": 62,
+            "expRequired": 102050
+          },
+          {
+            "level": 63,
+            "expRequired": 104575
+          },
+          {
+            "level": 64,
+            "expRequired": 107125
+          },
+          {
+            "level": 65,
+            "expRequired": 109700
+          },
+          {
+            "level": 66,
+            "expRequired": 112300
+          },
+          {
+            "level": 67,
+            "expRequired": 114925
+          },
+          {
+            "level": 68,
+            "expRequired": 117575
+          },
+          {
+            "level": 69,
+            "expRequired": 120250
+          },
+          {
+            "level": 70,
+            "expRequired": 122950
+          },
+          {
+            "level": 71,
+            "expRequired": 125675
+          },
+          {
+            "level": 72,
+            "expRequired": 128425
+          },
+          {
+            "level": 73,
+            "expRequired": 131200
+          },
+          {
+            "level": 74,
+            "expRequired": 134000
+          },
+          {
+            "level": 75,
+            "expRequired": 136825
+          },
+          {
+            "level": 76,
+            "expRequired": 139675
+          },
+          {
+            "level": 77,
+            "expRequired": 142550
+          },
+          {
+            "level": 78,
+            "expRequired": 145450
+          },
+          {
+            "level": 79,
+            "expRequired": 148375
+          },
+          {
+            "level": 80,
+            "expRequired": 151325
+          }
+        ],
+        "maxLevel": 80
+      },
+      "player": {
+        "expPerLevel": 100
+      }
+    },
+    "equipment": {
+      "upgradeStepPerLevel": 0.02,
+      "maxUpgradeLevel": 16,
+      "milestones": [
+        {
+          "level": 6,
+          "bonus": 0.1
+        },
+        {
+          "level": 10,
+          "bonus": 0.2
+        },
+        {
+          "level": 14,
+          "bonus": 0.4
+        },
+        {
+          "level": 16,
+          "bonus": 1
+        }
+      ],
+      "maxStoneLevel": 12,
+      "mergeMinCount": 2,
+      "mergeMaxCount": 4,
+      "mergeRatePerItem": 25,
+      "sellRate": 0.25,
+      "weaponUpgradeCostMultiplier": 3,
+      "tiers": [
+        {
+          "tier": "iron",
+          "name": "Sắt",
+          "kind": "normal",
+          "idSuffix": "lv10",
+          "skillRank": 1
+        },
+        {
+          "tier": "steel",
+          "name": "Thép",
+          "kind": "normal",
+          "idSuffix": "lv20",
+          "skillRank": 2
+        },
+        {
+          "tier": "mithril",
+          "name": "Mithril",
+          "kind": "normal",
+          "idSuffix": "lv30",
+          "skillRank": 3
+        },
+        {
+          "tier": "dragon",
+          "name": "Rồng",
+          "kind": "normal",
+          "idSuffix": "lv40",
+          "skillRank": 4
+        },
+        {
+          "tier": "silver",
+          "name": "Bạc",
+          "kind": "crafted",
+          "idSuffix": "",
+          "skillRank": 2
+        },
+        {
+          "tier": "gold",
+          "name": "Vàng",
+          "kind": "crafted",
+          "idSuffix": "",
+          "skillRank": 3
+        },
+        {
+          "tier": "titan",
+          "name": "Titan",
+          "kind": "crafted",
+          "idSuffix": "",
+          "skillRank": 4
+        },
+        {
+          "tier": "diamond",
+          "name": "Kim cương",
+          "kind": "crafted",
+          "idSuffix": "",
+          "skillRank": 4
+        }
+      ]
+    },
+    "economy": {
+      "coinsPerGem": 100
+    },
+    "matchmaking": {
+      "queue": "ranked_2v2",
+      "slots": 4,
+      "teamSize": 2,
+      "botFillAfterSec": 20,
+      "matchStartDelaySec": 3,
+      "tips": [
+        "Gió mạnh đẩy đạn rất xa: nhìn mũi tên gió trước khi bắn.",
+        "Bom liên hoàn của Tanko đào hố sâu, địch trúng bị cầm chân lượt sau.",
+        "Tia laze của Spark xuyên địa hình và làm choáng mọi địch trên đường bắn.",
+        "Hoa hồi xuân của Flora hồi máu cả đội và giải mọi hiệu ứng xấu.",
+        "Mưa tên lửa của Rookie làm địch bỏng, mất máu đầu lượt sau.",
+        "Bắn vào chân địch: hố sâu làm chúng rơi xuống và mất máu.",
+        "Bom băng đóng băng địch một lượt, cả đội tha hồ dồn sát thương.",
+        "Dịch chuyển giúp thoát khỏi hố sâu hoặc chiếm chỗ cao.",
+        "Bị địch bắn trúng cũng nạp thêm năng lượng kỹ năng.",
+        "Thắng trận xếp hạng để lên điểm, thua sẽ bị trừ điểm.",
+        "Rời trận giữa chừng tính là thua, kể cả khi đồng đội thắng.",
+        "Khiên chịu sát thương trước máu: máu hồi dư của Flora thành khiên."
+      ]
+    },
+    "modes": {
+      "lobby": [
+        {
+          "modeId": "practice",
+          "name": "Luyện tập",
+          "description": "Tập bắn với bia đứng yên",
+          "queue": "",
+          "bot": ""
+        },
+        {
+          "modeId": "ranked",
+          "name": "Xếp hạng 2v2",
+          "description": "Ghép 2v2, tính điểm hạng",
+          "queue": "ranked_2v2",
+          "bot": ""
+        },
+        {
+          "modeId": "bot",
+          "name": "Đấu với máy",
+          "description": "Đấu 1v1 với máy biết bắn",
+          "queue": "",
+          "bot": "ai"
+        }
+      ],
+      "match": [
+        {
+          "modeId": "pvp_1v1",
+          "name": "Đấu 1v1"
+        },
+        {
+          "modeId": "pvp_2v2",
+          "name": "Đấu 2v2"
+        },
+        {
+          "modeId": "ranked_2v2",
+          "name": "Xếp hạng 2v2"
+        }
+      ]
+    },
+    "mapThemes": {
+      "default": "grassland",
+      "themes": [
+        "grassland",
+        "ice",
+        "beach",
+        "graveyard",
+        "desert",
+        "sky",
+        "temple",
+        "steel",
+        "city_night",
+        "stone",
+        "cave"
+      ]
+    }
+  }
+}

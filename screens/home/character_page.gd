@@ -55,7 +55,7 @@ const SWIPE := 70.0
 ## Where dialogs and toasts go (Home); defaults to this page.
 var overlay: Control
 
-var _character := LoadoutModel.DEFAULT_CHARACTER
+var _character := LoadoutModel.default_character()
 var _slot := "" # the slot the list shows, "" = all
 var _sub := GEAR
 var _armed := false
@@ -110,7 +110,7 @@ func _ensure_loaded() -> void:
 
 ## The character shown (Home passes the lobby's choice when opening the page).
 func show_character(id: String) -> void:
-	_character = id if LoadoutModel.is_character(id) else LoadoutModel.DEFAULT_CHARACTER
+	_character = id if LoadoutModel.is_character(id) else LoadoutModel.default_character()
 	_render()
 
 

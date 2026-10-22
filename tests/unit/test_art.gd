@@ -1,6 +1,7 @@
 extends "res://tests/test_case.gd"
 
 const Art := preload("res://ui/art.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 ## match/views/player_view.gd ART_SCALE: world px per character px (1.6 px per art unit).
 const MATCH_ART_SCALE := 0.35
 
@@ -15,7 +16,7 @@ func test_every_art_path_exists() -> void:
 
 
 func test_item_icons_exist() -> void:
-	for id in preload("res://match/items.gd").ORDER:
+	for id in preload("res://match/items.gd").order():
 		check(Art.ICONS.has(id), "item %s has an icon" % id)
 
 
@@ -67,7 +68,7 @@ func test_equipment_art_covers_the_model() -> void:
 	var M := preload("res://screens/home/equipment_model.gd")
 	for slot in M.SLOTS:
 		check(Art.EQUIP_SLOTS.has(slot), "slot %s has art" % slot)
-	for tier in M.NORMAL_TIERS + M.CRAFTED_TIERS:
+	for tier in M.normal_tiers() + M.crafted_tiers():
 		check(Art.EQUIP_TIERS.has(tier), "tier %s has art" % tier)
 	eq(Art.equipment_icon_path("boots", "gold"), "res://assets/icons/equipment/boots_gold.png", "icon path")
 	eq(Art.equipment_slot_path("weapon"), "res://assets/icons/equipment/slot_weapon.png", "slot path")
@@ -78,7 +79,7 @@ func test_equipment_art_covers_the_model() -> void:
 	check(img != null and img.get_size() == Art.EQUIP_FRAME_SIZE, "frame size")
 	check(Art.equipment_icon("ring", "iron") != null, "unknown slot gets a texture")
 	eq(Art.equipment_weapon_path("cannon", "dragon"), "res://assets/icons/equipment/weapon_cannon_dragon.png", "gun icon path")
-	for kind in M.WEAPON_KINDS.values():
+	for kind in GameData.character_ids().map(func(c): return M.character_weapon_kind(c)):
 		check(Art.EQUIP_WEAPON_KINDS.has(kind), "gun %s has art" % kind)
 		img = Image.load_from_file(ProjectSettings.globalize_path(Art.equipment_weapon_path(kind, "iron")))
 		check(img != null and img.get_size() == Art.EQUIP_ICON_SIZE, "%s icon size" % kind)
@@ -123,7 +124,7 @@ func test_gun_sprites_match_their_metadata() -> void:
 			check(long >= 30.0 and long <= 44.0, "%s %s %.1f world px long in the match" % [kind, tier, long])
 	for tier in Art.GUN_NORMAL_TIERS + Art.GUN_CRAFTED_TIERS:
 		check(Art.GUN_TIERS["blaster"].has(tier), "blaster in %s" % tier)
-	for kind in Art.CHARACTER_GUNS.values():
+	for kind in GameData.character_ids().map(func(c): return GameData.character_gun_kind(c)):
 		check(Art.GUN_KINDS.has(kind), "character gun %s exists" % kind)
 		check(not data["guns"].has(kind), "%s: hug art only, no held sprites" % kind)
 	eq(data["guns"].keys(), ["blaster"], "weapons.json: only the blaster's held sprites")
@@ -443,7 +444,7 @@ func test_ready_pose_scenes() -> void:
 		check(sock != null and sock.get_meta("_edit_group_", false), "%s GunSocket grouped" % id)
 		var preview := root.get_node_or_null("GunSocket/Preview") as Sprite2D
 		check(preview != null and not preview.centered, "%s GunSocket/Preview, not centred" % id)
-		var kind := str(Art.CHARACTER_GUNS[id])
+		var kind := Art.character_gun(id)
 		var gs := float(Art.gun(kind, "iron")["scale"])
 		if preview != null and not Art.hug_meta(kind, "iron").is_empty():
 			# Every character's gun: the iron hug gun (none until the editor imports it:

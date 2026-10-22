@@ -236,7 +236,7 @@ func set_shield(value: int) -> void:
 	queue_redraw()
 
 
-## The icons drawn right of the HP bar: the effect ids (Status.ICONS order), then "shield".
+## The icons drawn right of the HP bar: the bad effect ids (Status.icons(), game data order), then "shield".
 func status_icons() -> Array:
 	var out := _icons.duplicate()
 	if shield > 0:

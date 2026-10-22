@@ -14,6 +14,7 @@ const SkyView := preload("res://match/views/sky_view.gd")
 const AimInput := preload("res://match/aim/aim_input.gd")
 const Hud := preload("res://match/hud.gd")
 const MatchScreen := preload("res://match/match_screen.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const DT := 1.0 / 60.0
 const HIT_E1 := 0.8 # s: the shell reaches e1
@@ -224,6 +225,35 @@ func test_screen_turn_started_after_the_replay() -> void:
 	_free(m)
 
 
+## The turn clock: TurnStarted's turnTimeLeft when the server sends it, else the game data's turnSec.
+func test_screen_turn_time_from_the_server_or_the_game_data() -> void:
+	var m := _screen(40)
+	m._apply("TurnStarted", {"currentPlayerId": "me", "turnIndex": 1, "moveEnergy": 100, "turnTimeLeft": 12})
+	eq(m._hud._time_left, 12.0, "the server's time left")
+	m._apply("TurnStarted", {"currentPlayerId": "e1", "turnIndex": 2, "moveEnergy": 100})
+	eq(m._hud._time_left, float(GameData.turn_sec()), "an older server: turnSec")
+	_free(m)
+
+
+## While the game data is fetched again (a match on another gamedataVersion), no aiming or actions.
+func test_screen_waits_for_the_game_data() -> void:
+	var m := _screen(40)
+	check(m._can_act(), "my turn: I may act")
+	m._data_wait = true
+	check(not m._can_act(), "not while the game data is fetched again")
+	m._hud.set_data_notice(m.DATA_NOTICE)
+	eq(m._hud.data_notice(), "Đang cập nhật dữ liệu...", "the notice")
+	m._hud.set_data_notice("")
+	eq(m._hud.data_notice(), "", "hidden")
+	m._data_wait = false
+	check(m._can_act(), "back once it is there")
+	m._check_gamedata({"gamedataVersion": GameData.version})
+	check(not m._data_wait, "the same version: no fetch")
+	m._check_gamedata({})
+	check(not m._data_wait, "an older server sends none: no fetch")
+	_free(m)
+
+
 # ── Badges ───────────────────────────────────────────────────────────────────
 
 func test_badge_content() -> void:
@@ -238,7 +268,7 @@ func test_badge_content() -> void:
 	eq(UseBadge.content("item", "", "teleport")["name"], "Dịch chuyển", "teleport (a shot)")
 	eq(UseBadge.content("item", "", "medkit")["name"], "Hộp cứu thương", "an instant item")
 	eq(UseBadge.content("item", "", ""), {}, "an item shot without an id")
-	for id in SkillGlyphs.IDS:
+	for id in GameData.skills().map(func(s): return str(s["skillId"])):
 		check(SkillGlyphs.has(id), "%s has a glyph" % id)
 		check(SkillGlyphs.color(id) != SkillGlyphs.DEFAULT_COLOR, "%s its own colour" % id)
 

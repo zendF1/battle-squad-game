@@ -33,18 +33,6 @@ var _missile_ids := {} # projectileId -> true
 var _bodies: Array = [] # the players' views: the column fades over their bodies
 
 
-func skill_id() -> String:
-	return "triple_shot"
-
-
-func skill_name() -> String:
-	return "Mưa tên lửa"
-
-
-func describe(rank: int) -> String:
-	return "Bắn pháo hiệu, %d tên lửa rơi quanh chỗ đáp (+4 mỗi cấp súng), mỗi quả 25%% sát thương; địch trúng bị bỏng: mất 10%% máu tối đa đầu lượt sau." % (12 + 4 * rank)
-
-
 ## The rain's hits on a player count up in one number (DamageTally).
 func merges_damage() -> bool:
 	return true

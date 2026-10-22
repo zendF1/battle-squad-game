@@ -10,6 +10,7 @@ extends Control
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const CharacterView := preload("res://ui/character_view.gd")
+const Art := preload("res://ui/art.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
 const TierBadge := preload("res://screens/ranked/tier_badge.gd")
 const MatchmakingModel := preload("res://screens/ranked/matchmaking_model.gd")
@@ -215,7 +216,7 @@ func _build() -> void:
 		plate.mouse_filter = MOUSE_FILTER_IGNORE
 		_content.add_child(plate)
 	_art = CharacterView.new()
-	_art.character_id = "rookie" if empty else str(_player["characterId"])
+	_art.character_id = Art.DEFAULT_CHARACTER if empty else str(_player["characterId"])
 	_art.idle = not empty
 	_art.position = Vector2((SIZE.x - 250) / 2.0, ART_TOP)
 	_art.size = Vector2(250, ART_H)

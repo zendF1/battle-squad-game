@@ -1,39 +1,35 @@
 extends RefCounted
 ## Aim preview that uses the same integration and terrain collision as the server's
-## SimulateProjectile (shooting.go), with the server's gamedata.DefaultPhysics():
-## - semi-implicit Euler steps of TIME_STEP;
-## - each step's segment is sampled every 4 px or less, so thin walls and crater lips stop the
-##   preview where they stop the shell.
+## SimulateProjectile (shooting.go), with the server's physics from the game data (GET /gamedata
+## physics: gravity, speedPerPower, windScale, timeStep, maxFlightSec, collisionStepPx,
+## shotOriginLift, outOfBounds; autoload/game_data_model.gd):
+## - semi-implicit Euler steps of timeStep;
+## - each step's segment is sampled every collisionStepPx or less, so thin walls and crater lips
+##   stop the preview where they stop the shell.
 ## Players, drills, weapon weight and wind influence are not modelled (weight 1, influence 1),
 ## so the preview is a guide, not a promise. The aiming aid's exact flight (match/aim/aim_aid.gd
 ## fly()) adds them on the same integration; the guide arc drawn is simulate() with the weapon's wind.
+## The server fires every shot from the shooter's body centre (shotOriginAt, shooting.go): its
+## position (the feet) lifted by shotOriginLift px. Air strikes start at (targetX, 0) instead.
 ##
 ## The math uses GDScript floats (64-bit, like Go's float64). Vector2 (32-bit) is used only for
 ## the returned points.
 
-const TIME_STEP := 0.02
-## The shell physics (server gamedata.DefaultPhysics(), migration 032_faster_shells): launch
-## speed power × SPEED_PER_POWER px/s, GRAVITY px/s², wind W × WIND_SCALE px/s² (× the weapon's
-## windInfluence / projectileWeight in the aid), at most MAX_FLIGHT s. Before 032: 6, 200, 30, 6.
-const SPEED_PER_POWER := 9.6
-const GRAVITY := 445.0
-const WIND_SCALE := 67.0
-const MAX_FLIGHT := 4.5
-const SAMPLE_PX := 4.0 # checkSegmentCollisions sub-step
-## The server fires every shot from the shooter's body centre (shotOriginAt, shooting.go): its
-## position (the feet) lifted by SHOT_LIFT px (PlayerHeight / 2). Air strikes start at
-## (targetX, 0) instead.
-const SHOT_LIFT := 20
-const SHOT_ORIGIN := Vector2(0, -SHOT_LIFT)
+const GameData := preload("res://autoload/game_data_model.gd")
 
 
-## Where the server starts a shot fired by a player standing at `feet`: feet - (0, SHOT_LIFT);
+## The shot origin relative to the feet: (0, −shotOriginLift), the body centre.
+static func shot_offset() -> Vector2:
+	return Vector2(0, -GameData.shot_origin_lift())
+
+
+## Where the server starts a shot fired by a player standing at `feet`: feet - (0, shotOriginLift);
 ## under a low ceiling the highest free pixel above the feet (feet.y - 1, - 2, ... scanned up,
 ## stopping before the first solid one), the feet themselves when feet.y - 1 is solid. Off the
 ## map in x or above its top counts as free (TerrainMask.is_solid). terrain null: no ceiling.
 static func shot_origin(feet: Vector2, terrain = null) -> Vector2:
 	var lift := 0
-	for k in range(1, SHOT_LIFT + 1):
+	for k in range(1, int(GameData.shot_origin_lift()) + 1):
 		if terrain != null and terrain.is_solid(feet.x, feet.y - k):
 			break
 		lift = k
@@ -42,43 +38,50 @@ static func shot_origin(feet: Vector2, terrain = null) -> Vector2:
 
 static func predict(origin: Vector2, angle_deg: float, power: float, wind_dir: int, wind_power: float, terrain, max_points: int = 90) -> PackedVector2Array:
 	var a := deg_to_rad(angle_deg)
-	var speed := power * SPEED_PER_POWER
-	return simulate(origin.x, origin.y, speed * cos(a), -speed * sin(a), wind_dir * wind_power * WIND_SCALE, terrain, max_points)
+	var speed := power * GameData.speed_per_power()
+	return simulate(origin.x, origin.y, speed * cos(a), -speed * sin(a), wind_dir * wind_power * GameData.wind_scale(), terrain, max_points)
 
 
 ## Integrates from (x, y) with velocity (vx, vy). The flight ends at whichever comes first:
 ## - the terrain hit point (the server's explosion point);
 ## - leaving the map bounds;
-## - MAX_FLIGHT seconds;
+## - maxFlightSec seconds;
 ## - max_points points.
 static func simulate(x: float, y: float, vx: float, vy: float, wind_force: float, terrain, max_points: int) -> PackedVector2Array:
 	var pts := PackedVector2Array([Vector2(x, y)])
+	var dt := GameData.time_step()
+	var max_flight := GameData.max_flight_sec()
+	var gravity := GameData.gravity()
+	var sample := GameData.collision_step_px()
+	var out := GameData.out_of_bounds()
 	var t := 0.0
-	while t < MAX_FLIGHT and pts.size() < max_points:
+	if dt <= 0.0:
+		return pts
+	while t < max_flight and pts.size() < max_points:
 		var prev_x := x
 		var prev_y := y
-		vx += wind_force * TIME_STEP
-		vy += GRAVITY * TIME_STEP
-		x += vx * TIME_STEP
-		y += vy * TIME_STEP
-		t += TIME_STEP
+		vx += wind_force * dt
+		vy += gravity * dt
+		x += vx * dt
+		y += vy * dt
+		t += dt
 		if terrain != null:
-			var hit = _segment_hit(prev_x, prev_y, x, y, terrain)
+			var hit = _segment_hit(prev_x, prev_y, x, y, terrain, sample)
 			if hit != null:
 				pts.append(hit)
 				return pts
 		pts.append(Vector2(x, y))
-		if terrain != null and (x < -100.0 or x > terrain.width + 100.0 or y > terrain.height + 50.0):
+		if terrain != null and (x < -out["left"] or x > terrain.width + out["right"] or y > terrain.height + out["below"]):
 			break
 	return pts
 
 
 ## The terrain part of checkSegmentCollisions: returns the first solid sample along
 ## (px, py) → (cx, cy), or null if there is none.
-static func _segment_hit(px: float, py: float, cx: float, cy: float, terrain):
+static func _segment_hit(px: float, py: float, cx: float, cy: float, terrain, sample: float):
 	var dx := cx - px
 	var dy := cy - py
-	var steps := maxi(ceili(sqrt(dx * dx + dy * dy) / SAMPLE_PX), 1)
+	var steps := maxi(ceili(sqrt(dx * dx + dy * dy) / sample), 1) if sample > 0.0 else 1
 	for i in range(1, steps + 1):
 		var frac := float(i) / float(steps)
 		var sx := px + dx * frac

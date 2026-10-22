@@ -99,7 +99,7 @@ func _ready() -> void:
 
 
 func _who() -> String:
-	return str(lobby_character.call()) if lobby_character.is_valid() else LoadoutModel.DEFAULT_CHARACTER
+	return str(lobby_character.call()) if lobby_character.is_valid() else LoadoutModel.default_character()
 
 
 func show_section(index: int) -> void:
@@ -276,7 +276,7 @@ func _load_inventory() -> void:
 
 func _render_inventory() -> void:
 	Ui.clear(_inv_flow)
-	for id in Items.ORDER:
+	for id in Items.order():
 		var n := int(_inventory.get(id, 0)) if _inventory is Dictionary else -1
 		var card := Ui.card(Ui.CARD_BG, 18)
 		card.custom_minimum_size = Vector2(270, 120)

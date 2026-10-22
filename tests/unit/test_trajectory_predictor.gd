@@ -2,6 +2,7 @@ extends "res://tests/test_case.gd"
 
 const Trajectory := preload("res://match/aim/trajectory_predictor.gd")
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 const FIXTURE := "res://tests/fixtures/terrain_parity.json"
 
 
@@ -91,7 +92,7 @@ func test_shot_origin_matches_server() -> void:
 		var o := Trajectory.shot_origin(feet, m)
 		near(o.x, float(s["x"]), 1e-6, "origin x from feet %s" % feet)
 		near(o.y, float(s["y"]), 1e-6, "origin y from feet %s" % feet)
-		if float(s["y"]) != feet.y - Trajectory.SHOT_LIFT:
+		if float(s["y"]) != feet.y - GameData.shot_origin_lift():
 			lowered += 1
 	check(lowered >= 1, "fixture has lowered origins (%d)" % lowered)
 	var ceiling = _flat(50, 100, 90)

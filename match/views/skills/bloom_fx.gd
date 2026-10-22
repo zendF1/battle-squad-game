@@ -21,6 +21,7 @@ extends Node2D
 ## time, and the node frees itself when the last effect is over.
 
 const Art := preload("res://ui/art.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const SHAFT_IN := 0.25 # s the shaft takes to appear
 const SHAFT_OUT := 0.35 # s it fades after the seed lands
@@ -38,7 +39,6 @@ const CROSSES := 4
 const PETALS := 8
 const CLEANSE_SPARKS := 10
 const SHIELD_SPARKS := 8
-const BODY_LIFT := 20.0 # px above the feet a seed lands (server ShotOriginLift)
 const POPUP_Y := -146.0 # the "+N khiên" number's centre above the feet (match_screen _popup)
 
 const GREEN := Color(0.45, 0.95, 0.4)
@@ -233,12 +233,12 @@ func _draw_glow() -> void:
 		if k <= 0.0:
 			continue
 		var feet := _feet(s)
-		_vertical(_glow, feet.x, 0.0, feet.y - BODY_LIFT, 7.0, Color(GREEN, 0.0), Color(GREEN, 0.45 * k))
+		_vertical(_glow, feet.x, 0.0, feet.y - GameData.shot_origin_lift(), 7.0, Color(GREEN, 0.0), Color(GREEN, 0.45 * k))
 		_glow_at(_glow, feet + Vector2(0, -6), 46.0 + 6.0 * sin(a * 12.0), Color(GREEN, 0.35 * k))
 	for b in _blooms:
 		var a := t - float(b["at"])
 		var feet := _feet(b)
-		var body := feet + Vector2(0, -BODY_LIFT)
+		var body := feet + Vector2(0, -GameData.shot_origin_lift())
 		var k := _env(a, FLASH_LIFE, 0.03, FLASH_LIFE - 0.05)
 		if k > 0.0:
 			_glow_at(_glow, body, 60.0 + 110.0 * _ease_out(a / FLASH_LIFE), Color(0.35, 0.8, 0.3, 0.6 * k))
@@ -301,8 +301,8 @@ func _draw_shaft(s: Dictionary) -> void:
 	var a := t - float(s["from"])
 	var feet := _feet(s)
 	draw_set_transform_matrix(Transform2D.IDENTITY)
-	_vertical(self, feet.x, 0.0, feet.y - BODY_LIFT, 34.0, Color(LIGHT, 0.0), Color(LIGHT, 0.22 * k))
-	_vertical(self, feet.x, 0.0, feet.y - BODY_LIFT, 16.0, Color(PETAL_IN, 0.0), Color(PETAL_IN, 0.28 * k))
+	_vertical(self, feet.x, 0.0, feet.y - GameData.shot_origin_lift(), 34.0, Color(LIGHT, 0.0), Color(LIGHT, 0.22 * k))
+	_vertical(self, feet.x, 0.0, feet.y - GameData.shot_origin_lift(), 16.0, Color(PETAL_IN, 0.0), Color(PETAL_IN, 0.28 * k))
 	# The target ring at the feet, pulsing in
 	var r := 30.0 - 8.0 * fposmod(a * 1.6, 1.0)
 	draw_set_transform(feet, 0.0, Vector2(1.0, 0.36))
@@ -315,7 +315,7 @@ func _draw_bloom(b: Dictionary) -> void:
 	if a < 0.0:
 		return
 	var feet := _feet(b)
-	var body := feet + Vector2(0, -BODY_LIFT)
+	var body := feet + Vector2(0, -GameData.shot_origin_lift())
 	# The ring rolling out on the ground
 	var rk := _env(a, 0.65, 0.02, 0.5)
 	if rk > 0.0:

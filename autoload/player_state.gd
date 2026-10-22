@@ -59,6 +59,14 @@ extends Node
 ## Maps: GET /maps (the server DB's active maps) into match/theme/map_catalog.gd (cached in
 ## user:// with its version), loaded when Home shows (load_maps(), coalesced; maps_changed when
 ## the list changed): the map names and themes outside a match.
+##
+## Game data: GET /gamedata (every gameplay rule, number and Vietnamese text; public) into
+## autoload/game_data_model.gd, cached in user://gamedata.json with its version and ETag.
+## load_gamedata() sends If-None-Match with the cached ETag (304 keeps the cache), coalesced, and
+## returns whether game data is usable (fetched now or cached); gamedata_changed when a new version
+## was taken. Splash runs it before anything else; a match whose gamedataVersion differs from the
+## cached one runs it before the player may act; coming back to the foreground runs it when the
+## last good answer is older than GameData.RECHECK_MSEC.
 
 signal changed # profile, loading or error changed
 signal assets_dirty # inventory, characters or purchases changed on the server
@@ -71,6 +79,8 @@ signal titles_changed # titles, their loading / error, title_busy or the worn ti
 signal daily_changed # daily missions, their loading / error or daily_busy changed
 signal rank_changed # a GET /rank/me answer was applied
 signal maps_changed # a GET /maps answer changed the map catalog
+signal gamedata_changed # a GET /gamedata answer brought a new game data version
+signal _gamedata_done # a load_gamedata() fetch ended
 
 const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
 const Coalescer := preload("res://core/coalescer.gd")
@@ -81,6 +91,7 @@ const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
 const DailyModel := preload("res://screens/home/daily_model.gd")
 const MapCatalog := preload("res://match/theme/map_catalog.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 ## What a payment refreshes once it succeeded.
 const AFTER_WALLET := 0 # the wallet only (a top-up)
@@ -178,6 +189,7 @@ var rank: Dictionary = {}
 var _rank_player := ""
 var _rank_gate := Coalescer.new()
 var _maps_gate := Coalescer.new()
+var _gamedata_gate := Coalescer.new()
 
 var _equipment_gate := Coalescer.new()
 var _profile_gate := Coalescer.new()
@@ -315,6 +327,34 @@ func load_maps() -> void:
 		if parsed is Dictionary and MapCatalog.take(parsed):
 			maps_changed.emit()
 		break
+
+
+## Loads GET /gamedata, a conditional GET on the cached copy (If-None-Match: its ETag): 200 takes
+## the new data and caches it (gamedata_changed), 304 keeps the cache, a failure keeps whatever is
+## held. A call while one is in flight waits for it. Returns true when game data is usable.
+func load_gamedata() -> bool:
+	if not _gamedata_gate.ask():
+		await _gamedata_done
+		return GameData.is_loaded()
+	while true:
+		var t := _gamedata_gate.ticket()
+		var res: Dictionary = await _api().get_cached("/gamedata", GameData.if_none_match())
+		if not _gamedata_gate.finish(t):
+			continue
+		if res.get("status") == 304 and not GameData.is_loaded():
+			res = await _api().get_cached("/gamedata", "") # nothing to keep: ask for the body
+		if GameData.apply_response(res, Time.get_ticks_msec()) == GameData.UPDATED:
+			gamedata_changed.emit()
+		break
+	_gamedata_done.emit()
+	return GameData.is_loaded()
+
+
+## Back in the foreground: check the game data again when the last good answer is old.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_RESUMED or what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		if GameData.is_loaded() and GameData.check_due(Time.get_ticks_msec()) and not _gamedata_gate.running:
+			load_gamedata()
 
 
 ## The signed-in player's GET /rank/me data, {} when not loaded (or another account's).

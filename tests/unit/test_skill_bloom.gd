@@ -199,6 +199,6 @@ func test_dropped_replay_takes_the_fx_away() -> void:
 
 
 func test_bloom_aims_nothing() -> void:
-	var bloom = Bloom.new()
+	var bloom = Bloom.new().for_skill("healing_bloom")
 	eq(bloom.aim_mode(), Bloom.AIM_NONE, "fired on tap")
 	check(bloom.describe(4).contains("60%") and bloom.describe(4).contains("50%"), "rank 4: Flora 60 %, teammates 50 %")

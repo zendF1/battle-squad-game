@@ -10,11 +10,11 @@ extends Node2D
 ## The aiming aid (match/aim/aim_aid.gd, its constants there), one per entry of preview_offsets
 ## (degrees added to the aimed angle, e.g. three for a triple shot):
 ## - the guide arc: the exact flight (the weapon's wind included) over only the first
-##   AimAid.arc_length(rank_tier) px (700 at bronze or no rank, 50 less per tier up ... 450 at master, whatever the
-##   power), fading out;
+##   AimAid.arc_length(rank_tier) px (the game data's aimAid.guideArcLength by rank tier,
+##   whatever the power), fading out;
 ## - "Trúng!": the exact path (AimAid.fly(), flown like the server with the weapon's
 ##   wind_influence / projectile_weight, enemies and a drill's pierce) comes within
-##   AimAid.HIT_RADIUS + hit_tolerance() of an enemy body (enemies: their body centres): that
+##   AimAid.hit_radius() + hit_tolerance() of an enemy body (enemies: their body centres): that
 ##   enemy gets an animated bullseye over its body, no text.
 ## No landing marker on the ground (playtest: too easy to aim); a shell above the view shows
 ## on the top edge in flight (match/views/high_shell_marker.gd; view_top: the view's top, world y,
@@ -29,7 +29,7 @@ extends Node2D
 ##
 ## target_column (air_strike): no slingshot; while pressed, a vertical target line follows the
 ## pointer and the preview is the drop from the top of the map at that x (the server fires it at
-## Items.TARGET_X_ANGLE / TARGET_X_POWER from y 0). Release emits fire_column(x); the cancel zone
+## the game data's itemRules.airStrike angle / power from y 0). Release emits fire_column(x); the cancel zone
 ## still cancels.
 ##
 ## line_mode (the laser skill, SkillView.AIM_LINE): the same slingshot, but the angle is not
@@ -46,17 +46,16 @@ signal fire(angle: float, power: float)
 signal fire_column(target_x: float)
 
 const Trajectory := preload("res://match/aim/trajectory_predictor.gd")
-const Items := preload("res://match/items.gd")
 const AimAid := preload("res://match/aim/aim_aid.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const CANCEL_RADIUS := 60.0
 const MIN_POWER := 5.0
-const BODY_CENTER := Trajectory.SHOT_ORIGIN # the cancel ring and the shot start (body centre)
+const GameData := preload("res://autoload/game_data_model.gd")
 const ARC_COLOR := Color(1, 1, 1, 0.55) # the air strike's drop preview
 const ARC_WIDTH := 4.0
 const GUIDE_COLOR := Color(1, 1, 1, 0.48) # the guide arc, over a soft dark shadow (any sky)
 const GUIDE_WIDTH := 3.0
-const GUIDE_MAX_POINTS := 240 # steps simulated for the guide (TIME_STEP each), then trimmed by length
+const GUIDE_MAX_POINTS := 240 # steps simulated for the guide (physics.timeStep each), then trimmed by length
 const GUIDE_SHADOW := Color(0.03, 0.04, 0.12, 0.19)
 const GUIDE_SHADOW_WIDTH := 6.0
 const LINE_COLOR := Color(0.78, 0.97, 1.0, 0.85) # line_mode: the beam preview
@@ -80,13 +79,13 @@ var shooter_pos := Vector2.ZERO
 var terrain
 var wind_dir := 0
 var wind_power := 0.0
-## The local player's rank tier (ratingToTier ids; "" unknown = AimAid.DEFAULT_TIER): how much of
+## The local player's rank tier (ratingToTier ids; "" unknown = aimAid.defaultTier): how much of
 ## the guide arc shows.
 var rank_tier := ""
 ## My weapon's wind response (server WeaponConfig windInfluence / projectileWeight).
 var wind_influence := 1.0
 var projectile_weight := 1.0
-## Terrain the next shot drills through (px; the drill_bomb's 50), 0 for none.
+## Terrain the next shot drills through (px; the drill item's value), 0 for none.
 var pierce := 0.0
 ## The alive enemies' body centres (feet − (0, 20)): the exact flight stops on them, "Trúng!".
 var enemies := PackedVector2Array()
@@ -190,7 +189,7 @@ func _process(delta: float) -> void:
 			_update(_pointer)
 		else:
 			var was := _in_cancel
-			_in_cancel = _world(_pointer).distance_to(shooter_pos + BODY_CENTER) <= CANCEL_RADIUS
+			_in_cancel = _world(_pointer).distance_to(shooter_pos + Trajectory.shot_offset()) <= CANCEL_RADIUS
 			if was != _in_cancel:
 				queue_redraw()
 
@@ -265,8 +264,8 @@ func look_point() -> Variant:
 	if target_column:
 		return Vector2(_column_x, shooter_pos.y)
 	if line_mode:
-		return _lines[0].points[1] if not _lines.is_empty() and _lines[0].points.size() == 2 else shooter_pos + BODY_CENTER
-	return _guide[_guide.size() - 1] if not _guide.is_empty() else shooter_pos + BODY_CENTER
+		return _lines[0].points[1] if not _lines.is_empty() and _lines[0].points.size() == 2 else shooter_pos + Trajectory.shot_offset()
+	return _guide[_guide.size() - 1] if not _guide.is_empty() else shooter_pos + Trajectory.shot_offset()
 
 
 ## Whether a drag is running.
@@ -277,12 +276,12 @@ func is_dragging() -> bool:
 func _update(pointer: Vector2) -> void:
 	_pointer = pointer
 	_seen = _canvas()
-	_in_cancel = _world(pointer).distance_to(shooter_pos + BODY_CENTER) <= CANCEL_RADIUS
+	_in_cancel = _world(pointer).distance_to(shooter_pos + Trajectory.shot_offset()) <= CANCEL_RADIUS
 	if target_column:
 		_update_column(pointer)
 		return
 	var d := pointer - _start
-	_power = clampf(d.length() / 2.0, 0.0, 100.0)
+	_power = clampf(d.length() / 2.0, GameData.power_min(), GameData.power_max())
 	for line in _lines:
 		line.default_color = LINE_COLOR if line_mode else GUIDE_COLOR
 		line.width = LINE_WIDTH if line_mode else GUIDE_WIDTH
@@ -306,7 +305,7 @@ func _update(pointer: Vector2) -> void:
 		queue_redraw()
 		aim_changed.emit(_angle, _power)
 		return
-	_angle = clampf(rad_to_deg(atan2(d.y, -d.x)), 0.0, 180.0)
+	_angle = clampf(rad_to_deg(atan2(d.y, -d.x)), GameData.angle_min(), GameData.angle_max())
 	var accel := AimAid.wind_accel(wind_dir, wind_power, wind_influence, projectile_weight)
 	var guide_len := AimAid.arc_length(rank_tier)
 	for i in range(preview_offsets.size(), _lines.size()):
@@ -371,7 +370,7 @@ func _update_column(pointer: Vector2) -> void:
 		_lines[i].gradient = null
 		_lines[i].default_color = ARC_COLOR
 		_lines[i].width = ARC_WIDTH
-		_lines[i].points = Trajectory.predict(Vector2(_column_x, 0.0), Items.TARGET_X_ANGLE, Items.TARGET_X_POWER,
+		_lines[i].points = Trajectory.predict(Vector2(_column_x, 0.0), GameData.air_strike_angle(), GameData.air_strike_power(),
 			wind_dir, wind_power, terrain) if i == 0 else PackedVector2Array()
 	queue_redraw()
 	column_changed.emit(_column_x)
@@ -432,7 +431,7 @@ func _reset(cleared: bool = true) -> void:
 func _draw() -> void:
 	if not _dragging:
 		return
-	var c := shooter_pos + BODY_CENTER
+	var c := shooter_pos + Trajectory.shot_offset()
 	var color := Color(1, 0.3, 0.3, 0.9) if _in_cancel else Color(1, 1, 1, 0.5)
 	draw_arc(c, CANCEL_RADIUS, 0.0, TAU, 48, color, 3.0)
 	draw_line(c + Vector2(-14, -14), c + Vector2(14, 14), color, 3.0)

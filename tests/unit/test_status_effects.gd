@@ -1,6 +1,7 @@
 extends "res://tests/test_case.gd"
 
 const Status := preload("res://match/status_effects.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 
 func test_has_needs_turns_left() -> void:
@@ -43,7 +44,7 @@ func test_icons_in_order() -> void:
 	var effects := [{"effectId": "net", "durationTurn": 1}, {"effectId": "power_shot", "durationTurn": 1},
 		{"effectId": "burn", "durationTurn": 1}, {"effectId": "stun", "durationTurn": 0}, {"effectId": "root", "durationTurn": 1},
 		{"effectId": "burn", "durationTurn": 2}]
-	eq(Status.icons(effects), ["burn", "root", "net"], "ICONS order, active, once")
+	eq(Status.icons(effects), ["burn", "root", "net"], "the bad ones, game data order, active, once")
 	eq(Status.icons(null), [], "null")
 
 
@@ -55,8 +56,9 @@ func test_skip_and_root() -> void:
 	check(Status.blocks_move([{"effectId": "root", "durationTurn": 1}]), "root blocks moving")
 	check(Status.blocks_move([{"effectId": "freeze", "durationTurn": 1}]), "freeze blocks moving")
 	check(not Status.blocks_move([{"effectId": "net", "durationTurn": 1}]), "net only slows")
-	eq(Status.SKIP_TEXT["stun"], "Choáng — mất lượt", "stun banner")
-	eq(Status.ROOT_TEXT, "Bị cầm chân", "root notice")
+	eq(Status.skip_text("stun"), "Choáng — mất lượt", "stun banner")
+	eq(Status.move_block_text([{"effectId": "root", "durationTurn": 1}]), "Bị cầm chân", "root notice")
+	eq(Status.move_block_text([{"effectId": "stun", "durationTurn": 1}]), "", "a lost turn has its own banner")
 
 
 func test_remove_cleansed() -> void:
@@ -65,5 +67,21 @@ func test_remove_cleansed() -> void:
 	eq(effects.size(), 3, "input untouched")
 	eq(Status.remove(effects, null).size(), 3, "no ids: unchanged")
 	eq(Status.remove(null, ["burn"]), [], "null")
-	for id in Status.BAD:
-		check(Status.ICONS.has(id), "bad effect %s has an icon" % id)
+	eq(Status.bad(effects), ["burn", "root"], "the bad ones (cleansable)")
+
+
+## A status effect an admin added: its rules and texts come from the game data, a bad one shows
+## as an icon (the generic one: status_icons.gd has no picture for it).
+func test_effects_from_the_game_data() -> void:
+	var d: Dictionary = GameData.data.duplicate(true)
+	d["version"] = "edited"
+	d["statusEffects"].insert(0, {"effectId": "sleep", "name": "Ngủ", "marker": "Zzz", "banner": "Ngủ — mất lượt", "bad": true,
+		"skipsTurn": true, "blocksMove": true})
+	GameData.take(d, "", false)
+	var effects := [{"effectId": "stun", "durationTurn": 1}, {"effectId": "sleep", "durationTurn": 2}]
+	eq(Status.skip_effect(effects), "sleep", "the game data's order")
+	eq(Status.skip_text("sleep"), "Ngủ — mất lượt", "its banner")
+	eq(Status.icons(effects), ["sleep", "stun"], "an icon")
+	eq(Status.marker_text(effects), "Zzz", "its marker")
+	check(Status.blocks_move([{"effectId": "sleep", "durationTurn": 1}]), "blocks moving")
+	eq(Status.icons([{"effectId": "ghost", "durationTurn": 1}]), [], "an effect the game data does not know: nothing")

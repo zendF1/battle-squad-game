@@ -149,7 +149,7 @@ func _build_header() -> Control:
 	_conn = LobbyUi.text("", 22, Color.WHITE, true)
 	_conn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(_conn)
-	var mode: Dictionary = LobbyModel.MODES[LobbyModel.mode_of_base(_base)]
+	var mode: Dictionary = LobbyModel.mode(LobbyModel.mode_of_base(_base))
 	var pill := LobbyUi.panel(0, 32)
 	pill.custom_minimum_size.y = 64
 	var inner := MarginContainer.new()
@@ -332,7 +332,7 @@ func _build_slots() -> Control:
 	head.add_child(hint)
 	var row := Ui.hbox(14)
 	col.add_child(row)
-	for i in Items.MAX_LOADOUT:
+	for i in Items.max_loadout():
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(0, 92)
 		b.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -378,7 +378,7 @@ func _build_item_grid() -> Control:
 	_item_scroll.custom_minimum_size.y = ITEM_CARD_MIN # one row at least
 	_item_scroll.resized.connect(_fit_item_cards)
 	col.add_child(_item_scroll)
-	for id in Items.ORDER:
+	for id in Items.order():
 		var b := Button.new()
 		b.toggle_mode = true
 		b.custom_minimum_size = Vector2(0, ITEM_CARD_MIN)
@@ -413,7 +413,7 @@ func _build_item_grid() -> Control:
 ## The rows share the scroll's height (ITEM_CARD_MIN..ITEM_CARD_MAX), so a short window
 ## scrolls and a tall one does not stretch the cards.
 func _fit_item_cards() -> void:
-	var rows := ceili(Items.ORDER.size() / float(ITEM_COLUMNS))
+	var rows := ceili(Items.order().size() / float(ITEM_COLUMNS))
 	var h := floorf((_item_scroll.size.y - ITEM_GAP * (rows - 1)) / rows)
 	h = clampf(h, ITEM_CARD_MIN, ITEM_CARD_MAX)
 	for id in _item_buttons:
@@ -574,7 +574,7 @@ func _refresh() -> void:
 		b.disabled = locked or (_model.is_full() and not picked)
 		# Not disabled when none is left: the tap shows why it cannot be picked.
 		b.modulate = DIM if not picked and (b.disabled or not _model.owns(id)) else Color.WHITE
-	_count.text = "Mang theo  %d/%d" % [_model.items.size(), Items.MAX_LOADOUT]
+	_count.text = "Mang theo  %d/%d" % [_model.items.size(), Items.max_loadout()]
 	if GameSocket.is_open():
 		_conn.text = "● Online"
 		_conn.add_theme_color_override("font_color", Ui.TONES["good"])

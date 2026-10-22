@@ -403,14 +403,14 @@ static func level_bar(level: int, width: float = 0.0) -> Control:
 	c.custom_minimum_size = Vector2(width, 14)
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var fill := UpgradeModel.milestone_color(level) if level >= 1 else LEVEL
-	var k := clampf(float(level) / UpgradeModel.MAX_LEVEL, 0.0, 1.0)
+	var k := clampf(float(level) / UpgradeModel.max_level(), 0.0, 1.0)
 	c.draw.connect(func() -> void:
 		var r := Rect2(Vector2.ZERO, c.size)
 		c.draw_style_box(LobbyUi.box(Color(1, 1, 1, 0.1), 7, 0), r)
 		if k > 0.0:
 			c.draw_style_box(LobbyUi.box(fill, 7, 0), Rect2(r.position, Vector2(maxf(r.size.x * k, 14.0), r.size.y)))
-		for t in range(1, UpgradeModel.MILESTONE_FROM.size() - 1):
-			var x := r.size.x * float(UpgradeModel.MILESTONE_FROM[t]) / UpgradeModel.MAX_LEVEL
+		for t in range(1, UpgradeModel.milestone_from().size() - 1):
+			var x := r.size.x * float(UpgradeModel.milestone_from()[t]) / UpgradeModel.max_level()
 			c.draw_line(Vector2(x, 1), Vector2(x, r.size.y - 1), Color(0, 0, 0, 0.45), 2.0))
 	return c
 

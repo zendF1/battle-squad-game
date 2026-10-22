@@ -1,10 +1,12 @@
 extends RefCounted
-## A character skill's client side. One script per skill extends this (rain.gd, bomb_chain.gd,
-## laser.gd, bloom.gd; match/skills.gd maps each character to its script):
-## - what it is called and does (skill_id(), skill_name(), describe(rank): the skill slot, the
-##   character pages and the shop);
-## - how it is aimed (aim_mode(): AIM_ARC the slingshot with arc previews at preview_offsets(),
-##   AIM_LINE a straight aim line to the map edge in any direction, AIM_NONE fired on tap);
+## A character skill's client side. One script per skill effect type extends this (rain.gd
+## missile_rain, bomb_chain.gd bomb_chain, laser.gd laser, bloom.gd bloom; match/skills.gd maps a
+## skill's effectType to its script, a skill of an unknown type gets this base view):
+## - what it is called and does: the game data (GET /gamedata skills: skill_id(), skill_name(),
+##   describe(rank) from its description template and per-rank values; param() its tuning);
+## - how it is aimed (aim_mode(): the skill's aimKind, AIM_ARC the slingshot with arc previews at
+##   preview_offsets(), AIM_LINE a straight aim line to the map edge in any direction, AIM_NONE
+##   fired on tap);
 ## - its replay visuals: match_screen makes one instance per ShotResolved of the skill and calls
 ##   begin() before the replay, projectile_view() for every projectile ShotPlayer draws,
 ##   explosion() for every explode effect before it is shown, merges_damage() whether its hits
@@ -15,9 +17,14 @@ extends RefCounted
 ## Visual only: paths, damage, effects and timing all come from the server timeline; a skill
 ## view only draws them. The base class draws nothing extra: the default replay stays as is.
 
+const GameData := preload("res://autoload/game_data_model.gd")
+
+## The game data's aimKind values.
 const AIM_ARC := "arc"
 const AIM_LINE := "line"
 const AIM_NONE := "none"
+
+var _skill := "" # the server skill id this view is for (for_skill())
 
 ## The replay context from begin(): {layer: Node2D (the fx layer, layer coordinates = world),
 ## timeline: ShotTimeline, style: ShotLook.style_for() {kind, tier, skill, item}, views:
@@ -25,19 +32,30 @@ const AIM_NONE := "none"
 var ctx := {}
 
 
+## Sets the server skill id this view is for (match/skills.gd view_for_skill()); returns self.
+func for_skill(skill_id_value: String):
+	_skill = skill_id_value
+	return self
+
+
 ## The server skill id (config_skills.skill_id, ShotResolved.skillId).
 func skill_id() -> String:
-	return ""
+	return _skill
 
 
-## The Vietnamese name on the skill slot.
+## The Vietnamese name on the skill slot ("" when the game data does not know the skill).
 func skill_name() -> String:
-	return ""
+	return GameData.skill_name(_skill)
 
 
-## How the skill is aimed: AIM_ARC, AIM_LINE or AIM_NONE.
+## How the skill is aimed: AIM_ARC, AIM_LINE or AIM_NONE (its aimKind).
 func aim_mode() -> String:
-	return AIM_ARC
+	return GameData.skill_aim_kind(_skill)
+
+
+## A tuning number of the skill (its params; 0 when absent).
+func param(key: String) -> float:
+	return GameData.skill_param(_skill, key)
 
 
 ## AIM_ARC: the preview arcs, degrees added to the aimed angle.
@@ -45,9 +63,10 @@ func preview_offsets() -> Array:
 	return [0.0]
 
 
-## A short description with the numbers at gun rank `rank` (0..4, match/skills.gd rank_of()).
-func describe(_rank: int) -> String:
-	return ""
+## A short description with the numbers at gun rank `rank` (match/skills.gd rank_of()): the
+## skill's description template filled with that rank's values.
+func describe(rank: int) -> String:
+	return GameData.skill_describe(_skill, rank)
 
 
 func begin(context: Dictionary) -> void:

@@ -6,6 +6,8 @@ extends RefCounted
 ## icon, anything else to a small grey placeholder (with a warning, once per path).
 ## tools/bake_art.gd draws the placeholder art into these same paths.
 
+const GameData := preload("res://autoload/game_data_model.gd")
+
 const ROOT := "res://assets/"
 
 # ── Characters ──────────────────────────────────────────────────────────────
@@ -80,9 +82,8 @@ const GUN_TIERS := {
 	"seed_launcher": [GUN_BASIC, "iron", "steel", "mithril", "dragon"],
 	"blaster": [GUN_BASIC, "iron", "steel", "mithril", "dragon", "silver", "gold", "titan", "diamond"],
 }
-## The gun each character's own weapons are (its basic gun when no weapon is equipped).
-const CHARACTER_GUNS := {"rookie": "bazooka", "tanko": "cannon", "spark": "shock_rifle", "flora": "seed_launcher"}
-## A character's gun when it has none of its own: Rookie's bazooka.
+## A character's gun when it has none of its own (no / an unknown gunKind in the game data): the
+## gun the fallback character's art (DEFAULT_CHARACTER) hugs.
 const DEFAULT_GUN_KIND := "bazooka"
 ## gun()'s last fallback: the generic blaster's basic sprite.
 const FALLBACK_GUN_KIND := "blaster"
@@ -215,6 +216,13 @@ static var _placeholder: Texture2D
 static var _empty_frames: SpriteFrames
 static var _fulls := {} # character id -> lobby_full() data ({} = none)
 static var _titles_data: Variant = null # parsed titles.json ({} when missing)
+
+
+## The gun kind each character's own weapons are (its basic gun when no weapon is equipped): its
+## gunKind in the game data, DEFAULT_GUN_KIND for none or one with no art.
+static func character_gun(id: String) -> String:
+	var kind := GameData.character_gun_kind(id)
+	return kind if GUN_KINDS.has(kind) else DEFAULT_GUN_KIND
 
 
 ## The id, or DEFAULT_CHARACTER for an unknown or missing one (e.g. a bot without one).
@@ -828,7 +836,7 @@ static func carry_pose(id: String) -> Dictionary:
 			var corner := -tex.get_size() * 0.5 if pv.centered else Vector2.ZERO
 			preview = pv.transform * Transform2D(0.0, pv.offset + corner)
 		else: # not imported yet: the character's iron hug gun at the hug scale
-			var own := hug_gun(str(CHARACTER_GUNS.get(known_character(id), DEFAULT_GUN_KIND)), "iron")
+			var own := hug_gun(character_gun(known_character(id)), "iron")
 			meta = {"muzzle": own["muzzle"], "size": own["size"]}
 			var hs := hug_scale()
 			preview = Transform2D(0.0, Vector2(hs, hs), 0.0, Vector2.ZERO) * Transform2D(0.0, -Vector2(0.18 * float(own["size"].x), float(own["muzzle"].y)))
@@ -1142,7 +1150,7 @@ static func ready_pose(id: String) -> Dictionary:
 	var pivot: Vector2 = look["pivot"]
 	var anims: Array = rp["anims"]
 	var grip: Vector2 = gun_anchor(id, str(anims[0]) if not anims.is_empty() else DRAW_ANIM, 0)["grip"]
-	var kind := str(CHARACTER_GUNS.get(id, DEFAULT_GUN_KIND))
+	var kind := character_gun(id)
 	var own := hug_gun(kind, "iron")
 	var gs := hug_scale() if own["hug"] else gun_scale()
 	var socket := Transform2D(0.0, (grip - pivot) * k)

@@ -3,9 +3,10 @@ extends RefCounted
 ## and decides which Move commands to send.
 ##
 ## Each command is modelled exactly as the server's processMove handles it:
-##   1. clamp the target to moveEnergy * 2 px from the server's position;
+##   1. clamp the target to moveEnergy × pxPerEnergy px from the server's position;
 ##   2. walk with Terrain.WalkTo;
-##   3. charge round(|dx| * 0.5) energy, capped at what is left.
+##   3. charge round(|dx| × energyPerPx) energy, capped at what is left
+## (pxPerEnergy / energyPerPx: the game data's movement, GET /gamedata).
 ##
 ## The walk is cut into segments that each go in one direction. Each segment becomes one
 ## Move{targetX, seq}; its target is the segment's end, so the server walks exactly that far.
@@ -26,8 +27,7 @@ extends RefCounted
 ## for another reason (a terrain mismatch): its lastMoveSeq says which commands it already shows.
 
 const SPEED := 90.0 # px/s while a move button is held
-const PX_PER_ENERGY := 2.0 # server processMove: maxDist = moveEnergy * 2
-const ENERGY_PER_PX := 0.5 # server processMove: cost = round(dist * 0.5)
+const GameData := preload("res://autoload/game_data_model.gd")
 const ACK_TIMEOUT := 1.0 # seconds of silence before the newest Move is re-sent
 const MAX_RETRIES := 2
 
@@ -115,7 +115,7 @@ func walk_px(dir: int, px: int) -> void:
 	if _seg_dir != 0 and dir != _seg_dir:
 		_close_segment()
 	_seg_dir = dir
-	_seg_px = mini(_seg_px + px, int(_base_energy * PX_PER_ENERGY))
+	_seg_px = mini(_seg_px + px, int(_base_energy * GameData.px_per_energy()))
 	_update_display()
 
 
@@ -201,12 +201,12 @@ func on_server_moved(pos: Vector2, move_energy: int, seq: int) -> void:
 
 ## processMove for one Move{targetX} from (pos, move_energy). Returns [end_pos, energy_left].
 func simulate(pos: Vector2, move_energy: int, target_x: float) -> Array:
-	var max_dist := move_energy * PX_PER_ENERGY
+	var max_dist := move_energy * GameData.px_per_energy()
 	var target := target_x
 	if absf(target - pos.x) > max_dist:
 		target = pos.x + max_dist if target > pos.x else pos.x - max_dist
 	var end: Vector2 = terrain.walk_to(pos.x, pos.y, target)
-	var cost := mini(roundi(absf(end.x - pos.x) * ENERGY_PER_PX), move_energy)
+	var cost := mini(roundi(absf(end.x - pos.x) * GameData.energy_per_px()), move_energy)
 	return [end, move_energy - cost]
 
 
@@ -247,7 +247,7 @@ func _rebase() -> void:
 		e = r[1]
 	_base_pos = pos
 	_base_energy = e
-	_seg_px = mini(_seg_px, int(_base_energy * PX_PER_ENERGY))
+	_seg_px = mini(_seg_px, int(_base_energy * GameData.px_per_energy()))
 	_update_display()
 
 

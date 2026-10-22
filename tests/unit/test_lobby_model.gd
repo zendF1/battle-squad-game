@@ -11,10 +11,10 @@ const BASE_TANKO := {"maxHp": 1950, "defense": 80, "damageBonus": 0, "moveEnergy
 
 
 func test_modes_and_their_quick_play_base() -> void:
-	eq(LobbyModel.MODES.size(), 3, "three modes")
-	eq(LobbyModel.MODES[0]["name"], "Luyện tập", "practice first")
-	eq(LobbyModel.MODES[1]["name"], "Xếp hạng 2v2", "ranked second")
-	eq(LobbyModel.MODES[1]["description"], "Ghép 2v2, tính điểm hạng", "ranked description")
+	eq(LobbyModel.modes().size(), 3, "three modes")
+	eq(LobbyModel.mode(0)["name"], "Luyện tập", "practice first")
+	eq(LobbyModel.mode(1)["name"], "Xếp hạng 2v2", "ranked second")
+	eq(LobbyModel.mode(1)["description"], "Ghép 2v2, tính điểm hạng", "ranked description")
 	eq(LobbyModel.mode_base(0), {}, "practice target")
 	eq(LobbyModel.mode_base(1), {"queue": "ranked_2v2"}, "ranked queue")
 	eq(LobbyModel.mode_base(2), {"bot": "ai"}, "vs bot")

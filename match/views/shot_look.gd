@@ -16,6 +16,7 @@ extends RefCounted
 
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const Art := preload("res://ui/art.gd")
+const Items := preload("res://match/items.gd")
 
 const MAX_IMPACT_PARTICLES := 120
 const MAX_TRAIL_PARTICLES := 48
@@ -258,13 +259,13 @@ static var _palettes := {} # "kind/tier" -> burst_palette()
 
 ## Who fires, how: the gun the shooter brought (match player dict: weaponItemId, characterId;
 ## catalog for the weapon's entry; no weapon / a bot → its character's gun, basic), whether it is
-## a skill shot, and the item (only for an item shot). Air strikes drop plain bombs (the basic
+## a skill shot, and the item (only for an item shot). Air strikes (targetX items) drop plain bombs (the basic
 ## bazooka's trail and fire explosion; projectile_view.gd ITEM_LOOKS draws the round bomb).
 static func style_for(player: Dictionary, action_mode: String, item_id: String, catalog: Variant = null) -> Dictionary:
 	var g := EquipmentModel.player_gun(player, catalog)
 	var it := item_id if action_mode == "item" else ""
 	var out := {"kind": known_kind(str(g["kind"])), "tier": known_tier(str(g["tier"])), "skill": action_mode == "skill", "item": it}
-	if it == "air_strike":
+	if Items.needs_target_x(it): # dropped from the sky (the air strike), not fired from the gun
 		out["kind"] = DEFAULT_KIND
 		out["tier"] = DEFAULT_TIER
 	return out

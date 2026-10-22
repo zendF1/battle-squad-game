@@ -18,6 +18,15 @@ func get_json(path: String) -> Dictionary:
 	return await request(HTTPClient.METHOD_GET, path)
 
 
+## A public conditional GET (no token): sends If-None-Match: `etag` when it is not "" and adds
+## the answer's ETag header ("" none) as `etag`. A 304 is {ok: true, status: 304, data: null}.
+func get_cached(path: String, etag: String) -> Dictionary:
+	var headers := PackedStringArray()
+	if etag != "":
+		headers.append("If-None-Match: " + etag)
+	return await _send(HTTPClient.METHOD_GET, path, null, false, headers)
+
+
 func post_json(path: String, body: Variant = {}) -> Dictionary:
 	return await request(HTTPClient.METHOD_POST, path, body)
 
@@ -57,11 +66,12 @@ func refresh_tokens() -> int:
 	return outcome
 
 
-func _send(method: int, path: String, body: Variant, auth: bool) -> Dictionary:
+func _send(method: int, path: String, body: Variant, auth: bool, extra: PackedStringArray = PackedStringArray()) -> Dictionary:
 	var req := HTTPRequest.new()
 	req.timeout = TIMEOUT_SEC
 	add_child(req)
 	var headers := PackedStringArray(["Content-Type: application/json"])
+	headers.append_array(extra)
 	if auth and Session.access_token != "":
 		headers.append("Authorization: Bearer " + Session.access_token)
 	var text := "" if body == null else JSON.stringify(body)
@@ -70,4 +80,6 @@ func _send(method: int, path: String, body: Variant, auth: bool) -> Dictionary:
 		return ApiResponse.parse(HTTPRequest.RESULT_CANT_CONNECT, 0, PackedByteArray())
 	var result: Array = await req.request_completed
 	req.queue_free()
-	return ApiResponse.parse(result[0], result[1], result[3])
+	var res := ApiResponse.parse(result[0], result[1], result[3])
+	res["etag"] = ApiResponse.header(result[2], "ETag")
+	return res

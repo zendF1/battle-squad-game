@@ -17,6 +17,7 @@ const Hud := preload("res://match/hud.gd")
 const Art := preload("res://ui/art.gd")
 const MatchmakingModel := preload("res://screens/ranked/matchmaking_model.gd")
 const PlayerStateScript := preload("res://autoload/player_state.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const MAPS := [
 	{"mapId": "ice_bridge", "name": "Cầu băng", "theme": "ice", "width": 1600, "height": 900, "version": 2},
@@ -128,8 +129,8 @@ func test_player_state_load_maps() -> void:
 
 
 func test_every_theme_has_a_complete_look() -> void:
-	eq(MapThemes.LOOKS.keys().size(), MapThemes.THEMES.size(), "one look per theme")
-	for t in MapThemes.THEMES:
+	eq(MapThemes.LOOKS.keys().size(), GameData.themes().size(), "one look per server theme")
+	for t in GameData.themes():
 		check(MapThemes.is_theme(t), "%s known" % t)
 		var look: Dictionary = MapThemes.look(t)
 		for key in ["clouds", "fx", "soft", "hard", "bottom"]:
@@ -315,3 +316,20 @@ static func _varint(out: PackedByteArray, v: int) -> void:
 		out.append((v & 0x7F) | 0x80)
 		v >>= 7
 	out.append(v)
+
+
+## A theme an admin added with no art here draws as the game data's default theme; a default with
+## no art falls back to grassland.
+func test_unknown_theme_draws_the_default() -> void:
+	eq(MapThemes.theme_of({"mapTheme": "volcano", "mapId": "nowhere"}), "grassland", "the default")
+	var d: Dictionary = GameData.data.duplicate(true)
+	d["version"] = "edited"
+	d["mapThemes"]["default"] = "ice"
+	d["mapThemes"]["themes"].append("volcano")
+	GameData.take(d, "", false)
+	eq(MapThemes.theme_of({"mapTheme": "volcano", "mapId": "nowhere"}), "ice", "the new default")
+	eq(MapThemes.look("volcano"), MapThemes.look("ice"), "drawn like it")
+	d["mapThemes"]["default"] = "lava_world"
+	d["version"] = "edited2"
+	GameData.take(d, "", false)
+	eq(MapThemes.default_theme(), MapThemes.GRASSLAND, "a default with no art: grassland")

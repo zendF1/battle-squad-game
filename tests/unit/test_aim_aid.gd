@@ -11,6 +11,7 @@ const ShotPlayer := preload("res://match/shot/shot_player.gd")
 const ShotTimeline := preload("res://match/shot/shot_timeline.gd")
 const MatchScreen := preload("res://match/match_screen.gd")
 const Hud := preload("res://match/hud.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const GROUND := 700
 const FEET := Vector2(200, GROUND) # the shooter, on the flat ground
@@ -151,11 +152,11 @@ func test_hit_check_on_the_exact_path() -> void:
 	var r: float = apex_r[1]
 	check(r > 10.0 and r < 20.0, "a mid shot's tolerance (%f)" % r)
 	# an enemy whose body the shell's r circle touches at the apex (it passes over, unhit)
-	a.enemies = PackedVector2Array([top - Vector2(0, AimAid.HIT_RADIUS + r - 1.0)])
+	a.enemies = PackedVector2Array([top - Vector2(0, AimAid.hit_radius() + r - 1.0)])
 	_drag(a, 60.0, 70.0)
 	var aid: Dictionary = a.aid()
 	eq(aid["hits"], [0], "touches: Trúng")
-	a.enemies = PackedVector2Array([top - Vector2(0, AimAid.HIT_RADIUS + r + 1.0)])
+	a.enemies = PackedVector2Array([top - Vector2(0, AimAid.hit_radius() + r + 1.0)])
 	_drag(a, 60.0, 70.0)
 	eq(a.aid()["hits"], [], "misses by r + 1: no hit")
 	# an enemy right on the path stops the shell there (the server's body hit)
@@ -166,7 +167,7 @@ func test_hit_check_on_the_exact_path() -> void:
 	var origin := Trajectory.shot_origin(FEET, a.terrain)
 	var flight := AimAid.fly(origin, AimAid.launch_velocity(a._angle, a._power), 0.0, a.terrain, a.enemies, PackedFloat32Array())
 	eq(flight["hit"], 0, "the exact flight stops on the body")
-	check(flight["end"].distance_to(on_path) <= AimAid.HIT_RADIUS + 1e-3, "at its hitbox")
+	check(flight["end"].distance_to(on_path) <= AimAid.hit_radius() + 1e-3, "at its hitbox")
 	a.free()
 
 
@@ -176,7 +177,7 @@ func test_allies_are_never_hit() -> void:
 	var m = MatchScreen.new()
 	m._me = "me"
 	m._armed = "weapon"
-	var feet := top + Vector2(0, AimAid.BODY_LIFT) # a body right on the path
+	var feet := top + Vector2(0, AimAid.body_lift()) # a body right on the path
 	m._players = {
 		"me": {"playerId": "me", "teamId": 1, "characterId": "spark", "isAlive": true, "position": {"x": FEET.x, "y": FEET.y}},
 		"ally": {"playerId": "ally", "teamId": 1, "isAlive": true, "position": {"x": feet.x, "y": feet.y}},

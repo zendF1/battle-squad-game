@@ -8,12 +8,24 @@ extends RefCounted
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const MapThemes := preload("res://match/theme/map_themes.gd")
 
-const SLOTS := 4
-const TEAM_SIZE := 2
-## Seconds between two cards flipping, and how long "Tìm thấy trận!" shows at least before the
-## match (counted from MatchFound).
+const GameData := preload("res://autoload/game_data_model.gd")
+
+## Seconds between two cards flipping (animation feel).
 const FLIP_GAP := 0.45
-const REVEAL_SEC := 2.6
+## The reveal ends this long before the server starts the match (matchStartDelaySec after
+## MatchFound).
+const REVEAL_LEAD := 0.4
+
+
+## Players per team (matchmaking.teamSize): the cards on each side.
+static func team_size() -> int:
+	return maxi(GameData.team_size(), 1)
+
+
+## How long "Tìm thấy trận!" shows at least before the match (counted from MatchFound): the
+## server's matchStartDelaySec less REVEAL_LEAD.
+static func reveal_sec() -> float:
+	return maxf(GameData.match_start_delay_sec() - REVEAL_LEAD, 0.0)
 
 
 ## The reveal's map line, "Bản đồ: <name>" (MatchFound's mapName, else the map catalog's name
@@ -50,7 +62,7 @@ static func parse_player(p: Variant) -> Dictionary:
 			tier = r[0]
 			division = r[1]
 	return {"playerId": id, "displayName": _str(p.get("displayName"), "Bot" if is_bot else id.left(8)),
-		"characterId": _str(p.get("characterId"), "rookie"), "isBot": is_bot, "level": _num(p.get("level"), 0),
+		"characterId": _str(p.get("characterId"), GameData.default_character_id()), "isBot": is_bot, "level": _num(p.get("level"), 0),
 		"rating": rating, "tier": tier, "division": clampi(division, 0, 3), "titleId": _str(p.get("titleId")),
 		"teamId": _num(p.get("teamId"), 0)}
 
@@ -113,8 +125,8 @@ static func slots(teams: Dictionary, me: String) -> Array:
 
 
 static func _pad(players: Array) -> Array:
-	var out: Array = players.slice(0, TEAM_SIZE)
-	while out.size() < TEAM_SIZE:
+	var out: Array = players.slice(0, team_size())
+	while out.size() < team_size():
 		out.append({})
 	return out
 

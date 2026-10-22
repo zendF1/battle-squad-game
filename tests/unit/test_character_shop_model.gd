@@ -3,6 +3,7 @@ extends "res://tests/test_case.gd"
 const Model := preload("res://screens/home/character_shop_model.gd")
 const ShopModel := preload("res://screens/home/shop_model.gd")
 const Art := preload("res://ui/art.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const OFFERS := [
 	{"offerId": "unlock_tanko_coin", "itemId": "tanko", "offerType": "character_unlock", "priceCurrency": "coin", "priceAmount": 5000, "quantity": 1, "limitPerPlayer": 1},
@@ -85,14 +86,36 @@ func test_crater_radius() -> void:
 	eq(Model.crater_radius("nobody"), 0, "unknown")
 
 
+## An admin edit of the game data shows in the shop with no client change: a new character with
+## its own weapon and skill, a weapon's crater and wind.
+func test_follows_the_game_data() -> void:
+	var d: Dictionary = GameData.data.duplicate(true)
+	d["version"] = "edited"
+	d["weapons"][1]["craterRadius"] = 21.6
+	d["weapons"][1]["windInfluence"] = 1.0
+	d["characters"].append({"characterId": "nova", "name": "Nova", "role": "striker", "roleName": "Bắn tỉa", "playstyle": "Bắn xa.",
+		"weaponId": "electric_orb", "skillId": "nova_beam", "gunKind": "", "hp": 1000})
+	d["skills"].append({"skillId": "nova_beam", "characterId": "nova", "name": "Tia sao", "description": "Gây {firstPct}% sát thương.",
+		"effectType": "laser", "aimKind": "line", "params": {}, "ranks": [{"rank": 0, "values": {"firstPct": 99}}]})
+	GameData.take(d, "", false)
+	eq(Model.crater_radius("tanko"), 22, "the crater rounded for display")
+	eq(Model.info("tanko")["weapon"]["wind"], "Gió đẩy ×0,7", "the wind")
+	eq(Model.ids()[-1], "nova", "a new character is listed")
+	var nova := Model.info("nova")
+	eq([nova["name"], nova["role"], nova["playstyle"]], ["Nova", "Bắn tỉa", "Bắn xa."], "its texts")
+	eq(nova["weapon"]["kind"], Art.DEFAULT_GUN_KIND, "no gun kind: the generic gun")
+	eq([nova["skill"]["name"], nova["skill"]["text"]], ["Tia sao", "Gây 99% sát thương."], "its skill")
+	eq(Model.stat_value(DATA, "nova", "craterRadius"), 12, "its weapon's crater")
+
+
 func test_data_for_every_character() -> void:
 	eq(Model.ids(), ["rookie", "tanko", "spark", "flora"], "roster order")
 	for id in Model.ids():
 		var info := Model.info(id)
 		check(info["name"] != id and info["role"] != "", "%s name and role" % id)
 		check(Model.TINTS.has(id), "%s tint" % id)
-		check(Model.WEAPONS.has(id), "%s weapon" % id)
-		eq(info["weapon"]["kind"], Art.CHARACTER_GUNS[id], "%s gun kind" % id)
+		check(not GameData.weapon_of_character(id).is_empty(), "%s weapon" % id)
+		eq(info["weapon"]["kind"], Art.character_gun(id), "%s gun kind" % id)
 		check(info["weapon"]["name"] != "", "%s weapon name" % id)
 		check(info["skill"]["name"] != "" and info["skill"]["text"] != "", "%s skill" % id)
 		check(str(info["playstyle"]).length() > 60, "%s playstyle" % id)

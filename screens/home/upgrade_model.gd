@@ -3,41 +3,31 @@ extends RefCounted
 ## "Đá nâng cấp" and Túi đồ show them, without UI. Mirrors the server (internal/api/equipment,
 ## internal/game/battlestats):
 ## - success chance: stone percent = min(Σ power × quantity × 100 / (upgradeCost × m), maxPercent)
-##   from the catalog's upgradeRates row of the current level, m = weaponUpgradeCostMultiplier (3)
-##   for a weapon, 1 for the other slots; every stone put in is consumed; a failure puts the piece
+##   from the catalog's upgradeRates row of the current level (and its stones' powers), m =
+##   weaponUpgradeCostMultiplier (the catalog's, else the game data's) for a weapon, 1 for the
+##   other slots; every stone put in is consumed; a failure puts the piece
 ##   at failResetTo (the current level below +6, else the safe zone +6 / +10 / +14);
 ## - careful upgrade ("Nâng cấp cẩn thận"): pay the row's carefulGemCost gem (on success and on
 ##   failure) and the stone percent is multiplied by (1 + carefulBonusPercent / 100), rounded to 2
-##   decimals, capped at 100 (+13→+14: 20% × 1.4 = 28%); a row with either value 0 has no careful;
-## - stats after an upgrade: each stat × (1 + 0.02 × level + every reached milestone bonus),
-##   rounded per item (crit stays a float) — EquipmentModel.upgraded();
-## - merging: 2–4 stones of one level (1–11) give one stone of the next level with
-##   count × mergeRatePerItem % (25 by default) chance; every stone put in is consumed.
+##   decimals, capped at 100 (+13→+14: 20% × 1.4 = 28%); a row with either value 0 (or missing)
+##   has no careful;
+## - stats after an upgrade: each stat × (1 + upgradeStepPerLevel × level + every reached
+##   milestone bonus), rounded per item (crit stays a float) — EquipmentModel.upgraded();
+## - merging: mergeMinCount–mergeMaxCount stones of one level (below maxStoneLevel) give one stone
+##   of the next level with count × mergeRatePerItem % chance; every stone put in is consumed.
+## The highest level, stone level, merge counts and rates are the game data's (GET /gamedata
+## equipment) when the catalog does not send its own.
 ## The level colours a piece's aura, frame and name: +1..+5 green (the subtlest, no stat bonus),
 ## +6..+9 sky blue, +10..+13 orange, +14..+15 purple, +16 red (the highest); +0 the normal look.
-## The stat-bonus milestones are +6 / +10 / +14 / +16 only.
+## The stat-bonus milestones are the game data's equipment.milestones (+6 / +10 / +14 / +16).
 
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
 const Fmt := preload("res://core/fmt.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
-const MAX_LEVEL := 16
-const STONE_LEVELS := 12
-## Seeded stone powers (×3 per level), used when the catalog has no stones row for a level.
-const DEFAULT_POWERS := [0, 1, 3, 9, 27, 81, 243, 729, 2187, 6561, 19683, 59049, 177147]
-const DEFAULT_MERGE_RATE := 25.0
-const MERGE_MIN := 2
-const MERGE_MAX := 4
-## Weapons need upgradeCost × this much stone power when the catalog does not say (older server).
-const DEFAULT_WEAPON_COST_MULT := 3.0
-## Careful upgrade per step (fromLevel 0..15) when the catalog rows lack it (older server): the gem
-## price and the relative bonus % (migration 025).
-const DEFAULT_CAREFUL_GEM := [2, 2, 3, 5, 5, 10, 10, 10, 15, 20, 30, 60, 80, 120, 180, 250]
-const DEFAULT_CAREFUL_BONUS := [30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 40, 40, 40, 40, 50, 50]
-
-## Colour tiers: 0 at +0 (normal look), then 1 green, 2 sky blue, 3 orange, 4 purple, 5 red, each
-## from TIER_FROM[t].
-const TIER_FROM := [0, 1, 6, 10, 14, 16]
+## Colour tiers: 0 at +0 (normal look), then 1 green from +1, then one per milestone (2 sky blue,
+## 3 orange, 4 purple, 5 red; tier_from()).
 const TIER_COLORS := [
 	Color(1, 1, 1),
 	Color(0.18, 0.9, 0.42), # green (#2EE66B, emerald, not the sky blue of +6)
@@ -47,20 +37,53 @@ const TIER_COLORS := [
 	Color(1.0, 0.1, 0.1), # red (#FF1A1A, no pink)
 ]
 const TIER_WORDS := ["", "xanh lá", "xanh da trời", "cam", "tím", "đỏ"]
-## The stat-bonus milestones (the catalog's upgradeMilestones): +6, +10, +14, +16 (index 0 unused).
-const MILESTONE_FROM := [0, 6, 10, 14, 16]
 ## How dim the piece popup draws a milestone not reached yet.
 const UNREACHED_ALPHA := 0.4
 
 
+# ── Limits (game data) ──────────────────────────────────────────────────────
+
+## The highest +level (equipment.maxUpgradeLevel).
+static func max_level() -> int:
+	return GameData.max_upgrade_level()
+
+
+## The highest stone level (equipment.maxStoneLevel): stones below it merge into the next.
+static func stone_levels() -> int:
+	return GameData.max_stone_level()
+
+
+## A merge takes merge_min()..merge_max() stones of one level.
+static func merge_min() -> int:
+	return GameData.merge_min_count()
+
+
+static func merge_max() -> int:
+	return GameData.merge_max_count()
+
+
 # ── Milestones ──────────────────────────────────────────────────────────────
+
+## The stat-bonus milestone levels (equipment.milestones: +6, +10, +14, +16), index 0 unused.
+static func milestone_from() -> Array:
+	var out: Array = [0]
+	for m in GameData.upgrade_milestones():
+		out.append(int(m[0]))
+	return out
+
+
+## The first level of each colour tier: 0, 1, then the milestones.
+static func tier_from() -> Array:
+	return [0, 1] + milestone_from().slice(1)
+
 
 ## The colour tier of a level: 0 at +0, 1 for +1..+5, 2 for +6..+9, 3 for +10..+13, 4 for
 ## +14..+15, 5 for +16.
 static func color_tier(level: int) -> int:
-	for t in range(TIER_FROM.size() - 1, 0, -1):
-		if level >= TIER_FROM[t]:
-			return t
+	var from := tier_from()
+	for t in range(from.size() - 1, 0, -1):
+		if level >= int(from[t]):
+			return mini(t, TIER_COLORS.size() - 1)
 	return 0
 
 
@@ -82,14 +105,15 @@ static func name_color(piece: Dictionary) -> Color:
 
 ## Whether `level` is a stat-bonus milestone (+6, +10, +14, +16).
 static func is_milestone(level: int) -> bool:
-	return level > 0 and MILESTONE_FROM.has(level)
+	return level > 0 and milestone_from().has(level)
 
 
-## The milestone level a piece at `level` reaches next (6, 10, 14, 16), or -1 at +16.
+## The milestone level a piece at `level` reaches next (6, 10, 14, 16), or -1 past the last.
 static func next_milestone(level: int) -> int:
-	for t in range(1, MILESTONE_FROM.size()):
-		if MILESTONE_FROM[t] > level:
-			return MILESTONE_FROM[t]
+	var from := milestone_from()
+	for t in range(1, from.size()):
+		if int(from[t]) > level:
+			return int(from[t])
 	return -1
 
 
@@ -117,8 +141,9 @@ static func milestone_text(catalog: Variant, level: int) -> String:
 ## for the other rows and for armour.
 static func milestone_rows(catalog: Variant, level: int, weapon: bool = false) -> Array:
 	var out: Array = []
-	for t in range(1, MILESTONE_FROM.size()):
-		var lv: int = MILESTONE_FROM[t]
+	var from := milestone_from()
+	for t in range(1, from.size()):
+		var lv: int = from[t]
 		var bonus := milestone_bonus(catalog, lv)
 		var tier := color_tier(lv)
 		out.append({"level": lv, "tier": tier, "color": TIER_COLORS[tier], "bonus": bonus,
@@ -141,7 +166,7 @@ static func back_aura_text(milestone: int) -> String:
 
 ## "Cấp nâng cấp +7 / 16"
 static func level_line(level: int) -> String:
-	return "Cấp nâng cấp +%d / %d" % [clampi(level, 0, MAX_LEVEL), MAX_LEVEL]
+	return "Cấp nâng cấp +%d / %d" % [clampi(level, 0, max_level()), max_level()]
 
 
 ## The share of a piece's stats the upgrade adds: "+24% từ nâng cấp" (upgrade multiplier − 1,
@@ -166,12 +191,12 @@ static func rate(catalog: Variant, level: int) -> Dictionary:
 	return {}
 
 
-## The power of one stone of `stone_level` (the catalog's stones row, else the seeded value).
+## The power of one stone of `stone_level` (the catalog's stones row; 0 when it has none).
 static func power(catalog: Variant, stone_level: int) -> int:
 	var s := stone(catalog, stone_level)
 	if s.get("power") is int or s.get("power") is float:
 		return int(s["power"])
-	return DEFAULT_POWERS[stone_level] if stone_level >= 1 and stone_level <= STONE_LEVELS else 0
+	return 0
 
 
 ## The catalog's stones row of a level, {} when unknown.
@@ -205,12 +230,12 @@ static func percent(power_sum: int, cost: float, max_percent: float) -> float:
 	return minf(raw_percent(power_sum, cost), max_percent)
 
 
-## The catalog's weaponUpgradeCostMultiplier (3 when missing or below 1).
+## The catalog's weaponUpgradeCostMultiplier (the game data's when missing or below 1).
 static func weapon_cost_multiplier(catalog: Variant) -> float:
 	var v = catalog.get("weaponUpgradeCostMultiplier") if catalog is Dictionary else null
 	if (v is int or v is float) and float(v) >= 1.0:
 		return float(v)
-	return DEFAULT_WEAPON_COST_MULT
+	return GameData.weapon_upgrade_cost_multiplier()
 
 
 ## How many times upgradeCost a piece in `slot` needs: the weapon multiplier for "weapon", else 1.
@@ -227,15 +252,14 @@ static func piece_slot(catalog: Variant, piece: Dictionary) -> String:
 
 
 ## The careful upgrade of the step from `level`: {gem, bonus (relative %), offered}; the row's
-## carefulGemCost / carefulBonusPercent, the defaults when the row lacks them (older server);
-## offered: a rate row with both > 0.
+## carefulGemCost / carefulBonusPercent (0 when the row lacks them: no careful); offered: a rate
+## row with both > 0.
 static func careful(catalog: Variant, level: int) -> Dictionary:
 	var r := rate(catalog, level)
-	var in_range := level >= 0 and level < DEFAULT_CAREFUL_GEM.size()
 	var gem = r.get("carefulGemCost")
 	var bonus = r.get("carefulBonusPercent")
-	var g: int = int(gem) if gem is int or gem is float else (DEFAULT_CAREFUL_GEM[level] if in_range else 0)
-	var b: float = float(bonus) if bonus is int or bonus is float else (float(DEFAULT_CAREFUL_BONUS[level]) if in_range else 0.0)
+	var g: int = int(gem) if gem is int or gem is float else 0
+	var b: float = float(bonus) if bonus is int or bonus is float else 0.0
 	return {"gem": g, "bonus": b, "offered": not r.is_empty() and g > 0 and b > 0.0}
 
 
@@ -358,8 +382,8 @@ static func blocked_reason(catalog: Variant, piece: Dictionary, picked: Dictiona
 	if piece.is_empty():
 		return "Chọn một trang bị"
 	var level := int(piece.get("upgradeLevel", 0))
-	if level >= MAX_LEVEL:
-		return "Đã đạt tối đa +%d" % MAX_LEVEL
+	if level >= max_level():
+		return "Đã đạt tối đa +%d" % max_level()
 	if rate(catalog, level).is_empty():
 		return "Chưa có bảng nâng cấp cho +%d" % level
 	if total_power(catalog, picked) <= 0:
@@ -384,7 +408,7 @@ static func stat_steps(catalog: Variant, piece: Dictionary, mult: Dictionary = {
 	var item := EquipmentModel.item_of_piece(catalog, piece)
 	var level := int(piece.get("upgradeLevel", 0))
 	var now := EquipmentModel.upgraded(item, level, EquipmentModel.milestones(catalog))
-	var next := EquipmentModel.upgraded(item, mini(level + 1, MAX_LEVEL), EquipmentModel.milestones(catalog))
+	var next := EquipmentModel.upgraded(item, mini(level + 1, max_level()), EquipmentModel.milestones(catalog))
 	var out: Array = []
 	var after := {}
 	for l in EquipmentModel.stat_lines(next, mult):
@@ -409,8 +433,8 @@ static func stat_steps(catalog: Variant, piece: Dictionary, mult: Dictionary = {
 ## fail_text() ("" at +16), note: "Đã đạt cấp tối đa" at +16 else ""}. No milestone text: the
 ## next column's aura shows it.
 static func preview(catalog: Variant, piece: Dictionary, mult: Dictionary = {}) -> Dictionary:
-	var level := clampi(int(piece.get("upgradeLevel", 0)), 0, MAX_LEVEL)
-	var maxed := level >= MAX_LEVEL
+	var level := clampi(int(piece.get("upgradeLevel", 0)), 0, max_level())
+	var maxed := level >= max_level()
 	var columns: Array = [{"level": level, "color": milestone_color(level)}]
 	if not maxed:
 		columns.append({"level": level + 1, "color": milestone_color(level + 1)})
@@ -440,7 +464,7 @@ static func parse_stones(data: Variant) -> Variant:
 		if s is Dictionary and (s.get("stoneLevel") is int or s.get("stoneLevel") is float):
 			var lv := int(s["stoneLevel"])
 			var q := int(s.get("quantity", 0))
-			if lv >= 1 and lv <= STONE_LEVELS and q > 0:
+			if lv >= 1 and lv <= stone_levels() and q > 0:
 				out[lv] = int(out.get(lv, 0)) + q
 	return out
 
@@ -463,7 +487,7 @@ static func stone_name(stone_level: int) -> String:
 ## sold for coin or gem; levels 11–12 are merge only).
 static func shop_stones(catalog: Variant) -> Array:
 	var out: Array = []
-	for lv in range(1, STONE_LEVELS + 1):
+	for lv in range(1, stone_levels() + 1):
 		var s := stone(catalog, lv)
 		var coin := int(s.get("priceCoin", 0))
 		var gem := int(s.get("priceGem", 0))
@@ -482,12 +506,12 @@ static func buy_confirm_text(row: Dictionary, quantity: int) -> String:
 
 # ── Merge ───────────────────────────────────────────────────────────────────
 
-## The catalog's mergeRatePerItem (25 when missing or not positive).
+## The catalog's mergeRatePerItem (the game data's when missing or not positive).
 static func merge_rate(catalog: Variant) -> float:
 	var v = catalog.get("mergeRatePerItem") if catalog is Dictionary else null
 	if (v is int or v is float) and float(v) > 0.0:
 		return float(v)
-	return DEFAULT_MERGE_RATE
+	return GameData.merge_rate_per_item()
 
 
 ## The success chance of merging `count` stones (capped at 100).
@@ -497,10 +521,10 @@ static func merge_chance(catalog: Variant, count: int) -> float:
 
 ## Why "Ghép" is off ("" when it can be pressed).
 static func merge_blocked(stone_level: int, count: int, owned: Variant) -> String:
-	if stone_level < 1 or stone_level >= STONE_LEVELS:
-		return "Đá cấp %d là cao nhất" % STONE_LEVELS if stone_level >= STONE_LEVELS else "Chọn một cấp đá"
-	if count < MERGE_MIN or count > MERGE_MAX:
-		return "Bỏ vào %d–%d viên" % [MERGE_MIN, MERGE_MAX]
+	if stone_level < 1 or stone_level >= stone_levels():
+		return "Đá cấp %d là cao nhất" % stone_levels() if stone_level >= stone_levels() else "Chọn một cấp đá"
+	if count < merge_min() or count > merge_max():
+		return "Bỏ vào %d–%d viên" % [merge_min(), merge_max()]
 	var have := int(owned.get(stone_level, 0)) if owned is Dictionary else 0
 	if have < count:
 		return "Cần %d viên, đang có %d" % [count, have]

@@ -249,7 +249,7 @@ func test_idle_gun_slung_on_the_back() -> void:
 		near(gun.rotation, csock.get_rotation(), 1e-4, "%s: at the carry socket's angle" % id)
 		check(gun.position.distance_to(csock.origin) < 0.01, "%s: its hold on the carry socket" % id)
 		near(gun.modulate.a, 1.0, 1e-6, "%s: fully shown" % id)
-		var hug: Dictionary = Art.hug_gun(Art.CHARACTER_GUNS[id], "basic")
+		var hug: Dictionary = Art.hug_gun(Art.character_gun(id), "basic")
 		var gs: Sprite2D = c.get_node("Flip/Gun/Sprite")
 		near(gs.scale.x * float(hug["size"].x), Art.gun_transform(Art.ready_pose(id), hug).x.length() * float(hug["size"].x), 0.01,
 			"%s: the ready pose's size" % id)
@@ -352,7 +352,7 @@ func test_carry_scenes_match_the_game() -> void:
 		check(body.get_meta("_edit_lock_", false) and walk.get_meta("_edit_lock_", false), "%s: Body and WalkPreview locked" % id)
 		eq(walk.get_script(), CarryWalk, "%s: WalkPreview plays the walk" % id)
 		eq(str(walk.get("character_id")), id, "%s: WalkPreview's character" % id)
-		var kind := str(Art.CHARACTER_GUNS[id])
+		var kind := Art.character_gun(id)
 		check(pv.texture != null and pv.texture.resource_path == Art.hug_gun_path(kind, "iron"), "%s: Preview is the iron hug gun" % id)
 		var look: Dictionary = Art.character_look(id)
 		check(body.texture != null and body.texture.resource_path == Art.side_dir(id) + "idle_0.png", "%s: Body is idle_0" % id)
@@ -632,7 +632,7 @@ func _check_ready_pose_assets(id: String) -> void:
 	for key in ["socket", "preview", "pivot", "length"]:
 		check(rp.has(key), "%s ready_pose %s" % [id, key])
 	check(not rp.has("hands") and not rp.has("aim"), "%s no hands, no aim range" % id)
-	var meta := Art.hug_gun(str(Art.CHARACTER_GUNS[id]), "iron")
+	var meta := Art.hug_gun(Art.character_gun(id), "iron")
 	eq(rp["pivot"], meta["pivot"], "%s turned round the hug gun's hold" % id)
 	near(float(rp["length"]), float(meta["size"].x), 1e-6, "%s the hug gun's length" % id)
 	var root: Node = load("res://scenes/character/poses/%s_ready.tscn" % id).instantiate()
@@ -854,7 +854,7 @@ func test_rookie_ready_switches_at_once() -> void:
 func test_flora_tanko_spark_hug_their_gun() -> void:
 	var Art := preload("res://ui/art.gd")
 	for id in ["flora", "tanko", "spark"]:
-		var kind := str(Art.CHARACTER_GUNS[id])
+		var kind := Art.character_gun(id)
 		var c: Node2D = CharacterScene.instantiate()
 		c.character_id = id
 		c.holster = true
@@ -956,7 +956,7 @@ func test_carry_assets() -> void:
 		check(deg < -90.0 and deg > -180.0, "%s: muzzle up and back (%s)" % [id, deg])
 		var hold: Vector2 = cp["hold"]
 		check(hold.x > 0.0 and hold.x < 0.5 * float(cp["length"]), "%s: hung low on the gun" % id)
-		check(cp["texture"] != null and cp["texture"].resource_path == Art.hug_gun_path(Art.CHARACTER_GUNS[id], "iron"),
+		check(cp["texture"] != null and cp["texture"].resource_path == Art.hug_gun_path(Art.character_gun(id), "iron"),
 			"%s: the Preview is its iron hug gun" % id)
 		eq(back["bob"].size(), look["frames"].get_frame_count("walk"), "%s: a bob per walk frame" % id)
 		check(Art.side_paths(id).has(Art.side_dir(id) + "carry.json"), "%s: carry.json among the side view's files" % id)

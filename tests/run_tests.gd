@@ -1,13 +1,17 @@
 extends SceneTree
 ## Headless test runner: runs every test_* method of every res://tests/unit/test_*.gd.
-## Use tests/run.sh, which also fails the run on script errors.
+## Use tests/run.sh, which also fails the run on script errors. Every test starts with the game
+## data of tests/fixtures/gamedata.json (a real GET /gamedata answer) and no cache file.
 
 const TEST_DIR := "res://tests/unit"
+const GameData := preload("res://autoload/game_data_model.gd")
+const FIXTURE := "res://tests/fixtures/gamedata.json"
 
 
 func _initialize() -> void:
 	var passed := 0
 	var failed := 0
+	var fixture = GameData.parse(JSON.parse_string(FileAccess.get_file_as_string(FIXTURE)))
 	var files := DirAccess.get_files_at(TEST_DIR)
 	files.sort()
 	for file in files:
@@ -18,6 +22,8 @@ func _initialize() -> void:
 			var method_name: String = method["name"]
 			if not method_name.begins_with("test_"):
 				continue
+			GameData.reset("")
+			GameData.take(fixture, "", false)
 			var test = script.new()
 			test.call(method_name)
 			if test.failures.is_empty():

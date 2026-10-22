@@ -7,6 +7,7 @@ extends RefCounted
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
 const Fmt := preload("res://core/fmt.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const WIN := "win"
 const LOSE := "lose"
@@ -99,7 +100,7 @@ static func entry(id: String, p: Dictionary, roster: Dictionary, me: String, my_
 			level = my_level
 	var is_bot: bool = p.get("isBot") if p.get("isBot") is bool else id.begins_with("bot_")
 	return {"playerId": id, "displayName": str(p.get("displayName", roster.get("displayName", id))),
-		"characterId": str(p.get("characterId", roster.get("characterId", "rookie"))), "teamId": int(p.get("teamId", 0)),
+		"characterId": str(p.get("characterId", roster.get("characterId", GameData.default_character_id()))), "teamId": int(p.get("teamId", 0)),
 		"isBot": is_bot, "mine": mine, "title": TitleModel.from_player(p), "tier": tier, "division": division,
 		"level": level, "damage": damage}
 
@@ -129,28 +130,31 @@ static func reward(r: Variant, mode: String) -> Dictionary:
 		"rank": RankModel.result_of(mode, r)}
 
 
-## The EXP bar from (level, exp within it) plus `gained` (a level needs level × 100, as
+## The EXP bar from (level, exp within it) plus `gained` (a level needs level × expPerLevel, as
 ## screens/home/progress.gd): {from, to (ratios), levels (levels gained), level (the new one)}.
 ## `to` is in the last level reached.
 static func exp_steps(level: int, level_exp: int, gained: int) -> Dictionary:
+	var per := GameData.player_exp_per_level()
 	var lv := maxi(level, 1)
-	var e := clampi(level_exp, 0, lv * 100)
-	var from := float(e) / (lv * 100)
+	if per <= 0:
+		return {"from": 0.0, "to": 0.0, "levels": 0, "level": lv}
+	var e := clampi(level_exp, 0, lv * per)
+	var from := float(e) / (lv * per)
 	var left := maxi(gained, 0)
 	var levels := 0
-	while e + left >= lv * 100 and levels < 100:
-		left -= lv * 100 - e
+	while e + left >= lv * per and levels < 100:
+		left -= lv * per - e
 		lv += 1
 		levels += 1
 		e = 0
 	e += left
-	return {"from": from, "to": float(e) / (lv * 100), "levels": levels, "level": lv}
+	return {"from": from, "to": float(e) / (lv * per), "levels": levels, "level": lv}
 
 
 ## The second button: "Chơi tiếp" (ranked: straight back into the queue), "Chơi lại" (a Quick
 ## Play match again), "" none.
 static func again_text(mode: String, can_replay: bool) -> String:
-	if mode == RankModel.RANKED_MODE:
+	if RankModel.is_ranked_mode(mode):
 		return "Chơi tiếp"
 	return "Chơi lại" if can_replay else ""
 

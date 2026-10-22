@@ -279,7 +279,7 @@ func test_burn_flash_frees_itself() -> void:
 
 
 func test_describe_counts() -> void:
-	var v := RainView.new()
+	var v = RainView.new().for_skill("triple_shot") # the game data's texts and numbers
 	check(v.describe(0).contains("12 tên lửa"), "rank 0: 12 missiles")
 	check(v.describe(4).contains("28 tên lửa"), "rank 4: 28 missiles")
 	eq(v.skill_name(), "Mưa tên lửa", "name")

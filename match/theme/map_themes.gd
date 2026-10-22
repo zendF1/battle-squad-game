@@ -2,8 +2,10 @@ extends RefCounted
 ## Map themes: how a map looks (the server only knows its layout). The maps themselves live in
 ## the server's DB: MatchStarted / MatchStateSync carry `mapTheme` and `mapName`, and the map
 ## catalog (match/theme/map_catalog.gd, GET /maps) knows every active map's name and theme for
-## the screens outside a match (and a server that sends no mapTheme). An unknown theme draws as
-## grassland, an unknown map under its raw id. Only the art is here, keyed by theme id.
+## the screens outside a match (and a server that sends no mapTheme). The theme ids the server
+## accepts and the default one are the game data's (GET /gamedata mapThemes); a theme with no art
+## here (a new one an admin added) draws as the default theme (default_theme()), an unknown map
+## under its raw id. Only the art is here, keyed by theme id.
 ##
 ## A theme (LOOKS) is: a background (match/theme/backdrop_painter.gd draws it once per match, by
 ## the theme id), clouds (count, tint, height band), particles (match/theme/sky_fx.gdshader mode),
@@ -14,11 +16,11 @@ extends RefCounted
 ## map either way: the bottom is only a look.
 
 const MapCatalog := preload("res://match/theme/map_catalog.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
-const DEFAULT := "grassland"
-
-const THEMES := ["grassland", "ice", "beach", "graveyard", "desert", "sky", "temple", "steel",
-	"city_night", "stone", "cave"]
+## The look drawn with the match sky picture (today's look), and the art used when even the
+## game data's default theme has none here.
+const GRASSLAND := "grassland"
 
 ## Particle modes of sky_fx.gdshader.
 const FX_NONE := 0
@@ -100,18 +102,26 @@ const LOOKS := {
 }
 
 
+## A theme this client has art for.
 static func is_theme(id: String) -> bool:
 	return LOOKS.has(id)
 
 
-## The theme of a MatchStarted / MatchStateSync: its mapTheme when the client knows it, else the
-## catalog's for its mapId, else DEFAULT.
+## The theme drawn when a map's has no art: the game data's default (mapThemes.default), else
+## GRASSLAND.
+static func default_theme() -> String:
+	var d := GameData.default_theme()
+	return d if is_theme(d) else GRASSLAND
+
+
+## The theme of a MatchStarted / MatchStateSync: its mapTheme when the client has its art, else
+## the catalog's for its mapId, else default_theme().
 static func theme_of(snap: Dictionary) -> String:
 	var t := str(snap.get("mapTheme", ""))
 	if is_theme(t):
 		return t
 	t = MapCatalog.theme_of(str(snap.get("mapId", "")))
-	return t if is_theme(t) else DEFAULT
+	return t if is_theme(t) else default_theme()
 
 
 ## The map's Vietnamese name: the snapshot's mapName, else the catalog's, else the raw id.
@@ -123,4 +133,4 @@ static func name_of(snap: Dictionary) -> String:
 
 
 static func look(theme: String) -> Dictionary:
-	return LOOKS.get(theme, LOOKS[DEFAULT])
+	return LOOKS.get(theme, LOOKS[default_theme()])

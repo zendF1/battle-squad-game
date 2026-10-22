@@ -21,6 +21,7 @@ const StatDraft := preload("res://screens/home/stat_draft.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const UNCLEAR := "Không rõ kết quả, đã tải lại"
 ## The stat name column (fits "Năng lượng di chuyển" at 20 px).
@@ -32,8 +33,8 @@ var overlay: Control
 var _characters: Variant = null # characterId -> GET /player/characters entry, null until loaded
 var _drafts := {} # characterId -> StatDraft
 var _characters_version := -1 # PlayerState.characters_version shown
-var _reset_cost := StatDraft.DEFAULT_RESET_COST.duplicate()
-var _selected := LoadoutModel.DEFAULT_CHARACTER
+var _reset_cost := {} # StatDraft.reset_cost(): {} while unknown
+var _selected := LoadoutModel.default_character()
 var _busy := false # an allocate or reset request is running
 ## After an allocate that succeeded or got no clear answer: the character whose draft starts
 ## over once characters loaded after that point arrive, and the note shown then. Until then
@@ -258,7 +259,8 @@ func _on_characters_changed() -> void:
 
 
 func _update_reset_text() -> void:
-	_reset.text = "Tẩy điểm (%s)" % StatDraft.cost_text(_reset_cost)
+	var cost := StatDraft.cost_text(_reset_cost)
+	_reset.text = "Tẩy điểm (%s)" % cost if cost != "" else "Tẩy điểm"
 
 
 func _on_stat(key: String, delta: int) -> void:
@@ -339,10 +341,7 @@ func _update_detail() -> void:
 
 
 static func _display_name(id: String) -> String:
-	for c in LoadoutModel.CHARACTERS:
-		if c["id"] == id:
-			return c["name"]
-	return id
+	return GameData.character_name(id)
 
 
 func _on_allocate() -> void:
@@ -370,7 +369,9 @@ func _on_reset() -> void:
 	var id := _selected
 	var m := Modal.new()
 	m.open(overlay, "Tẩy điểm")
-	m.add_text("Tẩy toàn bộ điểm đã cộng của %s với giá %s? Điểm sẽ được hoàn lại để cộng lại." % [_display_name(id), StatDraft.cost_text(_reset_cost)])
+	var price := StatDraft.cost_text(_reset_cost)
+	m.add_text("Tẩy toàn bộ điểm đã cộng của %s%s? Điểm sẽ được hoàn lại để cộng lại." % [_display_name(id),
+		" với giá %s" % price if price != "" else ""])
 	m.add_button("Huỷ", m.close)
 	m.add_button("Tẩy điểm", _confirm_reset.bind(m, id))
 
@@ -390,7 +391,7 @@ func _confirm_reset(m: Modal, id: String) -> void:
 		PlayerState.assets_changed() # wallet (the fee) and the characters
 		return
 	if is_instance_valid(m):
-		m.set_message(ErrorText.stats(res, str(_reset_cost["currency"])))
+		m.set_message(ErrorText.stats(res, str(_reset_cost.get("currency", ""))))
 		m.set_busy(false)
 
 

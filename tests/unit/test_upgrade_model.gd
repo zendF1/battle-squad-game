@@ -182,7 +182,8 @@ func test_fail_text_and_reasons() -> void:
 
 ## Parity with internal/game/battlestats/stats_test.go TestSumEquipment (DefaultMilestones).
 func test_upgraded_stats_match_the_server() -> void:
-	var ms := M.DEFAULT_MILESTONES
+	var ms := M.default_milestones() # the game data's (equipment.milestones)
+	eq(ms, [[6, 0.1], [10, 0.2], [14, 0.4], [16, 1.0]], "the server's milestones")
 	var item := {"statHp": 100.0, "statDamage": 10.0, "statDefense": 20.0, "statCrit": 2.0, "statMoveEnergy": 5.0}
 	var up := M.upgraded(item, 5, ms) # ×1.10
 	eq([up["statHp"], up["statDamage"], up["statDefense"], up["statMoveEnergy"]], [110.0, 11.0, 22.0, 6.0], "+5 points")
@@ -225,9 +226,9 @@ func test_catalog_parse() -> void:
 	var c := catalog({"mergeRatePerItem": 30, "upgradeMilestones": [{"level": 10, "bonus": 0.25}, {"level": 6, "bonus": 0.1}]})
 	eq(c["upgradeMilestones"], [[6, 0.1], [10, 0.25]], "sorted milestones")
 	eq(c["mergeRatePerItem"], 30.0, "merge rate kept")
-	eq(catalog()["upgradeMilestones"], M.DEFAULT_MILESTONES, "defaults from an older server")
-	eq(M.parse_milestones([{"level": "x"}]), M.DEFAULT_MILESTONES, "malformed → defaults")
-	eq(M.milestones(null), M.DEFAULT_MILESTONES, "before the catalog loads")
+	eq(catalog()["upgradeMilestones"], M.default_milestones(), "the game data's from an older server")
+	eq(M.parse_milestones([{"level": "x"}]), M.default_milestones(), "malformed → the game data's")
+	eq(M.milestones(null), M.default_milestones(), "before the catalog loads")
 
 
 func test_stones() -> void:
@@ -238,7 +239,7 @@ func test_stones() -> void:
 	eq(U.owned_levels({5: 1, 2: 3, 7: 0}), [2, 5], "ascending, empty left out")
 	var c := catalog()
 	eq(U.power(c, 7), 729, "catalog power")
-	eq(U.power({}, 12), 177147, "seeded power")
+	eq(U.power({}, 12), 0, "no catalog row: no power (the catalog is the only source)")
 	eq(U.power({}, 13), 0, "unknown level")
 	var rows := U.shop_stones(c)
 	eq(rows.size(), 12, "12 levels")
@@ -336,14 +337,14 @@ func test_careful_percent_matches_the_server() -> void:
 	eq(U.careful_percent(10.0, 0.0), 10.0, "no bonus")
 
 
-func test_careful_step_and_fallback() -> void:
+func test_careful_step_and_none() -> void:
 	var c := careful_catalog()
 	var old := catalog() # an older server: no careful fields, no weapon multiplier
 	for lv in 16:
 		var cf := U.careful(c, lv)
 		eq([cf["gem"], cf["bonus"], cf["offered"]], [CAREFUL_GEM[lv], float(CAREFUL_BONUS[lv]), true], "+%d step" % lv)
 		var fb := U.careful(old, lv)
-		eq([fb["gem"], fb["bonus"], fb["offered"]], [CAREFUL_GEM[lv], float(CAREFUL_BONUS[lv]), true], "+%d fallback" % lv)
+		eq([fb["gem"], fb["bonus"], fb["offered"]], [0, 0.0, false], "+%d: a row without careful has none" % lv)
 	eq(U.careful(c, 16)["offered"], false, "nothing at +16")
 	eq(U.careful(null, 3)["offered"], false, "no catalog, no rate")
 	c["upgradeRates"][13]["carefulGemCost"] = 0
@@ -352,7 +353,7 @@ func test_careful_step_and_fallback() -> void:
 	eq(U.careful(c, 12)["offered"], false, "bonus 0: not offered")
 	eq(U.weapon_cost_multiplier(careful_catalog()), 3.0, "catalog multiplier")
 	eq(U.weapon_cost_multiplier(careful_catalog(2)), 2.0, "configured")
-	eq(U.weapon_cost_multiplier(old), 3.0, "fallback 3")
+	eq(U.weapon_cost_multiplier(old), 3.0, "the game data's (3)")
 	eq(U.weapon_cost_multiplier(careful_catalog(0.5)), 3.0, "below 1 falls back")
 	eq(M.parse_catalog({"items": [], "weaponUpgradeCostMultiplier": 2})["weaponUpgradeCostMultiplier"], 2.0, "parsed")
 	eq(U.cost_multiplier(c, "weapon"), 3.0, "weapon ×3")
@@ -408,3 +409,30 @@ func test_careful_blocked_reason() -> void:
 	eq(U.blocked_reason(c, piece, {}, {9: 2}, true, 0), "Chưa chọn đá", "stones first")
 	eq(ErrorText.upgrade({"status": 400, "code": "EQUIP_CAREFUL_UNAVAILABLE"}), "Cấp này không có Nâng cấp cẩn thận", "unavailable")
 	eq(ErrorText.upgrade({"status": 400, "code": "SHOP_INSUFFICIENT_BALANCE"}), "Không đủ kim cương cho Nâng cấp cẩn thận", "no gems")
+
+
+## The limits follow the game data: the highest level, the stone level, the merge counts, the
+## milestones (their colour tiers) and the error texts that quote them.
+func test_limits_from_the_game_data() -> void:
+	eq([U.max_level(), U.stone_levels(), U.merge_min(), U.merge_max()], [16, 12, 2, 4], "the server's limits")
+	eq(U.merge_blocked(12, 2, {}), "Đá cấp 12 là cao nhất", "top stone")
+	var d: Dictionary = M.GameData.data.duplicate(true)
+	d["version"] = "edited"
+	d["equipment"]["maxUpgradeLevel"] = 20
+	d["equipment"]["maxStoneLevel"] = 15
+	d["equipment"]["mergeMinCount"] = 3
+	d["equipment"]["mergeMaxCount"] = 5
+	d["equipment"]["milestones"] = [{"level": 5, "bonus": 0.1}, {"level": 20, "bonus": 2.0}]
+	M.GameData.take(d, "", false)
+	eq(U.level_line(18), "Cấp nâng cấp +18 / 20", "the new top")
+	eq(U.merge_blocked(3, 2, {}), "Bỏ vào 3–5 viên", "the new merge counts")
+	eq(U.merge_blocked(15, 3, {}), "Đá cấp 15 là cao nhất", "the new top stone")
+	eq(U.milestone_from(), [0, 5, 20], "the new milestones")
+	eq([U.color_tier(4), U.color_tier(5), U.color_tier(19), U.color_tier(20)], [1, 2, 2, 3], "colour tiers follow them")
+	check(U.is_milestone(5) and not U.is_milestone(6), "+5 is one now, +6 not")
+	var fail := func(status: int, code: String) -> Dictionary: return {"ok": false, "status": status, "code": code, "message": ""}
+	eq(ErrorText.upgrade(fail.call(400, "EQUIP_MAX_UPGRADE")), "Trang bị đã đạt +20, không nâng cấp thêm được", "quotes the top")
+	eq(ErrorText.merge(fail.call(400, "MERGE_MIN_COUNT")), "Cần bỏ vào ít nhất 3 viên", "quotes the min")
+	eq(ErrorText.merge(fail.call(400, "MERGE_MAX_COUNT")), "Chỉ bỏ vào tối đa 5 viên", "quotes the max")
+	eq(ErrorText.merge(fail.call(400, "MERGE_MAX_LEVEL")), "Đá cấp 15 là cao nhất, không ghép tiếp được", "quotes the top stone")
+	near(M.upgrade_multiplier(5), 1.0 + 5 * 0.02 + 0.1, 1e-12, "the new milestone in the multiplier")

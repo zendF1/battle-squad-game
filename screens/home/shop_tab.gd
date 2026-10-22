@@ -18,7 +18,7 @@ extends Control
 ##   Rookie always), or "Chưa mở bán";
 ## - "Kim cương": GET /iap/products, "Nạp" → POST /iap/verify with a mock purchase token;
 ## - "Đổi xu": coin_pack offers (gem → coin): "10 [gem] → 1.000 [coin]", a bonus over the base
-##   rate (ShopModel.COINS_PER_GEM) when there is one, "Đổi" ("Không đủ kim cương" and disabled
+##   rate (economy.coinsPerGem, game data) when there is one, "Đổi" ("Không đủ kim cương" and disabled
 ##   while the wallet is short) asks "Đổi 10 kim cương lấy 1.000 xu?" and buys the offer like
 ##   "Mua"; "Chưa có gói đổi" when the server sells none.
 ## "Mua" asks "Xác nhận mua", then PlayerState.buy() sends POST /shop/purchase {offerId,
@@ -352,7 +352,7 @@ func _on_slot(slot: String) -> void:
 
 ## The lobby's character (Rookie when Home did not set it).
 func _shop_character() -> String:
-	return str(lobby_character.call()) if lobby_character.is_valid() else LoadoutModel.DEFAULT_CHARACTER
+	return str(lobby_character.call()) if lobby_character.is_valid() else LoadoutModel.default_character()
 
 
 func _render_equipment() -> void:

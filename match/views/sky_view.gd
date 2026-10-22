@@ -28,7 +28,7 @@ const PAD := 32.0 # px past the screen on every side (the camera's shake)
 ## Wind of the current turn: the clouds drift its way, faster with more power.
 var wind_dir := 0
 var wind_power := 0.0
-var map_theme := MapThemes.DEFAULT
+var map_theme := MapThemes.default_theme()
 
 var _clouds: Array = [] # [position, scale, speed factor, texture]
 var _cloud_tint := Color.WHITE
@@ -56,12 +56,12 @@ func _ready() -> void:
 	_layout()
 
 
-## Switches the background to a theme (an unknown one is grassland).
+## Switches the background to a theme (an unknown one is the default one).
 func show_theme(theme_id: String) -> void:
-	map_theme = theme_id if MapThemes.is_theme(theme_id) else MapThemes.DEFAULT
+	map_theme = theme_id if MapThemes.is_theme(theme_id) else MapThemes.default_theme()
 	var look := MapThemes.look(map_theme)
 	_sky = null
-	if map_theme == MapThemes.DEFAULT:
+	if map_theme == MapThemes.GRASSLAND:
 		_sky = Art.env("sky_match")
 	else:
 		var path := sky_override_path(map_theme)

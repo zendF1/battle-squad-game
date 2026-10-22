@@ -12,7 +12,7 @@ const RESULTS := {
 	"loss": {"text": "Thua", "tone": "loss"},
 	"draw": {"text": "Hoà", "tone": "draw"},
 }
-const MODES := {"pvp_1v1": "Đấu 1v1", "pvp_2v2": "Đấu 2v2", "ranked_2v2": "Xếp hạng 2v2"}
+const GameData := preload("res://autoload/game_data_model.gd") # match mode names (modes.match)
 
 var limit: int
 var rows: Array = []
@@ -81,7 +81,7 @@ static func row_text(e: Dictionary, bias_minutes: int) -> Dictionary:
 	return {
 		"result": r["text"],
 		"tone": r["tone"],
-		"mode": MODES.get(mode, mode),
+		"mode": GameData.match_mode_name(mode),
 		"map": MapCatalog.name_of(str(e.get("mapId", ""))),
 		"exp": "+%d EXP" % int(e.get("expGained", 0)),
 		"coin": "+%s xu" % Fmt.thousands(int(e.get("coinGained", 0))),

@@ -75,7 +75,7 @@ func test_milestone_list_rows() -> void:
 		var rows := col.get_children().filter(func(r): return r.has_meta("reached"))
 		eq(rows.size(), 4, "four milestone rows")
 		for i in rows.size():
-			var reached: bool = lv >= int(U.MILESTONE_FROM[i + 1])
+			var reached: bool = lv >= int(U.milestone_from()[i + 1])
 			eq(rows[i].get_meta("reached"), reached, "+%d row %d reached" % [lv, i])
 			near(rows[i].modulate.a, 1.0 if reached else U.UNREACHED_ALPHA, 0.001, "+%d row %d alpha" % [lv, i])
 		var texts := labels(col).map(func(l): return l.text)

@@ -3,6 +3,7 @@ extends RefCounted
 ## display-name rule. Codes not listed fall back to "<action> thất bại: <server message>".
 
 const Items := preload("res://match/items.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const MAX_NAME := 20 # characters; the server counts runes and trims
 
@@ -58,9 +59,10 @@ const EQUIP_REMOVE := {
 	"EQUIP_NOT_OWNED": "Trang bị không còn trong túi",
 }
 
-## POST /player/equipment/upgrade; other codes as EQUIP.
+## POST /player/equipment/upgrade; other codes as EQUIP. {maxUpgradeLevel}, {mergeMinCount},
+## {mergeMaxCount} and {maxStoneLevel} are the game data's equipment limits (limits()).
 const UPGRADE := {
-	"EQUIP_MAX_UPGRADE": "Trang bị đã đạt +16, không nâng cấp thêm được",
+	"EQUIP_MAX_UPGRADE": "Trang bị đã đạt +{maxUpgradeLevel}, không nâng cấp thêm được",
 	"EQUIP_NO_STONES": "Chưa chọn đá nâng cấp",
 	"EQUIP_INSUFFICIENT_STONES": "Không đủ đá nâng cấp, hãy chọn lại",
 	"EQUIP_MODIFIED": "Trang bị vừa được nâng cấp ở nơi khác, hãy thử lại",
@@ -77,9 +79,9 @@ const STONE_BUY := {
 }
 ## POST /merge/stone.
 const MERGE := {
-	"MERGE_MIN_COUNT": "Cần bỏ vào ít nhất 2 viên",
-	"MERGE_MAX_COUNT": "Chỉ bỏ vào tối đa 4 viên",
-	"MERGE_MAX_LEVEL": "Đá cấp 12 là cao nhất, không ghép tiếp được",
+	"MERGE_MIN_COUNT": "Cần bỏ vào ít nhất {mergeMinCount} viên",
+	"MERGE_MAX_COUNT": "Chỉ bỏ vào tối đa {mergeMaxCount} viên",
+	"MERGE_MAX_LEVEL": "Đá cấp {maxStoneLevel} là cao nhất, không ghép tiếp được",
 	"EQUIP_INSUFFICIENT_STONES": "Không đủ đá để ghép",
 }
 
@@ -246,8 +248,16 @@ static func upgrade(res: Dictionary) -> String:
 		return OFFLINE
 	var code := str(res.get("code", ""))
 	if UPGRADE.has(code):
-		return UPGRADE[code]
+		return limits(UPGRADE[code])
 	return EQUIP.get(code, "Nâng cấp thất bại: %s" % res.get("message", ""))
+
+
+## A message with the equipment limits filled in ({maxUpgradeLevel}, {mergeMinCount},
+## {mergeMaxCount}, {maxStoneLevel}).
+static func limits(text: String) -> String:
+	return GameData.fill_template(text, {"maxUpgradeLevel": GameData.max_upgrade_level(),
+		"mergeMinCount": GameData.merge_min_count(), "mergeMaxCount": GameData.merge_max_count(),
+		"maxStoneLevel": GameData.max_stone_level()})
 
 
 ## POST /shop/stones/buy failure. currency is what the stone costs ("coin" | "gem").
@@ -264,7 +274,7 @@ static func stone_buy(res: Dictionary, currency: String = "") -> String:
 static func merge(res: Dictionary) -> String:
 	if int(res.get("status", 0)) == 0:
 		return OFFLINE
-	return MERGE.get(str(res.get("code", "")), "Ghép đá thất bại: %s" % res.get("message", ""))
+	return limits(MERGE.get(str(res.get("code", "")), "Ghép đá thất bại: %s" % res.get("message", "")))
 
 
 ## POST /milestones/claim or /milestones/claim-all failure.

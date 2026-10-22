@@ -81,8 +81,9 @@ func test_rebuild_drops_on_bonus_change_or_drop_id() -> void:
 
 func test_reset_cost() -> void:
 	eq(StatDraft.reset_cost({"characters": [], "resetStatsCost": {"currency": "gem", "amount": 50.0}}), {"currency": "gem", "amount": 50}, "from the response")
-	eq(StatDraft.reset_cost({"characters": []}), {"currency": "coin", "amount": 500}, "absent: 500 xu")
-	eq(StatDraft.reset_cost({"resetStatsCost": {"currency": "ruby", "amount": 5}}), {"currency": "coin", "amount": 500}, "unknown currency")
-	eq(StatDraft.reset_cost(null), {"currency": "coin", "amount": 500}, "no data")
+	eq(StatDraft.reset_cost({"characters": []}), {}, "absent: unknown")
+	eq(StatDraft.reset_cost({"resetStatsCost": {"currency": "ruby", "amount": 5}}), {}, "unknown currency")
+	eq(StatDraft.reset_cost(null), {}, "no data")
+	eq(StatDraft.cost_text({}), "", "an unknown fee has no text")
 	eq(StatDraft.cost_text({"currency": "coin", "amount": 1500}), "1.500 xu", "coin text")
 	eq(StatDraft.cost_text({"currency": "gem", "amount": 50}), "50 kim cương", "gem text")

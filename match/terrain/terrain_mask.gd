@@ -15,13 +15,15 @@ extends RefCounted
 ## crater's edge; the map's own surface is not darkened). Every carve updates it around the
 ## pixels it cleared and grows `dirty`, the region the view must upload again (take_dirty()).
 
+## The terrain rules come from the game data (GET /gamedata terrain): playerHeight (the free space
+## a player needs above the ground), maxClimbPerStep (Terrain.WalkTo), bowlDepth / bowlCeiling
+## (Terrain.CarveBowl: the bowl's floor and its flat top, in crater radii under / above the centre).
+
+const GameData := preload("res://autoload/game_data_model.gd")
+
 const SOLID := 255
-const PLAYER_HEIGHT := 40 # match.PlayerHeight
-const MAX_CLIMB_PER_STEP := 3 # Terrain.WalkTo maxClimbPerStep
 const CRATER_BOWL := "bowl" # the explode event's crater: Terrain.CarveBowl (every explosion, the bomb chain's too)
 const CRATER_CIRCLE := "circle" # Terrain.DestroyCircle (no explosion sends it now; still carved)
-const BOWL_CEILING := 1.5 # bowlCeiling: the bowl's flat top, in crater radii above the centre
-const BOWL_DEPTH := 0.72 # bowlDepth: the bowl's floor, in crater radii under the centre
 const CARVED := 255 # edge byte of a carved air pixel
 const SCORCH_FULL := 3.0 # px from a carved pixel at full scorch (near-black)
 const SCORCH_FADE := 2.5 # px more over which the scorch fades out
@@ -239,21 +241,23 @@ func carve(shape: String, cx: float, cy: float, radius: float) -> void:
 
 
 ## Terrain.CarveBowl: clears the destructible solid pixels of a bowl round (cx, cy), the pixels
-## (dx, dy) from the rounded centre with dx² + (r/k)·dy <= r², k = BOWL_DEPTH (a floor k·r under
-## the centre, r to each side at its height) and dy >= -BOWL_CEILING·r (a flat top), so a player
+## (dx, dy) from the rounded centre with dx² + (r/k)·dy <= r², k = bowlDepth (a floor k·r under
+## the centre, r to each side at its height) and dy >= -bowlCeiling·r (a flat top), so a player
 ## in it can walk out. Same float operations in the same order as the Go code: bit-identical.
 func carve_bowl(cx: float, cy: float, radius: float) -> void:
 	version += 1
-	if radius <= 0.0:
+	var depth := GameData.bowl_depth()
+	var ceiling := GameData.bowl_ceiling()
+	if radius <= 0.0 or depth <= 0.0:
 		return
 	var icx := roundi(cx)
 	var icy := roundi(cy)
 	var reach := ceili(2.0 * radius) + 1
-	var top := -BOWL_CEILING * radius
+	var top := -ceiling * radius
 	var r2 := radius * radius
-	var lean := radius / BOWL_DEPTH
+	var lean := radius / depth
 	var cleared := PackedInt32Array()
-	for y in range(maxi(icy - ceili(BOWL_CEILING * radius) - 1, 0), mini(icy + ceili(BOWL_DEPTH * radius) + 1, height - 1) + 1):
+	for y in range(maxi(icy - ceili(ceiling * radius) - 1, 0), mini(icy + ceili(depth * radius) + 1, height - 1) + 1):
 		var dy := float(y - icy)
 		if dy < top:
 			continue
@@ -283,7 +287,7 @@ func get_landing_y(x: float, start_y: float) -> float:
 
 
 ## Terrain.WalkTo: walks column by column toward target_x along the surface; stops at walls
-## taller than MAX_CLIMB_PER_STEP or where the body does not fit. Returns the end position.
+## taller than maxClimbPerStep or where the body does not fit. Returns the end position.
 func walk_to(start_x: float, start_y: float, target_x: float) -> Vector2:
 	var cur_x := roundi(start_x)
 	var cur_y := roundi(start_y)
@@ -291,11 +295,12 @@ func walk_to(start_x: float, start_y: float, target_x: float) -> Vector2:
 	if cur_x == end_x:
 		return Vector2(start_x, start_y)
 	var dir := 1 if end_x > cur_x else -1
+	var climb := GameData.max_climb_per_step()
 	while cur_x != end_x:
 		var next_x := cur_x + dir
 		if next_x < 0 or next_x >= width:
 			break
-		var next_y := _step_surface(next_x, cur_y, MAX_CLIMB_PER_STEP)
+		var next_y := _step_surface(next_x, cur_y, climb)
 		if next_y < 0:
 			break
 		cur_x = next_x
@@ -303,9 +308,9 @@ func walk_to(start_x: float, start_y: float, target_x: float) -> Vector2:
 	return Vector2(cur_x, cur_y)
 
 
-## Terrain.hasHeadroom: the PLAYER_HEIGHT pixels above surface_y in column x are free.
+## Terrain.hasHeadroom: the playerHeight pixels above surface_y in column x are free.
 func _has_headroom(x: int, surface_y: int) -> bool:
-	var y := maxi(surface_y - PLAYER_HEIGHT, 0)
+	var y := maxi(surface_y - GameData.player_height(), 0)
 	while y < surface_y and y < height:
 		if solid[y * width + x] != 0:
 			return false

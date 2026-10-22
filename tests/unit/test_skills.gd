@@ -2,6 +2,7 @@ extends "res://tests/test_case.gd"
 
 const Skills := preload("res://match/skills.gd")
 const SkillView := preload("res://match/views/skills/skill_view.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 
 func test_every_character_has_its_server_skill() -> void:
@@ -24,20 +25,22 @@ func test_aim_mode_per_skill() -> void:
 	eq(Skills.for_character("tanko")["aim"], SkillView.AIM_ARC, "bombs: aimed like a shot")
 	eq(Skills.for_character("spark")["aim"], SkillView.AIM_LINE, "laser: a straight line")
 	eq(Skills.for_character("flora")["aim"], SkillView.AIM_NONE, "bloom: no aim")
-	for id in Skills.SCRIPTS:
+	for id in GameData.character_ids():
 		var s := Skills.for_character(id)
 		eq(s["needs_aim"], s["aim"] != SkillView.AIM_NONE, "needs_aim " + id)
 	eq(Skills.for_character("rookie")["offsets"], [0.0], "one arc: the flare")
 	eq(Skills.for_character("tanko")["offsets"], [0.0], "one arc: the bombs' trajectory")
 	eq(Skills.for_character("spark")["offsets"], [], "no arc for a line")
 	eq(Skills.for_character("flora")["offsets"], [], "no arc without aim")
-	check(Skills.NO_AIM_POWER >= 0.0 and Skills.NO_AIM_POWER <= 100.0, "no-aim power in range")
+	check(GameData.no_aim_power() >= GameData.power_min() and GameData.no_aim_power() <= GameData.power_max(), "no-aim power in range")
 
 
 func test_view_for_skill() -> void:
 	eq(Skills.view_for_skill("shock_field").skill_id(), "shock_field", "laser view")
 	var unknown = Skills.view_for_skill("mystery")
-	eq(unknown.skill_id(), "", "unknown skill: the base view")
+	eq(unknown.get_script(), SkillView, "unknown skill: the base view")
+	eq([unknown.skill_id(), unknown.skill_name(), unknown.describe(0), unknown.aim_mode()], ["mystery", "", "", SkillView.AIM_ARC],
+		"no name or description, aimed like a shot")
 	check(is_nan(unknown.aim_angle(null)), "base view puts the gun away")
 
 
@@ -68,8 +71,7 @@ func test_ready_only_at_full_energy() -> void:
 	check(not Skills.is_ready(0), "0")
 	check(not Skills.is_ready(99), "99")
 	check(Skills.is_ready(100), "100")
-	eq(Skills.ENERGY_PER_TURN, 20, "per turn")
-	eq(Skills.ENERGY_ON_HIT, 10, "when hit")
+	eq(Skills.full_energy(), 100, "the game data's max")
 
 
 func test_button_label() -> void:
@@ -86,3 +88,24 @@ func test_status_labels() -> void:
 	eq(Skills.status_label("stun"), "Choáng", "stun")
 	eq(Skills.status_label("heal"), "", "heal shows nothing extra")
 	eq(Skills.status_label("unknown"), "", "unknown")
+
+
+## A skill an admin added: a known effect type gets that type's view and the game data's texts; an
+## unknown effect type gets the base view (default replay) and never crashes.
+func test_skills_from_the_game_data() -> void:
+	var d: Dictionary = GameData.data.duplicate(true)
+	d["version"] = "edited"
+	d["characters"][0]["skillId"] = "meteor"
+	d["skills"].append({"skillId": "meteor", "characterId": "rookie", "name": "Mưa sao băng", "effectType": "missile_rain",
+		"aimKind": "arc", "description": "{count} sao băng, mỗi quả {damagePct}%; {missing} giữ nguyên.",
+		"ranks": [{"rank": 0, "values": {"count": 6, "damagePct": 12.5}}, {"rank": 2, "values": {"count": 10, "damagePct": 30}}]})
+	d["skills"].append({"skillId": "quake", "characterId": "tanko", "name": "Động đất", "effectType": "earthquake", "aimKind": "none"})
+	GameData.take(d, "", false)
+	var meteor := Skills.for_character("rookie")
+	eq([meteor["id"], meteor["name"], meteor["aim"]], ["meteor", "Mưa sao băng", SkillView.AIM_ARC], "rookie's new skill")
+	eq(Skills.view_for_skill("meteor").get_script(), Skills.VIEWS["missile_rain"], "its effect type's view")
+	eq(Skills.describe("rookie", 0), "6 sao băng, mỗi quả 12.5%; {missing} giữ nguyên.", "rank 0 values")
+	eq(Skills.describe("rookie", 3), "10 sao băng, mỗi quả 30%; {missing} giữ nguyên.", "a rank with no entry: the one below")
+	var quake = Skills.view_for_skill("quake")
+	eq(quake.get_script(), SkillView, "unknown effect type: the base view")
+	eq([quake.skill_name(), quake.aim_mode()], ["Động đất", SkillView.AIM_NONE], "its name and aim from the game data")

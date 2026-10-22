@@ -1,51 +1,43 @@
 extends RefCounted
-## Consumable items (server configs/items.yaml + match/item_effect.go; no API returns them).
-##
-## Each entry:
-## - name: the Vietnamese label;
-## - instant: true is used with UseItem {itemId} and acts at once (the turn goes on); false
-##   arms the next shot, sent as Shoot {angle, power, actionMode: "item", itemId};
-## - needs_target_x: the shot is aimed at a map column (Shoot.targetX) instead of a slingshot
-##   arc (air_strike).
+## Consumable items: the game data (GET /gamedata items, itemRules; autoload/game_data_model.gd)
+## says which items exist (in loadout order), their Vietnamese names and how each is used:
+## - instant: used with UseItem {itemId}, acts at once (the turn goes on); otherwise it arms the
+##   next shot, sent as Shoot {angle, power, actionMode: "item", itemId};
+## - aimKind targetX: the shot is aimed at a map column (Shoot.targetX) instead of a slingshot arc
+##   (the air strike; the server fires it at itemRules.airStrike angle / power).
+## An item id the game data does not know is never offered (hand() leaves it out); a known item
+## with no art draws the generic icon (ui/art.gd).
 ##
 ## The server answers both with ItemUsed (before ShotResolved for a shot item).
 
-const MAX_LOADOUT := 3 # QuickPlay / SelectItems accept at most three items
-# air_strike falls from the top of the map at targetX; the server ignores angle and power but
-# still validates them.
-const TARGET_X_ANGLE := 270.0
-const TARGET_X_POWER := 80.0
+const GameData := preload("res://autoload/game_data_model.gd")
 
-## Loadout order.
-const ORDER := ["medkit", "teleport", "power_shot", "drill_bomb", "spider_net", "freeze_bomb", "air_strike", "wind_stopper"]
 
-const BY_ID := {
-	"medkit": {"name": "Hộp cứu thương", "instant": true, "needs_target_x": false},
-	"teleport": {"name": "Dịch chuyển", "instant": false, "needs_target_x": false},
-	"power_shot": {"name": "Tăng lực", "instant": false, "needs_target_x": false},
-	"drill_bomb": {"name": "Bom khoan", "instant": false, "needs_target_x": false},
-	"spider_net": {"name": "Lưới nhện", "instant": false, "needs_target_x": false},
-	"freeze_bomb": {"name": "Bom băng", "instant": false, "needs_target_x": false},
-	"air_strike": {"name": "Không kích", "instant": false, "needs_target_x": true},
-	"wind_stopper": {"name": "Dừng gió", "instant": true, "needs_target_x": false},
-}
+## The item ids in loadout order.
+static func order() -> Array:
+	return GameData.item_ids()
+
+
+## How many items a player brings at most (itemRules.maxLoadout).
+static func max_loadout() -> int:
+	return GameData.max_loadout()
 
 
 static func is_known(item_id: String) -> bool:
-	return BY_ID.has(item_id)
+	return GameData.is_item(item_id)
 
 
-## The Vietnamese label, or the id itself for an item this client does not know.
+## The Vietnamese label, or the id itself for an item the game data does not know.
 static func label(item_id: String) -> String:
-	return str(BY_ID.get(item_id, {}).get("name", item_id))
+	return GameData.item_name(item_id)
 
 
 static func is_instant(item_id: String) -> bool:
-	return bool(BY_ID.get(item_id, {}).get("instant", false))
+	return GameData.item_instant(item_id)
 
 
 static func needs_target_x(item_id: String) -> bool:
-	return bool(BY_ID.get(item_id, {}).get("needs_target_x", false))
+	return GameData.item_aim_kind(item_id) == "targetX"
 
 
 ## The buttons for players[id].items (the items left): one entry per known item id, in hand
@@ -71,8 +63,21 @@ static func button_label(item_id: String, count: int) -> String:
 	return label(item_id) if count <= 1 else "%s x%d" % [label(item_id), count]
 
 
-## The Shoot payload for a shot item. target_x is used only by an item that needs it.
+## The Shoot payload for a shot item. target_x is used only by an item that needs it (sent with
+## the air strike's angle and power, which the server validates).
 static func shot_payload(item_id: String, angle: float, power: float, target_x: float = NAN) -> Dictionary:
 	if needs_target_x(item_id):
-		return {"angle": TARGET_X_ANGLE, "power": TARGET_X_POWER, "actionMode": "item", "itemId": item_id, "targetX": target_x}
+		return {"angle": GameData.air_strike_angle(), "power": GameData.air_strike_power(), "actionMode": "item",
+			"itemId": item_id, "targetX": target_x}
 	return {"angle": angle, "power": power, "actionMode": "item", "itemId": item_id}
+
+
+## Terrain a shot armed with this item drills through (px): a terrain_pierce item's value, 0
+## for any other.
+static func pierce(item_id: String) -> float:
+	return GameData.item_value(item_id) if GameData.item_type(item_id) == "terrain_pierce" else 0.0
+
+
+## True for an item that moves its user (a teleport: blocked while the player cannot move).
+static func moves_user(item_id: String) -> bool:
+	return GameData.item_type(item_id) == "teleport"

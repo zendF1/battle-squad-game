@@ -303,7 +303,7 @@ func _apply_gun() -> void:
 	var kind := _weapon_kind
 	var tier := _weapon_tier
 	if kind == "":
-		kind = str(Art.CHARACTER_GUNS.get(character_id, Art.DEFAULT_GUN_KIND))
+		kind = Art.character_gun(character_id)
 		tier = Art.GUN_BASIC
 	_gun = Art.gun(kind, tier)
 	_hug = {}

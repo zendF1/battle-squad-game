@@ -9,6 +9,7 @@ extends RefCounted
 
 const Fmt := preload("res://core/fmt.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const CLAIMED := "claimed"
 const CLAIMABLE := "claimable"
@@ -17,9 +18,6 @@ const LOCKED := "locked"
 ## The page's tabs, in order: [track id, tab name].
 const TABS := [["character", "Nhân vật"], ["upgrade", "Nâng cấp"], ["combat", "Chiến đấu"], ["rank", "Xếp hạng"]]
 
-## Rank tier ids by the server's rank_peak order (bronze 1 … master 6).
-const TIERS := ["", "bronze", "silver", "gold", "platinum", "diamond", "master"]
-const TIER_NAMES := {"bronze": "Đồng", "silver": "Bạc", "gold": "Vàng", "platinum": "Bạch kim", "diamond": "Kim cương", "master": "Cao thủ"}
 
 ## Sub-tracks: target (or target prefix ending in ":") → [title, hint]. Order is the order shown.
 const GROUPS := [
@@ -176,10 +174,13 @@ static func groups(parsed: Variant, track: String) -> Array:
 	return out
 
 
+## The name of a rank_peak threshold: the rank tier at that place in the game data's rank.tiers
+## (lowest first, 1-based: bronze 1 … master 6); "Chưa có hạng" outside them.
 static func tier_name(order: int) -> String:
-	if order < 1 or order >= TIERS.size():
+	var tiers := GameData.tier_ids()
+	if order < 1 or order > tiers.size():
 		return "Chưa có hạng"
-	return TIER_NAMES[TIERS[order]]
+	return GameData.tier_name(str(tiers[order - 1]))
 
 
 ## The set level of a "set_level:N" target (0 when not one).

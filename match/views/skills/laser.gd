@@ -1,5 +1,5 @@
 extends "res://match/views/skills/skill_view.gd"
-## Spark — Tia laze (server skill shock_field, effect laser): a straight beam (event beam: from,
+## The laser effect (Spark's Tia laze, server effect laser): a straight beam (event beam: from,
 ## to, duration) through terrain to the map edge, no projectile; damage cause "laser"; every
 ## enemy hit is stunned. Aimed with a straight line in any direction (AIM_LINE).
 ## Visuals (laser_fx.gd, one per shot on the fx layer): the charge at the muzzle, the beam sweeping
@@ -9,27 +9,10 @@ extends "res://match/views/skills/skill_view.gd"
 
 const LaserFx := preload("res://match/views/skills/laser_fx.gd")
 const ExplosionFx := preload("res://match/views/explosion_fx.gd")
-const BODY_LIFT := 20.0 # the body centre above the feet (the server's ShotOriginLift)
 const BURST_RADIUS := 18.0 # the electric burst on a hit (visual only)
 
 var _fx: Node2D = null
 var _has_muzzle := false
-
-
-func skill_id() -> String:
-	return "shock_field"
-
-
-func skill_name() -> String:
-	return "Tia laze"
-
-
-func aim_mode() -> String:
-	return AIM_LINE
-
-
-func describe(rank: int) -> String:
-	return "Tia thẳng xuyên địa hình tới mép bản đồ, trúng mọi địch trên đường: %d%% sát thương, mỗi địch sau giảm 20%%; địch trúng bị choáng, mất lượt sau." % (150 + 10 * rank)
 
 
 func begin(context: Dictionary) -> void:
@@ -44,7 +27,8 @@ func begin(context: Dictionary) -> void:
 	if beam.is_empty():
 		return # an old server: nothing to draw
 	_fx = LaserFx.new()
-	_fx.setup(beam, ctx.get("style", {}), ctx.get("terrain"))
+	_fx.setup(beam, ctx.get("style", {}), ctx.get("terrain"),
+		{"sweepSpeed": param("sweepSpeed"), "chargeTime": param("chargeTime"), "beamTime": param("beamTime")})
 	layer.add_child(_fx)
 
 
@@ -66,7 +50,7 @@ func on_event(e: Dictionary) -> void:
 	var view = ctx.get("views", {}).get(str(e.get("playerId", "")))
 	if view == null or not is_instance_valid(view):
 		return
-	var at: Vector2 = _fx.hit(view.position - Vector2(0, BODY_LIFT), float(e.get("t", 0.0)))
+	var at: Vector2 = _fx.hit(view.position - Vector2(0, GameData.shot_origin_lift()), float(e.get("t", 0.0)))
 	var style: Dictionary = ctx.get("style", {})
 	var burst := ExplosionFx.new()
 	burst.radius = BURST_RADIUS

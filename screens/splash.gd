@@ -1,5 +1,8 @@
 extends Control
-## Startup (demo splash_screen.dart): restore the saved session, then Home or Login.
+## Startup (demo splash_screen.dart): the game data first (GET /gamedata, PlayerState.
+## load_gamedata(): every rule and text the screens need; the cached copy when offline), then
+## restore the saved session, then Home or Login. With no game data at all (a first launch with no
+## network) it stays here on a retry screen.
 
 const Ui := preload("res://ui/ui.gd")
 
@@ -13,8 +16,18 @@ func _ready() -> void:
 	_status = Ui.label("", 28)
 	col.add_child(_status)
 	_retry = Ui.button("Thử lại")
-	_retry.pressed.connect(_check_auth)
+	_retry.pressed.connect(_start)
 	col.add_child(_retry)
+	_start()
+
+
+func _start() -> void:
+	_retry.visible = false
+	_status.text = "Đang tải dữ liệu trò chơi..."
+	if not await PlayerState.load_gamedata():
+		_status.text = "Không tải được dữ liệu trò chơi.\nHãy kiểm tra kết nối mạng rồi thử lại."
+		_retry.visible = true
+		return
 	_check_auth()
 
 

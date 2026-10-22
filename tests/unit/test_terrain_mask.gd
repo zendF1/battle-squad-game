@@ -1,6 +1,7 @@
 extends "res://tests/test_case.gd"
 
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 const FIXTURE := "res://tests/fixtures/terrain_parity.json"
 
 
@@ -107,9 +108,9 @@ func test_walk_to_matches_server() -> void:
 
 
 ## Terrain.CarveBowl's shape (the server's TestCarveBowlShape): dx² + (r/k)·dy <= r², k =
-## BOWL_DEPTH 0.72, under a flat top 1.5·r above the centre.
+## bowlDepth 0.72 (the fixture), under a flat top 1.5·r above the centre.
 func test_bowl_shape() -> void:
-	eq(TerrainMask.BOWL_DEPTH, 0.72, "the cases are for k 0.72")
+	eq(GameData.bowl_depth(), 0.72, "the cases are for k 0.72")
 	var m := _solid(400, 300)
 	m.carve_bowl(200, 150, 20)
 	eq(m.version, 1, "one operation")

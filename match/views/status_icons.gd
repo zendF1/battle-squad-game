@@ -1,6 +1,7 @@
 extends RefCounted
 ## The small status icons drawn beside a player's HP bar (player_view.gd): burn, root, stun,
-## freeze, net and shield. Each is a round badge in the effect's colour; the picture inside is
+## freeze, net and shield; any other effect (a new one in the game data) gets a generic "!" badge.
+## Each is a round badge in the effect's colour; the picture inside is
 ## assets/ui/status/<id>.png when that file exists (drop a PNG there to replace the code-drawn one;
 ## an image the editor has not imported yet is read directly, ui/art.gd texture()), otherwise it
 ## is drawn here.
@@ -55,6 +56,14 @@ static func draw(ci: CanvasItem, id: String, c: Vector2, size: float) -> void:
 		"freeze": _flake(ci, c, k)
 		"net": _web(ci, c, k)
 		"shield": _shield(ci, c, k)
+		_: _generic(ci, c, k)
+
+
+## An effect with no picture of its own: a bold "!".
+static func _generic(ci: CanvasItem, c: Vector2, k: float) -> void:
+	var w := maxf(2.0, k * 0.32)
+	ci.draw_line(c + Vector2(0, -0.8) * k, c + Vector2(0, 0.25) * k, Color.WHITE, w, true)
+	ci.draw_circle(c + Vector2(0, 0.7) * k, w * 0.6, Color.WHITE)
 
 
 static func _flame(ci: CanvasItem, c: Vector2, k: float) -> void:

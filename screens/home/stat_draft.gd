@@ -16,9 +16,6 @@ const STATS := [
 const ShopModel := preload("res://screens/home/shop_model.gd")
 const Fmt := preload("res://core/fmt.gd")
 
-## The reset-stats fee when GET /player/characters has no resetStatsCost (the server seed).
-const DEFAULT_RESET_COST := {"currency": "coin", "amount": 500}
-
 var character_id := ""
 var stat_points := 0
 var current := {} # key -> allocated bonus
@@ -121,14 +118,16 @@ func has_allocated() -> bool:
 
 
 ## The reset fee {currency, amount} from the GET /player/characters data (resetStatsCost), or
-## DEFAULT_RESET_COST when it is absent or malformed.
+## {} (unknown: no price shown, the server decides) when it is absent or malformed.
 static func reset_cost(data: Variant) -> Dictionary:
 	var c = data.get("resetStatsCost") if data is Dictionary else null
 	if c is Dictionary and str(c.get("currency", "")) in ["coin", "gem"] and (c.get("amount") is float or c.get("amount") is int) and int(c["amount"]) >= 0:
 		return {"currency": str(c["currency"]), "amount": int(c["amount"])}
-	return DEFAULT_RESET_COST.duplicate()
+	return {}
 
 
-## "500 xu", "50 kim cương".
+## "500 xu", "50 kim cương"; "" for an unknown fee ({}).
 static func cost_text(cost: Dictionary) -> String:
+	if cost.is_empty():
+		return ""
 	return "%s %s" % [Fmt.thousands(int(cost.get("amount", 0))), ShopModel.currency_word(str(cost.get("currency", "")))]

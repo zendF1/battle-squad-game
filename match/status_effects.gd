@@ -3,25 +3,13 @@ extends RefCounted
 ## (match/status_effect.go): an effect is active while durationTurn > 0; it loses one turn at
 ## the end of its target's own turn. Snapshots and ItemUsed carry the full list; TurnStarted
 ## does not, so the client ticks it the same way, and a ShotResolved "status" event applies one.
+##
+## What each effect does and says is the game data's (GET /gamedata statusEffects, in order:
+## name, marker, banner, bad, skipsTurn, blocksMove): the bad effects show as icons beside the
+## HP bar (match/views/status_icons.gd, a generic icon for one with no art), the markers as text
+## above the head, the banner while it skips the turn or blocks moving.
 
-## Effects shown as small icons beside the HP bar (match/views/status_icons.gd), in this order.
-const ICONS := ["burn", "root", "stun", "freeze", "net"]
-## Effects that skip the whole turn (the server ends it after about 2 s) and their banner.
-const SKIP_TEXT := {"stun": "Choáng — mất lượt", "freeze": "Đóng băng — mất lượt"}
-## The move controls' notice while moving is blocked by root.
-const ROOT_TEXT := "Bị cầm chân"
-## Effects Hoa hồi xuân cleanses (server badEffects).
-const BAD := ["burn", "root", "stun", "net", "freeze"]
-
-## Short label above the player's head for the armed shot modifiers; effects not listed (the
-## icon effects, heal) show nothing.
-const MARKERS := {
-	"power_shot": "x1.5",
-	"drill_bomb": "Khoan",
-	"spider_net": "Đạn lưới",
-	"freeze_bomb": "Đạn băng",
-	"air_strike": "Không kích",
-}
+const GameData := preload("res://autoload/game_data_model.gd")
 
 
 static func has(effects: Variant, effect_id: String) -> bool:
@@ -33,15 +21,25 @@ static func has(effects: Variant, effect_id: String) -> bool:
 	return false
 
 
-## "Lưới · x1.5": the markers of the active effects, in list order, each once.
-static func marker_text(effects: Variant) -> String:
-	var parts: Array[String] = []
+## The active effect ids of a list, each once, in list order.
+static func active(effects: Variant) -> Array:
+	var out: Array = []
 	if not effects is Array:
-		return ""
+		return out
 	for e in effects:
 		if not e is Dictionary or int(e.get("durationTurn", 0)) <= 0:
 			continue
-		var text := str(MARKERS.get(str(e.get("effectId", "")), ""))
+		var id := str(e.get("effectId", ""))
+		if id != "" and not out.has(id):
+			out.append(id)
+	return out
+
+
+## "Lưới · x1.5": the markers of the active effects, in list order, each once.
+static func marker_text(effects: Variant) -> String:
+	var parts: Array[String] = []
+	for id in active(effects):
+		var text := GameData.status_marker(id)
 		if text != "" and not parts.has(text):
 			parts.append(text)
 	return " · ".join(parts)
@@ -73,26 +71,53 @@ static func tick(effects: Variant) -> Array:
 	return out
 
 
-## The ICONS effects active in the list, in ICONS order, each once.
+## The icon effects active in the list (the bad ones), in the game data's order, each once.
 static func icons(effects: Variant) -> Array:
 	var out: Array = []
-	for id in ICONS:
-		if has(effects, id):
+	var on := active(effects)
+	for id in GameData.status_ids():
+		if GameData.status_bad(id) and on.has(id):
 			out.append(id)
 	return out
 
 
-## The effect skipping the player's turn: "stun" or "freeze" (stun first), "" for none.
+## The effect skipping the player's turn (the first active skipsTurn effect in the game data's
+## order: stun before freeze), "" for none.
 static func skip_effect(effects: Variant) -> String:
-	for id in ["stun", "freeze"]:
-		if has(effects, id):
+	var on := active(effects)
+	for id in GameData.status_ids():
+		if GameData.status_skips_turn(id) and on.has(id):
 			return id
 	return ""
 
 
-## Root, stun and freeze keep the player from walking and teleporting.
+## An active effect keeps the player from walking and teleporting (blocksMove: root, stun, freeze).
 static func blocks_move(effects: Variant) -> bool:
-	return has(effects, "root") or skip_effect(effects) != ""
+	for id in active(effects):
+		if GameData.status_blocks_move(id):
+			return true
+	return false
+
+
+## The banner of a lost turn ("Choáng — mất lượt"), "" for none.
+static func skip_text(effect_id: String) -> String:
+	return GameData.status_banner(effect_id)
+
+
+## The move controls' notice while an active effect blocks moving without skipping the turn
+## ("Bị cầm chân"), "" for none.
+static func move_block_text(effects: Variant) -> String:
+	for id in active(effects):
+		if GameData.status_blocks_move(id) and not GameData.status_skips_turn(id):
+			var t := GameData.status_banner(id)
+			if t != "":
+				return t
+	return ""
+
+
+## The bad effects (the bloom cleanses them) among the active ones.
+static func bad(effects: Variant) -> Array:
+	return active(effects).filter(func(id): return GameData.status_bad(id))
 
 
 ## The list without the effects in ids (a cleanse event's effectIds).

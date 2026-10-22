@@ -42,7 +42,7 @@ func test_every_gun_kind_and_tier_has_a_look() -> void:
 	eq(ShotLook.known_kind("ray_gun"), "bazooka", "unknown kind")
 	eq(ShotLook.known_tier("mythic"), "basic", "unknown tier")
 	for item in ProjectileView.ITEM_LOOKS:
-		check(preload("res://match/items.gd").BY_ID.has(item), "item look %s is an item" % item)
+		check(preload("res://match/items.gd").is_known(item), "item look %s is an item" % item)
 
 
 func test_tiers_escalate() -> void:

@@ -72,7 +72,7 @@ var _piece_id := ""
 var _picked := {} # stoneLevel -> quantity put in
 var _acting := false # an upgrade or merge request (or its animation) runs
 var _merge_level := 1
-var _merge_count := 4
+var _merge_count := UpgradeModel.merge_max()
 var _careful := false # "Nâng cấp cẩn thận" on (kept between rolls, off for another piece)
 var _scroll_to_selected := true # the next list render scrolls to the selected piece
 
@@ -1023,8 +1023,11 @@ func _build_merge_page() -> Control:
 	counts.add_theme_constant_override("separation", 10)
 	rcol.add_child(counts)
 	counts.add_child(LobbyUi.text("Số viên:", 22, DIM))
-	_merge_count_tabs = Ui.tab_row(["2 viên", "3 viên", "4 viên"], 22, func(i: int):
-		_merge_count = UpgradeModel.MERGE_MIN + i
+	var count_names: Array = []
+	for n in range(UpgradeModel.merge_min(), UpgradeModel.merge_max() + 1):
+		count_names.append("%d viên" % n)
+	_merge_count_tabs = Ui.tab_row(count_names, 22, func(i: int):
+		_merge_count = UpgradeModel.merge_min() + i
 		_render_merge(), 56)
 	for b in _merge_count_tabs:
 		b.size_flags_horizontal = SIZE_FILL
@@ -1054,7 +1057,7 @@ func _render_merge() -> void:
 		return
 	var owned := _owned()
 	Ui.clear(_merge_levels)
-	for lv in range(1, UpgradeModel.STONE_LEVELS):
+	for lv in range(1, UpgradeModel.stone_levels()):
 		var have := int(owned.get(lv, 0))
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(140, 150)
@@ -1078,14 +1081,14 @@ func _render_merge() -> void:
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_label.mouse_filter = MOUSE_FILTER_IGNORE
 		col.add_child(name_label)
-		var count := LobbyUi.text("Có %s" % Fmt.thousands(have), 18, LobbyUi.GOLD if have >= UpgradeModel.MERGE_MIN else Ui.TEXT_DIM)
+		var count := LobbyUi.text("Có %s" % Fmt.thousands(have), 18, LobbyUi.GOLD if have >= UpgradeModel.merge_min() else Ui.TEXT_DIM)
 		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		count.mouse_filter = MOUSE_FILTER_IGNORE
 		col.add_child(count)
-		if have < UpgradeModel.MERGE_MIN:
+		if have < UpgradeModel.merge_min():
 			b.modulate = Color(1, 1, 1, 0.55)
 		_merge_levels.add_child(b)
-	Ui.select_tab(_merge_count_tabs, _merge_count - UpgradeModel.MERGE_MIN)
+	Ui.select_tab(_merge_count_tabs, _merge_count - UpgradeModel.merge_min())
 	_merge_from.texture = Art.stone_icon(_merge_level)
 	_merge_to.texture = Art.stone_icon(_merge_level + 1)
 	_merge_text.text = UpgradeModel.merge_text(_merge_level, _merge_count)

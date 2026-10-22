@@ -574,7 +574,7 @@ func _next_mode() -> void:
 
 
 func _render_mode() -> void:
-	var m: Dictionary = LobbyModel.MODES[_mode]
+	var m: Dictionary = LobbyModel.mode(_mode)
 	_mode_name.text = m["name"]
 	_mode_text.text = m["description"]
 	var ranked := LobbyModel.is_ranked(m["base"])

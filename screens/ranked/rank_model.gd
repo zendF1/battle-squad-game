@@ -1,47 +1,53 @@
 extends RefCounted
 ## Ranked ("Xếp hạng") without UI: tier names and division numerals, a rating's tier and
-## division (the server's getTierAndDivision, used only when a field is missing), the Home chip
-## and popup texts from GET /rank/me, the ranked line of a match result (MatchEnded.rewards[me])
-## with its promotion / demotion, the matchmaking timer and the tips shown while searching.
+## division (the server's getTierAndDivision on the game data's rank.tiers, used only when a field
+## is missing), the Home chip and popup texts from GET /rank/me, the ranked line of a match result
+## (MatchEnded.rewards[me]) with its promotion / demotion, the matchmaking timer and the tips
+## shown while searching. The tiers (ids, names, rating bands, divisions), the default rating, the ranked mode and the
+## tips are the game data's (GET /gamedata rank, matchmaking.tips).
 
 const Fmt := preload("res://core/fmt.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
-## Lowest first (the server's compareTiers order).
-const TIERS := ["bronze", "silver", "gold", "platinum", "diamond", "master"]
-const TIER_NAMES := {"bronze": "Đồng", "silver": "Bạc", "gold": "Vàng", "platinum": "Bạch kim",
-	"diamond": "Kim cương", "master": "Cao thủ"}
 const NUMERALS := ["", "I", "II", "III"]
-## A player with no player_ranks row (the server's elo DefaultRating).
-const DEFAULT_RATING := 1000
-const RANKED_MODE := "ranked_2v2"
 
 const UP := 1
 const SAME := 0
 const DOWN := -1
 
-const TIPS := [
-	"Gió mạnh đẩy đạn rất xa: nhìn mũi tên gió trước khi bắn.",
-	"Bom liên hoàn của Tanko đào hố sâu, địch trúng bị cầm chân lượt sau.",
-	"Tia laze của Spark xuyên địa hình và làm choáng mọi địch trên đường bắn.",
-	"Hoa hồi xuân của Flora hồi máu cả đội và giải mọi hiệu ứng xấu.",
-	"Mưa tên lửa của Rookie làm địch bỏng, mất máu đầu lượt sau.",
-	"Bắn vào chân địch: hố sâu làm chúng rơi xuống và mất máu.",
-	"Bom băng đóng băng địch một lượt, cả đội tha hồ dồn sát thương.",
-	"Dịch chuyển giúp thoát khỏi hố sâu hoặc chiếm chỗ cao.",
-	"Bị địch bắn trúng cũng nạp thêm năng lượng kỹ năng.",
-	"Thắng trận xếp hạng để lên điểm, thua sẽ bị trừ điểm.",
-	"Rời trận giữa chừng tính là thua, kể cả khi đồng đội thắng.",
-	"Khiên chịu sát thương trước máu: máu hồi dư của Flora thành khiên.",
-]
+
+## The tier ids, lowest first (the server's compareTiers order).
+static func tiers() -> Array:
+	return GameData.tier_ids()
 
 
 static func tier_index(tier: String) -> int:
-	return TIERS.find(tier)
+	return tiers().find(tier)
 
 
 ## "Bạc"; "" for an unknown tier.
 static func tier_name(tier: String) -> String:
-	return TIER_NAMES.get(tier, "")
+	return GameData.tier_name(tier)
+
+
+## A tier shown without a division (one division: master).
+static func single_division(tier: String) -> bool:
+	return GameData.tier_divisions(tier) <= 1
+
+
+## The rating of a player with no player_ranks row (elo.defaultRating).
+static func default_rating() -> int:
+	return GameData.default_rating()
+
+
+## The ranked mode / queue id (MatchStarted mode, MatchEnded rewards).
+static func ranked_mode() -> String:
+	return GameData.ranked_mode()
+
+
+## A match of the ranked mode.
+static func is_ranked_mode(mode: String) -> bool:
+	return mode != "" and mode == ranked_mode()
 
 
 ## 3 → "III" (the lowest), 1 → "I" (the highest); "" outside 1..3.
@@ -49,29 +55,20 @@ static func numeral(division: int) -> String:
 	return NUMERALS[division] if division >= 1 and division <= 3 else ""
 
 
-## "Bạc II"; master has no division ("Cao thủ"); "Chưa xếp hạng" for an unknown tier.
+## "Bạc II"; a tier with one division has none shown ("Cao thủ"); "Chưa xếp hạng" for an
+## unknown tier.
 static func label(tier: String, division: int) -> String:
 	var n := tier_name(tier)
 	if n == "":
 		return "Chưa xếp hạng"
-	if tier == "master" or numeral(division) == "":
+	if single_division(tier) or numeral(division) == "":
 		return n
 	return "%s %s" % [n, numeral(division)]
 
 
 ## The tier and division of a rating, as the server computes them: [tier, division].
 static func of_rating(rating: int) -> Array:
-	if rating < 1000:
-		return ["bronze", maxi(1, 3 - maxi(rating, 0) / 333)]
-	if rating < 1200:
-		return ["silver", maxi(1, 3 - (rating - 1000) / 66)]
-	if rating < 1500:
-		return ["gold", maxi(1, 3 - (rating - 1200) / 100)]
-	if rating < 1800:
-		return ["platinum", maxi(1, 3 - (rating - 1500) / 100)]
-	if rating < 2200:
-		return ["diamond", maxi(1, 3 - (rating - 1800) / 133)]
-	return ["master", 1]
+	return GameData.tier_of_rating(rating)
 
 
 ## UP when b is a higher rank than a (tier first, then division: 1 is the highest), DOWN when
@@ -81,7 +78,7 @@ static func compare(a: Array, b: Array) -> int:
 	var tb := tier_index(str(b[0]))
 	if ta != tb:
 		return UP if tb > ta else DOWN
-	if str(a[0]) == "master":
+	if single_division(str(a[0])):
 		return SAME
 	var da := int(a[1])
 	var db := int(b[1])
@@ -102,7 +99,7 @@ static func _str(v: Variant) -> String:
 ## season: {name, endsAt}}; the server's defaults (silver III at 1000) for missing parts.
 static func from_me(data: Variant) -> Dictionary:
 	var d: Dictionary = data if data is Dictionary else {}
-	var rating := _num(d.get("rating"), DEFAULT_RATING)
+	var rating := _num(d.get("rating"), default_rating())
 	var fallback := of_rating(rating)
 	var tier := _str(d.get("tier"))
 	if tier_index(tier) < 0:
@@ -155,7 +152,7 @@ static func season_text(rank: Dictionary, bias_minutes: int) -> String:
 ## old_rank: [tier, division], new_rank, move: UP / SAME / DOWN}; missing old fields come from
 ## newRating - ratingChange, missing tiers from the ratings.
 static func result_of(mode: String, reward: Variant) -> Dictionary:
-	if mode != RANKED_MODE or not reward is Dictionary:
+	if not is_ranked_mode(mode) or not reward is Dictionary:
 		return {}
 	var new_rating = reward.get("newRating")
 	if not (new_rating is int or new_rating is float):
@@ -210,4 +207,10 @@ static func timer_text(seconds: int) -> String:
 
 ## The tip at `index`, wrapping around.
 static func tip(index: int) -> String:
-	return TIPS[posmod(index, TIPS.size())]
+	var all := tips()
+	return str(all[posmod(index, all.size())]) if not all.is_empty() else ""
+
+
+## The tips shown while searching (matchmaking.tips), in order.
+static func tips() -> Array:
+	return GameData.tips()

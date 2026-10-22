@@ -6,12 +6,11 @@ extends RefCounted
 const Fmt := preload("res://core/fmt.gd")
 const Items := preload("res://match/items.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const CHARACTER_UNLOCK := "character_unlock"
 const COIN_PACK := "coin_pack" # itemId "coin", paid in gem, grants `quantity` coin
 const UNLIMITED := -1
-## Base exchange rate: xu per kim cương. A coin pack only shows a bonus when it beats it.
-const COINS_PER_GEM := 100
 
 
 ## Active offers from the GET /shop/offers data (a bare array; null when empty).
@@ -45,9 +44,11 @@ static func is_coin_pack(offer: Dictionary) -> bool:
 	return str(offer.get("offerType", "")) == COIN_PACK
 
 
-## Whole percent of extra coin over COINS_PER_GEM (rounded down), 0 at or below the base rate.
-static func coin_pack_bonus_percent(offer: Dictionary, coins_per_gem: int = COINS_PER_GEM) -> int:
-	var base := int(offer.get("priceAmount", 0)) * coins_per_gem
+## Whole percent of extra coin over the base rate (the game data's economy.coinsPerGem; -1 reads
+## it), rounded down, 0 at or below the base rate.
+static func coin_pack_bonus_percent(offer: Dictionary, coins_per_gem: int = -1) -> int:
+	var rate := coins_per_gem if coins_per_gem >= 0 else GameData.coins_per_gem()
+	var base := int(offer.get("priceAmount", 0)) * rate
 	if base <= 0:
 		return 0
 	return maxi(int(offer.get("quantity", 0)) * 100 / base - 100, 0)
@@ -97,12 +98,12 @@ static func character_groups(offers: Array) -> Array:
 			order.append(id)
 		by_id[id].append(o)
 	var out: Array = []
-	for c in LoadoutModel.CHARACTERS:
-		if by_id.has(c["id"]):
-			out.append({"characterId": c["id"], "name": c["name"], "offers": by_id[c["id"]]})
-			order.erase(c["id"])
+	for cid in LoadoutModel.character_ids():
+		if by_id.has(cid):
+			out.append({"characterId": cid, "name": GameData.character_name(cid), "offers": by_id[cid]})
+			order.erase(cid)
 	for id in order:
-		out.append({"characterId": id, "name": id, "offers": by_id[id]})
+		out.append({"characterId": id, "name": GameData.character_name(id), "offers": by_id[id]})
 	return out
 
 
@@ -136,10 +137,7 @@ static func offer_name(offer: Dictionary) -> String:
 	if is_coin_pack(offer):
 		return "%s xu" % coin_pack_amount(offer)
 	if str(offer.get("offerType", "")) == CHARACTER_UNLOCK:
-		for c in LoadoutModel.CHARACTERS:
-			if c["id"] == id:
-				return c["name"]
-		return id
+		return GameData.character_name(id)
 	return Items.label(id)
 
 

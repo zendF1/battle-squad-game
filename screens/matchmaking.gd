@@ -9,7 +9,7 @@ extends Control
 ## cancels the queue and goes back to Home. MatchFound: "Hủy ghép" goes, the VS emblem flashes,
 ## "Tìm thấy trận!" pops and the silhouettes flip one by one into the real players (bots too,
 ## MatchmakingModel order); the match opens once MatchStarted came and the reveal had
-## MatchmakingModel.REVEAL_SEC (the socket is held from MatchStarted, so the first turn's events
+## MatchmakingModel.reveal_sec() (the socket is held from MatchStarted, so the first turn's events
 ## wait for the Match scene). A server sending MatchFound without teams: the cards flip from
 ## MatchStarted's players. An error, a dropped queue or a lost connection goes back to Home with
 ## its message (Router.home_notice). offline_preview (the preview harness, set before it enters
@@ -24,6 +24,7 @@ const MatchmakingModel := preload("res://screens/ranked/matchmaking_model.gd")
 const PlayerCard := preload("res://screens/ranked/player_card.gd")
 const VsEmblem := preload("res://screens/ranked/vs_emblem.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const MARGIN := 18
 const TIP_SEC := 6.0
@@ -59,7 +60,7 @@ func _ready() -> void:
 	theme = LobbyUi.theme()
 	get_tree().quit_on_go_back = false # Android back cancels the queue
 	_me = Session.player_id
-	_tip_index = randi() % RankModel.TIPS.size()
+	_tip_index = randi() % maxi(RankModel.tips().size(), 1)
 	_build()
 	_cards[0].show_player(_my_player())
 	PlayerState.rank_changed.connect(_on_rank_changed)
@@ -78,7 +79,7 @@ func _exit_tree() -> void:
 
 
 func _my_player() -> Dictionary:
-	var character := str(Router.ranked_loadout.get("characterId", "rookie"))
+	var character := str(Router.ranked_loadout.get("characterId", GameData.default_character_id()))
 	return MatchmakingModel.my_player(_me, PlayerState.display_name(), character, PlayerState.level(), PlayerState.my_rank())
 
 
@@ -139,7 +140,7 @@ func _team(caption: String, color: Color, enemy: bool) -> Control:
 	var cards := Ui.hbox(18)
 	cards.mouse_filter = MOUSE_FILTER_IGNORE
 	col.add_child(cards)
-	for i in MatchmakingModel.TEAM_SIZE:
+	for i in MatchmakingModel.team_size():
 		var card := PlayerCard.new()
 		card.enemy = enemy
 		card.mine = not enemy and i == 0
@@ -373,7 +374,7 @@ func _title_of(p: Dictionary) -> Dictionary:
 
 
 func _maybe_go() -> void:
-	if _snapshot == null or _found_for < MatchmakingModel.REVEAL_SEC or _leaving or offline_preview:
+	if _snapshot == null or _found_for < MatchmakingModel.reveal_sec() or _leaving or offline_preview:
 		return
 	_leaving = true
 	Router.match_snapshot = _snapshot

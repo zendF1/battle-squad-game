@@ -1,49 +1,51 @@
 extends RefCounted
 ## The aiming aid's math, no nodes (AimInput draws it). A shot is flown twice:
 ## - fly(): the EXACT flight, like the server's SimulateProjectile (shooting.go): the weapon's
-##   wind (dir × power × WIND_SCALE × windInfluence / projectileWeight), terrain (drilling
-##   through `pierce` px of it), enemy bodies (the shell stops within HIT_RADIUS of a body
-##   centre; allies never stop it), MAX_FLIGHT s. Its end X and time T are never drawn;
+##   wind (dir × power × windScale × windInfluence / projectileWeight), terrain (drilling
+##   through `pierce` px of it), enemy bodies (the shell stops within playerHitRadius of a body
+##   centre; allies never stop it), maxFlightSec s. Its end X and time T are never drawn;
 ## - the guide arc: the same exact flight (wind included), only its first arc_length(tier) px
 ##   (shorter the higher the local player's rank tier; the same length whatever the power, cut
 ##   short only where the flight itself ends), its end faded out.
 ## No landing marker (playtest: too easy to aim): what is shown from the exact flight is
 ## - the guide arc (above);
 ## - "Trúng!" (is_hit(): an animated bullseye on that enemy, aim_input.gd) when the exact path
-##   comes within HIT_RADIUS + hit_tolerance(D, H) of an enemy body centre, D the horizontal
+##   comes within playerHitRadius + hit_tolerance(D, H) of an enemy body centre, D the horizontal
 ##   distance to its end, H the apex height above the origin.
 ## A shell flying above the view shows on its top edge in flight (high_shell_marker.gd).
 ## The laser (a straight beam) only gets the hit check: laser_hits(), the server's laserHits.
-## The coefficients are first guesses: tune them in playtests, all here.
+## Every number is the server's game data (aimAid, physics): tune them in the admin dashboard.
 
-const Trajectory := preload("res://match/aim/trajectory_predictor.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
-# ── Tuning ──────────────────────────────────────────────────────────────────
-## The guide arc's length along the path (px), by the rank tier (ratingToTier ids); the same
-## for every power (playtest: it used to be a share of the flight time, so weak shots got a
-## short guide). No / an unknown rank counts as DEFAULT_TIER.
-const ARC_LENGTH := {"bronze": 700.0, "silver": 650.0, "gold": 600.0, "platinum": 550.0, "diamond": 500.0, "master": 450.0}
-const DEFAULT_TIER := "bronze"
-const ARC_FADE_FROM := 0.55 # the arc is solid to this part of its length, then fades out
-## The "Trúng!" tolerance r = TOL_MAX × min(1, TOL_MIN_PART + (1 − TOL_MIN_PART) ×
-## max(D / TOL_FAR, H / TOL_HIGH)) px: near and low shots are judged tighter.
-const TOL_MAX := 20.0
-const TOL_MIN_PART := 0.2
-const TOL_FAR := 1200.0
-const TOL_HIGH := 700.0
+## The guide arc is solid to this part of its length, then fades out (presentation).
+const ARC_FADE_FROM := 0.55
 
-# ── Server physics (gamedata.DefaultPhysics(), skill_laser.go) ──────────────
-const HIT_RADIUS := 24.0 # PlayerHitRadius, from the body centre
-const BODY_LIFT := 20.0 # the body centre above the feet (ShotOriginLift)
-const LASER_HALF_WIDTH := 10.0 # laserHalfWidth
-const SPEED_PER_POWER := Trajectory.SPEED_PER_POWER # launch speed px/s per power point
-const OUT_LEFT := -100.0 # the flight ends past these (SimulateProjectile's out of bounds)
-const OUT_RIGHT := 100.0
-const OUT_BELOW := 50.0
+# The numbers come from the game data (GET /gamedata): the guide arc's length per rank tier
+# (aimAid.guideArcLength / defaultTier), the "Trúng!" tolerance (aimAid.hitTolerance), the
+# shell physics (physics: playerHitRadius, the body centre shotOriginLift, outOfBounds) and the
+# laser's half width (the laser skill's params.halfWidth).
 
 
+## The guide arc's length along the path (px) by the local player's rank tier (ratingToTier
+## ids); the same for every power. No / an unknown rank counts as aimAid.defaultTier.
 static func arc_length(tier: String) -> float:
-	return float(ARC_LENGTH.get(tier, ARC_LENGTH[DEFAULT_TIER]))
+	return GameData.guide_arc_length(tier)
+
+
+## The body centre above the feet (px).
+static func body_lift() -> float:
+	return GameData.shot_origin_lift()
+
+
+## A shell stops within this of an enemy body centre (px).
+static func hit_radius() -> float:
+	return GameData.player_hit_radius()
+
+
+## The laser hits an enemy within this of its beam (px; the laser skill's halfWidth).
+static func laser_half_width() -> float:
+	return GameData.effect_param("laser", "halfWidth")
 
 
 ## The start of a path (points) up to `length` px along it, its last point interpolated; the
@@ -65,32 +67,38 @@ static func trim_to_length(points: PackedVector2Array, length: float) -> PackedV
 	return out
 
 
-## The wind's acceleration on the shell (px/s²): dir × power × WIND_SCALE × influence / weight.
+## The wind's acceleration on the shell (px/s²): dir × power × windScale × influence / weight.
 static func wind_accel(wind_dir: int, wind_power: float, influence: float = 1.0, weight: float = 1.0) -> float:
-	return float(wind_dir) * wind_power * Trajectory.WIND_SCALE * influence / (weight if weight > 0.0 else 1.0)
+	return float(wind_dir) * wind_power * GameData.wind_scale() * influence / (weight if weight > 0.0 else 1.0)
 
 
 ## The launch velocity of a shot at angle (degrees, 90 up) and power.
 static func launch_velocity(angle_deg: float, power: float) -> Vector2:
 	var a := deg_to_rad(angle_deg)
-	var s := power * SPEED_PER_POWER
+	var s := power * GameData.speed_per_power()
 	return Vector2(s * cos(a), -s * sin(a))
 
 
-## H: the apex height above the origin (px), (power × SPEED_PER_POWER × sin a)² / (2 × gravity); 0 when shot
-## level or down.
+## H: the apex height above the origin (px), (power × speedPerPower × sin a)² / (2 × gravity); 0
+## when shot level or down.
 static func apex_height(angle_deg: float, power: float) -> float:
-	var vy := power * SPEED_PER_POWER * sin(deg_to_rad(angle_deg))
-	return vy * vy / (2.0 * Trajectory.GRAVITY) if vy > 0.0 else 0.0
+	var vy := power * GameData.speed_per_power() * sin(deg_to_rad(angle_deg))
+	var g := GameData.gravity()
+	return vy * vy / (2.0 * g) if vy > 0.0 and g > 0.0 else 0.0
 
 
-## r: the "Trúng!" tolerance (px) for a shot landing d px away with an apex h px high.
+## r: the "Trúng!" tolerance (px) for a shot landing d px away with an apex h px high:
+## max × min(1, minPart + (1 − minPart) × max(D / farPx, H / highPx)).
 static func hit_tolerance(d: float, h: float) -> float:
-	return TOL_MAX * minf(1.0, TOL_MIN_PART + (1.0 - TOL_MIN_PART) * maxf(absf(d) / TOL_FAR, h / TOL_HIGH))
+	var t := GameData.hit_tolerance()
+	var far: float = t["farPx"]
+	var high: float = t["highPx"]
+	var part := maxf(absf(d) / far if far > 0.0 else 1.0, h / high if high > 0.0 else 1.0)
+	return t["max"] * minf(1.0, t["minPart"] + (1.0 - t["minPart"]) * part)
 
 
 ## The exact flight from origin with velocity v (SimulateProjectile's loop: semi-implicit Euler,
-## each step sampled every SAMPLE_PX for enemy bodies then terrain). enemies: the alive enemies'
+## each step sampled every collisionStepPx for enemy bodies then terrain). enemies: the alive enemies'
 ## body centres. near (resized to enemies.size()) gets each enemy's closest distance to the path
 ## flown. Returns {end: Vector2 (the explosion point, or where the flight stopped), time: s,
 ## landed: it exploded (terrain or a body), hit: the index of the enemy body it stopped on, -1,
@@ -107,17 +115,24 @@ static func fly(origin: Vector2, v: Vector2, accel_x: float, terrain, enemies: P
 	var vx := v.x
 	var vy := v.y
 	var t := 0.0
-	var dt := Trajectory.TIME_STEP
-	var r2 := HIT_RADIUS * HIT_RADIUS
+	var dt := GameData.time_step()
+	var max_flight := GameData.max_flight_sec()
+	var gravity := GameData.gravity()
+	var sample := GameData.collision_step_px()
+	var out := GameData.out_of_bounds()
+	var hit_r := GameData.player_hit_radius()
+	var r2 := hit_r * hit_r
 	var drill_left := pierce
 	var inside := false
 	var high_x := NAN # where a shell above the top of the screen comes back into view
 	var high_v := Vector2.ZERO # its velocity there
-	while t < Trajectory.MAX_FLIGHT:
+	if dt <= 0.0:
+		return {"end": origin, "time": 0.0, "landed": false, "hit": -1, "high_x": NAN, "high_dir": Vector2.ZERO}
+	while t < max_flight:
 		var px := x
 		var py := y
 		vx += accel_x * dt
-		vy += Trajectory.GRAVITY * dt
+		vy += gravity * dt
 		x += vx * dt
 		y += vy * dt
 		t += dt
@@ -130,7 +145,7 @@ static func fly(origin: Vector2, v: Vector2, accel_x: float, terrain, enemies: P
 		var dx := x - px
 		var dy := y - py
 		var dist := sqrt(dx * dx + dy * dy)
-		var steps := maxi(ceili(dist / Trajectory.SAMPLE_PX), 1)
+		var steps := maxi(ceili(dist / sample), 1) if sample > 0.0 else 1
 		var step_len := dist / steps
 		for i in range(1, steps + 1):
 			var f := float(i) / float(steps)
@@ -153,7 +168,7 @@ static func fly(origin: Vector2, v: Vector2, accel_x: float, terrain, enemies: P
 				inside = false
 				drill_left = 0.0
 		_near_segment(enemies, near, px, py, x, y)
-		if terrain != null and (x < OUT_LEFT or x > terrain.width + OUT_RIGHT or y > terrain.height + OUT_BELOW):
+		if terrain != null and (x < -out["left"] or x > terrain.width + out["right"] or y > terrain.height + out["below"]):
 			break
 	return {"end": Vector2(x, y), "time": t, "landed": false, "hit": -1, "high_x": high_x, "high_dir": high_v.normalized()}
 
@@ -174,13 +189,13 @@ static func _near_segment(enemies: PackedVector2Array, near: PackedFloat32Array,
 			near[k] = d
 
 
-## "Trúng!": the path came within HIT_RADIUS + r of enemy k's body centre (near from fly()).
+## "Trúng!": the path came within playerHitRadius + r of enemy k's body centre (near from fly()).
 static func is_hit(near: PackedFloat32Array, k: int, r: float) -> bool:
-	return k < near.size() and near[k] <= HIT_RADIUS + r
+	return k < near.size() and near[k] <= hit_radius() + r
 
 
 ## The enemies (indices into the body centres) a laser beam origin → end crosses: the server's
-## laserHits, a band LASER_HALF_WIDTH + HIT_RADIUS wide round the beam (through terrain).
+## laserHits, a band laser halfWidth + playerHitRadius wide round the beam (through terrain).
 static func laser_hits(origin: Vector2, end: Vector2, enemies: PackedVector2Array) -> PackedInt32Array:
 	var out := PackedInt32Array()
 	var d := end - origin
@@ -188,7 +203,7 @@ static func laser_hits(origin: Vector2, end: Vector2, enemies: PackedVector2Arra
 	if length <= 0.0:
 		return out
 	var u := d / length
-	var reach := LASER_HALF_WIDTH + HIT_RADIUS
+	var reach := laser_half_width() + hit_radius()
 	for k in enemies.size():
 		var c := enemies[k] - origin
 		var s := c.x * u.x + c.y * u.y

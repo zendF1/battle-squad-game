@@ -1,53 +1,61 @@
 extends RefCounted
-## A small code-drawn picture per character skill (there is no skill icon file; the HUD's skill
-## slot shows the generic "skill" icon), for the use badge over a player (use_badge.gd):
-## - triple_shot (Mưa tên lửa): three missiles diving with flame tails;
-## - heavy_bomb (Bom liên hoàn): two round bombs in a row, the front one's fuse lit;
-## - shock_field (Tia laze): a straight beam with a bright core from an emitter to a flash;
-## - healing_bloom (Hoa hồi xuân): a five-petal flower with a gold heart.
-## An unknown skill draws the generic "skill" icon. Each skill also has a colour (the badge's rim
-## and its name) and a disc the picture sits on (disc()).
+## A small code-drawn picture per skill effect type (there is no skill icon file; the HUD's skill
+## slot shows the generic "skill" icon), for the use badge over a player (use_badge.gd). A skill
+## id is looked up in the game data (its effectType):
+## - missile_rain (Mưa tên lửa): three missiles diving with flame tails;
+## - bomb_chain (Bom liên hoàn): two round bombs in a row, the front one's fuse lit;
+## - laser (Tia laze): a straight beam with a bright core from an emitter to a flash;
+## - bloom (Hoa hồi xuân): a five-petal flower with a gold heart.
+## A skill of another (or no) effect type draws the generic "skill" icon. Each type also has a
+## colour (the badge's rim and its name) and a disc the picture sits on (disc()).
 
 const Art := preload("res://ui/art.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
-const IDS := ["triple_shot", "heavy_bomb", "shock_field", "healing_bloom"]
+const TYPES := ["missile_rain", "bomb_chain", "laser", "bloom"]
 const COLORS := {
-	"triple_shot": Color(1.0, 0.55, 0.2),
-	"heavy_bomb": Color(1.0, 0.72, 0.25),
-	"shock_field": Color(0.45, 0.9, 1.0),
-	"healing_bloom": Color(0.5, 0.95, 0.5),
+	"missile_rain": Color(1.0, 0.55, 0.2),
+	"bomb_chain": Color(1.0, 0.72, 0.25),
+	"laser": Color(0.45, 0.9, 1.0),
+	"bloom": Color(0.5, 0.95, 0.5),
 }
 const DEFAULT_COLOR := Color(1.0, 0.84, 0.35)
 const DISCS := {
-	"triple_shot": Color(0.5, 0.16, 0.1),
-	"heavy_bomb": Color(0.95, 0.6, 0.22),
-	"shock_field": Color(0.08, 0.2, 0.42),
-	"healing_bloom": Color(0.18, 0.42, 0.24),
+	"missile_rain": Color(0.5, 0.16, 0.1),
+	"bomb_chain": Color(0.95, 0.6, 0.22),
+	"laser": Color(0.08, 0.2, 0.42),
+	"bloom": Color(0.18, 0.42, 0.24),
 }
 const DEFAULT_DISC := Color(0.25, 0.22, 0.1)
 
 
+## The effect type whose picture a skill gets ("" none).
+static func type_of(skill_id: String) -> String:
+	var t := GameData.skill_effect_type(skill_id)
+	return t if TYPES.has(t) else ""
+
+
 static func color(skill_id: String) -> Color:
-	return COLORS.get(skill_id, DEFAULT_COLOR)
+	return COLORS.get(type_of(skill_id), DEFAULT_COLOR)
 
 
 ## The round backdrop under the picture: dark where the picture is bright, bright under the bombs.
 static func disc(skill_id: String) -> Color:
-	return DISCS.get(skill_id, DEFAULT_DISC)
+	return DISCS.get(type_of(skill_id), DEFAULT_DISC)
 
 
 static func has(skill_id: String) -> bool:
-	return IDS.has(skill_id)
+	return type_of(skill_id) != ""
 
 
 ## Draws skill_id's picture in a square of side size centred at c on ci.
 static func draw(ci: CanvasItem, skill_id: String, c: Vector2, size: float) -> void:
 	var k := size / 2.0
-	match skill_id:
-		"triple_shot": _rain(ci, c, k)
-		"heavy_bomb": _bombs(ci, c, k)
-		"shock_field": _laser(ci, c, k)
-		"healing_bloom": _bloom(ci, c, k)
+	match type_of(skill_id):
+		"missile_rain": _rain(ci, c, k)
+		"bomb_chain": _bombs(ci, c, k)
+		"laser": _laser(ci, c, k)
+		"bloom": _bloom(ci, c, k)
 		_:
 			var tex := Art.icon("skill")
 			ci.draw_texture_rect(tex, Rect2(c - Vector2(k, k), Vector2(size, size)), false)

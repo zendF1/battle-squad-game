@@ -1,6 +1,7 @@
 extends RefCounted
 ## Turns an HTTPRequest result into {ok, status, code, message, data}. Success bodies use the
 ## server envelope {"success":true,"data":X} (data = X); errors use {"error":{"code","message"}}.
+## 304 Not Modified (a conditional GET: Api.get_cached()) is ok with no data.
 
 
 static func parse(result: int, status: int, body: PackedByteArray) -> Dictionary:
@@ -13,6 +14,8 @@ static func parse(result: int, status: int, body: PackedByteArray) -> Dictionary
 		if json.parse(body.get_string_from_utf8()) == OK:
 			parsed = json.data
 
+	if status == 304:
+		return {"ok": true, "status": 304, "code": "", "message": "", "data": null}
 	if status >= 200 and status < 300:
 		var data = parsed
 		if parsed is Dictionary and parsed.has("success"):
@@ -25,6 +28,15 @@ static func parse(result: int, status: int, body: PackedByteArray) -> Dictionary
 		code = str(parsed["error"].get("code", code))
 		message = str(parsed["error"].get("message", message))
 	return {"ok": false, "status": status, "code": code, "message": message, "data": null}
+
+
+## The value of a response header (name case-insensitive), "" when absent.
+static func header(headers: PackedStringArray, header_name: String) -> String:
+	var want := header_name.to_lower() + ":"
+	for h in headers:
+		if h.to_lower().begins_with(want):
+			return h.substr(want.length()).strip_edges()
+	return ""
 
 
 const REFRESH_OK := 0

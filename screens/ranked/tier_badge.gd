@@ -74,7 +74,7 @@ func _draw() -> void:
 	var star_fill: Color = c[0].lightened(0.35) if not master else CROWN[0]
 	_poly(star_points(star_c, r, r * 0.46), star_fill, 3.5)
 	_fill(star_points(star_c + Vector2(-1.5, -2.0), r * 0.42, r * 0.2), Color(1, 1, 1, 0.85))
-	if not master:
+	if not RankModel.single_division(tier): # one division (master): no bars
 		_numeral(clampi(division, 1, 3), Color(1, 1, 1))
 
 

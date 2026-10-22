@@ -38,6 +38,7 @@ const CharacterView := preload("res://ui/character_view.gd")
 const FakeChat := preload("res://screens/home/fake_chat.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const SkillGlyphs := preload("res://match/views/skill_glyphs.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const NAVY := Color(0.06, 0.09, 0.22, 0.78)
 const MODE_BG := Color(0.13, 0.2, 0.42, 0.9)
@@ -73,6 +74,7 @@ var _move_notice: Label
 var _skip_banner: PanelContainer
 var _skip_label: Label
 var _skip_tween: Tween
+var _data_notice: Label = null # set_data_notice(), made on first use
 var _left: Button
 var _right: Button
 var _skill: Button
@@ -276,7 +278,7 @@ func _build_move() -> void:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	energy_col.add_child(label)
 	_energy = ProgressBar.new()
-	_energy.max_value = 100
+	_energy.max_value = GameData.default_move_energy() # set_energy() sets the player's own maximum
 	_energy.show_percentage = false
 	_energy.custom_minimum_size = Vector2(MOVE_SIZE, 16)
 	_energy.mouse_filter = MOUSE_FILTER_IGNORE
@@ -491,6 +493,34 @@ func skip_text() -> String:
 	return _skip_label.text if _skip_banner.modulate.a > 0.0 else ""
 
 
+## A short notice under the turn clock while the match waits for something (the game data being
+## fetched again: "Đang cập nhật dữ liệu..."); "" hides it.
+func set_data_notice(text: String) -> void:
+	if _data_notice == null:
+		if text == "":
+			return
+		var center := CenterContainer.new()
+		center.name = "DataNotice"
+		center.anchor_right = 1.0
+		center.offset_top = 132.0
+		center.mouse_filter = MOUSE_FILTER_IGNORE
+		add_child(center)
+		var panel: PanelContainer = _ignore(PanelContainer.new())
+		var box := LobbyUi.box(Color(0.05, 0.07, 0.18, 0.88), 18, 10, Color(1, 1, 1, 0.25), 2)
+		box.content_margin_left = 28
+		box.content_margin_right = 28
+		panel.add_theme_stylebox_override("panel", box)
+		center.add_child(panel)
+		_data_notice = LobbyUi.text("", 26, Color.WHITE, true)
+		panel.add_child(_data_notice)
+	_data_notice.text = text
+	_data_notice.get_parent().get_parent().visible = text != ""
+
+
+func data_notice() -> String:
+	return _data_notice.text if _data_notice != null and _data_notice.get_parent().get_parent().visible else ""
+
+
 func set_controls_enabled(enabled: bool) -> void:
 	_left.disabled = not enabled
 	_right.disabled = not enabled
@@ -499,7 +529,7 @@ func set_controls_enabled(enabled: bool) -> void:
 
 
 ## The skill slot and the item slots. skill: Skills.for_character() ({} hides the slot: an
-## unknown character); energy 0..100 fills its ring; skill_enabled: it can be tapped. armed:
+## unknown character); energy 0..skillEnergy.max fills its ring; skill_enabled: it can be tapped. armed:
 ## "weapon", "skill" or the armed item id (shown gold). items: [{"id", "count", "enabled",
 ## "name"}], the items left.
 func set_actions(skill: Dictionary, energy: int, skill_enabled: bool, armed: String, items: Array = []) -> void:
@@ -513,8 +543,9 @@ func set_actions(skill: Dictionary, energy: int, skill_enabled: bool, armed: Str
 			_skill.icon = null
 		else:
 			LobbyUi.set_icon(_skill, "skill", int(SKILL_SIZE * 0.46))
-	_skill_energy = clampf(energy / 100.0, 0.0, 1.0)
-	_skill_ready = energy >= 100
+	var full := GameData.skill_energy_max()
+	_skill_energy = clampf(float(energy) / full, 0.0, 1.0) if full > 0 else 1.0
+	_skill_ready = energy >= full
 	_skill_armed = armed == "skill"
 	_skill.disabled = not skill_enabled
 	_skill.set_pressed_no_signal(_skill_armed)

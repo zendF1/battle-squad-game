@@ -1,17 +1,17 @@
 extends RefCounted
-## The Shop's "Nhân vật" tab as data: one card per character (LoadoutModel.CHARACTERS order)
+## The Shop's "Nhân vật" tab as data: one card per character (the game data's character order)
 ## with its buy state, and the "Thông tin" popup: base stats with bars, weapon, skill and a
 ## short playstyle.
 ##
 ## Sources:
-## - ownership: GET /player/characters (LoadoutModel.parse_characters); Rookie is always owned;
+## - ownership: GET /player/characters (LoadoutModel.parse_characters); the default character
+##   (the game data's defaultCharacterId) is always owned;
 ## - prices: the character_unlock offers of GET /shop/offers, minus the ones whose per-player
 ##   limit is used up (GET /shop/purchases);
 ## - base stats (máu, phòng thủ, sát thương vũ khí, năng lượng di chuyển): `baseStats` of GET
 ##   /player/characters, which the server sends for every character, owned or not;
-## - what no API sends (the weapon's explosion radius, crater and wind, the skill's numbers): WEAPONS and
-##   the skill's describe() (match/views/skills/), copied from the server's configs/weapons.yaml and
-##   internal/game/match (skill_*.go). Keep them in step.
+## - the characters (order, name, role, playstyle), their starter weapon (explosion radius,
+##   crater, wind) and skill (name, description, energy): the game data (GET /gamedata).
 
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const ShopModel := preload("res://screens/home/shop_model.gd")
@@ -20,6 +20,7 @@ const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const Skills := preload("res://match/skills.gd")
 const Art := preload("res://ui/art.gd")
 const Fmt := preload("res://core/fmt.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 ## Card states.
 const OWNED := "owned"
@@ -31,10 +32,6 @@ const OWNED_TEXT := "Đã sở hữu"
 const NOT_FOR_SALE_TEXT := "Chưa mở bán"
 const BUY_TEXT := "Mua"
 
-## Skill energy: a skill needs Skills.FULL_ENERGY, a player gains Skills.ENERGY_PER_TURN at the end
-## of each of their turns and Skills.ENERGY_ON_HIT when an enemy hits them.
-const SKILL_ENERGY_PER_TURN := Skills.ENERGY_PER_TURN
-
 ## Each character's colour (its body colour, tools/art/character_painter.gd LOOKS): the card's
 ## backdrop glow.
 const TINTS := {
@@ -45,31 +42,8 @@ const TINTS := {
 }
 const NEUTRAL_TINT := Color(0.35, 0.45, 0.7)
 
-## The starter weapon of each character (server configs/characters.yaml weaponId →
-## configs/weapons.yaml): explosion radius (px, the damage area), terrain damage (the crater:
-## radius terrainDamage × CRATER_PX_PER_TERRAIN_DAMAGE, server match/damage.go) and how much the
-## wind pushes the shot (windInfluence / projectileWeight, server match/shooting.go).
-const WEAPONS := {
-	"rookie": {"weaponId": "basic_rocket", "explosionRadius": 40, "terrainDamage": 20, "windInfluence": 1.0, "projectileWeight": 1.0},
-	"tanko": {"weaponId": "cannon_ball", "explosionRadius": 60, "terrainDamage": 30, "windInfluence": 0.5, "projectileWeight": 1.5},
-	"spark": {"weaponId": "electric_orb", "explosionRadius": 30, "terrainDamage": 20, "windInfluence": 1.3, "projectileWeight": 0.8},
-	"flora": {"weaponId": "seed_bomb", "explosionRadius": 40, "terrainDamage": 24, "windInfluence": 1.0, "projectileWeight": 0.9},
-}
-
-## Server match.craterPxPerTerrainDamage: crater radius (px) per point of weapon terrain damage.
-const CRATER_PX_PER_TERRAIN_DAMAGE := 0.6
-
-## "Lối chơi": what the character is good at, how to play it and its weakness (no numbers: the
-## stat rows show them).
-const PLAYSTYLE := {
-	"rookie": "Không nổi bật hẳn mặt nào nhưng cũng chẳng có điểm yếu rõ ràng: máu, sát thương và tầm di chuyển đều vừa phải, đạn chịu gió bình thường. Hợp để tập căn góc và lực; khi đầy năng lượng, Mưa tên lửa trút xuống cả một vùng quanh pháo hiệu, khó né và đốt máu đối thủ ở lượt sau. Đổi lại, Rookie đánh không đau bằng Spark và không lì bằng Flora.",
-	"tanko": "Chuyên phá địa hình: đại pháo khoét hố sâu hơn hẳn mọi người, phá chỗ nấp và đào đất ngay dưới chân đối thủ. Đạn nặng ít bị gió đẩy nên vẫn bắn chuẩn khi trời gió lớn; để dành Bom liên hoàn bắn thẳng vào địch: từng quả đào sâu thêm, địch rơi xuống đáy hố, trúng tiếp và bị cầm chân. Bù lại mỗi phát gây ít sát thương và Tanko đi được ngắn nhất, khó thoát khỏi chỗ đứng xấu.",
-	"spark": "Đánh đau nhất: chỉ vài phát trúng là hạ được đối thủ, còn Tia laze xuyên địa hình, trúng mọi địch trên đường và làm họ mất lượt sau. Spark chạy xa nhất nên dễ đổi chỗ tìm góc bắn hoặc né khỏi tầm ngắm. Điểm yếu là máu và phòng thủ mỏng nhất, đạn nhẹ bị gió đẩy mạnh nên phải tính gió thật kỹ.",
-	"flora": "Lì đòn nhất: máu và phòng thủ cao nhất, lại có Hoa hồi xuân hồi máu cả đội, máu dư thành khiên, nên càng đánh lâu càng có lợi. Hãy đứng vững, bắn chắc tay và kéo trận dài để đối thủ cạn máu trước. Bù lại sát thương thấp và đạn gần như không khoét đất, nên khó kết thúc trận nhanh.",
-}
-
 ## The rows of the info popup: label, the baseStats field (or "explosionRadius" /
-## "craterRadius": WEAPONS).
+## "craterRadius": the character's weapon in the game data).
 const STAT_ROWS := [
 	{"key": "maxHp", "label": "Máu"},
 	{"key": "weaponDamage", "label": "Sát thương"},
@@ -81,21 +55,15 @@ const STAT_ROWS := [
 
 
 static func ids() -> Array:
-	return LoadoutModel.CHARACTERS.map(func(c): return c["id"])
+	return LoadoutModel.character_ids()
 
 
 static func character_name(id: String) -> String:
-	for c in LoadoutModel.CHARACTERS:
-		if c["id"] == id:
-			return c["name"]
-	return id
+	return GameData.character_name(id)
 
 
 static func role(id: String) -> String:
-	for c in LoadoutModel.CHARACTERS:
-		if c["id"] == id:
-			return c["role"]
-	return ""
+	return GameData.character_role_name(id)
 
 
 static func tint(id: String) -> Color:
@@ -106,7 +74,7 @@ static func tint(id: String) -> Color:
 ## for this player (server order), only for BUY. offers / purchases / owned are null while not
 ## loaded (purchases unknown: no limit is counted).
 static func card(id: String, offers: Variant, purchases: Variant, owned: Variant) -> Dictionary:
-	if id == LoadoutModel.DEFAULT_CHARACTER or (owned is Array and owned.has(id)):
+	if id == LoadoutModel.default_character() or (owned is Array and owned.has(id)):
 		return {"state": OWNED, "offers": []}
 	if not offers is Array or not owned is Array:
 		return {"state": UNKNOWN, "offers": []}
@@ -145,24 +113,23 @@ static func other_prices(c: Dictionary) -> Array:
 
 
 ## One stat of a character: baseStats (GET /player/characters data) for the server's fields,
-## WEAPONS for explosionRadius and craterRadius (px, rounded); null when unknown.
+## its weapon's (the game data) explosionRadius and craterRadius (px, rounded); null when unknown.
 static func stat_value(data: Variant, id: String, key: String) -> Variant:
+	var weapon := GameData.weapon_of_character(id)
 	if key == "explosionRadius":
-		return WEAPONS[id]["explosionRadius"] if WEAPONS.has(id) else null
+		return roundi(GameData.weapon_explosion_radius(GameData.character_weapon_id(id))) if not weapon.is_empty() else null
 	if key == "craterRadius":
-		return crater_radius(id) if WEAPONS.has(id) else null
+		return crater_radius(id) if not weapon.is_empty() else null
 	var all = data.get("baseStats") if data is Dictionary else null
 	var s = all.get(id) if all is Dictionary else null
 	var v = s.get(key) if s is Dictionary else null
 	return int(v) if v is int or v is float else null
 
 
-## The crater radius (px) of the character's normal shot on normal ground (server
-## match.weaponCraterRadius: the blast radius for a weapon without terrain damage).
+## The crater radius (px) of the character's normal shot on normal ground, rounded: its weapon's
+## craterRadius (the server's weaponCraterRadius, game data).
 static func crater_radius(id: String) -> int:
-	var w: Dictionary = WEAPONS.get(id, {})
-	var td := float(w.get("terrainDamage", 0))
-	return roundi(td * CRATER_PX_PER_TERRAIN_DAMAGE) if td > 0.0 else int(w.get("explosionRadius", 0))
+	return roundi(GameData.weapon_crater_radius(GameData.character_weapon_id(id)))
 
 
 ## value / max as a bar length 0..1 (0 for no max).
@@ -192,11 +159,14 @@ static func stat_rows(data: Variant, id: String) -> Array:
 	return out
 
 
-## How much the wind moves the character's shot against Rookie's rocket (1.0).
+## How much the wind moves the character's shot (windInfluence / projectileWeight of its weapon;
+## 1.0 for a weapon the game data does not know).
 static func wind_factor(id: String) -> float:
-	var w: Dictionary = WEAPONS.get(id, {})
-	var weight := float(w.get("projectileWeight", 1.0))
-	return float(w.get("windInfluence", 1.0)) / weight if weight > 0.0 else 1.0
+	var weapon_id := GameData.character_weapon_id(id)
+	if GameData.weapon(weapon_id).is_empty():
+		return 1.0
+	var weight := GameData.weapon_projectile_weight(weapon_id)
+	return GameData.weapon_wind_influence(weapon_id) / weight if weight > 0.0 else 1.0
 
 
 ## "×0,3" (one decimal, Vietnamese comma).
@@ -208,7 +178,7 @@ static func factor_text(f: float) -> String:
 ## Everything the info popup shows: {id, name, role, tint, weapon: {kind, tier, name, wind},
 ## skill: {name, text, energy}, playstyle}.
 static func info(id: String) -> Dictionary:
-	var kind := str(Art.CHARACTER_GUNS.get(id, Art.DEFAULT_GUN_KIND))
+	var kind := Art.character_gun(id)
 	var skill := Skills.for_character(id)
 	return {
 		"id": id,
@@ -218,6 +188,7 @@ static func info(id: String) -> Dictionary:
 		"weapon": {"kind": kind, "tier": Art.GUN_BASIC, "name": str(EquipmentModel.GUN_NAMES.get(kind, EquipmentModel.GUN_NAMES["blaster"])),
 			"wind": "Gió đẩy %s" % factor_text(wind_factor(id))},
 		"skill": {"name": str(skill.get("name", "")), "text": Skills.describe(id, 0),
-			"energy": "Cần %d năng lượng (+%d mỗi lượt, +%d khi bị trúng đòn)" % [Skills.FULL_ENERGY, SKILL_ENERGY_PER_TURN, Skills.ENERGY_ON_HIT]},
-		"playstyle": str(PLAYSTYLE.get(id, "")),
+			"energy": "Cần %d năng lượng (+%d mỗi lượt, +%d khi bị trúng đòn)" % [GameData.skill_energy_max(),
+				GameData.skill_energy_per_turn(), GameData.skill_energy_on_hit()]},
+		"playstyle": GameData.character_playstyle(id),
 	}

@@ -20,7 +20,6 @@ extends "res://match/views/skills/skill_view.gd"
 
 const ShotLook := preload("res://match/views/shot_look.gd")
 const ChainFx := preload("res://match/views/skills/bomb_chain_fx.gd")
-const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
 
 ## A bomb's size against the gun's normal shell (a skill shell is already ShotLook.SKILL_SCALE).
 const BOMB_SCALE := 1.4
@@ -43,20 +42,6 @@ var _kicked := 1 # bombs whose launch was shown: the first leaves with the shot 
 var _blasts := 0 # explosions so far
 var _first_y := NAN # the first explosion's y: the rim when the terrain is unknown
 var _z := {} # PlayerView -> its z_index before the replay
-
-
-func skill_id() -> String:
-	return "heavy_bomb"
-
-
-func skill_name() -> String:
-	return "Bom liên hoàn"
-
-
-func describe(rank: int) -> String:
-	# the server's chainCount / chainEach / chainCap (skill_bombchain.go): 2 + rank bombs, each
-	# (180 + 15 × rank)% / (3 + rank) of the base damage
-	return "Bắn %d quả bom lớn liên tiếp cùng đường bay (+1 mỗi cấp súng), đào sâu một hố; mỗi quả %d%% sát thương, mỗi địch nhận tối đa %d%%; địch trúng bị cầm chân lượt sau." % [2 + rank, roundi((180.0 + 15.0 * rank) / (3 + rank)), 120 + 15 * rank]
 
 
 ## The chain's hits on a player count up in one number (DamageTally).
@@ -149,10 +134,11 @@ func rim_y(at: Vector2, crater: float) -> float:
 
 
 ## How far from the explosion rim_y() looks: 6 px past the widest the bowl carves (where its
-## floor meets its flat top, r·√(1 + BOWL_CEILING / BOWL_DEPTH) ≈ 1.76r). A shaft of stacked
+## floor meets its flat top, r·√(1 + bowlCeiling / bowlDepth) ≈ 1.76r). A shaft of stacked
 ## bowls is that wide, so nearer in it would read the shaft's own wall.
 static func rim_reach(crater: float) -> float:
-	return crater * sqrt(1.0 + TerrainMask.BOWL_CEILING / TerrainMask.BOWL_DEPTH) + 6.0
+	var depth := GameData.bowl_depth()
+	return crater * sqrt(1.0 + (GameData.bowl_ceiling() / depth if depth > 0.0 else 0.0)) + 6.0
 
 
 ## The explosions seen so far (tests).

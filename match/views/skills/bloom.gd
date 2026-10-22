@@ -20,24 +20,8 @@ var fx: Node2D = null # the BloomFx, null before begin()
 var _last_land := 0.0
 
 
-func skill_id() -> String:
-	return "healing_bloom"
-
-
-func skill_name() -> String:
-	return "Hoa hồi xuân"
-
-
-func aim_mode() -> String:
-	return AIM_NONE
-
-
 func preview_offsets() -> Array:
 	return []
-
-
-func describe(rank: int) -> String:
-	return "Hồi máu cả đội: Flora %d%%, đồng đội %d%% máu tối đa (+5%% mỗi cấp súng); máu dư thành khiên (tối đa 50%% máu); giải mọi hiệu ứng xấu." % [40 + 5 * rank, 30 + 5 * rank]
 
 
 func begin(context: Dictionary) -> void:

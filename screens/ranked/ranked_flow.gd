@@ -21,11 +21,14 @@ extends RefCounted
 ## MatchFound fails.
 
 const ErrorText := preload("res://screens/home/error_text.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 enum Phase { IDLE, CREATING, WAIT_RETRY, LOADOUT, QUEUEING, SEARCHING, CANCELLING, FOUND, DONE }
 
 const STEP_TIMEOUT := 10.0
 const CANCEL_TIMEOUT := 3.0
+## MatchStarted not coming this long after MatchFound gives up; at least the server's
+## matchmaking.matchStartDelaySec + STEP_TIMEOUT (found_timeout()).
 const FOUND_TIMEOUT := 20.0
 const RETRY_SEC := 0.6
 const RETRIES := 2
@@ -43,8 +46,13 @@ var _cancel_asked := false # cancel() while the lobby was being created
 var _found := false # MatchFound came
 
 
+## How long MatchStarted may take after MatchFound.
+static func found_timeout() -> float:
+	return maxf(FOUND_TIMEOUT, GameData.match_start_delay_sec() + STEP_TIMEOUT)
+
+
 func start(chosen: Dictionary) -> Array:
-	loadout = {"characterId": str(chosen.get("characterId", "rookie")), "items": chosen.get("items", []).duplicate()}
+	loadout = {"characterId": str(chosen.get("characterId", GameData.default_character_id())), "items": chosen.get("items", []).duplicate()}
 	_retries = 0
 	_cancel_asked = false
 	return _create()
@@ -128,7 +136,7 @@ func on_event(event: String, data: Variant) -> Array:
 	if event == "MatchFound" and phase in [Phase.QUEUEING, Phase.SEARCHING, Phase.CANCELLING]:
 		phase = Phase.FOUND # a cancel that lost the race: the match goes on
 		_found = true
-		_wait = FOUND_TIMEOUT
+		_wait = found_timeout()
 		return [["found", data]]
 	if event == "MatchStarted" and phase == Phase.FOUND:
 		return _finish([["started", data]])

@@ -1,6 +1,7 @@
 extends RefCounted
-## The lobby's choices, without UI: the play modes ("Luyện tập", "Xếp hạng 2v2", "Đấu với
-## máy") and their QuickPlay base (ranked: the queue, is_ranked()), cycling through the four
+## The lobby's choices, without UI: the play modes (the game data's modes.lobby: "Luyện tập",
+## "Xếp hạng 2v2", "Đấu với máy") and their QuickPlay base (a mode with a queue: the queue,
+## is_ranked(); with a bot: {"bot": it}; neither: practice), cycling through the game data's
 ## characters, the info card text of a character from the PlayerState characters cache, and the
 ## remembered mode. The mode is kept in the same
 ## settings file as the Loadout choice (LoadoutModel.SETTINGS_PATH, section "lobby").
@@ -10,58 +11,76 @@ const Skills := preload("res://match/skills.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
 const Progress := preload("res://screens/home/progress.gd")
 const Fmt := preload("res://core/fmt.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const SECTION := "lobby"
 const MODE_KEY := "mode"
 
-## id: the remembered value; base: Router.quick_play_base for the Loadout.
-## Ranked's base is not a QuickPlay: {"queue": RANKED_QUEUE} sends the Loadout to Matchmaking.
-const MODES := [
-	{"id": "practice", "name": "Luyện tập", "description": "Tập bắn với bia đứng yên", "base": {}},
-	{"id": "ranked", "name": "Xếp hạng 2v2", "description": "Ghép 2v2, tính điểm hạng", "base": {"queue": "ranked_2v2"}},
-	{"id": "bot", "name": "Đấu với máy", "description": "Đấu 1v1 với máy biết bắn", "base": {"bot": "ai"}},
-]
-const RANKED_QUEUE := "ranked_2v2"
+## The lobby modes in order: [{id, name, description, base}]. id: the remembered value; base:
+## Router.quick_play_base for the Loadout. A queue mode's base is not a QuickPlay: {"queue": q}
+## sends the Loadout to Matchmaking.
+static func modes() -> Array:
+	var out: Array = []
+	for m in GameData.lobby_modes():
+		var base := {}
+		if str(m.get("queue", "")) != "":
+			base = {"queue": str(m["queue"])}
+		elif str(m.get("bot", "")) != "":
+			base = {"bot": str(m["bot"])}
+		out.append({"id": str(m.get("modeId", "")), "name": str(m.get("name", "")), "description": str(m.get("description", "")),
+			"base": base})
+	return out
 
 
-## The ranked mode's base (the Loadout opens Matchmaking instead of sending QuickPlay).
+## The mode at `index` (clamped); {id: "", name: "", description: "", base: {}} with none.
+static func mode(index: int) -> Dictionary:
+	var all := modes()
+	if all.is_empty():
+		return {"id": "", "name": "", "description": "", "base": {}}
+	return all[clampi(index, 0, all.size() - 1)]
+
+
+## The ranked mode's base (its queue is the game data's rank.rankedMode): the Loadout opens
+## Matchmaking instead of sending QuickPlay.
 static func is_ranked(base: Dictionary) -> bool:
-	return str(base.get("queue", "")) == RANKED_QUEUE
+	return str(base.get("queue", "")) != "" and str(base.get("queue", "")) == GameData.ranked_mode()
 
 
 ## The mode after `index`, wrapping around.
 static func next_mode(index: int) -> int:
-	return posmod(index + 1, MODES.size())
+	return posmod(index + 1, maxi(modes().size(), 1))
 
 
 static func mode_index(id: String) -> int:
-	for i in MODES.size():
-		if MODES[i]["id"] == id:
+	var all := modes()
+	for i in all.size():
+		if all[i]["id"] == id:
 			return i
 	return 0
 
 
 ## A copy of the QuickPlay base of the mode at `index`.
 static func mode_base(index: int) -> Dictionary:
-	return MODES[clampi(index, 0, MODES.size() - 1)]["base"].duplicate()
+	return mode(index)["base"].duplicate()
 
 
 ## The mode whose QuickPlay base is `base` (the Loadout gets only the base); 0 when none matches.
 static func mode_of_base(base: Dictionary) -> int:
-	for i in MODES.size():
-		if MODES[i]["base"] == base:
+	var all := modes()
+	for i in all.size():
+		if all[i]["base"] == base:
 			return i
 	return 0
 
 
-## The character `delta` steps from `id` in LoadoutModel.CHARACTERS order, wrapping around; an
-## unknown id counts as the first.
+## The character `delta` steps from `id` in the game data's character order, wrapping around;
+## an unknown id counts as the first.
 static func cycle_character(id: String, delta: int) -> String:
-	var at := 0
-	for i in LoadoutModel.CHARACTERS.size():
-		if LoadoutModel.CHARACTERS[i]["id"] == id:
-			at = i
-	return LoadoutModel.CHARACTERS[posmod(at + delta, LoadoutModel.CHARACTERS.size())]["id"]
+	var ids := LoadoutModel.character_ids()
+	if ids.is_empty():
+		return id
+	var at := maxi(ids.find(id), 0)
+	return str(ids[posmod(at + delta, ids.size())])
 
 
 ## The info card of a character from GET /player/characters data (null: not loaded yet):
@@ -69,11 +88,8 @@ static func cycle_character(id: String, delta: int) -> String:
 ## is 0 unless owned; stats is [[label, value], ...] (Máu, Sát thương, Phòng thủ) from the
 ## character's battle stats, or its base stats when not owned; [] when the server sent none.
 static func character_info(id: String, data: Variant) -> Dictionary:
-	var out := {"name": id, "role": "", "skill": "", "owned": null, "level": 0, "stats": []}
-	for c in LoadoutModel.CHARACTERS:
-		if c["id"] == id:
-			out["name"] = c["name"]
-			out["role"] = c["role"]
+	var out := {"name": GameData.character_name(id), "role": GameData.character_role_name(id), "skill": "", "owned": null,
+		"level": 0, "stats": []}
 	out["skill"] = str(Skills.for_character(id).get("name", ""))
 	if not data is Dictionary or not data.get("characters") is Array:
 		return out
@@ -122,5 +138,5 @@ static func restore_mode(path: String) -> int:
 static func remember_mode(path: String, index: int) -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(path) # a missing file starts empty
-	cfg.set_value(SECTION, MODE_KEY, MODES[clampi(index, 0, MODES.size() - 1)]["id"])
+	cfg.set_value(SECTION, MODE_KEY, mode(index)["id"])
 	cfg.save(path)

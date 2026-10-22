@@ -40,7 +40,7 @@ func test_fixture_two_enemies_nearest_first() -> void:
 	eq(c["terrain"]["solid"], c["terrainAfter"]["solid"], "the terrain is untouched")
 	var started: Dictionary = c["turnStarted"]
 	eq(str(started.get("skipped", "")), "stun", "the stunned enemy loses the turn")
-	eq(Status.SKIP_TEXT[str(started["skipped"])], "Choáng — mất lượt", "its banner")
+	eq(Status.skip_text(str(started["skipped"])), "Choáng — mất lượt", "its banner")
 
 
 func _fx(c: Dictionary) -> Node2D:
