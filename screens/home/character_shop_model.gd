@@ -50,14 +50,14 @@ const NEUTRAL_TINT := Color(0.35, 0.45, 0.7)
 ## radius terrainDamage × CRATER_PX_PER_TERRAIN_DAMAGE, server match/damage.go) and how much the
 ## wind pushes the shot (windInfluence / projectileWeight, server match/shooting.go).
 const WEAPONS := {
-	"rookie": {"weaponId": "basic_rocket", "explosionRadius": 40, "terrainDamage": 25, "windInfluence": 1.0, "projectileWeight": 1.0},
-	"tanko": {"weaponId": "cannon_ball", "explosionRadius": 60, "terrainDamage": 65, "windInfluence": 0.5, "projectileWeight": 1.5},
-	"spark": {"weaponId": "electric_orb", "explosionRadius": 30, "terrainDamage": 25, "windInfluence": 1.3, "projectileWeight": 0.8},
-	"flora": {"weaponId": "seed_bomb", "explosionRadius": 40, "terrainDamage": 30, "windInfluence": 1.0, "projectileWeight": 0.9},
+	"rookie": {"weaponId": "basic_rocket", "explosionRadius": 40, "terrainDamage": 20, "windInfluence": 1.0, "projectileWeight": 1.0},
+	"tanko": {"weaponId": "cannon_ball", "explosionRadius": 60, "terrainDamage": 30, "windInfluence": 0.5, "projectileWeight": 1.5},
+	"spark": {"weaponId": "electric_orb", "explosionRadius": 30, "terrainDamage": 20, "windInfluence": 1.3, "projectileWeight": 0.8},
+	"flora": {"weaponId": "seed_bomb", "explosionRadius": 40, "terrainDamage": 24, "windInfluence": 1.0, "projectileWeight": 0.9},
 }
 
 ## Server match.craterPxPerTerrainDamage: crater radius (px) per point of weapon terrain damage.
-const CRATER_PX_PER_TERRAIN_DAMAGE := 0.8
+const CRATER_PX_PER_TERRAIN_DAMAGE := 0.6
 
 ## "Lối chơi": what the character is good at, how to play it and its weakness (no numbers: the
 ## stat rows show them).
