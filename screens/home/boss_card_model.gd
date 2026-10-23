@@ -9,7 +9,6 @@ extends RefCounted
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const Fmt := preload("res://core/fmt.gd")
-const ElementText := preload("res://ui/element_text.gd")
 
 const CATEGORY := "boss"
 const RUNS_LOADING := "Lượt thưởng lớn: ..."
@@ -21,8 +20,7 @@ static func _num(v: Variant, fallback: int = -1) -> int:
 
 ## The cards in order: [{index (LobbyModel mode index), id (modeId), boss_id, name, level (0
 ## unknown), level_text ("Lv đề xuất 10"), description, runs_left (-1 unknown), runs_max,
-## runs_text, reset_text, selected, element (the boss's elementId, "" none), counter_text
-## ("Khắc chế: Spark", "" none)}]. runs: GET /boss/runs data ({} / null: not loaded yet);
+## runs_text, reset_text, selected, element (the boss's elementId, "" none)}]. runs: GET /boss/runs data ({} / null: not loaded yet);
 ## bias_minutes: the device's zone east of UTC (Time.get_time_zone_from_system().bias).
 static func cards(current: int, runs: Variant, bias_minutes: int) -> Array:
 	var out: Array = []
@@ -50,7 +48,7 @@ static func card(index: int, mode: Dictionary, current: int, runs: Variant, bias
 	return {"index": index, "id": mode["id"], "boss_id": boss_id, "name": name, "level": level,
 		"level_text": level_text(level), "description": desc, "runs_left": left, "runs_max": max_runs,
 		"runs_text": runs_text(left, max_runs), "reset_text": reset_text(runs, bias_minutes), "selected": index == current,
-		"element": GameData.boss_element(boss_id), "counter_text": ElementText.counter_hint(boss_id)}
+		"element": GameData.boss_element(boss_id)}
 
 
 ## "Lv đề xuất 10"; "" without a level.

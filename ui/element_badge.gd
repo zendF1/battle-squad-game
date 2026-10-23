@@ -83,6 +83,15 @@ static func fit_label(label: Label, max_w: float) -> void:
 	label.custom_minimum_size.x = minf(ceilf(w), max_w)
 
 
+## A name in a name_row() that must fit max_w: its font shrinks (down to min_size) until it does.
+static func shrink_to_fit(label: Label, max_w: float, min_size: int = 22) -> void:
+	var font: Font = label.get_theme_font("font")
+	var fs: int = label.get_theme_font_size("font_size")
+	while fs > min_size and font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > max_w:
+		fs -= 1
+	label.add_theme_font_size_override("font_size", fs)
+
+
 ## Shows element id's badge in a name_row() (none: the badge and its spacer hidden).
 static func set_row_element(row: Node, id: String) -> void:
 	var b = row.get_node_or_null("ElementBadge")

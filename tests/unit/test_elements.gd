@@ -1,6 +1,6 @@
 extends "res://tests/test_case.gd"
 ## The elements (ngũ hành) of GET /gamedata: the accessors (cycle, rules, characters' and bosses'
-## elements, a unit's), the detail line and the boss counter hint (ui/element_text.gd), the
+## elements, a unit's), the detail line (ui/element_text.gd), the
 ## badge's visual mapping by elementId and its centred glyphs (ui/element_badge.gd).
 
 const GameData := preload("res://autoload/game_data_model.gd")
@@ -44,18 +44,11 @@ func test_characters_bosses_units() -> void:
 	eq(GameData.unit_element({"role": "boss", "bossId": "lava_crab"}), "fire", "the boss")
 
 
-func test_detail_line_and_counter_hint() -> void:
-	BossFixture.take()
+func test_detail_line() -> void:
 	eq(ElementText.detail_line("water"), "Hệ: Thủy — khắc Hỏa, bị Thổ khắc", "water")
 	eq(ElementText.detail_line("metal"), "Hệ: Kim — khắc Mộc, bị Hỏa khắc", "metal")
 	eq(ElementText.detail_line(""), "", "none")
 	eq(ElementText.detail_line("void"), "Hệ: void", "unknown: the id, no relations")
-	eq(GameData.boss_counters("steel_robot"), ["rookie"], "fire beats metal")
-	eq(ElementText.counter_hint("steel_robot"), "Khắc chế: Rookie", "robot")
-	eq(ElementText.counter_hint("ice_witch"), "Khắc chế: Tanko", "earth beats water")
-	eq(ElementText.counter_hint("lava_crab"), "Khắc chế: %s" % GameData.character_name("tide") if GameData.is_character("tide") else "",
-		"water beats fire: Tide when the game data has her")
-	eq(ElementText.counter_hint("nobody"), "", "unknown boss")
 
 
 func test_badge_mapping() -> void:
@@ -96,3 +89,22 @@ func test_name_row() -> void:
 	ElementBadge.set_row_element(row, "")
 	eq([b.visible, row.get_node("Spacer").visible], [false, false], "no element: both hidden")
 	row.free()
+
+
+func test_backdrop_looks() -> void:
+	var B := preload("res://ui/element_backdrop.gd")
+	for id in ["water", "fire", "metal", "earth", "wood"]:
+		check(B.LOOKS.has(id), "%s has its own backdrop" % id)
+	eq(B.look("void"), B.PLAIN, "an unknown element: the plain one")
+	var water: Color = B.look("water")["bottom"]
+	var fire: Color = B.look("fire")["bottom"]
+	check(water.b > water.r and fire.r > fire.b, "water blue, fire red")
+	var b = B.new()
+	b.size = Vector2(300, 200)
+	b.radius = 20.0
+	eq(b._span(100.0), Vector2(0, 300), "the middle: the full width")
+	check(b._span(0.0).x > 19.0 and b._span(0.0).y < 281.0, "the top row: inside the round corners")
+	for p in b._inside_ellipse(Vector2(150, 210), Vector2(260, 140)):
+		var sp: Vector2 = b._span(p.y)
+		check(p.y >= 0.0 and p.y <= 200.0 and p.x >= sp.x - 0.01 and p.x <= sp.y + 0.01, "the glow stays inside")
+	b.free()

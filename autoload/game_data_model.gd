@@ -1374,10 +1374,3 @@ static func unit_element(p: Dictionary) -> String:
 		return boss_element(_s(p, "bossId"))
 	return character_element(_s(p, "characterId"))
 
-
-## The characters whose element beats boss boss_id's, in the game data's order: [characterId].
-static func boss_counters(boss_id: String) -> Array:
-	var e := boss_element(boss_id)
-	if e == "":
-		return []
-	return character_ids().filter(func(id): return element_beats(character_element(id)) == e)

@@ -23,6 +23,7 @@ const RankModel := preload("res://screens/ranked/rank_model.gd")
 const TierBadge := preload("res://screens/ranked/tier_badge.gd")
 const BossCardModel := preload("res://screens/home/boss_card_model.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
+const ElementBackdrop := preload("res://ui/element_backdrop.gd")
 const BossArt := preload("res://match/boss/boss_art.gd")
 const BossArtView := preload("res://match/boss/boss_art_view.gd")
 
@@ -244,7 +245,7 @@ func _on_boss_tab() -> bool:
 	return _tab < sections.size() and sections[_tab]["categoryId"] == BossCardModel.CATEGORY
 
 
-## A boss card: the figure on its colour's glow, the name, "Lv đề xuất N", the description, the
+## A boss card: the figure on its element's backdrop (ElementBackdrop; its colour's glow without one), the name, "Lv đề xuất N", the description, the
 ## big-reward runs left and when they refill; "Đang chọn" on the chosen one.
 func _boss_card(c: Dictionary) -> Button:
 	var parts := _card_button(BOSS_CARD, c["selected"])
@@ -258,12 +259,21 @@ func _boss_card(c: Dictionary) -> Button:
 	stage.custom_minimum_size = Vector2(BOSS_CARD.x - 44, 210)
 	stage.mouse_filter = MOUSE_FILTER_IGNORE
 	var tint := BossArt.accent(art)
+	var element := str(c.get("element", ""))
+	if element != "": # the boss's element behind the figure (ElementBackdrop), in place of the glow
+		var back := ElementBackdrop.new()
+		back.element_id = element
+		back.radius = 16.0
+		back.name = "ElementBackdrop"
+		back.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		stage.add_child(back)
 	var figure := BossArtView.make(art, stage.custom_minimum_size, -1, "portrait")
 	var drawn: bool = figure.picture_texture() != null # the drawn portrait floats: its glow round the middle, no shadow
 	stage.draw.connect(func() -> void:
 		var centre := Vector2(stage.size.x / 2.0, stage.size.y * (0.5 if drawn else 0.62))
-		for i in 5:
-			stage.draw_circle(centre, stage.size.y * (0.52 - i * 0.08), Color(tint, 0.06 + i * 0.03))
+		if element == "":
+			for i in 5:
+				stage.draw_circle(centre, stage.size.y * (0.52 - i * 0.08), Color(tint, 0.06 + i * 0.03))
 		if drawn:
 			return
 		stage.draw_set_transform(Vector2(stage.size.x / 2.0, stage.size.y - 8), 0.0, Vector2(1.0, 0.22))
@@ -274,6 +284,8 @@ func _boss_card(c: Dictionary) -> Button:
 	col.add_child(stage)
 	var boss_name := _centered(c["name"], 32, Color.WHITE, true)
 	boss_name.autowrap_mode = TextServer.AUTOWRAP_OFF # sized by its text beside the element badge
+	if str(c.get("element", "")) != "":
+		ElementBadge.shrink_to_fit(boss_name, BOSS_CARD.x - 44 - 2 * (34 + 8))
 	col.add_child(ElementBadge.name_row(boss_name, str(c.get("element", "")), 34, 8))
 	var badges := Ui.hbox(8)
 	badges.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -285,14 +297,10 @@ func _boss_card(c: Dictionary) -> Button:
 	col.add_child(badges)
 	var desc := _centered(c["description"], 19, Color(0.75, 0.9, 1.0))
 	desc.custom_minimum_size = Vector2(BOSS_CARD.x - 44, 0)
-	desc.max_lines_visible = 2 if str(c.get("counter_text", "")) != "" else 3
+	desc.max_lines_visible = 3
 	desc.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	desc.size_flags_vertical = SIZE_EXPAND_FILL
 	col.add_child(desc)
-	if str(c.get("counter_text", "")) != "":
-		var counter := _centered(str(c["counter_text"]), 20, Color(1.0, 0.86, 0.5), true)
-		counter.name = "CounterHint"
-		col.add_child(counter)
 	if c["runs_text"] != "":
 		var runs := _centered(c["runs_text"], 22, LobbyUi.GOLD if int(c["runs_left"]) != 0 else Ui.TEXT_DIM, true)
 		runs.name = "Runs"

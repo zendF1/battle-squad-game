@@ -39,7 +39,7 @@ const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const BossArt := preload("res://match/boss/boss_art.gd")
 const BossArtView := preload("res://match/boss/boss_art_view.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
-const ElementText := preload("res://ui/element_text.gd")
+const ElementBackdrop := preload("res://ui/element_backdrop.gd")
 
 const BOSS_CARD_SCALE := 0.74 # the party's compact cards in a boss queue
 const BOSS_GAP := 16 # between the boss queue's cards
@@ -187,10 +187,11 @@ func _build() -> void:
 func _team(caption: String, color: Color, enemy: bool) -> Control:
 	var col := Ui.vbox(10)
 	col.mouse_filter = MOUSE_FILTER_IGNORE
-	var label := LobbyUi.text(caption, 26, color, true)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(label)
 	var boss := _is_boss() and not enemy
+	if not _is_boss(): # a boss queue: no headers, the frames' colours tell the sides
+		var label := LobbyUi.text(caption, 26, color, true)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(label)
 	var cards: Container
 	if boss:
 		var grid := GridContainer.new()
@@ -239,9 +240,6 @@ func _boss_block() -> Vector2:
 func _boss_side() -> Control:
 	var col := Ui.vbox(10)
 	col.mouse_filter = MOUSE_FILTER_IGNORE
-	var label := LobbyUi.text("BOSS", 26, RED, true)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(label)
 	var card := _boss_card(BossArt.art_of(str(_boss.get("bossId", ""))), _boss_block(),
 		str(_boss.get("name", LobbyModel.queue_name(_queue))), str(_boss.get("bossId", "")))
 	card.name = "BossCard"
@@ -249,30 +247,38 @@ func _boss_side() -> Control:
 	return col
 
 
-## The boss card of size `at`: the figure as big as the card allows, its name under it with its
-## element's badge, then "Khắc chế: <characters>" (the game data's elements), all centred.
+## The boss card of size `at`, the enemy's red frame over its element's backdrop (ElementBackdrop:
+## the boss's element, drawn behind the figure): the figure as big as the card allows, its name
+## under it with its element's badge, both centred.
 func _boss_card(art: String, at: Vector2, name_text: String, boss_id: String = "") -> Control:
 	var card := PanelContainer.new()
 	card.custom_minimum_size = at
 	card.mouse_filter = MOUSE_FILTER_IGNORE
-	card.add_theme_stylebox_override("panel", LobbyUi.box(Color(0.12, 0.04, 0.1, 0.92), 22, 10, Color(BossArt.accent(art), 0.95), 4))
+	card.add_theme_stylebox_override("panel", LobbyUi.box(Color(0.06, 0.03, 0.08, 0.95), 22, 0))
+	var back := ElementBackdrop.new() # under everything, inside the frame
+	back.element_id = GameData.boss_element(boss_id)
+	back.radius = 22.0
+	back.name = "ElementBackdrop"
+	card.add_child(back)
+	var pad := MarginContainer.new()
+	pad.mouse_filter = MOUSE_FILTER_IGNORE
+	for side in ["left", "right", "top", "bottom"]:
+		pad.add_theme_constant_override("margin_" + side, 10)
+	card.add_child(pad)
 	var inner := Ui.vbox(8)
 	inner.alignment = BoxContainer.ALIGNMENT_CENTER
 	inner.mouse_filter = MOUSE_FILTER_IGNORE
-	card.add_child(inner)
+	pad.add_child(inner)
 	var name_label := LobbyUi.text(name_text, 34, Color.WHITE, true)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.mouse_filter = MOUSE_FILTER_IGNORE
-	var hint := ElementText.counter_hint(boss_id)
-	var hint_h := 30.0 if hint != "" else 0.0
-	inner.add_child(BossArtView.make(art, Vector2(at.x - 40, at.y - 40 - 34 * 1.45 - 8 - hint_h), -1, "portrait"))
+	inner.add_child(BossArtView.make(art, Vector2(at.x - 40, at.y - 40 - 34 * 1.45 - 8), -1, "portrait"))
 	inner.add_child(ElementBadge.name_row(name_label, GameData.boss_element(boss_id), 38, 10))
-	if hint != "":
-		var h := LobbyUi.text(hint, 22, Color(1.0, 0.86, 0.5), true)
-		h.name = "CounterHint"
-		h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		h.mouse_filter = MOUSE_FILTER_IGNORE
-		inner.add_child(h)
+	var frame := Control.new() # the enemy's red frame over it all
+	frame.mouse_filter = MOUSE_FILTER_IGNORE
+	frame.draw.connect(func() -> void:
+		frame.draw_style_box(LobbyUi.box(Color(0, 0, 0, 0), 22, 0, Color(PlayerCard.RED, 0.95), 4), Rect2(Vector2.ZERO, frame.size)))
+	card.add_child(frame)
 	return card
 
 
@@ -288,6 +294,7 @@ func _build_middle() -> Control:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.custom_minimum_size.x = CENTRE_W
+	title.visible = not _is_boss() # a boss queue: the medal, "Tìm thấy trận!" and the map only
 	col.add_child(title)
 	var sub := LobbyUi.text("" if _is_boss() else str(mode.get("description", "")), 21, Color(0.75, 0.9, 1.0))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

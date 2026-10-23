@@ -63,7 +63,7 @@ var enemy := false:
 	set(v):
 		enemy = v
 		_restyle()
-var mine := false: # my own card (gold rim, "BẠN")
+var mine := false: # my own card (the same frame as my team's, my name in yellow)
 	set(v):
 		mine = v
 		_restyle()
@@ -152,9 +152,9 @@ func _set_flash(v: float) -> void:
 	_rim_layer.queue_redraw()
 
 
+## The team's frame: my card and my teammates' the same blue (only my name is yellow), the
+## other team's red.
 func _rim() -> Color:
-	if mine:
-		return GOLD
 	return RED if enemy else BLUE
 
 
@@ -238,17 +238,6 @@ func _build() -> void:
 	col.size = Vector2(_size().x - 20, 0)
 	col.mouse_filter = MOUSE_FILTER_IGNORE
 	_content.add_child(col)
-	if mine and not compact:
-		var tag := PanelContainer.new()
-		tag.add_theme_stylebox_override("panel", LobbyUi.box(GOLD, 14, 0, LobbyUi.GOLD_DARK, 2))
-		tag.position = Vector2((_size().x - 84) / 2.0, _size().y - 46)
-		tag.custom_minimum_size = Vector2(84, 32)
-		tag.mouse_filter = MOUSE_FILTER_IGNORE
-		var t := _label("BẠN", 20, LobbyUi.TEXT_DARK)
-		t.add_theme_constant_override("outline_size", 0)
-		t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		tag.add_child(t)
-		_content.add_child(tag)
 	if empty:
 		var q := _label("?", 100, Color(1, 1, 1, 0.5))
 		q.position = Vector2(0, ART_TOP + 70)
@@ -260,7 +249,7 @@ func _build() -> void:
 		pulse.tween_property(searching, "modulate:a", 0.45, 0.8).set_trans(Tween.TRANS_SINE)
 		pulse.tween_property(searching, "modulate:a", 1.0, 0.8).set_trans(Tween.TRANS_SINE)
 		return
-	var name_label := _label(str(_player["displayName"]), 28, GOLD.lightened(0.5) if mine else Color.WHITE)
+	var name_label := _label(str(_player["displayName"]), 28, LobbyUi.GOLD if mine else Color.WHITE)
 	name_label.clip_text = true
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var element := GameData.character_element(str(_player.get("characterId", "")))
