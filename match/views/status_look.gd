@@ -7,7 +7,10 @@ extends RefCounted
 ##   and in front), a cool glow, sparkles and frost; popping out it cracks and sheds fragments;
 ## - "flames" (burn): small flames licking up the body, embers rising off it;
 ## - "web" (net): a web wrapped over the body;
-## - "vines" (root): vines and roots wound round the feet;
+## - "stone" (root): the feet buried in earth and stone rising round them, the ground cracked
+##   round it; popping out it crumbles into pebbles (Tanko's earth element);
+## - "vines": vines and roots wound round the feet (kept for a future wood boss's root; no effect
+##   maps to it now);
 ## - "stars" (stun): stars circling the head;
 ## - "aura": a good effect (an armed shot item: power_shot, drill_bomb, spider_net, freeze_bomb,
 ##   air_strike; wind_stop): a soft glow round the body in the effect's colour (AURA_COLORS; the
@@ -23,12 +26,12 @@ const GameData := preload("res://autoload/game_data_model.gd")
 const POP_IN := 0.28
 const POP_OUT := 0.22
 ## A look that takes longer to leave (s): the ice cracks, then its fragments fall.
-const POP_OUT_OF := {"ice": 0.55}
+const POP_OUT_OF := {"ice": 0.55, "stone": 0.5}
 ## The look of an effect with its own picture on the body.
-const LOOKS := {"freeze": "ice", "burn": "flames", "net": "web", "root": "vines", "stun": "stars"}
-## Back to front: the aura behind the body, the vines at its feet, the flames on it, the web over
+const LOOKS := {"freeze": "ice", "burn": "flames", "net": "web", "root": "stone", "stun": "stars"}
+## Back to front: the aura behind the body, the vines / the earth and stone at its feet, the flames on it, the web over
 ## it, the ice crystals over everything on the body, the stars round the head.
-const ORDER := ["aura", "vines", "flames", "web", "ice", "stars"]
+const ORDER := ["aura", "vines", "stone", "flames", "web", "ice", "stars"]
 ## A good effect's aura colour (DEFAULT_AURA for one not listed).
 const AURA_COLORS := {
 	"power_shot": Color(1.0, 0.42, 0.18),

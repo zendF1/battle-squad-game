@@ -260,7 +260,7 @@ func test_badge_content() -> void:
 	eq(UseBadge.content("weapon", "", ""), {}, "a normal shot: nothing")
 	eq(UseBadge.content("", "", ""), {}, "no mode: nothing")
 	eq(UseBadge.content("skill", "triple_shot", ""), {"kind": "skill", "id": "triple_shot", "name": "Mưa tên lửa"}, "rain")
-	eq(UseBadge.content("skill", "heavy_bomb", "")["name"], "Bom liên hoàn", "bomb chain")
+	eq(UseBadge.content("skill", "heavy_bomb", "")["name"], "Địa chấn liên hoàn", "bomb chain: the earth rework's name")
 	eq(UseBadge.content("skill", "shock_field", "")["name"], "Tia laze", "laser")
 	eq(UseBadge.content("skill", "healing_bloom", "")["name"], "Hoa hồi xuân", "bloom")
 	eq(UseBadge.content("skill", "nope", "")["name"], "Kỹ năng", "an unknown skill")

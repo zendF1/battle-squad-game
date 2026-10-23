@@ -127,8 +127,8 @@ func test_data_for_every_character() -> void:
 	eq(Model.info("tanko")["weapon"]["name"], "Đại pháo", "weapon name")
 	eq(Model.info("tanko")["weapon"]["wind"], "Gió đẩy ×0,3", "heavy shot")
 	eq(Model.info("spark")["weapon"]["wind"], "Gió đẩy ×1,6", "light shot")
-	eq(Model.info("tanko")["skill"]["name"], "Bom liên hoàn", "bomb chain")
-	check(Model.info("tanko")["skill"]["text"].contains("2 quả") and Model.info("tanko")["skill"]["text"].contains("+1 mỗi cấp súng"),
+	eq(Model.info("tanko")["skill"]["name"], "Địa chấn liên hoàn", "bomb chain: the earth rework's name")
+	check(Model.info("tanko")["skill"]["text"].contains("2 tảng") and Model.info("tanko")["skill"]["text"].contains("+1 mỗi cấp súng"),
 		"bomb chain at rank 0: 2 bombs, +1 per gun rank")
 	eq(Model.info("rookie")["skill"]["energy"], "Cần 100 năng lượng (+20 mỗi lượt, +10 khi bị trúng đòn)", "energy")
 	eq(Model.tint("nobody"), Model.NEUTRAL_TINT, "unknown: neutral")

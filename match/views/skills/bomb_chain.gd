@@ -1,13 +1,17 @@
 extends "res://match/views/skills/skill_view.gd"
-## Tanko — Bom liên hoàn (server skill heavy_bomb, effect bomb_chain): bombs (projectile kind
+## Tanko — Địa chấn liên hoàn (server skill heavy_bomb, effect bomb_chain; its name is the game
+## data's): earth-element boulders (projectile kind
 ## "bomb", each leaving at its launchDelay, at least 0.1 s apart) all fly the shot's own normal
 ## arc: each later one passes through the earlier craters and explodes where that arc now meets
 ## the terrain or a player (a lob digs one deep shaft onto the target, a flat shot a trench along
 ## its arc); every enemy hit is rooted. The server paces the chain so a bomb only explodes once
 ## every fall so far has landed, so the default replay (paths, explode / damage / fall events)
 ## already plays in order. On top of it:
-## - the bombs are the gun's own tier shell (ShotLook, Blaster wearers the blaster's) drawn
-##   BOMB_SCALE × a normal shell;
+## - the bombs are dirt-wrapped boulders tumbling along the path, shedding dirt crumbs and dust
+##   (boulder_shell.gd);
+## - every impact quakes the ground (bomb_chain_fx.gd quake()): cracks run out along the surface
+##   from both sides of the pit, stone spikes erupt round its rim and sink back, rocks and dust fly;
+##   the pit itself is the server's craters, each bomb carving it deeper;
 ## - the gun kicks again (recoil, muzzle smoke) as each later bomb leaves;
 ## - every explosion down in a hole (deeper than GEYSER_DEPTH under the ground beside it) throws
 ##   a geyser of dirt, dust and embers up out of it and dust rolls out over its rim
@@ -16,10 +20,12 @@ extends "res://match/views/skills/skill_view.gd"
 ##   PLAYERS_Z): every bomb is seen flying into the hole and the target stays in sight in it;
 ## - the hits on a player count up in one running number (merges_damage(), DamageTally);
 ## - the root: the "Bị cầm chân" number when it lands and the banner on the rooted player's next
-##   turn (match_screen; the status overlay on the character is drawn elsewhere).
+##   turn (match_screen); its look on the body is earth and stone rising round the feet
+##   (status_fx.gd "stone").
 
 const ShotLook := preload("res://match/views/shot_look.gd")
 const ChainFx := preload("res://match/views/skills/bomb_chain_fx.gd")
+const BoulderShell := preload("res://match/views/skills/boulder_shell.gd")
 
 ## A bomb's size against the gun's normal shell (a skill shell is already ShotLook.SKILL_SCALE).
 const BOMB_SCALE := 1.4
@@ -35,6 +41,10 @@ const GEYSER_DEPTH := 24.0
 ## players over both, so the target stays in sight while bomb after bomb goes off on it; the
 ## geyser's dirt over everything (bomb_chain_fx.gd, z 3).
 const BOMBS_Z := 1
+## The bursts tinted towards earth (dust and rock) instead of the gun's fire.
+const EARTH_BURST := ["cannon", "iron"] # ShotLook kind / tier: grey stone, a pale core
+const EARTH_TINT_FIRST := Color(1.0, 0.9, 0.74)
+const EARTH_TINT := Color(0.94, 0.82, 0.66)
 const PLAYERS_Z := 2
 
 var _fx: Node2D # ChainFx on the fx layer; frees itself once its particles are gone
@@ -67,11 +77,12 @@ static func bomb_size_k(skill: bool) -> float:
 	return BOMB_SCALE / (ShotLook.SKILL_SCALE if skill else 1.0)
 
 
+## Each bomb is a boulder (BoulderShell) instead of the gun's shell.
 func projectile_view(_i: int, _projectile: Dictionary, view: Node2D) -> Node2D:
-	if "size_k" in view:
-		view.size_k = bomb_size_k(bool(view.get("skill")))
-	view.z_index = BOMBS_Z
-	return view
+	var boulder := BoulderShell.new()
+	boulder.heading = view.get("heading") if view.get("heading") is Vector2 else Vector2.ZERO
+	boulder.z_index = BOMBS_Z
+	return boulder
 
 
 func explosion(event: Dictionary, fx: Node2D) -> void:
@@ -79,8 +90,15 @@ func explosion(event: Dictionary, fx: Node2D) -> void:
 	var at: Vector2 = fx.position
 	fx.radius = blast_px(_blasts - 1, fx.radius)
 	var crater := float(event.get("radius", fx.radius))
+	# an earth blast: the cannon's burst in its grey-stone palette (EARTH_BURST), warmed to dust
+	fx.kind = EARTH_BURST[0]
+	fx.tier = EARTH_BURST[1]
+	fx.modulate = EARTH_TINT if _blasts > 1 else EARTH_TINT_FIRST
 	if _blasts == 1:
 		_first_y = at.y
+	if _fx != null and is_instance_valid(_fx):
+		_fx.quake(at, crater, surface_y, _blasts - 1)
+	if _blasts == 1:
 		return
 	fx.skill = false # no skill flash on every later bomb
 	var rim := rim_y(at, crater)
@@ -121,6 +139,15 @@ func end() -> void:
 		if is_instance_valid(view):
 			view.z_index = _z[view]
 	_z.clear()
+
+
+## The ground's top at x (the terrain's first solid px from the top; without terrain the first
+## explosion's y).
+func surface_y(x: float) -> float:
+	var mask = ctx.get("terrain")
+	if mask == null or not mask.has_method("get_landing_y"):
+		return _first_y if not is_nan(_first_y) else 0.0
+	return mask.get_landing_y(x, 0.0)
 
 
 ## The ground beside an explosion at `at` whose crater is `crater` (already carved): the higher of

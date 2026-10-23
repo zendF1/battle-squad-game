@@ -157,7 +157,7 @@ func test_description_templates() -> void:
 	eq(GameData.skill_describe("triple_shot", 0),
 		"Bắn pháo hiệu, 12 tên lửa rơi quanh chỗ đáp (+4 mỗi cấp súng), mỗi quả 25% sát thương; địch trúng bị bỏng: mất 10% máu tối đa đầu lượt sau.",
 		"the contract's example")
-	check(GameData.skill_describe("heavy_bomb", 4).contains("6 quả") and GameData.skill_describe("heavy_bomb", 4).contains("mỗi quả 34%"), "bombs rank 4")
+	check(GameData.skill_describe("heavy_bomb", 4).contains("6 tảng") and GameData.skill_describe("heavy_bomb", 4).contains("mỗi tảng 34%"), "bombs rank 4")
 	eq(GameData.skill_describe("shock_field", 9), GameData.skill_describe("shock_field", 4), "a rank past the max: the max")
 	eq(GameData.fill_template("{a} + {b} = {c}%, {missing}, {", {"a": 12.0, "b": 0.15, "c": 12.5}), "12 + 0.15 = 12.5%, {missing}, {", "numbers, unknown keys kept")
 	eq(GameData.fill_template("{a}{a}", {"a": 3}), "33", "twice")

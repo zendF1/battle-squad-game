@@ -230,8 +230,8 @@
       {
         "skillId": "heavy_bomb",
         "characterId": "tanko",
-        "name": "Bom liên hoàn",
-        "description": "Bắn {count} quả bom lớn liên tiếp cùng đường bay (+{countPerRank} mỗi cấp súng), đào sâu một hố; mỗi quả {eachPct}% sát thương, mỗi địch nhận tối đa {capPct}%; địch trúng bị cầm chân lượt sau.",
+        "name": "Địa chấn liên hoàn",
+        "description": "Ném {count} tảng đá bọc đất liên tiếp cùng đường bay (+{countPerRank} mỗi cấp súng), mặt đất nứt toác thành hố sâu; mỗi tảng {eachPct}% sát thương, mỗi địch nhận tối đa {capPct}%; địch trúng bị đất đá vùi chân, cầm chân lượt sau.",
         "effectType": "bomb_chain",
         "statusEffectId": "root",
         "aimKind": "arc",

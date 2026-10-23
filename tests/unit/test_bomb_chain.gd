@@ -8,6 +8,8 @@ extends "res://tests/test_case.gd"
 const FIXTURE := "res://tests/fixtures/skill_bombchain.json"
 const ShotTimeline := preload("res://match/shot/shot_timeline.gd")
 const ShotLook := preload("res://match/views/shot_look.gd")
+const BoulderShell := preload("res://match/views/skills/boulder_shell.gd")
+const UnitShell := preload("res://match/views/unit_shell.gd")
 const ProjectileView := preload("res://match/views/projectile_view.gd")
 const ExplosionFx := preload("res://match/views/explosion_fx.gd")
 const BombChain := preload("res://match/views/skills/bomb_chain.gd")
@@ -56,16 +58,50 @@ func test_server_chain_is_coherent_to_replay() -> void:
 
 
 func test_bomb_size_and_order() -> void:
-	near(BombChain.bomb_size_k(true) * ShotLook.SKILL_SCALE, BombChain.BOMB_SCALE, 1e-6, "a skill bomb is 1.4 × a normal shell")
-	near(BombChain.bomb_size_k(false), BombChain.BOMB_SCALE, 1e-6, "without the skill look")
+	near(BombChain.bomb_size_k(true) * ShotLook.SKILL_SCALE, BombChain.BOMB_SCALE, 1e-6, "bomb_size_k kept: 1.4 × a normal shell")
 	var v := BombChain.new()
 	var view: Node2D = ProjectileView.new()
 	view.skill = true
+	view.heading = Vector2(1, -1)
 	var out: Node2D = v.projectile_view(1, {"kind": "bomb"}, view)
-	check(out == view, "the gun's own shell is kept")
-	near(view.size_k * ShotLook.SKILL_SCALE, 1.4, 1e-6, "size_k set")
-	eq(view.z_index, BombChain.BOMBS_Z, "bombs over the explosions")
+	check(out != view and out is BoulderShell, "each bomb is a dirt-wrapped boulder")
+	eq(out.heading, Vector2(1, -1), "it keeps the path's start direction")
+	eq(out.z_index, BombChain.BOMBS_Z, "boulders over the explosions")
+	near(out.radius, UnitShell.player_shell_px() * BoulderShell.SIZE_K, 1e-4, "sized by a player's shell")
+	var shape: PackedVector2Array = out.shape()
+	check(shape.size() >= 10 and Array(shape).all(func(p): return p.length() > 0.7 and p.length() < 1.3), "a lumpy round outline")
 	view.free()
+	out.free()
+
+
+func test_boulder_trail() -> void:
+	var b := BoulderShell.new()
+	var host := Node2D.new()
+	host.add_child(b)
+	b.set_tangent(Vector2(400, -200))
+	for i in 20:
+		b.position += Vector2(8, -4)
+		b._process(1.0 / 60.0)
+	check(b.trail_alive() > 0, "crumbs and dust fall off it as it flies")
+	check(b.trail_alive() <= BoulderShell.POOL, "a fixed pool")
+	host.free()
+
+
+func test_quake_spikes_and_cracks() -> void:
+	var fx := ChainFx.new()
+	fx.quake(Vector2(500, 400), 20.0, func(_x): return 390.0, 0)
+	eq(fx.spikes(), 6, "three stone spikes each side of the rim")
+	eq(fx.cracks(), 4, "two cracks run out each side")
+	check(fx.alive() > 0, "rocks and dust fly")
+	eq(ChainFx.spike_k(0.0, 0.05), 0.0, "not before its delay")
+	near(ChainFx.spike_k(0.05 + ChainFx.SPIKE_RISE, 0.05), 1.0, 1e-4, "erupted")
+	check(ChainFx.spike_k(0.05 + ChainFx.SPIKE_RISE * 0.7, 0.05) > 1.0, "with an overshoot")
+	near(ChainFx.spike_k(0.05 + ChainFx.SPIKE_RISE + ChainFx.SPIKE_HOLD + ChainFx.SPIKE_SINK * 0.5, 0.05), 0.5, 1e-4, "sinking back")
+	eq(ChainFx.spike_k(5.0, 0.0), 0.0, "gone")
+	for i in 120:
+		fx._process(1.0 / 60.0)
+	eq([fx.spikes(), fx.cracks()], [0, 0], "they all go")
+	fx.free()
 
 
 func test_explosions_and_geyser() -> void:
@@ -87,7 +123,7 @@ func test_explosions_and_geyser() -> void:
 	check(fx.skill, "the first keeps the skill look")
 	near(v.rim_y(Vector2(1031, 630), 120.0), 516.0, 1e-6, "no terrain: the rim is the first explosion's y")
 	var chain_fx: Node2D = layer.get_child(0)
-	eq(chain_fx.alive(), 0, "no geyser for the surface blast")
+	eq(chain_fx.alive(), ChainFx.QUAKE_PARTICLES, "no geyser for the surface blast: only its quake's rocks and dust")
 	var fx2: Node2D = ExplosionFx.new()
 	fx2.radius = 123.8
 	fx2.skill = true
@@ -100,7 +136,7 @@ func test_explosions_and_geyser() -> void:
 	var fx3: Node2D = ExplosionFx.new()
 	fx3.position = Vector2(1300, 510)
 	v.explosion({"type": "explode", "radius": 80.0}, fx3)
-	eq(chain_fx.alive(), n, "a blast up on the surface throws no geyser")
+	eq(chain_fx.alive(), n + ChainFx.QUAKE_PARTICLES, "a blast up on the surface throws no geyser (its quake only)")
 	fx3.free()
 	for i in 40:
 		v.explosion({"type": "explode", "radius": 60.0}, fx2)

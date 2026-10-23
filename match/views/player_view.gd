@@ -231,7 +231,8 @@ func _place_element() -> void:
 	var fs: int = _name.get_theme_font_size("font_size")
 	var w := font.get_string_size(_name.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x if _name.text != "" else 0.0
 	var d: float = _element.size.x
-	_element.position = Vector2(-minf(w, _name.size.x) / 2.0 - ELEMENT_GAP - d, _name.position.y + (_name.size.y - d) / 2.0)
+	var x := -minf(w, _name.size.x) / 2.0 - ELEMENT_GAP - d if w > 0.0 else -d / 2.0 # no name: centred alone
+	_element.position = Vector2(x, _name.position.y + (_name.size.y - d) / 2.0)
 
 
 ## The element badge before the name (tests).

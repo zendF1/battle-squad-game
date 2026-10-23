@@ -15,7 +15,7 @@ func test_every_character_has_its_server_skill() -> void:
 
 func test_names() -> void:
 	eq(Skills.for_character("rookie")["name"], "Mưa tên lửa", "rookie")
-	eq(Skills.for_character("tanko")["name"], "Bom liên hoàn", "tanko")
+	eq(Skills.for_character("tanko")["name"], "Địa chấn liên hoàn", "tanko")
 	eq(Skills.for_character("spark")["name"], "Tia laze", "spark")
 	eq(Skills.for_character("flora")["name"], "Hoa hồi xuân", "flora")
 
@@ -58,10 +58,10 @@ func test_rank_of_player() -> void:
 func test_describe_has_rank_numbers() -> void:
 	check(Skills.describe("rookie", 0).contains("12 tên lửa"), "rain rank 0: 12")
 	check(Skills.describe("rookie", 4).contains("28 tên lửa"), "rain rank 4: 28")
-	check(Skills.describe("tanko", 2).contains("4 quả"), "bombs rank 2: 4")
-	check(Skills.describe("tanko", 0).contains("mỗi quả 60%"), "bombs rank 0: 60% each")
+	check(Skills.describe("tanko", 2).contains("4 tảng"), "bombs rank 2: 4")
+	check(Skills.describe("tanko", 0).contains("mỗi tảng 60%"), "bombs rank 0: 60% each")
 	check(Skills.describe("tanko", 0).contains("tối đa 120%"), "bombs rank 0: cap 120%")
-	check(Skills.describe("tanko", 4).contains("mỗi quả 34%") and Skills.describe("tanko", 4).contains("tối đa 180%"), "bombs rank 4: 34% each, cap 180%")
+	check(Skills.describe("tanko", 4).contains("mỗi tảng 34%") and Skills.describe("tanko", 4).contains("tối đa 180%"), "bombs rank 4: 34% each, cap 180%")
 	check(Skills.describe("spark", 4).contains("190%"), "laser rank 4: 190%")
 	check(Skills.describe("flora", 4).contains("60%") and Skills.describe("flora", 4).contains("50%"), "bloom rank 4")
 	eq(Skills.describe("nobody"), "", "unknown")

@@ -8,7 +8,9 @@ extends Node2D
 ## fanned round its base behind and in front, each facet shaded with a violet-to-white gradient,
 ## white lit edges, a light sweeping up them, a cool glow, sparkles, frost; they grow in one after
 ## another and crack and shatter popping out), flames licking up it with embers, a web wrapped
-## over it, vines wound round the feet (in front of the legs and behind them), stars circling the
+## over it, earth and stone heaped round the feet (root: a mound rising with stones in it and
+## shards jutting up, the ground cracked round it; crumbling into pebbles popping out; the vines
+## wound round the feet stay drawn for a future wood boss, no effect uses them now), stars circling the
 ## head (the far ones behind it) and a soft aura behind the body with a few motes rising. Each
 ## pops in and out (StatusLook.pop_scale / pop_alpha; the vines and the crystals grow up from the
 ## ground instead). All computed from the time in _draw(); off (nothing to draw) it neither
@@ -145,6 +147,7 @@ func _draw() -> void:
 	for l in look.layers():
 		match str(l["look"]):
 			"vines": _vines(self, l, true)
+			"stone": _stone(self, l, true)
 			"flames": _flames(l)
 			"web": _web(l)
 			"ice": _ice(self, l, true)
@@ -159,6 +162,7 @@ func draw_back(ci: CanvasItem) -> void:
 		match str(l["look"]):
 			"aura": _aura(ci, l)
 			"vines": _vines(ci, l, false)
+			"stone": _stone(ci, l, false)
 			"ice": _ice(ci, l, false)
 			"stars": _stars(ci, l, false)
 
@@ -595,7 +599,135 @@ func _web(l: Dictionary) -> void:
 	draw_circle(c, 2.4 * s * k, Color(WEB, 0.9 * a))
 
 
-# ── Vines (root) ────────────────────────────────────────────────────────────
+# ── Stone (root) ────────────────────────────────────────────────────────────
+
+const EARTH := Color(0.46, 0.32, 0.19)
+const EARTH_LIT := Color(0.6, 0.44, 0.27)
+const EARTH_DARK := Color(0.3, 0.2, 0.12)
+const ROCK := Color(0.6, 0.56, 0.5)
+const ROCK_LIT := Color(0.8, 0.76, 0.68)
+const ROCK_DARK := Color(0.4, 0.36, 0.32)
+const ROCK_INK := Color(0.13, 0.09, 0.06)
+const MOUND_H := 0.34 # the mound's height over the feet, of the figure's height
+## Stones set in the mound: [x of its half width (-1..1), y of the mound's height (0 the ground ..
+## 1 its top), radius of the figure's height, seed].
+const STONES := [[-0.62, 0.38, 0.085, 0.3], [0.1, 0.62, 0.1, 1.7], [0.7, 0.32, 0.075, 2.9], [-0.18, 0.2, 0.065, 4.1], [0.42, 0.78, 0.06, 5.3]]
+## Shards jutting up out of the mound: [x of its half width, height of the figure's, lean].
+const STONE_SHARDS := [[-0.88, 0.2, -0.35], [0.9, 0.24, 0.3], [-0.38, 0.12, -0.15]]
+const PEBBLES := 12
+const PEBBLE_FALL := 700.0 # px/s² (× the scale)
+
+
+## How far the mound has risen (0..1): growing up from the ground popping in (eased out), sinking
+## while it crumbles popping out.
+static func stone_rise(k: float, popping_out: bool) -> float:
+	if popping_out:
+		return clampf(k * 1.2 - 0.2, 0.0, 1.0)
+	var g := clampf(k * 1.15, 0.0, 1.0)
+	return 1.0 - pow(1.0 - g, 3.0)
+
+
+## The root's earth. Back: the cracked ground round the feet and the mound's back slope behind the
+## legs. Front: the mound in front of the legs with stones set in it and stone shards jutting up;
+## popping out the mound sinks as pebbles burst off it and fall.
+func _stone(ci: CanvasItem, l: Dictionary, front: bool) -> void:
+	var s := _s()
+	var a: float = l["alpha"] if not l["popping_out"] else 1.0
+	var leaving: bool = l["popping_out"]
+	var rise := stone_rise(float(l["k"]), leaving)
+	var half := width * 0.62 + 4.0 * s
+	var mh := height * MOUND_H * rise
+	if not front:
+		# cracks across the ground round the mound, radiating out (squashed onto the ground plane)
+		var crack_a := a * (1.0 if not leaving else clampf(float(l["k"]) * 1.5, 0.0, 1.0))
+		for i in 7:
+			var ang := lerpf(PI * 1.06, PI * 1.94, i / 6.0) + _hash(i * 3.1) * 0.2
+			var dir := Vector2(cos(ang), sin(ang) * -0.3)
+			var p0 := dir * half * 0.8
+			var pts := PackedVector2Array([p0])
+			var reach := half * (0.35 + 0.4 * _hash(i * 1.7)) * clampf(rise * 1.3, 0.0, 1.0)
+			for j in 3:
+				var f := (j + 1) / 3.0
+				pts.append(p0 + dir * reach * f + dir.orthogonal() * (_hash(i + j * 2.3) - 0.5) * 3.0 * s)
+			ci.draw_polyline(pts, Color(ROCK_INK, 0.5 * crack_a), 1.2 * s, true)
+		if mh > 0.5:
+			ci.draw_colored_polygon(_mound(half * 0.92, mh * 1.08, 1.3), Color(EARTH_DARK, a))
+		return
+	if mh > 0.5:
+		var mound := _mound(half, mh, 0.0)
+		ci.draw_colored_polygon(mound, Color(EARTH, a))
+		ci.draw_colored_polygon(_mound(half * 0.7, mh * 0.82, 2.1, Vector2(-half * 0.16, 0)), Color(EARTH_LIT, 0.55 * a))
+		var ring := mound.duplicate()
+		ring.append(mound[0])
+		ci.draw_polyline(ring, Color(ROCK_INK, 0.9 * a), 2.0 * s, true)
+		for st in STONE_SHARDS:
+			var base := Vector2(float(st[0]) * half, -mh * 0.5)
+			var h := height * float(st[1]) * rise
+			if h > 1.0:
+				_rock_shard(ci, base, h, 4.0 * s, float(st[2]), a)
+		for st in STONES:
+			var c := Vector2(float(st[0]) * half * 0.85, -mh * float(st[1]))
+			_rock(ci, c, height * float(st[2]) * (0.5 + 0.5 * rise), float(st[3]), a)
+	if leaving: # crumbling: pebbles burst off the mound and fall
+		var u := (1.0 - float(l["k"])) * StatusLook.pop_out_sec("stone") # s since it started
+		for i in PEBBLES:
+			var x0 := lerpf(-0.9, 0.9, _hash(i * 1.37)) * half
+			var y0 := -height * MOUND_H * (0.2 + 0.7 * _hash(i * 2.11))
+			var v := Vector2(x0 * 3.0 + (_hash(i * 0.7) - 0.5) * 60.0 * s, -(70.0 + 90.0 * _hash(i * 4.3)) * s)
+			var p := Vector2(x0, y0) + v * u + Vector2(0, 0.5 * PEBBLE_FALL * s * u * u)
+			if p.y > 2.0 * s:
+				p.y = 2.0 * s # they land on the ground
+			var fade := clampf(1.0 - u / StatusLook.pop_out_sec("stone"), 0.0, 1.0)
+			_rock(ci, p, (2.2 + 2.0 * _hash(i * 5.9)) * s, float(i), fade)
+
+
+## A lumpy mound of earth `half` wide each side and `h` tall over the feet (its seed shifts the
+## bumps), its foot a little under the ground line.
+func _mound(half: float, h: float, seed: float, off: Vector2 = Vector2.ZERO) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	var n := 14
+	for i in n + 1:
+		var t := i / float(n)
+		var x := lerpf(-half, half, t)
+		var bump := 1.0 + 0.16 * sin(t * 17.0 + seed) + 0.1 * sin(t * 31.0 + seed * 2.0)
+		var y := -h * pow(sin(t * PI), 0.6) * bump
+		pts.append(off + Vector2(x, y))
+	pts.append(off + Vector2(half * 0.8, 3.0 * _s()))
+	pts.append(off + Vector2(-half * 0.8, 3.0 * _s()))
+	return pts
+
+
+## A rounded stone at c (radius r): shaded from the upper left, an ink outline.
+func _rock(ci: CanvasItem, c: Vector2, r: float, seed: float, a: float) -> void:
+	if r < 0.5 or a <= 0.0:
+		return
+	var pts := PackedVector2Array()
+	for i in 8:
+		var ang := TAU * i / 8.0
+		pts.append(c + Vector2(cos(ang), sin(ang) * 0.78) * r * (0.85 + 0.25 * _hash(seed * 3.0 + i)))
+	ci.draw_colored_polygon(pts, Color(ROCK_DARK, a))
+	var lit := PackedVector2Array()
+	for p in pts:
+		lit.append(c + (p - c) * 0.78 + Vector2(-0.15, -0.18) * r)
+	ci.draw_colored_polygon(lit, Color(ROCK, a))
+	ci.draw_circle(c + Vector2(-0.35, -0.35) * r, r * 0.22, Color(ROCK_LIT, a))
+	var ring := pts.duplicate()
+	ring.append(pts[0])
+	ci.draw_polyline(ring, Color(ROCK_INK, a), maxf(1.0, r * 0.22), true)
+
+
+## A stone shard jutting up from base, h tall, w half wide at its foot, leaning `lean`.
+func _rock_shard(ci: CanvasItem, base: Vector2, h: float, w: float, lean: float, a: float) -> void:
+	var tip := base + Vector2(lean * h, -h)
+	var left := base + Vector2(-w, 0)
+	var right := base + Vector2(w, 0)
+	var mid := base + Vector2(w * 0.1, 0)
+	ci.draw_colored_polygon(PackedVector2Array([left, tip, mid]), Color(ROCK_LIT, a))
+	ci.draw_colored_polygon(PackedVector2Array([mid, tip, right]), Color(ROCK_DARK, a))
+	ci.draw_polyline(PackedVector2Array([left, tip, right]), Color(ROCK_INK, a), 1.6 * _s(), true)
+
+
+# ── Vines (a future wood boss's root; no effect maps to it now) ─────────────
 
 ## front: the parts of the vines in front of the legs (and the soil), else those behind.
 func _vines(ci: CanvasItem, l: Dictionary, front: bool) -> void:

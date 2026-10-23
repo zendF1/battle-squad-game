@@ -14,7 +14,7 @@ static func _fx(ids: Array, turns: int = 2) -> Array:
 
 
 func test_every_game_data_effect_has_a_look() -> void:
-	var want := {"freeze": "ice", "burn": "flames", "net": "web", "root": "vines", "stun": "stars"}
+	var want := {"freeze": "ice", "burn": "flames", "net": "web", "root": "stone", "stun": "stars"}
 	for id in GameData.status_ids():
 		var look := StatusLook.look_of(id)
 		check(StatusLook.ORDER.has(look), "%s has a look (%s)" % [id, look])
@@ -24,9 +24,19 @@ func test_every_game_data_effect_has_a_look() -> void:
 			eq(look, "aura", "%s, a good effect: an aura" % id)
 
 
+func test_stone_root() -> void:
+	eq(StatusLook.look_of("root"), "stone", "root is earth and stone at the feet")
+	check(StatusLook.ORDER.has("vines"), "the vines look is kept (a future wood boss)")
+	check(StatusLook.pop_out_sec("stone") > StatusLook.POP_OUT, "it takes its time crumbling")
+	eq(StatusFx.stone_rise(0.0, false), 0.0, "rises from the ground")
+	eq(StatusFx.stone_rise(1.0, false), 1.0, "risen")
+	check(StatusFx.stone_rise(0.5, false) > 0.5, "eased out")
+	eq(StatusFx.stone_rise(0.1, true), 0.0, "crumbled down at the end of its pop out")
+
+
 func test_looks_stack_back_to_front() -> void:
 	var looks := StatusLook.looks_of(_fx(["stun", "freeze", "root", "power_shot", "net", "burn"]))
-	eq(looks.keys(), ["aura", "vines", "flames", "web", "ice", "stars"], "ORDER, each once")
+	eq(looks.keys(), ["aura", "stone", "flames", "web", "ice", "stars"], "ORDER, each once")
 	eq(StatusLook.looks_of(_fx(["burn", "burn"])).keys(), ["flames"], "the same effect twice: one look")
 	eq(StatusLook.looks_of([{"effectId": "stun", "durationTurn": 0}]), {}, "an expired effect: nothing")
 	eq(StatusLook.looks_of(null), {}, "null")
@@ -119,7 +129,7 @@ func _view(p: Dictionary) -> Node2D:
 
 func test_player_view_draws_on_the_body() -> void:
 	var v := _view({"statusEffects": _fx(["root", "stun"]), "shield": 200})
-	eq(v.status_looks(), ["vines", "stars"], "the effects on the body")
+	eq(v.status_looks(), ["stone", "stars"], "the effects on the body")
 	check(not v.has_method("status_icons"), "no icons by the HP bar")
 	var fx: StatusFx = v.status_fx()
 	check(fx.visible and fx.back != null and fx.back.visible, "drawn, front and back")
@@ -128,10 +138,10 @@ func test_player_view_draws_on_the_body() -> void:
 	v.set_status(_fx(["root"]))
 	for i in 10:
 		fx.look.step(0.05)
-	eq(v.status_looks(), ["vines"], "the stun ended: its stars gone")
+	eq(v.status_looks(), ["stone"], "the stun ended: its stars gone")
 	v.set_dead()
-	for i in 10:
-		fx.look.step(0.05)
+	for i in 12:
+		fx.look.step(0.05) # the earth crumbles away over StatusLook.pop_out_sec("stone")
 	eq(v.status_looks(), [], "dead: nothing on the body")
 	v.set_status(_fx(["burn"]))
 	eq(v.status_looks(), [], "nothing comes back on a dead body")
