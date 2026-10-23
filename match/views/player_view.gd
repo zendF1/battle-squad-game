@@ -5,7 +5,7 @@ extends Node2D
 ## above it the small plate of the title it wears (the payload's "title", TitleModel; none for
 ## bots: nothing drawn, no gap) and above that the markers of its armed shot modifiers
 ## (match/status_effects.gd); the turn arrow rises over the plate too. Its status effects are drawn
-## on the body, no icons beside the HP bar (match/views/status_fx.gd, StatusLook: an ice block,
+## on the body, no icons beside the HP bar (match/views/status_fx.gd, StatusLook: ice crystals,
 ## flames, a web, vines at the feet, stars round the head, a buff's aura; scaled to the body, the
 ## boss's and minions' too); the shield shows on the HP bar as a light-blue segment after
 ## the HP (the bar then spans HP + shield when they pass the max HP), and as a bubble round the body

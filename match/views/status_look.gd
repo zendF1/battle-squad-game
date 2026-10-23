@@ -2,7 +2,9 @@ extends RefCounted
 ## What a unit's status effects look like on its body (match/views/status_fx.gd draws it, one
 ## per PlayerView; no icons beside the HP bar): each active effect (match/status_effects.gd
 ## active()) maps to one look, drawn on the figure:
-## - "ice" (freeze): the body encased in a translucent ice block, frost round its base;
+## - "ice" (freeze): the body frozen inside a cluster of faceted crystals grown from the ground at
+##   its feet (a tall see-through one over the body, smaller ones fanned round its base, behind
+##   and in front), a cool glow, sparkles and frost; popping out it cracks and sheds fragments;
 ## - "flames" (burn): small flames licking up the body, embers rising off it;
 ## - "web" (net): a web wrapped over the body;
 ## - "vines" (root): vines and roots wound round the feet;
@@ -12,18 +14,20 @@ extends RefCounted
 ##   colours of several mixed); a bad effect with no look of its own (one the game data adds)
 ##   shows as a dull violet aura (CURSE).
 ## The shield keeps its own bubble (match/views/shield_ball.gd). Each look pops in over POP_IN s
-## when its effect starts and pops out over POP_OUT s when it ends (set_effects(), clear() on
-## death); step() moves them on. Looks stack in ORDER, back to front. Pure: no nodes.
+## when its effect starts and pops out over pop_out_sec() s when it ends (set_effects(), clear()
+## on death); step() moves them on. Looks stack in ORDER, back to front. Pure: no nodes.
 
 const Status := preload("res://match/status_effects.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
 const POP_IN := 0.28
 const POP_OUT := 0.22
+## A look that takes longer to leave (s): the ice cracks, then its fragments fall.
+const POP_OUT_OF := {"ice": 0.55}
 ## The look of an effect with its own picture on the body.
 const LOOKS := {"freeze": "ice", "burn": "flames", "net": "web", "root": "vines", "stun": "stars"}
 ## Back to front: the aura behind the body, the vines at its feet, the flames on it, the web over
-## it, the ice block over everything on the body, the stars round the head.
+## it, the ice crystals over everything on the body, the stars round the head.
 const ORDER := ["aura", "vines", "flames", "web", "ice", "stars"]
 ## A good effect's aura colour (DEFAULT_AURA for one not listed).
 const AURA_COLORS := {
@@ -99,7 +103,7 @@ func step(dt: float) -> void:
 		if int(l["dir"]) > 0:
 			l["k"] = minf(1.0, float(l["k"]) + dt / POP_IN)
 		else:
-			l["k"] = maxf(0.0, float(l["k"]) - dt / POP_OUT)
+			l["k"] = maxf(0.0, float(l["k"]) - dt / pop_out_sec(look))
 			if float(l["k"]) <= 0.0:
 				_layers.erase(look)
 
@@ -145,6 +149,11 @@ func animating() -> bool:
 		if int(l["dir"]) < 0 or float(l["k"]) < 1.0:
 			return true
 	return false
+
+
+## How long a look takes to pop out (s): POP_OUT_OF, else POP_OUT.
+static func pop_out_sec(look: String) -> float:
+	return float(POP_OUT_OF.get(look, POP_OUT))
 
 
 ## The size a look is drawn at through its pop: in, it overshoots a little and settles (ease out

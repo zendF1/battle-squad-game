@@ -68,10 +68,11 @@ func test_pop_in_and_out() -> void:
 	l.step(1.0)
 	l.set_effects(_fx(["burn"]))
 	check(l.has("ice") and l.layers()[1]["popping_out"], "the freeze ended: the ice pops out")
-	l.step(StatusLook.POP_OUT * 0.5)
+	l.step(StatusLook.pop_out_sec("ice") * 0.5)
 	var out: Dictionary = l.layers()[1]
 	check(out["scale"] > 1.0 and out["alpha"] < 1.0, "swelling as it fades (%s)" % out)
-	l.step(StatusLook.POP_OUT)
+	check(l.has("ice"), "the ice still cracking and shedding (%s s)" % StatusLook.pop_out_sec("ice"))
+	l.step(StatusLook.pop_out_sec("ice") * 0.6)
 	eq(l.looks(), ["flames"], "gone")
 	l.set_effects(_fx(["burn"]))
 	l.step(0.01)
@@ -153,3 +154,34 @@ func test_scales_with_the_body() -> void:
 	eq(minion.status_looks(), ["web"], "a minion netted")
 	for v in [player, boss, minion]:
 		v.get_parent().free()
+
+
+func test_ice_crystal_cluster() -> void:
+	var fx: StatusFx = StatusFx.new()
+	fx.height = 53.0
+	fx.width = 32.0
+	var cl: Array = fx._ice_cluster()
+	var cores := cl.filter(func(c): return c["core"])
+	var back := cl.filter(func(c): return not c["front"])
+	var fore := cl.filter(func(c): return c["front"] and not c["core"])
+	eq(cores.size(), 1, "a player: one core crystal over the body")
+	check(back.size() >= 2 and fore.size() >= 2 and back.size() + fore.size() <= 6, "4-6 smaller ones, behind and in front (%d / %d)" % [back.size(), fore.size()])
+	check(float(cores[0]["face"]) >= 0.35 and float(cores[0]["face"]) <= 0.5, "the core see-through (%f)" % cores[0]["face"])
+	check(float(cores[0]["hw"]) * 2.0 > fx.width, "the core covers the body")
+	eq(cl.find(cores[0]), back.size(), "drawn after the back ones, before the front ones")
+	fx.height = 174.0 # the lava crab: wide and low
+	fx.width = 250.0
+	cl = fx._ice_cluster()
+	cores = cl.filter(func(c): return c["core"])
+	eq(cores.size(), 2, "a wide boss: two cores side by side, not one squat block")
+	for c in cl:
+		check(float(c["len"]) <= fx.height * 1.2, "every crystal within the body's height (%f)" % c["len"])
+	near(StatusFx._grow(0.0), 0.0, 1e-6, "grows from nothing")
+	near(StatusFx._grow(1.0), 1.0, 1e-6, "to its size")
+	var peak := 0.0
+	for i in 21:
+		peak = maxf(peak, StatusFx._grow(i / 20.0))
+	check(peak > 1.03 and peak < 1.2, "a slight overshoot (%f)" % peak)
+	check(StatusLook.pop_out_sec("ice") > StatusLook.POP_OUT, "the ice takes longer to leave: it cracks and sheds")
+	near(StatusLook.pop_out_sec("stars"), StatusLook.POP_OUT, 1e-6, "the others as before")
+	fx.free()
