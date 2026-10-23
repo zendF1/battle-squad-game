@@ -24,9 +24,17 @@ extends Node2D
 ## frame tinted icy white while cracks spread over her, a held freeze-frame, then she shatters: the
 ## figure fades and swells away while ice shards (the witch's shard art) burst out and fall, with a
 ## frost puff and a few sparkles. Without frames everything is as before (BossArt, the death fade).
+## A boss with a skinned idle (Art.boss_skin(): her portrait on a skeleton, BossSkinView) shows it
+## instead of the idle frames, on the same feet and body height, and floats by its hover
+## (SkinIdle.hover()) in every animation, so idle ↔ fly / cast do not jump. One with a skinned glide
+## (Art.boss_skin(art, "fly"): her side view, SkinFly) glides on it during a hover move instead of the
+## fly frames: the lean and the streaming cape blend in over SkinFly.BLEND_SEC, the cape settles
+## with a little overshoot on landing (it shows until settled), the bob blends to the glide's smaller one.
 
 const BossArt := preload("res://match/boss/boss_art.gd")
 const BossAnim := preload("res://match/boss/boss_anim.gd")
+const BossSkinView := preload("res://match/boss/boss_skin_view.gd")
+const SkinIdle := preload("res://match/boss/skin_idle.gd")
 const Art := preload("res://ui/art.gd")
 const BomberModel := preload("res://match/boss/bomber_model.gd")
 const ShieldBall := preload("res://match/views/shield_ball.gd")
@@ -112,6 +120,10 @@ var _cracks: Array = [] # [PackedVector2Array] texture px, spreading over CRACK_
 var _bits: Array = [] # the shatter's shards [{p, v, r, rot, spin}] (local px)
 var _sparks: Array = [] # [{p, r, delay}]
 static var _shader: Shader
+var _skin := {} # the skinned idle (Art.boss_skin()); {} the idle frames
+var _skin_view: BossSkinView
+var _fly_view: BossSkinView # the skinned glide (Art.boss_skin(art, "fly")); null: the fly frames
+var _flying_now := false # a hover move under way (set_flight())
 
 
 func setup(art_id: String, height_px: float) -> void:
@@ -143,6 +155,24 @@ func setup(art_id: String, height_px: float) -> void:
 		_over.name = "DeathFx"
 		_over.draw.connect(_draw_shatter)
 		add_child(_over)
+		_skin = Art.boss_skin(art)
+		if not _skin.is_empty():
+			_skin_view = BossSkinView.new()
+			_skin_view.name = "Skin"
+			_skin_view.setup(_skin)
+			_skin_view.set_shader_material(_mat)
+			add_child(_skin_view)
+			move_child(_skin_view, 1) # over the frames' node, under the shield ball
+		var fly := Art.boss_skin(art, "fly")
+		if not fly.is_empty():
+			_fly_view = BossSkinView.new()
+			_fly_view.name = "Glide"
+			_fly_view.setup(fly)
+			_fly_view.set_shader_material(_mat)
+			add_child(_fly_view)
+			move_child(_fly_view, 1)
+		if _skin_view != null:
+			_place_skin()
 
 
 func _process(delta: float) -> void:
@@ -161,6 +191,12 @@ func _process(delta: float) -> void:
 	if _anim != null:
 		_anim.stunned = _stunned and not _dead
 		_anim.step(delta)
+	if _fly_view != null:
+		_fly_view.glide(delta, _flying_now and not _dead)
+	if _skin_view != null:
+		_skin_view.advance(delta * (BossAnim.STUN_SPEED if _stunned and not _dead else 1.0))
+	if _skin_view != null or _fly_view != null:
+		_place_skin()
 	if _prime > 0.0:
 		_prime = maxf(0.0, _prime - delta)
 		var k := 1.0 - _prime / maxf(_prime_sec, 0.01)
@@ -395,6 +431,7 @@ func anim() -> BossAnim:
 
 ## A hover move (UnitFlew) starts / ends: the fly loop while it lasts.
 func set_flight(on: bool) -> void:
+	_flying_now = on
 	if _anim != null:
 		_anim.set_flying(on)
 
@@ -450,7 +487,60 @@ func _step_death(delta: float) -> void:
 
 ## The body's centre now (local px; the hover bob of the frame).
 func _centre() -> Vector2:
-	return Vector2(0, BossArt.bob(art, _t, flying) * height / BossArt.UNIT - height * 0.5)
+	return Vector2(0, _bob_px() - height * 0.5)
+
+
+## The hover now (px, up negative): a boss with a skinned idle floats by its idle's hover in every
+## animation (idle ↔ fly / cast do not jump), the others by BossArt.bob(); still once dead.
+func _bob_px() -> float:
+	var t := _t if not _dead else 0.0
+	if not _skin.is_empty():
+		var a := _fly_view.glide_state.amount() if _fly_view != null and not _dead else 0.0
+		var glide := _fly_view.glide_state.hover() if _fly_view != null and not _dead else 0.0
+		return (SkinIdle.hover(t) * (1.0 - a) + glide * a) * height # the glide's smaller bob, blended
+	return BossArt.bob(art, t, flying) * height / BossArt.UNIT
+
+
+## The skinned idle shows now (instead of a frame): the base idle, nothing played over it, alive.
+func showing_skin() -> bool:
+	return _skin_view != null and not _dead and not _vanished and _anim != null and _anim.playing() == "" and _anim.frame()[0] == "idle" \
+		and not showing_glide()
+
+
+## The skinned glide shows now (instead of the fly frames): flying, or settling after a landing,
+## nothing played over it, alive.
+func showing_glide() -> bool:
+	return _fly_view != null and not _dead and not _vanished and _anim != null and _anim.playing() == "" and _fly_view.glide_state.active()
+
+
+## The skinned glide's view (null without one).
+func glide_view() -> BossSkinView:
+	return _fly_view
+
+
+## The skinned idle on the feet: as tall as the frames' body (`height`), mirrored facing left, the
+## hover, the lean and the stun's sway; the shader's flash while it shows.
+func _place_skin() -> void:
+	var glide_on := showing_glide()
+	var idle_on := showing_skin()
+	if _fly_view != null:
+		_fly_view.visible = glide_on
+	if _skin_view != null:
+		_skin_view.visible = idle_on
+	var v: BossSkinView = _fly_view if glide_on else (_skin_view if idle_on else null)
+	if v == null:
+		return
+	var k := height / v.height()
+	v.position = Vector2(0, _bob_px())
+	v.rotation = (lean + _anim.sway()) if v == _skin_view else 0.0 # the glide leans by itself
+	v.scale = Vector2(k * float(facing), k)
+	_mat.set_shader_parameter("flash", _flash * 0.85)
+	_mat.set_shader_parameter("icy", 0.0)
+
+
+## The skinned idle's view (null without one: tests, previews).
+func skin_view() -> BossSkinView:
+	return _skin_view
 
 
 ## The cracks: a few jagged lines from near the body's middle outward (texture px).
@@ -491,7 +581,9 @@ func _frame_look() -> Dictionary:
 	var f := shown_frame()
 	if f.is_empty() or _vanished:
 		return {}
-	var spec: Dictionary = _side["anims"].get(f[0], _side["anims"]["idle"])
+	if showing_skin() or showing_glide():
+		return {}
+	var spec: Dictionary = _side["anims"].get(f[0], _side["anims"].values()[0]) # no idle frames: a skinned idle
 	var frames: Array = spec["frames"]
 	var tex: Texture2D = frames[clampi(int(f[1]), 0, frames.size() - 1)]
 	var k := height / float(_side["height"])
@@ -509,7 +601,7 @@ func _frame_look() -> Dictionary:
 			alpha = 1.0 - v
 			swell = 1.0 + 0.14 * v
 			flash = maxf(flash, 0.6 * (1.0 - v))
-	var bob := BossArt.bob(art, _t if not _dead else 0.0, flying) * height / BossArt.UNIT
+	var bob := _bob_px()
 	var rot := (lean + _anim.sway()) if not _dead else 0.0
 	var centre := Vector2(0, -height * 0.5) # a swell grows round the body's centre
 	var xform := Transform2D(rot, Vector2(mirror * k, k) * swell, 0.0, Vector2(0, bob) + centre * (1.0 - swell))
@@ -519,6 +611,8 @@ func _frame_look() -> Dictionary:
 ## The frame: its texture scaled to `height`, on the feet (plus the bob, the lean or the stun's
 ## sway), mirrored facing left, through the shader (the hit flash, the death's icy tint).
 func _draw_frame() -> void:
+	if showing_skin() or showing_glide(): # a skinned view draws her (and owns the shader's flash)
+		return
 	var look := _frame_look()
 	if look.is_empty() or float(look["alpha"]) <= 0.0:
 		_mat.set_shader_parameter("flash", 0.0)

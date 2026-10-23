@@ -70,14 +70,19 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   until the editor imports it).
 - **Bosses** (`bosses/<bossId>/`: Phù Thuỷ Băng has them; the others are drawn in code,
   `match/boss/boss_art.gd`, and so is every minion): `side/<anim>_<i>.png` + `side/side.json` (her
-  match figure: idle, fly, cast, burst, blizzard, summon, hurt on one shared canvas, the feet = the
-  frost-mist hem's bottom centre on the pivot; `match/boss/boss_body.gd` draws them `bodySize` × 40
-  × 1.45 px tall, mirrored facing left; her death is made in code from the first hurt frame),
+  match figure: cast, burst, blizzard, summon, hurt (and the unused fly frames) on one shared canvas,
+  the feet = the frost-mist hem's bottom centre on the pivot; `match/boss/boss_body.gd` draws them
+  `bodySize` × 40 × 1.45 px tall, mirrored facing left; her death is made in code from the first hurt
+  frame), `skin/idle/` and `skin/fly/` (her idle = the portrait, her fly = the model sheet's side view,
+  each `body.png` + `shard_<i>.png` + `skin.json` in the characters' full.json format: mesh, bones,
+  weights, drawn by `match/boss/boss_skin_view.gd` on the same feet and body height; the motions are
+  `match/boss/skin_idle.gd` and `skin_fly.gd`),
   `portrait.png` (the Boss tab card, the matchmaking card) and `bust.png` (the boss HP bar's icon,
   the turn portrait; `match/boss/boss_art_view.gd`). AI-drawn sheets on magenta,
   `art_source/bosses/<bossId>/side_<anim>/sheet_v1.png` and `portrait/`, cut by
   `tools/import_boss_frames.gd` (config `art_source/bosses/<bossId>/import.json`: frame counts,
-  watermarks, boundaries, anchors, the body's height, a tone lift; `README.txt` there):
+  watermarks, boundaries, anchors, the body's height, a tone lift, the skins' joints, bones and
+  shards; `README.txt` there):
   `$GODOT --headless --path . -s tools/import_boss_frames.gd -- ice_witch`. A boss gets drawn art
   by getting a `side/side.json` (with an idle), no code change; read directly until the editor
   imports the PNGs.

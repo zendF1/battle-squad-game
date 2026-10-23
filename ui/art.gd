@@ -288,7 +288,8 @@ static func boss_dir(id: String) -> String:
 ## A boss's drawn side view (assets/bosses/<id>/side/side.json and its frames, written by
 ## tools/import_boss_frames.gd): {size, pivot (the feet, texture px), height (the body, texture
 ## px), width, facing (1: drawn facing right), anims {name: {frames [Texture2D], fps, loop, peak}}};
-## {} when there is none, it has no idle or a frame is missing (the code-drawn art then). Frames
+## {} when there is none, it has no idle (frames or a skinned one: boss_skin()) or a frame is
+## missing (the code-drawn art then). Frames
 ## not imported yet are read from the PNG (with mipmaps: drawn smaller than they are).
 static func boss_side(id: String) -> Dictionary:
 	if _boss_sides.has(id):
@@ -299,8 +300,8 @@ static func boss_side(id: String) -> Dictionary:
 	if id == "" or not id.is_valid_filename() or not FileAccess.file_exists(dir + "side.json"):
 		return out
 	var data := _load_json(dir + "side.json")
-	if not data.get("anims") is Dictionary or not data["anims"].has("idle") or not data.get("pivot") is Array \
-			or float(data.get("height", 0.0)) <= 0.0:
+	var idle_ok: bool = data.get("anims") is Dictionary and (data["anims"].has("idle") or FileAccess.file_exists(boss_dir(id) + "skin/idle/skin.json"))
+	if not idle_ok or not data.get("pivot") is Array or float(data.get("height", 0.0)) <= 0.0:
 		push_warning("art: %sside.json is not a boss side view, drawing it in code" % dir)
 		return out
 	var anims := {}
@@ -320,6 +321,47 @@ static func boss_side(id: String) -> Dictionary:
 	out.merge({"size": _vec2(data.get("size", [])), "pivot": _vec2(data["pivot"]), "height": float(data["height"]),
 		"width": float(data.get("width", float(data["height"]) * 0.6)), "facing": 1 if int(data.get("facing", 1)) >= 0 else -1,
 		"anims": anims})
+	return out
+
+
+static var _boss_skins := {} # "<boss art id>/<name>" -> boss_skin() ({} = none)
+
+
+## A boss's skinned animation `name` (idle: the portrait; fly: the side view gliding;
+## assets/bosses/<id>/skin/<name>/: body.png on a skeleton, skin.json in the lobby characters'
+## full.json format, written by tools/import_boss_frames.gd; drawn by match/boss/boss_skin_view.gd):
+## parse_full()'s {texture, size, pivot, height, scale, bones, vertices, polygons, weights, anims}
+## plus motion (idle / glide), shards [{texture, at (top-left px), size}] and glow (the staff
+## crystal, px); {} without one (the frames, else the code art).
+static func boss_skin(id: String, name: String = "idle") -> Dictionary:
+	var key := id + "/" + name
+	if _boss_skins.has(key):
+		return _boss_skins[key]
+	var out := {}
+	_boss_skins[key] = out
+	if not name.is_valid_filename():
+		return out
+	var dir := boss_dir(id) + "skin/%s/" % name
+	if id == "" or not id.is_valid_filename() or not FileAccess.file_exists(dir + "skin.json"):
+		return out
+	var data := parse_full(dir + "skin.json", dir + "body.png")
+	if data.is_empty():
+		return out
+	var mipmapped := _boss_texture(dir + "body.png") # drawn smaller than it is
+	if mipmapped != null:
+		data["texture"] = mipmapped
+	var raw := _load_json(dir + "skin.json")
+	var shards: Array = []
+	for s in raw.get("shards", []):
+		if not s is Dictionary:
+			continue
+		var tex := _boss_texture(dir + str(s.get("file", "")))
+		if tex != null:
+			shards.append({"texture": tex, "at": _vec2(s.get("at", [])), "size": _vec2(s.get("size", []))})
+	data["shards"] = shards
+	data["glow"] = _vec2(raw.get("glow", []))
+	data["motion"] = str(raw.get("motion", "idle"))
+	out.merge(data)
 	return out
 
 

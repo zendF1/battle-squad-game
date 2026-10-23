@@ -33,7 +33,7 @@ extends SceneTree
 ##      sheet has them, on the first one's feet (the cast's flash where her staff points);
 ##   4. measured per frame: the body = the cloak's px (`body`: hue range, minimum saturation and
 ##      value: the indigo / periwinkle cloth, not the cyan crystals, the white frost or the black
-##      outline): its top row (the hood's top), its middle (the median x of the cloak's px in the
+##      outline; only its pieces of at least `minPiece` × the largest, not a crystal's facets): its top row (the hood's top), its middle (the median x of the cloak's px in the
 ##      rows `centreRows` of its height: the skirt, not the staff or a raised arm) and the feet =
 ##      the lowest opaque row under the cloak within half the cloak's width of that middle (the
 ##      frost-mist hem's bottom; she hovers). `anchors` [[x, y] | null, ...] (sheet px) overrides a
@@ -48,13 +48,26 @@ extends SceneTree
 ## {frames [stems], fps, loop, peak (optional: the frame of the effect's peak, the burst's flash)}}}.
 ## Pictures (`pictures.<name>`: src, watermark, size): keyed the same way, trimmed to the content
 ## (+ `margin` px), centred on a square canvas, scaled to `size` px: <out>/<name>.png (portrait,
-## bust). Every frame and picture last gets the `tone` lift (tone(): lighten, desaturateDark). A new PNG gets an .import with mipmaps (shown smaller than drawn), an existing .import is
+## bust). Every frame and picture last gets the `tone` lift (tone(): lighten, desaturateDark).
+## Skins (`skins.<name>`, idle and fly: one picture on a skeleton, _import_skin()): the picture (a
+## `rect` of a model sheet) keyed and lifted the same way, its orbiting shards cut out as their own
+## sprites (cut_shards(): the small pieces near `shards.centres`), measured like a frame and scaled so
+## its body is `height` px (the frames' feet and body: the boss body draws both at the same size),
+## its mesh (tools/full_mesh.gd: every visible px covered, gaps 0; faint corner px it misses are
+## cleared), the `bones` [name, parent, joint, tip joint, strength] on the `joints` (source px; feet =
+## the measured hem bottom; crystal = the staff's glow) and their weights, the loop's tracks
+## (match/boss/skin_idle.gd or skin_fly.gd by `motion`): <out>/skin/<name>/body.png, shard_<i>.png,
+## skin.json (the full.json format of tools/cut_sheet.gd + motion, shards, glow, gaps); a row at
+## rest on the contact sheet, <name>_bones.png beside it. A new PNG gets an .import with mipmaps (shown smaller than drawn), an existing .import is
 ## never touched; until the editor imports them the game reads the PNGs (ui/art.gd).
 
 const ImportFrames := preload("res://tools/import_frames.gd")
 const ImportHugGuns := preload("res://tools/import_hug_guns.gd")
 const ImportGuns := preload("res://tools/import_guns.gd")
 const ImportTitles := preload("res://tools/import_titles.gd")
+const FullMesh := preload("res://tools/full_mesh.gd")
+const SkinIdle := preload("res://match/boss/skin_idle.gd")
+const SkinFly := preload("res://match/boss/skin_fly.gd")
 const SRC := "res://art_source/bosses/"
 
 var _written := 0
@@ -119,11 +132,15 @@ func _import(id: String, contact: String) -> bool:
 			var anchors: Array = spec.get("anchors", [])
 			if i < anchors.size() and anchors[i] is Array:
 				m["feet"] = Vector2(float(anchors[i][0]) - cell.position.x, float(anchors[i][1]) - cell.position.y)
+				if not bool(m["ok"]): # the cloak hidden (an effect over it): the body's height from the others
+					m["top"] = NAN
+					m["width"] = 0.0
 				m["ok"] = true
 			if not bool(m["ok"]):
 				push_error("import_boss_frames: %s frame %d: no cloak px found (body colours %s)" % [anim, i, opts["body"]])
 				return false
-			heights.append(float(m["feet"].y) - float(m["top"]))
+			if not is_nan(float(m["top"])):
+				heights.append(float(m["feet"].y) - float(m["top"]))
 			m["image"] = img
 			m["cell"] = cell
 			frames.append(m)
@@ -153,6 +170,9 @@ func _import(id: String, contact: String) -> bool:
 		var sorted := heights.duplicate()
 		sorted.sort()
 		var body_h := float(spec.get("bodyHeight", sorted[sorted.size() / 2]))
+		for m in frames:
+			if is_nan(float(m["top"])):
+				m["top"] = float(m["feet"].y) - body_h
 		var s := target / body_h * float(spec.get("scale", 1.0))
 		var outs: Array = []
 		for i in n:
@@ -231,9 +251,257 @@ func _import(id: String, contact: String) -> bool:
 		var pic := picture(src_img, int(pc.get("size", 512)), int(pc.get("margin", 8)))
 		tone(pic, cfg.get("tone", {}))
 		_save(pic, out_dir + str(pname) + ".png")
+	var skins: Dictionary = cfg.get("skins", {}) if cfg.get("skins") is Dictionary else {}
+	var skin_rows: Array = []
+	for sname in skins:
+		var rest := _import_skin(dir, out_dir, cfg, str(sname), contact.get_base_dir() if contact != "" else "")
+		if rest.is_empty():
+			return false
+		# The contact sheet's first rows: the skinned animations at rest, on the frames' canvas and pivot.
+		var k := target / float(rest["height"])
+		var img: Image = rest["image"]
+		var small := ImportGuns.scaled(img, Vector2i(maxi(1, roundi(img.get_width() * k)), maxi(1, roundi(img.get_height() * k))))
+		var on := Image.create(canvas.x, canvas.y, false, Image.FORMAT_RGBA8)
+		on.blit_rect(small, Rect2i(Vector2i.ZERO, small.get_size()), Vector2i((pivot - Vector2(rest["pivot"]) * k).round()))
+		written["%s (skin)" % sname] = [on]
+		skin_rows.append("%s (skin)" % sname)
+	order = skin_rows + order
 	if contact != "":
 		_contact(written, order, canvas, pivot, target, contact)
 	return true
+
+
+## A skinned animation (config `skins.<name>`, see the header): the picture (`rect` [x, y, w, h]: one
+## figure of a model sheet) keyed, its shards cut out, the body's mesh, bones and weights
+## (tools/full_mesh.gd, as tools/cut_sheet.gd does for the lobby characters), the loop's tracks
+## (`motion` "idle": match/boss/skin_idle.gd; "glide": match/boss/skin_fly.gd). Writes
+## <out>/skin/<name>/body.png, shard_<i>.png, skin.json (and, with a debug dir, <name>_bones.png:
+## the bones on the picture); returns {image (the rest pose: body and shards), pivot, height} or {}.
+func _import_skin(dir: String, out_dir: String, cfg: Dictionary, sname: String, debug_dir: String = "") -> Dictionary:
+	var sk: Dictionary = cfg["skins"][sname]
+	var sub := out_dir + "skin/%s/" % sname
+	var img := _load(dir + str(sk["src"]))
+	if img == null:
+		return {}
+	for wm in sk.get("watermark", []):
+		ImportTitles.remove_watermark(img, Vector2(float(wm[0]), float(wm[1])), float(wm[2]), float(wm[2]), 2.0, ImportFrames.corner_colour(img, 8))
+	var crop := Vector2.ZERO # the joints / shard centres stay sheet px
+	if sk.get("rect") is Array and sk["rect"].size() >= 4:
+		var r := Rect2i(int(sk["rect"][0]), int(sk["rect"][1]), int(sk["rect"][2]), int(sk["rect"][3]))
+		img = img.get_region(r)
+		crop = Vector2(r.position)
+	keyed(img, spec_cfg(cfg, sk))
+	tone(img, cfg.get("tone", {}))
+	var shard_cfg: Dictionary = (sk.get("shards", {}) as Dictionary).duplicate(true)
+	shard_cfg["centres"] = shard_cfg.get("centres", []).map(func(c): return [float(c[0]) - crop.x, float(c[1]) - crop.y])
+	var parts := cut_shards(img, shard_cfg)
+	var body: Image = parts["body"]
+	var m := measure(body, cfg.get("body", {}))
+	if not bool(m["ok"]):
+		push_error("import_boss_frames: skin: no cloak found in %s" % sk["src"])
+		return {}
+	var src_feet: Vector2 = m["feet"]
+	var src_h := src_feet.y - float(m["top"])
+	var height := float(sk.get("height", 360))
+	var s := height / src_h
+	var pad := int(sk.get("pad", 6))
+	var used := body.get_used_rect().grow(int(ceil(pad / s)))
+	used = used.intersection(Rect2i(Vector2i.ZERO, body.get_size()))
+	var size := Vector2i(roundi(used.size.x * s), roundi(used.size.y * s))
+	var k := Vector2(size) / Vector2(used.size)
+	var to_px := func(p: Vector2) -> Vector2: return ((p - Vector2(used.position)) * k).snapped(Vector2(0.1, 0.1))
+	var pic := ImportGuns.scaled(body.get_region(used), size)
+	ImportFrames.clean(pic, {"alphaCut": 10, "keepPieces": float(sk.get("keepPieces", 0.0004)), "defringe": {"band": 0}}) # no stray specks for the mesh
+	var pivot: Vector2 = to_px.call(src_feet)
+	# The bones (`joints` source px; `bones` [name, parent, joint, tip joint, strength]).
+	var joints := {"feet": src_feet}
+	for j in sk.get("joints", {}):
+		joints[j] = Vector2(float(sk["joints"][j][0]), float(sk["joints"][j][1])) - crop
+	var bones: Array = []
+	for b in sk.get("bones", []):
+		if not joints.has(str(b[2])) or not joints.has(str(b[3])):
+			push_error("import_boss_frames: skin bone %s needs the joints %s and %s" % [b[0], b[2], b[3]])
+			return {}
+		bones.append({"name": str(b[0]), "parent": str(b[1]), "at": to_px.call(joints[str(b[2])]), "tip": to_px.call(joints[str(b[3])]),
+			"strength": float(b[4]) if b.size() > 4 else 1.0})
+	var t0 := Time.get_ticks_msec()
+	var mesh := FullMesh.build(pic)
+	var weights := FullMesh.weights(pic, mesh["vertices"], bones)
+	print("  skin %s: body %d px tall (×%.4f), %s; mesh %d vertices, %d triangles, gaps: %d, %.1f s" % [sk["src"], int(height), s, size,
+		mesh["vertices"].size(), mesh["triangles"].size() / 3, mesh["gaps"], (Time.get_ticks_msec() - t0) / 1000.0])
+	if int(mesh["gaps"]) != 0: # faint corner px the triangles miss (alpha ≤ 64): cleared, invisible
+		var cov := FullMesh._coverage(mesh["vertices"], mesh["triangles"], size.x, size.y)
+		var data := pic.get_data()
+		var cleared := 0
+		for i in size.x * size.y:
+			if data[i * 4 + 3] > 0 and data[i * 4 + 3] <= 64 and cov[i] == 0:
+				data[i * 4 + 3] = 0
+				cleared += 1
+		pic.set_data(size.x, size.y, false, Image.FORMAT_RGBA8, data)
+		mesh["gaps"] = FullMesh.gaps(pic, mesh["vertices"], mesh["triangles"])
+		print("    cleared %d faint px outside the mesh; gaps: %d" % [cleared, mesh["gaps"]])
+	if int(mesh["gaps"]) != 0:
+		push_warning("import_boss_frames: the skin's mesh leaves %d px uncovered" % mesh["gaps"])
+	_save(pic, sub + "body.png")
+	var rest := Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
+	rest.blit_rect(pic, Rect2i(Vector2i.ZERO, size), Vector2i.ZERO)
+	var shards: Array = []
+	for i in parts["shards"].size():
+		var sh: Dictionary = parts["shards"][i]
+		var r: Rect2i = sh["rect"]
+		var ss := Vector2i(maxi(1, roundi(r.size.x * k.x)), maxi(1, roundi(r.size.y * k.y)))
+		var simg := ImportGuns.scaled(sh["image"], ss)
+		_save(simg, sub + "shard_%d.png" % i)
+		var at: Vector2 = to_px.call(Vector2(r.position))
+		rest.blend_rect(simg, Rect2i(Vector2i.ZERO, ss), Vector2i(at.round()))
+		shards.append({"file": "shard_%d.png" % i, "at": [at.x, at.y], "size": [ss.x, ss.y]})
+	var glow: Vector2 = to_px.call(joints.get("crystal", Vector2.ZERO))
+	var v: Array = []
+	for p in mesh["vertices"]:
+		v.append([snappedf(p.x, 0.1), snappedf(p.y, 0.1)])
+	var wt: Array = []
+	for row in weights:
+		var flat: Array = []
+		for c in row:
+			flat.append(c[0])
+			flat.append(snappedf(c[1], 0.001))
+		wt.append(flat)
+	var bone_rows: Array = []
+	for b in bones:
+		bone_rows.append({"name": b["name"], "parent": b["parent"], "at": [b["at"].x, b["at"].y], "tip": [b["tip"].x, b["tip"].y],
+			"strength": b["strength"]})
+	var names: Array = bones.map(func(b): return b["name"])
+	var out := {
+		"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/<id>/import.json skin (do not edit: edit the config and re-run). The full.json format of the lobby characters (ui/art.gd parse_full(), scenes/character/full_body.gd): size, pivot (the feet: the frost-mist hem's bottom centre), height (the body, hood top to the feet, px), scale, bones, anims (the idle: match/boss/skin_idle.gd), mesh, weights; plus shards [{file, at (top-left px), size}] and glow (the staff crystal, px).",
+		"source": "art_source/bosses/" + dir.trim_suffix("/").get_file() + "/" + str(sk["src"]),
+		"size": [size.x, size.y],
+		"pivot": [pivot.x, pivot.y],
+		"height": height,
+		"scale": 1.0,
+		"bones": bone_rows,
+		"anims": {"idle": SkinFly.tracks(names, height) if str(sk.get("motion", "idle")) == "glide" else SkinIdle.tracks(names, height)},
+		"motion": str(sk.get("motion", "idle")),
+		"shards": shards,
+		"glow": [glow.x, glow.y],
+		"gaps": int(mesh["gaps"]),
+		"mesh": {"vertices": v, "triangles": Array(mesh["triangles"])},
+		"weights": wt,
+	}
+	_write_text(sub + "skin.json", JSON.stringify(out) + "\n")
+	if debug_dir != "":
+		var dbg := rest.duplicate()
+		for b in bones:
+			var a: Vector2 = b["at"]
+			var t: Vector2 = b["tip"]
+			for q in 40:
+				var p: Vector2 = a.lerp(t, q / 39.0)
+				if Rect2i(Vector2i.ZERO, size).has_point(Vector2i(p)):
+					dbg.set_pixelv(Vector2i(p), Color(1, 0.9, 0.1))
+			for dy in range(-2, 3):
+				for dx in range(-2, 3):
+					var q := Vector2i(a) + Vector2i(dx, dy)
+					if Rect2i(Vector2i.ZERO, size).has_point(q):
+						dbg.set_pixelv(q, Color(0.1, 1, 0.3))
+		DirAccess.make_dir_recursive_absolute(debug_dir)
+		dbg.save_png(debug_dir.path_join("%s_bones.png" % sname))
+	return {"image": rest, "pivot": pivot, "height": height}
+
+
+## The skin picture's orbiting shards cut out (`shards` {centres [[x, y]] source px, radius}): every
+## px of a piece other than the largest (the body) within radius of a centre goes to the nearest
+## centre's shard (its orbit arcs with it) and leaves the body. {body (Image), shards [{image, rect}]}.
+static func cut_shards(img: Image, cfg: Dictionary) -> Dictionary:
+	var w := img.get_width()
+	var h := img.get_height()
+	var px := img.get_data()
+	var centres: Array = []
+	for c in cfg.get("centres", []):
+		centres.append(Vector2(float(c[0]), float(c[1])))
+	var radius := float(cfg.get("radius", 70))
+	var label := PackedInt32Array()
+	label.resize(w * h)
+	var sizes := PackedInt32Array([0])
+	var stack := PackedInt32Array()
+	stack.resize(w * h)
+	for s in w * h:
+		if px[s * 4 + 3] == 0 or label[s] != 0:
+			continue
+		var id := sizes.size()
+		var n := 0
+		var top := 1
+		stack[0] = s
+		label[s] = id
+		while top > 0:
+			top -= 1
+			var i: int = stack[top]
+			n += 1
+			var x := i % w
+			var y := i / w
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					var xx := x + dx
+					var yy := y + dy
+					if xx < 0 or yy < 0 or xx >= w or yy >= h:
+						continue
+					var j := yy * w + xx
+					if label[j] == 0 and px[j * 4 + 3] != 0:
+						label[j] = id
+						stack[top] = j
+						top += 1
+		sizes.append(n)
+	var largest := 1
+	for id in range(1, sizes.size()):
+		if sizes[id] > sizes[largest]:
+			largest = id
+	var datas: Array = []
+	var lo: Array = []
+	var hi: Array = []
+	for c in centres:
+		var d := PackedByteArray()
+		d.resize(w * h * 4)
+		datas.append(d)
+		lo.append(Vector2i(w, h))
+		hi.append(Vector2i(-1, -1))
+	var owner := PackedInt32Array()
+	owner.resize(w * h)
+	owner.fill(-1)
+	for k in w * h:
+		if label[k] == 0 or label[k] == largest:
+			continue
+		var p := Vector2(k % w + 0.5, k / w + 0.5)
+		var best := -1
+		var best_d := radius
+		for ci in centres.size():
+			var dd := p.distance_to(centres[ci])
+			if dd <= best_d:
+				best_d = dd
+				best = ci
+		owner[k] = best
+	for ci in centres.size():
+		var d: PackedByteArray = datas[ci]
+		var l: Vector2i = lo[ci]
+		var u: Vector2i = hi[ci]
+		for k in w * h:
+			if owner[k] != ci:
+				continue
+			for c in 4:
+				d[k * 4 + c] = px[k * 4 + c]
+			px[k * 4 + 3] = 0
+			var x := k % w
+			var y := k / w
+			l = Vector2i(mini(l.x, x), mini(l.y, y))
+			u = Vector2i(maxi(u.x, x), maxi(u.y, y))
+		datas[ci] = d
+		lo[ci] = l
+		hi[ci] = u
+	var shards: Array = []
+	for ci in centres.size():
+		if hi[ci].x < 0:
+			push_warning("import_boss_frames: no shard px near %s" % centres[ci])
+			continue
+		var r := Rect2i(lo[ci], hi[ci] - lo[ci] + Vector2i.ONE)
+		shards.append({"image": Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, datas[ci]).get_region(r), "rect": r})
+	return {"body": Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, px), "shards": shards}
 
 
 ## The options of one sheet / picture: the config's background / despill / alphaCut / body /
@@ -499,6 +767,11 @@ static func measure(img: Image, body: Dictionary) -> Dictionary:
 				continue
 			if is_cloak(px, y * w + x, body):
 				cloak[y * w + x] = 1
+	# Only the cloth's big pieces: a crystal's periwinkle facets above the hood are not her top.
+	_keep_big(cloak, w, h, float(body.get("minPiece", 0.08)))
+	for y in h:
+		for x in w:
+			if cloak[y * w + x] == 1:
 				row_n[y] += 1
 	var min_row := maxi(2, int(w * 0.004))
 	var top := -1
@@ -533,6 +806,41 @@ static func measure(img: Image, body: Dictionary) -> Dictionary:
 		if n >= 2:
 			feet_y = y
 	return {"ok": true, "top": float(top), "feet": Vector2(cx, feet_y + 1.0), "width": width}
+
+
+## The mask's 8-connected pieces under `share` × the largest cleared, in place.
+static func _keep_big(mask: PackedByteArray, w: int, h: int, share: float) -> void:
+	var label := PackedInt32Array()
+	label.resize(w * h)
+	var sizes := PackedInt32Array([0])
+	var stack := PackedInt32Array()
+	for s in w * h:
+		if mask[s] == 0 or label[s] != 0:
+			continue
+		var id := sizes.size()
+		var n := 0
+		stack.append(s)
+		label[s] = id
+		while not stack.is_empty():
+			var i: int = stack[stack.size() - 1]
+			stack.resize(stack.size() - 1)
+			n += 1
+			var x := i % w
+			var y := i / w
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					var xx := x + dx
+					var yy := y + dy
+					if xx >= 0 and yy >= 0 and xx < w and yy < h and mask[yy * w + xx] == 1 and label[yy * w + xx] == 0:
+						label[yy * w + xx] = id
+						stack.append(yy * w + xx)
+		sizes.append(n)
+	var largest := 0
+	for n in sizes:
+		largest = maxi(largest, n)
+	for i in w * h:
+		if label[i] != 0 and sizes[label[i]] < largest * share:
+			mask[i] = 0
 
 
 ## Pixel k (of an RGBA8 px array) is the cloak's cloth: opaque, of the `body` hues, saturation

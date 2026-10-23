@@ -2,9 +2,17 @@ extends Control
 ## A boss or minion figure in a UI box (the Boss tab's cards, Matchmaking's boss card, the HUD's
 ## turn portrait, the result screen): BossArt drawn with its feet at the bottom centre, as tall
 ## as the box allows (wide figures, the crabs, fit its width), idling while `idle`.
+## `picture` (portrait: the cards; bust: the HP bar's icon, the turn portrait): the boss's drawn
+## picture (ui/art.gd boss_picture(), assets/bosses/<id>/<picture>.png) instead, fitted into the
+## box and centred on it (one focus, dead centre), floating gently while idle; a boss without one
+## (and every minion) keeps the code-drawn figure. A portrait of a boss with a skinned idle
+## (Art.boss_skin(): the Ice Witch) is that idle, alive (BossSkinView, the match's idle), fitted
+## and centred the same way.
 
 const BossArt := preload("res://match/boss/boss_art.gd")
 const Art := preload("res://ui/art.gd")
+const BossSkinView := preload("res://match/boss/boss_skin_view.gd")
+const SkinIdle := preload("res://match/boss/skin_idle.gd")
 
 const FOOT_MARGIN := 0.06 # of the height, under the feet
 const PICTURE_FILL := 0.96 # of the box a picture fills
@@ -13,6 +21,7 @@ const PICTURE_BOB := 0.012 # of its height, the idle float
 var art := BossArt.GENERIC_BOSS:
 	set(v):
 		art = v
+		_sync_skin()
 		queue_redraw()
 var facing := 1
 var idle := true
@@ -20,8 +29,11 @@ var flash := 0.0
 var picture := "": # "", "portrait" or "bust"
 	set(v):
 		picture = v
+		_sync_skin()
 		queue_redraw()
 var _t := 0.0
+var _skin_view: BossSkinView
+var _skin_for := "" # the art it was built for
 
 
 static func make(art_id: String, box: Vector2, face: int = 1, picture_name: String = "") -> Control:
@@ -32,6 +44,7 @@ static func make(art_id: String, box: Vector2, face: int = 1, picture_name: Stri
 	v.custom_minimum_size = box
 	v.size = box
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v._place_skin()
 	return v
 
 
@@ -59,7 +72,45 @@ func picture_rect() -> Rect2:
 func _process(delta: float) -> void:
 	if idle and is_visible_in_tree():
 		_t += delta
+		if _skin_view != null:
+			_skin_view.advance(delta)
+		_place_skin()
 		queue_redraw()
+
+
+## The skinned portrait shown (null: a picture or the figure).
+func skin_view() -> BossSkinView:
+	return _skin_view
+
+
+## The skinned idle for a portrait of a boss that has one; none otherwise.
+func _sync_skin() -> void:
+	var want := art if picture == "portrait" and not Art.boss_skin(art).is_empty() else ""
+	if want == _skin_for:
+		return
+	if _skin_view != null:
+		_skin_view.queue_free()
+		_skin_view = null
+	_skin_for = want
+	if want == "":
+		return
+	_skin_view = BossSkinView.new()
+	_skin_view.name = "Skin"
+	_skin_view.setup(Art.boss_skin(want))
+	add_child(_skin_view)
+	_place_skin()
+
+
+## The skinned portrait fitted into the box, centred (its picture's rect round the feet), floating.
+func _place_skin() -> void:
+	if _skin_view == null:
+		return
+	var sk: Dictionary = _skin_view.skin
+	var pic: Vector2 = sk["size"]
+	var k := minf(size.x / pic.x, size.y / pic.y) * PICTURE_FILL
+	var centre := pic / 2.0 - Vector2(sk["pivot"]) # the picture's middle from the feet
+	_skin_view.scale = Vector2(k, k)
+	_skin_view.position = size / 2.0 - centre * k + Vector2(0, SkinIdle.hover(_skin_view.time()) * _skin_view.height() * k)
 
 
 ## The figure's height in px in a box of `box_size`.
@@ -69,6 +120,8 @@ static func figure_height(art_id: String, box_size: Vector2) -> float:
 
 
 func _draw() -> void:
+	if _skin_view != null: # the skinned portrait draws itself
+		return
 	var tex := picture_texture()
 	if tex != null:
 		var r := picture_rect()
