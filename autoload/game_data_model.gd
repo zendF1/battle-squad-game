@@ -299,6 +299,7 @@ static func _build_index() -> void:
 	_index["typeWords"] = _by(_list_in(section("equipment"), "typeWords"), "word")
 	_index["gunKinds"] = _by(list("gunKinds"), "id")
 	_index["bosses"] = _by(list("bosses"), "bossId")
+	_index["elements"] = _by(list("elements"), "elementId")
 
 
 static func _by(entries: Array, key: String) -> Dictionary:
@@ -1277,3 +1278,106 @@ static func unit_explode_radius(p: Dictionary) -> float:
 ## A flying boss's hover band {minX, maxX, minY, maxY} ({} none).
 static func boss_hover(boss_id: String) -> Dictionary:
 	return _sub(boss(boss_id), "hover")
+
+
+# ── elements (ngũ hành) ─────────────────────────────────────────────────────
+# elements: [{elementId, name, beats, sortOrder}] (the "beats" cycle: metal → wood → earth →
+# water → fire → metal), elementRules {pvpStrongPct, pvpWeakPct, bossStrongPct, bossTakenPct},
+# characters[].element, bosses[].element (minions carry their boss's). The server applies the
+# multipliers; the client only shows them (badges, the detail line, the counter hint, the damage
+# numbers' elementEffect). [] / "" / 0 from a server without them.
+
+## [{elementId, name, beats, sortOrder}] by sortOrder (the server's order for equal ones).
+static func elements() -> Array:
+	var out := list("elements").filter(func(e): return _s(e, "elementId") != "")
+	var order := {}
+	for i in out.size():
+		order[out[i]] = i
+	out.sort_custom(func(a, b):
+		var sa := _f(a, "sortOrder")
+		var sb := _f(b, "sortOrder")
+		return sa < sb if sa != sb else int(order[a]) < int(order[b]))
+	return out
+
+
+static func element_ids() -> Array:
+	return elements().map(func(e): return _s(e, "elementId"))
+
+
+static func element(element_id: String) -> Dictionary:
+	return _entry("elements", element_id)
+
+
+static func is_element(element_id: String) -> bool:
+	return element_id != "" and not element(element_id).is_empty()
+
+
+## "Thủy"; the id itself for an element the game data does not know ("" for "").
+static func element_name(element_id: String) -> String:
+	var n := _s(element(element_id), "name")
+	return n if n != "" else element_id
+
+
+## The element `element_id` beats (khắc), "" none / unknown.
+static func element_beats(element_id: String) -> String:
+	return _s(element(element_id), "beats")
+
+
+## The element that beats `element_id` (bị ... khắc), "" none.
+static func element_beaten_by(element_id: String) -> String:
+	if element_id == "":
+		return ""
+	for e in elements():
+		if _s(e, "beats") == element_id:
+			return _s(e, "elementId")
+	return ""
+
+
+## "strong" when `attacker` beats `target`, "weak" when `target` beats `attacker`, "" otherwise
+## (also when either is unknown): the same rule the server's elementEffect follows.
+static func element_effect(attacker: String, target: String) -> String:
+	if attacker == "" or target == "" or attacker == target:
+		return ""
+	if element_beats(attacker) == target:
+		return "strong"
+	if element_beats(target) == attacker:
+		return "weak"
+	return ""
+
+
+## {pvpStrongPct, pvpWeakPct, bossStrongPct, bossTakenPct} (0 for a missing one).
+static func element_rules() -> Dictionary:
+	var r := section("elementRules")
+	var out := {}
+	for k in ["pvpStrongPct", "pvpWeakPct", "bossStrongPct", "bossTakenPct"]:
+		out[k] = _f(r, k)
+	return out
+
+
+## A character's element ("" none).
+static func character_element(character_id: String) -> String:
+	return _s(character(character_id), "element")
+
+
+## A boss's element ("" none).
+static func boss_element(boss_id: String) -> String:
+	return _s(boss(boss_id), "element")
+
+
+## A match unit's element: the state's element (BattlePlayerState / the summon event), else its
+## game data's (a boss or minion: its boss's; a player: its character's); "" none.
+static func unit_element(p: Dictionary) -> String:
+	var v := _s(p, "element")
+	if v != "":
+		return v
+	if _s(p, "role") in ["boss", "minion"]:
+		return boss_element(_s(p, "bossId"))
+	return character_element(_s(p, "characterId"))
+
+
+## The characters whose element beats boss boss_id's, in the game data's order: [characterId].
+static func boss_counters(boss_id: String) -> Array:
+	var e := boss_element(boss_id)
+	if e == "":
+		return []
+	return character_ids().filter(func(id): return element_beats(character_element(id)) == e)

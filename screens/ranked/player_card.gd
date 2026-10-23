@@ -14,6 +14,8 @@ const Art := preload("res://ui/art.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
 const TierBadge := preload("res://screens/ranked/tier_badge.gd")
 const MatchmakingModel := preload("res://screens/ranked/matchmaking_model.gd")
+const ElementBadge := preload("res://ui/element_badge.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const SIZE := Vector2(268, 520)
 const COMPACT_SIZE := Vector2(268, 432) # compact: no "BẠN" tag, no rank row
@@ -261,7 +263,9 @@ func _build() -> void:
 	var name_label := _label(str(_player["displayName"]), 28, GOLD.lightened(0.5) if mine else Color.WHITE)
 	name_label.clip_text = true
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	col.add_child(name_label)
+	var element := GameData.character_element(str(_player.get("characterId", "")))
+	ElementBadge.fit_label(name_label, _size().x - 20 - (2 * (28 + 6) if element != "" else 0))
+	col.add_child(ElementBadge.name_row(name_label, element, 28, 6))
 	var lv := MatchmakingModel.level_text(_player)
 	if lv != "":
 		col.add_child(_label(lv, 22, LobbyUi.GOLD))

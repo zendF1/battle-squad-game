@@ -19,6 +19,9 @@ const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Backdrop := preload("res://ui/backdrop.gd")
 const CharacterView := preload("res://ui/character_view.gd")
+const ElementBadge := preload("res://ui/element_badge.gd")
+const ElementText := preload("res://ui/element_text.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 const PedestalGun := preload("res://screens/home/pedestal_gun.gd")
 const Art := preload("res://ui/art.gd")
 const Items := preload("res://match/items.gd")
@@ -56,6 +59,8 @@ var _quick_play: QuickPlay
 
 # Character panel
 var _art: CharacterView
+var _char_name_row: HBoxContainer # the element badge before the name
+var _char_element: Label
 var _gun_stand: PedestalGun
 var _char_title: TitlePlate # the worn title at the top of the panel (hidden without one)
 var _char_top: Control # a little room above the art when there is no title
@@ -212,8 +217,13 @@ func _build_character_panel() -> Control:
 	stage.add_child(_gun_stand)
 	stage.resized.connect(_place_gun_stand.bind(stage))
 	_char_name = _centered(col, 36, Color.WHITE, true)
+	col.remove_child(_char_name)
+	_char_name_row = ElementBadge.name_row(_char_name, "", 36, 8)
+	col.add_child(_char_name_row)
 	_char_level = _centered(col, 24, LobbyUi.GOLD, true)
 	_char_role = _centered(col, 22, Ui.TEXT_DIM)
+	_char_element = _centered(col, 19, Color(0.85, 0.92, 1.0))
+	_char_element.name = "ElementLine"
 	var skill_row := CenterContainer.new()
 	col.add_child(skill_row)
 	_char_skill = LobbyUi.icon_text(skill_row, "skill", "", 22, Color(0.75, 0.9, 1.0), false, 26)
@@ -578,8 +588,11 @@ func _render_character() -> void:
 	_art.modulate = Color(0.72, 0.72, 0.8) if info["owned"] == false else Color.WHITE
 	_render_gun()
 	_char_name.text = info["name"]
+	ElementBadge.set_row_element(_char_name_row, GameData.character_element(_model.character_id))
 	_char_level.text = LobbyModel.level_text(info)
 	_char_role.text = info["role"]
+	_char_element.text = ElementText.detail_line(GameData.character_element(_model.character_id))
+	_char_element.visible = _char_element.text != ""
 	_char_skill.text = "Kỹ năng: %s" % info["skill"] if info["skill"] != "" else ""
 	_char_skill.get_parent().visible = info["skill"] != ""
 	Ui.clear(_char_stats)

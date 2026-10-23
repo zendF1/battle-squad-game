@@ -38,6 +38,8 @@ const GameData := preload("res://autoload/game_data_model.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const BossArt := preload("res://match/boss/boss_art.gd")
 const BossArtView := preload("res://match/boss/boss_art_view.gd")
+const ElementBadge := preload("res://ui/element_badge.gd")
+const ElementText := preload("res://ui/element_text.gd")
 
 const BOSS_CARD_SCALE := 0.74 # the party's compact cards in a boss queue
 const BOSS_GAP := 16 # between the boss queue's cards
@@ -241,15 +243,15 @@ func _boss_side() -> Control:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(label)
 	var card := _boss_card(BossArt.art_of(str(_boss.get("bossId", ""))), _boss_block(),
-		str(_boss.get("name", LobbyModel.queue_name(_queue))))
+		str(_boss.get("name", LobbyModel.queue_name(_queue))), str(_boss.get("bossId", "")))
 	card.name = "BossCard"
 	col.add_child(card)
 	return col
 
 
-## The boss card of size `at`: the figure as big as the card allows, its name under it, both
-## centred.
-func _boss_card(art: String, at: Vector2, name_text: String) -> Control:
+## The boss card of size `at`: the figure as big as the card allows, its name under it with its
+## element's badge, then "Khắc chế: <characters>" (the game data's elements), all centred.
+func _boss_card(art: String, at: Vector2, name_text: String, boss_id: String = "") -> Control:
 	var card := PanelContainer.new()
 	card.custom_minimum_size = at
 	card.mouse_filter = MOUSE_FILTER_IGNORE
@@ -261,8 +263,16 @@ func _boss_card(art: String, at: Vector2, name_text: String) -> Control:
 	var name_label := LobbyUi.text(name_text, 34, Color.WHITE, true)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.mouse_filter = MOUSE_FILTER_IGNORE
-	inner.add_child(BossArtView.make(art, Vector2(at.x - 40, at.y - 40 - 34 * 1.45 - 8), -1, "portrait"))
-	inner.add_child(name_label)
+	var hint := ElementText.counter_hint(boss_id)
+	var hint_h := 30.0 if hint != "" else 0.0
+	inner.add_child(BossArtView.make(art, Vector2(at.x - 40, at.y - 40 - 34 * 1.45 - 8 - hint_h), -1, "portrait"))
+	inner.add_child(ElementBadge.name_row(name_label, GameData.boss_element(boss_id), 38, 10))
+	if hint != "":
+		var h := LobbyUi.text(hint, 22, Color(1.0, 0.86, 0.5), true)
+		h.name = "CounterHint"
+		h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		h.mouse_filter = MOUSE_FILTER_IGNORE
+		inner.add_child(h)
 	return card
 
 

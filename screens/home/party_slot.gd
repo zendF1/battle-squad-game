@@ -21,6 +21,8 @@ const CharacterView := preload("res://ui/character_view.gd")
 const PedestalGun := preload("res://screens/home/pedestal_gun.gd")
 const TierBadge := preload("res://screens/ranked/tier_badge.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
+const ElementBadge := preload("res://ui/element_badge.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const SCALE := 0.7
 const SIZE := Vector2(330, 500)
@@ -38,6 +40,7 @@ var _art: CharacterView
 var _gun: PedestalGun
 var _head: VBoxContainer
 var _name: Label
+var _name_row: HBoxContainer # the teammate's character's element badge before the name
 var _level: Label
 var _badge: TierBadge
 var _ready_mark: PanelContainer
@@ -96,8 +99,8 @@ func _ready() -> void:
 	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_name.clip_text = true
 	_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_name.custom_minimum_size.x = SIZE.x
-	_head.add_child(_name)
+	_name_row = ElementBadge.name_row(_name, "", 30, 6)
+	_head.add_child(_name_row)
 	var row := Ui.hbox(8)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.mouse_filter = MOUSE_FILTER_IGNORE
@@ -157,6 +160,9 @@ func show_member(m: Dictionary, host_view: bool, is_host_card: bool = true, can_
 	var g: Dictionary = m.get("gun", {})
 	_gun.set_gun(str(g.get("kind", "")), str(g.get("tier", "")))
 	_name.text = str(m.get("displayName", ""))
+	var element := GameData.character_element(str(m.get("characterId", "")))
+	ElementBadge.set_row_element(_name_row, element)
+	ElementBadge.fit_label(_name, SIZE.x - (2 * (30 + 6) if element != "" else 0))
 	var level := int(m.get("level", 0))
 	_level.text = "Lv.%d" % level if level > 0 else ""
 	_badge.tier = str(m.get("tier", ""))

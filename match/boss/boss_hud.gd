@@ -1,6 +1,6 @@
 extends VBoxContainer
 ## The boss fight's HUD (the Hud pins it at the top centre, under the timer and the wind): the
-## boss's head-and-shoulders figure, its name, "Vòng 3/15" and a big HP bar with "8.400 / 12.000"
+## boss's head-and-shoulders figure, its element's badge (ElementBadge) and name, "Vòng 3/15" and a big HP bar with "8.400 / 12.000"
 ## (a pale chunk trails each loss); while the boss is shielded (BossHudModel.shielded) the bar is
 ## tinted ice blue with moving hex stripes (no icon), the bar flashing when the shield goes on or
 ## off. Under it, on the boss's turn, its skill's name ("Mưa đạn pháo", from
@@ -10,6 +10,8 @@ const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Ui := preload("res://ui/ui.gd")
 const BossArt := preload("res://match/boss/boss_art.gd")
 const BossArtView := preload("res://match/boss/boss_art_view.gd")
+const ElementBadge := preload("res://ui/element_badge.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const BAR := Vector2(560, 30)
 const TRAIL_SEC := 0.6
@@ -23,6 +25,7 @@ var _state := {}
 var _panel: PanelContainer
 var _art: Control
 var _name: Label
+var _element # ElementBadge: the boss's element before its name
 var _round: Label
 var _bar: Control
 var _hp: Label
@@ -56,6 +59,9 @@ func _ready() -> void:
 	var top := Ui.hbox(10)
 	top.mouse_filter = MOUSE_FILTER_IGNORE
 	col.add_child(top)
+	_element = ElementBadge.make("", 30)
+	_element.name = "ElementBadge"
+	top.add_child(_element)
 	_name = LobbyUi.text("", 28, Color.WHITE, true)
 	_name.size_flags_horizontal = SIZE_EXPAND_FILL
 	_name.mouse_filter = MOUSE_FILTER_IGNORE
@@ -107,6 +113,8 @@ func set_state(s: Dictionary) -> void:
 	var art := BossArt.art_of(str(s.get("boss_id", "")))
 	_art.art = art
 	_name.text = str(s.get("name", ""))
+	_element.element_id = GameData.boss_element(str(s.get("boss_id", "")))
+	_element.visible = _element.element_id != ""
 	_name.add_theme_color_override("font_color", BossArt.accent(art).lightened(0.25))
 	_round.text = str(s.get("round_text", ""))
 	_hp.text = str(s.get("hp_text", ""))

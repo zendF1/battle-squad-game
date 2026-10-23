@@ -176,7 +176,8 @@
     "count": 3,
     "cooldownRounds": 3,
     "firstRound": 2
-   }
+   },
+   "element": "metal"
   },
   {
    "bossId": "lava_crab",
@@ -238,7 +239,8 @@
     "count": 4,
     "cooldownRounds": 3,
     "firstRound": 2
-   }
+   },
+   "element": "fire"
   },
   {
    "bossId": "ice_witch",
@@ -316,7 +318,8 @@
     "count": 5,
     "cooldownRounds": 3,
     "firstRound": 2
-   }
+   },
+   "element": "water"
   }
  ]
 }

@@ -10,6 +10,9 @@ const Art := preload("res://ui/art.gd")
 const Modal := preload("res://ui/modal.gd")
 const CharacterView := preload("res://ui/character_view.gd")
 const Model := preload("res://screens/home/character_shop_model.gd")
+const ElementBadge := preload("res://ui/element_badge.gd")
+const ElementText := preload("res://ui/element_text.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const CARD_BG := Color(0.06, 0.08, 0.19, 0.88)
 const HEAD := Color(0.8, 0.88, 1.0)
@@ -92,7 +95,7 @@ static func card(id: String, on_info: Callable, on_buy: Callable) -> Dictionary:
 
 	var title := LobbyUi.text(Model.character_name(id), 32, Color.WHITE, true)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(title)
+	col.add_child(ElementBadge.name_row(title, GameData.character_element(id), 34, 8))
 	var role := LobbyUi.text(Model.role(id), 20, tint.lightened(0.45), true)
 	role.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(role)
@@ -172,7 +175,16 @@ static func open_info(overlay: Control, id: String, data: Variant, c: Dictionary
 	var right := Ui.vbox(10)
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(right)
-	right.add_child(LobbyUi.text(info["role"], 24, tint.lightened(0.45), true))
+	var role_row := Ui.hbox(10)
+	role_row.add_child(ElementBadge.make(GameData.character_element(id), 34))
+	role_row.add_child(LobbyUi.text(info["role"], 24, tint.lightened(0.45), true))
+	var element_line := ElementText.detail_line(GameData.character_element(id))
+	if element_line != "":
+		var el := LobbyUi.text(element_line, 21, Color(0.88, 0.94, 1.0), true)
+		el.name = "ElementLine"
+		role_row.add_child(LobbyUi.text("·", 24, Ui.TEXT_DIM))
+		role_row.add_child(el)
+	right.add_child(role_row)
 
 	var cols := Ui.hbox(28)
 	right.add_child(cols)

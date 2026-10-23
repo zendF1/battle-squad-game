@@ -22,6 +22,7 @@ const ModeSelectModel := preload("res://screens/home/mode_select_model.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const TierBadge := preload("res://screens/ranked/tier_badge.gd")
 const BossCardModel := preload("res://screens/home/boss_card_model.gd")
+const ElementBadge := preload("res://ui/element_badge.gd")
 const BossArt := preload("res://match/boss/boss_art.gd")
 const BossArtView := preload("res://match/boss/boss_art_view.gd")
 
@@ -271,7 +272,9 @@ func _boss_card(c: Dictionary) -> Button:
 	figure.name = "Figure"
 	stage.add_child(figure)
 	col.add_child(stage)
-	col.add_child(_centered(c["name"], 32, Color.WHITE, true))
+	var boss_name := _centered(c["name"], 32, Color.WHITE, true)
+	boss_name.autowrap_mode = TextServer.AUTOWRAP_OFF # sized by its text beside the element badge
+	col.add_child(ElementBadge.name_row(boss_name, str(c.get("element", "")), 34, 8))
 	var badges := Ui.hbox(8)
 	badges.alignment = BoxContainer.ALIGNMENT_CENTER
 	badges.mouse_filter = MOUSE_FILTER_IGNORE
@@ -282,10 +285,14 @@ func _boss_card(c: Dictionary) -> Button:
 	col.add_child(badges)
 	var desc := _centered(c["description"], 19, Color(0.75, 0.9, 1.0))
 	desc.custom_minimum_size = Vector2(BOSS_CARD.x - 44, 0)
-	desc.max_lines_visible = 3
+	desc.max_lines_visible = 2 if str(c.get("counter_text", "")) != "" else 3
 	desc.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	desc.size_flags_vertical = SIZE_EXPAND_FILL
 	col.add_child(desc)
+	if str(c.get("counter_text", "")) != "":
+		var counter := _centered(str(c["counter_text"]), 20, Color(1.0, 0.86, 0.5), true)
+		counter.name = "CounterHint"
+		col.add_child(counter)
 	if c["runs_text"] != "":
 		var runs := _centered(c["runs_text"], 22, LobbyUi.GOLD if int(c["runs_left"]) != 0 else Ui.TEXT_DIM, true)
 		runs.name = "Runs"

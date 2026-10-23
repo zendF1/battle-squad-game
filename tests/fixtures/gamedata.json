@@ -447,7 +447,9 @@
         "defense": 50,
         "skillPower": 50,
         "terrainDamage": 20,
-        "difficulty": 1
+        "difficulty": 1,
+        "element": "fire",
+        "sortOrder": 1
       },
       {
         "characterId": "tanko",
@@ -464,7 +466,9 @@
         "defense": 60,
         "skillPower": 65,
         "terrainDamage": 30,
-        "difficulty": 2
+        "difficulty": 2,
+        "element": "earth",
+        "sortOrder": 2
       },
       {
         "characterId": "spark",
@@ -481,7 +485,9 @@
         "defense": 30,
         "skillPower": 80,
         "terrainDamage": 20,
-        "difficulty": 2
+        "difficulty": 2,
+        "element": "metal",
+        "sortOrder": 3
       },
       {
         "characterId": "flora",
@@ -498,7 +504,9 @@
         "defense": 90,
         "skillPower": 85,
         "terrainDamage": 24,
-        "difficulty": 1
+        "difficulty": 1,
+        "element": "wood",
+        "sortOrder": 4
       }
     ],
     "defaultCharacterId": "rookie",
@@ -1347,6 +1355,44 @@
         "id": "blaster",
         "name": "Súng"
       }
-    ]
+    ],
+    "elements": [
+      {
+        "elementId": "metal",
+        "name": "Kim",
+        "beats": "wood",
+        "sortOrder": 1
+      },
+      {
+        "elementId": "wood",
+        "name": "Mộc",
+        "beats": "earth",
+        "sortOrder": 2
+      },
+      {
+        "elementId": "water",
+        "name": "Thủy",
+        "beats": "fire",
+        "sortOrder": 3
+      },
+      {
+        "elementId": "fire",
+        "name": "Hỏa",
+        "beats": "metal",
+        "sortOrder": 4
+      },
+      {
+        "elementId": "earth",
+        "name": "Thổ",
+        "beats": "water",
+        "sortOrder": 5
+      }
+    ],
+    "elementRules": {
+      "pvpStrongPct": 10,
+      "pvpWeakPct": 10,
+      "bossStrongPct": 20,
+      "bossTakenPct": 10
+    }
   }
 }

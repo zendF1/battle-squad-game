@@ -1,12 +1,12 @@
 extends Node2D
 ## One player, drawn at its feet (server Position is the first solid pixel under the feet): a
 ## team ring, the character (scenes/character/character.tscn: its art and animations) holding the
-## gun of the weapon it brought (weaponItemId → EquipmentModel.gun()), the HP bar, the name,
-## above it the small plate of the title it wears (the payload's "title", TitleModel; none for
+## gun of the weapon it brought (weaponItemId → EquipmentModel.gun()), the HP bar, the name (its
+## element's badge before it: GameData.unit_element(), ui/element_badge.gd), above it the small plate of the title it wears (the payload's "title", TitleModel; none for
 ## bots: nothing drawn, no gap) and above that the markers of its armed shot modifiers
 ## (match/status_effects.gd); the turn arrow rises over the plate too. Its status effects are drawn
 ## on the body, no icons beside the HP bar (match/views/status_fx.gd, StatusLook: ice crystals,
-## flames, a web, vines at the feet, stars round the head, a buff's aura; scaled to the body, the
+## flames, a web, earth and stone round the feet, stars round the head, a buff's aura; scaled to the body, the
 ## boss's and minions' too); the shield shows on the HP bar as a light-blue segment after
 ## the HP (the bar then spans HP + shield when they pass the max HP), and as a bubble round the body
 ## (match/views/shield_ball.gd: it pops in when a shield comes up, breathes, pops out when it
@@ -59,6 +59,7 @@ const GameData := preload("res://autoload/game_data_model.gd")
 const FlightModel := preload("res://match/boss/flight_model.gd")
 const JumpModel := preload("res://match/boss/jump_model.gd")
 const ShieldBall := preload("res://match/views/shield_ball.gd")
+const ElementBadge := preload("res://ui/element_badge.gd")
 
 const BODY := Vector2(28, 40) # server PlayerHeight = 40
 ## px per art unit: the baked art (about 150 units) stands about 52 px tall over the 28x40
@@ -81,6 +82,9 @@ const BADGE_LIFT := 26.0 # px the badge rises over the shot markers / the turn a
 const BOSS_ART_PER_BODY := 1.45
 const BUBBLE_MARGIN := 8.0 # px the shield bubble reaches past the figure's half height / width
 const SHADOW_FADE_PX := 420.0 # a flier's ground shadow is faintest this high over the ground
+const ELEMENT_PX := 20 # the element badge before a name (a boss's bigger, its name too)
+const ELEMENT_PX_BOSS := 26
+const ELEMENT_GAP := 4.0
 
 var player_id := ""
 var team_id := 1
@@ -96,6 +100,8 @@ var _tween: Tween
 var _tween_to := Vector2.ZERO
 var _status: Label
 var _name: Label
+var _element # ElementBadge before the name (the unit's element, GameData.unit_element()); hidden with none
+var element_id := ""
 var _title: TitlePlate
 var _title_rise := 0.0 # px the status markers and the turn arrow sit higher for the plate
 var _sprite: Node2D # scenes/character/character.gd
@@ -184,6 +190,12 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_name.size = Vector2(200, 26)
 	_name.position = Vector2(-100, -_art_top - 40)
 	add_child(_name)
+	element_id = GameData.unit_element(p)
+	_element = ElementBadge.make(element_id, ELEMENT_PX_BOSS if is_boss() else ELEMENT_PX)
+	_element.name = "ElementBadge"
+	_element.visible = element_id != ""
+	add_child(_element)
+	_place_element()
 	_title = TitlePlate.new()
 	_title.plate_height = TITLE_H
 	_title.font_size = TITLE_FONT
@@ -209,6 +221,22 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	set_skill_energy(int(p.get("skillEnergy", 0)) if (p.get("skillEnergy") is int or p.get("skillEnergy") is float) else 0)
 	if not bool(p.get("isAlive", true)):
 		set_dead()
+
+
+## The element badge just left of the name's text, its middle on the name's.
+func _place_element() -> void:
+	if _element == null:
+		return
+	var font: Font = _name.get_theme_font("font")
+	var fs: int = _name.get_theme_font_size("font_size")
+	var w := font.get_string_size(_name.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x if _name.text != "" else 0.0
+	var d: float = _element.size.x
+	_element.position = Vector2(-minf(w, _name.size.x) / 2.0 - ELEMENT_GAP - d, _name.position.y + (_name.size.y - d) / 2.0)
+
+
+## The element badge before the name (tests).
+func element_badge() -> Control:
+	return _element
 
 
 ## A boss / minion's bodySize: the state's, else its game data entry's (GET /gamedata bosses), 1
@@ -436,6 +464,7 @@ func set_dead() -> void:
 	_bubble.hide_ball()
 	_badge.show_use({})
 	_name.modulate.a = 0.5
+	_element.modulate.a = 0.5
 	_title.modulate.a = 0.5
 	_status.modulate.a = 0.5
 	_ring.queue_redraw()
@@ -689,7 +718,7 @@ func vanish() -> void:
 	if _sprite.has_method("vanish"):
 		_sprite.vanish()
 	_fx.vanish()
-	for n in [_name, _title, _status, _ring, _badge]:
+	for n in [_name, _element, _title, _status, _ring, _badge]:
 		n.visible = false
 
 

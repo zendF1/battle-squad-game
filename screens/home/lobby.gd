@@ -69,6 +69,9 @@ const Modal := preload("res://ui/modal.gd")
 const ModeSelectModel := preload("res://screens/home/mode_select_model.gd")
 const PartyLayout := preload("res://screens/home/party_layout.gd")
 const BossCardModel := preload("res://screens/home/boss_card_model.gd")
+const ElementBadge := preload("res://ui/element_badge.gd")
+const ElementText := preload("res://ui/element_text.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const MARGIN := 18
 const STAGE := Vector2(560, 590)
@@ -97,6 +100,8 @@ var _gun_stand: PedestalGun
 var _stage_head: VBoxContainer
 var _stage_title: TitlePlate
 var _stage_name: Label
+var _stage_name_row: HBoxContainer # the element badge before the name
+var _info_element: Label
 var _stage_level: Label
 var _info_role: Label
 var _info_skill: Label
@@ -440,7 +445,8 @@ func _add_stage() -> void:
 	head.add_child(_stage_title)
 	_stage_name = LobbyUi.text("", 44, Color.WHITE, true)
 	_stage_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	head.add_child(_stage_name)
+	_stage_name_row = ElementBadge.name_row(_stage_name, "", 44, 10)
+	head.add_child(_stage_name_row)
 	_stage_level = LobbyUi.text("", 24, LobbyUi.GOLD, true)
 	_stage_level.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	head.add_child(_stage_level)
@@ -523,6 +529,9 @@ func _build_info_card() -> Control:
 	card.add_child(col)
 	_info_role = LobbyUi.text("", 28, Color.WHITE, true)
 	col.add_child(_info_role)
+	_info_element = LobbyUi.text("", 20, Color(0.85, 0.92, 1.0), false)
+	_info_element.name = "ElementLine"
+	col.add_child(_info_element)
 	_info_skill = LobbyUi.icon_text(col, "skill", "", 22, Color(0.75, 0.9, 1.0), false, 26)
 	_info_stats = GridContainer.new()
 	_info_stats.columns = 2
@@ -549,8 +558,11 @@ func _render_character() -> void:
 	_gun_stand.modulate = _art.modulate
 	_render_gun()
 	_stage_name.text = info["name"]
+	ElementBadge.set_row_element(_stage_name_row, GameData.character_element(id))
 	_stage_level.text = level
 	_info_role.text = info["role"]
+	_info_element.text = ElementText.detail_line(GameData.character_element(id))
+	_info_element.visible = _info_element.text != ""
 	_info_skill.text = "Kỹ năng: %s" % info["skill"] if info["skill"] != "" else ""
 	_info_skill.get_parent().visible = info["skill"] != ""
 	Ui.clear(_info_stats)
