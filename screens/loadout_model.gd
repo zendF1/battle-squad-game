@@ -1,6 +1,7 @@
 extends RefCounted
 ## Loadout choice for Quick Play: one character (picked in the lobby, which saves it here) and
-## up to Items.max_loadout() items (picked on the Loadout screen), plus how many of each item the
+## up to max_items items (picked on the Loadout screen: the mode's maxItems, LobbyModel.max_items();
+## Items.max_loadout(), the global rule, by default), plus how many of each item the
 ## player can still bring (GET /player/inventory: the unreserved quantity, rows with none left
 ## are not listed). The server refuses a QuickPlay with an item the player does not hold
 ## (RoomError LOADOUT_INVALID "You do not own item: <id>"), so once the counts are known an item
@@ -21,11 +22,20 @@ const NOT_OWNED_HINT := "Chưa sở hữu vật phẩm này"
 
 var character_id := ""
 var items: Array[String] = [] # in the order picked
+var max_items := 0 # how many items it takes (the mode's maxItems); set_max_items()
 var item_counts: Variant = null # {itemId: quantity}, or null: unknown
 
 
 func _init() -> void:
 	character_id = default_character()
+	max_items = Items.max_loadout()
+
+
+## The mode's item slots (LobbyModel.max_items()); picks past them are dropped (the last ones).
+func set_max_items(n: int) -> void:
+	max_items = maxi(n, 0)
+	while items.size() > max_items:
+		items.pop_back()
 
 
 ## The character every player owns and plays when none is picked.
@@ -47,20 +57,20 @@ func select_character(id: String) -> void:
 		character_id = id
 
 
-## Picks or drops an item. Returns false (and changes nothing) for a fourth item, an unknown id
+## Picks or drops an item. Returns false (and changes nothing) for an item past max_items, an unknown id
 ## or an item the player has none of.
 func toggle_item(id: String) -> bool:
 	if items.has(id):
 		items.erase(id)
 		return true
-	if not Items.is_known(id) or items.size() >= Items.max_loadout() or not owns(id):
+	if not Items.is_known(id) or items.size() >= max_items or not owns(id):
 		return false
 	items.append(id)
 	return true
 
 
 func is_full() -> bool:
-	return items.size() >= Items.max_loadout()
+	return items.size() >= max_items
 
 
 ## True unless the counts are known and the player has none of the item left.
@@ -98,10 +108,10 @@ func payload(base: Dictionary) -> Dictionary:
 	return out
 
 
-## The Items.max_loadout() slots, in the order picked: the item id, or "" for an empty slot.
+## The max_items slots, in the order picked: the item id, or "" for an empty slot.
 func slots() -> Array[String]:
 	var out: Array[String] = []
-	for i in Items.max_loadout():
+	for i in max_items:
 		out.append(items[i] if i < items.size() else "")
 	return out
 

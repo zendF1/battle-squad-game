@@ -19,11 +19,12 @@ const SECTION := "lobby"
 const MODE_KEY := "mode"
 
 const NONE := {"id": "", "name": "", "description": "", "base": {}, "category": "", "icon": "", "party_size": 1,
-	"ranked": false, "queue": ""}
+	"ranked": false, "queue": "", "max_items": 0}
 
 
 ## The lobby modes in order: [{id, name, description, base, category, icon, party_size, ranked,
-## queue}]. id: the remembered value; base: Router.quick_play_base for the Loadout. party_size: the
+## queue, max_items}]. max_items: the items a player takes into it (the game data's maxItems: 6 for
+## a boss; without it the global itemRules.maxLoadout). id: the remembered value; base: Router.quick_play_base for the Loadout. party_size: the
 ## game data's partySize (without it, an older server: matchmaking.teamSize for a queue mode, else
 ## 1); ranked: GameData.is_ranked_queue() of its queue.
 static func modes() -> Array:
@@ -37,11 +38,22 @@ static func modes() -> Array:
 			base = {"bot": str(m["bot"])}
 		var size = m.get("partySize")
 		var party := int(size) if size is int or size is float else (GameData.team_size() if queue != "" else 1)
+		var mi = m.get("maxItems")
+		var max_items := int(mi) if (mi is int or mi is float) and mi > 0 else GameData.max_loadout()
 		out.append({"id": str(m.get("modeId", "")), "name": str(m.get("name", "")), "description": str(m.get("description", "")),
 			"base": base, "category": str(m.get("category", "")) if m.get("category") is String else "",
 			"icon": str(m.get("icon", "")) if m.get("icon") is String else "", "party_size": maxi(party, 1),
-			"ranked": GameData.is_ranked_queue(queue), "queue": queue})
+			"ranked": GameData.is_ranked_queue(queue), "queue": queue, "max_items": max_items})
 	return out
+
+
+## The items a player takes into the mode of QuickPlay base `base` (its max_items); the global
+## itemRules.maxLoadout when no mode has that base.
+static func max_items(base: Dictionary) -> int:
+	for m in modes():
+		if m["base"] == base:
+			return int(m["max_items"])
+	return GameData.max_loadout()
 
 
 ## The mode at `index` (clamped); NONE with none.

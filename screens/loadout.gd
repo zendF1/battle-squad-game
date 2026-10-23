@@ -1,12 +1,13 @@
 extends Control
-## Loadout before Quick Play ("Chuẩn bị", opened by the lobby's "BẮT ĐẦU"): pick up to three
+## Loadout before Quick Play ("Chuẩn bị", opened by the lobby's "BẮT ĐẦU"): pick up to the mode's
+## item count (its maxItems: 6 for a boss fight; the global itemRules.maxLoadout, 3, otherwise)
 ## items, then "Vào trận" sends QuickPlay {bot?, characterId, items} through the QuickPlay
 ## helper; on a queue mode (Đấu hạng, Đấu thường) "Tìm trận" opens Matchmaking on its queue
 ## (Router.queue) with {characterId, items} (Router.ranked_loadout) instead; the party's member (Router.party) gets "SẴN SÀNG" there, which
 ## sends UpdateLoadout {characterId, items} + SetReady true and goes back Home. The character is the one chosen in the lobby (saved in the shared settings file) and
 ## shows read-only on the left with its level; the mode ({} practice target, {"bot": "ai"}) is
-## the lobby's, in Router.quick_play_base, named in the header. The picked items sit in three
-## slots above the item grid (five per row, scrolling when the window is short); tapping a slot
+## the lobby's, in Router.quick_play_base, named in the header. The picked items sit in the
+## mode's slots above the item grid (one row; 6 slots in two rows of 3) (five per row, scrolling when the window is short); tapping a slot
 ## (or the picked item) drops it. Item ownership comes from GET /player/inventory (fetched on
 ## open, after assets change and after a refused QuickPlay): an item with none left is dimmed,
 ## tapping it shows a hint instead of picking it, and a saved pick of it is dropped
@@ -37,6 +38,9 @@ const CARD := Color(0.08, 0.12, 0.3, 0.72)
 const CARD_PICKED := Color(0.2, 0.38, 0.75, 0.95)
 const NOTE_OWNED := Color(0.45, 0.9, 0.55)
 const ITEM_COLUMNS := 5
+const SLOTS_ONE_ROW := 4 # item slots in one row at most; more take two rows (a boss fight's 6: 3 + 3)
+const SLOT_H := 92
+const SLOT_H_COMPACT := 72 # a slot's height in two rows
 const ITEM_GAP := 12
 ## Card height: the rows share the scroll's height, between these (below the minimum it scrolls).
 const ITEM_CARD_MIN := 104
@@ -87,6 +91,7 @@ func _ready() -> void:
 	theme = LobbyUi.theme()
 	_base = Router.quick_play_base.duplicate()
 	_member = LobbyModel.is_queue(_base) and Router.party != null and Router.party.model.is_member()
+	_model.set_max_items(LobbyModel.max_items(_base)) # the mode's item slots (6 in a boss fight)
 	_model.restore(SETTINGS_PATH)
 	_quick_play = QuickPlay.new()
 	add_child(_quick_play)
@@ -320,7 +325,8 @@ func _draw_pedestal(c: Control) -> void:
 	c.draw_texture_rect(tex, Rect2(center - Art.PEDESTAL_CENTER * PEDESTAL_SCALE, tex.get_size() * PEDESTAL_SCALE), false)
 
 
-## "Mang theo n/3" and the three slots, in the order picked.
+## "Mang theo n/N" and the mode's N item slots (LoadoutModel.max_items), in the order picked: one
+## row up to SLOTS_ONE_ROW, else two rows (6: 3 + 3), a shorter second row centred.
 func _build_slots() -> Control:
 	var card := LobbyUi.panel(18, 22)
 	var col := Ui.vbox(10)
@@ -334,29 +340,62 @@ func _build_slots() -> Control:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	head.add_child(hint)
-	var row := Ui.hbox(14)
-	col.add_child(row)
-	for i in Items.max_loadout():
-		var b := Button.new()
-		b.custom_minimum_size = Vector2(0, 92)
-		b.size_flags_horizontal = SIZE_EXPAND_FILL
-		b.pressed.connect(_on_slot.bind(i))
-		var line := Ui.hbox(12)
-		line.alignment = BoxContainer.ALIGNMENT_CENTER
-		line.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-		b.add_child(line)
-		var icon := LobbyUi.icon("plus", 44)
-		line.add_child(icon)
-		var item_name := LobbyUi.text("", 24, Color.WHITE, true)
-		item_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		line.add_child(item_name)
-		for c in [line, icon, item_name]:
-			c.mouse_filter = MOUSE_FILTER_IGNORE
-		row.add_child(b)
-		_slot_buttons.append(b)
-		_slot_icons.append(icon)
-		_slot_names.append(item_name)
+	var rows := slot_rows(_model.max_items)
+	var per_row: int = rows[0] if not rows.is_empty() else 0
+	var i := 0
+	for count in rows:
+		var row := Ui.hbox(14)
+		col.add_child(row)
+		var pad: float = (per_row - int(count)) * 0.5
+		if pad > 0.0:
+			row.add_child(_slot_pad(pad))
+		for k in count:
+			row.add_child(_slot_button(i, rows.size() > 1))
+			i += 1
+		if pad > 0.0:
+			row.add_child(_slot_pad(pad))
 	return card
+
+
+## The slots per row for n slots: one row up to SLOTS_ONE_ROW, else two (the first the longer).
+static func slot_rows(n: int) -> Array:
+	if n <= 0:
+		return []
+	if n <= SLOTS_ONE_ROW:
+		return [n]
+	var first := ceili(n / 2.0)
+	return [first, n - first]
+
+
+## Room beside a shorter row (ratio: in slots), so its slots are as wide as the row above.
+func _slot_pad(ratio: float) -> Control:
+	var c := Control.new()
+	c.size_flags_horizontal = SIZE_EXPAND_FILL
+	c.size_flags_stretch_ratio = ratio
+	c.mouse_filter = MOUSE_FILTER_IGNORE
+	return c
+
+
+func _slot_button(i: int, compact: bool) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, SLOT_H_COMPACT if compact else SLOT_H)
+	b.size_flags_horizontal = SIZE_EXPAND_FILL
+	b.pressed.connect(_on_slot.bind(i))
+	var line := Ui.hbox(12)
+	line.alignment = BoxContainer.ALIGNMENT_CENTER
+	line.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	b.add_child(line)
+	var icon := LobbyUi.icon("plus", 38 if compact else 44)
+	line.add_child(icon)
+	var item_name := LobbyUi.text("", 22 if compact else 24, Color.WHITE, true)
+	item_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	line.add_child(item_name)
+	for c in [line, icon, item_name]:
+		c.mouse_filter = MOUSE_FILTER_IGNORE
+	_slot_buttons.append(b)
+	_slot_icons.append(icon)
+	_slot_names.append(item_name)
+	return b
 
 
 ## The eight items, ITEM_COLUMNS per row in a vertical scroll (it only scrolls when the window
@@ -584,7 +623,7 @@ func _refresh() -> void:
 		b.disabled = locked or (_model.is_full() and not picked)
 		# Not disabled when none is left: the tap shows why it cannot be picked.
 		b.modulate = DIM if not picked and (b.disabled or not _model.owns(id)) else Color.WHITE
-	_count.text = "Mang theo  %d/%d" % [_model.items.size(), Items.max_loadout()]
+	_count.text = "Mang theo  %d/%d" % [_model.items.size(), _model.max_items]
 	if GameSocket.is_open():
 		_conn.text = "● Online"
 		_conn.add_theme_color_override("font_color", Ui.TONES["good"])

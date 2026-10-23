@@ -120,3 +120,34 @@ func test_payload_never_sends_an_item_with_none_left() -> void:
 	m.toggle_item("medkit")
 	m.item_counts = {"medkit": 1} # set without set_counts: the payload still filters
 	eq(m.payload({"bot": "ai"}), {"bot": "ai", "characterId": "rookie", "items": ["medkit"]}, "power_shot left out")
+
+
+## The mode's item slots (modes.lobby maxItems: 6 for a boss fight), the global itemRules rule
+## without it; a smaller mode drops the last picks; the Loadout's slot rows.
+func test_mode_max_items() -> void:
+	var LobbyModel := load("res://screens/home/lobby_model.gd")
+	var Loadout := load("res://screens/loadout.gd")
+	var BossFixture := load("res://tests/boss_fixture.gd")
+	var GameData := load("res://autoload/game_data_model.gd")
+	BossFixture.take()
+	var boss := {"queue": "boss:lava_crab"}
+	eq(LobbyModel.max_items(boss), 3, "no maxItems (an older server): the global rule")
+	eq(LobbyModel.max_items({"queue": "nope"}), 3, "an unknown mode: the global rule")
+	var d: Dictionary = GameData.data.duplicate(true)
+	d["version"] = "max-items"
+	for m in d["modes"]["lobby"]:
+		m["maxItems"] = 6 if str(m.get("category", "")) == "boss" else 3
+	GameData.take(d, "", false)
+	eq(LobbyModel.max_items(boss), 6, "a boss fight: 6")
+	eq(LobbyModel.max_items({"queue": "casual_2v2"}), 3, "PvP: 3")
+	eq(LobbyModel.max_items({}), 3, "practice: 3")
+	var m := LoadoutModel.new()
+	m.set_max_items(LobbyModel.max_items(boss))
+	for id in ["medkit", "teleport", "power_shot", "air_strike", "drill_bomb", "freeze_bomb"]:
+		check(m.toggle_item(id), "%s picked" % id)
+	check(m.is_full() and not m.toggle_item("spider_net"), "a seventh refused")
+	eq(m.slots().size(), 6, "six slots")
+	m.set_max_items(3)
+	eq(m.items, ["medkit", "teleport", "power_shot"] as Array[String], "back to 3: the last picks dropped")
+	eq([Loadout.slot_rows(3), Loadout.slot_rows(4), Loadout.slot_rows(5), Loadout.slot_rows(6), Loadout.slot_rows(0)],
+		[[3], [4], [3, 2], [3, 3], []], "slot rows: one row up to 4, then two")
