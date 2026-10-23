@@ -531,6 +531,21 @@ func test_unit_shell_kinds() -> void:
 	shard.free()
 
 
+func test_unit_shell_sizes() -> void:
+	var player := UnitShell.player_shell_px()
+	check(player > 12.0 and player < 40.0, "a player shell is %f px" % player)
+	for k in ["drone_bolt", "crab_spit", "snowball"]:
+		var v := UnitShell.new(k)
+		v._ready()
+		near(v.drawn_px(), player, 0.01, "a minion's %s is a player shell's size" % k)
+		v.free()
+	for k in ["steel_shell", "magma_bomb", "ice_shard", "ice_spike"]:
+		var v := UnitShell.new(k)
+		v._ready()
+		near(v.drawn_px(), player * UnitShell.BOSS_SIZE, 0.01, "a boss's %s is %.1f × it" % [k, UnitShell.BOSS_SIZE])
+		v.free()
+
+
 func test_shot_player_uses_the_unit_kinds() -> void:
 	var layer := Node2D.new()
 	var sp := ShotPlayer.new()
