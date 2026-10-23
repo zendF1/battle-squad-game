@@ -42,6 +42,16 @@ extends Node2D
 ## LavaView, replaced by every lavaZones list), the boss's death takes its minions (die cause
 ## boss_defeated). The camera frames a big body by its height (_look_lift()). MatchEnded shows the
 ## boss result screen (match/boss/boss_result_screen.gd).
+## Boss mode v2: UnitFlew {playerId, from, to, duration} flies a drone or the witch through the air
+## (PlayerView.fly(), the camera on it; the events after it wait until it lands, like a fall out of
+## the map); walking crablings come as PlayerMoved. A bomber pulses red while a party player is
+## within its detonateRange (_update_bombers()). A minion's own blast (BlastEvents: its
+## detonation, ShotResolved actionMode self_destruct, and the death blast after a die) is drawn as
+## that minion blowing up: it swells until then (prime()), then the body is gone at once
+## under a big burst in its look (BossArt.BLAST_LOOK, the snowman's icy) with a shockwave as wide
+## as the blast (BlastFx) and a hard shake; an explode with a crater number carves that radius.
+## A summon event carries the whole new unit (displayName, hp, maxHp, teamId, bodySize, flying,
+## behavior, movement); the game data's minion type only fills what it leaves out.
 ## See docs/superpowers/specs/2026-10-15-godot-client-roadmap-design.md.
 
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
@@ -87,6 +97,10 @@ const BossArt := preload("res://match/boss/boss_art.gd")
 const BossResultModel := preload("res://match/boss/boss_result_model.gd")
 const BossResultScreen := preload("res://match/boss/boss_result_screen.gd")
 const PopFx := preload("res://match/boss/pop_fx.gd")
+const BlastEvents := preload("res://match/boss/blast_events.gd")
+const BlastFx := preload("res://match/boss/blast_fx.gd")
+const FlightModel := preload("res://match/boss/flight_model.gd")
+const BomberModel := preload("res://match/boss/bomber_model.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 
 ## Actions go out at least the server's timings.actionIntervalSec apart (it drops closer ones)
@@ -138,6 +152,8 @@ var _deferred: Array = []
 ## A walk's fall out of the map is still drawn: its PlayerDamaged out_of_map and every event after
 ## it wait in _deferred until the body has dropped out of sight (then the death plays).
 var _fall_hold := false
+## A UnitFlew flight is still drawn: the events after it wait in _deferred until it lands.
+var _flight_hold := false
 var _awaiting_ack := 0.0 # seconds left for the server to answer a sent Shoot/EndTurn/UseItem
 var _awaiting_item := "" # the instant item a sent UseItem waits for ("" for Shoot/EndTurn)
 var _committing := false # an action requested: input locked until it is answered
@@ -271,6 +287,8 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	_track_camera(delta)
 	_release_fall_hold()
+	_release_flight_hold()
+	_update_bombers()
 	if _awaiting_ack > 0.0:
 		_awaiting_ack -= delta
 		if _awaiting_ack <= 0.0:
@@ -333,6 +351,7 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 	_shot_player.stop()
 	_deferred.clear()
 	_fall_hold = false
+	_flight_hold = false
 	_energy_reveal.clear() # the snapshot's energies are shown as they are
 	_shot_badge = {}
 	_held_badges.clear() # the views are rebuilt: selectedAction brings the current one back
@@ -395,6 +414,8 @@ func _set_current(player_id: String, move_energy: int, continuing: bool = false)
 		if _is_my_turn():
 			_moves.reset(_pos(_me), move_energy)
 		if _players.get(player_id, {}).has("position"):
+			var flier = _views.get(player_id)
+			_cam.sky_turn = flier != null and "flying" in flier and flier.flying # a flier high up: the view may rise into the sky
 			_cam.pan_to(_pos(player_id) + _look_lift(player_id)) # waits for an explosion's hold
 	if _views.has(_me) and _players[_me].has("position"):
 		# Leaving my turn with Moves unanswered or unsent (or with my last PlayerMoved in the
@@ -569,7 +590,7 @@ func _on_event(event: String, data: Variant) -> void:
 	if event == "PlayerAiming" and data is Dictionary:
 		data = data.duplicate()
 		data["receivedAt"] = Time.get_ticks_usec() # a replay may hold it back: show only what is left
-	if _shot_player.is_playing() or _fall_hold:
+	if _shot_player.is_playing() or _fall_hold or _flight_hold:
 		_deferred.append([event, data])
 		return
 	if _waits_for_fall(event, data):
@@ -594,7 +615,7 @@ func _waits_for_fall(event: String, data: Variant) -> bool:
 
 ## Applies the events held back by a replay or a fall, in order, until another one holds them.
 func _flush_deferred() -> void:
-	while not _deferred.is_empty() and not _shot_player.is_playing() and not _fall_hold:
+	while not _deferred.is_empty() and not _shot_player.is_playing() and not _fall_hold and not _flight_hold:
 		var item: Array = _deferred[0]
 		if _waits_for_fall(item[0], item[1]):
 			_fall_hold = true
@@ -650,6 +671,8 @@ func _apply(event: String, data: Variant) -> void:
 			_snap_to_server(shooter)
 			var timeline := ShotTimeline.new(data)
 			_shot_timeline = timeline
+			if _boss.active or timeline.action_mode == BlastEvents.SELF_DESTRUCT:
+				_tag_blasts(timeline, shooter)
 			# The energies after the shot (0 for a skill's shooter, +10 for each enemy hit) wait
 			# for their moment in the replay.
 			_energy_reveal.begin(timeline, _players)
@@ -694,6 +717,8 @@ func _apply(event: String, data: Variant) -> void:
 			_on_item_used(data)
 		"BossShieldChanged":
 			_on_boss_shield(data)
+		"UnitFlew":
+			_on_unit_flew(data)
 		"MatchEnded":
 			_on_match_ended(data)
 
@@ -902,6 +927,9 @@ func _on_shot_event(e: Dictionary) -> void:
 	var id := str(e.get("playerId", ""))
 	match str(e.get("type", "")):
 		"explode":
+			if not BlastEvents.blast_of(e).is_empty():
+				_unit_blast(e)
+				return
 			var p := _vec(e["position"])
 			var radius := float(e.get("radius", 0.0))
 			# crater: the shape (always a bowl now; a circle is still carved). The view uploads
@@ -1345,8 +1373,9 @@ func _on_boss_shield(d: Variant) -> void:
 			Vector2(0, -_views[id].body_size * 40.0))
 
 
-## A summon event {playerId, minionId, position, hp}: a new minion of the boss's team (its type's
-## name and body size from the game data) pops in where it lands; the camera shows it.
+## A summon event {playerId, minionId, position, hp, maxHp, displayName, teamId, bodySize, flying,
+## behavior, movement}: a new minion of the boss's team pops in where it lands (what the event
+## leaves out from its game data type: summon_player()); the camera shows it.
 func _summon(e: Dictionary) -> void:
 	var id := str(e.get("playerId", ""))
 	if id == "" or not e.get("position") is Dictionary:
@@ -1356,14 +1385,8 @@ func _summon(e: Dictionary) -> void:
 		_set_pos(id, pos)
 		_views[id].move_to(pos, 0.0)
 		return
-	var boss: Dictionary = _players.get(_boss.player_id, {})
 	var minion_id := str(e.get("minionId", ""))
-	var kind := GameData.boss_minion(_boss.boss_id, minion_id)
-	var hp := int(e.get("hp", kind.get("hp", 1)))
-	var p := {"playerId": id, "displayName": str(kind.get("name", minion_id)), "teamId": int(boss.get("teamId", 2)), "role": "minion",
-		"bossId": _boss.boss_id, "minionId": minion_id, "bodySize": GameData.body_size_of(kind), "characterId": "",
-		"hp": hp, "maxHp": maxi(hp, 1), "isAlive": true, "isBot": true, "position": {"x": pos.x, "y": pos.y}, "statusEffects": [],
-		"items": [], "skillEnergy": 0}
+	var p := summon_player(e, _boss.boss_id, int(_players.get(_boss.player_id, {}).get("teamId", 2)))
 	_players[id] = p
 	var view := PlayerView.new()
 	view.walk.terrain = _mask
@@ -1378,6 +1401,132 @@ func _summon(e: Dictionary) -> void:
 	fx.color = BossArt.accent(BossArt.art_of("", minion_id))
 	_fx_layer.add_child(fx)
 	_hold_focus({"pos": pos + _view_lift(view)}, 0.6)
+
+
+## The BattlePlayerState of a summoned minion from its summon event: the event's fields (the full
+## unit since boss mode v2), the game data's minion type for what it leaves out (an older server:
+## its name, hp, bodySize, behavior, movement), the boss's team when it has no teamId.
+static func summon_player(e: Dictionary, boss_id: String, boss_team: int) -> Dictionary:
+	var minion_id := str(e.get("minionId", ""))
+	var kind := GameData.boss_minion(boss_id, minion_id)
+	var hp := int(_num(e, "hp", float(kind.get("hp", 1))))
+	var pos: Dictionary = e.get("position", {"x": 0.0, "y": 0.0})
+	var name := str(e["displayName"]) if e.get("displayName") is String and e["displayName"] != "" else str(kind.get("name", minion_id))
+	var p := {"playerId": str(e.get("playerId", "")), "displayName": name, "teamId": int(_num(e, "teamId", boss_team)),
+		"role": "minion", "bossId": boss_id, "minionId": minion_id,
+		"bodySize": _num(e, "bodySize", GameData.body_size_of(kind)), "characterId": str(e.get("characterId", "")),
+		"hp": hp, "maxHp": maxi(int(_num(e, "maxHp", hp)), 1), "isAlive": true, "isBot": true,
+		"position": {"x": float(pos.get("x", 0.0)), "y": float(pos.get("y", 0.0))}, "statusEffects": [], "items": [], "skillEnergy": 0}
+	for key in ["behavior", "movement"]:
+		var v = e.get(key)
+		p[key] = str(v) if v is String and v != "" else str(kind.get(key, ""))
+	p["flying"] = bool(e["flying"]) if e.get("flying") is bool else str(p["movement"]) == "fly"
+	return p
+
+
+static func _num(d: Dictionary, key: String, fallback: float) -> float:
+	var v = d.get(key)
+	return float(v) if v is int or v is float else fallback
+
+
+## UnitFlew {playerId, from, to, duration}: the unit flies there (PlayerView.fly()), the camera
+## goes with it; the events after it wait until it lands (_flight_hold).
+func _on_unit_flew(d: Variant) -> void:
+	if not d is Dictionary:
+		return
+	var id := str(d.get("playerId", ""))
+	var flight = FlightModel.from_event(d)
+	if flight == null or not _players.has(id):
+		return
+	_set_pos(id, flight.to)
+	var view = _views.get(id)
+	if view == null or not view.has_method("fly"):
+		return
+	view.fly(flight.from, flight.to, flight.duration)
+	if view.in_flight():
+		_flight_hold = true
+		_hold_focus({"view": view}, flight.duration + FALL_TAIL)
+
+
+## The flights are drawn: what waited behind them.
+func _release_flight_hold() -> void:
+	if not _flight_hold:
+		return
+	for view in _views.values():
+		if view.has_method("in_flight") and view.in_flight():
+			return
+	_flight_hold = false
+	_flush_deferred()
+	_refresh_controls()
+
+
+## Every bomber's warning: its red pulse while a living player of the other team is within its
+## detonateRange (the positions on screen: it warns as it walks or flies in).
+func _update_bombers() -> void:
+	if not _boss.active:
+		return
+	for id in _views:
+		var view = _views[id]
+		if not view.has_method("is_bomber") or not view.is_bomber() or view.is_dead():
+			continue
+		var team := int(_players.get(id, {}).get("teamId", 2))
+		var targets: Array = []
+		for other in _views:
+			var o: Dictionary = _players.get(other, {})
+			if int(o.get("teamId", team)) != team and bool(o.get("isAlive", false)) and not _views[other].is_dead():
+				targets.append(_views[other].position)
+		view.set_warning(BomberModel.warning(view.position, targets, GameData.unit_detonate_range(_players.get(id, {}))))
+
+
+## Marks the shot's minion blasts (BlastEvents.tag()) and, for a detonation, swells the bomber
+## until the blast.
+func _tag_blasts(timeline, shooter: String) -> void:
+	if BlastEvents.tag(timeline.events, _players, shooter, timeline.action_mode) == 0:
+		return
+	var at := BlastEvents.detonation_time(timeline.events)
+	if at > 0.05 and _views.has(shooter) and _views[shooter].has_method("prime"):
+		_views[shooter].prime(at)
+
+
+## A minion blows up (its detonation or death blast): the crater (the event's crater number, else
+## its radius in the event's shape), the body gone at once, its big burst as wide as the blast
+## with a shockwave ring, and a hard shake.
+func _unit_blast(e: Dictionary) -> void:
+	var blast := BlastEvents.blast_of(e)
+	var id := str(blast.get("minion", ""))
+	var p := _vec(e["position"])
+	var radius := float(e.get("radius", 0.0))
+	var crater = e.get("crater")
+	if crater is int or crater is float:
+		if float(crater) > 0.0:
+			_mask.carve(TerrainMask.CRATER_BOWL, p.x, p.y, float(crater))
+	elif radius > 0.0:
+		_mask.carve(str(crater) if crater is String else TerrainMask.CRATER_BOWL, p.x, p.y, radius)
+	_terrain_view.refresh()
+	var unit: Dictionary = _players.get(id, {})
+	var art := BossArt.art_of("", str(unit.get("minionId", "")))
+	var look := BossArt.blast_look(art)
+	var reach := maxf(radius, GameData.unit_explode_radius(unit))
+	if _views.has(id) and _views[id].has_method("vanish"):
+		_views[id].vanish()
+	var fx := ExplosionFx.new()
+	fx.radius = reach
+	fx.kind = str(look["kind"])
+	fx.tier = str(look["tier"])
+	fx.position = p
+	_fx_layer.add_child(fx)
+	var wave := BlastFx.new()
+	wave.radius = reach
+	wave.icy = bool(look["icy"])
+	wave.color = BossArt.accent(art)
+	wave.position = p
+	_fx_layer.add_child(wave)
+	_hold_focus({"pos": p + LOOK_LIFT}, CameraModel.HOLD_SEC + 0.3)
+	_cam.shake(reach * 2.0)
+	var server_version := int(e.get("terrainVersion", _mask.version))
+	if server_version != _mask.version:
+		_mask.version = server_version
+		GameSocket.send("Reconnect", {})
 
 
 ## The boss fight's HUD state (BossHudModel.state(); tests, the harness).

@@ -1140,8 +1140,10 @@ const BOSS_QUEUE_PREFIX := "boss:"
 
 
 ## [{bossId, name, description, recommendedLevel, modeId, queue, mapId, hp, bodySize, turnLimit,
-## shieldedDamageFactor, minions: [{minionId, name, hp, bodySize}], skills: [{skillId, name,
-## description, kind}], dailyBonusRuns}], the enabled bosses in display order; [] from a server
+## shieldedDamageFactor, flying, hover {minX, maxX, minY, maxY}, minions: [{minionId, name, hp,
+## bodySize, behavior, movement, explodeOnDeath, explodeRadius, explodeDamagePct, explodeDamageOf,
+## detonateRange, shotDamageFactor, flyRange, walkRange}], skills: [{skillId, name, description, kind}],
+## dailyBonusRuns}], the enabled bosses in display order; [] from a server
 ## without them.
 static func bosses() -> Array:
 	return list("bosses")
@@ -1211,3 +1213,67 @@ static func boss_skill(boss_id: String, skill_id: String) -> Dictionary:
 static func body_size_of(entry: Dictionary) -> float:
 	var v := _f(entry, "bodySize")
 	return v if v > 0.0 else 1.0
+
+
+## The game data entry of a match's boss or minion player (role boss / minion, bossId, minionId):
+## its bosses entry or minion type; {} for a player or an unknown id.
+static func boss_unit(p: Dictionary) -> Dictionary:
+	match _s(p, "role"):
+		"boss":
+			return boss(_s(p, "bossId"))
+		"minion":
+			return boss_minion(_s(p, "bossId"), _s(p, "minionId"))
+	return {}
+
+
+## A boss or minion flies (no gravity, no fall: it hovers in the air): the state's flying, else
+## the game data's (a boss's flying, a minion's movement "fly"); false for a player.
+static func unit_flying(p: Dictionary) -> bool:
+	if p.get("flying") is bool:
+		return p["flying"]
+	var u := boss_unit(p)
+	if _s(p, "role") == "boss":
+		return _b(u, "flying")
+	return unit_movement(p) == "fly"
+
+
+## A minion's behavior ("shooter" / "bomber"): the state's, else its game data type's; "" none.
+static func unit_behavior(p: Dictionary) -> String:
+	var v := _s(p, "behavior")
+	return v if v != "" else _s(boss_unit(p), "behavior")
+
+
+## A minion's movement ("none" / "walk" / "fly"): the state's, else its game data type's; "" none.
+static func unit_movement(p: Dictionary) -> String:
+	var v := _s(p, "movement")
+	return v if v != "" else _s(boss_unit(p), "movement")
+
+
+## How close (px) a bomber minion detonates to a party player (its type's detonateRange); 0
+## when the game data does not say.
+static func unit_detonate_range(p: Dictionary) -> float:
+	var v = p.get("detonateRange")
+	if (v is int or v is float) and v > 0:
+		return float(v)
+	return maxf(_f(boss_unit(p), "detonateRange"), 0.0)
+
+
+## A minion blasts where it dies (its type's explodeOnDeath; the state's when it carries one).
+static func unit_explodes_on_death(p: Dictionary) -> bool:
+	if p.get("explodeOnDeath") is bool:
+		return p["explodeOnDeath"]
+	return _b(boss_unit(p), "explodeOnDeath")
+
+
+## The blast radius (px) of a minion's detonation / death blast (its type's explodeRadius); 0
+## unknown.
+static func unit_explode_radius(p: Dictionary) -> float:
+	var v = p.get("explodeRadius")
+	if (v is int or v is float) and v > 0:
+		return float(v)
+	return maxf(_f(boss_unit(p), "explodeRadius"), 0.0)
+
+
+## A flying boss's hover band {minX, maxX, minY, maxY} ({} none).
+static func boss_hover(boss_id: String) -> Dictionary:
+	return _sub(boss(boss_id), "hover")

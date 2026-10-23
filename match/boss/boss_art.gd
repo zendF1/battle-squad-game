@@ -11,6 +11,9 @@ extends RefCounted
 ## (`height` px), facing right for facing > 0; t (seconds) drives the idle motion (bob, the core's
 ## pulse, rotors, shards); flash 0..1 whitens it (a hit). The art id comes from the boss / minion id
 ## (art_of()): only the presentation is mapped here, sizes come from the game data.
+## opts (boss mode v2, what the game data / state says the unit does): flying (the feet are a point
+## in the air: no shadow at them, a wider hover bob; the witch's cape streams behind her), lean
+## (radians into a flight), tint (0..1: a bomber about to blow up glows red, BomberModel.pulse()).
 
 const UNIT := 100.0
 const OUT := Color(0.08, 0.06, 0.12)
@@ -38,6 +41,8 @@ const WIDTH := {"lava_crab": 1.7, "crab": 1.7, "steel_robot": 1.35, "ice_witch":
 static var _s := 1.0 # px per unit of the figure being drawn
 static var _out_px := OUT_PX # the outline on screen: thinner on a small figure
 static var _flash := 0.0
+static var _tint := 0.0 # the warning's red glow (opts tint)
+const WARN_RED := Color(1.0, 0.22, 0.16)
 
 
 ## The art id of a boss (role boss) or minion (role minion) from its bossId / minionId.
@@ -67,8 +72,10 @@ static func muzzle(art: String, height: float, facing: int) -> Vector2:
 	return Vector2(m.x * signf(facing if facing != 0 else 1), m.y) * height / UNIT
 
 
-## The idle bob (units, up negative) at t.
-static func bob(art: String, t: float) -> float:
+## The idle bob (units, up negative) at t; flying: round the feet (already in the air), wider.
+static func bob(art: String, t: float, flying: bool = false) -> float:
+	if flying:
+		return -sin(t * 2.2) * 5.0 - sin(t * 0.9 + 1.0) * 2.0
 	var hover: float = HOVER.get(art, 0.0)
 	if hover > 0.0:
 		return -hover - sin(t * 2.2) * 4.0
@@ -78,15 +85,19 @@ static func bob(art: String, t: float) -> float:
 # ── Drawing ─────────────────────────────────────────────────────────────────
 
 ## Draws `art` with its feet at `feet`, `height` px tall; dead: a fallen, greyed pose.
-static func draw(ci: CanvasItem, art: String, feet: Vector2, height: float, t: float, facing: int = 1, flash: float = 0.0) -> void:
+static func draw(ci: CanvasItem, art: String, feet: Vector2, height: float, t: float, facing: int = 1, flash: float = 0.0,
+		opts: Dictionary = {}) -> void:
 	_s = maxf(height / UNIT, 0.01)
 	_out_px = OUT_PX * clampf(height / 110.0, 0.45, 1.0)
 	_flash = clampf(flash, 0.0, 1.0)
+	_opts = opts
+	_tint = clampf(float(opts.get("tint", 0.0)), 0.0, 1.0)
+	var flying := bool(opts.get("flying", false))
 	var f := -1.0 if facing < 0 else 1.0
-	# the shadow on the ground, not bobbing
-	ci.draw_set_transform(feet, 0.0, Vector2(_s, _s))
-	_ellipse_fill(ci, Vector2.ZERO, _shadow_w(art), 6.0, Color(0, 0, 0, 0.28))
-	ci.draw_set_transform(feet + Vector2(0, bob(art, t) * _s), 0.0, Vector2(f * _s, _s))
+	if not flying: # the shadow on the ground, not bobbing (a flier's is drawn on the ground below it)
+		ci.draw_set_transform(feet, 0.0, Vector2(_s, _s))
+		_ellipse_fill(ci, Vector2.ZERO, _shadow_w(art), 6.0, Color(0, 0, 0, 0.28))
+	ci.draw_set_transform(feet + Vector2(0, bob(art, t, flying) * _s), float(opts.get("lean", 0.0)), Vector2(f * _s, _s))
 	match art:
 		"steel_robot":
 			_robot(ci, t)
@@ -105,6 +116,8 @@ static func draw(ci: CanvasItem, art: String, feet: Vector2, height: float, t: f
 		_:
 			_blob(ci, t, Color(0.45, 0.3, 0.65))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	_opts = {}
+	_tint = 0.0
 
 
 static func _shadow_w(art: String) -> float:
@@ -147,6 +160,23 @@ static func draw_shield(ci: CanvasItem, centre: Vector2, radius: float, t: float
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
+## How a minion's own blast looks (its detonation, its death blast): the ExplosionFx kind × tier
+## of the burst and whether it is icy (frost shards and snow instead of fire and shrapnel).
+const BLAST_LOOK := {"drone": {"kind": "cannon", "tier": "dragon", "icy": false},
+	"crab": {"kind": "bazooka", "tier": "dragon", "icy": false},
+	"snowman": {"kind": "shock_rifle", "tier": "mithril", "icy": true},
+	GENERIC_MINION: {"kind": "bazooka", "tier": "dragon", "icy": false}}
+## The trail a flying figure leaves in the air (its colour; none: no trail).
+const TRAIL := {"ice_witch": Color(0.75, 0.95, 1.0), "drone": Color(0.8, 0.82, 0.88, 0.6)}
+
+static var _opts := {}
+
+
+## The blast look of a minion art (BLAST_LOOK, the generic one for others).
+static func blast_look(art: String) -> Dictionary:
+	return BLAST_LOOK.get(art, BLAST_LOOK[GENERIC_MINION])
+
+
 ## The shield bubble's half extents (px) round a figure `height` px tall: as wide as the figure.
 static func shield_extents(art: String, height: float) -> Vector2:
 	var w: float = WIDTH.get(art, 1.0)
@@ -156,7 +186,8 @@ static func shield_extents(art: String, height: float) -> Vector2:
 # ── Primitives (unit frame) ─────────────────────────────────────────────────
 
 static func _c(col: Color) -> Color:
-	return col.lerp(Color(1, 1, 1, col.a), _flash * 0.85)
+	var c := col.lerp(Color(1, 1, 1, col.a), _flash * 0.85)
+	return c.lerp(Color(WARN_RED, c.a), _tint * 0.5) if _tint > 0.0 else c
 
 
 static func _w(px: float = -1.0) -> float:
@@ -408,6 +439,8 @@ static func _witch(ci: CanvasItem, t: float) -> void:
 		var a := t * 0.9 + TAU * i / 3.0
 		if sin(a) < 0.0:
 			_shard(ci, Vector2(cos(a) * 44, -58 + sin(a) * 8), 7.0, a, 0.8)
+	if _opts.get("flying", false):
+		_cape(ci, t, float(_opts.get("lean", 0.0)))
 	# frost mist under the hem
 	for i in 4:
 		var x := -26.0 + i * 17.0 + sin(t * 1.5 + i) * 3.0
@@ -454,6 +487,35 @@ static func _witch(ci: CanvasItem, t: float) -> void:
 		var a := t * 0.9 + TAU * i / 3.0
 		if sin(a) >= 0.0:
 			_shard(ci, Vector2(cos(a) * 44, -58 + sin(a) * 8), 8.0, a)
+
+
+## The witch's cape when she flies: from her shoulders it streams back and down, rippling, with a
+## frost trim (longer while she leans into a flight).
+static func _cape(ci: CanvasItem, t: float, lean: float) -> void:
+	var stream := 1.0 + absf(lean) * 2.0
+	var outer := PackedVector2Array()
+	var inner := PackedVector2Array()
+	for i in 7: # the outer edge from the far shoulder back and down, billowing; the inner one down her back
+		var k := float(i) / 6.0
+		outer.append(Vector2(8.0 - k * 46.0 * stream + sin(t * 3.4 + k * 2.6) * 3.0 * k, -80.0 + k * 60.0 + cos(t * 3.0 + k * 2.0) * 2.0 * k))
+		inner.append(Vector2(-6.0 - k * 6.0, -80.0 + k * 62.0))
+	var col := _c(Color(0.18, 0.26, 0.6))
+	for i in 6: # in triangles (the edges may cross as it streams back): it never fails to fill
+		_tri(ci, inner[i], outer[i], outer[i + 1], col)
+		_tri(ci, inner[i], outer[i + 1], inner[i + 1], col)
+	ci.draw_polyline(outer, OUT, _w(), true)
+	ci.draw_line(outer[6], inner[6], OUT, _w(), true)
+	var fold := PackedVector2Array()
+	for i in 7:
+		fold.append(inner[i].lerp(outer[i], 0.55))
+	ci.draw_polyline(fold, _c(Color(0.3, 0.42, 0.8, 0.8)), _w(4.0), true)
+	ci.draw_line(outer[6] + Vector2(0, -2), inner[6] + Vector2(0, -2), _c(Color(FROST, 0.9)), _w(3.0), true)
+
+
+## A filled triangle (skipped when it has no area: the renderer cannot triangulate it).
+static func _tri(ci: CanvasItem, a: Vector2, b: Vector2, c: Vector2, col: Color) -> void:
+	if absf((b - a).cross(c - a)) > 0.01:
+		ci.draw_colored_polygon(PackedVector2Array([a, b, c]), col)
 
 
 # ── Người tuyết ─────────────────────────────────────────────────────────────

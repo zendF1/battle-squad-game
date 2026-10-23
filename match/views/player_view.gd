@@ -29,6 +29,12 @@ extends Node2D
 ## instead (its art by bossId / minionId, bodySize × a player's 40 px body × BOSS_ART_PER_BODY):
 ## the ring is as wide as its body; the boss has no small HP bar (the HUD's big bar) and shows its
 ## shield bubble (set_shielded()).
+## Boss mode v2: a flying unit (GameData.unit_flying(): the state's flying, else the game data's)
+## has its feet point in the air: no ring at its feet, a faint shadow and ring on the ground below
+## it instead (smaller and fainter the higher it is); fly() draws a UnitFlew flight (FlightModel:
+## eased, a slight arc, the body leaning into it). A bomber (unit_behavior "bomber") pulses red
+## after set_warning(true) (a party player within its detonateRange); prime() swells it until it
+## blows up, vanish() takes the body away at once then.
 
 const AimSweep := preload("res://match/aim/aim_sweep.gd")
 const AimSnap := preload("res://scenes/character/aim_snap.gd")
@@ -47,6 +53,7 @@ const WalkPath := preload("res://match/move/walk_path.gd")
 const BossBody := preload("res://match/boss/boss_body.gd")
 const BossArt := preload("res://match/boss/boss_art.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
+const FlightModel := preload("res://match/boss/flight_model.gd")
 
 const BODY := Vector2(28, 40) # server PlayerHeight = 40
 ## px per art unit: the baked art (about 150 units) stands about 52 px tall over the 28x40
@@ -69,6 +76,7 @@ const BADGE_LIFT := 26.0 # px the badge rises over the shot markers / the turn a
 ## A boss / minion figure's height over its body (40 px × bodySize): the hit circle
 ## (playerHitRadius × bodySize round shotOriginLift × bodySize) covers its lower part.
 const BOSS_ART_PER_BODY := 1.45
+const SHADOW_FADE_PX := 420.0 # a flier's ground shadow is faintest this high over the ground
 
 var player_id := ""
 var team_id := 1
@@ -101,6 +109,10 @@ var _art_top := ART_TOP
 var _sweep := {} # aim_sweep(): {t, duration, angle, wobble}; {} when none
 var role := "" # "boss" / "minion" in the boss mode, "" a player
 var body_size := 1.0 # × a player's body (bodySize)
+var flying := false # flies (boss mode v2): the feet are a point in the air
+var bomber := false # a bomber minion: blows itself up near a party player
+var ground_drop := -1.0 # a flier: px from its feet down to the ground under it (-1 none)
+var _flight = null # the UnitFlew flight drawn (FlightModel), null none
 
 
 ## my_team: the local player's team; allies are blue, enemies red. -1 colours by team id.
@@ -128,6 +140,10 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 		body_size = body_size_of(p)
 		_sprite = BossBody.new()
 		_sprite.setup(art, BODY.y * body_size * BOSS_ART_PER_BODY)
+		flying = GameData.unit_flying(p)
+		bomber = role == "minion" and GameData.unit_behavior(p) == "bomber"
+		_sprite.flying = flying
+		_sprite.bomber = bomber
 	else:
 		_sprite = CharacterScene.instantiate()
 		_sprite.scale = Vector2.ONE * (ART_SCALE / Art.PX_PER_UNIT)
@@ -219,8 +235,17 @@ func figure() -> Node2D:
 
 func _process(delta: float) -> void:
 	_t += delta
-	if walk.active():
+	if _flight != null:
+		position = _flight.step(delta)
+		_sprite.lean = _flight.lean_at(_flight.t)
+		if _flight.done():
+			position = _flight.to
+			_sprite.lean = 0.0
+			_flight = null
+	elif walk.active():
 		position = walk.step(delta)
+	if flying:
+		_update_ground()
 	var below := position.y - _bottom()
 	var alpha := clampf(1.0 - below / WalkPath.OUT_DROP, 0.0, 1.0) if below > 0.0 else 1.0
 	if _dead and below >= 0.0:
@@ -473,10 +498,11 @@ func character_id() -> String:
 	return _sprite.character_id
 
 
-## Tweens to target over duration seconds (0 = jump there). Ends a walk under way.
+## Tweens to target over duration seconds (0 = jump there). Ends a walk or flight under way.
 func move_to(target: Vector2, duration: float, trans: Tween.TransitionType = Tween.TRANS_LINEAR, ease_type: Tween.EaseType = Tween.EASE_IN_OUT) -> void:
 	if _tween:
 		_tween.kill()
+	_end_flight()
 	walk.reset(target)
 	if duration <= 0.0:
 		position = target
@@ -484,6 +510,82 @@ func move_to(target: Vector2, duration: float, trans: Tween.TransitionType = Twe
 	_tween_to = target
 	_tween = create_tween()
 	_tween.tween_property(self, "position", target, duration).set_trans(trans).set_ease(ease_type)
+
+
+## A flight through the air (UnitFlew): from → to over sec, eased with a slight arc, leaning into
+## it (FlightModel). Ends a walk or tween under way; sec 0 jumps there.
+func fly(from: Vector2, to: Vector2, sec: float) -> void:
+	if _tween:
+		_tween.kill()
+	_tween = null
+	walk.reset(to)
+	_flight = FlightModel.new(from, to, sec)
+	position = from
+	if _flight.done():
+		_end_flight()
+
+
+## A flight is still drawn.
+func in_flight() -> bool:
+	return _flight != null
+
+
+## The flight drawn, null when none (tests).
+func flight():
+	return _flight
+
+
+func _end_flight() -> void:
+	if _flight == null:
+		return
+	position = _flight.to
+	_flight = null
+	if _sprite != null and "lean" in _sprite:
+		_sprite.lean = 0.0
+
+
+## A flier's ground under it: the shadow's drop (px), redrawn when it changes.
+func _update_ground() -> void:
+	var drop := -1.0
+	if walk.terrain != null and walk.terrain.height > 0:
+		var g: float = walk.terrain.get_landing_y(position.x, maxf(position.y, 0.0))
+		drop = g - position.y if g < walk.terrain.height else -1.0
+	if absf(drop - ground_drop) > 0.5:
+		ground_drop = drop
+		_ring.queue_redraw()
+
+
+## A bomber's warning: a party player within its detonateRange (it pulses red).
+func set_warning(on: bool) -> void:
+	if bomber and "warn" in _sprite:
+		_sprite.warn = on
+
+
+func warning() -> bool:
+	return bomber and "warn" in _sprite and _sprite.warn
+
+
+func is_bomber() -> bool:
+	return bomber
+
+
+## A bomber swells over sec before it blows up.
+func prime(sec: float) -> void:
+	if _sprite.has_method("prime"):
+		_sprite.prime(sec)
+
+
+## Blown up: the body, its name and bars are gone at once (the blast covers the spot).
+func vanish() -> void:
+	set_dead()
+	if _sprite.has_method("vanish"):
+		_sprite.vanish()
+	for n in [_name, _title, _status, _ring, _badge]:
+		n.visible = false
+
+
+func vanished() -> bool:
+	return _sprite.has_method("vanished") and _sprite.vanished()
 
 
 ## The local player's walk: target is MoveSync's predicted position (see WalkPath.follow).
@@ -531,6 +633,16 @@ func _take_walk() -> void:
 func _draw_ring() -> void:
 	var c := color if not _dead else Color(0.5, 0.5, 0.55)
 	var r := 20.0 * (body_size * 1.15 if is_boss_side() else 1.0)
+	if flying: # no pedestal in the air: a faint shadow and ring on the ground under it
+		if ground_drop < 0.0 or _dead:
+			return
+		var k := clampf(1.0 - ground_drop / SHADOW_FADE_PX, 0.45, 1.0)
+		var sr := r * (0.6 + 0.4 * k)
+		_ring.draw_set_transform(Vector2(0, ground_drop), 0.0, Vector2(1.0, 0.3))
+		_ring.draw_circle(Vector2.ZERO, sr, Color(0, 0, 0, 0.42 * k))
+		_ring.draw_arc(Vector2.ZERO, sr, 0.0, TAU, 32, Color(c, 0.7 * k), 2.0, true)
+		_ring.draw_set_transform(Vector2.ZERO)
+		return
 	_ring.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.32))
 	_ring.draw_circle(Vector2.ZERO, r, Color(c, 0.25))
 	_ring.draw_arc(Vector2.ZERO, r, 0.0, TAU, 32, Color(c, 0.9), 3.0, true)

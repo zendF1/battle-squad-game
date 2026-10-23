@@ -46,6 +46,9 @@ var zoom := 1.0
 var center := Vector2(800, 450)
 var mode := IDLE
 var sky := false # the view may rise SKY_RISE above the map (shot follow)
+## A turn's pan follows a flier (boss mode v2: a drone, the witch high in the air): that TURN may
+## rise SKY_RISE above the map too. Set before pan_to().
+var sky_turn := false
 
 var _target := Vector2(800, 450)
 var _anchor := Vector2.ZERO
@@ -309,7 +312,7 @@ func _range() -> Rect2:
 
 func _start_pan(point: Vector2, sec: float, new_mode: int) -> void:
 	mode = new_mode
-	sky = false
+	sky = sky_turn and new_mode == TURN
 	_target = point
 	_pan_from = center
 	_pan_sec = sec

@@ -1,5 +1,5 @@
 {
- "_comment": "GET /gamedata boss additions (server dd22fa8, migrations 044-046): modes.lobby / modes.categories / extra modes.match and bosses, merged over tests/fixtures/gamedata.json by tests/boss_fixture.gd. Bosses from the server's gamedata.DefaultBosses() through api/gamedata.Build.",
+ "_comment": "GET /gamedata boss additions (server dd22fa8, migrations 044-046; boss mode v2 fields from the v2 contract: flying, hover, the minions' behavior / movement / explosions, the witch's 30 turns): modes.lobby / modes.categories / extra modes.match and bosses, merged over tests/fixtures/gamedata.json by tests/boss_fixture.gd.",
  "categories": [
   {
    "categoryId": "pvp",
@@ -125,7 +125,16 @@
      "minionId": "drone",
      "name": "Drone",
      "hp": 650,
-     "bodySize": 0.7
+     "bodySize": 0.7,
+     "behavior": "bomber",
+     "movement": "fly",
+     "explodeOnDeath": false,
+     "explodeRadius": 80,
+     "explodeDamagePct": 50,
+     "explodeDamageOf": "target",
+     "detonateRange": 70,
+     "shotDamageFactor": 0.35,
+     "flyRange": 90
     }
    ],
    "skills": [
@@ -148,7 +157,9 @@
      "kind": "summon"
     }
    ],
-   "dailyBonusRuns": 3
+   "dailyBonusRuns": 3,
+   "flying": false,
+   "hover": null
   },
   {
    "bossId": "lava_crab",
@@ -167,7 +178,17 @@
      "minionId": "crab",
      "name": "Cua con",
      "hp": 800,
-     "bodySize": 0.75
+     "bodySize": 0.75,
+     "behavior": "bomber",
+     "movement": "walk",
+     "explodeOnDeath": false,
+     "explodeRadius": 80,
+     "explodeDamagePct": 50,
+     "explodeDamageOf": "target",
+     "detonateRange": 70,
+     "shotDamageFactor": 0.35,
+     "flyRange": 260,
+     "walkRange": 80
     }
    ],
    "skills": [
@@ -190,7 +211,9 @@
      "kind": "summon"
     }
    ],
-   "dailyBonusRuns": 3
+   "dailyBonusRuns": 3,
+   "flying": false,
+   "hover": null
   },
   {
    "bossId": "ice_witch",
@@ -202,14 +225,23 @@
    "mapId": "arena_ice_witch",
    "hp": 24000,
    "bodySize": 2.8,
-   "turnLimit": 15,
+   "turnLimit": 30,
    "shieldedDamageFactor": 0.1,
    "minions": [
     {
      "minionId": "snowman",
      "name": "Người tuyết",
      "hp": 900,
-     "bodySize": 0.85
+     "bodySize": 0.85,
+     "behavior": "shooter",
+     "movement": "none",
+     "explodeOnDeath": true,
+     "explodeRadius": 80,
+     "explodeDamagePct": 50,
+     "explodeDamageOf": "target",
+     "detonateRange": 70,
+     "shotDamageFactor": 1.0,
+     "flyRange": 260
     }
    ],
    "skills": [
@@ -238,7 +270,14 @@
      "kind": "summon"
     }
    ],
-   "dailyBonusRuns": 3
+   "dailyBonusRuns": 3,
+   "flying": true,
+   "hover": {
+    "minX": 700,
+    "maxX": 1700,
+    "minY": 220,
+    "maxY": 520
+   }
   }
  ]
 }
