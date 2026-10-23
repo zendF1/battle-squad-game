@@ -48,7 +48,7 @@ func _ready() -> void:
 	var row := Ui.hbox(12)
 	row.mouse_filter = MOUSE_FILTER_IGNORE
 	_panel.add_child(row)
-	_art = BossArtView.make(BossArt.GENERIC_BOSS, Vector2(70, 70))
+	_art = BossArtView.make(BossArt.GENERIC_BOSS, Vector2(70, 70), 1, "bust") # the drawn bust, else the figure
 	row.add_child(_art)
 	var col := Ui.vbox(4)
 	col.mouse_filter = MOUSE_FILTER_IGNORE

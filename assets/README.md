@@ -5,7 +5,7 @@ code (`tools/art/*.gd`) and baked by `tools/bake_art.gd`. `ui/art.gd` is the one
 ids to these paths; a missing file never crashes (a character falls back to rookie, an icon to
 `icons/unknown.png`, anything else to a small grey square, with a warning).
 
-Total about 4.0 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-drawn equipment icons about 1 MB).
+Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-drawn equipment icons about 1 MB, the Ice Witch's frames and pictures about 3.7 MB).
 
 ## Replacing art
 
@@ -68,6 +68,19 @@ Total about 4.0 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   `match/views/status_icons.gd`): none shipped yet, the badges are code-drawn; drop a square PNG
   (transparent background, about 64 × 64) named after the effect to replace one (read directly
   until the editor imports it).
+- **Bosses** (`bosses/<bossId>/`: Phù Thuỷ Băng has them; the others are drawn in code,
+  `match/boss/boss_art.gd`, and so is every minion): `side/<anim>_<i>.png` + `side/side.json` (her
+  match figure: idle, fly, cast, burst, blizzard, summon, hurt on one shared canvas, the feet = the
+  frost-mist hem's bottom centre on the pivot; `match/boss/boss_body.gd` draws them `bodySize` × 40
+  × 1.45 px tall, mirrored facing left; her death is made in code from the first hurt frame),
+  `portrait.png` (the Boss tab card, the matchmaking card) and `bust.png` (the boss HP bar's icon,
+  the turn portrait; `match/boss/boss_art_view.gd`). AI-drawn sheets on magenta,
+  `art_source/bosses/<bossId>/side_<anim>/sheet_v1.png` and `portrait/`, cut by
+  `tools/import_boss_frames.gd` (config `art_source/bosses/<bossId>/import.json`: frame counts,
+  watermarks, boundaries, anchors, the body's height, a tone lift; `README.txt` there):
+  `$GODOT --headless --path . -s tools/import_boss_frames.gd -- ice_witch`. A boss gets drawn art
+  by getting a `side/side.json` (with an idle), no code change; read directly until the editor
+  imports the PNGs.
 - **Title plates** (`ui/titles/title_<rarity>.png`, blue / orange / purple / red, and
   `ui/titles/titles.json`: the banner the title name is drawn on, `ui/title_plate.gd`): AI-drawn
   with no text on a dark background, `art_source/ui/titles/title_<rarity>.png`, keyed by

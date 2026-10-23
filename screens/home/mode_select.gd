@@ -257,14 +257,17 @@ func _boss_card(c: Dictionary) -> Button:
 	stage.custom_minimum_size = Vector2(BOSS_CARD.x - 44, 210)
 	stage.mouse_filter = MOUSE_FILTER_IGNORE
 	var tint := BossArt.accent(art)
+	var figure := BossArtView.make(art, stage.custom_minimum_size, -1, "portrait")
+	var drawn: bool = figure.picture_texture() != null # the drawn portrait floats: its glow round the middle, no shadow
 	stage.draw.connect(func() -> void:
-		var centre := Vector2(stage.size.x / 2.0, stage.size.y * 0.62)
+		var centre := Vector2(stage.size.x / 2.0, stage.size.y * (0.5 if drawn else 0.62))
 		for i in 5:
 			stage.draw_circle(centre, stage.size.y * (0.52 - i * 0.08), Color(tint, 0.06 + i * 0.03))
+		if drawn:
+			return
 		stage.draw_set_transform(Vector2(stage.size.x / 2.0, stage.size.y - 8), 0.0, Vector2(1.0, 0.22))
 		stage.draw_circle(Vector2.ZERO, stage.size.x * 0.4, Color(0, 0, 0, 0.35))
 		stage.draw_set_transform(Vector2.ZERO))
-	var figure := BossArtView.make(art, stage.custom_minimum_size, -1)
 	figure.name = "Figure"
 	stage.add_child(figure)
 	col.add_child(stage)

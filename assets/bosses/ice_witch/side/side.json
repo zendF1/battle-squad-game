@@ -1,0 +1,97 @@
+{
+	"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/ice_witch/import.json (do not edit: edit the config and re-run). size / pivot (the feet: the frost-mist hem's bottom centre) / height (the body: the hood's top to the feet) / width (the cloak) in texture px; facing 1: drawn facing right; anims {name: {frames, fps, loop, peak}}.",
+	"size": [
+		406,
+		335
+	],
+	"pivot": [
+		161.0,
+		327.0
+	],
+	"height": 240.0,
+	"width": 118.0,
+	"facing": 1,
+	"anims": {
+		"idle": {
+			"frames": [
+				"idle_0",
+				"idle_1",
+				"idle_2",
+				"idle_3",
+				"idle_4",
+				"idle_5",
+				"idle_6"
+			],
+			"fps": 7.0,
+			"loop": true
+		},
+		"fly": {
+			"frames": [
+				"fly_0",
+				"fly_1",
+				"fly_2",
+				"fly_3"
+			],
+			"fps": 8.0,
+			"loop": true
+		},
+		"cast": {
+			"frames": [
+				"cast_0",
+				"cast_1",
+				"cast_2",
+				"cast_3",
+				"cast_4",
+				"cast_5"
+			],
+			"fps": 10.0,
+			"loop": false,
+			"peak": 3
+		},
+		"burst": {
+			"frames": [
+				"burst_0",
+				"burst_1",
+				"burst_2",
+				"burst_3",
+				"burst_4",
+				"burst_5"
+			],
+			"fps": 9.0,
+			"loop": false,
+			"peak": 2
+		},
+		"blizzard": {
+			"frames": [
+				"blizzard_0",
+				"blizzard_1",
+				"blizzard_2",
+				"blizzard_3",
+				"blizzard_4",
+				"blizzard_5"
+			],
+			"fps": 9.0,
+			"loop": false,
+			"peak": 3
+		},
+		"summon": {
+			"frames": [
+				"summon_0",
+				"summon_1",
+				"summon_2",
+				"summon_3"
+			],
+			"fps": 7.0,
+			"loop": false,
+			"peak": 2
+		},
+		"hurt": {
+			"frames": [
+				"hurt_0",
+				"hurt_1"
+			],
+			"fps": 7.0,
+			"loop": false
+		}
+	}
+}

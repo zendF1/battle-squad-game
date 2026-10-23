@@ -263,7 +263,7 @@ func _build_portrait() -> void:
 	_portrait_art.back_aura = true
 	_portrait_art.aura_level = 0
 	_portrait.add_child(_portrait_art)
-	_portrait_boss = BossArtView.make(BossArt.GENERIC_BOSS, PORTRAIT_ART, -1)
+	_portrait_boss = BossArtView.make(BossArt.GENERIC_BOSS, PORTRAIT_ART, -1, "bust")
 	_portrait_boss.name = "BossFigure"
 	_portrait_boss.visible = false
 	_portrait.add_child(_portrait_boss)

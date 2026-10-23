@@ -367,6 +367,8 @@ func set_status(effects: Variant) -> void:
 	_status.text = Status.marker_text(effects)
 	if not _dead:
 		_fx.set_effects(effects)
+	if _sprite.has_method("set_stunned"): # a drawn boss idles slowly, swaying, while it cannot act
+		_sprite.set_stunned(Status.skip_effect(effects) != "")
 	_place_badge()
 	queue_redraw()
 
@@ -578,6 +580,8 @@ func fly(from: Vector2, to: Vector2, sec: float) -> void:
 	walk.reset(to)
 	_flight = FlightModel.new(from, to, sec)
 	position = from
+	if _sprite.has_method("set_flight"):
+		_sprite.set_flight(true) # a drawn boss's fly loop
 	if _flight.done():
 		_end_flight()
 
@@ -598,6 +602,8 @@ func _end_flight() -> void:
 	position = _flight.to
 	var jumped: bool = _flight is JumpModel
 	_flight = null
+	if _sprite != null and _sprite.has_method("set_flight"):
+		_sprite.set_flight(false)
 	if _sprite != null and "lean" in _sprite:
 		_sprite.lean = 0.0
 	if jumped:

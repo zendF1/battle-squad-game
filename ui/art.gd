@@ -275,6 +275,81 @@ static func has_side_view(id: String) -> bool:
 	return FileAccess.file_exists(side_json_path(id))
 
 
+# ── Bosses (drawn art; without it match/boss/boss_art.gd draws them in code) ──
+
+static var _boss_sides := {} # boss art id -> boss_side() ({} = none)
+static var _boss_pictures := {} # path -> Texture2D (null = none)
+
+
+static func boss_dir(id: String) -> String:
+	return ROOT + "bosses/%s/" % id
+
+
+## A boss's drawn side view (assets/bosses/<id>/side/side.json and its frames, written by
+## tools/import_boss_frames.gd): {size, pivot (the feet, texture px), height (the body, texture
+## px), width, facing (1: drawn facing right), anims {name: {frames [Texture2D], fps, loop, peak}}};
+## {} when there is none, it has no idle or a frame is missing (the code-drawn art then). Frames
+## not imported yet are read from the PNG (with mipmaps: drawn smaller than they are).
+static func boss_side(id: String) -> Dictionary:
+	if _boss_sides.has(id):
+		return _boss_sides[id]
+	var out := {}
+	_boss_sides[id] = out
+	var dir := boss_dir(id) + "side/"
+	if id == "" or not id.is_valid_filename() or not FileAccess.file_exists(dir + "side.json"):
+		return out
+	var data := _load_json(dir + "side.json")
+	if not data.get("anims") is Dictionary or not data["anims"].has("idle") or not data.get("pivot") is Array \
+			or float(data.get("height", 0.0)) <= 0.0:
+		push_warning("art: %sside.json is not a boss side view, drawing it in code" % dir)
+		return out
+	var anims := {}
+	for anim in data["anims"]:
+		var spec = data["anims"][anim]
+		if not spec is Dictionary or not spec.get("frames") is Array or (spec["frames"] as Array).is_empty():
+			continue
+		var frames: Array = []
+		for stem in spec["frames"]:
+			var tex := _boss_texture(dir + str(stem) + ".png")
+			if tex == null:
+				push_warning("art: %s%s.png missing, drawing the boss in code" % [dir, stem])
+				return out
+			frames.append(tex)
+		anims[str(anim)] = {"frames": frames, "fps": maxf(float(spec.get("fps", 8.0)), 0.1), "loop": bool(spec.get("loop", false)),
+			"peak": int(spec.get("peak", -1))}
+	out.merge({"size": _vec2(data.get("size", [])), "pivot": _vec2(data["pivot"]), "height": float(data["height"]),
+		"width": float(data.get("width", float(data["height"]) * 0.6)), "facing": 1 if int(data.get("facing", 1)) >= 0 else -1,
+		"anims": anims})
+	return out
+
+
+## A boss's picture (`name`: portrait, the full-body hero pose of its cards; bust, the head and
+## shoulders of its HP bar and turn portrait): assets/bosses/<id>/<name>.png, null without one.
+static func boss_picture(id: String, name: String) -> Texture2D:
+	var path := boss_dir(id) + name + ".png"
+	if _boss_pictures.has(path):
+		return _boss_pictures[path]
+	var t: Texture2D = null
+	if id != "" and id.is_valid_filename() and name.is_valid_filename() and (ResourceLoader.exists(path) or FileAccess.file_exists(path)):
+		t = _boss_texture(path)
+	_boss_pictures[path] = t
+	return t
+
+
+## A boss texture: the imported one, else the PNG itself with mipmaps (not imported yet).
+static func _boss_texture(path: String) -> Texture2D:
+	if ResourceLoader.exists(path) and _imported(path):
+		var t = load(path)
+		if t is Texture2D:
+			return t
+	if FileAccess.file_exists(path):
+		var img := Image.load_from_file(ProjectSettings.globalize_path(path))
+		if img != null and not img.is_empty():
+			img.generate_mipmaps()
+			return ImageTexture.create_from_image(img)
+	return null
+
+
 static func icon_path(icon_name: String) -> String:
 	return ROOT + "icons/%s.png" % icon_name
 

@@ -1,0 +1,28 @@
+{
+	"_doc": "tools/import_boss_frames.gd reads this (see its header and README.txt here): one sheet per animation (frames side by side in one row on magenta, facing right) → assets/bosses/ice_witch/side/<anim>_<i>.png + side.json; pictures → assets/bosses/ice_witch/<name>.png. height: the body (hood top to the frost-mist hem's bottom) in texture px, every animation; background: tools/import_frames.gd key_background() options (an anim's own background merged over it); despill.hueRange: the magenta-tinted px turn grey; body: the cloak's colours (hue range, minSat, minVal, maxVal) the frames are measured by; per anim: src, frames (how many), fps, loop, peak (the frame of its effect's peak), watermark [[x, y, r]] (sheet px: the ✦ painted out), cuts [x, ...] (sheet px: the frame boundaries, else found at the empty columns), edgeFade (px faded at a cut through an effect), bodyHeight (sheet px, else the frames' median), scale (× the normalised size), anchors [[x, y] | null] (sheet px: a frame's feet), compose {'i': [j, ...]} (frame i = the parts j... as the sheet has them, on the first one's feet: the cast's flash where her staff points); tone: the lift on every frame and picture (lighten: OKHSL lightness, this share of the way to white, the darks most; desaturateDark: the darkest tones this much less saturated; the black outline untouched).",
+	"out": "res://assets/bosses/ice_witch/",
+	"height": 240,
+	"pad": 4,
+	"tone": {"lighten": 0.12, "desaturateDark": 0.1},
+	"background": {"key": "corners", "corner": 8, "tolerance": 40, "soft": 45, "holeMin": 40, "holePure": 0.2, "spill": 3,
+		"glow": {"colour": [170, 240, 255], "fit": 55, "alpha": 1.0, "max": 0.95}},
+	"despill": {"hueRange": [250, 335]},
+	"alphaCut": 20,
+	"search": 0.35,
+	"edgeFade": 8,
+	"body": {"hue": [222, 266], "minSat": 0.35, "minVal": 0.22, "maxVal": 0.96, "centreRows": [0.4, 0.8]},
+	"anims": {
+		"idle": {"src": "side_idle/sheet_v1.png", "frames": 7, "fps": 7, "loop": true,
+			"background": {"soft": 35, "spill": 1, "holeMin": 8}},
+		"fly": {"src": "side_fly/sheet_v1.png", "frames": 4, "fps": 8, "loop": true, "watermark": [[954, 268, 15]]},
+		"cast": {"src": "side_cast/sheet_v1.png", "frames": 6, "fps": 10, "loop": false, "peak": 3, "compose": {"3": [2, 3]}},
+		"burst": {"src": "side_burst/sheet_v1.png", "frames": 6, "fps": 9, "loop": false, "peak": 2, "watermark": [[946, 356, 17]], "anchors": [null, null, [437, 329], [622, 326]]},
+		"blizzard": {"src": "side_blizzard/sheet_v1.png", "frames": 6, "fps": 9, "loop": false, "peak": 3},
+		"summon": {"src": "side_summon/sheet_v1.png", "frames": 4, "fps": 7, "loop": false, "peak": 2},
+		"hurt": {"src": "side_hurt/sheet_v1.png", "frames": 2, "fps": 7, "loop": false, "watermark": [[934, 482, 18]]}
+	},
+	"pictures": {
+		"portrait": {"src": "portrait/portrait_v1.png", "size": 512, "margin": 8, "watermark": [[904, 904, 25]]},
+		"bust": {"src": "portrait/bust_v1.png", "size": 384, "margin": 6, "watermark": [[904, 904, 25]]}
+	}
+}

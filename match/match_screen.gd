@@ -104,6 +104,7 @@ const BossHudModel := preload("res://match/boss/boss_hud_model.gd")
 const LavaZones := preload("res://match/boss/lava_zones.gd")
 const LavaView := preload("res://match/boss/lava_view.gd")
 const BossArt := preload("res://match/boss/boss_art.gd")
+const BossAnim := preload("res://match/boss/boss_anim.gd")
 const BossResultModel := preload("res://match/boss/boss_result_model.gd")
 const BossResultScreen := preload("res://match/boss/boss_result_screen.gd")
 const PopFx := preload("res://match/boss/pop_fx.gd")
@@ -737,6 +738,7 @@ func _apply(event: String, data: Variant) -> void:
 			var wide_summon := timeline.action_mode == SUMMON and _summons_spread(timeline.events)
 			var lead_in := _show_shooting(shooter, timeline)
 			_cast_shards(shooter, timeline)
+			_play_boss_action(shooter, timeline)
 			_focus.clear()
 			_cam.start_shot()
 			if framed:
@@ -1687,6 +1689,21 @@ func _cast_shards(shooter: String, timeline) -> void:
 			last = maxf(last, timeline.launch_time(i))
 	if first < INF:
 		view.figure().cast_shards(first, last - first)
+
+
+## A drawn boss (BossBody.has_frames(): the witch's frames) plays its shot's animation, its peak
+## on the shot's moment (BossAnim.action_for(): the burst's flash on the beams, the summon on the
+## summon, the cast / the blizzard on the first projectile leaving).
+func _play_boss_action(shooter: String, timeline) -> void:
+	var view = _views.get(shooter)
+	if view == null or not view.is_boss() or not view.figure().has_method("play_action") or not view.figure().has_frames():
+		return
+	var boss_id := str(_players.get(shooter, {}).get("bossId", ""))
+	var launches: Array = []
+	for i in timeline.projectiles.size():
+		launches.append(timeline.launch_time(i))
+	view.figure().play_action(BossAnim.action_for(timeline.action_mode, timeline.skill_id, GameData.boss_skill(boss_id, timeline.skill_id),
+		timeline.events, launches))
 
 
 ## A summon's minions appear farther apart than the view is wide.

@@ -261,7 +261,7 @@ func _boss_card(art: String, at: Vector2, name_text: String) -> Control:
 	var name_label := LobbyUi.text(name_text, 34, Color.WHITE, true)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.mouse_filter = MOUSE_FILTER_IGNORE
-	inner.add_child(BossArtView.make(art, Vector2(at.x - 40, at.y - 40 - 34 * 1.45 - 8), -1))
+	inner.add_child(BossArtView.make(art, Vector2(at.x - 40, at.y - 40 - 34 * 1.45 - 8), -1, "portrait"))
 	inner.add_child(name_label)
 	return card
 

@@ -14,8 +14,20 @@ extends Node2D
 ## Boss mode v3: a leaper (the snowmen jump next to a party member, then blow up on their next
 ## turn) glows while leap_warn (it leapt: LeapWarning): a soft warm halo behind the figure and a
 ## slight red tint, pulsing every LEAP_PULSE_SEC (no prop); its detonation primes it like a bomber.
+## Drawn art: a boss with frames (ui/art.gd boss_side(): assets/bosses/<id>/side/, the Ice Witch) is
+## drawn from them instead of BossArt, as tall (its body, hood top to the hem, `height` px) on the
+## same feet point, mirrored facing left, the same hover bob and lean; a child node draws the frame
+## through a shader (the hit flash whitens it, the death's icy tint). BossAnim picks the frame:
+## idle looping, fly during a hover move (set_flight()), the idle slowed with a sway while stunned
+## or frozen (set_stunned()), a skill's or a summon's animation once (play_action(), the peak on its
+## moment), hurt briefly on a hit. Its death (die()) is its own (FRAMES_DEATH_SEC): the first hurt
+## frame tinted icy white while cracks spread over her, a held freeze-frame, then she shatters: the
+## figure fades and swells away while ice shards (the witch's shard art) burst out and fall, with a
+## frost puff and a few sparkles. Without frames everything is as before (BossArt, the death fade).
 
 const BossArt := preload("res://match/boss/boss_art.gd")
+const BossAnim := preload("res://match/boss/boss_anim.gd")
+const Art := preload("res://ui/art.gd")
 const BomberModel := preload("res://match/boss/bomber_model.gd")
 const ShieldBall := preload("res://match/views/shield_ball.gd")
 
@@ -34,6 +46,25 @@ const SHARDS_CAST := 9 # as many while she casts them
 const SHARD_SPIN := 0.9 # rad/s idle, × SHARD_SPIN_CAST at the cast's peak
 const SHARD_SPIN_CAST := 7.0
 const SHARD_REGROW := 1.0 # s for them to grow back after they flew off
+const FRAMES_DEATH_SEC := 1.35 # a drawn boss's death: cracks, freeze, shatter
+const CRACK_SEC := 0.35 # the cracks spread (and the icy tint)
+const FREEZE_END := 0.55 # s: the held freeze-frame ends, she shatters
+const VANISH_SEC := 0.22 # the figure fades away after it
+const SHATTER_SHARDS := 30
+const SHATTER_GRAVITY := 950.0 # px/s² at a 160 px body
+const ICY := Color(0.86, 0.96, 1.0)
+const FRAME_SHADER := """shader_type canvas_item;
+uniform float flash = 0.0;
+uniform float icy = 0.0;
+uniform vec4 icy_colour : source_color = vec4(0.86, 0.96, 1.0, 1.0);
+void fragment() {
+	vec4 c = COLOR; // Godot 4: already the texture × the modulate (sampling it again would square it: darker, more saturated)
+	float l = dot(c.rgb, vec3(0.3, 0.59, 0.11));
+	c.rgb = mix(c.rgb, icy_colour.rgb * (0.8 + 0.25 * l), icy * smoothstep(0.1, 0.42, l)); // the dark outline stays
+	c.rgb = mix(c.rgb, vec3(1.0), flash);
+	COLOR = c;
+}
+"""
 
 var art := BossArt.GENERIC_BOSS
 var height := 120.0 # px
@@ -70,6 +101,17 @@ var _cast := 0.0 # s left before the cast shards start flying off (cast_shards()
 var _cast_sec := 0.0
 var _throw := 0.0 # s left of them flying off, one after another
 var _regrow := 1.0 # 0..1 the shards grown back after a cast
+var _side := {} # the drawn frames (Art.boss_side()); {} drawn by BossArt
+var _anim: BossAnim # which frame shows (drawn frames only)
+var _figure: Node2D # draws the frame through _mat
+var _over: Node2D # over it: the death's shards, puff and sparkles
+var _mat: ShaderMaterial
+var _stunned := false
+var _dead_t := 0.0 # s into a drawn boss's death
+var _cracks: Array = [] # [PackedVector2Array] texture px, spreading over CRACK_SEC
+var _bits: Array = [] # the shatter's shards [{p, v, r, rot, spin}] (local px)
+var _sparks: Array = [] # [{p, r, delay}]
+static var _shader: Shader
 
 
 func setup(art_id: String, height_px: float) -> void:
@@ -82,6 +124,25 @@ func setup(art_id: String, height_px: float) -> void:
 	_ball.position = Vector2(0, -height * 0.5) # round the figure's centre
 	_ball.radius = BossArt.shield_radius(art, height)
 	_ball.tint = BossArt.accent("ice_witch")
+	_side = Art.boss_side(art)
+	if not _side.is_empty() and _figure == null:
+		_anim = BossAnim.new(_side["anims"])
+		if _shader == null:
+			_shader = Shader.new()
+			_shader.code = FRAME_SHADER
+		_mat = ShaderMaterial.new()
+		_mat.shader = _shader
+		_figure = Node2D.new()
+		_figure.name = "Frames"
+		_figure.material = _mat
+		_figure.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		_figure.draw.connect(_draw_frame)
+		add_child(_figure)
+		move_child(_figure, 0) # under the shield ball
+		_over = Node2D.new()
+		_over.name = "DeathFx"
+		_over.draw.connect(_draw_shatter)
+		add_child(_over)
 
 
 func _process(delta: float) -> void:
@@ -90,11 +151,16 @@ func _process(delta: float) -> void:
 	_shield_pop = maxf(0.0, _shield_pop - delta * 2.5)
 	var want := 1.0 if shielded and not _dead else 0.0
 	_shield = move_toward(_shield, want, delta / SHIELD_SEC)
-	if _dead and _death < 1.0:
+	if _dead and not _side.is_empty():
+		_step_death(delta)
+	elif _dead and _death < 1.0:
 		_death = minf(1.0, _death + delta / DEATH_SEC)
 		modulate = Color(0.75, 0.72, 0.8, 1.0 - _death)
 		rotation = deg_to_rad(-12.0 * facing) * _death
 		position.y = height * 0.08 * _death
+	if _anim != null:
+		_anim.stunned = _stunned and not _dead
+		_anim.step(delta)
 	if _prime > 0.0:
 		_prime = maxf(0.0, _prime - delta)
 		var k := 1.0 - _prime / maxf(_prime_sec, 0.01)
@@ -106,6 +172,9 @@ func _process(delta: float) -> void:
 		var alpha := maxf(_shield, _shield_pop * 0.8) if not _vanished else 0.0
 		_ball.set_look(1.0 + _shield_pop * 0.12, alpha)
 	queue_redraw()
+	if _figure != null:
+		_figure.queue_redraw()
+		_over.queue_redraw()
 
 
 ## The trail puffs in the air behind a flier (global positions, so they stay where it passed).
@@ -147,6 +216,8 @@ func _draw() -> void:
 	var tint := BomberModel.pulse(_t, (bomber or leaper) and not _dead and (warn or _prime > 0.0))
 	if glow > 0.0:
 		tint = maxf(tint, LEAP_TINT * glow)
+	if not _side.is_empty(): # the frames' node draws the figure
+		return
 	var wobble := Vector2.ZERO
 	if _walking and not _dead and not flying:
 		wobble = Vector2(0, -absf(sin(_t * 14.0)) * height * 0.03)
@@ -265,6 +336,8 @@ func set_walking(on: bool) -> void:
 
 func hurt() -> void:
 	_flash = 1.0
+	if _anim != null and not _dead and (_anim.playing() == "" or _anim.playing() == BossAnim.HURT):
+		_anim.play(BossAnim.HURT)
 
 
 func is_flashing() -> bool:
@@ -272,7 +345,12 @@ func is_flashing() -> bool:
 
 
 func die() -> void:
+	if _dead:
+		return
 	_dead = true
+	if not _side.is_empty():
+		_dead_t = 0.0
+		_cracks = _make_cracks()
 
 
 ## About to blow up in sec (a detonation's lead-in): the body swells, flashing red.
@@ -301,6 +379,197 @@ func vanished() -> bool:
 
 func death_progress() -> float:
 	return _death
+
+
+# ── Drawn frames ────────────────────────────────────────────────────────────
+
+## Drawn from frames (Art.boss_side()), not by BossArt.
+func has_frames() -> bool:
+	return not _side.is_empty()
+
+
+## The frame animation (null without frames: tests).
+func anim() -> BossAnim:
+	return _anim
+
+
+## A hover move (UnitFlew) starts / ends: the fly loop while it lasts.
+func set_flight(on: bool) -> void:
+	if _anim != null:
+		_anim.set_flying(on)
+
+
+## Stunned or frozen (a status that skips the turn): the idle slows down and sways.
+func set_stunned(on: bool) -> void:
+	_stunned = on
+
+
+## A shot's animation (BossAnim.action_for(): {anim, at, hold}) played once; its duration (0: none).
+func play_action(action: Dictionary) -> float:
+	if _anim == null or _dead:
+		return 0.0
+	return _anim.play(str(action.get("anim", "")), {"at": float(action.get("at", -1.0)), "hold": float(action.get("hold", -1.0))})
+
+
+## The frame shown: [anim, index] (the death shows the first hurt frame).
+func shown_frame() -> Array:
+	if _anim == null:
+		return []
+	if _dead:
+		return [BossAnim.HURT if _anim.has(BossAnim.HURT) else "idle", 0]
+	return _anim.frame()
+
+
+## The death's phase now: "crack", "freeze", "shatter" or "gone" ("" alive or no frames).
+func death_phase() -> String:
+	if not _dead or _side.is_empty():
+		return ""
+	if _dead_t < CRACK_SEC:
+		return "crack"
+	if _dead_t < FREEZE_END:
+		return "freeze"
+	return "shatter" if _dead_t < FRAMES_DEATH_SEC else "gone"
+
+
+func shatter_count() -> int:
+	return _bits.size()
+
+
+func _step_death(delta: float) -> void:
+	var was := _dead_t
+	_dead_t += delta
+	_death = minf(1.0, _dead_t / FRAMES_DEATH_SEC)
+	if was < FREEZE_END and _dead_t >= FREEZE_END:
+		_shatter()
+	var g := SHATTER_GRAVITY * height / 160.0
+	for b in _bits:
+		b["v"] = Vector2(b["v"]) + Vector2(0, g * delta)
+		b["p"] = Vector2(b["p"]) + Vector2(b["v"]) * delta
+		b["rot"] = float(b["rot"]) + float(b["spin"]) * delta
+
+
+## The body's centre now (local px; the hover bob of the frame).
+func _centre() -> Vector2:
+	return Vector2(0, BossArt.bob(art, _t, flying) * height / BossArt.UNIT - height * 0.5)
+
+
+## The cracks: a few jagged lines from near the body's middle outward (texture px).
+func _make_cracks() -> Array:
+	var out: Array = []
+	var h := float(_side["height"])
+	var c: Vector2 = _side["pivot"] - Vector2(0, h * 0.55)
+	for i in 7:
+		var a := TAU * i / 7.0 + randf_range(-0.3, 0.3)
+		var p := c + Vector2(randf_range(-0.08, 0.08), randf_range(-0.12, 0.12)) * h
+		var line := PackedVector2Array([p])
+		var segs := randi_range(3, 5)
+		for k in segs:
+			a += randf_range(-0.7, 0.7)
+			p += Vector2.from_angle(a) * h * randf_range(0.05, 0.09)
+			line.append(p)
+		out.append(line)
+	return out
+
+
+## She breaks: the shards burst out of her body, the sparkles placed.
+func _shatter() -> void:
+	_bits.clear()
+	var c := _centre()
+	for i in SHATTER_SHARDS:
+		var p := c + Vector2(randf_range(-0.28, 0.28), randf_range(-0.42, 0.42)) * height
+		var dir := (p - c).normalized() if p != c else Vector2.UP
+		_bits.append({"p": p, "v": dir * randf_range(1.0, 2.6) * height + Vector2(0, -0.8 * height),
+			"r": height * randf_range(0.03, 0.07), "rot": randf() * TAU, "spin": randf_range(-9.0, 9.0)})
+	_sparks.clear()
+	for i in 6:
+		_sparks.append({"p": c + Vector2(randf_range(-0.55, 0.55), randf_range(-0.6, 0.5)) * height, "r": height * randf_range(0.05, 0.09),
+			"delay": randf_range(0.0, 0.35)})
+
+
+## The frame now: {tex, xform (Transform2D: texture px → local), alpha, flash, icy}; {} none.
+func _frame_look() -> Dictionary:
+	var f := shown_frame()
+	if f.is_empty() or _vanished:
+		return {}
+	var spec: Dictionary = _side["anims"].get(f[0], _side["anims"]["idle"])
+	var frames: Array = spec["frames"]
+	var tex: Texture2D = frames[clampi(int(f[1]), 0, frames.size() - 1)]
+	var k := height / float(_side["height"])
+	var mirror := float(facing * int(_side["facing"]))
+	var alpha := 1.0
+	var swell := 1.0
+	var icy := 0.0
+	var flash := _flash * 0.85
+	if _dead:
+		icy = 0.5 * clampf(_dead_t / CRACK_SEC, 0.0, 1.0)
+		if _dead_t >= CRACK_SEC and _dead_t < FREEZE_END: # the freeze: a white pulse building to the break
+			flash = maxf(flash, 0.45 * smoothstep(CRACK_SEC, FREEZE_END, _dead_t))
+		if _dead_t >= FREEZE_END:
+			var v := clampf((_dead_t - FREEZE_END) / VANISH_SEC, 0.0, 1.0)
+			alpha = 1.0 - v
+			swell = 1.0 + 0.14 * v
+			flash = maxf(flash, 0.6 * (1.0 - v))
+	var bob := BossArt.bob(art, _t if not _dead else 0.0, flying) * height / BossArt.UNIT
+	var rot := (lean + _anim.sway()) if not _dead else 0.0
+	var centre := Vector2(0, -height * 0.5) # a swell grows round the body's centre
+	var xform := Transform2D(rot, Vector2(mirror * k, k) * swell, 0.0, Vector2(0, bob) + centre * (1.0 - swell))
+	return {"tex": tex, "xform": xform * Transform2D(0.0, -Vector2(_side["pivot"])), "alpha": alpha, "flash": flash, "icy": icy}
+
+
+## The frame: its texture scaled to `height`, on the feet (plus the bob, the lean or the stun's
+## sway), mirrored facing left, through the shader (the hit flash, the death's icy tint).
+func _draw_frame() -> void:
+	var look := _frame_look()
+	if look.is_empty() or float(look["alpha"]) <= 0.0:
+		_mat.set_shader_parameter("flash", 0.0)
+		return
+	_mat.set_shader_parameter("flash", look["flash"])
+	_mat.set_shader_parameter("icy", look["icy"])
+	_figure.draw_set_transform_matrix(look["xform"])
+	_figure.draw_texture(look["tex"], Vector2.ZERO, Color(1, 1, 1, look["alpha"]))
+	_figure.draw_set_transform(Vector2.ZERO)
+
+
+## The shatter over the figure: the frost puff, the shards falling, the sparkles.
+func _draw_shatter() -> void:
+	if not _dead or _side.is_empty():
+		return
+	var look := _frame_look()
+	if not look.is_empty() and float(look["alpha"]) > 0.0 and not _cracks.is_empty(): # the cracks over her
+		var grow := clampf(_dead_t / CRACK_SEC, 0.0, 1.0)
+		var a := float(look["alpha"])
+		_over.draw_set_transform_matrix(look["xform"])
+		for line in _cracks:
+			var pts := PackedVector2Array()
+			for i in mini(maxi(2, int(ceil(line.size() * grow))), line.size()):
+				pts.append(line[i])
+			_over.draw_polyline(pts, Color(0.1, 0.18, 0.42, 0.9 * a), 7.0, true)
+			_over.draw_polyline(pts, Color(1, 1, 1, a), 3.0, true)
+		_over.draw_set_transform(Vector2.ZERO)
+	if _dead_t < FREEZE_END:
+		return
+	var s := _dead_t - FREEZE_END
+	var life := FRAMES_DEATH_SEC - FREEZE_END
+	var c := _centre()
+	var puff := clampf(s / 0.55, 0.0, 1.0)
+	if puff < 1.0:
+		for i in 4:
+			var r := height * (0.3 + 0.12 * i) * (0.6 + 0.6 * puff)
+			var at := c + Vector2(cos(i * 1.9), sin(i * 2.3)) * height * 0.08 * puff
+			_over.draw_texture_rect(halo_texture(), Rect2(at - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(ICY, 0.55 * (1.0 - puff)))
+	var fade := clampf((life - s) / (life * 0.4), 0.0, 1.0)
+	for b in _bits:
+		BossArt.shard(_over, b["p"], float(b["r"]), float(b["rot"]), fade)
+	for sp in _sparks:
+		var u := (s - float(sp["delay"])) / 0.45
+		if u <= 0.0 or u >= 1.0:
+			continue
+		var r := float(sp["r"]) * sin(PI * u)
+		var p: Vector2 = sp["p"]
+		var col := Color(1, 1, 1, 0.9)
+		_over.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -r), p + Vector2(r * 0.22, -r * 0.22), p + Vector2(r, 0),
+			p + Vector2(r * 0.22, r * 0.22), p + Vector2(0, r), p + Vector2(-r * 0.22, r * 0.22), p + Vector2(-r, 0),
+			p + Vector2(-r * 0.22, -r * 0.22)]), col)
 
 
 func aim(_angle: float) -> void:

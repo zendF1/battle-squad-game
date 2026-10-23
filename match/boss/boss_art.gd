@@ -411,6 +411,16 @@ const FROST := Color(0.85, 0.96, 1.0)
 const ICE := Color(0.45, 0.88, 1.0)
 
 
+## One of the witch's ice shards drawn in px on ci (centre c, half length r, turned rot): the
+## drawn witch's death shatter (match/boss/boss_body.gd).
+static func shard(ci: CanvasItem, c: Vector2, r: float, rot: float, alpha: float = 1.0) -> void:
+	_s = 1.0
+	_out_px = clampf(r * 0.18, 1.0, OUT_PX)
+	_flash = 0.0
+	_tint = 0.0
+	_shard(ci, c, r, rot, alpha)
+
+
 static func _shard(ci: CanvasItem, c: Vector2, r: float, rot: float, alpha: float = 1.0) -> void:
 	var pts := PackedVector2Array([c + Vector2(0, -r).rotated(rot), c + Vector2(r * 0.45, 0).rotated(rot), c + Vector2(0, r).rotated(rot),
 		c + Vector2(-r * 0.45, 0).rotated(rot)])
