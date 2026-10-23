@@ -18,6 +18,8 @@ const SPARKS := [Color(1.0, 0.86, 0.3), Color(1.0, 0.97, 0.75), Color(1.0, 0.6, 
 
 var stages: Array = []
 var _title: Label
+const DIGIT_LIFT := 0.15
+
 var _cards: Array = [] # {node, medal, number, line, stage}
 var _rays_on: Dictionary = {}
 
@@ -59,12 +61,12 @@ func _card(s: Dictionary) -> Dictionary:
 		art.mouse_filter = MOUSE_FILTER_IGNORE
 		card.add_child(art)
 		card.move_child(art, medal.get_index()) # the medal over the feet
-	var cap := label("CẤP", 22 if player else 16, Color(1.0, 0.92, 0.7), 5)
-	place(cap, r, r * (0.42 if player else 0.36), r * 2.0, 30)
-	medal.add_child(cap)
-	var number := label(str(s["from"]), 120 if player else 68, Color.WHITE, 18 if player else 12)
+	var fs := 120 if player else 68
+	var number := label(str(s["from"]), fs, Color.WHITE, 18 if player else 12)
 	number.add_theme_color_override("font_outline_color", Color(0.45, 0.2, 0.02))
-	place(number, r, r * 1.12, r * 2.0, r * 1.2)
+	# The medal's only content, dead centre: digits sit low in the line box (its ascent leaves
+	# room for Vietnamese marks), so the box is lifted DIGIT_LIFT of the font size.
+	place(number, r, r - fs * DIGIT_LIFT, r * 2.0, r * 1.2)
 	medal.add_child(number)
 	var line := label("Lv.%d → Lv.%d" % [s["from"], s["to"]], 30, Color(0.6, 1.0, 0.65), 6)
 	place(line, CARD.x / 2.0, CARD.y - 40, CARD.x - 40, 44)
