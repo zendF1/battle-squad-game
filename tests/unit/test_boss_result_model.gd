@@ -70,3 +70,39 @@ func test_lose_info() -> void:
 	eq([info["outcome"], info["title"], info["boss"]["ratio"]], [ResultModel.LOSE, "Cả đội đã gục", 0.5], "lost")
 	eq(info["boss"]["boss_id"], "lava_crab", "the boss block's boss")
 	eq(info["ranking"][0]["playerId"], "me", "my damage first")
+
+
+## The podium: a step per party player, left to right #3, #1, #2, #4, #1 tallest down to #4;
+## a smaller party keeps the order of the ranks it has; 0 damage still stands on a step.
+func test_podium_order_and_heights() -> void:
+	BossFixture.take()
+	var players: Dictionary = PLAYERS.duplicate(true)
+	players["p4"] = {"playerId": "p4", "displayName": "Bốn", "teamId": 1, "characterId": "flora"}
+	var d: Dictionary = WIN.duplicate(true)
+	d["boss"]["bossDamage"]["p4"] = 0
+	var info := BossResultModel.info(d, players, "me", "steel_robot", null)
+	var steps: Array = info["podium"]
+	eq(steps.map(func(s): return s["rank"]), [3, 1, 2, 4], "ranks left to right")
+	eq(steps.map(func(s): return s["entry"]["playerId"]), ["bot_1a", "p2", "me", "p4"], "the players on them")
+	var h: Array = steps.map(func(s): return s["step_h"])
+	check(h[1] > h[2] and h[2] > h[0] and h[0] > h[3], "#1 tallest, then #2, #3, #4 lowest (%s)" % [h])
+	eq(steps[3]["entry"]["damage"], 0, "no damage: still a step")
+	check(steps[1]["entry"]["mvp"], "the MVP on #1")
+	var ranks := func(n: int) -> Array:
+		var rows: Array = []
+		for i in n:
+			rows.append({"playerId": "p%d" % i})
+		return BossResultModel.podium(rows).map(func(s): return s["rank"])
+	eq([ranks.call(1), ranks.call(2), ranks.call(3), ranks.call(0)], [[1], [1, 2], [3, 1, 2], []], "smaller parties")
+	eq(ranks.call(5), [5, 3, 1, 2, 4], "a fifth at an end, on the lowest step")
+	eq(BossResultModel.step_height(9), BossResultModel.step_height(4), "past 4: the lowest")
+
+
+func test_subtitle() -> void:
+	BossFixture.take()
+	var win := BossResultModel.info(WIN, PLAYERS, "me", "steel_robot", null)
+	eq(BossResultModel.subtitle(win), "Rô-bốt Thép · Vòng 9/15", "a win: the boss and the round")
+	var d := {"winningTeam": 2, "result": "boss_escaped", "boss": {"bossId": "lava_crab", "round": 15, "turnLimit": 15,
+		"bossHp": 3400, "bossMaxHp": 12000, "bossDamage": {"me": 9000}}}
+	var lose := BossResultModel.info(d, PLAYERS, "me", "", null)
+	eq(BossResultModel.subtitle(lose), "Cua Dung Nham · Vòng 15/15 · Máu boss còn 3.400 / 12.000", "a loss: the HP left too")

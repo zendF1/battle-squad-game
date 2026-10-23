@@ -3,8 +3,8 @@ extends RefCounted
 ## MatchEnded {winningTeam, result, boss {bossId, result, round, turnLimit, bossHp, bossMaxHp,
 ## bossDamage: {playerId: damage}}, rewards[me] {expGained, coinGained, ..., bossDamage,
 ## minionDamage, bonusRun, bonusRunsLeft, items: [{itemId, quantity}]}, mvpPlayerId}: the title
-## of how it ended, the damage ranking of the party (bots too) with bars, the MVP, the boss's HP
-## left, and my rewards with the run's table ("Lượt thưởng lớn" / "Thưởng thường") and the big
+## of how it ended, the damage ranking of the party (bots too) on a podium (podium(): ranks 3, 1,
+## 2, 4 left to right, #1 tallest), the MVP, the boss's HP left (in the subtitle of a loss), and my rewards with the run's table ("Lượt thưởng lớn" / "Thưởng thường") and the big
 ## runs left today. Item names come from the game data.
 
 const ResultModel := preload("res://match/result_model.gd")
@@ -18,6 +18,12 @@ const ESCAPED := "boss_escaped"
 
 ## A win reads as any match's win (ResultModel.title_text(WIN): "CHIẾN THẮNG"); a loss says how.
 const TITLES := {DEFEATED: "", PARTY_DEFEATED: "Cả đội đã gục", ESCAPED: "Boss đã trốn thoát"}
+## The podium (the PvP result's, match/result_screen.gd): a step per party player, by rank
+## (1 most damage to the boss) px tall, laid out left to right in PODIUM_ORDER (the tallest two in
+## the middle); a fifth and later player (none in a 4-player party) stands at the ends on the
+## lowest step.
+const PODIUM_ORDER := [3, 1, 2, 4]
+const STEP_HEIGHTS := [128.0, 100.0, 76.0, 58.0]
 const BONUS := "Lượt thưởng lớn"
 const NORMAL := "Thưởng thường"
 
@@ -140,8 +146,43 @@ static func round_text(d: Dictionary) -> String:
 	return "Vòng %d/%d" % [r, limit] if limit > 0 else "Vòng %d" % r
 
 
+## The podium's steps left to right for a ranking (most damage first, ranking()): [{rank, step_h,
+## entry}] in PODIUM_ORDER, the ranks the party has (3 players: 3, 1, 2; 2: 1, 2; 1: 1); 0 damage
+## still gets its step.
+static func podium(rows: Array) -> Array:
+	var out: Array = []
+	for rank in PODIUM_ORDER:
+		if rank <= rows.size():
+			out.append({"rank": rank, "step_h": step_height(rank), "entry": rows[rank - 1]})
+	for i in range(PODIUM_ORDER.size(), rows.size()):
+		var e := {"rank": i + 1, "step_h": step_height(i + 1), "entry": rows[i]}
+		if i % 2 == 0:
+			out.push_front(e)
+		else:
+			out.append(e)
+	return out
+
+
+## A rank's step height (px): STEP_HEIGHTS, the lowest past 4.
+static func step_height(rank: int) -> float:
+	return float(STEP_HEIGHTS[clampi(rank - 1, 0, STEP_HEIGHTS.size() - 1)])
+
+
+## Under the title: "Cua Dung Nham · Vòng 9/15"; a loss adds the boss's HP left ("Máu boss còn
+## 3.400 / 12.000").
+static func subtitle(i: Dictionary) -> String:
+	var boss: Dictionary = i.get("boss", {}) if i.get("boss") is Dictionary else {}
+	var parts := PackedStringArray()
+	for t in [str(boss.get("name", "")), str(i.get("round_text", ""))]:
+		if t != "":
+			parts.append(t)
+	if str(i.get("outcome", "")) != ResultModel.WIN and str(boss.get("hp_text", "")) != "":
+		parts.append("Máu boss còn %s" % boss["hp_text"])
+	return " · ".join(parts)
+
+
 ## Everything the screen shows: {outcome (ResultModel WIN / LOSE), result, title, round_text,
-## boss: {boss_id, name, art, hp, max_hp, ratio, hp_text}, ranking, mvp, reward}. boss_id: the
+## boss: {boss_id, name, art, hp, max_hp, ratio, hp_text}, ranking, podium, mvp, reward}. boss_id: the
 ## match's (the boss block's wins).
 static func info(d: Dictionary, players: Dictionary, me: String, boss_id: String, my_reward: Variant) -> Dictionary:
 	var my_team := int(_num(players.get(me, {}).get("teamId"), 1))
@@ -152,8 +193,9 @@ static func info(d: Dictionary, players: Dictionary, me: String, boss_id: String
 	var max_hp := maxi(int(_num(b.get("bossMaxHp"), _num(gd_boss.get("hp"), 1.0))), 1)
 	var hp := clampi(int(_num(b.get("bossHp"))), 0, max_hp)
 	var mvp := mvp_of(d, players, me)
+	var rows := ranking(d, players, me, mvp)
 	return {"outcome": ResultModel.WIN if res == DEFEATED else ResultModel.LOSE, "result": res, "title": title_text(res),
 		"round_text": round_text(d),
 		"boss": {"boss_id": bid, "name": GameData.boss_name(bid), "art": BossArt.art_of(bid), "hp": hp, "max_hp": max_hp,
 			"ratio": float(hp) / float(max_hp), "hp_text": "%s / %s" % [Fmt.thousands(hp), Fmt.thousands(max_hp)]},
-		"ranking": ranking(d, players, me, mvp), "mvp": mvp, "reward": reward(my_reward, "")}
+		"ranking": rows, "podium": podium(rows), "mvp": mvp, "reward": reward(my_reward, "")}

@@ -396,11 +396,11 @@ func _draw_stage() -> void:
 	var cone := PackedVector2Array([Vector2(cx - 70, -10), Vector2(cx + 70, -10), Vector2(cx + w * 0.55, top + 8), Vector2(cx - w * 0.55, top + 8)])
 	_stage.draw_polygon(cone, PackedColorArray([Color(1, 1, 1, 0.2 * light), Color(1, 1, 1, 0.2 * light), Color(1, 0.95, 0.9, 0.05 * light), Color(1, 0.95, 0.9, 0.05 * light)]))
 	if _top_id == "":
-		_ellipse(Vector2(cx, top + 4), Vector2(w * 0.56, 30), Color(1, 0.9, 0.95, 0.22 * light))
-		_block(Rect2(cx - w / 2.0, top, w, PODIUM_H), false)
+		podium_glow(_stage, Vector2(cx, top + 4), Vector2(w * 0.56, 30), Color(1, 0.9, 0.95, 0.22 * light))
+		podium_block(_stage, Rect2(cx - w / 2.0, top, w, PODIUM_H), false)
 		return
 	# two winners: a step each, the lower first, the top one over it
-	_ellipse(Vector2(cx, base - STEP_LOW_H + 4), Vector2(w * 0.56, 30), Color(1, 0.9, 0.95, 0.22 * light))
+	podium_glow(_stage, Vector2(cx, base - STEP_LOW_H + 4), Vector2(w * 0.56, 30), Color(1, 0.9, 0.95, 0.22 * light))
 	var x0 := cx - _group_w(left.size()) / 2.0
 	var blocks: Array = []
 	for i in left.size():
@@ -412,22 +412,22 @@ func _draw_stage() -> void:
 		blocks.append([Rect2(a, base - h, b - a, h), top_step])
 	blocks.sort_custom(func(p, q): return not p[1] and q[1])
 	for blk in blocks:
-		_block(blk[0], blk[1])
+		podium_block(_stage, blk[0], blk[1])
 
 
 ## One podium step: its top, the front with light bars, the glowing edge; the top step a gold
-## star on its front.
-func _block(r: Rect2, star: bool) -> void:
+## star on its front (the boss result's podium draws its steps with it too).
+static func podium_block(ci: CanvasItem, r: Rect2, star: bool) -> void:
 	var w := r.size.x
 	var top := r.position.y
 	var face := PackedVector2Array([r.position + Vector2(0, 14), r.position + Vector2(w, 14), r.end, Vector2(r.position.x, r.end.y)])
-	_stage.draw_polygon(face, PackedColorArray([PINK, PINK, PINK_DARK, PINK_DARK]))
+	ci.draw_polygon(face, PackedColorArray([PINK, PINK, PINK_DARK, PINK_DARK]))
 	for x in [r.position.x + 22.0, r.end.x - 30.0]: # light bars at the ends
-		_stage.draw_rect(Rect2(x, top + 20, 8, r.size.y - 26), Color(0.6, 0.95, 1.0, 0.5))
+		ci.draw_rect(Rect2(x, top + 20, 8, r.size.y - 26), Color(0.6, 0.95, 1.0, 0.5))
 	var top_face := PackedVector2Array([r.position + Vector2(10, -6), r.position + Vector2(w - 10, -6), r.position + Vector2(w, 14), r.position + Vector2(0, 14)])
-	_stage.draw_colored_polygon(top_face, PINK_TOP)
-	_stage.draw_line(r.position + Vector2(0, 14), r.position + Vector2(w, 14), Color(1, 1, 1, 0.75), 3.0, true)
-	_stage.draw_polyline(PackedVector2Array([r.position + Vector2(0, 14), Vector2(r.position.x, r.end.y), r.end, r.position + Vector2(w, 14)]),
+	ci.draw_colored_polygon(top_face, PINK_TOP)
+	ci.draw_line(r.position + Vector2(0, 14), r.position + Vector2(w, 14), Color(1, 1, 1, 0.75), 3.0, true)
+	ci.draw_polyline(PackedVector2Array([r.position + Vector2(0, 14), Vector2(r.position.x, r.end.y), r.end, r.position + Vector2(w, 14)]),
 		Color(0.12, 0.02, 0.1, 0.8), 3.0, true)
 	if star:
 		var c := Vector2(r.get_center().x, top + 14 + (r.size.y - 14) / 2.0)
@@ -436,15 +436,16 @@ func _block(r: Rect2, star: bool) -> void:
 			var rad := 26.0 if i % 2 == 0 else 11.0
 			var a := TAU * i / 10.0 - PI / 2.0
 			pts.append(c + Vector2(cos(a), sin(a)) * rad)
-		_stage.draw_colored_polygon(pts, GOLD)
-		_stage.draw_polyline(pts + PackedVector2Array([pts[0]]), Color(0.45, 0.12, 0.02), 3.0, true)
+		ci.draw_colored_polygon(pts, GOLD)
+		ci.draw_polyline(pts + PackedVector2Array([pts[0]]), Color(0.45, 0.12, 0.02), 3.0, true)
 
 
-func _ellipse(c: Vector2, radii: Vector2, color: Color) -> void:
+## The pool of light on a podium.
+static func podium_glow(ci: CanvasItem, c: Vector2, radii: Vector2, color: Color) -> void:
 	var pts := PackedVector2Array()
 	for i in 40:
 		pts.append(c + Vector2(cos(TAU * i / 40.0) * radii.x, sin(TAU * i / 40.0) * radii.y))
-	_stage.draw_colored_polygon(pts, color)
+	ci.draw_colored_polygon(pts, color)
 
 
 ## Confetti over the winners' side (a win), rain over everything (a loss), nothing on a draw.
