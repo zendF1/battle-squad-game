@@ -178,6 +178,7 @@ var _committing := false # an action requested: input locked until it is answere
 var _commit_sent := false # a Shoot/EndTurn sent: no more Moves this turn
 var _cmd_sent := false # the pending commit (Shoot/EndTurn/UseItem) has actually been sent
 var _resync_in := 0.0 # seconds before asking for MatchStateSync again
+var _resync_after_shot := false # the terrain drifted during a replay: Reconnect once it is over
 var _turn_resolved := false # this turn's shot was answered: the server takes no more actions
 var _move_ack_at := -10_000_000 # Time.get_ticks_usec() when the last PlayerMoved for my Moves was handled
 var _disconnected := false
@@ -1008,10 +1009,7 @@ func _on_shot_event(e: Dictionary) -> void:
 				fx.free()
 				_hold_focus({"pos": p}, CameraModel.HOLD_SEC)
 				_cam.shake(hit.radius * 0.6)
-				var v := int(e.get("terrainVersion", _mask.version))
-				if v != _mask.version:
-					_mask.version = v
-					GameSocket.send("Reconnect", {})
+				_check_terrain_version(e)
 				if _skill_view != null:
 					_skill_view.on_event(e)
 				return
@@ -1024,10 +1022,7 @@ func _on_shot_event(e: Dictionary) -> void:
 			_fx_layer.add_child(fx)
 			_hold_focus({"pos": p}, CameraModel.HOLD_SEC)
 			_cam.shake(fx.radius)
-			var server_version := int(e.get("terrainVersion", _mask.version))
-			if server_version != _mask.version:
-				_mask.version = server_version
-				GameSocket.send("Reconnect", {}) # terrain drifted: ask for MatchStateSync
+			_check_terrain_version(e)
 		"damage":
 			_set_hp(id, int(e.get("hp", 0)))
 			if e.get("shield") is int or e.get("shield") is float:
@@ -1130,7 +1125,24 @@ func _on_shot_fired() -> void:
 			_views[shooter].show_badge(content)
 
 
+## An explode's terrainVersion against the mask's: a drift asks for MatchStateSync (Reconnect),
+## but only once the replay is over (the snapshot rebuilds the match and would cut off the rest
+## of the shot's damage and HP events).
+func _check_terrain_version(e: Dictionary) -> void:
+	var server_version := int(e.get("terrainVersion", _mask.version))
+	if server_version == _mask.version:
+		return
+	_mask.version = server_version
+	if _shot_player.is_playing():
+		_resync_after_shot = true
+	else:
+		GameSocket.send("Reconnect", {}) # terrain drifted: ask for MatchStateSync
+
+
 func _on_shot_finished() -> void:
+	if _resync_after_shot:
+		_resync_after_shot = false
+		GameSocket.send("Reconnect", {}) # the terrain drifted during the replay
 	_skill_view = null
 	_cam.unframe()
 	if _shot_timeline != null and _shot_timeline.action_mode == SUMMON and _views.has(_current) and not _ended:
@@ -1609,10 +1621,7 @@ func _unit_blast(e: Dictionary) -> void:
 	_fx_layer.add_child(wave)
 	_hold_focus({"pos": p + LOOK_LIFT}, CameraModel.HOLD_SEC + 0.3)
 	_cam.shake(reach * 2.0)
-	var server_version := int(e.get("terrainVersion", _mask.version))
-	if server_version != _mask.version:
-		_mask.version = server_version
-		GameSocket.send("Reconnect", {})
+	_check_terrain_version(e)
 
 
 ## A ground shockwave in a boss shot (Shockwave.detect(): its steps tagged): its ripple and dust
@@ -1636,10 +1645,7 @@ func _wave_step(e: Dictionary) -> void:
 		_mask.carve(str(e.get("crater", TerrainMask.CRATER_BOWL)) if e.get("crater") is String else TerrainMask.CRATER_BOWL, p.x, p.y, radius)
 		_terrain_view.refresh()
 	_cam.shake(maxf(radius, 30.0))
-	var server_version := int(e.get("terrainVersion", _mask.version))
-	if server_version != _mask.version:
-		_mask.version = server_version
-		GameSocket.send("Reconnect", {})
+	_check_terrain_version(e)
 
 
 ## UnitJumped {playerId, from, to, duration, height}: a leaper's arc jump (PlayerView.jump()), the
