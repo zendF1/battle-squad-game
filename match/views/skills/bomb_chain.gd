@@ -11,7 +11,10 @@ extends "res://match/views/skills/skill_view.gd"
 ##   (boulder_shell.gd);
 ## - every impact quakes the ground (bomb_chain_fx.gd quake()): cracks run out along the surface
 ##   from both sides of the pit, stone spikes erupt round its rim and sink back, rocks and dust fly;
-##   the pit itself is the server's craters, each bomb carving it deeper;
+##   the pit itself is the server's craters, each bomb carving it deeper; no fireball: the gun's
+##   explosion is hidden, a burst of brown and ochre dust and dirt clods, grey-brown rocks thrown
+##   in arcs that bounce and fade, a tiny contact flash, a crack flash and a dust ring along the
+##   ground instead, and a heavier shake (EARTH_SHAKE);
 ## - the gun kicks again (recoil, muzzle smoke) as each later bomb leaves;
 ## - every explosion down in a hole (deeper than GEYSER_DEPTH under the ground beside it) throws
 ##   a geyser of dirt, dust and embers up out of it and dust rolls out over its rim
@@ -41,10 +44,8 @@ const GEYSER_DEPTH := 24.0
 ## players over both, so the target stays in sight while bomb after bomb goes off on it; the
 ## geyser's dirt over everything (bomb_chain_fx.gd, z 3).
 const BOMBS_Z := 1
-## The bursts tinted towards earth (dust and rock) instead of the gun's fire.
-const EARTH_BURST := ["cannon", "iron"] # ShotLook kind / tier: grey stone, a pale core
-const EARTH_TINT_FIRST := Color(1.0, 0.9, 0.74)
-const EARTH_TINT := Color(0.94, 0.82, 0.66)
+## The camera shakes this much harder than for the drawn radius (an earth blast hits heavier).
+const EARTH_SHAKE := 1.35
 const PLAYERS_Z := 2
 
 var _fx: Node2D # ChainFx on the fx layer; frees itself once its particles are gone
@@ -90,10 +91,10 @@ func explosion(event: Dictionary, fx: Node2D) -> void:
 	var at: Vector2 = fx.position
 	fx.radius = blast_px(_blasts - 1, fx.radius)
 	var crater := float(event.get("radius", fx.radius))
-	# an earth blast: the cannon's burst in its grey-stone palette (EARTH_BURST), warmed to dust
-	fx.kind = EARTH_BURST[0]
-	fx.tier = EARTH_BURST[1]
-	fx.modulate = EARTH_TINT if _blasts > 1 else EARTH_TINT_FIRST
+	# an earth blast, no fire: the gun's burst is hidden (ChainFx.quake() draws the dust, clods,
+	# rocks, dust ring, crack flash and spikes); its radius only sizes the camera's heavier shake
+	fx.visible = false
+	fx.radius *= EARTH_SHAKE
 	if _blasts == 1:
 		_first_y = at.y
 	if _fx != null and is_instance_valid(_fx):

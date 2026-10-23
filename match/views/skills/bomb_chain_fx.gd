@@ -1,7 +1,10 @@
 extends Node2D
 ## The chain's extras on the fx layer (bomb_chain.gd, Tanko's Địa chấn liên hoàn): every boulder's
-## impact quakes the ground (quake()): cracks run out along the surface from both sides of the pit,
-## stone spikes erupt round its rim and sink back, rocks and dust fly; for every explosion down the shaft a
+## impact quakes the ground (quake(); no fire: the gun's explosion is hidden): a tiny flash at the
+## contact, a burst of brown and ochre dust and dirt clods, grey-brown rock chunks thrown in arcs
+## that bounce off the ground and fade, a dust ring rolling along the ground, cracks flashing as
+## they run out along the surface from both sides of the pit, stone spikes erupting round its rim
+## and sinking back; for every explosion down the shaft a
 ## geyser out of the hole (dirt chunks and the gun tier's embers thrown up past its mouth, falling
 ## back; a column of dust rising up the shaft; dust rolling out over the rim), and a smoke puff at
 ## the muzzle as each later bomb leaves. One fixed pool of particles (MAX), reused: no per-frame
@@ -11,13 +14,14 @@ extends Node2D
 const Art := preload("res://ui/art.gd")
 const ShotLook := preload("res://match/views/shot_look.gd")
 
-const MAX := 220 # particles in the pool
+const MAX := 320 # particles in the pool
 const GRAVITY := 1500.0 # px/s² for the chunks and embers: a quick geyser
 const DUST_RISE := 0.35 # dust slows down by this share of its speed per second
 ## Particle kinds.
 const CHUNK := 0
 const EMBER := 1
 const DUST := 2
+const ROCK := 3 # a rock chunk: flies in an arc, bounces off the ground, fades
 const DIRT := [Color(0.42, 0.29, 0.17), Color(0.33, 0.22, 0.13), Color(0.55, 0.4, 0.24), Color(0.3, 0.33, 0.16)]
 
 ## ShotLook.style_for() of the shot: the embers take its tier's colour.
@@ -38,6 +42,8 @@ var _rng := RandomNumberGenerator.new()
 # [{base: Vector2 (on the surface), h, w, lean, age, delay, life}].
 var _cracks: Array = []
 var _spikes: Array = []
+var _rings: Array = [] # the quakes' dust rings along the ground [{at, r, age}]
+var _surface := Callable() # the ground's top at x (the last quake's), for the rocks' bounces
 
 
 func _init() -> void:
@@ -101,10 +107,17 @@ const SPIKE_HOLD := 0.38
 const SPIKE_SINK := 0.42
 const CRACK_LIFE := 1.5
 const CRACK_GROW := 0.22
-const QUAKE_ROCKS := 16
-const QUAKE_DUST := 3 # each side
-## Particles one quake throws (rocks and dust).
-const QUAKE_PARTICLES := QUAKE_ROCKS + 2 * QUAKE_DUST
+const QUAKE_ROCKS := 12 # rock chunks thrown in arcs
+const QUAKE_CLODS := 10 # dirt clods
+const QUAKE_BURST := 12 # brown and ochre dust puffs bursting up
+const QUAKE_DUST := 3 # dust rolling along the ground, each side
+## Particles one quake throws (rocks, clods, dust and the tiny contact flash).
+const QUAKE_PARTICLES := QUAKE_ROCKS + QUAKE_CLODS + QUAKE_BURST + 2 * QUAKE_DUST + 1
+const RING_SEC := 0.5 # the dust ring along the ground
+const CRACK_FLASH := 0.14 # s the cracks glow as they open
+const ROCK_BOUNCE := 0.38 # of a rock's speed kept when it hits the ground
+const DUSTS := [Color(0.55, 0.4, 0.24, 0.85), Color(0.7, 0.54, 0.3, 0.8), Color(0.46, 0.33, 0.2, 0.85), Color(0.78, 0.62, 0.38, 0.75)]
+const CLODS := [Color(0.42, 0.29, 0.17), Color(0.33, 0.22, 0.13), Color(0.55, 0.4, 0.24)]
 
 
 ## A boulder's impact at `at` (its crater `crater` px, already carved; `surface(x)` the ground's top
@@ -131,10 +144,22 @@ func quake(at: Vector2, crater: float, surface: Callable, index: int) -> void:
 				pts.append(Vector2(x, y + 2.0 + _rng.randf_range(0.0, 5.0) + n * 3.0))
 				x += side * step * _rng.randf_range(0.7, 1.3)
 			_cracks.append({"pts": pts, "age": 0.0, "life": CRACK_LIFE, "width": _rng.randf_range(2.0, 3.2) * big})
-	for i in QUAKE_ROCKS: # rocks out of the pit
-		var v := Vector2(_rng.randf_range(-260.0, 260.0), -_rng.randf_range(260.0, 620.0))
-		_spawn(CHUNK, at + Vector2(_rng.randf_range(-crater, crater) * 0.5, -4.0), v, _rng.randf_range(0.7, 1.1),
+	_surface = surface
+	_spawn(EMBER, at, Vector2.ZERO, 0.08, 9.0, Color(1.0, 0.94, 0.75)) # a tiny brief flash at the contact
+	for i in QUAKE_BURST: # a burst of brown and ochre dust out of the pit
+		var ang := _rng.randf_range(-PI * 0.95, -PI * 0.05)
+		_spawn(DUST, at + Vector2(_rng.randf_range(-6.0, 6.0), -4.0), Vector2.from_angle(ang) * _rng.randf_range(90.0, 260.0) * big,
+			_rng.randf_range(0.7, 1.1), _rng.randf_range(16.0, 30.0) * big, DUSTS[i % DUSTS.size()])
+	for i in QUAKE_CLODS: # dirt clods
+		var v := Vector2(_rng.randf_range(-220.0, 220.0), -_rng.randf_range(300.0, 560.0))
+		_spawn(CHUNK, at + Vector2(_rng.randf_range(-crater, crater) * 0.4, -4.0), v, _rng.randf_range(0.6, 0.95),
+			_rng.randf_range(3.0, 6.0) * big, CLODS[i % CLODS.size()])
+	for i in QUAKE_ROCKS: # grey-brown rock chunks thrown in arcs: they bounce and fade
+		var v := Vector2(_rng.randf_range(-300.0, 300.0), -_rng.randf_range(240.0, 520.0))
+		_spawn(ROCK, at + Vector2(_rng.randf_range(-crater, crater) * 0.5, -6.0), v, _rng.randf_range(1.0, 1.4),
 			_rng.randf_range(3.5, 7.0) * big, ROCKS[i % ROCKS.size()])
+	_rings.append({"at": Vector2(at.x, minf(float(surface.call(at.x - crater)), float(surface.call(at.x + crater)))), "r": crater * 1.2 + 40.0 * big,
+		"age": 0.0})
 	for side in [-1.0, 1.0]: # dust rolling over the ground
 		for i in QUAKE_DUST:
 			var x: float = at.x + side * _rng.randf_range(crater * 0.6, crater * 1.6)
@@ -149,6 +174,10 @@ func spikes() -> int:
 
 func cracks() -> int:
 	return _cracks.size()
+
+
+func rings() -> int:
+	return _rings.size()
 
 
 ## A spike's height share at its age: 0 before its delay, erupting with a small overshoot, standing,
@@ -210,10 +239,13 @@ func _process(delta: float) -> void:
 	for c in _cracks:
 		c["age"] += delta
 	_cracks = _cracks.filter(func(c): return c["age"] < c["life"])
+	for r in _rings:
+		r["age"] += delta
+	_rings = _rings.filter(func(r): return r["age"] < RING_SEC)
 	if _alive == 0:
-		if _finishing and _spikes.is_empty() and _cracks.is_empty():
+		if _finishing and _spikes.is_empty() and _cracks.is_empty() and _rings.is_empty():
 			queue_free()
-		elif not _spikes.is_empty() or not _cracks.is_empty():
+		elif not _spikes.is_empty() or not _cracks.is_empty() or not _rings.is_empty():
 			queue_redraw()
 		return
 	for q in _pool:
@@ -230,10 +262,21 @@ func _process(delta: float) -> void:
 			v.y += GRAVITY * delta
 		q[2] = v
 		q[1] += v * delta
+		if (q[0] == ROCK or q[0] == CHUNK) and v.y > 0.0 and _surface.is_valid():
+			var ground: float = _surface.call(q[1].x)
+			if q[1].y > ground:
+				q[1].y = ground
+				if q[0] == ROCK:
+					q[2] = Vector2(v.x * 0.6, -v.y * ROCK_BOUNCE) # bounces off the ground
+				else:
+					q[2] = Vector2.ZERO # a clod lands and lies there until it fades
+					q[3] = maxf(q[3], q[4] - 0.25)
 	queue_redraw()
 
 
 func _draw() -> void:
+	for r in _rings:
+		_draw_ring(r)
 	for c in _cracks:
 		_draw_crack(c)
 	for sp in _spikes:
@@ -251,6 +294,16 @@ func _draw() -> void:
 					continue
 				var r := size * (0.7 + 1.1 * f)
 				draw_texture_rect(_smoke, Rect2(at - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(col, col.a * (1.0 - f) * minf(1.0, f * 6.0)))
+			ROCK:
+				var a := 1.0 - maxf(0.0, f - 0.7) / 0.3
+				var pts := PackedVector2Array()
+				for k in 6:
+					var ang: float = q[6] * q[3] + TAU * k / 6.0
+					pts.append(at + Vector2(cos(ang), sin(ang)) * size * (0.8 + 0.25 * sin(k * 2.3 + size)))
+				draw_colored_polygon(pts, Color(col, a))
+				draw_circle(at + Vector2(-0.3, -0.3) * size, size * 0.3, Color(col.lightened(0.3), a))
+				pts.append(pts[0])
+				draw_polyline(pts, Color(STONE_INK, a), 1.4, true)
 			EMBER:
 				var r := size * (1.0 - 0.5 * f)
 				if _glow != null:
@@ -275,6 +328,8 @@ func _draw_crack(c: Dictionary) -> void:
 	var n := maxi(2, int(ceil(pts.size() * grow)))
 	var shown := pts.slice(0, n)
 	var w: float = c["width"]
+	if age < CRACK_FLASH: # the crack flashes as it opens
+		draw_polyline(shown, Color(1.0, 0.86, 0.55, 0.7 * (1.0 - age / CRACK_FLASH)), w * 3.0, true)
 	draw_polyline(shown, Color(STONE_INK, 0.85 * a), w, true)
 	if shown.size() >= 3:
 		var mid := shown[shown.size() / 2]
@@ -302,4 +357,15 @@ func _draw_spike(sp: Dictionary) -> void:
 	# dirt heaped at the foot
 	draw_set_transform(base + Vector2(0, 1), 0.0, Vector2(1.0, 0.4))
 	draw_circle(Vector2.ZERO, w * 1.25, Color(0.4, 0.28, 0.16, 0.95))
+	draw_set_transform(Vector2.ZERO)
+
+
+## A dust ring rolling out along the ground from the pit (a flattened ring, fading).
+func _draw_ring(r: Dictionary) -> void:
+	var f: float = r["age"] / RING_SEC
+	var rr: float = r["r"] * (0.4 + 0.9 * (1.0 - pow(1.0 - f, 2.0)))
+	var a := 1.0 - f
+	draw_set_transform(r["at"], 0.0, Vector2(1.0, 0.22))
+	draw_arc(Vector2.ZERO, rr, 0.0, TAU, 48, Color(0.66, 0.53, 0.36, 0.55 * a), 14.0 * (1.0 - 0.5 * f), true)
+	draw_arc(Vector2.ZERO, rr * 0.85, 0.0, TAU, 48, Color(0.8, 0.68, 0.48, 0.4 * a), 6.0, true)
 	draw_set_transform(Vector2.ZERO)

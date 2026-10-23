@@ -92,15 +92,22 @@ func test_quake_spikes_and_cracks() -> void:
 	fx.quake(Vector2(500, 400), 20.0, func(_x): return 390.0, 0)
 	eq(fx.spikes(), 6, "three stone spikes each side of the rim")
 	eq(fx.cracks(), 4, "two cracks run out each side")
+	eq(fx.rings(), 1, "a dust ring along the ground")
 	check(fx.alive() > 0, "rocks and dust fly")
 	eq(ChainFx.spike_k(0.0, 0.05), 0.0, "not before its delay")
 	near(ChainFx.spike_k(0.05 + ChainFx.SPIKE_RISE, 0.05), 1.0, 1e-4, "erupted")
 	check(ChainFx.spike_k(0.05 + ChainFx.SPIKE_RISE * 0.7, 0.05) > 1.0, "with an overshoot")
 	near(ChainFx.spike_k(0.05 + ChainFx.SPIKE_RISE + ChainFx.SPIKE_HOLD + ChainFx.SPIKE_SINK * 0.5, 0.05), 0.5, 1e-4, "sinking back")
 	eq(ChainFx.spike_k(5.0, 0.0), 0.0, "gone")
+	var rocks := 0
 	for i in 120:
 		fx._process(1.0 / 60.0)
-	eq([fx.spikes(), fx.cracks()], [0, 0], "they all go")
+		for q in fx._pool:
+			if q[0] == ChainFx.ROCK and q[3] < q[4]:
+				rocks += 1
+				check(q[1].y <= 390.01, "a rock never sinks into the ground: it bounces off it")
+	check(rocks > 0, "rock chunks fly")
+	eq([fx.spikes(), fx.cracks(), fx.rings()], [0, 0, 0], "they all go")
 	fx.free()
 
 
@@ -119,7 +126,8 @@ func test_explosions_and_geyser() -> void:
 	fx.skill = true
 	fx.position = Vector2(1042, 516)
 	v.explosion({"type": "explode", "radius": 145.6}, fx)
-	near(fx.radius, BombChain.FIRST_BLAST_PX, 1e-6, "the first blast drawn big but not over the whole hole")
+	near(fx.radius, BombChain.FIRST_BLAST_PX * BombChain.EARTH_SHAKE, 1e-6, "the first blast's size (its shake: a bit heavier)")
+	check(not fx.visible, "no fireball: the gun's explosion is hidden, the quake draws the earth burst")
 	check(fx.skill, "the first keeps the skill look")
 	near(v.rim_y(Vector2(1031, 630), 120.0), 516.0, 1e-6, "no terrain: the rim is the first explosion's y")
 	var chain_fx: Node2D = layer.get_child(0)
@@ -129,7 +137,8 @@ func test_explosions_and_geyser() -> void:
 	fx2.skill = true
 	fx2.position = Vector2(1031, 630)
 	v.explosion({"type": "explode", "radius": 123.8}, fx2)
-	near(fx2.radius, BombChain.SHAFT_BLAST_PX, 1e-6, "shaft blasts smaller")
+	near(fx2.radius, BombChain.SHAFT_BLAST_PX * BombChain.EARTH_SHAKE, 1e-6, "shaft blasts smaller")
+	check(not fx2.visible, "no fireball down the shaft either")
 	check(not fx2.skill, "no skill flash down the shaft")
 	check(chain_fx.alive() > 0, "a geyser out of the hole")
 	var n: int = chain_fx.alive()
