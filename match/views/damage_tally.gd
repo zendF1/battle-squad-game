@@ -4,7 +4,9 @@ extends Label
 ## gets a single "-160" that counts up as the hits land (-160 → -320 → -734), with a small bump
 ## per hit, and rises and fades HOLD_SEC after the last one. It follows the player's view (the
 ## target may fall into a hole meanwhile). Looks like DamagePopup; frees itself.
-## Set `follow` (the PlayerView) before adding it, then add() every hit.
+## Set `follow` (the PlayerView) before adding it, then add() every hit. A hit's elementEffect
+## styles it like DamagePopup.style(): once a hit was "strong" the number is the big gold-orange
+## one with "Khắc hệ!" over it; all "weak" hits keep it small and greyish blue.
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const DamagePopup := preload("res://match/views/damage_popup.gd")
@@ -25,6 +27,8 @@ var hits := 0
 var _since := 0.0 # s since the last hit
 var _bump := 1.0 # 0..1 into the current bump (1: done)
 var _from := Vector2.ZERO # the last place over the player (kept when it is gone)
+var effect := "" # the shown style's elementEffect: "strong" once any hit was, "weak" while all were
+var _tag: Label
 
 
 func _ready() -> void:
@@ -41,11 +45,31 @@ func _ready() -> void:
 
 
 ## A hit of `amount` on the player: the total counts up and the number bumps.
-func add(amount: int, critical: bool = false) -> void:
+func add(amount: int, critical: bool = false, element_effect: String = "") -> void:
 	total += absi(amount)
 	hits += 1
+	if element_effect == "strong" or effect == "strong":
+		effect = "strong"
+	elif element_effect == "weak" and (hits == 1 or effect == "weak"):
+		effect = "weak"
+	else:
+		effect = ""
 	text = DamagePopup.damage_text(total)
-	add_theme_color_override("font_color", CRIT if critical else RED)
+	var st := DamagePopup.style(effect, critical)
+	add_theme_color_override("font_color", st["color"])
+	add_theme_font_size_override("font_size", int(st["font_size"]))
+	if str(st["tag"]) != "" and _tag == null:
+		_tag = Label.new()
+		_tag.text = str(st["tag"])
+		_tag.add_theme_font_size_override("font_size", 20)
+		_tag.add_theme_font_override("font", LobbyUi.bold())
+		_tag.add_theme_color_override("font_color", st["tag_color"])
+		_tag.add_theme_color_override("font_outline_color", Color(0.3, 0.1, 0.0, 0.95))
+		_tag.add_theme_constant_override("outline_size", 7)
+		_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_tag.size = Vector2(size.x, 26)
+		_tag.position = Vector2(0, -20)
+		add_child(_tag)
 	_since = 0.0
 	_bump = 0.0
 	modulate.a = 1.0

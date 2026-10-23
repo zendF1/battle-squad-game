@@ -62,6 +62,9 @@ extends Node2D
 ## {playerId, from, to, duration, height} is a leaping snowman's arc jump (PlayerView.jump(): squash
 ## and stretch, the camera on it, the events after it wait until it lands); from it until its next
 ## turn ends it glows as a warning (LeapWarning; the state's leapt), then blows up as a minion.
+## Elements: a damage event's elementEffect ("strong" / "weak", the server's element rules) styles
+## its number (DamagePopup.style(): bigger gold-orange with "Khắc hệ!" / smaller greyish blue), the
+## running tally of a multi-hit skill too; every name carries its element's badge (PlayerView).
 ## See docs/superpowers/specs/2026-10-15-godot-client-roadmap-design.md.
 
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
@@ -1033,9 +1036,9 @@ func _on_shot_event(e: Dictionary) -> void:
 			if str(e.get("cause", "")) == OUT_OF_MAP:
 				pass # fell out of the bottom: no number, the body drops out of sight
 			elif _skill_view != null and _skill_view.merges_damage():
-				_tally(id, int(e.get("amount", 0)), crit)
+				_tally(id, int(e.get("amount", 0)), crit, DamagePopup.effect_of(e))
 			else:
-				_popup(id, DamagePopup.damage_text(int(e.get("amount", 0))), Color(1, 0.85, 0.2) if crit else Color(1, 0.3, 0.3))
+				_damage_popup(id, int(e.get("amount", 0)), crit, DamagePopup.effect_of(e)) # elementEffect styles it
 			_show_energies(_energy_reveal.on_event(e)) # the hit's +10, after the HP drop
 		"heal":
 			_set_hp(id, int(e.get("hp", 0)))
@@ -1835,7 +1838,7 @@ func _kill(id: String) -> void:
 
 ## A hit in a multi-hit skill shot: added to the player's running number (DamageTally), a new
 ## one when it has none or its last one is already fading.
-func _tally(id: String, amount: int, critical: bool) -> void:
+func _tally(id: String, amount: int, critical: bool, element_effect: String = "") -> void:
 	if not _views.has(id):
 		return
 	if not _has_tally(id):
@@ -1843,7 +1846,7 @@ func _tally(id: String, amount: int, critical: bool) -> void:
 		t.follow = _views[id]
 		_fx_layer.add_child(t)
 		_tallies[id] = t
-	_tallies[id].add(amount, critical)
+	_tallies[id].add(amount, critical, element_effect)
 
 
 func _has_tally(id: String) -> bool:
@@ -1851,12 +1854,19 @@ func _has_tally(id: String) -> bool:
 	return t != null and is_instance_valid(t) and not t.is_queued_for_deletion() and not t.is_fading()
 
 
-func _popup(id: String, text: String, color: Color, offset: Vector2 = Vector2.ZERO) -> void:
+## A shot's damage number: DamagePopup.style() of the event's elementEffect and critical.
+func _damage_popup(id: String, amount: int, critical: bool, element_effect: String) -> void:
+	_popup(id, DamagePopup.damage_text(amount), Color.WHITE, Vector2.ZERO, DamagePopup.style(element_effect, critical))
+
+
+func _popup(id: String, text: String, color: Color, offset: Vector2 = Vector2.ZERO, st: Dictionary = {}) -> void:
 	if not _views.has(id):
 		return
 	var label := DamagePopup.new()
 	label.text = text
 	label.add_theme_color_override("font_color", color)
+	if not st.is_empty():
+		label.set_style(st)
 	var now := Time.get_ticks_msec()
 	var last: Array = _popup_row.get(id, [-100000, 0])
 	var n: int = int(last[1]) + 1 if now - int(last[0]) < DamagePopup.STACK_MS else 0
