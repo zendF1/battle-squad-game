@@ -40,7 +40,9 @@ const BossArt := preload("res://match/boss/boss_art.gd")
 const BossArtView := preload("res://match/boss/boss_art_view.gd")
 const Fmt := preload("res://core/fmt.gd")
 
-const BOSS_CARD_SCALE := 0.74 # the party's cards in a boss queue
+const BOSS_CARD_SCALE := 0.74 # the party's compact cards in a boss queue
+const BOSS_GAP := 16 # between the boss queue's cards
+const MINION_COL := 0.72 # the minions' column, of a party card's width
 
 const MARGIN := 18
 const TIP_SEC := 6.0
@@ -181,24 +183,33 @@ func _build() -> void:
 	bar.add_child(_cancel)
 
 
-## A team's label over its two cards.
+## A team's label over its two cards; a boss queue's party: a 2x2 grid of compact cards.
 func _team(caption: String, color: Color, enemy: bool) -> Control:
 	var col := Ui.vbox(10)
 	col.mouse_filter = MOUSE_FILTER_IGNORE
 	var label := LobbyUi.text(caption, 26, color, true)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(label)
-	var cards := Ui.hbox(18)
+	var boss := _is_boss() and not enemy
+	var cards: Container
+	if boss:
+		var grid := GridContainer.new()
+		grid.columns = 2
+		grid.add_theme_constant_override("h_separation", BOSS_GAP)
+		grid.add_theme_constant_override("v_separation", BOSS_GAP)
+		cards = grid
+	else:
+		cards = Ui.hbox(18)
 	cards.mouse_filter = MOUSE_FILTER_IGNORE
 	col.add_child(cards)
-	var boss := _is_boss() and not enemy
 	for i in (_left_size() if boss else MatchmakingModel.team_size()):
 		var card := PlayerCard.new()
 		card.enemy = enemy
 		card.mine = not enemy and i == 0
-		if boss: # smaller: four fit
+		if boss: # compact and scaled: four fit in the grid
+			card.compact = true
 			var holder := Control.new()
-			holder.custom_minimum_size = PlayerCard.SIZE * BOSS_CARD_SCALE
+			holder.custom_minimum_size = _boss_cell()
 			holder.mouse_filter = MOUSE_FILTER_IGNORE
 			var inner := Control.new()
 			inner.scale = Vector2.ONE * BOSS_CARD_SCALE
@@ -212,36 +223,81 @@ func _team(caption: String, color: Color, enemy: bool) -> Control:
 	return col
 
 
-## The boss's side: "BOSS" over one card with its figure, name, level and HP.
+## One party card of a boss queue on screen.
+func _boss_cell() -> Vector2:
+	return PlayerCard.COMPACT_SIZE * BOSS_CARD_SCALE
+
+
+## The party grid's size: the boss side takes the same box, so the screen mirrors around the VS.
+func _boss_block() -> Vector2:
+	var cell := _boss_cell()
+	return Vector2(cell.x * 2 + BOSS_GAP, cell.y * 2 + BOSS_GAP)
+
+
+## The boss's side, the party grid's mirror: "BOSS" over the boss's big card (next to the VS) and
+## its minions' cards beside it (the outer column), each with its figure, name and HP.
 func _boss_side() -> Control:
 	var col := Ui.vbox(10)
 	col.mouse_filter = MOUSE_FILTER_IGNORE
 	var label := LobbyUi.text("BOSS", 26, RED, true)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(label)
+	var block := _boss_block()
+	var row := Ui.hbox(BOSS_GAP)
+	row.custom_minimum_size = block
+	row.mouse_filter = MOUSE_FILTER_IGNORE
+	col.add_child(row)
+	var boss_id := str(_boss.get("bossId", ""))
+	var minion_w := _boss_cell().x * MINION_COL
+	var boss_card := _unit_card(BossArt.art_of(boss_id), Vector2(block.x - minion_w - BOSS_GAP, block.y),
+		str(_boss.get("name", LobbyModel.queue_name(_queue))), int(_boss.get("hp", 0)), 30, _level_line())
+	boss_card.name = "BossCard"
+	row.add_child(boss_card)
+	var minions := Ui.vbox(BOSS_GAP)
+	minions.custom_minimum_size = Vector2(minion_w, block.y)
+	minions.alignment = BoxContainer.ALIGNMENT_CENTER
+	minions.mouse_filter = MOUSE_FILTER_IGNORE
+	row.add_child(minions)
+	var list: Array = _boss.get("minions", []) if _boss.get("minions") is Array else []
+	var h := (block.y - BOSS_GAP * maxi(list.size() - 1, 0)) / maxi(list.size(), 2) # one: half the column, centred
+	for m in list:
+		var card := _unit_card(BossArt.art_of(boss_id, str(m.get("minionId", ""))), Vector2(minion_w, h),
+			str(m.get("name", "")), int(m.get("hp", 0)), 22, "")
+		card.name = "MinionCard"
+		minions.add_child(card)
+	return col
+
+
+## A boss-side card of size `at`: the figure filling its top, then the name, an optional line and
+## "Máu N".
+func _unit_card(art: String, at: Vector2, name_text: String, hp: int, font: int, line: String) -> Control:
 	var card := PanelContainer.new()
-	card.name = "BossCard"
-	card.custom_minimum_size = Vector2(PlayerCard.SIZE.x * 1.05, PlayerCard.SIZE.y * BOSS_CARD_SCALE)
+	card.custom_minimum_size = at
 	card.mouse_filter = MOUSE_FILTER_IGNORE
-	var art := BossArt.art_of(str(_boss.get("bossId", "")))
 	card.add_theme_stylebox_override("panel", LobbyUi.box(Color(0.12, 0.04, 0.1, 0.92), 22, 10, Color(BossArt.accent(art), 0.95), 4))
-	col.add_child(card)
 	var inner := Ui.vbox(4)
+	inner.alignment = BoxContainer.ALIGNMENT_CENTER
 	inner.mouse_filter = MOUSE_FILTER_IGNORE
 	card.add_child(inner)
-	var figure := BossArtView.make(art, Vector2(PlayerCard.SIZE.x * 1.05 - 20, 230), -1)
-	figure.name = "BossFigure"
+	var lines := [[name_text, font, Color.WHITE], [line, font - 8, LobbyUi.GOLD],
+		["Máu %s" % Fmt.thousands(hp) if hp > 0 else "", font - 10, Color(1.0, 0.6, 0.55)]]
+	var text_h := 0.0
+	for t in lines:
+		if t[0] != "":
+			text_h += t[1] * 1.45 + 4
+	# The figure keeps about its own proportions (never a tall empty box over it), so the figure
+	# and its lines sit together at the card's centre
+	var figure := BossArtView.make(art, Vector2(at.x - 20, clampf(at.x * 1.05, 40, at.y - 20 - text_h - 8)), -1)
 	inner.add_child(figure)
-	for t in [[str(_boss.get("name", LobbyModel.queue_name(_queue))), 30, Color.WHITE],
-			[_level_line(), 22, LobbyUi.GOLD],
-			["Máu %s" % Fmt.thousands(int(_boss.get("hp", 0))) if int(_boss.get("hp", 0)) > 0 else "", 20, Color(1.0, 0.6, 0.55)]]:
+	for t in lines:
 		if t[0] == "":
 			continue
 		var l := LobbyUi.text(t[0], t[1], t[2], true)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.mouse_filter = MOUSE_FILTER_IGNORE
 		inner.add_child(l)
-	return col
+	return card
 
 
 ## "Lv đề xuất 10" of the boss ("" none).

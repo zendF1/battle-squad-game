@@ -16,6 +16,7 @@ const TierBadge := preload("res://screens/ranked/tier_badge.gd")
 const MatchmakingModel := preload("res://screens/ranked/matchmaking_model.gd")
 
 const SIZE := Vector2(268, 520)
+const COMPACT_SIZE := Vector2(268, 432) # compact: no "BẠN" tag, no rank row
 const ART_TOP := 46.0
 const ART_H := 290.0
 const BLUE := Color(0.36, 0.62, 1.0)
@@ -66,6 +67,8 @@ var mine := false: # my own card (gold rim, "BẠN")
 		_restyle()
 ## title {id, name, rarity} to show for the player, {} none (set before show_player()).
 var title := {}
+## A compact card (COMPACT_SIZE): character, name and level only (set before it enters the tree).
+var compact := false
 
 var _player := {}
 var _face: ColorRect
@@ -78,27 +81,32 @@ var _flash_box: StyleBoxFlat
 var _art: CharacterView
 
 
+## The card's size: COMPACT_SIZE when compact, else SIZE.
+func _size() -> Vector2:
+	return COMPACT_SIZE if compact else SIZE
+
+
 func _ready() -> void:
-	custom_minimum_size = SIZE
+	custom_minimum_size = _size()
 	mouse_filter = MOUSE_FILTER_IGNORE
 	resized.connect(func() -> void: pivot_offset = size / 2.0)
-	pivot_offset = SIZE / 2.0
+	pivot_offset = _size() / 2.0
 	if _face_shader == null:
 		_face_shader = Shader.new()
 		_face_shader.code = FACE_CODE
 	_face = ColorRect.new()
-	_face.size = SIZE
+	_face.size = _size()
 	_face.mouse_filter = MOUSE_FILTER_IGNORE
 	var mat := ShaderMaterial.new()
 	mat.shader = _face_shader
-	mat.set_shader_parameter("rect_size", SIZE)
+	mat.set_shader_parameter("rect_size", _size())
 	mat.set_shader_parameter("radius", float(RADIUS))
 	mat.set_shader_parameter("bg", BG)
 	_face.material = mat
 	add_child(_face)
 	_floor = _layer(_draw_floor)
 	_content = Control.new()
-	_content.size = SIZE
+	_content.size = _size()
 	_content.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(_content)
 	_rim_layer = _layer(_draw_rim)
@@ -108,7 +116,7 @@ func _ready() -> void:
 
 func _layer(draw: Callable) -> Control:
 	var c := Control.new()
-	c.size = SIZE
+	c.size = _size()
 	c.mouse_filter = MOUSE_FILTER_IGNORE
 	c.draw.connect(draw.bind(c))
 	add_child(c)
@@ -159,14 +167,14 @@ func _restyle() -> void:
 ## The floor light under the figure.
 func _draw_floor(c: Control) -> void:
 	var rim := _rim()
-	var at := Vector2(SIZE.x / 2, ART_TOP + ART_H - 10)
-	_ellipse(c, at, Vector2(SIZE.x * 0.4, 22), Color(rim, 0.28))
-	_ellipse(c, at, Vector2(SIZE.x * 0.26, 12), Color(rim.lightened(0.4), 0.3))
+	var at := Vector2(_size().x / 2, ART_TOP + ART_H - 10)
+	_ellipse(c, at, Vector2(_size().x * 0.4, 22), Color(rim, 0.28))
+	_ellipse(c, at, Vector2(_size().x * 0.26, 12), Color(rim.lightened(0.4), 0.3))
 
 
 ## The team-coloured rim, and the white flash of a flip over everything.
 func _draw_rim(c: Control) -> void:
-	var r := Rect2(Vector2.ZERO, SIZE)
+	var r := Rect2(Vector2.ZERO, _size())
 	if _flash > 0.0:
 		if _flash_box == null:
 			_flash_box = _box(Color.WHITE, Color(0, 0, 0, 0), 0).duplicate()
@@ -209,29 +217,29 @@ func _build() -> void:
 	if not empty and title.size() > 0:
 		var plate := TitlePlate.new()
 		plate.plate_height = 34
-		plate.max_width = SIZE.x - 20
+		plate.max_width = _size().x - 20
 		plate.set_title(title)
 		plate.position = Vector2(0, 10)
-		plate.size = Vector2(SIZE.x, 38)
+		plate.size = Vector2(_size().x, 38)
 		plate.mouse_filter = MOUSE_FILTER_IGNORE
 		_content.add_child(plate)
 	_art = CharacterView.new()
 	_art.character_id = Art.DEFAULT_CHARACTER if empty else str(_player["characterId"])
 	_art.idle = not empty
-	_art.position = Vector2((SIZE.x - 250) / 2.0, ART_TOP)
+	_art.position = Vector2((_size().x - 250) / 2.0, ART_TOP)
 	_art.size = Vector2(250, ART_H)
 	if empty:
 		_art.modulate = Color(0.02, 0.03, 0.1, 0.78) # a silhouette
 	_content.add_child(_art)
 	var col := Ui.vbox(2)
 	col.position = Vector2(10, ART_TOP + ART_H + 6)
-	col.size = Vector2(SIZE.x - 20, 0)
+	col.size = Vector2(_size().x - 20, 0)
 	col.mouse_filter = MOUSE_FILTER_IGNORE
 	_content.add_child(col)
-	if mine:
+	if mine and not compact:
 		var tag := PanelContainer.new()
 		tag.add_theme_stylebox_override("panel", LobbyUi.box(GOLD, 14, 0, LobbyUi.GOLD_DARK, 2))
-		tag.position = Vector2((SIZE.x - 84) / 2.0, SIZE.y - 46)
+		tag.position = Vector2((_size().x - 84) / 2.0, _size().y - 46)
 		tag.custom_minimum_size = Vector2(84, 32)
 		tag.mouse_filter = MOUSE_FILTER_IGNORE
 		var t := _label("BẠN", 20, LobbyUi.TEXT_DARK)
@@ -242,7 +250,7 @@ func _build() -> void:
 	if empty:
 		var q := _label("?", 100, Color(1, 1, 1, 0.5))
 		q.position = Vector2(0, ART_TOP + 70)
-		q.size = Vector2(SIZE.x, 120)
+		q.size = Vector2(_size().x, 120)
 		_content.add_child(q)
 		var searching := _label("Đang ghép...", 26, Color(1, 1, 1, 0.62))
 		col.add_child(searching)
@@ -257,7 +265,7 @@ func _build() -> void:
 	var lv := MatchmakingModel.level_text(_player)
 	if lv != "":
 		col.add_child(_label(lv, 22, LobbyUi.GOLD))
-	var rank := MatchmakingModel.rank_text(_player)
+	var rank := "" if compact else MatchmakingModel.rank_text(_player)
 	if rank != "":
 		var row := Ui.hbox(6)
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -286,6 +294,6 @@ func _set_shine(on: bool) -> void:
 	if not on:
 		return
 	_shine_tween = create_tween().set_loops()
-	_shine_tween.tween_method(func(x: float) -> void: mat.set_shader_parameter("shine_x", x), -160.0, SIZE.x + 160.0, 1.6) \
+	_shine_tween.tween_method(func(x: float) -> void: mat.set_shader_parameter("shine_x", x), -160.0, _size().x + 160.0, 1.6) \
 		.set_trans(Tween.TRANS_SINE)
 	_shine_tween.tween_interval(0.5)
