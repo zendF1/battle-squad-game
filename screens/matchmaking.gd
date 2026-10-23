@@ -18,10 +18,10 @@ extends Control
 ## error goes back Home still in the party. Opened for the party's member (Router.ranked_member:
 ## the host started the queue) it searches at once; the member's "Hủy ghép" leaves the lobby (the
 ## server cancels the queue for both). Every LeaveLobby goes through Router.party.leave().
-## A boss queue (boss:<bossId>): the title is the boss's name over "Lv đề xuất N"; left, the
-## party's four cards (smaller; my teammates from the start), right one card of the boss (its
-## figure, name, level and HP from the game data), which stays: only the party's cards flip at
-## MatchFound (bot teammates included).
+## A boss queue (boss:<bossId>): the title is the boss's name; left, the party's four compact
+## cards in a 2x2 grid (my teammates from the start), right one big card of the same size with
+## the boss's figure and name, which stays: only the party's cards flip at MatchFound (bot
+## teammates included).
 ## offline_preview (the preview harness, set before it enters
 ## the tree): no socket; the harness feeds on_event().
 
@@ -38,11 +38,9 @@ const GameData := preload("res://autoload/game_data_model.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const BossArt := preload("res://match/boss/boss_art.gd")
 const BossArtView := preload("res://match/boss/boss_art_view.gd")
-const Fmt := preload("res://core/fmt.gd")
 
 const BOSS_CARD_SCALE := 0.74 # the party's compact cards in a boss queue
 const BOSS_GAP := 16 # between the boss queue's cards
-const MINION_COL := 0.72 # the minions' column, of a party card's width
 
 const MARGIN := 18
 const TIP_SEC := 6.0
@@ -234,76 +232,38 @@ func _boss_block() -> Vector2:
 	return Vector2(cell.x * 2 + BOSS_GAP, cell.y * 2 + BOSS_GAP)
 
 
-## The boss's side, the party grid's mirror: "BOSS" over the boss's big card (next to the VS) and
-## its minions' cards beside it (the outer column), each with its figure, name and HP.
+## The boss's side, the party grid's mirror: "BOSS" over one big card of the same size as the
+## grid, the boss's figure filling it over its name.
 func _boss_side() -> Control:
 	var col := Ui.vbox(10)
 	col.mouse_filter = MOUSE_FILTER_IGNORE
 	var label := LobbyUi.text("BOSS", 26, RED, true)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(label)
-	var block := _boss_block()
-	var row := Ui.hbox(BOSS_GAP)
-	row.custom_minimum_size = block
-	row.mouse_filter = MOUSE_FILTER_IGNORE
-	col.add_child(row)
-	var boss_id := str(_boss.get("bossId", ""))
-	var minion_w := _boss_cell().x * MINION_COL
-	var boss_card := _unit_card(BossArt.art_of(boss_id), Vector2(block.x - minion_w - BOSS_GAP, block.y),
-		str(_boss.get("name", LobbyModel.queue_name(_queue))), int(_boss.get("hp", 0)), 30, _level_line())
-	boss_card.name = "BossCard"
-	row.add_child(boss_card)
-	var minions := Ui.vbox(BOSS_GAP)
-	minions.custom_minimum_size = Vector2(minion_w, block.y)
-	minions.alignment = BoxContainer.ALIGNMENT_CENTER
-	minions.mouse_filter = MOUSE_FILTER_IGNORE
-	row.add_child(minions)
-	var list: Array = _boss.get("minions", []) if _boss.get("minions") is Array else []
-	var h := (block.y - BOSS_GAP * maxi(list.size() - 1, 0)) / maxi(list.size(), 2) # one: half the column, centred
-	for m in list:
-		var card := _unit_card(BossArt.art_of(boss_id, str(m.get("minionId", ""))), Vector2(minion_w, h),
-			str(m.get("name", "")), int(m.get("hp", 0)), 22, "")
-		card.name = "MinionCard"
-		minions.add_child(card)
+	var card := _boss_card(BossArt.art_of(str(_boss.get("bossId", ""))), _boss_block(),
+		str(_boss.get("name", LobbyModel.queue_name(_queue))))
+	card.name = "BossCard"
+	col.add_child(card)
 	return col
 
 
-## A boss-side card of size `at`: the figure filling its top, then the name, an optional line and
-## "Máu N".
-func _unit_card(art: String, at: Vector2, name_text: String, hp: int, font: int, line: String) -> Control:
+## The boss card of size `at`: the figure as big as the card allows, its name under it, both
+## centred.
+func _boss_card(art: String, at: Vector2, name_text: String) -> Control:
 	var card := PanelContainer.new()
 	card.custom_minimum_size = at
 	card.mouse_filter = MOUSE_FILTER_IGNORE
 	card.add_theme_stylebox_override("panel", LobbyUi.box(Color(0.12, 0.04, 0.1, 0.92), 22, 10, Color(BossArt.accent(art), 0.95), 4))
-	var inner := Ui.vbox(4)
+	var inner := Ui.vbox(8)
 	inner.alignment = BoxContainer.ALIGNMENT_CENTER
 	inner.mouse_filter = MOUSE_FILTER_IGNORE
 	card.add_child(inner)
-	var lines := [[name_text, font, Color.WHITE], [line, font - 8, LobbyUi.GOLD],
-		["Máu %s" % Fmt.thousands(hp) if hp > 0 else "", font - 10, Color(1.0, 0.6, 0.55)]]
-	var text_h := 0.0
-	for t in lines:
-		if t[0] != "":
-			text_h += t[1] * 1.45 + 4
-	# The figure keeps about its own proportions (never a tall empty box over it), so the figure
-	# and its lines sit together at the card's centre
-	var figure := BossArtView.make(art, Vector2(at.x - 20, clampf(at.x * 1.05, 40, at.y - 20 - text_h - 8)), -1)
-	inner.add_child(figure)
-	for t in lines:
-		if t[0] == "":
-			continue
-		var l := LobbyUi.text(t[0], t[1], t[2], true)
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.mouse_filter = MOUSE_FILTER_IGNORE
-		inner.add_child(l)
+	var name_label := LobbyUi.text(name_text, 34, Color.WHITE, true)
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.mouse_filter = MOUSE_FILTER_IGNORE
+	inner.add_child(BossArtView.make(art, Vector2(at.x - 40, at.y - 40 - 34 * 1.45 - 8), -1))
+	inner.add_child(name_label)
 	return card
-
-
-## "Lv đề xuất 10" of the boss ("" none).
-func _level_line() -> String:
-	var lv := int(_boss.get("recommendedLevel", 0))
-	return "Lv đề xuất %d" % lv if lv > 0 else ""
 
 
 func _build_middle() -> Control:
@@ -319,8 +279,9 @@ func _build_middle() -> Control:
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.custom_minimum_size.x = CENTRE_W
 	col.add_child(title)
-	var sub := LobbyUi.text(_level_line() if _is_boss() else str(mode.get("description", "")), 21, Color(0.75, 0.9, 1.0))
+	var sub := LobbyUi.text("" if _is_boss() else str(mode.get("description", "")), 21, Color(0.75, 0.9, 1.0))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.visible = sub.text != ""
 	col.add_child(sub)
 	_vs = VsEmblem.new()
 	_vs.custom_minimum_size = Vector2(CENTRE_W, 300)
