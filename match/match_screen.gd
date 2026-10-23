@@ -1544,6 +1544,8 @@ static func summon_player(e: Dictionary, boss_id: String, boss_team: int) -> Dic
 		var v = e.get(key)
 		p[key] = str(v) if v is String and v != "" else str(kind.get(key, ""))
 	p["flying"] = bool(e["flying"]) if e.get("flying") is bool else str(p["movement"]) == "fly"
+	if e.get("element") is String and e["element"] != "": # its element (its boss's); without it GameData.unit_element() reads the boss's
+		p["element"] = str(e["element"])
 	return p
 
 

@@ -108,3 +108,12 @@ func test_backdrop_looks() -> void:
 		var sp: Vector2 = b._span(p.y)
 		check(p.y >= 0.0 and p.y <= 200.0 and p.x >= sp.x - 0.01 and p.x <= sp.y + 0.01, "the glow stays inside")
 	b.free()
+
+
+func test_summon_carries_its_element() -> void:
+	BossFixture.take()
+	var MatchScreen := load("res://match/match_screen.gd")
+	var p: Dictionary = MatchScreen.summon_player({"playerId": "m9", "minionId": "snowman", "position": {"x": 1, "y": 2}, "element": "water"}, "ice_witch", 2)
+	eq([p["element"], GameData.unit_element(p)], ["water", "water"], "the summon event's element")
+	var q: Dictionary = MatchScreen.summon_player({"playerId": "m8", "minionId": "snowman", "position": {"x": 1, "y": 2}}, "ice_witch", 2)
+	eq([q.has("element"), GameData.unit_element(q)], [false, "water"], "without it: its boss's")
