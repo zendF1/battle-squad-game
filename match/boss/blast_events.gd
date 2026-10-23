@@ -4,9 +4,12 @@ extends RefCounted
 ## - a detonation: ShotResolved {shooterId: minion, actionMode "self_destruct"}: its explode
 ##   (the first one without a projectileId) is the shooter's;
 ## - a death blast: a minion whose type explodes on death dies (die, any cause but its own
-##   detonation or boss_defeated) and an explode without a projectileId follows at its position.
-## An explode that names it itself (cause self_destruct / death_blast, playerId of the minion) is
-## taken as it says. Pure: tag() marks each such event with BLAST_KEY = {minion, kind}.
+##   detonation or boss_defeated) and an explode without a projectileId follows at its position;
+##   a minion burnt to death at its turn start blasts in a ShotResolved of its own (actionMode
+##   death_blast, shooterId the minion).
+## The server's blast explodes name their minion (playerId; radius the crater, blastRadius the
+## damage reach): taken as they say, a detonation when it is the shooter's in a self_destruct
+## shot. Without the playerId the position decides (an explode's cause is honoured too). Pure: tag() marks each such event with BLAST_KEY = {minion, kind}.
 
 const GameData := preload("res://autoload/game_data_model.gd")
 
@@ -42,7 +45,7 @@ static func tag(events: Array, players: Dictionary, shooter: String, action_mode
 				if _is_minion(players.get(id)) and cause != SELF_DESTRUCT and cause != BOSS_DEFEATED and not (action_mode == SELF_DESTRUCT and id == shooter):
 					dying.append(id)
 			"explode":
-				var tag_of := _explicit(e, players, shooter)
+				var tag_of := _explicit(e, players, shooter, action_mode)
 				if tag_of.is_empty() and self_left and not e.has("projectileId"):
 					tag_of = {"minion": shooter, "kind": SELF_DESTRUCT}
 				if tag_of.is_empty() and not e.has("projectileId") and e.get("position") is Dictionary:
@@ -72,7 +75,7 @@ static func tag(events: Array, players: Dictionary, shooter: String, action_mode
 
 
 ## The blast an explode event names itself ({} none).
-static func _explicit(e: Dictionary, players: Dictionary, shooter: String) -> Dictionary:
+static func _explicit(e: Dictionary, players: Dictionary, shooter: String, action_mode: String) -> Dictionary:
 	var cause := str(e.get("cause", ""))
 	var id := str(e.get("playerId", ""))
 	if id == "" and cause == SELF_DESTRUCT:
@@ -81,7 +84,7 @@ static func _explicit(e: Dictionary, players: Dictionary, shooter: String) -> Di
 		return {}
 	if cause == SELF_DESTRUCT or cause == DEATH_BLAST:
 		return {"minion": id, "kind": cause}
-	return {"minion": id, "kind": SELF_DESTRUCT if id == shooter else DEATH_BLAST}
+	return {"minion": id, "kind": SELF_DESTRUCT if id == shooter and action_mode == SELF_DESTRUCT else DEATH_BLAST}
 
 
 ## The blast of an explode event tagged by tag() ({} none).

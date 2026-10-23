@@ -80,7 +80,7 @@ func test_unit_kinds_from_state_and_game_data() -> void:
 	eq(GameData.unit_detonate_range({"characterId": "rookie"}), 0.0, "none for a player")
 	check(GameData.unit_explodes_on_death({"role": "minion", "bossId": "ice_witch", "minionId": "snowman"}), "a snowman blasts when it dies")
 	check(not GameData.unit_explodes_on_death({"role": "minion", "bossId": "steel_robot", "minionId": "drone"}), "a drone does not")
-	eq(GameData.unit_explode_radius({"role": "minion", "bossId": "ice_witch", "minionId": "snowman"}), 80.0, "explodeRadius")
+	eq(GameData.unit_explode_radius({"role": "minion", "bossId": "ice_witch", "minionId": "snowman"}), 140.0, "explodeRadius")
 	eq(int(GameData.boss("ice_witch")["turnLimit"]), 30, "the witch's 30 turns")
 	check(GameData.boss_hover("ice_witch").has("minX"), "her hover band")
 	eq(GameData.boss_hover("steel_robot"), {}, "none on the ground")
@@ -131,6 +131,29 @@ func test_death_blast_and_chain() -> void:
 	var named: Array = [{"t": 0.5, "type": "explode", "position": {"x": 0, "y": 0}, "radius": 80, "playerId": "minion_snowman_2", "cause": "death_blast"}]
 	eq(BlastEvents.tag(named, _players(), "me", "weapon"), 1, "an explode naming its minion")
 	eq(BlastEvents.blast_of(named[0])["minion"], "minion_snowman_2", "taken as it says")
+
+
+## The server's own shape (f1e239f): the explode names its minion, radius the crater, blastRadius
+## the reach; a burn death's blast in a ShotResolved of its own (actionMode death_blast).
+func test_server_shaped_blasts() -> void:
+	BossFixture.take()
+	var det: Array = [{"t": 0.2, "type": "explode", "playerId": "minion_drone_1", "position": {"x": 320, "y": 440}, "radius": 20,
+			"crater": "bowl", "terrainVersion": 5, "blastRadius": 80},
+		{"t": 0.2, "type": "damage", "playerId": "me", "amount": 600, "hp": 900, "cause": "self_destruct"},
+		{"t": 0.2, "type": "die", "playerId": "minion_drone_1", "cause": "self_destruct"}]
+	eq(BlastEvents.tag(det, _players(), "minion_drone_1", "self_destruct"), 1, "the detonation")
+	eq(BlastEvents.blast_of(det[0])["kind"], "self_destruct", "the shooter's own")
+	var burn: Array = [{"t": 0.2, "type": "explode", "playerId": "minion_snowman_1", "position": {"x": 600, "y": 500}, "radius": 24,
+		"crater": "bowl", "terrainVersion": 9, "blastRadius": 140}]
+	BlastEvents.tag(burn, _players(), "minion_snowman_1", "death_blast")
+	eq(BlastEvents.blast_of(burn[0]), {"minion": "minion_snowman_1", "kind": "death_blast"}, "a burn death's own blast")
+	var chain: Array = [{"t": 0.8, "type": "die", "playerId": "minion_snowman_1"},
+		{"t": 0.8, "type": "explode", "playerId": "minion_snowman_1", "position": {"x": 600, "y": 500}, "radius": 24, "crater": "bowl", "blastRadius": 140},
+		{"t": 0.8, "type": "damage", "playerId": "minion_snowman_2", "amount": 270, "hp": 0, "cause": "death_blast"},
+		{"t": 0.8, "type": "die", "playerId": "minion_snowman_2", "cause": "death_blast"},
+		{"t": 0.8, "type": "explode", "playerId": "minion_snowman_2", "position": {"x": 680, "y": 500}, "radius": 24, "crater": "bowl", "blastRadius": 140}]
+	eq(BlastEvents.tag(chain, _players(), "me", "weapon"), 2, "the chain")
+	eq(BlastEvents.blast_of(chain[4])["minion"], "minion_snowman_2", "the second snowman's")
 
 
 func test_summon_full_unit() -> void:

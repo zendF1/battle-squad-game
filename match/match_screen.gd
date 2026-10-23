@@ -1495,9 +1495,10 @@ func _tag_blasts(timeline, shooter: String) -> void:
 		_views[shooter].prime(at)
 
 
-## A minion blows up (its detonation or death blast): the crater (the event's crater number, else
-## its radius in the event's shape), the body gone at once, its big burst as wide as the blast
-## with a shockwave ring, and a hard shake.
+## A minion blows up (its detonation or death blast; explode {playerId, position, radius: the
+## crater, crater: "bowl", terrainVersion, blastRadius}): the crater (radius in the event's shape;
+## a crater number carves that radius), the body gone at once, its big burst as wide as the
+## blast (blastRadius, else its type's explodeRadius) with a shockwave ring, and a hard shake.
 func _unit_blast(e: Dictionary) -> void:
 	var blast := BlastEvents.blast_of(e)
 	var id := str(blast.get("minion", ""))
@@ -1513,7 +1514,8 @@ func _unit_blast(e: Dictionary) -> void:
 	var unit: Dictionary = _players.get(id, {})
 	var art := BossArt.art_of("", str(unit.get("minionId", "")))
 	var look := BossArt.blast_look(art)
-	var reach := maxf(radius, GameData.unit_explode_radius(unit))
+	var b = e.get("blastRadius") # the blast's damage reach (radius is the crater)
+	var reach := float(b) if (b is int or b is float) and b > 0 else maxf(radius, GameData.unit_explode_radius(unit))
 	if _views.has(id) and _views[id].has_method("vanish"):
 		_views[id].vanish()
 	var fx := ExplosionFx.new()
