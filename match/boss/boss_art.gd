@@ -15,8 +15,6 @@ extends RefCounted
 ## in the air: no shadow at them, a wider hover bob; the witch's cape streams behind her), lean
 ## (radians into a flight), tint (0..1: a bomber about to blow up glows red, BomberModel.pulse()).
 
-const ShieldBall := preload("res://match/views/shield_ball.gd")
-
 const UNIT := 100.0
 const SHIELD_MARGIN := 0.08 # of the height, the shield ball past the body
 const OUT := Color(0.08, 0.06, 0.12)
@@ -132,14 +130,6 @@ static func _shadow_w(art: String) -> float:
 	return 42.0
 
 
-## The boss's shield: a round ball of light round its body (centre, radius px; ShieldBall's look:
-## a soft radial glow brighter toward the rim, fading out past it, a highlight, faint hexes, the
-## breath), t its time, alpha 0..1 fading it in / out, scale a pop on top.
-static func draw_shield(ci: CanvasItem, centre: Vector2, radius: float, t: float, alpha: float, tint: Color = ShieldBall.DEFAULT_TINT,
-		scale: float = 1.0) -> void:
-	ShieldBall.draw_ball(ci, centre, radius, t, alpha, tint, scale)
-
-
 ## How a minion's own blast looks (its detonation, its death blast): the ExplosionFx kind × tier
 ## of the burst and whether it is icy (frost shards and snow instead of fire and shrapnel).
 const BLAST_LOOK := {"drone": {"kind": "cannon", "tier": "dragon", "icy": false},
@@ -157,8 +147,9 @@ static func blast_look(art: String) -> Dictionary:
 	return BLAST_LOOK.get(art, BLAST_LOOK[GENERIC_MINION])
 
 
-## The shield ball's radius (px) round a figure `height` px tall: half its larger side (its width
-## from WIDTH, its height) and a margin, so the ball covers the whole body.
+## The shield ball's radius (px) round a figure `height` px tall (match/views/shield_ball.gd, the
+## boss's BossBody draws it): half its larger side (its width from WIDTH, its height) and a
+## margin, so the ball covers the whole body.
 static func shield_radius(art: String, height: float) -> float:
 	var w: float = WIDTH.get(art, 1.0)
 	return maxf(height * w, height) * 0.5 + height * SHIELD_MARGIN

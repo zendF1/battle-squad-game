@@ -3,7 +3,7 @@ extends Node2D
 ## match/views/player_view.gd): BossArt at `height` px over the feet, idling (bob, glow, rotors),
 ## a white hit flash (hurt()), a step wobble while walking, a death fade (die(): it sinks a little,
 ## tilts and fades out), and for the boss its shield ball round the figure's centre
-## (set_shielded(): pops in, shrinks away; BossArt.draw_shield, breathing). It answers the calls PlayerView makes on a character (face, set_walking, aim, shoot,
+## (set_shielded(): pops in, shrinks away; a ShieldBall child: hexes wrapped on a breathing ball). It answers the calls PlayerView makes on a character (face, set_walking, aim, shoot,
 ## muzzle positions...) with what a body without a gun does: nothing to draw out, the shot leaving
 ## at once from its muzzle point (BossArt.MUZZLE: the robot's cannon, the witch's crystal).
 ## Boss mode v2: a flying unit (flying) hovers round its feet point in the air and leans into a
@@ -14,6 +14,7 @@ extends Node2D
 
 const BossArt := preload("res://match/boss/boss_art.gd")
 const BomberModel := preload("res://match/boss/bomber_model.gd")
+const ShieldBall := preload("res://match/views/shield_ball.gd")
 
 const FLASH_SEC := 0.28
 const DEATH_SEC := 1.2
@@ -49,12 +50,19 @@ var _vanished := false
 var _trail: Array = [] # [{p: global Vector2, age, r}]
 var _trail_from := Vector2.INF
 var _trail_idle := 0.0
+var _ball: ShieldBall # the shield, over the figure
 
 
 func setup(art_id: String, height_px: float) -> void:
 	art = art_id
 	height = maxf(height_px, 8.0)
 	_t = randf() * 3.0
+	if _ball == null:
+		_ball = ShieldBall.new()
+		add_child(_ball)
+	_ball.position = Vector2(0, -height * 0.5) # round the figure's centre
+	_ball.radius = BossArt.shield_radius(art, height)
+	_ball.tint = BossArt.accent("ice_witch")
 
 
 func _process(delta: float) -> void:
@@ -74,6 +82,9 @@ func _process(delta: float) -> void:
 		scale = Vector2.ONE * (1.0 + PRIME_SWELL * k * k + sin(_t * 40.0) * 0.02 * k)
 		_flash = maxf(_flash, 0.35 + 0.35 * absf(sin(_t * 18.0)))
 	_step_trail(delta)
+	if _ball != null:
+		var alpha := maxf(_shield, _shield_pop * 0.8) if not _vanished else 0.0
+		_ball.set_look(1.0 + _shield_pop * 0.12, alpha)
 	queue_redraw()
 
 
@@ -113,9 +124,6 @@ func _draw() -> void:
 		wobble = Vector2(0, -absf(sin(_t * 14.0)) * height * 0.03)
 	BossArt.draw(self, art, wobble, height, _t if not _dead else 0.0, facing, _flash, {"flying": flying, "lean": lean if not _dead else 0.0,
 		"tint": BomberModel.pulse(_t, bomber and not _dead and (warn or _prime > 0.0))})
-	if _shield > 0.0 or _shield_pop > 0.0: # the ball round the figure's centre
-		BossArt.draw_shield(self, Vector2(0, -height * 0.5), BossArt.shield_radius(art, height), _t, maxf(_shield, _shield_pop * 0.8),
-			BossArt.accent("ice_witch"), 1.0 + _shield_pop * 0.12)
 
 
 ## The figure's height (px, the unit PlayerView reads art_height() × scale in).
@@ -136,6 +144,11 @@ func set_shielded(on: bool, animate: bool = true) -> void:
 
 func shield_shown() -> float:
 	return _shield
+
+
+## The shield ball (tests, previews).
+func shield_ball() -> ShieldBall:
+	return _ball
 
 
 func set_weapon(kind: String, tier: String) -> void:

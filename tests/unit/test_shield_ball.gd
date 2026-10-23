@@ -132,3 +132,34 @@ func test_the_casters_gun_colours_the_bubble() -> void:
 	eq(v.tint, ShieldBall.DEFAULT_TINT, "a basic gun: the default cyan")
 	v.free()
 	m.free()
+
+
+func test_breathing_radius_and_the_boss_ball() -> void:
+	var b := ShieldBall.new()
+	b.radius = 40.0
+	b.show_ball(false)
+	b.set_time(ShieldBall.PULSE_SEC / 4.0)
+	near(b.drawn_radius(), 40.0 * (1.0 + ShieldBall.PULSE_AMP), 0.01, "breathing out")
+	b.set_time(ShieldBall.PULSE_SEC * 0.75)
+	near(b.drawn_radius(), 40.0 * (1.0 - ShieldBall.PULSE_AMP), 0.01, "and in")
+	b.free()
+	var BossBody = load("res://match/boss/boss_body.gd")
+	var body = BossBody.new()
+	body.setup("steel_robot", 160.0)
+	var ball: ShieldBall = body.shield_ball()
+	eq(ball.position, Vector2(0, -80), "round the figure's centre")
+	near(ball.radius, BossArt.shield_radius("steel_robot", 160.0), 0.01, "covering the body")
+	body.set_shielded(true, false)
+	body._process(0.01)
+	check(ball.is_on() and ball.pop_state().y > 0.99, "shown with the shield")
+	body.set_shielded(false)
+	body._process(1.0)
+	check(not ball.is_on(), "gone with it")
+	body.free()
+
+
+func test_hex_density_by_size() -> void:
+	check(ShieldBall.hex_across(38.0) < 2.8, "a player's bubble: a few big cells")
+	near(ShieldBall.hex_across(20.0), ShieldBall.HEX_MIN, 0.001, "a small one: the fewest")
+	near(ShieldBall.hex_across(200.0), ShieldBall.HEX_MAX, 0.001, "the boss's: more, up to the max")
+	check(ShieldBall.hex_across(45.0) >= ShieldBall.HEX_MIN and ShieldBall.hex_across(45.0) <= ShieldBall.HEX_MAX, "in between")

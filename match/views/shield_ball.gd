@@ -1,12 +1,15 @@
 extends Node2D
-## A shield bubble: a round ball of light round a body, shaded like an energy sphere (faint in the
-## middle, brighter toward the rim inside it, fading smoothly to nothing just past the edge: a soft
-## radial falloff, no outline), a soft highlight spot, a glint gliding round the rim and a faint
-## hex pattern fading out with the rest; it breathes (its size swells and shrinks a few percent,
-## PULSE_SEC a cycle). draw_ball() paints one on any CanvasItem (the boss's shield, BossBody); as a
-## node it is a player's shield (PlayerView: Flora's bloom overflow turned into shield): show()
-## pops it in (from POP_FROM with an overshoot, fading in), hide() pops it out (swelling as it
-## fades). Its tint is the caster's gun tier (tier_colour()). Visual only.
+## A shield bubble: a ball of hexagons. A regular hex grid wrapped on a sphere seen from the front
+## (SHADER: each point of the disc is taken back to the sphere's surface, an azimuthal equidistant
+## map: q = p / |p| · asin(|p|), and the grid is drawn there), so the hexes are full size and evenly
+## spaced in the middle and foreshorten toward the rim, smaller and squeezed, like a globe; its
+## outline is a circle. It is most solid in the middle and fades smoothly toward the outside, with no
+## ring at the edge; the cells shimmer softly. It breathes (its size swells and shrinks a few
+## percent, PULSE_SEC a cycle). One node per bubble, centred on what it covers (radius px):
+## a player's shield (PlayerView: Flora's bloom overflow turned into shield) and the boss's
+## (BossBody, set_look() driving its own fade). show_ball() pops it in (from POP_FROM with an
+## overshoot, fading in), hide_ball() pops it out (swelling as it fades). Its tint is the caster's
+## gun tier (tier_colour()). Visual only.
 
 const EquipmentPainter := preload("res://tools/art/equipment_painter.gd")
 
@@ -17,20 +20,77 @@ const POP_FROM := 0.6 # the scale it pops in from
 const FADE_IN_SEC := 0.22
 const POP_OUT_SEC := 0.3
 const POP_OUT_TO := 1.25
-const FALLOFF := 1.2 # the glow reaches this × the radius (fading to 0 there)
-const TEX_SIZE := 128
 ## The tint of a shield without a known gun tier (a basic gun, a reconnect without the caster).
 const DEFAULT_TINT := Color(0.55, 0.9, 1.0)
+## Hex cells from the centre to the rim (on the sphere): about one per HEX_PX of the radius, so a
+## player's small bubble is not a dense mesh, within HEX_MIN..HEX_MAX.
+const HEX_PX := 15.0
+const HEX_MIN := 2.2
+const HEX_MAX := 3.4
 
-var radius := 34.0
+## The ball: the disc (UV -1..1) mapped back onto the sphere, a hex grid there; COLOR (the draw's
+## modulate) is the tint and the alpha. Opacity: highest in the middle, smoothly to 0 at the rim.
+const SHADER := """
+shader_type canvas_item;
+uniform float hex_across = 3.2;
+
+vec4 hex_cell(vec2 uv) {
+	const vec2 s = vec2(1.0, 1.7320508);
+	vec4 hc = floor(vec4(uv, uv - vec2(0.5, 1.0)) / s.xyxy) + 0.5;
+	vec4 h = vec4(uv - hc.xy * s, uv - (hc.zw + 0.5) * s);
+	return dot(h.xy, h.xy) < dot(h.zw, h.zw) ? vec4(h.xy, hc.xy) : vec4(h.zw, hc.zw + 0.5);
+}
+
+float hex_dist(vec2 p) {
+	p = abs(p);
+	return max(dot(p, vec2(0.5, 0.8660254)), p.x);
+}
+
+float hash(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+void fragment() {
+	vec4 tint = COLOR;
+	vec2 p = UV * 2.0 - 1.0;
+	float r = length(p);
+	if (r >= 1.0) {
+		COLOR = vec4(0.0);
+	} else {
+		// back onto the sphere: the arc from the front pole (0..pi/2), the grid laid out along it
+		vec2 q = r > 0.0001 ? p / r * asin(r) : p;
+		vec2 g = (q * hex_across / 1.5707963 * 2.0).yx; // pointy-top cells
+		vec4 h = hex_cell(g);
+		float edge = 0.5 - hex_dist(h.xy);
+		float w = fwidth(edge) * 1.2 + 0.035;
+		float line = 1.0 - smoothstep(0.0, w, edge);
+		float fill = smoothstep(0.0, 0.25, edge);
+		float shimmer = 0.75 + 0.25 * sin(TIME * 2.2 + hash(h.zw) * 6.2831);
+		// most solid in the middle, fading smoothly out to nothing at the rim
+		float fade = pow(1.0 - r * r, 1.15);
+		float z = sqrt(1.0 - r * r);
+		float a = fade * (0.3 * fill * shimmer + 0.95 * line);
+		vec3 col = mix(tint.rgb, vec3(1.0), 0.25 * line + 0.25 * z * z);
+		COLOR = vec4(col, a * tint.a);
+	}
+}
+"""
+
+var radius := 34.0:
+	set(v):
+		radius = v
+		if is_inside_tree():
+			material = _material_for(hex_across(radius))
 var tint := DEFAULT_TINT
 var _t := 0.0
 var _on := false
 var _anim := 0.0 # s into the pop in / out
 var _popping_out := false
+var _look := Vector2(-1, -1) # set_look(): (scale, alpha) driven by the owner, else the pop's
 
-static var _ball_tex: Texture2D
-static var _spot_tex: Texture2D
+static var _materials := {} # hex cells across (snapped) -> ShaderMaterial
+static var _shader: Shader
+static var _white: Texture2D
 
 
 ## The bubble's tint for a gun tier: the tier's main colour of the equipment palettes
@@ -48,80 +108,34 @@ static func pulse(t: float) -> float:
 	return 1.0 + PULSE_AMP * sin(TAU * t / PULSE_SEC)
 
 
-## Paints a bubble of `radius` px round `centre` on ci at time t (the breath, the glint, the hexes'
-## shimmer), alpha 0..1, in tint; scale on top of the breath (a pop).
-static func draw_ball(ci: CanvasItem, centre: Vector2, radius_px: float, t: float, alpha: float, tint_col: Color,
-		scale: float = 1.0) -> void:
-	if alpha <= 0.0 or radius_px <= 0.0:
-		return
-	var r := radius_px * pulse(t) * scale
-	ci.draw_set_transform(centre, 0.0, Vector2.ONE)
-	var reach := r * FALLOFF
-	ci.draw_texture_rect(_ball(), Rect2(-reach, -reach, reach * 2.0, reach * 2.0), false, Color(tint_col.lightened(0.15), alpha))
-	# the hexes, faint, fading out toward the rim like the glow
-	var hex := r / 4.2
-	for ring_i in 4:
-		var ring := float(ring_i)
-		var n := 1 if ring_i == 0 else ring_i * 6
-		for i in n:
-			var a: float = TAU * i / n + ring * 0.3
-			var c: Vector2 = Vector2(cos(a), sin(a)) * ring * hex * 1.5
-			var d := c.length() / r
-			if d > 0.86:
-				continue
-			var shine := (0.18 + 0.22 * (0.5 + 0.5 * sin(t * 3.0 + c.x * 0.05 + c.y * 0.03))) * (1.0 - d * d)
-			var pts := PackedVector2Array()
-			for k in 7:
-				var b := TAU * k / 6.0 + PI / 6.0
-				pts.append(c + Vector2(cos(b), sin(b)) * hex * 0.82)
-			ci.draw_polyline(pts, Color(tint_col.lightened(0.4), shine * alpha), maxf(1.0, r / 40.0), true)
-	# the highlight spot, up and to the left, and a glint gliding round the rim
-	var spot := r * 0.55
-	var at := Vector2(-0.36, -0.42) * r
-	ci.draw_texture_rect(_spot(), Rect2(at - Vector2(spot, spot) / 2.0, Vector2(spot, spot)), false, Color(1, 1, 1, 0.7 * alpha))
-	ci.draw_texture_rect(_spot(), Rect2(at - Vector2(spot, spot) / 6.0, Vector2(spot, spot) / 3.0), false, Color(1, 1, 1, 0.5 * alpha))
-	var g := fmod(t * 0.9, TAU)
-	var glint := Vector2(cos(g), sin(g)) * r * 0.9
-	var gs := r * 0.32
-	ci.draw_texture_rect(_spot(), Rect2(glint - Vector2(gs, gs) / 2.0, Vector2(gs, gs)), false, Color(1, 1, 1, 0.3 * alpha))
-	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+## The hex cells from the centre to the rim for a ball of radius px.
+static func hex_across(radius_px: float) -> float:
+	return snappedf(clampf(radius_px / HEX_PX, HEX_MIN, HEX_MAX), 0.2)
 
 
-## The ball's radial glow: faint inside, bright just inside the rim, nothing past FALLOFF.
-static func _ball() -> Texture2D:
-	if _ball_tex == null:
-		var g := Gradient.new()
-		var stops := [[0.0, 0.12], [0.45, 0.15], [0.68, 0.3], [0.79, 0.72], [0.833, 0.6], [0.9, 0.2], [1.0, 0.0]]
-		g.offsets = PackedFloat32Array(stops.map(func(s): return s[0]))
-		g.colors = PackedColorArray(stops.map(func(s): return Color(1, 1, 1, s[1])))
-		_ball_tex = _radial(g)
-	return _ball_tex
+## The ball's material for that many cells (shared by the balls of about the same size).
+static func _material_for(across: float) -> ShaderMaterial:
+	if _shader == null:
+		_shader = Shader.new()
+		_shader.code = SHADER
+	if not _materials.has(across):
+		var m := ShaderMaterial.new()
+		m.shader = _shader
+		m.set_shader_parameter("hex_across", across)
+		_materials[across] = m
+	return _materials[across]
 
 
-## A soft white spot (the highlight, the glint).
-static func _spot() -> Texture2D:
-	if _spot_tex == null:
-		var g := Gradient.new()
-		g.offsets = PackedFloat32Array([0.0, 0.4, 1.0])
-		g.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0.45), Color(1, 1, 1, 0)])
-		_spot_tex = _radial(g)
-	return _spot_tex
+static func _white_tex() -> Texture2D:
+	if _white == null:
+		var img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+		img.fill(Color.WHITE)
+		_white = ImageTexture.create_from_image(img)
+	return _white
 
-
-static func _radial(g: Gradient) -> Texture2D:
-	var tex := GradientTexture2D.new()
-	tex.gradient = g
-	tex.fill = GradientTexture2D.FILL_RADIAL
-	tex.fill_from = Vector2(0.5, 0.5)
-	tex.fill_to = Vector2(1.0, 0.5)
-	tex.width = TEX_SIZE
-	tex.height = TEX_SIZE
-	return tex
-
-
-# ── As a player's shield ────────────────────────────────────────────────────
 
 func _ready() -> void:
+	material = _material_for(hex_across(radius))
 	_t = randf() * PULSE_SEC
 
 
@@ -147,6 +161,15 @@ func hide_ball(animate: bool = true) -> void:
 	queue_redraw()
 
 
+## The owner drives it (the boss's shield fade): scale on top of the breath, alpha 0..1; alpha 0
+## hides it.
+func set_look(scale_k: float, alpha: float) -> void:
+	_look = Vector2(scale_k, alpha)
+	_on = alpha > 0.0
+	_popping_out = false
+	queue_redraw()
+
+
 ## Shown (or popping out).
 func is_on() -> bool:
 	return _on
@@ -157,8 +180,10 @@ func popping_out() -> bool:
 
 
 ## (scale, alpha) of the pop now: the pop-in's overshoot from POP_FROM and its fade, the
-## pop-out's swell and fade, else (1, 1).
+## pop-out's swell and fade, else (1, 1); the owner's set_look() when it drives it.
 func pop_state() -> Vector2:
+	if _look.y >= 0.0:
+		return _look
 	if _popping_out:
 		var k := clampf(_anim / POP_OUT_SEC, 0.0, 1.0)
 		return Vector2(lerpf(1.0, POP_OUT_TO, k), 1.0 - k * k)
@@ -168,6 +193,17 @@ func pop_state() -> Vector2:
 		var back := 1.0 + (s + 1.0) * pow(k - 1.0, 3.0) + s * pow(k - 1.0, 2.0)
 		return Vector2(lerpf(POP_FROM, 1.0, back), clampf(_anim / FADE_IN_SEC, 0.0, 1.0))
 	return Vector2.ONE
+
+
+## The radius drawn now (px): the breath and the pop on radius.
+func drawn_radius() -> float:
+	return radius * pulse(_t) * pop_state().x
+
+
+## Sets the breath's clock (s; previews, tests).
+func set_time(t: float) -> void:
+	_t = t
+	queue_redraw()
 
 
 func _process(delta: float) -> void:
@@ -185,4 +221,7 @@ func _draw() -> void:
 	if not _on:
 		return
 	var p := pop_state()
-	draw_ball(self, Vector2.ZERO, radius, _t, p.y, tint, p.x)
+	if p.y <= 0.0:
+		return
+	var r := drawn_radius()
+	draw_texture_rect(_white_tex(), Rect2(-r, -r, r * 2.0, r * 2.0), false, Color(tint, p.y))
