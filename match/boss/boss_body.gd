@@ -2,8 +2,8 @@ extends Node2D
 ## The body of a boss or minion in a match (PlayerView's figure in place of the character scene,
 ## match/views/player_view.gd): BossArt at `height` px over the feet, idling (bob, glow, rotors),
 ## a white hit flash (hurt()), a step wobble while walking, a death fade (die(): it sinks a little,
-## tilts and fades out), and for the boss its shield bubble (set_shielded(): pops in, shrinks
-## away). It answers the calls PlayerView makes on a character (face, set_walking, aim, shoot,
+## tilts and fades out), and for the boss its shield ball round the figure's centre
+## (set_shielded(): pops in, shrinks away; BossArt.draw_shield, breathing). It answers the calls PlayerView makes on a character (face, set_walking, aim, shoot,
 ## muzzle positions...) with what a body without a gun does: nothing to draw out, the shot leaving
 ## at once from its muzzle point (BossArt.MUZZLE: the robot's cannon, the witch's crystal).
 ## Boss mode v2: a flying unit (flying) hovers round its feet point in the air and leans into a
@@ -18,7 +18,6 @@ const BomberModel := preload("res://match/boss/bomber_model.gd")
 const FLASH_SEC := 0.28
 const DEATH_SEC := 1.2
 const SHIELD_SEC := 0.35
-const SHIELD_PAD := 1.05 # the bubble over the figure's extents (BossArt.shield_extents())
 const TRAIL_EVERY_PX := 7.0 # a trail puff each time the figure moved this far
 const TRAIL_IDLE_SEC := 0.22 # and this often while it hovers in place
 const TRAIL_LIFE := 0.7
@@ -114,10 +113,9 @@ func _draw() -> void:
 		wobble = Vector2(0, -absf(sin(_t * 14.0)) * height * 0.03)
 	BossArt.draw(self, art, wobble, height, _t if not _dead else 0.0, facing, _flash, {"flying": flying, "lean": lean if not _dead else 0.0,
 		"tint": BomberModel.pulse(_t, bomber and not _dead and (warn or _prime > 0.0))})
-	if _shield > 0.0 or _shield_pop > 0.0:
-		var ext := BossArt.shield_extents(art, height) * SHIELD_PAD * (1.0 + _shield_pop * 0.12)
-		BossArt.draw_shield(self, Vector2(0, -height * 0.5), ext.y, _t, maxf(_shield, _shield_pop * 0.8), BossArt.accent("ice_witch"),
-			Vector2(ext.x / ext.y, 1.0))
+	if _shield > 0.0 or _shield_pop > 0.0: # the ball round the figure's centre
+		BossArt.draw_shield(self, Vector2(0, -height * 0.5), BossArt.shield_radius(art, height), _t, maxf(_shield, _shield_pop * 0.8),
+			BossArt.accent("ice_witch"), 1.0 + _shield_pop * 0.12)
 
 
 ## The figure's height (px, the unit PlayerView reads art_height() × scale in).

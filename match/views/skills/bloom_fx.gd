@@ -51,7 +51,6 @@ const PETAL_IN := Color(0.93, 1.0, 0.78)
 const LIGHT := Color(0.8, 1.0, 0.7)
 const CORE := Color(1.0, 0.95, 0.55)
 const SHIELD := Color(0.62, 0.9, 1.0)
-const SHIELD_EDGE := Color(0.82, 0.96, 1.0)
 
 ## Replay time (s since the shot).
 var t := 0.0
@@ -369,16 +368,7 @@ func _draw_shield(s: Dictionary) -> void:
 	if a < 0.0 or a > SHIELD_LIFE:
 		return
 	var feet := _feet(s)
-	var k := _env(a, SHIELD_LIFE, 0.02, 0.6)
-	# The bubble popping round the body, a shine sweeping over it
-	var pop := _back_out(a / 0.25)
-	var c := feet + Vector2(0, -30)
-	draw_set_transform(c, 0.0, Vector2(42.0, 48.0) * pop / 42.0)
-	draw_circle(Vector2.ZERO, 42.0, Color(SHIELD, 0.16 * k))
-	draw_arc(Vector2.ZERO, 42.0, 0.0, TAU, 48, Color(SHIELD_EDGE, 0.85 * k), 3.0, true)
-	var sweep := -PI * 0.9 + a * 5.0
-	draw_arc(Vector2.ZERO, 37.0, sweep, sweep + 1.1, 16, Color(1, 1, 1, 0.8 * k * _env(a, 0.9, 0.05, 0.4)), 4.0, true)
-	draw_arc(Vector2.ZERO, 42.0, sweep + PI, sweep + PI + 0.5, 10, Color(1, 1, 1, 0.6 * k), 3.0, true)
+	# (the bubble itself is the player's: PlayerView's shield ball pops in with the shield)
 	# Sparkles round the "+N khiên" number as it rises
 	var up := POPUP_Y - 60.0 * _ease_out(minf(a / 0.9, 1.0))
 	for sp in s["sparks"]:

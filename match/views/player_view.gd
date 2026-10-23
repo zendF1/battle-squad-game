@@ -7,7 +7,9 @@ extends Node2D
 ## (match/status_effects.gd); the turn arrow rises over the plate too. Right of the HP bar, small
 ## round icons for its control / damage effects (burn, root, stun, freeze, net) and its shield
 ## (match/views/status_icons.gd); the shield also shows on the HP bar as a light-blue segment after
-## the HP (the bar then spans HP + shield when they pass the max HP).
+## the HP (the bar then spans HP + shield when they pass the max HP), and as a bubble round the body
+## (match/views/shield_ball.gd: it pops in when a shield comes up, breathes, pops out when it
+## breaks; set_shield_tint(): the caster's gun tier colour). The boss has its own (set_shielded()).
 ## Walking is read from the position changes (prediction or tweens), so callers only move it.
 ## A walk is drawn by `walk` (match/move/walk_path.gd: along the surface, a ledge drop as a fall,
 ## a correction eased out): follow_walk() for the local prediction, walk_to() for a PlayerMoved;
@@ -54,6 +56,7 @@ const BossBody := preload("res://match/boss/boss_body.gd")
 const BossArt := preload("res://match/boss/boss_art.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const FlightModel := preload("res://match/boss/flight_model.gd")
+const ShieldBall := preload("res://match/views/shield_ball.gd")
 
 const BODY := Vector2(28, 40) # server PlayerHeight = 40
 ## px per art unit: the baked art (about 150 units) stands about 52 px tall over the 28x40
@@ -76,6 +79,7 @@ const BADGE_LIFT := 26.0 # px the badge rises over the shot markers / the turn a
 ## A boss / minion figure's height over its body (40 px × bodySize): the hit circle
 ## (playerHitRadius × bodySize round shotOriginLift × bodySize) covers its lower part.
 const BOSS_ART_PER_BODY := 1.45
+const BUBBLE_MARGIN := 8.0 # px the shield bubble reaches past the figure's half height / width
 const SHADOW_FADE_PX := 420.0 # a flier's ground shadow is faintest this high over the ground
 
 var player_id := ""
@@ -113,6 +117,7 @@ var flying := false # flies (boss mode v2): the feet are a point in the air
 var bomber := false # a bomber minion: blows itself up near a party player
 var ground_drop := -1.0 # a flier: px from its feet down to the ground under it (-1 none)
 var _flight = null # the UnitFlew flight drawn (FlightModel), null none
+var _bubble: ShieldBall # the shield's bubble round the body
 
 
 ## my_team: the local player's team; allies are blue, enemies red. -1 colours by team id.
@@ -156,6 +161,11 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	add_child(_sprite)
 	_art_top = maxf(ART_TOP, _sprite.art_height() * _sprite.scale.y + 3.0)
 	_aura.height = _art_top
+	_bubble = ShieldBall.new() # over the body, centred on the figure
+	var fig_h := _art_top - 3.0
+	_bubble.position = Vector2(0, -fig_h * 0.5)
+	_bubble.radius = maxf(BODY.x * maxf(body_size, 1.0), fig_h) * 0.5 + BUBBLE_MARGIN
+	add_child(_bubble)
 
 	_name = LobbyUi.text(str(p.get("displayName", "")), 26 if is_boss() else 20, color.lightened(0.55) if not me else LobbyUi.GOLD, true)
 	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -183,7 +193,7 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	add_child(_badge)
 	set_status(p.get("statusEffects"))
 	set_hp(int(p.get("hp", 0)), int(p.get("maxHp", 1)))
-	set_shield(int(p.get("shield", 0)) if (p.get("shield") is int or p.get("shield") is float) else 0)
+	set_shield(int(p.get("shield", 0)) if (p.get("shield") is int or p.get("shield") is float) else 0, false)
 	set_skill_energy(int(p.get("skillEnergy", 0)) if (p.get("skillEnergy") is int or p.get("skillEnergy") is float) else 0)
 	if not bool(p.get("isAlive", true)):
 		set_dead()
@@ -336,9 +346,26 @@ func set_status(effects: Variant) -> void:
 
 
 ## The shield (absorbs damage before HP), drawn on the HP bar and as an icon.
-func set_shield(value: int) -> void:
+func set_shield(value: int, animate: bool = true) -> void:
+	var was := shield > 0
 	shield = maxi(0, value)
+	if _bubble != null and not is_boss():
+		if shield > 0 and not was:
+			_bubble.show_ball(animate and not _dead)
+		elif shield <= 0 and was:
+			_bubble.hide_ball(animate)
 	queue_redraw()
+
+
+## The shield bubble's colour (the caster's gun tier, ShieldState).
+func set_shield_tint(c: Color) -> void:
+	if _bubble != null:
+		_bubble.tint = c
+
+
+## The shield's bubble (tests).
+func shield_bubble() -> ShieldBall:
+	return _bubble
 
 
 ## The icons drawn right of the HP bar: the bad effect ids (Status.icons(), game data order), then "shield".
@@ -375,6 +402,7 @@ func set_dead() -> void:
 	_sweep = {}
 	_sprite.die()
 	_aura.set_on(false)
+	_bubble.hide_ball()
 	_badge.show_use({})
 	_name.modulate.a = 0.5
 	_title.modulate.a = 0.5

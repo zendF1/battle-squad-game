@@ -15,7 +15,10 @@ extends RefCounted
 ## in the air: no shadow at them, a wider hover bob; the witch's cape streams behind her), lean
 ## (radians into a flight), tint (0..1: a bomber about to blow up glows red, BomberModel.pulse()).
 
+const ShieldBall := preload("res://match/views/shield_ball.gd")
+
 const UNIT := 100.0
+const SHIELD_MARGIN := 0.08 # of the height, the shield ball past the body
 const OUT := Color(0.08, 0.06, 0.12)
 const OUT_PX := 2.6 # outline width on screen, whatever the size
 const ARTS := ["steel_robot", "drone", "lava_crab", "crab", "ice_witch", "snowman"]
@@ -129,35 +132,12 @@ static func _shadow_w(art: String) -> float:
 	return 42.0
 
 
-## The boss's shield: a bubble of light around its body (centre, radius px), its hexes
-## shimmering with t; alpha 0..1 fades it in / out.
-static func draw_shield(ci: CanvasItem, centre: Vector2, radius: float, t: float, alpha: float, tint: Color = Color(0.55, 0.9, 1.0),
-		squash: Vector2 = Vector2.ONE) -> void:
-	if alpha <= 0.0:
-		return
-	ci.draw_set_transform(centre, 0.0, squash)
-	centre = Vector2.ZERO
-	ci.draw_circle(centre, radius, Color(tint, 0.1 * alpha))
-	ci.draw_circle(centre, radius * 0.82, Color(tint, 0.06 * alpha))
-	var hex := radius / 4.2
-	for ring_i in 4:
-		var ring := float(ring_i)
-		var n := 1 if ring_i == 0 else ring_i * 6
-		for i in n:
-			var a: float = TAU * i / n + ring * 0.3
-			var c: Vector2 = centre + Vector2(cos(a), sin(a)) * ring * hex * 1.5
-			if c.distance_to(centre) > radius - hex * 0.6:
-				continue
-			var shine := 0.18 + 0.22 * (0.5 + 0.5 * sin(t * 3.0 + c.x * 0.05 + c.y * 0.03))
-			var pts := PackedVector2Array()
-			for k in 7:
-				var b := TAU * k / 6.0 + PI / 6.0
-				pts.append(c + Vector2(cos(b), sin(b)) * hex * 0.82)
-			ci.draw_polyline(pts, Color(tint, shine * alpha), 1.6, true)
-	ci.draw_arc(centre, radius, 0.0, TAU, 64, Color(tint.lightened(0.3), 0.85 * alpha), 3.0, true)
-	var sweep := fmod(t * 1.4, TAU)
-	ci.draw_arc(centre, radius - 2.0, sweep, sweep + 0.9, 16, Color(1, 1, 1, 0.75 * alpha), 4.0, true)
-	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+## The boss's shield: a round ball of light round its body (centre, radius px; ShieldBall's look:
+## a soft radial glow brighter toward the rim, fading out past it, a highlight, faint hexes, the
+## breath), t its time, alpha 0..1 fading it in / out, scale a pop on top.
+static func draw_shield(ci: CanvasItem, centre: Vector2, radius: float, t: float, alpha: float, tint: Color = ShieldBall.DEFAULT_TINT,
+		scale: float = 1.0) -> void:
+	ShieldBall.draw_ball(ci, centre, radius, t, alpha, tint, scale)
 
 
 ## How a minion's own blast looks (its detonation, its death blast): the ExplosionFx kind × tier
@@ -177,10 +157,11 @@ static func blast_look(art: String) -> Dictionary:
 	return BLAST_LOOK.get(art, BLAST_LOOK[GENERIC_MINION])
 
 
-## The shield bubble's half extents (px) round a figure `height` px tall: as wide as the figure.
-static func shield_extents(art: String, height: float) -> Vector2:
+## The shield ball's radius (px) round a figure `height` px tall: half its larger side (its width
+## from WIDTH, its height) and a margin, so the ball covers the whole body.
+static func shield_radius(art: String, height: float) -> float:
 	var w: float = WIDTH.get(art, 1.0)
-	return Vector2(maxf(height * w * 0.52, height * 0.56), height * 0.6)
+	return maxf(height * w, height) * 0.5 + height * SHIELD_MARGIN
 
 
 # ── Primitives (unit frame) ─────────────────────────────────────────────────

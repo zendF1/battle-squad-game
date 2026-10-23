@@ -101,6 +101,8 @@ const BlastEvents := preload("res://match/boss/blast_events.gd")
 const BlastFx := preload("res://match/boss/blast_fx.gd")
 const FlightModel := preload("res://match/boss/flight_model.gd")
 const BomberModel := preload("res://match/boss/bomber_model.gd")
+const ShieldState := preload("res://match/views/shield_state.gd")
+const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 
 ## Actions go out at least the server's timings.actionIntervalSec apart (it drops closer ones)
@@ -198,6 +200,7 @@ var _aim_dragging := false # my aim drag was running last frame
 
 var _boss := BossHudModel.new() # the boss fight's state (inactive outside the boss mode)
 var _lava := LavaZones.new()
+var _shields := ShieldState.new() # who has a shield bubble up, in whose gun tier colour
 var _lava_view: LavaView
 
 var _hold_dir := 0
@@ -373,6 +376,10 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 		view.setup(_players[id], id == _me, my_team)
 		view.face(1.0 if view.position.x < _mask.width / 2.0 else -1.0) # towards the middle
 		_views[id] = view
+		# a shield's bubble keeps the colour of its caster when known, else the player's own gun's
+		var sh = _players[id].get("shield")
+		_shields.update(id, int(sh) if sh is int or sh is float else 0, "", _gun_tier(id))
+		view.set_shield_tint(_shields.colour_of(id))
 	_load_boss(snap)
 	_wind = snap.get("wind", _wind)
 	_turn_index = int(snap.get("turnIndex", _turn_index))
@@ -854,7 +861,7 @@ func _on_item_used(d: Dictionary) -> void:
 			if p.get("skillEnergy") is int or p.get("skillEnergy") is float:
 				_views[id].set_skill_energy(int(p["skillEnergy"]))
 			if p.get("shield") is int or p.get("shield") is float:
-				_views[id].set_shield(int(p["shield"]))
+				_set_shield(id, int(p["shield"]))
 			if not bool(p.get("isAlive", true)):
 				_views[id].set_dead()
 	_hud.set_wind(int(_wind.get("direction", 0)), float(_wind.get("power", 0.0)))
@@ -969,9 +976,9 @@ func _on_shot_event(e: Dictionary) -> void:
 			var amount := int(e.get("amount", 0))
 			if amount > 0:
 				_popup(id, DamagePopup.heal_text(amount), Color(0.4, 1, 0.5))
-		"shield":
+		"shield": # Flora's bloom: the bubble in the caster's gun tier colour
 			if e.get("shield") is int or e.get("shield") is float:
-				_set_shield(id, int(e["shield"]))
+				_set_shield(id, int(e["shield"]), _shot_timeline.shooter_id if _shot_timeline != null else "")
 			var gained := int(e.get("amount", 0))
 			if gained > 0:
 				_popup(id, shield_text(gained), Color(0.62, 0.9, 1.0), Vector2(0, -28))
@@ -1570,11 +1577,28 @@ func _show_energies(energies: Dictionary) -> void:
 		_refresh_controls()
 
 
-func _set_shield(id: String, shield: int) -> void:
+## A player's shield now (caster: who gave it, the shield event's shooter; "" for every other
+## change): the HP bar's segment, and the bubble (ShieldState: popping in on a new shield in the
+## caster's gun tier colour, out when it breaks).
+func _set_shield(id: String, shield: int, caster: String = "") -> void:
 	if not _players.has(id):
 		return
 	_players[id]["shield"] = shield
+	var caster_tier := _gun_tier(caster) if caster != "" and _players.has(caster) else ""
+	var change := _shields.update(id, shield, caster_tier, _gun_tier(id))
+	if (change == ShieldState.GAIN or (change == ShieldState.KEEP and caster_tier != "")) and _views[id].has_method("set_shield_tint"):
+		_views[id].set_shield_tint(_shields.colour_of(id))
 	_views[id].set_shield(shield)
+
+
+## The tier of the gun a player brought (its weaponItemId; "basic" for its character's own gun).
+func _gun_tier(id: String) -> String:
+	return str(EquipmentModel.player_gun(_players.get(id, {}), PlayerState.catalog).get("tier", ""))
+
+
+## The shield bubbles' state (tests, the harness).
+func shield_state() -> ShieldState:
+	return _shields
 
 
 ## A lost turn's banner: "Choáng — mất lượt" for me, "X: Choáng — mất lượt" for another player.
