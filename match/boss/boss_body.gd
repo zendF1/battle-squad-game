@@ -11,6 +11,9 @@ extends Node2D
 ## trail in the air (BossArt.TRAIL); a bomber (bomber) pulses red while warn (a party player within
 ## its detonateRange, BomberModel.pulse()); prime() swells and flashes it until its detonation,
 ## vanish() takes the body away at once (its blast covers it).
+## Boss mode v3: a leaper (the snowmen jump next to a party member, then blow up on their next
+## turn) glows while leap_warn (it leapt: LeapWarning): a soft warm halo behind the figure and a
+## slight red tint, pulsing every LEAP_PULSE_SEC (no prop); its detonation primes it like a bomber.
 
 const BossArt := preload("res://match/boss/boss_art.gd")
 const BomberModel := preload("res://match/boss/bomber_model.gd")
@@ -23,6 +26,14 @@ const TRAIL_EVERY_PX := 7.0 # a trail puff each time the figure moved this far
 const TRAIL_IDLE_SEC := 0.22 # and this often while it hovers in place
 const TRAIL_LIFE := 0.7
 const PRIME_SWELL := 0.18 # the body grows this much before it blows up
+const LEAP_PULSE_SEC := 0.9 # one pulse of a leapt snowman's warning glow
+const LEAP_TINT := 0.45 # its red tint at the pulse's peak (subtle)
+const LEAP_GLOW := Color(1.0, 0.42, 0.22)
+const SHARDS := 3 # the witch's idle orbiting shards
+const SHARDS_CAST := 9 # as many while she casts them
+const SHARD_SPIN := 0.9 # rad/s idle, × SHARD_SPIN_CAST at the cast's peak
+const SHARD_SPIN_CAST := 7.0
+const SHARD_REGROW := 1.0 # s for them to grow back after they flew off
 
 var art := BossArt.GENERIC_BOSS
 var height := 120.0 # px
@@ -34,6 +45,8 @@ var shielded := false
 var flying := false
 var bomber := false
 var warn := false # a party player within detonateRange: the red pulse
+var leaper := false # a leaping minion (behavior "leaper")
+var leap_warn := false # it leapt: about to blow up on its next turn (the warning glow)
 var lean := 0.0 # rad into a flight (PlayerView sets it)
 
 var _t := 0.0
@@ -51,6 +64,11 @@ var _trail: Array = [] # [{p: global Vector2, age, r}]
 var _trail_from := Vector2.INF
 var _trail_idle := 0.0
 var _ball: ShieldBall # the shield, over the figure
+static var _halo_tex: GradientTexture2D
+var _shard_phase := 0.0 # the orbiting shards' angle (integrated: they spin up and down smoothly)
+var _cast := 0.0 # s left before the cast shards fly off (cast_shards())
+var _cast_sec := 0.0
+var _regrow := 1.0 # 0..1 the shards grown back after a cast
 
 
 func setup(art_id: String, height_px: float) -> void:
@@ -81,6 +99,7 @@ func _process(delta: float) -> void:
 		var k := 1.0 - _prime / maxf(_prime_sec, 0.01)
 		scale = Vector2.ONE * (1.0 + PRIME_SWELL * k * k + sin(_t * 40.0) * 0.02 * k)
 		_flash = maxf(_flash, 0.35 + 0.35 * absf(sin(_t * 18.0)))
+	_step_shards(delta)
 	_step_trail(delta)
 	if _ball != null:
 		var alpha := maxf(_shield, _shield_pop * 0.8) if not _vanished else 0.0
@@ -119,11 +138,77 @@ func _draw() -> void:
 				draw_line(at - Vector2(0, g), at + Vector2(0, g), Color(1, 1, 1, 0.7 * (1.0 - k)), 1.2, true)
 	if _vanished:
 		return
+	var glow := leap_glow()
+	if glow > 0.0:
+		var r := height * (0.62 + 0.08 * glow)
+		draw_texture_rect(halo_texture(), Rect2(Vector2(-r, -height * 0.48 - r), Vector2(r, r) * 2.0), false,
+			Color(LEAP_GLOW, 0.3 + 0.45 * glow))
+	var tint := BomberModel.pulse(_t, (bomber or leaper) and not _dead and (warn or _prime > 0.0))
+	if glow > 0.0:
+		tint = maxf(tint, LEAP_TINT * glow)
 	var wobble := Vector2.ZERO
 	if _walking and not _dead and not flying:
 		wobble = Vector2(0, -absf(sin(_t * 14.0)) * height * 0.03)
 	BossArt.draw(self, art, wobble, height, _t if not _dead else 0.0, facing, _flash, {"flying": flying, "lean": lean if not _dead else 0.0,
-		"tint": BomberModel.pulse(_t, bomber and not _dead and (warn or _prime > 0.0))})
+		"tint": tint, "shards": shards()})
+
+
+## The witch casts her shards (her blizzard): over lead s they spin up and multiply round her,
+## then they are gone (flying as the blizzard's projectiles) and grow back over SHARD_REGROW s.
+func cast_shards(lead: float) -> void:
+	_cast = maxf(lead, 0.05)
+	_cast_sec = _cast
+	_regrow = 1.0
+
+
+## The orbiting shards now: {phase, n, size, reach} (BossArt opts shards).
+func shards() -> Dictionary:
+	if _cast > 0.0:
+		var k := 1.0 - _cast / maxf(_cast_sec, 0.01) # 0 → 1 over the spin-up
+		return {"phase": _shard_phase, "n": SHARDS + int(round((SHARDS_CAST - SHARDS) * minf(k * 1.6, 1.0))), "size": 1.0 + 0.25 * k,
+			"reach": 1.0 + 0.35 * k}
+	return {"phase": _shard_phase, "n": SHARDS, "size": _regrow, "reach": 0.6 + 0.4 * _regrow}
+
+
+func casting_shards() -> bool:
+	return _cast > 0.0
+
+
+func _step_shards(delta: float) -> void:
+	var spin := SHARD_SPIN
+	if _cast > 0.0:
+		var k := 1.0 - _cast / maxf(_cast_sec, 0.01)
+		spin *= 1.0 + (SHARD_SPIN_CAST - 1.0) * k
+		_cast = maxf(0.0, _cast - delta)
+		if _cast <= 0.0:
+			_regrow = 0.0 # off they fly
+	elif _regrow < 1.0:
+		_regrow = minf(1.0, _regrow + delta / SHARD_REGROW)
+	_shard_phase += spin * delta
+
+
+## A leapt snowman's warning glow now (0..1, pulsing every LEAP_PULSE_SEC; 0 without the warning,
+## dead or blowing up).
+func leap_glow() -> float:
+	if not leap_warn or _dead or _vanished or _prime > 0.0:
+		return 0.0
+	return 0.5 - 0.5 * cos(TAU * _t / LEAP_PULSE_SEC)
+
+
+## A soft round halo (white in the middle, clear at the rim), tinted when drawn.
+static func halo_texture() -> GradientTexture2D:
+	if _halo_tex == null:
+		var g := Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
+		g.colors = PackedColorArray([Color(1, 1, 1, 0.9), Color(1, 1, 1, 0.4), Color(1, 1, 1, 0)])
+		_halo_tex = GradientTexture2D.new()
+		_halo_tex.gradient = g
+		_halo_tex.fill = GradientTexture2D.FILL_RADIAL
+		_halo_tex.fill_from = Vector2(0.5, 0.5)
+		_halo_tex.fill_to = Vector2(1.0, 0.5)
+		_halo_tex.width = 64
+		_halo_tex.height = 64
+	return _halo_tex
 
 
 ## The figure's height (px, the unit PlayerView reads art_height() × scale in).

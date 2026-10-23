@@ -13,7 +13,9 @@ extends RefCounted
 ## (art_of()): only the presentation is mapped here, sizes come from the game data.
 ## opts (boss mode v2, what the game data / state says the unit does): flying (the feet are a point
 ## in the air: no shadow at them, a wider hover bob; the witch's cape streams behind her), lean
-## (radians into a flight), tint (0..1: a bomber about to blow up glows red, BomberModel.pulse()).
+## (radians into a flight), tint (0..1: a bomber about to blow up glows red, BomberModel.pulse()),
+## shards (the witch's orbiting crystals, boss mode v3: {phase: their angle, n: how many, size: their
+## scale 0..1, reach: their orbit's scale}; she casts them as her blizzard: BossBody.cast_shards()).
 
 const UNIT := 100.0
 const SHIELD_MARGIN := 0.08 # of the height, the shield ball past the body
@@ -136,6 +138,8 @@ const BLAST_LOOK := {"drone": {"kind": "cannon", "tier": "dragon", "icy": false}
 	"crab": {"kind": "bazooka", "tier": "dragon", "icy": false},
 	"snowman": {"kind": "shock_rifle", "tier": "mithril", "icy": true},
 	GENERIC_MINION: {"kind": "bazooka", "tier": "dragon", "icy": false}}
+## The storm a boss's map-wide rain blows across the screen (match/boss/storm_overlay.gd kind).
+const STORM := {"ice_witch": "snow", "lava_crab": "ember"}
 ## The trail a flying figure leaves in the air (its colour; none: no trail).
 const TRAIL := {"ice_witch": Color(0.75, 0.95, 1.0), "drone": Color(0.8, 0.82, 0.88, 0.6)}
 
@@ -404,13 +408,25 @@ static func _shard(ci: CanvasItem, c: Vector2, r: float, rot: float, alpha: floa
 	ci.draw_line(pts[0], pts[2], Color(1, 1, 1, 0.6 * alpha), _w(1.2), true)
 
 
+## The witch's orbiting shards now: {phase, n, size, reach} (opts shards, else the idle three).
+static func _shards(t: float) -> Dictionary:
+	var s = _opts.get("shards")
+	if s is Dictionary:
+		return s
+	return {"phase": t * 0.9, "n": 3, "size": 1.0, "reach": 1.0}
+
+
 static func _witch(ci: CanvasItem, t: float) -> void:
 	var glow := 0.5 + 0.5 * sin(t * 2.4)
+	var sh := _shards(t)
+	var sn := int(sh["n"])
+	var ssize := float(sh["size"])
+	var sreach := float(sh["reach"])
 	# shards behind
-	for i in 3:
-		var a := t * 0.9 + TAU * i / 3.0
-		if sin(a) < 0.0:
-			_shard(ci, Vector2(cos(a) * 44, -58 + sin(a) * 8), 7.0, a, 0.8)
+	for i in sn:
+		var a := float(sh["phase"]) + TAU * i / maxf(sn, 1)
+		if sin(a) < 0.0 and ssize > 0.02:
+			_shard(ci, Vector2(cos(a) * 44 * sreach, -58 + sin(a) * 8 * sreach), 7.0 * ssize, a, 0.8)
 	if _opts.get("flying", false):
 		_cape(ci, t, float(_opts.get("lean", 0.0)))
 	# frost mist under the hem
@@ -455,10 +471,10 @@ static func _witch(ci: CanvasItem, t: float) -> void:
 	ci.draw_circle(Vector2(3, -85.5), 1.5, _c(Color(0.6, 1.0, 1.0)))
 	_line(ci, Vector2(4, -79), Vector2(9, -79.5), Color(0.3, 0.35, 0.6), 1.4)
 	# shards in front
-	for i in 3:
-		var a := t * 0.9 + TAU * i / 3.0
-		if sin(a) >= 0.0:
-			_shard(ci, Vector2(cos(a) * 44, -58 + sin(a) * 8), 8.0, a)
+	for i in sn:
+		var a := float(sh["phase"]) + TAU * i / maxf(sn, 1)
+		if sin(a) >= 0.0 and ssize > 0.02:
+			_shard(ci, Vector2(cos(a) * 44 * sreach, -58 + sin(a) * 8 * sreach), 8.0 * ssize, a)
 
 
 ## The witch's cape when she flies: from her shoulders it streams back and down, rippling, with a

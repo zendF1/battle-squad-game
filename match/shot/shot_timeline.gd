@@ -49,6 +49,17 @@ func kind(i: int) -> String:
 	return str(k) if k is String else ""
 
 
+## The kind of the projectile with this projectileId ("" unknown or a normal shell).
+func kind_of(projectile_id: String) -> String:
+	if projectile_id == "":
+		return ""
+	for p in projectiles:
+		if p is Dictionary and str(p.get("projectileId", "")) == projectile_id:
+			var k = p.get("kind")
+			return str(k) if k is String else ""
+	return ""
+
+
 ## When projectile i leaves (s since the shot): launchDelay, else its first path sample's time.
 func launch_time(i: int) -> float:
 	var d = projectiles[i].get("launchDelay")

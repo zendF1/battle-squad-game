@@ -52,6 +52,16 @@ extends Node2D
 ## as the blast (BlastFx) and a hard shake; an explode with a crater number carves that radius.
 ## A summon event carries the whole new unit (displayName, hp, maxHp, teamId, bodySize, flying,
 ## behavior, movement); the game data's minion type only fills what it leaves out.
+## Boss mode v3: the boss summons for free at the start of its turn (ShotResolved actionMode
+## "summon", "Triệu hồi" under the boss bar; the turn is not resolved by it: its attack's
+## ActionSelected and ShotResolved follow). Many beams at once (the witch's radial burst, the
+## robot's parallel sweep) and a map-wide rain (with the boss's storm over the screen) frame the
+## whole map (SkillView.frames_map(): the camera zooms out, then back after the replay); a ground
+## shockwave (Shockwave: the slam's explode, then explodes stepping out to both edges) is a ripple
+## along the ground with a dust burst at each step (ShockwaveFx), the map framed too. UnitJumped
+## {playerId, from, to, duration, height} is a leaping snowman's arc jump (PlayerView.jump(): squash
+## and stretch, the camera on it, the events after it wait until it lands); from it until its next
+## turn ends it glows as a warning (LeapWarning; the state's leapt), then blows up as a minion.
 ## See docs/superpowers/specs/2026-10-15-godot-client-roadmap-design.md.
 
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
@@ -102,6 +112,12 @@ const BlastFx := preload("res://match/boss/blast_fx.gd")
 const FlightModel := preload("res://match/boss/flight_model.gd")
 const BomberModel := preload("res://match/boss/bomber_model.gd")
 const ShieldState := preload("res://match/views/shield_state.gd")
+const Shockwave := preload("res://match/boss/shockwave.gd")
+const ShockwaveFx := preload("res://match/boss/shockwave_fx.gd")
+const JumpModel := preload("res://match/boss/jump_model.gd")
+const LeapWarning := preload("res://match/boss/leap_warning.gd")
+const UnitShell := preload("res://match/views/unit_shell.gd")
+const UnitImpact := preload("res://match/views/unit_impact.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 
@@ -202,6 +218,9 @@ var _boss := BossHudModel.new() # the boss fight's state (inactive outside the b
 var _lava := LavaZones.new()
 var _shields := ShieldState.new() # who has a shield bubble up, in whose gun tier colour
 var _lava_view: LavaView
+var _screen_fx: CanvasLayer # screen overlays over the world, under the HUD (a boss's storm)
+var _wave_fx: Node2D = null # the replayed shot's ground shockwave (ShockwaveFx), null none
+var _leaps := LeapWarning.new() # the leapt snowmen about to blow up
 
 var _hold_dir := 0
 var _action_at := -10_000_000 # Time.get_ticks_usec() when my last Move/Shoot/EndTurn/UseItem was sent
@@ -234,6 +253,8 @@ func _ready() -> void:
 	_camera.sky = _sky
 	_camera.aim = _aim
 	add_child(_camera)
+	_screen_fx = CanvasLayer.new() # same layer as the HUD's, before it: under the HUD
+	add_child(_screen_fx)
 	var ui := CanvasLayer.new()
 	add_child(ui)
 	_markers = OffscreenMarkers.new() # under the HUD's controls
@@ -292,6 +313,8 @@ func _process(delta: float) -> void:
 	_release_fall_hold()
 	_release_flight_hold()
 	_update_bombers()
+	if _wave_fx != null and is_instance_valid(_wave_fx) and _shot_player.is_playing():
+		_wave_fx.sync(_shot_player.time())
 	if _awaiting_ack > 0.0:
 		_awaiting_ack -= delta
 		if _awaiting_ack <= 0.0:
@@ -380,6 +403,8 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 		var sh = _players[id].get("shield")
 		_shields.update(id, int(sh) if sh is int or sh is float else 0, "", _gun_tier(id))
 		view.set_shield_tint(_shields.colour_of(id))
+		_leaps.on_state(id, _players[id], int(snap.get("turnIndex", _turn_index)), current)
+		view.set_leapt(_leaps.warning(id))
 	_load_boss(snap)
 	_wind = snap.get("wind", _wind)
 	_turn_index = int(snap.get("turnIndex", _turn_index))
@@ -638,6 +663,7 @@ func _apply(event: String, data: Variant) -> void:
 			var index := int(data.get("turnIndex", _turn_index + 1))
 			if index > _turn_index and _players.has(_current):
 				_tick_status(_current) # the server ticks the effects at the end of their target's turn
+				_end_leap(_current, _turn_index)
 			_turn_index = maxi(index, _turn_index)
 			var energies = data.get("skillEnergy") # every player's (the end-of-turn +20 in it)
 			if energies is Dictionary:
@@ -673,10 +699,14 @@ func _apply(event: String, data: Variant) -> void:
 			_awaiting_ack = 0.0
 			var shooter := str(data.get("shooterId", ""))
 			_count_damage(shooter, data.get("events"))
-			_turn_resolved = true # the server takes no more actions until TurnStarted
+			var timeline := ShotTimeline.new(data)
+			# A boss's free summon (v3) does not end its turn: its attack follows.
+			if timeline.action_mode != SUMMON:
+				_turn_resolved = true # the server takes no more actions until TurnStarted
+			elif _boss.active and shooter == _boss.player_id:
+				_hud.announce_boss_skill(SUMMON_TEXT)
 			_hud.pause_timer() # resumed by the next TurnTimerTick / TurnStarted
 			_snap_to_server(shooter)
-			var timeline := ShotTimeline.new(data)
 			_shot_timeline = timeline
 			if _boss.active or timeline.action_mode == BlastEvents.SELF_DESTRUCT:
 				_tag_blasts(timeline, shooter)
@@ -697,11 +727,19 @@ func _apply(event: String, data: Variant) -> void:
 			if timeline.action_mode == SKILL:
 				_skill_view = Skills.view_for_skill(timeline.skill_id)
 				_skill_view.begin({"layer": _fx_layer, "timeline": timeline, "style": _shot_player.style,
-					"views": _views, "players": _players, "shooter": shooter, "terrain": _mask})
+					"views": _views, "players": _players, "shooter": shooter, "terrain": _mask, "screen": _screen_fx,
+					"wind": int(_wind.get("direction", 0))})
 				_shot_player.skill_view = _skill_view
+			var framed: bool = _skill_view != null and _skill_view.frames_map()
+			if _boss.active and shooter == _boss.player_id and _start_shockwave(timeline):
+				framed = true
 			var lead_in := _show_shooting(shooter, timeline)
+			_cast_shards(shooter, timeline)
 			_focus.clear()
 			_cam.start_shot()
+			if framed:
+				_cam.frame_map()
+				_hud.fade_boss_skill() # the map's top (the boss in the air) comes under it
 			_shot_player.play(timeline, lead_in)
 			_refresh_controls()
 		"PlayerDamaged": # lava / burn at turn start, out_of_map after a walk's fall (shot damage comes in ShotResolved)
@@ -726,6 +764,8 @@ func _apply(event: String, data: Variant) -> void:
 			_on_boss_shield(data)
 		"UnitFlew":
 			_on_unit_flew(data)
+		"UnitJumped":
+			_on_unit_jumped(data)
 		"MatchEnded":
 			_on_match_ended(data)
 
@@ -776,6 +816,9 @@ func _on_action_selected(d: Variant) -> void:
 		return
 	if _boss.active and id == _boss.player_id and str(d.get("actionMode", "")) == SKILL:
 		_hud.announce_boss_skill(str(GameData.boss_skill(_boss.boss_id, str(d.get("skillId", ""))).get("name", "")))
+	elif _boss.active and id == _boss.player_id and str(d.get("actionMode", "")) == SUMMON:
+		_hud.announce_boss_skill(SUMMON_TEXT)
+		return
 	_hold_badge(id, UseBadge.content(str(d.get("actionMode", "")), str(d.get("skillId", "")), str(d.get("itemId", ""))))
 
 
@@ -864,6 +907,8 @@ func _on_item_used(d: Dictionary) -> void:
 				_set_shield(id, int(p["shield"]))
 			if not bool(p.get("isAlive", true)):
 				_views[id].set_dead()
+			_leaps.on_state(id, p, _turn_index, _current)
+			_views[id].set_leapt(_leaps.warning(id))
 	_hud.set_wind(int(_wind.get("direction", 0)), float(_wind.get("power", 0.0)))
 	_show_wind()
 	# An instant item shows its badge now; a shot item's comes with its shot (one badge, not two).
@@ -937,6 +982,9 @@ func _on_shot_event(e: Dictionary) -> void:
 			if not BlastEvents.blast_of(e).is_empty():
 				_unit_blast(e)
 				return
+			if e.get(Shockwave.STEP_KEY, false):
+				_wave_step(e)
+				return
 			var p := _vec(e["position"])
 			var radius := float(e.get("radius", 0.0))
 			# crater: the shape (always a bowl now; a circle is still carved). The view uploads
@@ -946,6 +994,24 @@ func _on_shot_event(e: Dictionary) -> void:
 			var fx := ExplosionFx.new()
 			# The burst covers the crater and the damage area (the blast radius can be the larger)
 			fx.radius = maxf(radius, _shot_timeline.blast_radius(str(e.get("projectileId", ""))) if _shot_timeline != null else 0.0)
+			var reach = e.get("blastRadius") # a boss's slam: its blast's reach (radius is the crater)
+			if (reach is int or reach is float) and float(reach) > fx.radius:
+				fx.radius = float(reach)
+			var unit_kind := _shot_timeline.kind_of(str(e.get("projectileId", ""))) if _shot_timeline != null else ""
+			if UnitShell.is_kind(unit_kind): # a boss's / minion's own projectile: its own impact
+				var hit := UnitImpact.new(unit_kind, fx.radius)
+				hit.position = p
+				_fx_layer.add_child(hit)
+				fx.free()
+				_hold_focus({"pos": p}, CameraModel.HOLD_SEC)
+				_cam.shake(hit.radius * 0.6)
+				var v := int(e.get("terrainVersion", _mask.version))
+				if v != _mask.version:
+					_mask.version = v
+					GameSocket.send("Reconnect", {})
+				if _skill_view != null:
+					_skill_view.on_event(e)
+				return
 			fx.kind = str(_shot_player.style.get("kind", ""))
 			fx.tier = str(_shot_player.style.get("tier", ""))
 			fx.skill = bool(_shot_player.style.get("skill", false))
@@ -1063,6 +1129,12 @@ func _on_shot_fired() -> void:
 
 func _on_shot_finished() -> void:
 	_skill_view = null
+	_cam.unframe()
+	if _shot_timeline != null and _shot_timeline.action_mode == SUMMON and _views.has(_current) and not _ended:
+		_cam.pan_to(_pos(_current) + _look_lift(_current)) # the summon played: back on the boss for its attack
+	if _wave_fx != null and is_instance_valid(_wave_fx):
+		_wave_fx.release()
+	_wave_fx = null
 	_show_energies(_energy_reveal.finish()) # what changed without a hit on screen
 	var shooter := str(_shot_badge.get("shooter", ""))
 	var content: Dictionary = _shot_badge.get("content", {})
@@ -1351,6 +1423,8 @@ func _on_disconnected() -> void:
 
 # ── Boss mode ────────────────────────────────────────────────────────────────
 
+const SUMMON := "summon" # a boss's free summon (ShotResolved / ActionSelected actionMode)
+const SUMMON_TEXT := "Triệu hồi"
 const SHIELD_ON := "Khiên bảo vệ!"
 const SHIELD_OFF := "Phá khiên!"
 
@@ -1538,6 +1612,84 @@ func _unit_blast(e: Dictionary) -> void:
 		GameSocket.send("Reconnect", {})
 
 
+## A ground shockwave in a boss shot (Shockwave.detect(): its steps tagged): its ripple and dust
+## (ShockwaveFx, synced to the replay). Returns whether there is one.
+func _start_shockwave(timeline) -> bool:
+	var wave := Shockwave.detect(timeline.events, true)
+	if wave.is_empty():
+		return false
+	_wave_fx = ShockwaveFx.new()
+	_wave_fx.setup(wave, _mask, BossArt.accent(BossArt.art_of(_boss.boss_id)))
+	_fx_layer.add_child(_wave_fx)
+	return true
+
+
+## A shockwave step's explode: its crater (ShockwaveFx draws the ripple and the dust), a small
+## shake, the terrain version kept.
+func _wave_step(e: Dictionary) -> void:
+	var p := _vec(e["position"])
+	var radius := float(e.get("radius", 0.0))
+	if radius > 0.0:
+		_mask.carve(str(e.get("crater", TerrainMask.CRATER_BOWL)) if e.get("crater") is String else TerrainMask.CRATER_BOWL, p.x, p.y, radius)
+		_terrain_view.refresh()
+	_cam.shake(maxf(radius, 30.0))
+	var server_version := int(e.get("terrainVersion", _mask.version))
+	if server_version != _mask.version:
+		_mask.version = server_version
+		GameSocket.send("Reconnect", {})
+
+
+## UnitJumped {playerId, from, to, duration, height}: a leaper's arc jump (PlayerView.jump()), the
+## camera with it; the events after it wait until it lands (_flight_hold). It glows from now
+## until its next turn ends (LeapWarning).
+func _on_unit_jumped(d: Variant) -> void:
+	if not d is Dictionary:
+		return
+	var id := str(d.get("playerId", ""))
+	var jump = JumpModel.from_event(d)
+	if jump == null or not _players.has(id):
+		return
+	_set_pos(id, jump.to)
+	_players[id]["leapt"] = true
+	_leaps.on_jump(id, _turn_index)
+	var view = _views.get(id)
+	if view == null or not view.has_method("jump"):
+		return
+	view.set_leapt(true)
+	view.jump(jump.from, jump.to, jump.duration, jump.height)
+	if view.in_flight():
+		_flight_hold = true
+		_hold_focus({"view": view}, jump.duration + FALL_TAIL)
+
+
+## The witch's blizzard (projectiles of kind ice_shard from her): her orbiting shards spin up and
+## multiply until the first one leaves, then regrow (BossBody.cast_shards()).
+func _cast_shards(shooter: String, timeline) -> void:
+	var view = _views.get(shooter)
+	if view == null or not view.is_boss_side() or not view.figure().has_method("cast_shards"):
+		return
+	var first := INF
+	for i in timeline.projectiles.size():
+		if timeline.kind(i) == UnitShell.ICE_SHARD:
+			first = minf(first, timeline.launch_time(i))
+	if first < INF:
+		view.figure().cast_shards(first)
+
+
+## The turn turn_index of player id ended: a leap before it is spent (its glow goes off).
+func _end_leap(id: String, turn_index: int) -> void:
+	if _leaps.on_turn_end(id, turn_index):
+		if _players.has(id):
+			_players[id]["leapt"] = false
+		if _views.has(id):
+			_views[id].set_leapt(false)
+
+
+## The leapt snowmen (tests, the harness).
+func leap_state() -> LeapWarning:
+	return _leaps
+
+
 ## The boss fight's HUD state (BossHudModel.state(); tests, the harness).
 func boss_state() -> Dictionary:
 	return _boss.state()
@@ -1633,6 +1785,8 @@ func _kill(id: String) -> void:
 		return
 	_players[id]["isAlive"] = false
 	_views[id].set_dead()
+	if _leaps.clear(id):
+		_views[id].set_leapt(false)
 	if _boss.kill(id):
 		_views[id].set_shielded(false)
 		_hud.set_boss(_boss.state())
@@ -1708,6 +1862,11 @@ func _show_shooting(shooter: String, timeline) -> float:
 		_views[shooter].aim(beam)
 		return _views[shooter].shoot()
 	var view = _views[shooter]
+	if view.is_boss():
+		# A boss's projectiles leave from where the server starts them (above the map, a ring of
+		# ice shards round the witch), never blended from a muzzle.
+		view.shoot(false)
+		return 0.0
 	var start: Vector2 = timeline.sample(0, 0.0)
 	var d: Vector2 = timeline.sample(0, 0.05) - start
 	var near := start.distance_to(view.position) <= ShotPlayer.SPAWN_NEAR

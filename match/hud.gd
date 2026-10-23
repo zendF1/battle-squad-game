@@ -457,6 +457,11 @@ func announce_boss_skill(text: String) -> void:
 	_boss.announce_skill(text)
 
 
+## The boss skill's name fades out now (a replay framing the whole map).
+func fade_boss_skill() -> void:
+	_boss.fade_skill()
+
+
 func boss_hud() -> BossHud:
 	return _boss
 

@@ -21,6 +21,9 @@ extends RefCounted
 ## - IDLE: stays (eased back inside the map if it was above it).
 ## shake(radius) adds a small decaying shake (shake_offset(), screen px), scaled by the blast.
 ## parallax() is where a far layer (the sky) sits for the current view.
+## frame_map() (boss mode v3: a map-wide rain, a beam burst, a shockwave to both edges) eases the
+## zoom out over FRAME_SEC until the whole map fits (min_zoom()); unframe() eases it back to the
+## zoom before. A manual zoom meanwhile cancels both (that zoom stays).
 
 enum { IDLE, TURN, AIM, SHOT, MANUAL }
 
@@ -39,6 +42,7 @@ const SHAKE_SEC := 0.35
 const SHAKE_PER_PX := 0.08 # px of shake per px of blast radius
 const SHAKE_MIN := 1.5
 const SHAKE_MAX := 7.0
+const FRAME_SEC := 0.45 # s the zoom eases out to the whole map (frame_map) or back (unframe)
 
 var map_size := Vector2(1600, 900)
 var view_size := Vector2(1600, 900) # screen px
@@ -59,6 +63,11 @@ var _pending: Variant = null # a pan waiting for the hold: [point, sec, mode]
 var _hold := 0.0
 var _shake := 0.0
 var _shake_t := 0.0
+var _zoom_goal := -1.0 # an eased zoom under way (frame_map / unframe), -1 none
+var _zoom_from := 1.0
+var _zoom_t := 1.0
+var _zoom_sec := FRAME_SEC
+var _framed_from := -1.0 # the zoom before frame_map(), -1 not framed
 
 
 func setup(map: Vector2, view: Vector2) -> void:
@@ -167,6 +176,8 @@ func manual_pan(screen_delta: Vector2) -> void:
 ## Zooms to z (clamped to min_zoom()..1) keeping the world point under the screen point anchor
 ## where it is.
 func zoom_at(z: float, anchor: Vector2) -> void:
+	_zoom_goal = -1.0 # a manual zoom ends a framing
+	_framed_from = -1.0
 	z = clampf(z, min_zoom(), 1.0)
 	if is_equal_approx(z, zoom):
 		return
@@ -177,6 +188,40 @@ func zoom_at(z: float, anchor: Vector2) -> void:
 	if mode == IDLE or mode == MANUAL:
 		_target = center
 	_pan_from = center
+
+
+## The whole map in view: the zoom eases out to min_zoom() over sec (the zoom before is kept for
+## unframe()).
+func frame_map(sec: float = FRAME_SEC) -> void:
+	if _framed_from < 0.0:
+		_framed_from = zoom
+	_ease_zoom(min_zoom(), sec)
+
+
+## Back from frame_map(): the zoom eases back to the one before; nothing when not framed.
+func unframe(sec: float = FRAME_SEC) -> void:
+	if _framed_from < 0.0:
+		return
+	var z := _framed_from
+	_framed_from = -1.0
+	_ease_zoom(z, sec)
+
+
+## frame_map() is on (until unframe() or a manual zoom).
+func framed() -> bool:
+	return _framed_from >= 0.0
+
+
+## An eased zoom is under way.
+func zooming() -> bool:
+	return _zoom_goal >= 0.0
+
+
+func _ease_zoom(z: float, sec: float) -> void:
+	_zoom_from = zoom
+	_zoom_goal = clampf(z, min_zoom(), 1.0)
+	_zoom_sec = maxf(sec, 1e-3)
+	_zoom_t = 0.0
 
 
 ## An explosion or a fall: the next pan waits sec (the longest hold wins).
@@ -241,6 +286,14 @@ func column_scroll(pointer_x: float, delta: float) -> void:
 
 ## Advances delta seconds; returns the new centre.
 func step(delta: float) -> Vector2:
+	if _zoom_goal >= 0.0:
+		_zoom_t = minf(1.0, _zoom_t + delta / _zoom_sec)
+		zoom = lerpf(_zoom_from, _zoom_goal, ease_in_out(_zoom_t))
+		if _zoom_t >= 1.0:
+			zoom = _zoom_goal
+			_zoom_goal = -1.0
+		center = clamp_center(center, sky)
+		_pan_from = clamp_center(_pan_from, sky)
 	if _hold > 0.0:
 		_hold = maxf(0.0, _hold - delta)
 		if _hold <= 0.0 and _pending != null:

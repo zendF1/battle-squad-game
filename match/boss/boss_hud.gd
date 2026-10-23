@@ -130,6 +130,18 @@ func state() -> Dictionary:
 
 
 ## The boss's skill name under the bar: pops in, holds, fades.
+## The skill's name goes now (fast): a map-wide skill's replay frames the whole map, its top
+## under the name.
+func fade_skill() -> void:
+	if _skill_tween:
+		_skill_tween.kill()
+	if not is_inside_tree() or _skill.modulate.a <= 0.0:
+		_skill.modulate.a = 0.0
+		return
+	_skill_tween = create_tween()
+	_skill_tween.tween_property(_skill, "modulate:a", 0.0, 0.25)
+
+
 func announce_skill(text: String) -> void:
 	if text == "":
 		return

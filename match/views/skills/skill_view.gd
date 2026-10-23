@@ -28,7 +28,8 @@ var _skill := "" # the server skill id this view is for (for_skill())
 
 ## The replay context from begin(): {layer: Node2D (the fx layer, layer coordinates = world),
 ## timeline: ShotTimeline, style: ShotLook.style_for() {kind, tier, skill, item}, views:
-## {playerId: PlayerView}, players: {playerId: match player dict}, shooter: playerId}.
+## {playerId: PlayerView}, players: {playerId: match player dict}, shooter: playerId, terrain:
+## the TerrainMask, screen: a CanvasLayer over the world and under the HUD for screen overlays}.
 var ctx := {}
 
 
@@ -111,6 +112,12 @@ func end() -> void:
 ## from above the map): it looks at the ground they fall on (the rain event's position).
 func tracks_shells() -> bool:
 	return true
+
+
+## True (boss mode v3: a map-wide rain, many beams at once): the camera frames the whole map
+## while the replay plays (match_screen zooms out, then back).
+func frames_map() -> bool:
+	return false
 
 
 ## The aim angle (degrees, Shoot convention) the shooter's gun shows for a shot without

@@ -56,6 +56,7 @@ const BossBody := preload("res://match/boss/boss_body.gd")
 const BossArt := preload("res://match/boss/boss_art.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const FlightModel := preload("res://match/boss/flight_model.gd")
+const JumpModel := preload("res://match/boss/jump_model.gd")
 const ShieldBall := preload("res://match/views/shield_ball.gd")
 
 const BODY := Vector2(28, 40) # server PlayerHeight = 40
@@ -116,7 +117,10 @@ var body_size := 1.0 # × a player's body (bodySize)
 var flying := false # flies (boss mode v2): the feet are a point in the air
 var bomber := false # a bomber minion: blows itself up near a party player
 var ground_drop := -1.0 # a flier: px from its feet down to the ground under it (-1 none)
-var _flight = null # the UnitFlew flight drawn (FlightModel), null none
+var _flight = null # the UnitFlew flight drawn (FlightModel) or UnitJumped jump (JumpModel), null none
+var leaper := false # a leaping minion (boss mode v3: the snowmen)
+var _land_since := -1.0 # s since a jump landed (its squash), -1 none
+var _base_scale := Vector2.ONE # the figure's own scale (a jump squashes and stretches round it)
 var _bubble: ShieldBall # the shield's bubble round the body
 
 
@@ -147,11 +151,14 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 		_sprite.setup(art, BODY.y * body_size * BOSS_ART_PER_BODY)
 		flying = GameData.unit_flying(p)
 		bomber = role == "minion" and GameData.unit_behavior(p) == "bomber"
+		leaper = role == "minion" and GameData.unit_behavior(p) == "leaper"
 		_sprite.flying = flying
 		_sprite.bomber = bomber
+		_sprite.leaper = leaper
 	else:
 		_sprite = CharacterScene.instantiate()
 		_sprite.scale = Vector2.ONE * (ART_SCALE / Art.PX_PER_UNIT)
+	_base_scale = _sprite.scale
 	_sprite.show_behind_parent = true
 	_sprite.holster = true # drawn (kneeling) to shoot
 	_sprite.idle_gun = true # idle: standing, the gun in hand 45° down-forward; walking: on the back
@@ -227,6 +234,11 @@ func body_centre() -> Vector2:
 	return position - Vector2(0, GameData.shot_origin_lift() * body_size)
 
 
+## px from the feet up to just over the figure's head (a stun's stars circle there).
+func head_lift() -> float:
+	return _art_top + 10.0
+
+
 ## The boss's shield bubble (a boss only); animate: with its pop.
 func set_shielded(on: bool, animate: bool = true) -> void:
 	if is_boss() and _sprite.has_method("set_shielded"):
@@ -245,16 +257,24 @@ func figure() -> Node2D:
 
 func _process(delta: float) -> void:
 	_t += delta
+	var landing := _land_since >= 0.0 # a jump's landing squash under way (not one starting this frame)
 	if _flight != null:
 		position = _flight.step(delta)
-		_sprite.lean = _flight.lean_at(_flight.t)
+		if "lean" in _sprite:
+			_sprite.lean = _flight.lean_at(_flight.t)
+		if _flight is JumpModel:
+			_sprite.scale = _base_scale * _flight.scale_at(_flight.t)
 		if _flight.done():
-			position = _flight.to
-			_sprite.lean = 0.0
-			_flight = null
+			_end_flight() # a jump's landing squash starts with the next frame
 	elif walk.active():
 		position = walk.step(delta)
-	if flying:
+	if landing and _land_since >= 0.0:
+		_land_since += delta
+		_sprite.scale = _base_scale * JumpModel.land_scale(_land_since)
+		if _land_since >= JumpModel.LAND_SEC:
+			_land_since = -1.0
+			_sprite.scale = _base_scale
+	if flying or jumping():
 		_update_ground()
 	var below := position.y - _bottom()
 	var alpha := clampf(1.0 - below / WalkPath.OUT_DROP, 0.0, 1.0) if below > 0.0 else 1.0
@@ -567,9 +587,54 @@ func _end_flight() -> void:
 	if _flight == null:
 		return
 	position = _flight.to
+	var jumped: bool = _flight is JumpModel
 	_flight = null
 	if _sprite != null and "lean" in _sprite:
 		_sprite.lean = 0.0
+	if jumped:
+		_sprite.scale = _base_scale
+		if "flying" in _sprite:
+			_sprite.flying = flying
+		_land_since = 0.0 # the landing squash
+		ground_drop = -1.0
+		_ring.queue_redraw()
+
+
+## A leap (boss mode v3, UnitJumped {from, to, duration, height}): crouch, a ballistic arc with
+## squash and stretch, a landing squash (JumpModel); the shadow stays on the ground under it.
+## Ends a walk or tween under way; sec 0 jumps there at once.
+func jump(from: Vector2, to: Vector2, sec: float, height: float) -> void:
+	if _tween:
+		_tween.kill()
+	_tween = null
+	_end_flight()
+	walk.reset(to)
+	_flight = JumpModel.new(from, to, sec, height)
+	position = from
+	if "flying" in _sprite:
+		_sprite.flying = true # no shadow at the feet in the air
+	if _flight.done():
+		_end_flight()
+
+
+## A leap is being drawn.
+func jumping() -> bool:
+	return _flight is JumpModel
+
+
+## A leapt snowman's warning glow (LeapWarning): on until its next turn ends.
+func set_leapt(on: bool) -> void:
+	if "leap_warn" in _sprite:
+		_sprite.leap_warn = on
+
+
+func leapt() -> bool:
+	return "leap_warn" in _sprite and _sprite.leap_warn
+
+
+## The figure's squash / stretch now (its scale over its own; ONE at rest).
+func squash() -> Vector2:
+	return _sprite.scale / _base_scale
 
 
 ## A flier's ground under it: the shadow's drop (px), redrawn when it changes.
@@ -661,7 +726,7 @@ func _take_walk() -> void:
 func _draw_ring() -> void:
 	var c := color if not _dead else Color(0.5, 0.5, 0.55)
 	var r := 20.0 * (body_size * 1.15 if is_boss_side() else 1.0)
-	if flying: # no pedestal in the air: a faint shadow and ring on the ground under it
+	if flying or jumping(): # no pedestal in the air: a faint shadow and ring on the ground under it
 		if ground_drop < 0.0 or _dead:
 			return
 		var k := clampf(1.0 - ground_drop / SHADOW_FADE_PX, 0.45, 1.0)

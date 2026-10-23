@@ -20,6 +20,7 @@ signal fired
 signal finished
 
 const ProjectileView := preload("res://match/views/projectile_view.gd")
+const UnitShell := preload("res://match/views/unit_shell.gd")
 ## The muzzle blend: an ease with no jump in speed at either end, lasting long enough that it
 ## never takes more than SPAWN_MAX_DRAG of the shell's speed (the muzzle is ~30-40 px in front of
 ## the path's start: a short blend drew a slow shell going backwards), SPAWN_BLEND..SPAWN_BLEND_MAX
@@ -53,6 +54,11 @@ func is_playing() -> bool:
 	return _timeline != null
 
 
+## The replay time now (s since the shot; negative during the lead-in).
+func time() -> float:
+	return _t
+
+
 func play(timeline, lead_in: float = 0.0) -> void:
 	stop()
 	_timeline = timeline
@@ -73,11 +79,16 @@ func play(timeline, lead_in: float = 0.0) -> void:
 				offset = Vector2.ZERO
 		_spawn_offsets.append(offset)
 		_spawn_blends.append(blend_time(offset, timeline.velocity(i, launch).length(), timeline.projectile_end(i) - launch))
-		var view: Node2D = ProjectileView.new()
-		view.kind = str(style.get("kind", ""))
-		view.tier = str(style.get("tier", ""))
-		view.skill = bool(style.get("skill", false))
-		view.item = str(style.get("item", ""))
+		var view: Node2D
+		var unit_kind: String = timeline.kind(i)
+		if UnitShell.is_kind(unit_kind): # a boss's / minion's own projectile (boss mode v3)
+			view = UnitShell.new(unit_kind)
+		else:
+			view = ProjectileView.new()
+			view.kind = str(style.get("kind", ""))
+			view.tier = str(style.get("tier", ""))
+			view.skill = bool(style.get("skill", false))
+			view.item = str(style.get("item", ""))
 		view.heading = timeline.start_velocity(i)
 		if _skill_view != null:
 			var other = _skill_view.projectile_view(i, timeline.projectiles[i], view)
