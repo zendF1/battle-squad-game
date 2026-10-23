@@ -2,8 +2,9 @@ extends RefCounted
 ## Placeholder art of the bosses and their minions, drawn in code (original designs, cartoon with
 ## a dark outline like the characters; the real art replaces it later): Rô-bốt Thép (a steel mech
 ## titan with a reactor core, a visor, an arm cannon and a claw), its Drone (a floating eye with two
-## rotors), Cua Dung Nham (a basalt-shelled lava crab with glowing cracks, eye stalks and two
-## pincers), its Cua con (a small bright crab), Phù Thuỷ Băng (a hooded ice witch floating on frost
+## rotors), Cua Dung Nham (a basalt-shelled lava crab with glowing cracks, seen from the front and
+## symmetric: three legs and a raised pincer facing outward on each side, the eye stalks in the
+## middle), its Cua con (a small bright crab, the same build), Phù Thuỷ Băng (a hooded ice witch floating on frost
 ## mist with a crystal staff and orbiting shards) and its Người tuyết (a snowman with a pail, a
 ## scarf and a carrot nose). Any other boss / minion id gets a generic blob of its side.
 ##
@@ -31,8 +32,8 @@ const HOVER := {"drone": 10.0, "ice_witch": 6.0}
 const SHOT_LOOK := {"steel_robot": {"kind": "cannon", "tier": "titan"}, "lava_crab": {"kind": "bazooka", "tier": "dragon"},
 	"ice_witch": {"kind": "shock_rifle", "tier": "iron"}}
 ## The point (unit frame, facing right) a boss's beam and muzzle flash leave from.
-const MUZZLE := {"steel_robot": Vector2(64, -60), "lava_crab": Vector2(62, -50), "ice_witch": Vector2(30, -98),
-	"drone": Vector2(10, -62), "crab": Vector2(60, -40), "snowman": Vector2(26, -58)}
+const MUZZLE := {"steel_robot": Vector2(64, -60), "lava_crab": Vector2(64, -58), "ice_witch": Vector2(30, -98),
+	"drone": Vector2(10, -62), "crab": Vector2(60, -54), "snowman": Vector2(26, -58)}
 ## The accent colour of each art (the HUD bar's name, the shield's tint, the card's glow).
 const ACCENT := {"steel_robot": Color(1.0, 0.62, 0.22), "drone": Color(1.0, 0.35, 0.3), "lava_crab": Color(1.0, 0.45, 0.12),
 	"crab": Color(1.0, 0.55, 0.3), "ice_witch": Color(0.5, 0.9, 1.0), "snowman": Color(0.7, 0.9, 1.0),
@@ -322,72 +323,84 @@ static func _drone(ci: CanvasItem, t: float) -> void:
 # ── Cua Dung Nham / Cua con ─────────────────────────────────────────────────
 
 static func _crab(ci: CanvasItem, t: float, baby: bool) -> void:
+	# Symmetric, seen from the front: three legs and a claw on each side, both claws raised and
+	# facing outward, the eye stalks in the middle.
 	var shell := Color(0.85, 0.32, 0.14) if baby else Color(0.24, 0.16, 0.15)
 	var shell_light := Color(1.0, 0.55, 0.3) if baby else Color(0.4, 0.26, 0.22)
 	var limb := Color(0.95, 0.42, 0.18) if baby else Color(0.78, 0.26, 0.1)
-	var limb_dark := limb.darkened(0.3)
 	var glow := 0.5 + 0.5 * sin(t * 2.6)
 	var step := sin(t * 5.0)
 	var body := Vector2(0, -38)
-	# legs: three a side, the far side darker
-	for i in 3:
+	# legs: three a side, the back pair darker (behind the others)
+	for i in [2, 1, 0]:
 		var k := float(i)
+		var col := limb.darkened(0.12 * k)
 		for side in [-1.0, 1.0]:
-			var col := limb_dark if side < 0 else limb
-			var root := body + Vector2(side * (18 + k * 9), 8)
-			var knee := root + Vector2(side * (10 + k * 2), -10 + k * 2 + step * (1.5 if i % 2 == 0 else -1.5))
+			var root: Vector2 = body + Vector2(side * (18 + k * 9), 8)
+			var lift := step * (1.5 if (i % 2 == 0) == (side > 0) else -1.5)
+			var knee: Vector2 = root + Vector2(side * (10 + k * 2), -10 + k * 2 + lift)
 			var tip := Vector2(root.x + side * (16 + k * 3), 0)
 			_limb(ci, PackedVector2Array([root, knee, tip]), 6.5, col)
-	# the far claw (behind the shell)
-	var open := 0.12 + 0.1 * (0.5 + 0.5 * sin(t * 1.7))
-	_claw(ci, body + Vector2(30, -14), body + Vector2(44, -30), 20.0 if not baby else 15.0, limb_dark, open)
 	# shell
 	_ellipse(ci, body, 52, 30, shell)
 	_shape(ci, PackedVector2Array([body + Vector2(-46, 10), body + Vector2(46, 10), body + Vector2(36, 24), body + Vector2(-36, 24)]),
 		Color(1.0, 0.7, 0.45) if baby else Color(0.55, 0.3, 0.2))
-	ci.draw_colored_polygon(_ellipse_pts(body + Vector2(-8, -14), 34, 10), _c(Color(shell_light, 0.85)))
+	ci.draw_colored_polygon(_ellipse_pts(body + Vector2(0, -15), 34, 10), _c(Color(shell_light, 0.85)))
 	if not baby:
-		for s in [[-30, -20], [-6, -27], [18, -24], [38, -14]]:
-			_shape(ci, PackedVector2Array([body + Vector2(s[0] - 5, s[1] + 4), body + Vector2(s[0], s[1] - 8), body + Vector2(s[0] + 5, s[1] + 4)]),
+		for sx in [-30, -10, 10, 30]:
+			var sy := -20 if absi(sx) > 20 else -27
+			_shape(ci, PackedVector2Array([body + Vector2(sx - 5, sy + 4), body + Vector2(sx, sy - 8), body + Vector2(sx + 5, sy + 4)]),
 				Color(0.18, 0.12, 0.11))
 		var lava := Color(1.0, 0.55, 0.12).lerp(Color(1.0, 0.85, 0.35), glow)
-		for crack in [[Vector2(-38, -2), Vector2(-24, -8), Vector2(-16, 2), Vector2(-4, -6)], [Vector2(6, -14), Vector2(16, -4), Vector2(30, -10)],
-				[Vector2(-20, 10), Vector2(-6, 4), Vector2(10, 12), Vector2(26, 4)]]:
+		var cracks := [[Vector2(-40, -2), Vector2(-28, -8), Vector2(-18, 2), Vector2(-7, -6)],
+			[Vector2(-22, 12), Vector2(-9, 5), Vector2(0, 11)], [Vector2(0, -12), Vector2(0, -3)]]
+		for crack in cracks.duplicate():
+			if crack[0].x != 0.0:
+				cracks.append(crack.map(func(p: Vector2) -> Vector2: return Vector2(-p.x, p.y)))
+		for crack in cracks:
 			var pts := PackedVector2Array()
 			for p in crack:
 				pts.append(body + p)
 			ci.draw_polyline(pts, Color(1.0, 0.45, 0.1, 0.35 * (0.6 + glow)), _w(9.0), true)
 			ci.draw_polyline(pts, _c(lava), _w(3.2), true)
-		var drip := fmod(t * 0.7, 1.0)
-		ci.draw_circle(body + Vector2(-30, 22 + drip * 16), 2.6 * (1.0 - drip), Color(1.0, 0.6, 0.15, 1.0 - drip))
-	# eye stalks
-	for e in [[Vector2(8, -24), Vector2(10, -48)], [Vector2(22, -22), Vector2(28, -44)]]:
-		var top: Vector2 = body + e[1] + Vector2(0, sin(t * 2.0 + e[1].x) * 1.5)
-		_limb(ci, PackedVector2Array([body + e[0], top]), 4.0, limb)
+		for side in [-1.0, 1.0]:
+			var drip := fmod(t * 0.7 + (0.5 if side > 0 else 0.0), 1.0)
+			ci.draw_circle(body + Vector2(side * 30, 22 + drip * 16), 2.6 * (1.0 - drip), Color(1.0, 0.6, 0.15, 1.0 - drip))
+	# eye stalks, in the middle
+	for side in [-1.0, 1.0]:
+		var base: Vector2 = body + Vector2(side * 8, -24)
+		var top: Vector2 = body + Vector2(side * 12, -48) + Vector2(0, sin(t * 2.0 + side) * 1.5)
+		_limb(ci, PackedVector2Array([base, top]), 4.0, limb)
 		_circle(ci, top, 6.5 if not baby else 8.0, Color(1.0, 0.92, 0.4) if not baby else Color(1, 1, 1))
-		ci.draw_circle(top + Vector2(2, 0), 2.6 if not baby else 3.6, Color(0.08, 0.05, 0.05))
+		ci.draw_circle(top + Vector2(1.2, 0.6), 2.6 if not baby else 3.6, Color(0.08, 0.05, 0.05))
 		if baby:
-			ci.draw_circle(top + Vector2(3, -1.5), 1.2, Color(1, 1, 1))
-	# the near claw
-	_claw(ci, body + Vector2(38, 4), body + Vector2(54, -4), 25.0 if not baby else 18.0, limb, open + 0.05)
+			ci.draw_circle(top + Vector2(2.2, -1.0), 1.2, Color(1, 1, 1))
+	# a claw each side, raised, facing outward
+	var size := 22.0 if not baby else 17.0
+	for side in [-1.0, 1.0]:
+		var open := 0.12 + 0.1 * (0.5 + 0.5 * sin(t * 1.7 + (0.9 if side > 0 else 0.0)))
+		_claw(ci, body + Vector2(side * 40, -2), body + Vector2(side * 50, -16), size, limb, open, side)
 
 
 ## A pincer: an arm from `root` to the wrist `at`, a fat hand with a fixed finger below and a
-## moving one above, `size` units long, opening by `open`.
-static func _claw(ci: CanvasItem, root: Vector2, at: Vector2, size: float, col: Color, open: float) -> void:
+## moving one above, `size` units long, opening by `open`, pointing right (side 1) or left (-1).
+static func _claw(ci: CanvasItem, root: Vector2, at: Vector2, size: float, col: Color, open: float, side: float = 1.0) -> void:
+	var m := Vector2(side, 1.0)
 	_limb(ci, PackedVector2Array([root, at]), size * 0.42, col.darkened(0.08))
-	var hand := at + Vector2(size * 0.5, -size * 0.12)
-	var lower := PackedVector2Array([hand + Vector2(size * 0.1, size * 0.18), hand + Vector2(size * 0.55, size * 0.28),
-		hand + Vector2(size * 1.15, size * 0.12 + open * size * 0.3), hand + Vector2(size * 0.95, -size * 0.02), hand + Vector2(size * 0.35, -size * 0.05)])
-	var upper := PackedVector2Array([hand + Vector2(size * 0.15, -size * 0.3), hand + Vector2(size * 0.6, -size * 0.55 - open * size * 0.5),
-		hand + Vector2(size * 1.1, -size * 0.45 - open * size * 0.9), hand + Vector2(size * 0.9, -size * 0.2 - open * size * 0.4),
-		hand + Vector2(size * 0.4, -size * 0.1)])
+	var hand := at + Vector2(size * 0.5, -size * 0.12) * m
+	var lower := PackedVector2Array([hand + Vector2(size * 0.1, size * 0.18) * m, hand + Vector2(size * 0.55, size * 0.28) * m,
+		hand + Vector2(size * 1.15, size * 0.12 + open * size * 0.3) * m, hand + Vector2(size * 0.95, -size * 0.02) * m,
+		hand + Vector2(size * 0.35, -size * 0.05) * m])
+	var upper := PackedVector2Array([hand + Vector2(size * 0.15, -size * 0.3) * m, hand + Vector2(size * 0.6, -size * 0.55 - open * size * 0.5) * m,
+		hand + Vector2(size * 1.1, -size * 0.45 - open * size * 0.9) * m, hand + Vector2(size * 0.9, -size * 0.2 - open * size * 0.4) * m,
+		hand + Vector2(size * 0.4, -size * 0.1) * m])
 	_shape(ci, lower, col.darkened(0.15))
 	_shape(ci, upper, col)
-	_ellipse(ci, hand, size * 0.55, size * 0.38, col, -0.2)
-	ci.draw_colored_polygon(_ellipse_pts(hand + Vector2(-size * 0.12, -size * 0.14), size * 0.3, size * 0.12, -0.2), _c(Color(1, 1, 1, 0.22)))
-	ci.draw_circle(hand + Vector2(size * 1.08, -size * 0.43 - open * size * 0.88), size * 0.09, _c(Color(0.15, 0.08, 0.06)))
-	ci.draw_circle(hand + Vector2(size * 1.12, size * 0.12 + open * size * 0.3), size * 0.09, _c(Color(0.15, 0.08, 0.06)))
+	_ellipse(ci, hand, size * 0.55, size * 0.38, col, -0.2 * side)
+	ci.draw_colored_polygon(_ellipse_pts(hand + Vector2(-size * 0.12, -size * 0.14) * m, size * 0.3, size * 0.12, -0.2 * side),
+		_c(Color(1, 1, 1, 0.22)))
+	ci.draw_circle(hand + Vector2(size * 1.08, -size * 0.43 - open * size * 0.88) * m, size * 0.09, _c(Color(0.15, 0.08, 0.06)))
+	ci.draw_circle(hand + Vector2(size * 1.12, size * 0.12 + open * size * 0.3) * m, size * 0.09, _c(Color(0.15, 0.08, 0.06)))
 
 
 # ── Phù Thuỷ Băng ───────────────────────────────────────────────────────────
