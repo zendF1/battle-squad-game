@@ -37,6 +37,7 @@ const STUN_SEC := 1.4
 const STARS := 4
 const HALO_R := 130.0 # px: a radial burst's halo round its centre
 const ORB_R := 26.0
+const RADIAL_GAP := 46.0 # px: a radial burst's beams are drawn from this far out (radial_gap's default)
 
 var beams: Array = [] # BeamFan.beams()
 var layout := {}
@@ -45,6 +46,7 @@ var sweep_speed := 12000.0
 var beam_t := 0.6
 var beam_duration := 0.8
 var centre := Vector2.ZERO # a radial burst's centre (the boss's body centre)
+var radial_gap := RADIAL_GAP # px from a radial burst's centre to where its beams are drawn: the boss stays in sight
 var muzzle: Variant = null # the shooter's muzzle (layer coordinates): a charge there too (parallel beams)
 
 var _t := 0.0
@@ -169,11 +171,12 @@ func _refill(bucket: int, t: float) -> void:
 		var front := front_at(i, t)
 		var dir: Vector2 = b["dir"]
 		var ortho := dir.orthogonal()
-		var prev: Vector2 = b["from"]
+		var gap := minf(radial_gap, front) if is_radial() else 0.0
+		var prev: Vector2 = b["from"] + dir * gap
 		for k in range(1, BOLT_POINTS):
 			var u := float(k) / (BOLT_POINTS - 1)
 			var off := 0.0 if k == BOLT_POINTS - 1 else _noise(k + 13.0 * i, bucket) * BOLT_AMP
-			var p: Vector2 = b["from"] + dir * (front * u) + ortho * off
+			var p: Vector2 = b["from"] + dir * (gap + (front - gap) * u) + ortho * off
 			_bolt_pts[n] = prev
 			_bolt_pts[n + 1] = p
 			n += 2
@@ -234,12 +237,13 @@ func _draw_beams(t: float, _local: float, fade: float) -> void:
 		if front <= 0.0:
 			continue
 		var w := _flicker(t, i) * (0.35 + 0.65 * fade)
+		var gap := minf(radial_gap, front) if is_radial() else 0.0
 		draw_set_transform(b["from"], b["dir"].angle())
 		var gw := GLOW_W * w
-		draw_texture_rect(_band, Rect2(0, -gw / 2, front, gw), false, _color("glow", 0.55 * fade))
+		draw_texture_rect(_band, Rect2(gap, -gw / 2, front - gap, gw), false, _color("glow", 0.55 * fade))
 		var bw := BODY_W * w
-		draw_texture_rect(_band, Rect2(0, -bw / 2, front, bw), false, _color("mid", 0.95 * fade))
-		draw_rect(Rect2(0, -CORE_W * w / 2, front, CORE_W * w), _color("core", fade))
+		draw_texture_rect(_band, Rect2(gap, -bw / 2, front - gap, bw), false, _color("mid", 0.95 * fade))
+		draw_rect(Rect2(gap, -CORE_W * w / 2, front - gap, CORE_W * w), _color("core", fade))
 		draw_set_transform(Vector2.ZERO)
 		if front < float(b["length"]):
 			var f := 20.0

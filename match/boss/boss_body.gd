@@ -66,8 +66,9 @@ var _trail_idle := 0.0
 var _ball: ShieldBall # the shield, over the figure
 static var _halo_tex: GradientTexture2D
 var _shard_phase := 0.0 # the orbiting shards' angle (integrated: they spin up and down smoothly)
-var _cast := 0.0 # s left before the cast shards fly off (cast_shards())
+var _cast := 0.0 # s left before the cast shards start flying off (cast_shards())
 var _cast_sec := 0.0
+var _throw := 0.0 # s left of them flying off, one after another
 var _regrow := 1.0 # 0..1 the shards grown back after a cast
 
 
@@ -154,10 +155,12 @@ func _draw() -> void:
 
 
 ## The witch casts her shards (her blizzard): over lead s they spin up and multiply round her,
-## then they are gone (flying as the blizzard's projectiles) and grow back over SHARD_REGROW s.
-func cast_shards(lead: float) -> void:
+## for throw s more they whirl fast while the blizzard's shards leave her one after another, then
+## they are gone and grow back over SHARD_REGROW s.
+func cast_shards(lead: float, throw: float = 0.0) -> void:
 	_cast = maxf(lead, 0.05)
 	_cast_sec = _cast
+	_throw = maxf(throw, 0.0)
 	_regrow = 1.0
 
 
@@ -167,11 +170,13 @@ func shards() -> Dictionary:
 		var k := 1.0 - _cast / maxf(_cast_sec, 0.01) # 0 → 1 over the spin-up
 		return {"phase": _shard_phase, "n": SHARDS + int(round((SHARDS_CAST - SHARDS) * minf(k * 1.6, 1.0))), "size": 1.0 + 0.25 * k,
 			"reach": 1.0 + 0.35 * k}
+	if _throw > 0.0: # throwing: they whirl, flickering in and out as each one leaves
+		return {"phase": _shard_phase, "n": SHARDS_CAST, "size": 0.85 + 0.35 * absf(sin(_t * 23.0)), "reach": 1.35}
 	return {"phase": _shard_phase, "n": SHARDS, "size": _regrow, "reach": 0.6 + 0.4 * _regrow}
 
 
 func casting_shards() -> bool:
-	return _cast > 0.0
+	return _cast > 0.0 or _throw > 0.0
 
 
 func _step_shards(delta: float) -> void:
@@ -180,8 +185,13 @@ func _step_shards(delta: float) -> void:
 		var k := 1.0 - _cast / maxf(_cast_sec, 0.01)
 		spin *= 1.0 + (SHARD_SPIN_CAST - 1.0) * k
 		_cast = maxf(0.0, _cast - delta)
-		if _cast <= 0.0:
+		if _cast <= 0.0 and _throw <= 0.0:
 			_regrow = 0.0 # off they fly
+	elif _throw > 0.0:
+		spin *= SHARD_SPIN_CAST
+		_throw = maxf(0.0, _throw - delta)
+		if _throw <= 0.0:
+			_regrow = 0.0 # the last one left
 	elif _regrow < 1.0:
 		_regrow = minf(1.0, _regrow + delta / SHARD_REGROW)
 	_shard_phase += spin * delta

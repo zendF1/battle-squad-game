@@ -159,8 +159,9 @@ func test_leap_warning_state() -> void:
 	check(not w.warning("s3"), "the state says no more")
 	w.on_jump("s4", 3)
 	check(w.clear("s4") and not w.warning("s4"), "dead: cleared")
-	w.on_state("s5", {"hp": 10}, 1, "p1")
-	check(not w.warning("s5"), "no leapt field: nothing")
+	w.on_jump("s5", 4)
+	w.on_state("s5", {"hp": 10}, 5, "p1")
+	check(not w.warning("s5"), "a full state without leapt (omitempty): not leapt")
 
 
 func test_leapt_glow_pulses() -> void:
@@ -587,6 +588,12 @@ func test_witch_casts_her_shards() -> void:
 	check(float(b.shards()["phase"]) - p0 > BossBody.SHARD_SPIN * 0.1 * 3.0, "and spin up")
 	b._process(0.1)
 	check(not b.casting_shards() and float(b.shards()["size"]) < 0.2, "off they fly: gone")
+	b._process(BossBody.SHARD_REGROW + 0.1)
+	b.cast_shards(0.6, 1.0) # 40 shards leaving 0.08 s apart over a second
+	b._process(0.7)
+	check(b.casting_shards() and int(b.shards()["n"]) == BossBody.SHARDS_CAST, "whirling while they leave one after another")
+	b._process(1.0)
+	check(not b.casting_shards() and float(b.shards()["size"]) < 0.2, "the last one gone")
 	b._process(BossBody.SHARD_REGROW * 0.5)
 	near(float(b.shards()["size"]), 0.5, 0.12, "regrowing")
 	b._process(BossBody.SHARD_REGROW)

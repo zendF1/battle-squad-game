@@ -15,15 +15,13 @@ func on_jump(id: String, turn_index: int) -> void:
 		_leapt[id] = turn_index
 
 
-## A state of a player (its leapt field); turn_index / current: the state's turn and its player
-## (a leaper whose own turn it is leapt in it).
+## A full state of a player (its leapt field: the server leaves it out when false); turn_index /
+## current: the state's turn and its player (a leaper whose own turn it is leapt in it).
 func on_state(id: String, p: Variant, turn_index: int, current: String) -> void:
 	if not p is Dictionary:
 		return
 	var v = p.get("leapt")
-	if not v is bool:
-		return
-	if not v or p.get("isAlive") == false:
+	if v != true or p.get("isAlive") == false:
 		_leapt.erase(id)
 	elif not _leapt.has(id):
 		_leapt[id] = turn_index if id == current else -1

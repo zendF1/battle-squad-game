@@ -73,7 +73,7 @@ func test_unit_kinds_from_state_and_game_data() -> void:
 	check(not GameData.unit_flying({"role": "boss", "bossId": "ice_witch", "flying": false}), "the state's flying wins")
 	check(not GameData.unit_flying({"characterId": "rookie"}), "a player never")
 	eq(GameData.unit_behavior({"role": "minion", "bossId": "lava_crab", "minionId": "crab"}), "bomber", "a crabling bombs")
-	eq(GameData.unit_behavior({"role": "minion", "bossId": "ice_witch", "minionId": "snowman"}), "shooter", "a snowman shoots")
+	eq(GameData.unit_behavior({"role": "minion", "bossId": "ice_witch", "minionId": "snowman"}), "leaper", "a snowman leaps (v3)")
 	eq(GameData.unit_behavior({"role": "minion", "minionId": "snowman", "behavior": "bomber"}), "bomber", "the state's behavior wins")
 	eq(GameData.unit_movement({"role": "minion", "bossId": "lava_crab", "minionId": "crab"}), "walk", "walks")
 	eq(GameData.unit_detonate_range({"role": "minion", "bossId": "steel_robot", "minionId": "drone"}), 70.0, "detonateRange")

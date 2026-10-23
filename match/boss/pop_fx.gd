@@ -29,6 +29,8 @@ func _draw() -> void:
 		var a := TAU * i / STARS + 0.3
 		var p := Vector2(cos(a), sin(a)) * radius * 1.3 * ease_k
 		var s := 6.0 * fade
+		if s < 0.5:
+			continue # too small to triangulate
 		var pts := PackedVector2Array()
 		for j in 8:
 			var b := TAU * j / 8.0

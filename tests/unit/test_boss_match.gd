@@ -35,7 +35,8 @@ func test_boss_skill_views() -> void:
 	eq(rain.skill_name(), "Mưa đạn pháo", "its name")
 	check(Skills.view_for_skill("frost_beam").get_script().resource_path.ends_with("boss_beam.gd"), "beam kind")
 	check(Skills.view_for_skill("frost_beam").param("sweepSpeed") > 0.0, "the laser's tuning")
-	eq(Skills.view_for_skill("drone_wave").skill_name(), "Gọi drone", "summon: the base view, named")
+	check(Skills.view_for_skill("claw_slam").get_script().resource_path.ends_with("skill_view.gd"), "shockwave: the base view (match_screen draws the wave)")
+	eq(Skills.view_for_skill("claw_slam").skill_name(), "Cú kẹp đập", "named")
 	check(not Skills.view_for_skill("triple_shot").get_script().resource_path.ends_with("boss_rain.gd"), "a character skill keeps its view")
 
 

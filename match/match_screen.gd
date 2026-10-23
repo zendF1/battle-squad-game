@@ -733,6 +733,7 @@ func _apply(event: String, data: Variant) -> void:
 			var framed: bool = _skill_view != null and _skill_view.frames_map()
 			if _boss.active and shooter == _boss.player_id and _start_shockwave(timeline):
 				framed = true
+			var wide_summon := timeline.action_mode == SUMMON and _summons_spread(timeline.events)
 			var lead_in := _show_shooting(shooter, timeline)
 			_cast_shards(shooter, timeline)
 			_focus.clear()
@@ -740,6 +741,8 @@ func _apply(event: String, data: Variant) -> void:
 			if framed:
 				_cam.frame_map()
 				_hud.fade_boss_skill() # the map's top (the boss in the air) comes under it
+			elif wide_summon:
+				_cam.frame_map() # a wave over the whole map: all of it in view (Triệu hồi stays)
 			_shot_player.play(timeline, lead_in)
 			_refresh_controls()
 		"PlayerDamaged": # lava / burn at turn start, out_of_map after a walk's fall (shot damage comes in ShotResolved)
@@ -1657,23 +1660,38 @@ func _on_unit_jumped(d: Variant) -> void:
 		return
 	view.set_leapt(true)
 	view.jump(jump.from, jump.to, jump.duration, jump.height)
+	_cam.sky = true # its arc may top out above the map (this turn's follow rises with it)
 	if view.in_flight():
 		_flight_hold = true
 		_hold_focus({"view": view}, jump.duration + FALL_TAIL)
 
 
-## The witch's blizzard (projectiles of kind ice_shard from her): her orbiting shards spin up and
-## multiply until the first one leaves, then regrow (BossBody.cast_shards()).
+## The witch's blizzard (projectiles of kind ice_shard leaving a ring round her, server launchFrom
+## boss): her orbiting shards spin up and multiply until the first one leaves, whirl while they
+## leave one after another, then regrow (BossBody.cast_shards()).
 func _cast_shards(shooter: String, timeline) -> void:
 	var view = _views.get(shooter)
 	if view == null or not view.is_boss_side() or not view.figure().has_method("cast_shards"):
 		return
 	var first := INF
+	var last := -INF
 	for i in timeline.projectiles.size():
 		if timeline.kind(i) == UnitShell.ICE_SHARD:
 			first = minf(first, timeline.launch_time(i))
+			last = maxf(last, timeline.launch_time(i))
 	if first < INF:
-		view.figure().cast_shards(first)
+		view.figure().cast_shards(first, last - first)
+
+
+## A summon's minions appear farther apart than the view is wide.
+func _summons_spread(events: Array) -> bool:
+	var lo := INF
+	var hi := -INF
+	for e in events:
+		if e is Dictionary and str(e.get("type", "")) == "summon" and e.get("position") is Dictionary:
+			lo = minf(lo, float(e["position"].get("x", 0.0)))
+			hi = maxf(hi, float(e["position"].get("x", 0.0)))
+	return hi - lo > _cam.world_view().x * 0.8
 
 
 ## The turn turn_index of player id ended: a leap before it is spent (its glow goes off).

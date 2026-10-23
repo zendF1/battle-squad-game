@@ -42,7 +42,7 @@ const BOMB_PX := 2.0 # ProjectileView's picture px per world px
 const EXTENT := {STEEL_SHELL: 30.0, MAGMA_BOMB: 24.0, ICE_SHARD: 24.0, ICE_SPIKE: 38.0, DRONE_BOLT: 26.0, CRAB_SPIT: 16.0, SNOWBALL: 17.0}
 
 const OUT := Color(0.08, 0.06, 0.12)
-const POOL := 40
+const POOL := 18 # trail particles per shell (40 of the witch's shards fly at once)
 ## kind -> its trail (sizes in px at a player shell's size; × the body's scale): every px between
 ## two particles, their life (s), size from / to, colour, drift (px/s: + down), glow; mix: the share
 ## of them drawn as the second look (look2: "smoke", "glint" or "spark").
@@ -168,7 +168,7 @@ func _process(delta: float) -> void:
 		_age[i] += delta
 	var spec: Dictionary = TRAILS[kind]
 	_since += step
-	var every: float = float(spec["every"]) * maxf(_s * 0.8, 0.6)
+	var every: float = float(spec["every"]) * maxf(_s * 1.1, 0.8)
 	while _since >= every:
 		_since -= every
 		_pos[_next] = p - _dir * (_since + drawn_px() * 0.4)
@@ -234,8 +234,8 @@ func _draw_trail() -> void:
 					var v := Vector2.from_angle(_seed[i] * 40.0) * 26.0 * a
 					draw_line(at + v, at + v * 1.4 + Vector2(0, 2), Color(col2, 1.0 - k), 1.6, true)
 			continue
-		if spec.get("glow", false):
-			draw_circle(at, r * 2.0, Color(col, col.a * 0.25 * (1.0 - k)))
+		if spec.get("glow", false) and i % 2 == 0:
+			draw_circle(at, r * 2.0, Color(col, col.a * 0.3 * (1.0 - k)))
 		draw_circle(at, r, Color(col, col.a * (1.0 - k)))
 
 

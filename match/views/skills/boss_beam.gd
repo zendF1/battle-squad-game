@@ -45,6 +45,8 @@ func begin(context: Dictionary) -> void:
 	var view = ctx.get("views", {}).get(str(ctx.get("shooter", "")))
 	if view != null and is_instance_valid(view) and view.has_method("fire_muzzle_position") and view.is_inside_tree():
 		_fan.muzzle = layer.to_local(view.fire_muzzle_position())
+	if view != null and is_instance_valid(view) and view.has_method("figure") and view.figure().has_method("art_height"):
+		_fan.radial_gap = maxf(BeamFanFx.RADIAL_GAP, view.figure().art_height() * 0.6) # her figure clear of the beams
 
 
 ## Many beams reach every edge: the camera frames the whole map while they play.
