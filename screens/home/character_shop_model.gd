@@ -39,6 +39,7 @@ const TINTS := {
 	"tanko": Color(0.42, 0.5, 0.3),
 	"spark": Color(0.56, 0.36, 0.9),
 	"flora": Color(0.3, 0.75, 0.5),
+	"tide": Color(0.2, 0.7, 0.85),
 }
 const NEUTRAL_TINT := Color(0.35, 0.45, 0.7)
 

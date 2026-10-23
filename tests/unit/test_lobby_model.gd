@@ -41,8 +41,8 @@ func test_ranked_base() -> void:
 
 func test_cycle_characters_wraps() -> void:
 	eq(LobbyModel.cycle_character("rookie", 1), "tanko", "next")
-	eq(LobbyModel.cycle_character("flora", 1), "rookie", "wraps forward")
-	eq(LobbyModel.cycle_character("rookie", -1), "flora", "wraps back")
+	eq(LobbyModel.cycle_character("tide", 1), "rookie", "wraps forward")
+	eq(LobbyModel.cycle_character("rookie", -1), "tide", "wraps back")
 	eq(LobbyModel.cycle_character("spark", -1), "tanko", "previous")
 	eq(LobbyModel.cycle_character("ghost", 1), "tanko", "unknown counts as the first")
 

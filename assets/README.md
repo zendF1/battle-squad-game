@@ -185,6 +185,18 @@ diamond): 5 món trên một hàng, trái → phải **mũ, áo giáp, găng tay
 là ghi lại `assets/icons/equipment/<món>_<cấp>.png` (cùng tên: Túi đồ, Shop, Nhân vật, Chuẩn bị tự đổi);
 đợi editor import xong.
 
+## Tide's placeholder art
+
+Tide (water) has no drawn art yet: `characters/tide/` is Flora's art recoloured teal and white
+(side view, lobby full body, portrait; the JSONs copied with the ids changed), her water gun
+`weapons/water_gun/hug_<tier>.png` and `icons/equipment/weapon_water_<tier>.png` are Flora's seed
+launcher recoloured, `fx/water_gun/` (orb, droplet trail, water burst) is painted by a script.
+`ui/art.gd` `PLACEHOLDER_CHARACTERS` / `PLACEHOLDER_SOURCE` mark it; her pose scenes
+(`scenes/character/poses/tide_ready.tscn`, `tide_carry.tscn`) show Flora's pictures in the
+editor (the same sizes). To give her real art, draw it from `art_source/characters/tide/PROMPTS.md`,
+add its `side_run/import.json` like Flora's and run `tools/import_frames.gd tide`, then drop her
+from `PLACEHOLDER_CHARACTERS`.
+
 ## Re-baking the placeholder art
 
 Run windowed (a headless run has no renderer), from the project folder:

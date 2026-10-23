@@ -3,21 +3,23 @@ extends RefCounted
 ## slot shows the generic "skill" icon), for the use badge over a player (use_badge.gd). A skill
 ## id is looked up in the game data (its effectType):
 ## - missile_rain (Mưa tên lửa): three missiles diving with flame tails;
-## - bomb_chain (Bom liên hoàn): two round bombs in a row, the front one's fuse lit;
+## - bomb_chain (Tanko's chain): two round bombs in a row, the front one's fuse lit;
 ## - laser (Tia laze): a straight beam with a bright core from an emitter to a flash;
-## - bloom (Hoa hồi xuân): a five-petal flower with a gold heart.
+## - bloom (Hoa hồi xuân): a five-petal flower with a gold heart;
+## - nova (Nổ bông tuyết): a six-arm snowflake.
 ## A skill of another (or no) effect type draws the generic "skill" icon. Each type also has a
 ## colour (the badge's rim and its name) and a disc the picture sits on (disc()).
 
 const Art := preload("res://ui/art.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
-const TYPES := ["missile_rain", "bomb_chain", "laser", "bloom"]
+const TYPES := ["missile_rain", "bomb_chain", "laser", "bloom", "nova"]
 const COLORS := {
 	"missile_rain": Color(1.0, 0.55, 0.2),
 	"bomb_chain": Color(1.0, 0.72, 0.25),
 	"laser": Color(0.45, 0.9, 1.0),
 	"bloom": Color(0.5, 0.95, 0.5),
+	"nova": Color(0.72, 0.92, 1.0),
 }
 const DEFAULT_COLOR := Color(1.0, 0.84, 0.35)
 const DISCS := {
@@ -25,6 +27,7 @@ const DISCS := {
 	"bomb_chain": Color(0.95, 0.6, 0.22),
 	"laser": Color(0.08, 0.2, 0.42),
 	"bloom": Color(0.18, 0.42, 0.24),
+	"nova": Color(0.1, 0.24, 0.48),
 }
 const DEFAULT_DISC := Color(0.25, 0.22, 0.1)
 
@@ -56,6 +59,7 @@ static func draw(ci: CanvasItem, skill_id: String, c: Vector2, size: float) -> v
 		"bomb_chain": _bombs(ci, c, k)
 		"laser": _laser(ci, c, k)
 		"bloom": _bloom(ci, c, k)
+		"nova": _snowflake(ci, c, k)
 		_:
 			var tex := Art.icon("skill")
 			ci.draw_texture_rect(tex, Rect2(c - Vector2(k, k), Vector2(size, size)), false)
@@ -125,3 +129,23 @@ static func _bloom(ci: CanvasItem, c: Vector2, k: float) -> void:
 		ci.draw_circle(c + Vector2(0, -0.12) * k + d * k * 0.5, k * 0.18, Color(1.0, 0.8, 0.9))
 	ci.draw_circle(c + Vector2(0, -0.12) * k, k * 0.28, Color(1.0, 0.84, 0.3))
 	ci.draw_circle(c + Vector2(-0.08, -0.2) * k, k * 0.1, Color(1.0, 0.97, 0.75))
+
+
+## A six-arm snowflake: each arm with two pairs of side branches, a hexagon heart.
+static func _snowflake(ci: CanvasItem, c: Vector2, k: float) -> void:
+	var w := maxf(1.5, k * 0.13)
+	var col := Color(0.88, 0.97, 1.0)
+	for i in 6:
+		var d := Vector2.from_angle(-PI / 2.0 + TAU * i / 6.0)
+		var tip := c + d * k * 0.9
+		ci.draw_line(c, tip, Color(0.3, 0.6, 0.95), w * 1.8, true)
+		ci.draw_line(c, tip, col, w, true)
+		for f in [0.45, 0.7]:
+			var at: Vector2 = c + d * k * f
+			for side in [-1.0, 1.0]:
+				var b := d.rotated(side * PI / 3.0) * k * (0.32 if f < 0.5 else 0.22)
+				ci.draw_line(at, at + b, col, w * 0.8, true)
+	var hexa := PackedVector2Array()
+	for i in 6:
+		hexa.append(c + Vector2.from_angle(TAU * i / 6.0) * k * 0.2)
+	ci.draw_colored_polygon(hexa, Color(0.95, 1.0, 1.0))

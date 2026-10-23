@@ -24,6 +24,7 @@ const VIEWS := {
 	"bomb_chain": preload("res://match/views/skills/bomb_chain.gd"),
 	"laser": preload("res://match/views/skills/laser.gd"),
 	"bloom": preload("res://match/views/skills/bloom.gd"),
+	"nova": preload("res://match/views/skills/nova.gd"),
 }
 
 

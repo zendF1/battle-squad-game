@@ -198,7 +198,19 @@ func frame_map(sec: float = FRAME_SEC) -> void:
 	_ease_zoom(min_zoom(), sec)
 
 
-## Back from frame_map(): the zoom eases back to the one before; nothing when not framed.
+## A wide area in view (Tide's snow nova: its whole radius): the zoom eases out until `size`
+## (world px, plus a margin) fits the view, never closer than now nor past min_zoom(); unframe()
+## brings the zoom before back.
+func frame_size(size: Vector2, sec: float = FRAME_SEC) -> void:
+	var fit := minf(view_size.x / maxf(size.x * 1.15, 1.0), view_size.y / maxf(size.y * 1.25, 1.0))
+	if fit >= zoom:
+		return
+	if _framed_from < 0.0:
+		_framed_from = zoom
+	_ease_zoom(fit, sec)
+
+
+## Back from frame_map() / frame_size(): the zoom eases back to the one before; nothing when not framed.
 func unframe(sec: float = FRAME_SEC) -> void:
 	if _framed_from < 0.0:
 		return

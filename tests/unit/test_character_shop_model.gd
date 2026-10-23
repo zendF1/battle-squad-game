@@ -17,6 +17,7 @@ const DATA := {"characters": [], "baseStats": {
 	"rookie": {"maxHp": 1500, "defense": 50, "damageBonus": 0, "moveEnergy": 100, "skillPowerBonus": 0, "terrainDamageBonus": 0, "weaponDamage": 480},
 	"tanko": {"maxHp": 1650, "defense": 60, "damageBonus": 0, "moveEnergy": 80, "skillPowerBonus": 0, "terrainDamageBonus": 0, "weaponDamage": 420},
 	"spark": {"maxHp": 1250, "defense": 30, "damageBonus": 0, "moveEnergy": 120, "skillPowerBonus": 0, "terrainDamageBonus": 0, "weaponDamage": 620},
+	"tide": {"maxHp": 1400.0, "defense": 45.0, "damageBonus": 0.0, "moveEnergy": 110.0, "skillPowerBonus": 0.0, "terrainDamageBonus": 0.0, "weaponDamage": 500.0},
 	"flora": {"maxHp": 1900.0, "defense": 90.0, "damageBonus": 0.0, "moveEnergy": 100.0, "skillPowerBonus": 0.0, "terrainDamageBonus": 0.0, "weaponDamage": 380.0},
 }}
 
@@ -82,7 +83,7 @@ func test_stat_rows() -> void:
 
 
 func test_crater_radius() -> void:
-	eq(Model.ids().map(func(id): return Model.crater_radius(id)), [12, 18, 12, 14], "terrain damage × 0.6")
+	eq(Model.ids().map(func(id): return Model.crater_radius(id)), [12, 18, 12, 14, 10], "terrain damage × 0.6 (Tide 16 → 10)")
 	eq(Model.crater_radius("nobody"), 0, "unknown")
 
 
@@ -109,7 +110,7 @@ func test_follows_the_game_data() -> void:
 
 
 func test_data_for_every_character() -> void:
-	eq(Model.ids(), ["rookie", "tanko", "spark", "flora"], "roster order")
+	eq(Model.ids(), ["rookie", "tanko", "spark", "flora", "tide"], "roster order")
 	for id in Model.ids():
 		var info := Model.info(id)
 		check(info["name"] != id and info["role"] != "", "%s name and role" % id)
@@ -123,7 +124,7 @@ func test_data_for_every_character() -> void:
 		var words := str(info["playstyle"]).replace(info["skill"]["name"], "") # a skill name is not a number
 		check(RegEx.create_from_string("[0-9]").search(words) == null, "%s playstyle has no numbers" % id)
 		check(Art.hug_gun(info["weapon"]["kind"], info["weapon"]["tier"])["hug"], "%s hug art" % id)
-	eq(Model.ids().map(func(id): return Model.info(id)["role"]), ["Cân bằng", "Phá địa hình", "Sát thương", "Bền bỉ"], "roles")
+	eq(Model.ids().map(func(id): return Model.info(id)["role"]), ["Cân bằng", "Phá địa hình", "Sát thương", "Bền bỉ", "Khống chế"], "roles")
 	eq(Model.info("tanko")["weapon"]["name"], "Đại pháo", "weapon name")
 	eq(Model.info("tanko")["weapon"]["wind"], "Gió đẩy ×0,3", "heavy shot")
 	eq(Model.info("spark")["weapon"]["wind"], "Gió đẩy ×1,6", "light shot")

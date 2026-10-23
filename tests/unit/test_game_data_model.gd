@@ -84,7 +84,7 @@ func test_terrain_movement_timings() -> void:
 
 
 func test_characters_weapons_items() -> void:
-	eq(GameData.character_ids(), ["rookie", "tanko", "spark", "flora"], "display order")
+	eq(GameData.character_ids(), ["rookie", "tanko", "spark", "flora", "tide"], "display order")
 	eq(GameData.default_character_id(), "rookie", "default")
 	eq([GameData.character_name("tanko"), GameData.character_role_name("tanko"), GameData.character_gun_kind("tanko")],
 		["Tanko", "Phá địa hình", "cannon"], "tanko")
@@ -119,7 +119,7 @@ func test_status_rank_levels_equipment() -> void:
 	eq([GameData.skill_rank_of_weapon("rookie_weapon_lv20"), GameData.skill_rank_of_weapon("crafted_weapon_gold"),
 		GameData.skill_rank_of_weapon("odd_weapon_x"), GameData.skill_rank_of_weapon("")], [2, 3, 0, 0], "skill ranks by weapon")
 	eq([GameData.coins_per_gem(), GameData.match_slots(), GameData.team_size(), GameData.match_start_delay_sec()], [100, 4, 2, 3.0], "economy, matchmaking")
-	eq(GameData.tips().size(), 12, "tips")
+	eq(GameData.tips().size(), 14, "tips")
 	eq(GameData.lobby_modes().map(func(m): return m["modeId"]), ["practice", "ranked", "bot"], "lobby modes")
 	eq([GameData.match_mode_name("pvp_2v2"), GameData.match_mode_name("koth")], ["Đấu 2v2", "koth"], "match modes; an unknown one raw")
 	eq([GameData.default_theme(), GameData.themes().size()], ["grassland", 11], "themes")
@@ -131,7 +131,7 @@ func test_slots_type_words_gun_kinds() -> void:
 	eq([GameData.type_word_name("shock rifle"), GameData.type_word_gun_kind("shock rifle")], ["Súng điện", "shock_rifle"], "a gun's type word")
 	eq([GameData.type_word_name("vest"), GameData.type_word_gun_kind("vest")], ["Áo giáp", ""], "an armour's")
 	eq([GameData.type_word_name("laser"), GameData.type_word_gun_kind("laser")], ["", ""], "unknown")
-	eq(GameData.gun_kinds().map(func(g): return g["id"]), ["bazooka", "cannon", "shock_rifle", "seed_launcher", "blaster"], "gun kinds in order")
+	eq(GameData.gun_kinds().map(func(g): return g["id"]), ["bazooka", "cannon", "shock_rifle", "seed_launcher", "blaster", "water_gun"], "gun kinds in order")
 	eq([GameData.gun_kind_name("seed_launcher"), GameData.gun_kind_name("laser")], ["Súng hạt", ""], "gun kind names")
 
 

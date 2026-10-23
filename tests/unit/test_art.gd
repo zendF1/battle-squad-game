@@ -96,7 +96,7 @@ func test_gun_sprites_match_their_metadata() -> void:
 		if not data["guns"].has(kind):
 			# A kind with no held sprites (the bazooka, the cannon, the seed launcher, the shock
 			# rifle: every character's gun) is its hug art in every tier.
-			check(["bazooka", "cannon", "seed_launcher", "shock_rifle"].has(kind), "%s: only the characters' guns have no held sprites" % kind)
+			check(["bazooka", "cannon", "seed_launcher", "shock_rifle", "water_gun"].has(kind), "%s: only the characters' guns have no held sprites" % kind)
 			for tier in Art.GUN_TIERS[kind]:
 				check(not Art.hug_meta(kind, tier).is_empty() and FileAccess.file_exists(Art.hug_gun_path(kind, tier)), "%s %s hug art" % [kind, tier])
 				check(not FileAccess.file_exists(Art.gun_path(kind, tier)), "no old %s %s sprite" % [kind, tier])
@@ -499,7 +499,9 @@ func test_ready_pose_scenes() -> void:
 				eq(body.offset, -Art.FRAME_PIVOT, "%s the feet on the origin" % id)
 				check(Art.ready_pose(id).is_empty(), "%s no ready pose before its side view" % id)
 		root.free()
-		# The config the importer fills it from names this scene.
+		# The config the importer fills it from names this scene (a placeholder's art has none yet).
+		if Art.PLACEHOLDER_CHARACTERS.has(id):
+			continue
 		var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://art_source/characters/%s/side_run/import.json" % id))
 		check(cfg is Dictionary and str(cfg.get("poses", {}).get("ready", {}).get("scene", "")) == path, "%s import.json names %s" % [id, path])
 		check(cfg is Dictionary and not cfg.get("poses", {}).get("ready", {}).has("hands"), "%s no hand cut-outs" % id)
@@ -1292,11 +1294,15 @@ func test_import_frames_arguments() -> void:
 	var I := load("res://tools/import_frames.gd")
 	var cfg_of := func(id: String) -> String: return "res://art_source/characters/%s/side_run/import.json" % id
 	for id in Art.CHARACTERS:
-		eq(I.configs_for([id]), {"configs": [cfg_of.call(id)], "unknown": []}, "-- " + id)
+		if Art.PLACEHOLDER_CHARACTERS.has(id):
+			eq(I.configs_for([id]), {"configs": [], "unknown": [id]}, "-- %s: a placeholder, no config yet" % id)
+		else:
+			eq(I.configs_for([id]), {"configs": [cfg_of.call(id)], "unknown": []}, "-- " + id)
 	eq(I.configs_for(["tanko", "flora"])["configs"], [cfg_of.call("tanko"), cfg_of.call("flora")], "two ids")
 	var all: Array = I.configs_for([])["configs"]
 	for id in Art.CHARACTERS:
-		check(all.has(cfg_of.call(id)), "no argument: every character (%s)" % id)
+		if not Art.PLACEHOLDER_CHARACTERS.has(id): # a placeholder (recoloured) has no config yet
+			check(all.has(cfg_of.call(id)), "no argument: every character (%s)" % id)
 	eq(I.configs_for(["res://x/import.json"]), {"configs": ["res://x/import.json"], "unknown": []}, "a config path")
 	eq(I.configs_for(["nope"]), {"configs": [], "unknown": ["nope"]}, "unknown id")
 	eq(I.configs_for(["../rookie"])["unknown"], ["../rookie"], "not a folder name")

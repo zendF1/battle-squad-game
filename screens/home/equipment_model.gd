@@ -33,7 +33,8 @@ const GameData := preload("res://autoload/game_data_model.gd")
 ##
 ## The held gun sprite (ui/art.gd GUN_KINDS, the game data's gun kinds) of a weapon_kind() icon
 ## kind (ui/art.gd EQUIP_WEAPON_KINDS); "" (generic and crafted weapons) is the blaster.
-const GUN_OF_KIND := {"bazooka": "bazooka", "cannon": "cannon", "rifle": "shock_rifle", "launcher": "seed_launcher", "": "blaster"}
+const GUN_OF_KIND := {"bazooka": "bazooka", "cannon": "cannon", "rifle": "shock_rifle", "launcher": "seed_launcher", "water": "water_gun",
+	"": "blaster"}
 ## key: the catalog field; point: the statMultipliers / stats.equipmentPoints key ("" for crit);
 ## unit "%" for the crit chance; total: the stats.fromEquipment field.
 const STATS := [

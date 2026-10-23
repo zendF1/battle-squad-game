@@ -333,6 +333,18 @@ func test_idle_gun_slung_on_the_back() -> void:
 ## the match draws the iron hug gun slung exactly as the Preview shows it (the same texture px →
 ## Flip transform), behind the body, mirrored facing left; another tier hangs at the same place on
 ## the socket at the same length; on every walk frame the WalkPreview's gun is the match's.
+## The resource path a picture is drawn with: its own once the editor imported it, "" while only
+## its PNG is read (a fresh file, Art._png_texture()).
+static func _drawn(path: String) -> String:
+	var imp := path + ".import"
+	if not FileAccess.file_exists(imp):
+		return path
+	for line in FileAccess.get_file_as_string(imp).split("\n"):
+		if line.begins_with("path="):
+			return path if FileAccess.file_exists(line.trim_prefix("path=").trim_prefix("\"").trim_suffix("\"")) else ""
+	return path
+
+
 func test_carry_scenes_match_the_game() -> void:
 	var Art := preload("res://ui/art.gd")
 	var CarryWalk := load("res://scenes/character/poses/carry_walk.gd")
@@ -353,9 +365,10 @@ func test_carry_scenes_match_the_game() -> void:
 		eq(walk.get_script(), CarryWalk, "%s: WalkPreview plays the walk" % id)
 		eq(str(walk.get("character_id")), id, "%s: WalkPreview's character" % id)
 		var kind := Art.character_gun(id)
-		check(pv.texture != null and pv.texture.resource_path == Art.hug_gun_path(kind, "iron"), "%s: Preview is the iron hug gun" % id)
+		var src: String = Art.PLACEHOLDER_SOURCE.get(id, id) # a placeholder's scene shows the art it recolours
+		check(pv.texture != null and pv.texture.resource_path == Art.hug_gun_path(Art.character_gun(src), "iron"), "%s: Preview is the iron hug gun" % id)
 		var look: Dictionary = Art.character_look(id)
-		check(body.texture != null and body.texture.resource_path == Art.side_dir(id) + "idle_0.png", "%s: Body is idle_0" % id)
+		check(body.texture != null and body.texture.resource_path == Art.side_dir(src) + "idle_0.png", "%s: Body is idle_0" % id)
 		var scene_gun: Transform2D = sock.transform * pv.transform * Transform2D(0.0, pv.offset)
 		var scene_body: Transform2D = body.transform * Transform2D(0.0, body.offset)
 		for tier in ["iron", "basic", "dragon"]:
@@ -385,10 +398,12 @@ func test_carry_scenes_match_the_game() -> void:
 				var mirror := Transform2D(0.0, Vector2(f, 1.0), 0.0, Vector2.ZERO)
 				check(_xf_close(game_body, mirror * scene_body, 0.02), "%s: the body where the scene's Body is" % what)
 				if tier == "iron":
-					eq(gs.texture.resource_path, pv.texture.resource_path, "%s: the Preview's picture" % what)
+					# a placeholder's Preview is the art it recolours (same size): the match draws its own gun
+					var want := pv.texture.resource_path if not Art.PLACEHOLDER_SOURCE.has(id) else _drawn(Art.hug_gun_path(kind, "iron"))
+					eq(gs.texture.resource_path, want, "%s: the Preview's picture" % what)
 					check(_xf_close(game_gun, mirror * scene_gun, 0.01), "%s: drawn exactly as the Preview (%s vs %s)" % [what, game_gun, mirror * scene_gun])
 				else:
-					eq(gs.texture.resource_path, Art.hug_gun_path(kind, tier), "%s: its own hug gun" % what)
+					eq(gs.texture.resource_path, _drawn(Art.hug_gun_path(kind, tier)), "%s: its own hug gun" % what)
 					# Its hold (the same part of its length, on its muzzle row) on the socket's origin.
 					var hold := Vector2(-pv.offset.x / pv.texture.get_width() * hug["size"].x, hug["muzzle"].y + (-pv.offset.y - Art.hug_meta(kind, "iron")["muzzle"].y))
 					check((game_gun * hold).distance_to(mirror * sock.position) < 0.02, "%s: hung on the socket" % what)
@@ -956,7 +971,7 @@ func test_carry_assets() -> void:
 		check(deg < -90.0 and deg > -180.0, "%s: muzzle up and back (%s)" % [id, deg])
 		var hold: Vector2 = cp["hold"]
 		check(hold.x > 0.0 and hold.x < 0.5 * float(cp["length"]), "%s: hung low on the gun" % id)
-		check(cp["texture"] != null and cp["texture"].resource_path == Art.hug_gun_path(Art.character_gun(id), "iron"),
+		check(cp["texture"] != null and cp["texture"].resource_path == Art.hug_gun_path(Art.character_gun(Art.PLACEHOLDER_SOURCE.get(id, id)), "iron"),
 			"%s: the Preview is its iron hug gun" % id)
 		eq(back["bob"].size(), look["frames"].get_frame_count("walk"), "%s: a bob per walk frame" % id)
 		check(Art.side_paths(id).has(Art.side_dir(id) + "carry.json"), "%s: carry.json among the side view's files" % id)

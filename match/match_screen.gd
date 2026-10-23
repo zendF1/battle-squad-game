@@ -62,6 +62,8 @@ extends Node2D
 ## {playerId, from, to, duration, height} is a leaping snowman's arc jump (PlayerView.jump(): squash
 ## and stretch, the camera on it, the events after it wait until it lands); from it until its next
 ## turn ends it glows as a warning (LeapWarning; the state's leapt), then blows up as a minion.
+## Tide's water orb: its bounce (ShotTimeline "bounce" events from projectiles[].bounces) splashes
+## on the ground (WaterSplash), its explosion bursts into water over the gun's impact.
 ## Elements: a damage event's elementEffect ("strong" / "weak", the server's element rules) styles
 ## its number (DamagePopup.style(): bigger gold-orange with "Khắc hệ!" / smaller greyish blue), the
 ## running tally of a multi-hit skill too; every name carries its element's badge (PlayerView).
@@ -124,6 +126,8 @@ const UnitShell := preload("res://match/views/unit_shell.gd")
 const UnitImpact := preload("res://match/views/unit_impact.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
+const WaterSplash := preload("res://match/views/water_splash.gd")
+const WATER_GUN := "water_gun" # a shot of this gun kind bursts into water (visual only)
 
 ## Actions go out at least the server's timings.actionIntervalSec apart (it drops closer ones)
 ## plus this margin for the network's jitter.
@@ -744,6 +748,11 @@ func _apply(event: String, data: Variant) -> void:
 			_play_boss_action(shooter, timeline)
 			_focus.clear()
 			_cam.start_shot()
+			var area: Vector2 = _skill_view.frame_size() if _skill_view != null else Vector2.ZERO
+			if area != Vector2.ZERO and not framed: # a wide skill (Tide's nova): its whole area in view
+				_cam.frame_size(area)
+				if _skill_view.has_method("centre"):
+					_hold_focus({"pos": _skill_view.centre()}, timeline.duration + 0.4)
 			if framed:
 				_cam.frame_map()
 				_hud.fade_boss_skill() # the map's top (the boss in the air) comes under it
@@ -1022,6 +1031,12 @@ func _on_shot_event(e: Dictionary) -> void:
 			fx.tier = str(_shot_player.style.get("tier", ""))
 			fx.skill = bool(_shot_player.style.get("skill", false))
 			fx.position = p
+			if fx.kind == WATER_GUN and _skill_view == null: # the water orb bursts: a splash over its impact
+				var burst := WaterSplash.new()
+				burst.big = true
+				burst.radius = maxf(fx.radius * 1.3, 46.0)
+				burst.position = p
+				_fx_layer.add_child(burst)
 			if _skill_view != null:
 				_skill_view.explosion(e, fx)
 			_fx_layer.add_child(fx)
@@ -1086,6 +1101,13 @@ func _on_shot_event(e: Dictionary) -> void:
 				_hold_focus({"pos": _cam.keep_in_view(_vec(e["to"]), _vec(e["from"]))}, float(e.get("duration", 0.0)) + CameraModel.HOLD_SEC)
 		"die":
 			_kill(id)
+		"bounce": # the water orb bounces off the ground: a splash where it touched
+			if e.get("position") is Dictionary:
+				var splash := WaterSplash.new()
+				splash.radius = 42.0
+				splash.position = _vec(e["position"])
+				_fx_layer.add_child(splash)
+				_cam.shake(4.0)
 		"summon":
 			_summon(e)
 		"rain":
@@ -1102,8 +1124,8 @@ func _on_shot_event(e: Dictionary) -> void:
 				_views[id].set_status(_players[id]["statusEffects"])
 			var text := Skills.status_label(str(e.get("effectId", "")))
 			if text != "":
-				# over the running damage number when there is one
-				_popup(id, text, Color(0.7, 0.85, 1), Vector2(0, -64) if _has_tally(id) else Vector2.ZERO)
+				# over the running damage number, or the one just shown (a nova's hit and freeze land together)
+				_popup(id, text, Color(0.7, 0.85, 1), Vector2(0, -64) if _has_tally(id) or _just_popped(id) else Vector2.ZERO)
 	# beam, flare, rain (and the rest): the skill draws them
 	if _skill_view != null:
 		_skill_view.on_event(e)
@@ -1857,6 +1879,12 @@ func _has_tally(id: String) -> bool:
 ## A shot's damage number: DamagePopup.style() of the event's elementEffect and critical.
 func _damage_popup(id: String, amount: int, critical: bool, element_effect: String) -> void:
 	_popup(id, DamagePopup.damage_text(amount), Color.WHITE, Vector2.ZERO, DamagePopup.style(element_effect, critical))
+
+
+## A number popped over player id a moment ago (DamagePopup.STACK_MS).
+func _just_popped(id: String) -> bool:
+	var last: Array = _popup_row.get(id, [-100000, 0])
+	return Time.get_ticks_msec() - int(last[0]) < DamagePopup.STACK_MS
 
 
 func _popup(id: String, text: String, color: Color, offset: Vector2 = Vector2.ZERO, st: Dictionary = {}) -> void:

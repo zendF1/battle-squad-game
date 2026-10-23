@@ -1,0 +1,36 @@
+[gd_scene format=3]
+
+[ext_resource type="Texture2D" uid="uid://cnyiy4h5gkbm2" path="res://assets/characters/flora/side/idle_0.png" id="body"]
+[ext_resource type="Texture2D" uid="uid://b11pvc0uyvb2o" path="res://assets/weapons/seed_launcher/hug_iron.png" id="gun"]
+[ext_resource type="Script" uid="uid://bw7lsgt5iegse" path="res://scenes/character/poses/carry_walk.gd" id="walk_script"]
+
+[node name="TideCarry" type="Node2D"]
+metadata/_edit_lock_ = true
+
+[node name="CarrySocket" type="Node2D" parent="."]
+position = Vector2(-11.657143, -101.46286)
+rotation = -2.1293018
+metadata/_edit_group_ = true
+
+[node name="Preview" type="Sprite2D" parent="CarrySocket"]
+texture_filter = 2
+rotation = 0.33161256
+scale = Vector2(2.285714, 2.285714)
+texture = ExtResource("gun")
+centered = false
+offset = Vector2(-15, -25.5)
+
+[node name="Body" type="Sprite2D" parent="."]
+texture_filter = 2
+texture = ExtResource("body")
+scale = Vector2(2.285714, 2.285714)
+centered = false
+offset = Vector2(-41.1, -124.39)
+metadata/_edit_lock_ = true
+
+[node name="WalkPreview" type="Node2D" parent="."]
+texture_filter = 2
+position = Vector2(200, 0)
+script = ExtResource("walk_script")
+character_id = "tide"
+metadata/_edit_lock_ = true

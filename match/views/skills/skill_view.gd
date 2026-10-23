@@ -1,6 +1,6 @@
 extends RefCounted
 ## A character skill's client side. One script per skill effect type extends this (rain.gd
-## missile_rain, bomb_chain.gd bomb_chain, laser.gd laser, bloom.gd bloom; match/skills.gd maps a
+## missile_rain, bomb_chain.gd bomb_chain, laser.gd laser, bloom.gd bloom, nova.gd nova; match/skills.gd maps a
 ## skill's effectType to its script, a skill of an unknown type gets this base view):
 ## - what it is called and does: the game data (GET /gamedata skills: skill_id(), skill_name(),
 ##   describe(rank) from its description template and per-rank values; param() its tuning);
@@ -118,6 +118,12 @@ func tracks_shells() -> bool:
 ## while the replay plays (match_screen zooms out, then back).
 func frames_map() -> bool:
 	return false
+
+
+## A wide area the camera frames while the replay plays (world px; Tide's nova: its radius), the
+## zoom back after it; ZERO none.
+func frame_size() -> Vector2:
+	return Vector2.ZERO
 
 
 ## The aim angle (degrees, Shoot convention) the shooter's gun shows for a shot without

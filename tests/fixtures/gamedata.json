@@ -16,6 +16,10 @@
         "left": 100,
         "right": 100,
         "below": 50
+      },
+      "bounce": {
+        "restitution": 0.55,
+        "friction": 0.85
       }
     },
     "aim": {
@@ -104,7 +108,8 @@
         "craterRadius": 12,
         "projectileWeight": 1,
         "windInfluence": 1,
-        "multiHit": 1
+        "multiHit": 1,
+        "bounces": 0
       },
       {
         "weaponId": "cannon_ball",
@@ -115,7 +120,8 @@
         "craterRadius": 18,
         "projectileWeight": 1.5,
         "windInfluence": 0.5,
-        "multiHit": 1
+        "multiHit": 1,
+        "bounces": 0
       },
       {
         "weaponId": "electric_orb",
@@ -126,7 +132,8 @@
         "craterRadius": 12,
         "projectileWeight": 0.8,
         "windInfluence": 1.3,
-        "multiHit": 1
+        "multiHit": 1,
+        "bounces": 0
       },
       {
         "weaponId": "seed_bomb",
@@ -137,7 +144,20 @@
         "craterRadius": 14.399999999999999,
         "projectileWeight": 0.9,
         "windInfluence": 1,
-        "multiHit": 1
+        "multiHit": 1,
+        "bounces": 0
+      },
+      {
+        "weaponId": "water_orb",
+        "name": "Water Orb",
+        "damage": 500,
+        "explosionRadius": 38,
+        "terrainDamage": 16,
+        "craterRadius": 9.6,
+        "projectileWeight": 0.9,
+        "windInfluence": 1,
+        "multiHit": 1,
+        "bounces": 1
       }
     ],
     "skills": [
@@ -231,7 +251,7 @@
         "skillId": "heavy_bomb",
         "characterId": "tanko",
         "name": "Địa chấn liên hoàn",
-        "description": "Ném {count} tảng đá bọc đất liên tiếp cùng đường bay (+{countPerRank} mỗi cấp súng), mặt đất nứt toác thành hố sâu; mỗi tảng {eachPct}% sát thương, mỗi địch nhận tối đa {capPct}%; địch trúng bị đất đá vùi chân, cầm chân lượt sau.",
+        "description": "Bắn {count} tảng đá bọc đất liên tiếp cùng đường bay (+{countPerRank} mỗi cấp súng): mặt đất nứt toác, gai đá trồi quanh miệng hố, hố mỗi lúc một sâu; mỗi tảng {eachPct}% sát thương, mỗi địch nhận tối đa {capPct}%; địch trúng bị đất đá vùi chân, cầm chân lượt sau.",
         "effectType": "bomb_chain",
         "statusEffectId": "root",
         "aimKind": "arc",
@@ -429,6 +449,79 @@
             }
           }
         ]
+      },
+      {
+        "skillId": "snow_nova",
+        "characterId": "tide",
+        "name": "Nổ bông tuyết",
+        "description": "Bông tuyết nổ ngay chỗ Tide đứng, bán kính {radius}px: địch ở tâm nhận {centrePct}% sát thương (+{centrePerRankPct}% mỗi cấp súng), giảm dần còn {edgePct}% ở mép; mọi địch trúng, kể cả boss đang bay, bị đóng băng {freezeTurns} lượt. Đồng đội không bị ảnh hưởng.",
+        "effectType": "nova",
+        "statusEffectId": "freeze",
+        "aimKind": "none",
+        "cooldownTurn": 4,
+        "projectileCount": 0,
+        "damageMultiplier": 1,
+        "params": {
+          "castTime": 0.35,
+          "centreBase": 1.3,
+          "centrePerRank": 0.1,
+          "edgeFactor": 0.4,
+          "freezeTurns": 1,
+          "radius": 500,
+          "waveSpeed": 1400
+        },
+        "ranks": [
+          {
+            "rank": 0,
+            "values": {
+              "centrePct": 130,
+              "centrePerRankPct": 10,
+              "edgePct": 40,
+              "freezeTurns": 1,
+              "radius": 500
+            }
+          },
+          {
+            "rank": 1,
+            "values": {
+              "centrePct": 140,
+              "centrePerRankPct": 10,
+              "edgePct": 40,
+              "freezeTurns": 1,
+              "radius": 500
+            }
+          },
+          {
+            "rank": 2,
+            "values": {
+              "centrePct": 150,
+              "centrePerRankPct": 10,
+              "edgePct": 40,
+              "freezeTurns": 1,
+              "radius": 500
+            }
+          },
+          {
+            "rank": 3,
+            "values": {
+              "centrePct": 160,
+              "centrePerRankPct": 10,
+              "edgePct": 40,
+              "freezeTurns": 1,
+              "radius": 500
+            }
+          },
+          {
+            "rank": 4,
+            "values": {
+              "centrePct": 170,
+              "centrePerRankPct": 10,
+              "edgePct": 40,
+              "freezeTurns": 1,
+              "radius": 500
+            }
+          }
+        ]
       }
     ],
     "characters": [
@@ -448,15 +541,14 @@
         "skillPower": 50,
         "terrainDamage": 20,
         "difficulty": 1,
-        "element": "fire",
-        "sortOrder": 1
+        "element": "fire"
       },
       {
         "characterId": "tanko",
         "name": "Tanko",
         "role": "demolisher",
         "roleName": "Phá địa hình",
-        "playstyle": "Chuyên phá địa hình: đại pháo khoét hố sâu hơn hẳn mọi người, phá chỗ nấp và đào đất ngay dưới chân đối thủ. Đạn nặng ít bị gió đẩy nên vẫn bắn chuẩn khi trời gió lớn; để dành Bom liên hoàn bắn thẳng vào địch: từng quả đào sâu thêm, địch rơi xuống đáy hố, trúng tiếp và bị cầm chân. Bù lại mỗi phát gây ít sát thương và Tanko đi được ngắn nhất, khó thoát khỏi chỗ đứng xấu.",
+        "playstyle": "Chuyên phá địa hình: đại pháo khoét hố sâu hơn hẳn mọi người, phá chỗ nấp và đào đất ngay dưới chân đối thủ. Đạn nặng ít bị gió đẩy nên vẫn bắn chuẩn khi trời gió lớn; để dành Địa chấn liên hoàn bắn thẳng vào địch: từng quả đào sâu thêm, địch rơi xuống đáy hố, trúng tiếp và bị cầm chân. Bù lại mỗi phát gây ít sát thương và Tanko đi được ngắn nhất, khó thoát khỏi chỗ đứng xấu.",
         "weaponId": "cannon_ball",
         "skillId": "heavy_bomb",
         "gunKind": "cannon",
@@ -467,8 +559,7 @@
         "skillPower": 65,
         "terrainDamage": 30,
         "difficulty": 2,
-        "element": "earth",
-        "sortOrder": 2
+        "element": "earth"
       },
       {
         "characterId": "spark",
@@ -486,8 +577,7 @@
         "skillPower": 80,
         "terrainDamage": 20,
         "difficulty": 2,
-        "element": "metal",
-        "sortOrder": 3
+        "element": "metal"
       },
       {
         "characterId": "flora",
@@ -505,8 +595,25 @@
         "skillPower": 85,
         "terrainDamage": 24,
         "difficulty": 1,
-        "element": "wood",
-        "sortOrder": 4
+        "element": "wood"
+      },
+      {
+        "characterId": "tide",
+        "name": "Tide",
+        "role": "controller",
+        "roleName": "Khống chế",
+        "playstyle": "Chuyên khống chế: Nổ bông tuyết đóng băng mọi địch quanh Tide, kể cả boss đang bay, nên hãy áp sát đối thủ hoặc boss rồi kích hoạt để chúng mất lượt sau. Quả cầu nước nảy một lần khi chạm đất rồi mới nổ, căn góc khéo là lăn được vào chỗ nấp của địch. Đổi lại, Tide gây ít sát thương hơn Spark và khoét đất kém xa Tanko.",
+        "weaponId": "water_orb",
+        "skillId": "snow_nova",
+        "gunKind": "water_gun",
+        "hp": 1400,
+        "damage": 500,
+        "mobility": 110,
+        "defense": 45,
+        "skillPower": 70,
+        "terrainDamage": 16,
+        "difficulty": 2,
+        "element": "water"
       }
     ],
     "defaultCharacterId": "rookie",
@@ -1252,6 +1359,11 @@
           "word": "blaster",
           "name": "Súng",
           "gunKind": "blaster"
+        },
+        {
+          "word": "water gun",
+          "name": "Súng nước",
+          "gunKind": "water_gun"
         }
       ]
     },
@@ -1264,9 +1376,10 @@
       "teamSize": 2,
       "botFillAfterSec": 20,
       "matchStartDelaySec": 3,
+      "inviteTimeoutSec": 30,
       "tips": [
         "Gió mạnh đẩy đạn rất xa: nhìn mũi tên gió trước khi bắn.",
-        "Bom liên hoàn của Tanko đào hố sâu, địch trúng bị cầm chân lượt sau.",
+        "Địa chấn liên hoàn của Tanko làm nứt đất, đào hố sâu; địch trúng bị đất đá vùi chân, cầm chân lượt sau.",
         "Tia laze của Spark xuyên địa hình và làm choáng mọi địch trên đường bắn.",
         "Hoa hồi xuân của Flora hồi máu cả đội và giải mọi hiệu ứng xấu.",
         "Mưa tên lửa của Rookie làm địch bỏng, mất máu đầu lượt sau.",
@@ -1276,7 +1389,9 @@
         "Bị địch bắn trúng cũng nạp thêm năng lượng kỹ năng.",
         "Thắng trận xếp hạng để lên điểm, thua sẽ bị trừ điểm.",
         "Rời trận giữa chừng tính là thua, kể cả khi đồng đội thắng.",
-        "Khiên chịu sát thương trước máu: máu hồi dư của Flora thành khiên."
+        "Khiên chịu sát thương trước máu: máu hồi dư của Flora thành khiên.",
+        "Ngũ hành: Kim khắc Mộc, Mộc khắc Thổ, Thổ khắc Thủy, Thủy khắc Hỏa, Hỏa khắc Kim. Bắn hệ bị khắc gây thêm sát thương.",
+        "Nổ bông tuyết của Tide đóng băng mọi địch quanh cô, kể cả boss đang bay: hãy áp sát rồi kích hoạt."
       ]
     },
     "modes": {
@@ -1354,6 +1469,10 @@
       {
         "id": "blaster",
         "name": "Súng"
+      },
+      {
+        "id": "water_gun",
+        "name": "Súng nước"
       }
     ],
     "elements": [

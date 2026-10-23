@@ -6,6 +6,12 @@ extends RefCounted
 ## Fields an older server does not send fall back: no kind = a normal shell, no launchDelay =
 ## its first path sample's time, no skillEnergies = {} (shooter_energy, from skillEnergy, then
 ## still says the shooter's), no itemId = "".
+## Bounces (Tide's water orb, weapons[].bounces): the server puts the bounce point in the path
+## twice with the same time (the velocity it arrived with, then the one it leaves with), so the
+## arc before it and the arc after it are each fitted to their own samples and the zero-length
+## segment between them is skipped: the drawn flight turns exactly there. projectiles[].bounces
+## [{t, position}] (bounces()) also become "bounce" events {t, type, position, projectileId} in
+## the timeline (the splash).
 
 var shooter_id := ""
 var action_mode := ""
@@ -32,7 +38,8 @@ func _init(payload: Dictionary) -> void:
 	var p = payload.get("projectiles", [])
 	projectiles = p if p is Array else []
 	var e = payload.get("events", [])
-	events = e if e is Array else []
+	events = e.duplicate() if e is Array else []
+	_add_bounce_events()
 	duration = float(payload.get("duration", 0.0))
 	var energies = payload.get("skillEnergies")
 	if energies is Dictionary:
@@ -40,6 +47,34 @@ func _init(payload: Dictionary) -> void:
 	var mine = payload.get("skillEnergy")
 	if mine is int or mine is float:
 		shooter_energy = int(mine)
+
+
+## Projectile i's bounces [{t, position: Vector2}] in flight order ([] none).
+func bounces(i: int) -> Array:
+	var out: Array = []
+	var b = projectiles[i].get("bounces") if i < projectiles.size() and projectiles[i] is Dictionary else null
+	if b is Array:
+		for e in b:
+			if e is Dictionary and (e.get("t") is float or e.get("t") is int) and e.get("position") is Dictionary:
+				out.append({"t": float(e["t"]), "position": _vec(e["position"])})
+	out.sort_custom(func(a, c): return a["t"] < c["t"])
+	return out
+
+
+## Every projectile's bounce as a "bounce" event, in time order among the others.
+func _add_bounce_events() -> void:
+	for i in projectiles.size():
+		if not projectiles[i] is Dictionary:
+			continue
+		for b in bounces(i):
+			var ev := {"t": b["t"], "type": "bounce", "position": {"x": b["position"].x, "y": b["position"].y},
+				"projectileId": str(projectiles[i].get("projectileId", ""))}
+			var at := events.size()
+			for k in events.size():
+				if events[k] is Dictionary and float(events[k].get("t", 0.0)) > float(b["t"]):
+					at = k
+					break
+			events.insert(at, ev)
 
 
 ## What projectile i is (server ProjectileResult.kind): "flare", "missile", "bomb", "seed", or ""

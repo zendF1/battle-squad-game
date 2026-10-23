@@ -12,7 +12,14 @@ const ROOT := "res://assets/"
 
 # ── Characters ──────────────────────────────────────────────────────────────
 
-const CHARACTERS := ["rookie", "tanko", "spark", "flora"]
+const CHARACTERS := ["rookie", "tanko", "spark", "flora", "tide"]
+## Characters whose art is still a placeholder recoloured from another's (no art_source/ of their
+## own yet: tools/import_frames.gd has no config for them; art_source/characters/<id>/PROMPTS.md
+## says what to draw): Tide is Flora's art in teal and white, her water gun Flora's seed launcher.
+const PLACEHOLDER_CHARACTERS := ["tide"]
+## The character whose art a placeholder recolours: its pose scenes show that one's pictures in
+## the editor (the same sizes and pivots), e.g. tide_carry.tscn's Preview and Body are Flora's.
+const PLACEHOLDER_SOURCE := {"tide": "flora"}
 const DEFAULT_CHARACTER := "rookie"
 ## Every character frame has this canvas, the feet at FRAME_PIVOT (bottom centre), facing right,
 ## drawn at PX_PER_UNIT px per art unit (the art is about 150 units tall).
@@ -69,7 +76,7 @@ const FIRE_ANIM := "fire"
 ## frame, where the hand holds it (assets/characters/<id>/gun_anchors.json: grip px in the frame,
 ## angle in degrees, in front of or behind the body, muzzle flash 0..1).
 ## Kind = silhouette, tier = look. `basic` is a character's starter gun (no weapon equipped).
-const GUN_KINDS := ["bazooka", "cannon", "shock_rifle", "seed_launcher", "blaster"]
+const GUN_KINDS := ["bazooka", "cannon", "shock_rifle", "seed_launcher", "water_gun", "blaster"]
 const GUN_BASIC := "basic"
 const GUN_NORMAL_TIERS := ["iron", "steel", "mithril", "dragon"]
 const GUN_CRAFTED_TIERS := ["silver", "gold", "titan", "diamond"]
@@ -80,6 +87,7 @@ const GUN_TIERS := {
 	"cannon": [GUN_BASIC, "iron", "steel", "mithril", "dragon"],
 	"shock_rifle": [GUN_BASIC, "iron", "steel", "mithril", "dragon"],
 	"seed_launcher": [GUN_BASIC, "iron", "steel", "mithril", "dragon"],
+	"water_gun": [GUN_BASIC, "iron", "steel", "mithril", "dragon"],
 	"blaster": [GUN_BASIC, "iron", "steel", "mithril", "dragon", "silver", "gold", "titan", "diamond"],
 }
 ## A character's gun when it has none of its own (no / an unknown gunKind in the game data): the
@@ -114,7 +122,7 @@ const EQUIP_SLOTS := ["weapon", "armor", "helmet", "pants", "boots", "gloves"]
 const EQUIP_TIERS := ["iron", "steel", "mithril", "dragon", "silver", "gold", "titan", "diamond"]
 ## Weapons are guns: weapon_<tier>.png is the generic blaster (generic and crafted weapons); each
 ## character's gun has its own icons in the normal tiers, weapon_<kind>_<tier>.png.
-const EQUIP_WEAPON_KINDS := ["bazooka", "cannon", "rifle", "launcher"]
+const EQUIP_WEAPON_KINDS := ["bazooka", "cannon", "rifle", "launcher", "water"]
 const EQUIP_KIND_TIERS := ["iron", "steel", "mithril", "dragon"]
 const EQUIP_ICON_SIZE := Vector2i(128, 128)
 const EQUIP_FRAMES := ["hex_empty", "hex_filled", "hex_selected"]
