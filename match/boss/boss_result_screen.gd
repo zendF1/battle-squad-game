@@ -1,7 +1,7 @@
 extends Control
 ## The boss match's end screen (the result screen flow: shown RESULT_DELAY_SEC after MatchEnded,
 ## the same signals and buttons as match/result_screen.gd): the lobby backdrop; the title of how
-## it ended slamming in ("Hạ boss thành công!" gold with confetti, "Cả đội đã gục" / "Boss đã trốn
+## it ended slamming in ("CHIẾN THẮNG" gold with confetti, as any match's win, "Cả đội đã gục" / "Boss đã trốn
 ## thoát" grey-blue with rain) over "<boss> · Vòng 9/15"; left, "BẢNG SÁT THƯƠNG": the party's
 ## damage to the boss, most first, each row the player's head, name (mine gold), "Máy" for a bot,
 ## a bar filling to its share of the top damage and the number counting up, MVP marked; right, the

@@ -21,7 +21,7 @@ const WIN := {"winningTeam": 1, "result": "boss_defeated", "mvpPlayerId": "p2",
 
 
 func test_titles() -> void:
-	eq(BossResultModel.title_text("boss_defeated"), "Hạ boss thành công!", "won")
+	eq(BossResultModel.title_text("boss_defeated"), "CHIẾN THẮNG", "won: the same title as any match's win")
 	eq(BossResultModel.title_text("party_defeated"), "Cả đội đã gục", "the party fell")
 	eq(BossResultModel.title_text("boss_escaped"), "Boss đã trốn thoát", "it escaped")
 	eq(BossResultModel.result_of({"winningTeam": 2, "boss": {"result": "boss_escaped"}}, 1), "boss_escaped", "from the boss block")

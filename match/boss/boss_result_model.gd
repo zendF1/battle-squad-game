@@ -16,7 +16,8 @@ const DEFEATED := "boss_defeated"
 const PARTY_DEFEATED := "party_defeated"
 const ESCAPED := "boss_escaped"
 
-const TITLES := {DEFEATED: "Hạ boss thành công!", PARTY_DEFEATED: "Cả đội đã gục", ESCAPED: "Boss đã trốn thoát"}
+## A win reads as any match's win (ResultModel.title_text(WIN): "CHIẾN THẮNG"); a loss says how.
+const TITLES := {DEFEATED: "", PARTY_DEFEATED: "Cả đội đã gục", ESCAPED: "Boss đã trốn thoát"}
 const BONUS := "Lượt thưởng lớn"
 const NORMAL := "Thưởng thường"
 
@@ -35,6 +36,8 @@ static func result_of(d: Dictionary, my_team: int) -> String:
 
 
 static func title_text(result: String) -> String:
+	if result == DEFEATED:
+		return ResultModel.title_text(ResultModel.WIN)
 	return str(TITLES.get(result, TITLES[PARTY_DEFEATED]))
 
 
