@@ -129,16 +129,17 @@ func test_mode_max_items() -> void:
 	var Loadout := load("res://screens/loadout.gd")
 	var BossFixture := load("res://tests/boss_fixture.gd")
 	var GameData := load("res://autoload/game_data_model.gd")
-	BossFixture.take()
+	BossFixture.take() # the server's modes.lobby, maxItems 6 for a boss and 3 for the rest (85c3591)
 	var boss := {"queue": "boss:lava_crab"}
-	eq(LobbyModel.max_items(boss), 3, "no maxItems (an older server): the global rule")
-	eq(LobbyModel.max_items({"queue": "nope"}), 3, "an unknown mode: the global rule")
-	var d: Dictionary = GameData.data.duplicate(true)
-	d["version"] = "max-items"
-	for m in d["modes"]["lobby"]:
-		m["maxItems"] = 6 if str(m.get("category", "")) == "boss" else 3
-	GameData.take(d, "", false)
 	eq(LobbyModel.max_items(boss), 6, "a boss fight: 6")
+	eq(LobbyModel.max_items({"queue": "nope"}), 3, "an unknown mode: the global rule")
+	var old: Dictionary = GameData.data.duplicate(true)
+	old["version"] = "no-max-items"
+	for m in old["modes"]["lobby"]:
+		m.erase("maxItems")
+	GameData.take(old, "", false)
+	eq(LobbyModel.max_items(boss), 3, "no maxItems (an older server): the global rule")
+	BossFixture.take()
 	eq(LobbyModel.max_items({"queue": "casual_2v2"}), 3, "PvP: 3")
 	eq(LobbyModel.max_items({}), 3, "practice: 3")
 	var m := LoadoutModel.new()
@@ -148,6 +149,19 @@ func test_mode_max_items() -> void:
 	check(m.is_full() and not m.toggle_item("spider_net"), "a seventh refused")
 	eq(m.slots().size(), 6, "six slots")
 	m.set_max_items(3)
-	eq(m.items, ["medkit", "teleport", "power_shot"] as Array[String], "back to 3: the last picks dropped")
+	eq(m.items, ["medkit", "teleport", "power_shot"] as Array[String], "a 3-item mode: the first 3 shown")
+	eq(m.payload({})["items"], ["medkit", "teleport", "power_shot"], "and sent")
+	eq(m.hidden_items, ["air_strike", "drill_bomb", "freeze_bomb"] as Array[String], "the rest set aside")
+	m.remember(TMP)
+	var back := LoadoutModel.new()
+	back.restore(TMP)
+	eq(back.items.size(), 3, "restored for a 3-item mode: 3 shown")
+	back.set_max_items(6)
+	eq(back.items.size(), 6, "the saved loadout kept whole: 6 again in a boss mode")
+	m.toggle_item("teleport")
+	m.toggle_item("air_strike")
+	eq([m.items, m.hidden_items], [["medkit", "power_shot", "air_strike"] as Array[String], ["drill_bomb", "freeze_bomb"] as Array[String]],
+		"picking a set-aside item moves it into the slots")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TMP))
 	eq([Loadout.slot_rows(3), Loadout.slot_rows(4), Loadout.slot_rows(5), Loadout.slot_rows(6), Loadout.slot_rows(0)],
 		[[3], [4], [3, 2], [3, 3], []], "slot rows: one row up to 4, then two")

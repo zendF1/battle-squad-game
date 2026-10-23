@@ -1,5 +1,5 @@
 {
- "_comment": "GET /gamedata boss additions (server 6472eb7, migrations 044-051): modes.lobby / modes.categories / extra modes.match and bosses, merged over tests/fixtures/gamedata.json by tests/boss_fixture.gd. Bosses from the server's gamedata.DefaultBosses() through api/gamedata.Build (v2: flying, hover, the minions' behavior / movement / explosions; v3: summon, attack skills only with pattern / projectileKind / launchFrom, the leaping snowmen, the islands arena; modeId as the DB's lobby modes).",
+ "_comment": "GET /gamedata boss additions (server 6472eb7, migrations 044-051; modes.lobby maxItems from 85c3591 / 052): modes.lobby / modes.categories / extra modes.match and bosses, merged over tests/fixtures/gamedata.json by tests/boss_fixture.gd. Bosses from the server's gamedata.DefaultBosses() through api/gamedata.Build (v2: flying, hover, the minions' behavior / movement / explosions; v3: summon, attack skills only with pattern / projectileKind / launchFrom, the leaping snowmen, the islands arena; modeId as the DB's lobby modes).",
  "categories": [
   {
    "categoryId": "pvp",
@@ -20,7 +20,8 @@
    "category": "pvp",
    "icon": "swords",
    "partySize": 2,
-   "ranked": false
+   "ranked": false,
+   "maxItems": 3
   },
   {
    "modeId": "ranked",
@@ -31,7 +32,8 @@
    "category": "pvp",
    "icon": "trophy",
    "partySize": 2,
-   "ranked": true
+   "ranked": true,
+   "maxItems": 3
   },
   {
    "modeId": "bot",
@@ -42,7 +44,8 @@
    "category": "pvp",
    "icon": "robot",
    "partySize": 1,
-   "ranked": false
+   "ranked": false,
+   "maxItems": 3
   },
   {
    "modeId": "practice",
@@ -53,7 +56,8 @@
    "category": "pvp",
    "icon": "target",
    "partySize": 1,
-   "ranked": false
+   "ranked": false,
+   "maxItems": 3
   },
   {
    "modeId": "boss_steel_robot",
@@ -64,7 +68,8 @@
    "category": "boss",
    "icon": "boss",
    "partySize": 4,
-   "ranked": false
+   "ranked": false,
+   "maxItems": 6
   },
   {
    "modeId": "boss_lava_crab",
@@ -75,7 +80,8 @@
    "category": "boss",
    "icon": "boss",
    "partySize": 4,
-   "ranked": false
+   "ranked": false,
+   "maxItems": 6
   },
   {
    "modeId": "boss_ice_witch",
@@ -86,7 +92,8 @@
    "category": "boss",
    "icon": "boss",
    "partySize": 4,
-   "ranked": false
+   "ranked": false,
+   "maxItems": 6
   }
  ],
  "match": [

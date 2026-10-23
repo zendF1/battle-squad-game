@@ -23,6 +23,9 @@ const NOT_OWNED_HINT := "Chưa sở hữu vật phẩm này"
 var character_id := ""
 var items: Array[String] = [] # in the order picked
 var max_items := 0 # how many items it takes (the mode's maxItems); set_max_items()
+## Saved picks past max_items (a 6-item boss loadout opened for a 3-item mode): not shown nor
+## sent, kept in the saved file, as the server keeps a saved loadout whole for a smaller mode.
+var hidden_items: Array[String] = []
 var item_counts: Variant = null # {itemId: quantity}, or null: unknown
 
 
@@ -31,11 +34,24 @@ func _init() -> void:
 	max_items = Items.max_loadout()
 
 
-## The mode's item slots (LobbyModel.max_items()); picks past them are dropped (the last ones).
+## The mode's item slots (LobbyModel.max_items()): the first n picks are shown and sent, the
+## rest set aside (hidden_items) and back when a mode with more slots opens.
 func set_max_items(n: int) -> void:
 	max_items = maxi(n, 0)
-	while items.size() > max_items:
-		items.pop_back()
+	_split(items + hidden_items)
+
+
+func _split(all: Array) -> void:
+	items.clear()
+	hidden_items.clear()
+	for id in all:
+		var item := str(id)
+		if items.has(item) or hidden_items.has(item):
+			continue
+		if items.size() < max_items:
+			items.append(item)
+		else:
+			hidden_items.append(item)
 
 
 ## The character every player owns and plays when none is picked.
@@ -66,6 +82,7 @@ func toggle_item(id: String) -> bool:
 	if not Items.is_known(id) or items.size() >= max_items or not owns(id):
 		return false
 	items.append(id)
+	hidden_items.erase(id)
 	return true
 
 
@@ -153,7 +170,11 @@ func remember(path: String) -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(path) # a missing file starts empty
 	cfg.set_value("loadout", "character_id", character_id)
-	cfg.set_value("loadout", "items", items.duplicate())
+	var all := items.duplicate()
+	for id in hidden_items:
+		if not all.has(id):
+			all.append(id)
+	cfg.set_value("loadout", "items", all) # the picks set aside by a smaller mode kept
 	cfg.save(path)
 
 
@@ -163,9 +184,10 @@ func restore(path: String) -> void:
 	if cfg.load(path) != OK:
 		return
 	select_character(str(cfg.get_value("loadout", "character_id", default_character())))
-	items.clear()
 	var saved = cfg.get_value("loadout", "items", [])
+	var known: Array = []
 	if saved is Array:
 		for id in saved:
-			if not items.has(str(id)):
-				toggle_item(str(id))
+			if Items.is_known(str(id)) and not known.has(str(id)):
+				known.append(str(id))
+	_split(known) # the first max_items shown, the rest set aside
