@@ -40,12 +40,13 @@ func test_tick_drops_expired() -> void:
 	eq(Status.tick(null), [], "null")
 
 
-func test_icons_in_order() -> void:
+func test_active_in_order() -> void:
 	var effects := [{"effectId": "net", "durationTurn": 1}, {"effectId": "power_shot", "durationTurn": 1},
 		{"effectId": "burn", "durationTurn": 1}, {"effectId": "stun", "durationTurn": 0}, {"effectId": "root", "durationTurn": 1},
 		{"effectId": "burn", "durationTurn": 2}]
-	eq(Status.icons(effects), ["burn", "root", "net"], "the bad ones, game data order, active, once")
-	eq(Status.icons(null), [], "null")
+	eq(Status.active(effects), ["net", "power_shot", "burn", "root"], "active, list order, once")
+	eq(Status.bad(effects), ["net", "burn", "root"], "the bad ones")
+	eq(Status.active(null), [], "null")
 
 
 func test_skip_and_root() -> void:
@@ -71,7 +72,7 @@ func test_remove_cleansed() -> void:
 
 
 ## A status effect an admin added: its rules and texts come from the game data, a bad one shows
-## as an icon (the generic one: status_icons.gd has no picture for it).
+## on the body (StatusLook's violet aura: no picture of its own).
 func test_effects_from_the_game_data() -> void:
 	var d: Dictionary = GameData.data.duplicate(true)
 	d["version"] = "edited"
@@ -81,7 +82,7 @@ func test_effects_from_the_game_data() -> void:
 	var effects := [{"effectId": "stun", "durationTurn": 1}, {"effectId": "sleep", "durationTurn": 2}]
 	eq(Status.skip_effect(effects), "sleep", "the game data's order")
 	eq(Status.skip_text("sleep"), "Ngủ — mất lượt", "its banner")
-	eq(Status.icons(effects), ["sleep", "stun"], "an icon")
+	eq(Status.bad(effects), ["stun", "sleep"], "a bad one")
 	eq(Status.marker_text(effects), "Zzz", "its marker")
 	check(Status.blocks_move([{"effectId": "sleep", "durationTurn": 1}]), "blocks moving")
-	eq(Status.icons([{"effectId": "ghost", "durationTurn": 1}]), [], "an effect the game data does not know: nothing")
+	eq(Status.bad([{"effectId": "ghost", "durationTurn": 1}]), [], "an effect the game data does not know: not a bad one")

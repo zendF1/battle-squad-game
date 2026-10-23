@@ -4,9 +4,10 @@ extends Node2D
 ## gun of the weapon it brought (weaponItemId → EquipmentModel.gun()), the HP bar, the name,
 ## above it the small plate of the title it wears (the payload's "title", TitleModel; none for
 ## bots: nothing drawn, no gap) and above that the markers of its armed shot modifiers
-## (match/status_effects.gd); the turn arrow rises over the plate too. Right of the HP bar, small
-## round icons for its control / damage effects (burn, root, stun, freeze, net) and its shield
-## (match/views/status_icons.gd); the shield also shows on the HP bar as a light-blue segment after
+## (match/status_effects.gd); the turn arrow rises over the plate too. Its status effects are drawn
+## on the body, no icons beside the HP bar (match/views/status_fx.gd, StatusLook: an ice block,
+## flames, a web, vines at the feet, stars round the head, a buff's aura; scaled to the body, the
+## boss's and minions' too); the shield shows on the HP bar as a light-blue segment after
 ## the HP (the bar then spans HP + shield when they pass the max HP), and as a bubble round the body
 ## (match/views/shield_ball.gd: it pops in when a shield comes up, breathes, pops out when it
 ## breaks; set_shield_tint(): the caster's gun tier colour). The boss has its own (set_shielded()).
@@ -41,7 +42,7 @@ extends Node2D
 const AimSweep := preload("res://match/aim/aim_sweep.gd")
 const AimSnap := preload("res://scenes/character/aim_snap.gd")
 const Status := preload("res://match/status_effects.gd")
-const StatusIcons := preload("res://match/views/status_icons.gd")
+const StatusFx := preload("res://match/views/status_fx.gd")
 const CharacterScene := preload("res://scenes/character/character.tscn")
 const Art := preload("res://ui/art.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -67,8 +68,6 @@ const TEAM_COLORS := {1: Color(0.25, 0.55, 1.0), 2: Color(1.0, 0.35, 0.3)}
 const ALLY := Color(0.3, 0.6, 1.0)
 const ENEMY := Color(1.0, 0.35, 0.3)
 const HP_BAR_WIDTH := 50.0
-const ICON_SIZE := 22.0 # the status icons right of the HP bar
-const ICON_GAP := 2.0
 const SHIELD_COLOR := Color(0.62, 0.9, 1.0)
 const ART_TOP := 56.0 # px above the feet the art reaches (at least; a taller side view raises it)
 const WALK_HOLD := 0.12 # s a walk animation lasts after the last x change
@@ -90,7 +89,6 @@ var hp := 0
 var max_hp := 1
 var shield := 0
 var skill_energy := 0
-var _icons: Array = [] # Status.icons() of the effects
 var color := ALLY
 
 var walk := WalkPath.new() # set walk.terrain to the match's TerrainMask
@@ -122,6 +120,7 @@ var leaper := false # a leaping minion (boss mode v3: the snowmen)
 var _land_since := -1.0 # s since a jump landed (its squash), -1 none
 var _base_scale := Vector2.ONE # the figure's own scale (a jump squashes and stretches round it)
 var _bubble: ShieldBall # the shield's bubble round the body
+var _fx: StatusFx # the status effects on the body (its back twin under the figure)
 
 
 ## my_team: the local player's team; allies are blue, enemies red. -1 colours by team id.
@@ -168,8 +167,14 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	add_child(_sprite)
 	_art_top = maxf(ART_TOP, _sprite.art_height() * _sprite.scale.y + 3.0)
 	_aura.height = _art_top
-	_bubble = ShieldBall.new() # over the body, centred on the figure
 	var fig_h := _art_top - 3.0
+	_fx = StatusFx.new() # over the figure, under the HP bar; its back twin over the ring, under the figure
+	_fx.show_behind_parent = true
+	_fx.height = fig_h
+	_fx.width = fig_h * float(BossArt.WIDTH.get(art, 1.0)) * 0.85 if art != "" else BODY.x + 4.0
+	_ring.add_child(_fx.make_back())
+	add_child(_fx)
+	_bubble = ShieldBall.new() # over the body, centred on the figure
 	_bubble.position = Vector2(0, -fig_h * 0.5)
 	_bubble.radius = maxf(BODY.x * maxf(body_size, 1.0), fig_h) * 0.5 + BUBBLE_MARGIN
 	add_child(_bubble)
@@ -357,15 +362,26 @@ func badge_node() -> Node2D:
 	return _badge
 
 
-## effects: the player's statusEffects list (null or [] clears the markers and icons).
+## effects: the player's statusEffects list (null or [] clears the markers and the looks on the body).
 func set_status(effects: Variant) -> void:
 	_status.text = Status.marker_text(effects)
-	_icons = Status.icons(effects)
+	if not _dead:
+		_fx.set_effects(effects)
 	_place_badge()
 	queue_redraw()
 
 
-## The shield (absorbs damage before HP), drawn on the HP bar and as an icon.
+## The status looks drawn on the body now (StatusLook.looks(): back to front).
+func status_looks() -> Array:
+	return _fx.looks()
+
+
+## The status effects' drawing on the body (tests).
+func status_fx() -> StatusFx:
+	return _fx
+
+
+## The shield (absorbs damage before HP), drawn on the HP bar and as the bubble.
 func set_shield(value: int, animate: bool = true) -> void:
 	var was := shield > 0
 	shield = maxi(0, value)
@@ -386,14 +402,6 @@ func set_shield_tint(c: Color) -> void:
 ## The shield's bubble (tests).
 func shield_bubble() -> ShieldBall:
 	return _bubble
-
-
-## The icons drawn right of the HP bar: the bad effect ids (Status.icons(), game data order), then "shield".
-func status_icons() -> Array:
-	var out := _icons.duplicate()
-	if shield > 0:
-		out.append("shield")
-	return out
 
 
 ## The HP bar's fills as fractions of its width: {hp, shield} (the shield segment follows the HP;
@@ -422,6 +430,7 @@ func set_dead() -> void:
 	_sweep = {}
 	_sprite.die()
 	_aura.set_on(false)
+	_fx.clear()
 	_bubble.hide_ball()
 	_badge.show_use({})
 	_name.modulate.a = 0.5
@@ -673,6 +682,7 @@ func vanish() -> void:
 	set_dead()
 	if _sprite.has_method("vanish"):
 		_sprite.vanish()
+	_fx.vanish()
 	for n in [_name, _title, _status, _ring, _badge]:
 		n.visible = false
 
@@ -747,11 +757,7 @@ func _draw() -> void:
 		return
 	# HP bar: dark rounded back, a fill green → yellow → red, a light top line.
 	var bar := Rect2(-HP_BAR_WIDTH / 2, -_art_top - 12, HP_BAR_WIDTH, 8)
-	if is_boss(): # the HUD's big bar: only the effect icons here, beside the name
-		var icons_only := status_icons()
-		for i in icons_only.size():
-			var ci := Vector2(-HP_BAR_WIDTH / 2 + ICON_SIZE / 2.0 + i * (ICON_SIZE + ICON_GAP), bar.get_center().y)
-			StatusIcons.draw(self, str(icons_only[i]), ci, ICON_SIZE)
+	if is_boss(): # the HUD's big bar
 		_draw_turn_arrow()
 		return
 	draw_rect(bar.grow(2), Color(0.02, 0.03, 0.1, 0.85))
@@ -769,10 +775,6 @@ func _draw() -> void:
 		draw_rect(sh, SHIELD_COLOR)
 		draw_rect(Rect2(sh.position, Vector2(sh.size.x, 3)), Color(1, 1, 1, 0.95))
 		draw_line(sh.position, sh.position + Vector2(0, sh.size.y), Color(1, 1, 1, 0.9), 1.5)
-	var icons := status_icons()
-	for i in icons.size():
-		var c := Vector2(bar.end.x + 4.0 + ICON_SIZE / 2.0 + i * (ICON_SIZE + ICON_GAP), bar.get_center().y)
-		StatusIcons.draw(self, str(icons[i]), c, ICON_SIZE)
 	_draw_turn_arrow()
 
 

@@ -5,7 +5,7 @@ extends "res://match/views/skills/laser.gd"
 ## hit), its timing from the beam event (t, duration). Boss mode v3: a shot with many beams at
 ## once (the witch's radial burst of 20, the robot's 5 parallel sweeps; BeamFan) is drawn by one
 ## BeamFanFx: all of them together, a burst glow round a radial centre, a flash on each player hit
-## and the stars / frost over the head of those stunned / frozen; the camera frames the whole map
+## (a stun / freeze shows on the body: PlayerView's StatusFx); the camera frames the whole map
 ## for it (frames_map()). Boss skills have no game data tuning of their own: the laser effect's
 ## (the first laser skill's params) is used.
 
@@ -66,7 +66,7 @@ func process(t: float) -> void:
 		_fan.sync(t)
 
 
-## A beam hit: its flash; a stun / freeze on someone hit: the stars or frost over the head.
+## A beam hit: its flash (a stun / freeze on someone hit shows on its body: PlayerView's StatusFx).
 func on_event(e: Dictionary) -> void:
 	if _fan == null:
 		super.on_event(e)
@@ -80,11 +80,6 @@ func on_event(e: Dictionary) -> void:
 		"damage":
 			var body: float = view.body_size if "body_size" in view else 1.0
 			_fan.hit(view.position - Vector2(0, GameData.shot_origin_lift() * body), float(e.get("t", 0.0)))
-		"status":
-			var effect := str(e.get("effectId", ""))
-			if effect == "stun" or effect == "freeze":
-				var lift: float = view.head_lift() if view.has_method("head_lift") else 90.0
-				_fan.stun(view, lift, float(e.get("t", 0.0)), effect)
 
 
 func end() -> void:

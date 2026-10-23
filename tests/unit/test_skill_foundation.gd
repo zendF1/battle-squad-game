@@ -136,10 +136,10 @@ func _view(p: Dictionary) -> Node2D:
 	return v
 
 
-func test_player_view_shield_and_icons() -> void:
+func test_player_view_shield_and_status_looks() -> void:
 	var v := _view({"shield": 300, "statusEffects": [{"effectId": "burn", "durationTurn": 1}, {"effectId": "power_shot", "durationTurn": 1}]})
 	eq(v.shield, 300, "shield from the payload")
-	eq(v.status_icons(), ["burn", "shield"], "effect icons, then the shield")
+	eq(v.status_looks(), ["aura", "flames"], "on the body: the buff's aura behind, the flames (no icons)")
 	eq(v.status_text(), "x1.5", "shot modifiers stay text")
 	var f: Dictionary = v.bar_fractions()
 	near(f["hp"], 1000.0 / 1500.0, 1e-6, "hp share")
@@ -151,7 +151,9 @@ func test_player_view_shield_and_icons() -> void:
 	near(f["shield"], 500.0 / 2000.0, 1e-6, "shield share")
 	v.set_shield(0)
 	v.set_status([])
-	eq(v.status_icons(), [], "cleared")
+	for i in 20:
+		v.status_fx().look.step(0.05)
+	eq(v.status_looks(), [], "cleared once popped out")
 	eq(_view({}).shield, 0, "no shield field: 0")
 	v.get_parent().free()
 

@@ -2,15 +2,14 @@ extends VBoxContainer
 ## The boss fight's HUD (the Hud pins it at the top centre, under the timer and the wind): the
 ## boss's head-and-shoulders figure, its name, "Vòng 3/15" and a big HP bar with "8.400 / 12.000"
 ## (a pale chunk trails each loss); while the boss is shielded (BossHudModel.shielded) the bar is
-## tinted ice blue with moving hex stripes and a shield icon at its left, which pops when the
-## shield goes on or off. Under it, on the boss's turn, its skill's name ("Mưa đạn pháo", from
+## tinted ice blue with moving hex stripes (no icon), the bar flashing when the shield goes on or
+## off. Under it, on the boss's turn, its skill's name ("Mưa đạn pháo", from
 ## ActionSelected and the game data's bosses skills) pops in and fades (announce_skill()).
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Ui := preload("res://ui/ui.gd")
 const BossArt := preload("res://match/boss/boss_art.gd")
 const BossArtView := preload("res://match/boss/boss_art_view.gd")
-const StatusIcons := preload("res://match/views/status_icons.gd")
 
 const BAR := Vector2(560, 30)
 const TRAIL_SEC := 0.6
@@ -33,7 +32,7 @@ var _skill_tween: Tween
 var _shown_ratio := 1.0 # the fill drawn
 var _trail := 1.0 # the pale chunk behind it
 var _trail_wait := 0.0
-var _pop := 0.0 # the shield icon's pop
+var _pop := 0.0 # the bar's flash as the shield goes on / off
 var _t := 0.0
 
 
@@ -180,8 +179,7 @@ func _process(delta: float) -> void:
 func _draw_bar() -> void:
 	var s := _bar.size
 	var shielded := bool(_state.get("shielded", false))
-	var icon_w := s.y + 6.0 if shielded or _pop > 0.0 else 0.0
-	var r := Rect2(Vector2(icon_w, 0), Vector2(s.x - icon_w, s.y))
+	var r := Rect2(Vector2.ZERO, s)
 	_bar.draw_style_box(LobbyUi.box(Color(0.02, 0.02, 0.06, 0.92), 9, 0, Color(1, 1, 1, 0.25), 2), r)
 	var inner := r.grow(-3.0)
 	if _trail > _shown_ratio:
@@ -201,11 +199,5 @@ func _draw_bar() -> void:
 				if b.x > a.x:
 					_bar.draw_line(a, b, Color(1, 1, 1, 0.22), 3.0, true)
 				x += 18.0
-	if icon_w > 0.0:
-		var c := Vector2(s.y / 2.0, s.y / 2.0)
-		var px := s.y * (1.0 + _pop * 0.35)
-		_bar.modulate = Color.WHITE
-		if shielded:
-			StatusIcons.draw(_bar, "shield", c, px)
-		else:
-			_bar.draw_circle(c, px / 2.0 * _pop, Color(SHIELD, 0.5 * _pop))
+	if _pop > 0.0:
+		_bar.draw_style_box(LobbyUi.box(Color(SHIELD, 0.45 * _pop), 9, 0, Color(1, 1, 1, 0.8 * _pop), 2), r)

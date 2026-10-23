@@ -5,9 +5,9 @@ extends RefCounted
 ## does not, so the client ticks it the same way, and a ShotResolved "status" event applies one.
 ##
 ## What each effect does and says is the game data's (GET /gamedata statusEffects, in order:
-## name, marker, banner, bad, skipsTurn, blocksMove): the bad effects show as icons beside the
-## HP bar (match/views/status_icons.gd, a generic icon for one with no art), the markers as text
-## above the head, the banner while it skips the turn or blocks moving.
+## name, marker, banner, bad, skipsTurn, blocksMove): every active effect is drawn on the unit's
+## body (match/views/status_look.gd, status_fx.gd; no icons beside the HP bar), the markers as
+## text above the head, the banner while it skips the turn or blocks moving.
 
 const GameData := preload("res://autoload/game_data_model.gd")
 
@@ -68,16 +68,6 @@ static func tick(effects: Variant) -> Array:
 		next["durationTurn"] = int(e.get("durationTurn", 0)) - 1
 		if next["durationTurn"] > 0:
 			out.append(next)
-	return out
-
-
-## The icon effects active in the list (the bad ones), in the game data's order, each once.
-static func icons(effects: Variant) -> Array:
-	var out: Array = []
-	var on := active(effects)
-	for id in GameData.status_ids():
-		if GameData.status_bad(id) and on.has(id):
-			out.append(id)
 	return out
 
 
