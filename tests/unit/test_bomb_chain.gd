@@ -89,7 +89,7 @@ func test_boulder_trail() -> void:
 
 func test_quake_spikes_and_cracks() -> void:
 	var fx := ChainFx.new()
-	fx.quake(Vector2(500, 400), 20.0, func(_x): return 390.0, 0)
+	fx.quake(Vector2(500, 400), 20.0, func(_x): return 404.0, 0) # the impact on the pit's floor
 	eq(fx.spikes(), 6, "three stone spikes each side of the rim")
 	eq(fx.cracks(), 4, "two cracks run out each side")
 	eq(fx.rings(), 1, "a dust ring along the ground")
@@ -105,7 +105,7 @@ func test_quake_spikes_and_cracks() -> void:
 		for q in fx._pool:
 			if q[0] == ChainFx.ROCK and q[3] < q[4]:
 				rocks += 1
-				check(q[1].y <= 390.01, "a rock never sinks into the ground: it bounces off it")
+				check(q[1].y <= 404.01, "a rock never sinks into the ground: it bounces off it")
 	check(rocks > 0, "rock chunks fly")
 	eq([fx.spikes(), fx.cracks(), fx.rings()], [0, 0, 0], "they all go")
 	fx.free()
