@@ -11,5 +11,5 @@ Chạy (trong thư mục battle-squad-game):
   /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_hug_guns.gd -- water_gun_iron water_gun_steel water_gun_mithril water_gun_dragon
 
 Cấu hình: ../side_run/import.json mục poses.ready (scale 0.36: mặt từ tai đến mũi rộng bằng ảnh chạy;
-alignX: giữa mặt trên giữa mặt của frame_1; armFront: tay áo gần, cẳng tay và hai nắm tay vẽ đè lên
-súng). Chỗ súng: scenes/character/poses/tide_ready.tscn (GunSocket trên hai nắm tay).
+alignX: giữa mặt trên giữa mặt của frame_1; armFront: tay áo gần, cẳng tay và CHỈ nắm tay gần vẽ đè
+lên súng, nắm tay xa ở dưới súng như các nhân vật khác). Chỗ súng: scenes/character/poses/tide_ready.tscn (GunSocket trên hai nắm tay).

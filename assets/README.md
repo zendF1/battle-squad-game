@@ -196,9 +196,10 @@ by a global white key that also cleared her eye whites and the white of her boot
 `import.json` `restoreWhites` makes those enclosed holes opaque again, the gaps of backdrop between
 an arm or a leg and the body stay clear) and the kneeling ready pose `side_ready/ready_v1.png` (green
 backdrop, the AI sparkle that lay over the front boot's toe un-blended out of it before it was
-saved) by `tools/import_frames.gd tide`; her standing picture `side_idle/idle_v1.png` is not drawn
-yet, so she idles on the run's `frame_2` (`anims.idle.fallback` `[1]`: the passing pose, both feet
-down). The lobby picture and portrait are cut from one front-view drawing `lobby/full_v1.png` by
+saved) by `tools/import_frames.gd tide`; her standing picture `side_idle/idle_v1.png` (`poses.stand`) is
+the side view of a three-view AI picture, cut onto transparency before it was saved (its backdrop
+white on the left, green on the right: both keyed, the white flooded from outside so her white
+clothes stay). The lobby picture and portrait are cut from one front-view drawing `lobby/full_v1.png` by
 `tools/cut_sheet.gd tide` (`lineup_parts.json` figure `tide`: its own `sheet`, `portrait`). Her water
 gun is hug art per tier (`art_source/weapons/hug/water_gun_<tier>.png`, `tools/import_hug_guns.gd`,
 also the `weapon_water_<tier>` equipment icons), her water orbs per tier
@@ -206,7 +207,8 @@ also the `weapon_water_<tier>` equipment icons), her water orbs per tier
 `tools/import_projectiles.gd`); the orb's trail and water burst (`fx/water_gun/`) are still painted
 by code. Her pose scenes (`scenes/character/poses/tide_ready.tscn`, `tide_carry.tscn`) hold the hug
 gun on her fists and slung across her back. Her run frames have no water tank on the back (the
-kneeling and lobby pictures do).
+standing, kneeling and lobby pictures do). Her near arm over the hugged gun is the sleeve, the
+forearm and the near fist only (as everyone's: the far fist stays under the gun).
 
 ## Re-baking the placeholder art
 
@@ -236,7 +238,7 @@ A character with `side/side.json` is drawn in the match (and the fallback outsid
 frames instead of the baked ones below (`ui/art.gd` `character_look()`: side view → baked frames →
 Rookie's → empty). Today: **every character** (the same files: Flora's `flora/side/` 89x128,
 walk at 13 fps; Tide's `tide/side/` 82x139, walk at 12 fps, 64 world px tall (her head the size of
-Flora's, her legs longer), idling on a run frame until her standing picture is drawn; Tanko's `tanko/side/` 93x126, walk at 15 fps; Spark's `spark/side/` 94x134, walk at
+Flora's, her legs longer), idling on her own standing picture; Tanko's `tanko/side/` 93x126, walk at 15 fps; Spark's `spark/side/` 94x134, walk at
 15 fps; every idle is its own standing picture; heads the size of Rookie's, Tanko a little shorter
 and broader, Spark a little taller (the spiky hair); no `hand.png`, they hold their gun only hugged). Facing left is the same frames mirrored round the feet
 (`Flip` scale x -1): no separate files, no jump on a turn, the gun anchors and the muzzle mirror

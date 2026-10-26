@@ -201,11 +201,11 @@
 						375
 					],
 					[
-						572,
+						546,
 						380
 					],
 					[
-						572,
+						546,
 						438
 					],
 					[
@@ -233,16 +233,12 @@
 					[
 						515,
 						400
-					],
-					[
-						555,
-						405
 					]
 				],
 				"darkMax": 80,
 				"grow": 6,
 				"feather": 1,
-				"_doc": "the near arm drawn OVER the hugged gun (assets/characters/tanko/side/ready_arm_front.png, same canvas as ready_0), pose px: polygon round the near shoulder pad, the sleeve, the forearm and both fists (not the grenades above); seeds: one point inside each piece the outline walls in (the far forearm right of the fists stays under the gun). See Rookie's config for the keys."
+				"_doc": "the near arm drawn OVER the hugged gun (assets/characters/tanko/side/ready_arm_front.png, same canvas as ready_0), pose px: polygon round the near shoulder pad, the sleeve, the forearm and the NEAR fist only (not the grenades above; its right edge at the outline between the two fists, x 546); seeds: one point inside each piece the outline walls in. The far fist and forearm right of it stay in the body, under the gun. See Rookie's config for the keys."
 			}
 		}
 	},

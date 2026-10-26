@@ -1,5 +1,5 @@
 {
-	"_doc": "tools/import_frames.gd: Tide's in-match side view from the AI-made run cycle (frame_1..8.png, 1280x720, facing right, transparent) and the ready pose (poses.ready: ../side_ready/ready_v1.png, 887x1792, kneeling, fists together on the chest, no gun, green backdrop; the AI sparkle over the front boot's toe un-blended out of it before it was saved here). Source px unless noted. height: 64 world px for her 592 px run figure (0.108 world px per source px, the roster's 0.113 x 0.96: her head drawn as big as Flora's in the run frames, her legs longer; any taller and she towers over the others); no standing picture yet: idle is the run frame_2 (the passing pose, both feet down: the most upright one; anims.idle.fallback); walk 12 fps: the planted foot moves back ~7.7 world px a frame (90 px/s walk); canvas pinned (a standing picture that fits leaves the run frames' PNGs as they are). See assets/README.md.",
+	"_doc": "tools/import_frames.gd: Tide's in-match side view from the AI-made run cycle (frame_1..8.png, 1280x720, facing right, transparent) and the ready pose (poses.ready: ../side_ready/ready_v1.png, 887x1792, kneeling, fists together on the chest, no gun, green backdrop; the AI sparkle over the front boot's toe un-blended out of it before it was saved here). Source px unless noted. height: 64 world px for her 592 px run figure (0.108 world px per source px, the roster's 0.113 x 0.96: her head drawn as big as Flora's in the run frames, her legs longer; any taller and she towers over the others); idle: the standing picture ../side_idle/idle_v1.png (poses.stand); walk 12 fps: the planted foot moves back ~7.7 world px a frame (90 px/s walk); canvas pinned (a standing picture that fits leaves the run frames' PNGs as they are). See assets/README.md.",
 	"id": "tide",
 	"out": "res://assets/characters/tide/side/",
 	"frames": "frame_*.png",
@@ -40,12 +40,12 @@
 	"pad": 3,
 	"anims": {
 		"idle": {
-			"_doc": "the standing picture (poses.stand, ../side_idle/idle_v1.png, not drawn yet); without it the run frame_2 (index 1: the passing pose, both feet on the ground)",
+			"_doc": "the standing picture (poses.stand, ../side_idle/idle_v1.png); without it the run frame 0 (frame_1.png)",
 			"frames": [
 				"stand"
 			],
 			"fallback": [
-				1
+				0
 			],
 			"fps": 1,
 			"loop": true,
@@ -141,12 +141,12 @@
 	},
 	"poses": {
 		"stand": {
-			"_doc": "pose px (1280x720): standing upright, facing right, transparent background (cleaned like the run frames). Not drawn yet (anims.idle.fallback until then). scale: source px per pose px (the hair and the face as wide as in the run frames); alignX: the ear on frame_1's (the head does not jump idle <-> walk <-> ready).",
+			"_doc": "pose px (298x735): standing upright, facing right, the tank on her back, transparent (cut from the middle figure of an AI picture whose backdrop is white on the left and green on the right: both keyed, the white by a flood from outside so her white shirt / shorts / boots stay, the green pockets between the hair, the tank and the legs too; no sparkle on it), then cleaned like the run frames. scale: source px per pose px (the face from the ear to the nose as wide as in the run frames: 117 / 130 px; the figure then as tall as frame_1); alignX: the middle of the face (ear .. nose) on frame_1's, so the head does not jump idle <-> walk <-> ready.",
 			"src": "../side_idle/idle_v1.png",
-			"scale": 1.0,
+			"scale": 0.91,
 			"alignX": [
-				538,
-				538
+				193,
+				596.5
 			]
 		},
 		"ready": {
@@ -202,11 +202,11 @@
 						876
 					],
 					[
-						832,
-						868
+						716,
+						880
 					],
 					[
-						832,
+						716,
 						1040
 					],
 					[
@@ -240,10 +240,6 @@
 						950
 					],
 					[
-						400,
-						965
-					],
-					[
 						500,
 						1030
 					],
@@ -258,20 +254,12 @@
 					[
 						690,
 						1000
-					],
-					[
-						770,
-						950
-					],
-					[
-						790,
-						1000
 					]
 				],
 				"darkMax": 80,
 				"grow": 6,
 				"feather": 1,
-				"_doc": "the near arm drawn OVER the hugged gun (assets/characters/tide/side/ready_arm_front.png, same canvas as ready_0), pose px: polygon round the near sleeve (from the shoulder), the forearm and both fists; seeds: one point inside each piece the outline walls in (the far forearm under the fists stays under the gun). See Rookie's config for the keys."
+				"_doc": "the near arm drawn OVER the hugged gun (assets/characters/tide/side/ready_arm_front.png, same canvas as ready_0), pose px: polygon round the near sleeve (from the shoulder), the forearm and the NEAR fist only (its right edge at the outline between the two fists, x 716); seeds: one point inside each piece the outline walls in. The far fist (x 716..815) and the far forearm under it stay in the body, under the gun: only one hand is seen holding it, as Rookie's / Flora's / Spark's / Tanko's. See Rookie's config for the keys."
 			}
 		}
 	},

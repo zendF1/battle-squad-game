@@ -8,7 +8,7 @@
 metadata/_edit_lock_ = true
 
 [node name="CarrySocket" type="Node2D" parent="."]
-position = Vector2(-10.74, -109.71)
+position = Vector2(-18.29, -105.14)
 rotation = -2.1293018
 metadata/_edit_group_ = true
 

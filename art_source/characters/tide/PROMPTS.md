@@ -7,7 +7,7 @@ game nào khác: đừng thêm tên game / tên hãng / "in the style of <game>"
 **Đã nhập vào game** (`assets/README.md` mục "Tide's art"; ảnh tạm đổi màu từ Flora đã bỏ):
 - [x] 2. ảnh sảnh `lobby/full_v1.png` (tay chống hông, không vẫy tay; chân dung mục 5 cắt từ ảnh này)
 - [x] 3a. ảnh chạy `side_run/frame_1..8.png` (chưa có bình nước sau lưng)
-- [ ] 3b. ảnh đứng yên `side_idle/idle_v1.png` (tuỳ chọn: chưa có thì dùng `frame_2`)
+- [x] 3b. ảnh đứng yên `side_idle/idle_v1.png` (hình giữa của ảnh 3 góc nhìn, đã cắt nền trắng + xanh)
 - [x] 3c. ảnh quỳ `side_ready/ready_v1.png` (dấu ✦ đè lên giày đã gỡ)
 - [x] 4a. súng ôm `art_source/weapons/hug/water_gun_<iron|steel|mithril|dragon>.png`
 - [ ] 4b. icon súng riêng (tuỳ chọn: icon `weapon_water_<cấp>` đang cắt từ súng ôm)
