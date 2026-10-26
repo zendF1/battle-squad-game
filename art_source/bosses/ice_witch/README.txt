@@ -14,7 +14,7 @@ Source pictures (AI-drawn on flat magenta, facing right; PROMPTS.md has the prom
 
 Import (in the battle-squad-game folder; the editor may stay open):
 
-  /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_boss_frames.gd -- ice_witch
+  /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_boss_frames.gd -- ice_witch
 
   add  --contact=/some/dir/contact.png  for a contact sheet of every cut frame (the feet as a red
   cross, the body's top as a green line).
