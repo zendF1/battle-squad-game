@@ -11,5 +11,6 @@ printf '[server]\n\napi_url="http://%s:9090"\nws_url="ws://%s:9091"\n' "$HOST" "
 trap 'rm -f server.cfg' EXIT
 rm -rf build/ios && mkdir -p build/ios && touch build/.gdignore # keep Godot from importing the build output
 "$GODOT" --headless --path . --export-debug "iOS" build/ios/battle-squad.ipa
+tools/check_export.sh build/ios/battle-squad.pck
 echo "server: http://$HOST:9090  ws://$HOST:9091"
 echo "Xcode project: build/ios/battle-squad.xcodeproj"
