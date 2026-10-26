@@ -1,5 +1,5 @@
 {
-	"_doc": "tools/import_projectiles.gd: the AI-drawn per-tier shells <kind>_<tier>.png here (facing right; solid: thick dark outline on flat white, glow: energy on pure black) → assets/fx/<kind>/projectile_<tier>.png. files.<kind>_<tier>: watermark {centre: [x, y], radius} overrides the found ✦ (false: none); alphaCurve (linear: soft glows, smoothstep: a dark solid part) and its numbers override the glow curve. Edit and re-run.",
+	"_doc": "tools/import_projectiles.gd: the AI-drawn per-tier shells <kind>_<tier>.png here (facing right; solid: thick dark outline on flat white, glow: energy on pure black; water_gun_<tier>: cut from one AI picture of the four orbs in a row on black, its sparkle painted out; iron / steel / dragon smoothstep so their dark outlines stay solid on a light sky, mithril linear: its soft glow) → assets/fx/<kind>/projectile_<tier>.png. files.<kind>_<tier>: watermark {centre: [x, y], radius} overrides the found ✦ (false: none); alphaCurve (linear: soft glows, smoothstep: a dark solid part) and its numbers override the glow curve. Edit and re-run.",
 	"modes": {"bazooka": "solid", "cannon": "solid", "seed_launcher": "solid", "shock_rifle": "glow", "water_gun": "glow", "blaster": "glow"},
 	"scale": 4,
 	"whiteTolerance": 0.1,
@@ -14,6 +14,9 @@
 	"margin": 6,
 	"watermarkBox": 0.16,
 	"files": {
-		"shock_rifle_dragon": {"alphaCurve": "smoothstep", "alphaLo": 0.03, "alphaHi": 0.22}
+		"shock_rifle_dragon": {"alphaCurve": "smoothstep", "alphaLo": 0.03, "alphaHi": 0.22},
+		"water_gun_iron": {"alphaCurve": "smoothstep", "alphaLo": 0.03, "alphaHi": 0.22},
+		"water_gun_steel": {"alphaCurve": "smoothstep", "alphaLo": 0.03, "alphaHi": 0.22},
+		"water_gun_dragon": {"alphaCurve": "smoothstep", "alphaLo": 0.03, "alphaHi": 0.22}
 	}
 }

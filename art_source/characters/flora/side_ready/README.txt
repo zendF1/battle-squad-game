@@ -8,8 +8,8 @@ Súng ôm vẽ riêng: art_source/weapons/hug/<loại>_<cấp>.png (vd. bazooka_
 sang phải, không tay cầm, nền xanh lá đặc.
 
 Chạy (trong thư mục battle-squad-game):
-  /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_frames.gd -- flora
-  /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_hug_guns.gd
+  /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_frames.gd -- flora
+  /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_hug_guns.gd
 
 Sau đó trong editor: đợi import xong, mở scenes/character/poses/flora_ready.tscn, kéo / co giãn
 GunSocket (bấm vào súng) cho súng che kín hai nắm tay (súng xoay quanh gốc GunSocket), Ctrl+S, F5.

@@ -50,7 +50,8 @@ const DIRT := [Color(0.42, 0.28, 0.16), Color(0.3, 0.2, 0.12), Color(0.36, 0.6, 
 ## body_tint: how much the projectile itself takes the accent colour (0: its own colours; the
 ##   blaster bolt is drawn white and takes it fully);
 ## tier_body_scale: a tier's own shell picture (projectile_<tier>.png) is drawn this much larger
-##   than fitted into projectile.png's drawn part (the long seeds would look tiny in the round pod's box);
+##   than fitted into projectile.png's drawn part (the long seeds would look tiny in the round pod's box;
+##   the water orbs' pictures carry their droplet trail / foam ring / steam beside the orb);
 ## impact: scale of the burst frames, size (optional, 1: the whole impact drawn this much smaller,
 ##   its radius and its debris spread; the cannon 0.75 after playtest 4), smoke puffs and colour, bits (count, speed, size, gravity
 ##   factor, colours, image: "debris" or "trail" = the kind's trail particle), frame_tint, lum (the
@@ -79,7 +80,7 @@ const KINDS := {
 		"impact": {"scale": 1.0, "smoke": 3, "smoke_color": Color(0.6, 0.85, 0.55, 0.55), "bits": 16,
 			"speed": [140.0, 360.0], "bit_size": [4.0, 6.0], "gravity": 0.35,
 			"colors": [Color(1, 1, 1), Color(0.65, 1.0, 0.6), Color(1.0, 0.9, 0.6)], "bit_image": "trail", "lum": [0.62, 0.97]}},
-	"water_gun": {"color": Color(0.55, 0.88, 1.0), "line": Color(0.7, 0.92, 1.0), "line_width": 3.0,
+	"water_gun": {"color": Color(0.55, 0.88, 1.0), "line": Color(0.7, 0.92, 1.0), "line_width": 3.0, "tier_body_scale": 1.5,
 		"trail": {"every": 6.0, "life": 0.45, "size": [6.0, 3.0], "alpha": 0.9, "drift": 90.0, "jitter": 4.0, "spin": 0.0, "tint": 0.25},
 		"spin": 0.0, "fuse": false, "exhaust": false, "flicker": false, "body_tint": 0.0,
 		"impact": {"scale": 1.0, "smoke": 2, "smoke_color": Color(0.75, 0.9, 1.0, 0.45), "bits": 18,

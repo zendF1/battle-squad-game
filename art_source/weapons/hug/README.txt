@@ -33,6 +33,12 @@ thêm silver, gold, titan, diamond).
   đất), mọi cấp như nhau (đầu rồng tính vào độ dài); muzzle = tâm cầu điện (dragon: cầu trong miệng
   rồng); khe giữa hai chạc và miệng rồng là nền (xoá); các tia sét mảnh trong miệng rồng giữ lại;
   "despill": {"hueRange": [70, 160]} làm sạch các điểm viền ám xanh lá, không đụng màu xanh ngọc / vàng
+- súng nước của Tide dài 46 px (cả 4 cấp một dáng: thân ống, bình kính trên lưng, ống nối ở đuôi, nòng
+  loe), nền xanh lá: water_gun_iron.png (xám, đai xanh ngọc, bình kính trong), water_gun_steel.png (thép
+  xanh nhạt, đai trắng, bình xanh sapphire), water_gun_mithril.png (bạc băng hoa văn sóng, bình pha lê
+  ngọc), water_gun_dragon.png (đỏ thẫm vàng, nòng đầu rồng ngậm cầu nước: điểm bắn = tâm cầu, nền xanh
+  đậm hơn: tool lấy màu 4 góc); ôm ở phần trên thân ống ("hold" [512, 430]) để bình kính nằm dưới cằm,
+  không che mặt; "water_gun_basic" = iron nhạt màu; icon weapon_water_<cấp>
 - nền magenta: viền hồng tự khử (phần đỏ + lam vượt lục bị trừ đi, màu đỏ của súng giữ nguyên);
   "despill": {"hueRange": [270, 320]} làm đen các điểm viền ám tím, không đụng màu hồng / đỏ của súng
 - quầng sáng vẽ lẫn vào nền (pha lê mithril, hạt lửa dragon, cầu điện của súng điện): hug.json "background": {"glow": {"colour":
@@ -40,7 +46,7 @@ thêm silver, gold, titan, diamond).
   "alpha": 0 thì xoá hẳn quầng), đo độ dài súng không tính quầng
 
 Chạy (trong thư mục battle-squad-game):
-  /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_hug_guns.gd
+  /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_hug_guns.gd
 Ghi assets/weapons/<loại>/hug_<cấp>.png + assets/weapons/hug.json. Độ dài mặc định: hug.json "length"
 (57 px trong trận); chỉnh cỡ / chỗ trong editor ở scenes/character/poses/<id>_ready.tscn (GunSocket).
 Cũng ghi icon trang bị assets/icons/equipment/weapon_bazooka_<…>.png, weapon_cannon_<…>.png,

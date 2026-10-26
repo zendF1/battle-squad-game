@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs the headless unit tests. Set GODOT to the Godot 4.7 binary.
 set -uo pipefail
-GODOT="${GODOT:-/Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot}"
+GODOT="${GODOT:-/Applications/Godot.app/Contents/MacOS/Godot}"
 cd "$(dirname "$0")/.."
 out="$("$GODOT" --headless --path . -s res://tests/run_tests.gd 2>&1)"
 status=$?

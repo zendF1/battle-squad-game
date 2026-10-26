@@ -9,8 +9,8 @@ sang phải, không tay cầm, nền xanh lá hoặc hồng tím đặc. Súng �
 (shock_rifle_iron / steel / mithril / dragon.png, basic = iron nhạt màu), dài 55 px trong trận.
 
 Chạy (trong thư mục battle-squad-game):
-  /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_frames.gd -- spark
-  /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_hug_guns.gd
+  /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_frames.gd -- spark
+  /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_hug_guns.gd
 
 Sau đó trong editor: đợi import xong, mở scenes/character/poses/spark_ready.tscn, kéo / co giãn
 GunSocket (bấm vào súng) cho súng che kín hai nắm tay (súng xoay quanh gốc GunSocket), Ctrl+S, F5.

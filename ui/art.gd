@@ -13,13 +13,6 @@ const ROOT := "res://assets/"
 # ── Characters ──────────────────────────────────────────────────────────────
 
 const CHARACTERS := ["rookie", "tanko", "spark", "flora", "tide"]
-## Characters whose art is still a placeholder recoloured from another's (no art_source/ of their
-## own yet: tools/import_frames.gd has no config for them; art_source/characters/<id>/PROMPTS.md
-## says what to draw): Tide is Flora's art in teal and white, her water gun Flora's seed launcher.
-const PLACEHOLDER_CHARACTERS := ["tide"]
-## The character whose art a placeholder recolours: its pose scenes show that one's pictures in
-## the editor (the same sizes and pivots), e.g. tide_carry.tscn's Preview and Body are Flora's.
-const PLACEHOLDER_SOURCE := {"tide": "flora"}
 const DEFAULT_CHARACTER := "rookie"
 ## Every character frame has this canvas, the feet at FRAME_PIVOT (bottom centre), facing right,
 ## drawn at PX_PER_UNIT px per art unit (the art is about 150 units tall).

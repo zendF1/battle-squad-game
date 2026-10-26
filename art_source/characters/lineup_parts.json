@@ -44,6 +44,14 @@
 				"chest": {"t": [0, 1.5, 3.0], "y": [0, -2, 0], "sx": [1, 1.022, 1], "sy": [1, 1.015, 1]},
 				"arm_l_upper": {"t": [0, 1.5, 3.0], "y": [0, -1, 0], "rot": [0, 1, 0]},
 				"arm_r_upper": {"t": [0, 1.5, 3.0], "y": [0, -1, 0], "rot": [0, -1, 0]}
-			}}}}
+			}}}},
+		"tide": {"_doc": "drawn alone (sheet: tide/lobby/full_v1.png, 911x1783 on white, facing the viewer, the left hand hanging, the right fist on her hip, the water tank behind her shoulders, the hose looping by her hip): rect round her, the white flood-filled from it (her white shirt, shorts and boots walled in by the outline stay), holes: the white inside the hose's loop; scale: about as tall as Flora / Spark on the stage; portrait: her head and shoulders from the same cut",
+			"sheet": "tide/lobby/full_v1.png", "rect": [70, 160, 670, 1560], "seed": [400, 900], "scale": 0.245, "holes": [[594, 1040]],
+			"portrait": {"rect": [95, 175, 610, 610], "size": 128},
+			"joints": {"hips": [400, 1020], "chest": [400, 860], "neck": [400, 650], "crown": [400, 185],
+				"l_shoulder": [215, 830], "l_elbow": [160, 960], "l_wrist": [140, 1080], "l_hand": [140, 1200],
+				"r_shoulder": [610, 820], "r_elbow": [690, 890], "r_wrist": [590, 970], "r_hand": [520, 1010],
+				"l_hip": [290, 1190], "l_knee": [255, 1320], "l_ankle": [260, 1530], "l_toe": [160, 1640],
+				"r_hip": [510, 1190], "r_knee": [550, 1320], "r_ankle": [560, 1530], "r_toe": [650, 1640]}}
 	}
 }

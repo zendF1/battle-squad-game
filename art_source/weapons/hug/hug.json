@@ -13,7 +13,8 @@
 			"weapon_bazooka_<tier>": {"gun": "bazooka", "tiers": ["iron", "steel", "mithril", "dragon"]},
 			"weapon_cannon_<tier>": {"gun": "cannon", "tiers": ["iron", "steel", "mithril", "dragon"]},
 			"weapon_launcher_<tier>": {"gun": "seed_launcher", "tiers": ["iron", "steel", "mithril", "dragon"]},
-			"weapon_rifle_<tier>": {"gun": "shock_rifle", "tiers": ["iron", "steel", "mithril", "dragon"]}
+			"weapon_rifle_<tier>": {"gun": "shock_rifle", "tiers": ["iron", "steel", "mithril", "dragon"]},
+			"weapon_water_<tier>": {"gun": "water_gun", "tiers": ["iron", "steel", "mithril", "dragon"]}
 		}
 	},
 	"guns": {
@@ -49,6 +50,14 @@
 		"shock_rifle_steel": {"length": 55, "muzzle": [943, 382], "background": {"glow": {"colour": [170, 80, 255]}}, "despill": {"hueRange": [70, 160]}},
 		"shock_rifle_mithril": {"length": 55, "muzzle": [943, 382], "background": {"glow": {"colour": [130, 235, 255]}}, "despill": {"hueRange": [70, 160]}},
 		"shock_rifle_dragon": {"length": 55, "muzzle": [940, 381], "background": {"holeMin": 15, "holePure": 0, "glow": {"colour": [255, 120, 20]}}, "despill": true,
-			"_doc": "the length includes the dragon's head; muzzle: the orange lightning orb in the open mouth (the mouth is backdrop reached from the border); the thin lightning lines round the orb lie inside the mouth and key cleanly: kept; a small pocket of backdrop between the horn and the head keyed as a hole; no green left (the dragon has no green); the orb's glow un-mixed into a clean orange one"}
+			"_doc": "the length includes the dragon's head; muzzle: the orange lightning orb in the open mouth (the mouth is backdrop reached from the border); the thin lightning lines round the orb lie inside the mouth and key cleanly: kept; a small pocket of backdrop between the horn and the head keyed as a hole; no green left (the dragon has no green); the orb's glow un-mixed into a clean orange one"},
+		"water_gun_iron": {"length": 46, "hold": [512, 430], "despill": {"hueRange": [70, 150]},
+			"_doc": "Tide's water gun (v1: one shape in four tiers, green backdrop: a chunky tube with a glass water chamber on top, a pump slider in the middle, a ribbed hose elbow at the back end, a wide flared nozzle in front; iron grey with teal bands): 46 world px long in every tier (her hug point is 56.7 ready-pose px above her soles: any longer and its back end sinks below them aiming straight up; the chunky chamber makes it look bigger than its length), held at the middle of its length on the tube's upper part (hold y 430: the fists on top of the tube, so the glass chamber stays under her chin, not over her face); muzzle (iron / steel / mithril): the right end at the nozzle's middle height (the default); despill hueRange: the green-tinted outline px next to the backdrop only (the teal bands, hue 175+, kept); the AI sparkle bottom right is a detached piece (dropped)"},
+		"water_gun_basic": {"from": "iron", "recolour": {"saturation": 0.55, "value": 0.94},
+			"_doc": "the starter water gun: the iron one desaturated, like the other guns' basic tier"},
+		"water_gun_steel": {"length": 46, "hold": [512, 430], "despill": {"hueRange": [70, 150]}},
+		"water_gun_mithril": {"length": 46, "hold": [512, 430], "despill": {"hueRange": [70, 150]}},
+		"water_gun_dragon": {"length": 46, "hold": [512, 430], "muzzle": [898, 552], "background": {"holeMin": 15, "holePure": 0, "glow": {"colour": [90, 230, 255]}}, "despill": {"hueRange": [70, 150]},
+			"_doc": "the length includes the dragon's head and the water orb in its mouth (a darker green backdrop: the corners' colour is the key); muzzle: the orb's centre; the pockets of backdrop between the teeth and round the horns keyed as holes; the orb's glow un-mixed into a clean cyan one"}
 	}
 }

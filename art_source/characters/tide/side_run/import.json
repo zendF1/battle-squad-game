@@ -1,0 +1,284 @@
+{
+	"_doc": "tools/import_frames.gd: Tide's in-match side view from the AI-made run cycle (frame_1..8.png, 1280x720, facing right, transparent) and the ready pose (poses.ready: ../side_ready/ready_v1.png, 887x1792, kneeling, fists together on the chest, no gun, green backdrop; the AI sparkle over the front boot's toe un-blended out of it before it was saved here). Source px unless noted. height: 64 world px for her 592 px run figure (0.108 world px per source px, the roster's 0.113 x 0.96: her head drawn as big as Flora's in the run frames, her legs longer; any taller and she towers over the others); no standing picture yet: idle is the run frame_2 (the passing pose, both feet down: the most upright one; anims.idle.fallback); walk 12 fps: the planted foot moves back ~7.7 world px a frame (90 px/s walk); canvas pinned (a standing picture that fits leaves the run frames' PNGs as they are). See assets/README.md.",
+	"id": "tide",
+	"out": "res://assets/characters/tide/side/",
+	"frames": "frame_*.png",
+	"restoreWhites": {
+		"_doc": "the run frames were cut from the video's white backdrop by a global white key (media-edit ani.py: every px over 240 cleared, her eye whites and the white of her boots and shorts too, their colour kept under alpha 0): the enclosed holes not of the backdrop's (252, 252, 252) made opaque again; the gaps of backdrop between an arm or a leg and the body stay clear",
+		"key": [
+			252.5,
+			252.5,
+			252.5
+		],
+		"tolerance": 2
+	},
+	"alphaCut": 128,
+	"keepPieces": 0.02,
+	"defringe": {
+		"band": 2,
+		"outline": [
+			24,
+			22,
+			30
+		],
+		"maxChroma": 56
+	},
+	"stabilise": {
+		"rows": [
+			0.0,
+			0.62
+		],
+		"search": 40
+	},
+	"hipRows": [
+		0.74,
+		0.8
+	],
+	"height": 64,
+	"oversample": 2,
+	"worldPxPerUnit": 0.35,
+	"pad": 3,
+	"anims": {
+		"idle": {
+			"_doc": "the standing picture (poses.stand, ../side_idle/idle_v1.png, not drawn yet); without it the run frame_2 (index 1: the passing pose, both feet on the ground)",
+			"frames": [
+				"stand"
+			],
+			"fallback": [
+				1
+			],
+			"fps": 1,
+			"loop": true,
+			"motion": "breathe"
+		},
+		"walk": {
+			"frames": "all",
+			"fps": 12,
+			"loop": true,
+			"swing": true
+		},
+		"shoot": {
+			"frames": "idle",
+			"count": 3,
+			"fps": 9,
+			"loop": false,
+			"motion": "recoil",
+			"angle": [
+				-14,
+				-6,
+				-1
+			],
+			"flash": [
+				1,
+				0.35,
+				0
+			]
+		},
+		"hurt": {
+			"frames": "idle",
+			"count": 3,
+			"fps": 7,
+			"loop": false,
+			"motion": "knockback",
+			"angle": [
+				5,
+				-4,
+				1
+			]
+		},
+		"die": {
+			"frames": "idle",
+			"count": 4,
+			"fps": 8,
+			"loop": false,
+			"motion": "fall",
+			"front": false,
+			"angle": [
+				0,
+				25,
+				65,
+				90
+			]
+		},
+		"draw": {
+			"_doc": "the ready pose, shown at once while the gun is out (gunDraw: no transition)",
+			"frames": [
+				"ready"
+			],
+			"stem": "ready",
+			"fps": 1,
+			"loop": false
+		},
+		"fire": {
+			"_doc": "the shot from the ready pose: its frame with the recoil (the hugged gun kicks back along its axis by the flash)",
+			"frames": "draw",
+			"count": 3,
+			"fps": 9,
+			"loop": false,
+			"motion": "recoil",
+			"flash": [
+				1,
+				0.35,
+				0
+			]
+		}
+	},
+	"gun": {
+		"_doc": "angle per frame is added to the hold (+ = muzzle down). The gun is holstered in idle / walk in the match; carry: where it would be held (px from the feet pivot, source px). fists (optional, Rookie's config): the near fist per source frame, to sway the gun with the arm.",
+		"carry": [
+			55,
+			-180
+		],
+		"follow": 0.35,
+		"swingDeg": 4
+	},
+	"gunDraw": {
+		"_doc": "gun_draw.gd TIMINGS overrides: the ready pose switches in and out at once",
+		"drawSec": 0,
+		"fastDrawSec": 0,
+		"holsterSec": 0,
+		"fadeIn": 0
+	},
+	"poses": {
+		"stand": {
+			"_doc": "pose px (1280x720): standing upright, facing right, transparent background (cleaned like the run frames). Not drawn yet (anims.idle.fallback until then). scale: source px per pose px (the hair and the face as wide as in the run frames); alignX: the ear on frame_1's (the head does not jump idle <-> walk <-> ready).",
+			"src": "../side_idle/idle_v1.png",
+			"scale": 1.0,
+			"alignX": [
+				538,
+				538
+			]
+		},
+		"ready": {
+			"_doc": "pose px (887x1792): kneeling, facing right, both fists together in front of the chest, NO gun, the water tank on her back, on a flat green backdrop (keyed out: `background`, holeMin / holePure / spillFrom keyed). scale: source px per pose px (the face from the ear to the nose as wide as in the run frames: 117 / 319 px); alignX: the middle of the face (ear .. nose) on frame_1's, so the head does not jump on the switch. The hug gun is placed in `scene` (its GunSocket on the fists: the gun turns round it).",
+			"src": "../side_ready/ready_v1.png",
+			"workScale": 1.0,
+			"background": {
+				"key": "corners",
+				"corner": 8,
+				"tolerance": 45,
+				"soft": 45,
+				"holeMin": 15,
+				"spill": 3,
+				"holePure": 0,
+				"spillFrom": "keyed"
+			},
+			"alphaCut": 24,
+			"keepPieces": 0.02,
+			"defringe": {
+				"band": 0
+			},
+			"scale": 0.36,
+			"scene": "res://scenes/character/poses/tide_ready.tscn",
+			"alignX": [
+				497.5,
+				596.5
+			],
+			"gun": {
+				"_doc": "the fallback seat (no scene): the hug point, the middle of the two fists (pose px), level",
+				"grip": [
+					708,
+					958
+				],
+				"angle": 0
+			},
+			"armFront": {
+				"stem": "ready_arm_front",
+				"polygon": [
+					[
+						292,
+						818
+					],
+					[
+						468,
+						818
+					],
+					[
+						478,
+						880
+					],
+					[
+						600,
+						876
+					],
+					[
+						832,
+						868
+					],
+					[
+						832,
+						1040
+					],
+					[
+						706,
+						1044
+					],
+					[
+						604,
+						1088
+					],
+					[
+						420,
+						1084
+					],
+					[
+						336,
+						1044
+					],
+					[
+						292,
+						1004
+					]
+				],
+				"seeds": [
+					[
+						350,
+						870
+					],
+					[
+						350,
+						950
+					],
+					[
+						400,
+						965
+					],
+					[
+						500,
+						1030
+					],
+					[
+						420,
+						1040
+					],
+					[
+						650,
+						960
+					],
+					[
+						690,
+						1000
+					],
+					[
+						770,
+						950
+					],
+					[
+						790,
+						1000
+					]
+				],
+				"darkMax": 80,
+				"grow": 6,
+				"feather": 1,
+				"_doc": "the near arm drawn OVER the hugged gun (assets/characters/tide/side/ready_arm_front.png, same canvas as ready_0), pose px: polygon round the near sleeve (from the shoulder), the forearm and both fists; seeds: one point inside each piece the outline walls in (the far forearm under the fists stays under the gun). See Rookie's config for the keys."
+			}
+		}
+	},
+	"canvas": [
+		375,
+		67,
+		350,
+		613
+	]
+}

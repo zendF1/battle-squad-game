@@ -4,8 +4,16 @@ Dùng cho AI vẽ ảnh (GPT-image / Midjourney / Flux…). Prompt viết bằng
 tiếng Anh tốt nhất; phần giải thích bằng tiếng Việt. Tide là thiết kế riêng của game, không lấy theo
 game nào khác: đừng thêm tên game / tên hãng / "in the style of <game>" vào prompt.
 
-Hiện Tide dùng ảnh tạm: ảnh của Flora đổi màu xanh ngọc / trắng (`assets/characters/tide/`, xem
-`assets/README.md` mục "Tide's placeholder art"). Làm xong các ảnh dưới đây thì thay ảnh tạm.
+**Đã nhập vào game** (`assets/README.md` mục "Tide's art"; ảnh tạm đổi màu từ Flora đã bỏ):
+- [x] 2. ảnh sảnh `lobby/full_v1.png` (tay chống hông, không vẫy tay; chân dung mục 5 cắt từ ảnh này)
+- [x] 3a. ảnh chạy `side_run/frame_1..8.png` (chưa có bình nước sau lưng)
+- [ ] 3b. ảnh đứng yên `side_idle/idle_v1.png` (tuỳ chọn: chưa có thì dùng `frame_2`)
+- [x] 3c. ảnh quỳ `side_ready/ready_v1.png` (dấu ✦ đè lên giày đã gỡ)
+- [x] 4a. súng ôm `art_source/weapons/hug/water_gun_<iron|steel|mithril|dragon>.png`
+- [ ] 4b. icon súng riêng (tuỳ chọn: icon `weapon_water_<cấp>` đang cắt từ súng ôm)
+- [x] 4c. đạn `art_source/fx/projectiles/water_gun_<cấp>.png` (cắt từ một ảnh 4 quả cầu trên nền đen)
+- [x] 5. chân dung (cắt từ ảnh sảnh, không cần ảnh riêng)
+- [ ] 1. ảnh thiết kế gốc (không cần cho game)
 
 ## Cách dùng
 
@@ -218,12 +226,14 @@ fills 80% of the canvas, plain flat white background.
    - `$GODOT --headless --path . -s tools/import_frames.gd -- tide`
    - `$GODOT --headless --path . -s tools/import_hug_guns.gd` (thêm `water_gun` vào
      `art_source/weapons/hug/hug.json` như `seed_launcher`)
-   - ảnh sảnh: thêm Tide vào `art_source/characters/lineup_parts.json` (rect / seed / holes / joints) rồi
+   - ảnh sảnh: figure `tide` trong `art_source/characters/lineup_parts.json` (`sheet`
+     `tide/lobby/full_v1.png`, rect / seed / holes / joints / portrait) rồi
      `$GODOT --headless --path . -s tools/cut_sheet.gd -- tide`.
+   - đạn: `$GODOT --headless --path . -s tools/import_projectiles.gd`; dáng mang súng khi đi:
+     `$GODOT --headless --path . -s tools/carry_bob.gd`.
 4. Trong editor: mở `scenes/character/poses/tide_ready.tscn`, kéo GunSocket cho súng che hai nắm tay;
    mở `tide_carry.tscn`, đặt súng chéo sau lưng (cạnh bình nước). Ctrl+S.
-5. Bỏ `"tide"` khỏi `PLACEHOLDER_CHARACTERS` / `PLACEHOLDER_SOURCE` trong `ui/art.gd`, chạy
-   `bash tests/run.sh`.
+5. Chạy `bash tests/run.sh` (ảnh tạm và `PLACEHOLDER_CHARACTERS` đã bỏ).
 
 ## 7. Kiểm tra trước khi đưa vào game
 

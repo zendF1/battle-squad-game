@@ -47,8 +47,8 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   normal-tier gun fires, `match/views/projectile_view.gd`; drawn in its own colours as big as the
   kind's `projectile.png` draws its shell, the seeds ×1.45; a missing one flies the kind's
   `projectile.png` as before): AI-drawn facing right, `art_source/fx/projectiles/<kind>_<tier>.png`
-  (bazooka, cannon, seed_launcher: thick dark outline on flat white; shock_rifle, blaster: energy on
-  pure black), keyed by `tools/import_projectiles.gd` (config `art_source/fx/projectiles/projectiles.json`:
+  (bazooka, cannon, seed_launcher: thick dark outline on flat white; shock_rifle, water_gun, blaster:
+  energy on pure black), keyed by `tools/import_projectiles.gd` (config `art_source/fx/projectiles/projectiles.json`:
   the mode per kind, the "✦" watermark, the glow curve per file): add or replace a picture and re-run
   it (`$GODOT --headless --path . -s tools/import_projectiles.gd`, every picture present).
 - **Map themes** (the match's look per map theme: ice, beach, graveyard, desert, sky, temple,
@@ -99,12 +99,15 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
 
 ## Thêm ảnh góc ngang cho nhân vật
 
-Ảnh trong trận của từng nhân vật: Rookie, Tanko, Flora và Spark đều đã có (cấu hình của họ làm mẫu
+Ảnh trong trận của từng nhân vật: Rookie, Tanko, Flora, Spark và Tide đều đã có (cấu hình của họ làm mẫu
 khi thay ảnh / thêm nhân vật). Mỗi nhân vật `<id>` có thư mục ảnh và cảnh dáng ngắm; không cần sửa code.
 
 1. **Bỏ ảnh vào** `art_source/characters/<id>/`:
    - `side_run/frame_1.png`, `frame_2.png` … `frame_N.png`: một vòng chạy, nhìn sang phải, nền trong
      suốt, chân chạm đất ở mọi frame.
+     Ảnh cắt từ video bằng một ngưỡng trắng chung (mọi điểm trắng bị xoá, cả lòng trắng mắt / áo / giày
+     trắng): `import.json` `"restoreWhites": {"key": [252.5, 252.5, 252.5], "tolerance": 2}` làm đặc lại
+     các lỗ kín không phải màu nền (Tide), khe nền giữa tay / chân và thân vẫn trong suốt.
    - `side_idle/idle_v1.png`: dáng **đứng yên** = nhân vật đứng thẳng, hai chân chạm đất, nhìn sang
      phải, không cầm súng, cùng nét vẽ và cỡ ảnh với ảnh chạy, nền trong suốt hoặc **trắng** (Spark:
      `poses.stand.background` xoá phần trắng nối với mép ảnh; chưa có thì dáng đứng yên là một frame
@@ -120,13 +123,13 @@ khi thay ảnh / thêm nhân vật). Mỗi nhân vật `<id>` có thư mục ả
    "iron", "recolour": {...}}` là tool tự đổi màu từ ảnh cấp đó.
 3. **Chạy** (trong thư mục `battle-squad-game`, editor mở cũng được):
    ```
-   /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_frames.gd -- <id>
-   /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_hug_guns.gd
+   /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_frames.gd -- <id>
+   /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_hug_guns.gd
    ```
    Lệnh 1 ghi `assets/characters/<id>/side/` (PNG + `side.json`, `gun_anchors.json`), lệnh 2 ghi
    `assets/weapons/<loại>/hug_<cấp>.png` + `assets/weapons/hug.json` (và icon trang bị
    `assets/icons/equipment/weapon_<…>_<cấp>.png` của các súng khai báo trong `hug.json` `"icons"`, hiện
-   là bazooka, cannon, seed_launcher và shock_rifle: `weapon_launcher_<cấp>`, `weapon_rifle_<cấp>`); không bao giờ ghi đè cảnh `.tscn`. Nhân vật có dáng ngắm chỉ cầm súng ở dáng đó: không
+   là bazooka, cannon, seed_launcher, shock_rifle và water_gun: `weapon_launcher_<cấp>`, `weapon_rifle_<cấp>`, `weapon_water_<cấp>`); không bao giờ ghi đè cảnh `.tscn`. Nhân vật có dáng ngắm chỉ cầm súng ở dáng đó: không
    cần `hand.png` (tool không cắt).
    Chưa có `ready_v1.png` thì chỉ nhập ảnh chạy (súng rút kiểu cũ, chưa có dáng ngắm).
 4. Quay lại editor, đợi nó import xong các PNG.
@@ -180,22 +183,30 @@ Mỗi cấp một ảnh AI `art_source/equipment/<cấp>.png` (iron, steel, mith
 diamond): 5 món trên một hàng, trái → phải **mũ, áo giáp, găng tay (một đôi), quần, giày (một đôi)**, nền
 **hồng tím (magenta) đặc**, cùng bố cục ở mọi cấp (cách vẽ: `art_source/equipment/README.txt`). Chạy
 ```
-/Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_equipment.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_equipment.gd
 ```
 là ghi lại `assets/icons/equipment/<món>_<cấp>.png` (cùng tên: Túi đồ, Shop, Nhân vật, Chuẩn bị tự đổi);
 đợi editor import xong.
 
-## Tide's placeholder art
+## Tide's art
 
-Tide (water) has no drawn art yet: `characters/tide/` is Flora's art recoloured teal and white
-(side view, lobby full body, portrait; the JSONs copied with the ids changed), her water gun
-`weapons/water_gun/hug_<tier>.png` and `icons/equipment/weapon_water_<tier>.png` are Flora's seed
-launcher recoloured, `fx/water_gun/` (orb, droplet trail, water burst) is painted by a script.
-`ui/art.gd` `PLACEHOLDER_CHARACTERS` / `PLACEHOLDER_SOURCE` mark it; her pose scenes
-(`scenes/character/poses/tide_ready.tscn`, `tide_carry.tscn`) show Flora's pictures in the
-editor (the same sizes). To give her real art, draw it from `art_source/characters/tide/PROMPTS.md`,
-add its `side_run/import.json` like Flora's and run `tools/import_frames.gd tide`, then drop her
-from `PLACEHOLDER_CHARACTERS`.
+Tide (water) is drawn from her own AI art (`art_source/characters/tide/`, prompts in its
+`PROMPTS.md`), imported like the others: the run cycle `side_run/frame_1..8.png` (cut from a video
+by a global white key that also cleared her eye whites and the white of her boots and shorts:
+`import.json` `restoreWhites` makes those enclosed holes opaque again, the gaps of backdrop between
+an arm or a leg and the body stay clear) and the kneeling ready pose `side_ready/ready_v1.png` (green
+backdrop, the AI sparkle that lay over the front boot's toe un-blended out of it before it was
+saved) by `tools/import_frames.gd tide`; her standing picture `side_idle/idle_v1.png` is not drawn
+yet, so she idles on the run's `frame_2` (`anims.idle.fallback` `[1]`: the passing pose, both feet
+down). The lobby picture and portrait are cut from one front-view drawing `lobby/full_v1.png` by
+`tools/cut_sheet.gd tide` (`lineup_parts.json` figure `tide`: its own `sheet`, `portrait`). Her water
+gun is hug art per tier (`art_source/weapons/hug/water_gun_<tier>.png`, `tools/import_hug_guns.gd`,
+also the `weapon_water_<tier>` equipment icons), her water orbs per tier
+`art_source/fx/projectiles/water_gun_<tier>.png` (cut from one picture of the four on black,
+`tools/import_projectiles.gd`); the orb's trail and water burst (`fx/water_gun/`) are still painted
+by code. Her pose scenes (`scenes/character/poses/tide_ready.tscn`, `tide_carry.tscn`) hold the hug
+gun on her fists and slung across her back. Her run frames have no water tank on the back (the
+kneeling and lobby pictures do).
 
 ## Re-baking the placeholder art
 
@@ -224,7 +235,8 @@ hexagon frames and the badge.
 A character with `side/side.json` is drawn in the match (and the fallback outside it) from these
 frames instead of the baked ones below (`ui/art.gd` `character_look()`: side view → baked frames →
 Rookie's → empty). Today: **every character** (the same files: Flora's `flora/side/` 89x128,
-walk at 13 fps; Tanko's `tanko/side/` 93x126, walk at 15 fps; Spark's `spark/side/` 94x134, walk at
+walk at 13 fps; Tide's `tide/side/` 82x139, walk at 12 fps, 64 world px tall (her head the size of
+Flora's, her legs longer), idling on a run frame until her standing picture is drawn; Tanko's `tanko/side/` 93x126, walk at 15 fps; Spark's `spark/side/` 94x134, walk at
 15 fps; every idle is its own standing picture; heads the size of Rookie's, Tanko a little shorter
 and broader, Spark a little taller (the spiky hair); no `hand.png`, they hold their gun only hugged). Facing left is the same frames mirrored round the feet
 (`Flip` scale x -1): no separate files, no jump on a turn, the gun anchors and the muzzle mirror
@@ -429,7 +441,7 @@ equipped weapon.
 | `<id>/die_0..3.png` | 512x400 each | once, 8 fps, holds the last frame; falls on its back (the grey tint is code) |
 | `<id>/<id>.tres` | – | SpriteFrames of the five animations |
 | `<id>/gun_anchors.json` | 2 KB | per animation, one entry per frame: `grip` [x, y] px in the frame (the hand's centre, where the gun's grip goes), `angle` degrees (0 = level, + turns the muzzle down; recoil kick, walk lean, hurt wobble), `front` (gun over the body; `false` in `die`: behind), `flash` 0..1 (muzzle flash) |
-| `<id>/portrait.png` | 128x128 | head and shoulders of the old code-drawn cartoon (tools/bake_art.gd, CharacterPainter): no screen uses it any more; the match's off-screen markers crop the head of the side view's idle frame (`Art.side_head()`) |
+| `<id>/portrait.png` | 128x128 | head and shoulders of the old code-drawn cartoon (tools/bake_art.gd, CharacterPainter; Tide's cut from her lobby drawing by tools/cut_sheet.gd): no screen uses it any more; the match's off-screen markers crop the head of the side view's idle frame (`Art.side_head()`) |
 | `shadow.png` | 160x38 | ground shadow under every character, centred on the feet |
 | `hand.png` | 32x32 (0.5 KB) | the hand drawn over the gun's grip, centred on the grip (shared) |
 
@@ -463,7 +475,9 @@ Missing or broken full.json / full.png → the frames above.
 | `lobby_full_anims.json` | 1 KB | the idle every full-body picture plays (per animation `length` (s), `loop`, `tracks`: bone → `t` key times and `rot` degrees added to the rest rotation, `x` / `y` px added to the rest position, `sx` / `sy` scale, one value per key; bones `root`, `hips`, `chest`, `head`, `arm_l_upper` / `arm_l_fore` / `hand_l`, `arm_r_*`, `leg_l_thigh` / `leg_l_shin` / `foot_l`, `leg_r_*`; l / r = the picture's left / right); a full.json's `anims` replace or add tracks by bone |
 
 **Re-cutting / a better picture**: put the new lineup (or one picture per character) in
-`art_source/characters/`, edit `art_source/characters/lineup_parts.json` (`sheet`; per figure its
+`art_source/characters/`, edit `art_source/characters/lineup_parts.json` (`sheet`; a figure drawn
+alone names its own `sheet`, e.g. Tide's `tide/lobby/full_v1.png`, and may cut its `portrait`
+{`rect`, `size`} from the same keyed figure into `<id>/portrait.png`; per figure its
 `rect` [x, y, w, h] in sheet px (loose is fine) / a `seed` point on it / `holes` (enclosed whites to clear) / optional `clip` (a convex polygon, with `feather` px of soft edge), `scale` so the figure comes out at most about
 375 px tall, the `joints` in sheet px: `hips`, `chest`, `neck`, `crown`, `l_` / `r_` `shoulder`,
 `elbow`, `wrist`, `hand`, `hip`, `knee`, `ankle`, `toe`, and its `anims` flourish), then run

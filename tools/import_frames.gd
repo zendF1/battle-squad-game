@@ -23,6 +23,11 @@ extends SceneTree
 ## a source index past the last frame is dropped (a template written for more frames).
 ##
 ## Per source frame:
+##   0. restoreWhites (optional, {key [r, g, b], tolerance}): for frames cut from a white backdrop by
+##      a global white key (every near-white pixel cleared, the art's own whites too, their colour
+##      kept under alpha 0): an enclosed clear hole (not reached from the border through clear
+##      pixels) whose hidden colour (its median) is not the backdrop's `key` (each channel within
+##      `tolerance`) is the art's white (an eye, a white boot): made opaque again (restore_whites()).
 ##   1. clean: alpha below `alphaCut` is cleared; only the big connected pieces stay (8-connected,
 ##      at least `keepPieces` × the largest), so the stray pixels near the canvas edges go;
 ##      defringe: in the `band` px next to the transparency, light grey pixels (the white halo of
@@ -186,6 +191,9 @@ func _import(cfg_path: String) -> void:
 			push_error("import_frames: cannot read " + dir + str(f))
 			return
 		img.convert(Image.FORMAT_RGBA8)
+		var restored := restore_whites(img, cfg["restoreWhites"]) if cfg.get("restoreWhites") is Dictionary else 0
+		if restored > 0:
+			print("  %s: %d px of the art's whites made opaque again (restoreWhites)" % [f, restored])
 		var removed := clean(img, cfg)
 		var m := measure(img, cfg)
 		if m.is_empty():
@@ -373,6 +381,73 @@ func _import(cfg_path: String) -> void:
 	_write_text(out_dir + "side.json", JSON.stringify(side, "\t", false) + "\n")
 	_write_text(out_dir + "gun_anchors.json", JSON.stringify(anchors_out, "\t", false) + "\n")
 	_report_feet(anims, outs, pivot_out, oversample)
+
+
+## restoreWhites (header step 0): the enclosed clear holes (alpha below 128, 4-connected, not reached
+## from the image border through clear pixels) whose median hidden colour is not the backdrop's
+## (`key`, each channel within `tolerance`) made opaque in their kept colour; the holes of backdrop
+## (a gap between an arm and the body) stay clear. Returns how many pixels it made opaque. Pure:
+## only img changes.
+static func restore_whites(img: Image, rc: Dictionary) -> int:
+	var w := img.get_width()
+	var h := img.get_height()
+	var n := w * h
+	var px := img.get_data()
+	var key: Array = rc.get("key", [252, 252, 252])
+	var tol := float(rc.get("tolerance", 2.0))
+	var clear := func(i: int) -> bool: return px[i * 4 + 3] < 128
+	# 0 opaque, 1 clear and reached from the border, 2+ an enclosed hole's label.
+	var label := PackedInt32Array()
+	label.resize(n)
+	var stack := PackedInt32Array()
+	for x in w:
+		stack.append(x)
+		stack.append((h - 1) * w + x)
+	for y in h:
+		stack.append(y * w)
+		stack.append(y * w + w - 1)
+	while not stack.is_empty():
+		var i: int = stack[stack.size() - 1]
+		stack.resize(stack.size() - 1)
+		if label[i] != 0 or not clear.call(i):
+			continue
+		label[i] = 1
+		var x := i % w
+		for j in [i - 1 if x > 0 else -1, i + 1 if x < w - 1 else -1, i - w, i + w]:
+			if j >= 0 and j < n and label[j] == 0:
+				stack.append(j)
+	var restored := 0
+	var next := 2
+	for s in n:
+		if label[s] != 0 or not clear.call(s):
+			continue
+		var pts := PackedInt32Array([s])
+		label[s] = next
+		var k := 0
+		while k < pts.size():
+			var i := pts[k]
+			k += 1
+			var x := i % w
+			for j in [i - 1 if x > 0 else -1, i + 1 if x < w - 1 else -1, i - w, i + w]:
+				if j >= 0 and j < n and label[j] == 0 and clear.call(j):
+					label[j] = next
+					pts.append(j)
+		next += 1
+		var backdrop := true
+		for c in 3:
+			var vals := PackedInt32Array()
+			for i in pts:
+				vals.append(px[i * 4 + c])
+			vals.sort()
+			if absf(vals[vals.size() / 2] - float(key[c])) > tol:
+				backdrop = false
+		if backdrop:
+			continue
+		for i in pts:
+			px[i * 4 + 3] = 255
+		restored += pts.size()
+	img.set_data(w, h, false, Image.FORMAT_RGBA8, px)
+	return restored
 
 
 ## Clears the stray pixels and the white fringe in place; returns how many pixels it cleared.

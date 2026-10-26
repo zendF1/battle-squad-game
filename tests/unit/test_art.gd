@@ -499,9 +499,7 @@ func test_ready_pose_scenes() -> void:
 				eq(body.offset, -Art.FRAME_PIVOT, "%s the feet on the origin" % id)
 				check(Art.ready_pose(id).is_empty(), "%s no ready pose before its side view" % id)
 		root.free()
-		# The config the importer fills it from names this scene (a placeholder's art has none yet).
-		if Art.PLACEHOLDER_CHARACTERS.has(id):
-			continue
+		# The config the importer fills it from names this scene.
 		var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://art_source/characters/%s/side_run/import.json" % id))
 		check(cfg is Dictionary and str(cfg.get("poses", {}).get("ready", {}).get("scene", "")) == path, "%s import.json names %s" % [id, path])
 		check(cfg is Dictionary and not cfg.get("poses", {}).get("ready", {}).has("hands"), "%s no hand cut-outs" % id)
@@ -1191,12 +1189,13 @@ func test_import_hug_guns_arguments() -> void:
 	# Guns made from another tier's picture (hug.json from + recolour).
 	var cfg = JSON.parse_string(FileAccess.get_file_as_string(dir + "hug.json"))
 	var derived: Dictionary = H.derived_of(cfg)
-	eq(derived, {"bazooka_basic": "bazooka_iron", "cannon_basic": "cannon_iron", "seed_launcher_basic": "seed_launcher_iron", "shock_rifle_basic": "shock_rifle_iron"}, "hug.json: the bazooka's, the cannon's, the seed launcher's and the shock rifle's basic from the iron picture")
+	eq(derived, {"bazooka_basic": "bazooka_iron", "cannon_basic": "cannon_iron", "seed_launcher_basic": "seed_launcher_iron", "shock_rifle_basic": "shock_rifle_iron",
+		"water_gun_basic": "water_gun_iron"}, "hug.json: the bazooka's, the cannon's, the seed launcher's, the shock rifle's and the water gun's basic from the iron picture")
 	eq(H.derived_of({"guns": {"bazooka_steel": {"from": "gold"}, "bazooka_iron": {"from": "iron"}, "ray_iron": {"from": "steel"}, "bazooka_basic": {"length": 50}}}), {}, "not a tier of the kind / itself / not a gun / no from")
 	all = H.sources_for([], dir, derived)
 	check(all["guns"].has({"kind": "bazooka", "tier": "basic", "name": "bazooka_basic", "source": "bazooka_iron"}), "no argument: the derived guns too")
 	check(all["guns"].has({"kind": "bazooka", "tier": "steel", "name": "bazooka_steel", "source": "bazooka_steel"}), "no argument: steel's own picture")
-	eq(all["guns"].size(), 20, "every bazooka, cannon, seed launcher and shock rifle tier (%s)" % [all["guns"]])
+	eq(all["guns"].size(), 25, "every bazooka, cannon, seed launcher, shock rifle and water gun tier (%s)" % [all["guns"]])
 	var named: Dictionary = H.sources_for(["bazooka_iron"], dir, derived)
 	eq(named["guns"].map(func(g): return g["name"]), ["bazooka_iron", "bazooka_basic"], "naming a picture takes the guns made from it")
 	eq(H.sources_for(["bazooka_basic"], dir, derived)["guns"], [{"kind": "bazooka", "tier": "basic", "name": "bazooka_basic", "source": "bazooka_iron"}], "a derived gun by name")
@@ -1243,7 +1242,8 @@ func test_hug_gun_icons() -> void:
 	eq(ic["files"], {"weapon_bazooka_<tier>": {"gun": "bazooka", "tiers": Art.EQUIP_KIND_TIERS},
 		"weapon_cannon_<tier>": {"gun": "cannon", "tiers": Art.EQUIP_KIND_TIERS},
 		"weapon_launcher_<tier>": {"gun": "seed_launcher", "tiers": Art.EQUIP_KIND_TIERS},
-		"weapon_rifle_<tier>": {"gun": "shock_rifle", "tiers": Art.EQUIP_KIND_TIERS}}, "hug.json: every character's gun's icons in the shop tiers")
+		"weapon_rifle_<tier>": {"gun": "shock_rifle", "tiers": Art.EQUIP_KIND_TIERS},
+		"weapon_water_<tier>": {"gun": "water_gun", "tiers": Art.EQUIP_KIND_TIERS}}, "hug.json: every character's gun's icons in the shop tiers")
 	eq(H.icon_config({"icons": {"margin": 3}}, held)["margin"], 3, "hug.json overrides")
 	eq(H.icon_config({}, {})["files"], {}, "no icons")
 	# icon_canvases(): every tier the same tube length, the holds on the same canvas px.
@@ -1294,15 +1294,11 @@ func test_import_frames_arguments() -> void:
 	var I := load("res://tools/import_frames.gd")
 	var cfg_of := func(id: String) -> String: return "res://art_source/characters/%s/side_run/import.json" % id
 	for id in Art.CHARACTERS:
-		if Art.PLACEHOLDER_CHARACTERS.has(id):
-			eq(I.configs_for([id]), {"configs": [], "unknown": [id]}, "-- %s: a placeholder, no config yet" % id)
-		else:
-			eq(I.configs_for([id]), {"configs": [cfg_of.call(id)], "unknown": []}, "-- " + id)
+		eq(I.configs_for([id]), {"configs": [cfg_of.call(id)], "unknown": []}, "-- " + id)
 	eq(I.configs_for(["tanko", "flora"])["configs"], [cfg_of.call("tanko"), cfg_of.call("flora")], "two ids")
 	var all: Array = I.configs_for([])["configs"]
 	for id in Art.CHARACTERS:
-		if not Art.PLACEHOLDER_CHARACTERS.has(id): # a placeholder (recoloured) has no config yet
-			check(all.has(cfg_of.call(id)), "no argument: every character (%s)" % id)
+		check(all.has(cfg_of.call(id)), "no argument: every character (%s)" % id)
 	eq(I.configs_for(["res://x/import.json"]), {"configs": ["res://x/import.json"], "unknown": []}, "a config path")
 	eq(I.configs_for(["nope"]), {"configs": [], "unknown": ["nope"]}, "unknown id")
 	eq(I.configs_for(["../rookie"])["unknown"], ["../rookie"], "not a folder name")

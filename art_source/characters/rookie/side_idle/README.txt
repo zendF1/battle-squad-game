@@ -6,7 +6,7 @@ Bỏ vào thư mục này: idle_v1.png
 Chưa có ảnh này thì dáng đứng yên là một frame chạy (import.json anims.idle.fallback).
 
 Rồi chạy (trong thư mục battle-squad-game):
-  /Users/inspius/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_frames.gd -- rookie
+  /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_frames.gd -- rookie
 
 Cấu hình: ../side_run/import.json, mục poses.stand (px của idle_v1.png):
   scale   cỡ so với ảnh chạy: mũ / đầu rộng bằng ảnh chạy (Rookie 1.02, Flora 0.985, Tanko 1.0)

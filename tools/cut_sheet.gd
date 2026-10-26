@@ -8,7 +8,8 @@ extends SceneTree
 ##
 ##   $GODOT --headless --path . -s tools/cut_sheet.gd [-- <id> ...]    # default: every figure
 ##
-## lineup_parts.json: {"sheet", "tolerance": 0..1 (how far from white still counts as
+## lineup_parts.json: {"sheet" (the lineup; a figure drawn alone gives its own "sheet", a path
+## under art_source/characters/, e.g. Tide's tide/lobby/full_v1.png), "tolerance": 0..1 (how far from white still counts as
 ## background), "pad" (transparent px kept round the figure), "drawScale" (full.png px →
 ## character px, 0.64 = 1:1 on the lobby stage), "figures": {id: figure}}. A figure: "rect"
 ## [x, y, w, h] in sheet px (loose is fine), optional "seed" [x, y] (a sheet point on the figure:
@@ -16,7 +17,9 @@ extends SceneTree
 ## y], ...] a convex polygon in sheet px it is cut to with "feather" px of soft edge along the
 ## cut, "holes" [[x, y], ...] sheet points of enclosed white areas to clear, "scale" (full.png px
 ## per sheet px), "joints" {name: [x, y] sheet px, see SKELETON}, optional "strength" {bone: k}
-## and "anims" (merged over the shared assets/characters/lobby_full_anims.json).
+## and "anims" (merged over the shared assets/characters/lobby_full_anims.json), optional
+## "portrait" {rect [x, y, w, h] sheet px, size}: the head and shoulders cut from the same keyed
+## figure into assets/characters/<id>/portrait.png (portrait_of()).
 ##
 ## Per figure: the white background is flood-filled from the rect's border (near-white pixels,
 ## `tolerance`), so enclosed whites (eyes, teeth, highlights) stay; only the piece under the
@@ -58,13 +61,8 @@ func _cut_lineup(spec_path: String) -> void:
 	if not spec is Dictionary:
 		push_error("cut_sheet: %s missing or not a JSON object" % spec_path)
 		return
-	var sheet := Image.load_from_file(ProjectSettings.globalize_path(SRC + str(spec["sheet"])))
-	if sheet == null:
-		push_error("cut_sheet: cannot read " + str(spec["sheet"]))
-		return
-	sheet.convert(Image.FORMAT_RGBA8)
 	var tol := float(spec.get("tolerance", 0.1))
-	print("lineup: %s %dx%d" % [spec["sheet"], sheet.get_width(), sheet.get_height()])
+	var sheets := {} # sheet path (under art_source/characters/) -> Image
 	var figures: Dictionary = spec["figures"]
 	var only: Array = Array(OS.get_cmdline_user_args()).filter(func(a): return figures.has(a))
 	for id in figures:
@@ -72,6 +70,16 @@ func _cut_lineup(spec_path: String) -> void:
 			continue
 		var p: Dictionary = figures[id].duplicate()
 		p["pad"] = int(spec.get("pad", PAD))
+		var sheet_name := str(p.get("sheet", spec["sheet"])) # a figure drawn alone names its own picture
+		if not sheets.has(sheet_name):
+			var loaded := Image.load_from_file(ProjectSettings.globalize_path(SRC + sheet_name))
+			if loaded == null:
+				push_error("cut_sheet: cannot read " + sheet_name)
+				continue
+			loaded.convert(Image.FORMAT_RGBA8)
+			print("sheet: %s %dx%d" % [sheet_name, loaded.get_width(), loaded.get_height()])
+			sheets[sheet_name] = loaded
+		var sheet: Image = sheets[sheet_name]
 		var cut := cut_part(sheet, p, tol, float(p.get("scale", 1.0)))
 		if cut.is_empty():
 			push_error("cut_sheet: lineup figure %s is empty" % id)
@@ -79,6 +87,10 @@ func _cut_lineup(spec_path: String) -> void:
 		var img: Image = cut["image"]
 		var out := OUT + "%s/lobby/full" % id
 		_save(img, out + ".png", cut["origin"])
+		if p.get("portrait") is Dictionary:
+			var pic := portrait_of(sheet, p, tol)
+			if pic != null:
+				_save(pic, OUT + "%s/portrait.png" % id, Vector2i(int(p["portrait"]["rect"][0]), int(p["portrait"]["rect"][1])))
 		var feet := feet_of(img)
 		# Sheet px → full.png px.
 		var k := Vector2(img.get_size()) / Vector2(cut["box"])
@@ -99,7 +111,7 @@ func _cut_lineup(spec_path: String) -> void:
 		var weights := FullMesh.weights(img, mesh["vertices"], bones)
 		print("  mesh: %d vertices, %d triangles, %d uncovered px, %.1f s" % [mesh["vertices"].size(), mesh["triangles"].size() / 3, mesh["gaps"], (Time.get_ticks_msec() - t0) / 1000.0])
 		_write_full_json(out + ".json", img, feet, bones, mesh, weights, float(spec.get("drawScale", 0.64)),
-			"art_source/characters/" + str(spec["sheet"]), p.get("anims", {}))
+			"art_source/characters/" + sheet_name, p.get("anims", {}))
 
 
 ## The skeleton every lineup figure gets: [bone, parent, joint it turns at, joint its segment
@@ -188,6 +200,30 @@ static func feet_of(img: Image) -> Dictionary:
 				x0 = mini(x0, x)
 				x1 = maxi(x1, x)
 	return {"pivot": Vector2(round((x0 + x1 + 1) / 2.0), bottom + 1), "height": bottom + 1 - top}
+
+
+## A figure's `portrait` {rect [x, y, w, h] sheet px (the head and shoulders), size (px, square)}:
+## the figure cut at full resolution (its background keyed from the figure's rect, so the white
+## inside the body stays), cropped to rect, scaled once (Lanczos, premultiplied) to fit size × size
+## and centred on that transparent square, its bottom on the square's bottom (cut off at the
+## shoulders); null when nothing is left.
+static func portrait_of(sheet: Image, p: Dictionary, tol: float) -> Image:
+	var cut := cut_part(sheet, p, tol, 1.0)
+	if cut.is_empty():
+		return null
+	var full: Image = cut["image"]
+	var r: Array = p["portrait"]["rect"]
+	var size := int(p["portrait"].get("size", 128))
+	var from := Rect2i(Vector2i(int(r[0]), int(r[1])) - Vector2i(cut["origin"]), Vector2i(int(r[2]), int(r[3])))
+	var crop := Image.create(from.size.x, from.size.y, false, Image.FORMAT_RGBA8)
+	var clip := from.intersection(Rect2i(Vector2i.ZERO, full.get_size()))
+	crop.blit_rect(full, clip, clip.position - from.position)
+	var k := minf(float(size) / from.size.x, float(size) / from.size.y)
+	crop.premultiply_alpha()
+	crop.resize(maxi(1, int(round(from.size.x * k))), maxi(1, int(round(from.size.y * k))), Image.INTERPOLATE_LANCZOS)
+	var out := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	out.blit_rect(crop, Rect2i(Vector2i.ZERO, crop.get_size()), Vector2i((size - crop.get_width()) / 2, size - crop.get_height()))
+	return _unpremultiply(out)
 
 
 ## One figure (see the header): {image (straight-alpha RGBA), origin (sheet px of the image's

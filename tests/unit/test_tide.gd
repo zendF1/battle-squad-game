@@ -2,7 +2,7 @@ extends "res://tests/test_case.gd"
 ## Tide (water): the game data (character, water orb with a bounce, snow nova), the water orb's
 ## bounce in the replay (ShotTimeline: the bounce point twice in the path with the same time, the
 ## arrival then the departure velocity; projectiles[].bounces as "bounce" events), the nova's ring
-## timing (nova.gd / nova_fx.gd: castTime + distance / waveSpeed) and her placeholder art.
+## timing (nova.gd / nova_fx.gd: castTime + distance / waveSpeed) and her drawn art.
 
 const GameData := preload("res://autoload/game_data_model.gd")
 const ShotTimeline := preload("res://match/shot/shot_timeline.gd")
@@ -26,7 +26,6 @@ func test_game_data() -> void:
 	check(not bool(Skills.for_character("tide")["needs_aim"]), "no aiming")
 	check(Skills.describe("tide", 0).contains("500") and Skills.describe("tide", 0).contains("130%"), "described at rank 0")
 	eq(Art.character_gun("tide"), "water_gun", "her gun art")
-	check(Art.PLACEHOLDER_CHARACTERS.has("tide"), "placeholder art until art_source/characters/tide/PROMPTS.md is drawn")
 
 
 ## A lob hitting the ground at t 1.0 (x 300, y 500), bouncing up-right, then exploding at 1.5.
@@ -127,10 +126,26 @@ func test_nova_view_reads_the_event() -> void:
 	layer.free()
 
 
-func test_placeholder_art() -> void:
+func test_drawn_art() -> void:
 	check(Art.has_side_view("tide"), "her side view")
 	var look := Art.character_look("tide")
 	check(bool(look["side"]), "drawn from it (not rookie's)")
 	check(not look["ready"].is_empty(), "with her ready pose (scenes/character/poses/tide_ready.tscn)")
 	check(FileAccess.file_exists(Art.full_path("tide")) and FileAccess.file_exists(Art.portrait_path("tide")), "lobby picture and portrait")
-	check(not Art.hug_meta("water_gun", "iron").is_empty(), "her water gun's hug art")
+	# Imported from her own art (art_source/characters/tide/), not a recoloured Flora.
+	var I := load("res://tools/import_frames.gd")
+	eq(I.configs_for(["tide"])["configs"], ["res://art_source/characters/tide/side_run/import.json"], "her import config")
+	var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://art_source/characters/tide/side_run/import.json"))
+	eq(str(cfg["out"]), Art.side_dir("tide"), "it writes her side view")
+	check(cfg["restoreWhites"] is Dictionary, "her run frames' whites restored (cut by a global white key)")
+	var side = JSON.parse_string(FileAccess.get_file_as_string(Art.side_dir("tide") + "side.json"))
+	near(float(side["height"]), float(cfg["height"]) * float(cfg["oversample"]), 0.5, "her run figure at the config's height")
+	var full = JSON.parse_string(FileAccess.get_file_as_string("res://assets/characters/tide/lobby/full.json"))
+	eq(str(full["source"]), "art_source/characters/tide/lobby/full_v1.png", "the lobby picture cut from her own drawing")
+	var carry: Node = load("res://scenes/character/poses/tide_carry.tscn").instantiate()
+	eq(carry.get_node("Body").texture.resource_path, Art.side_dir("tide") + "idle_0.png", "the carry scene shows her own idle frame")
+	carry.free()
+	for tier in ["basic", "iron", "steel", "mithril", "dragon"]:
+		check(not Art.hug_meta("water_gun", tier).is_empty(), "her water gun's hug art (%s)" % tier)
+	for tier in ["iron", "steel", "mithril", "dragon"]:
+		check(FileAccess.file_exists(Art.tier_projectile_path("water_gun", tier)), "the %s water orb's own picture" % tier)
