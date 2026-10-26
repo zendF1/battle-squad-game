@@ -38,7 +38,10 @@ extends SceneTree
 ## the hand), `pad` px round the union; one scale for the kind (the iron gun `length` world px
 ## long × `texPxPerWorldPx`), applied once (Lanczos, premultiplied colour). weapons.json
 ## pxPerUnit = texPxPerWorldPx × worldPxPerUnit (match/views/player_view.gd ART_SCALE), so the
-## gun is drawn `length` world px long at the character's scale.
+## gun is drawn `length` world px long at the character's scale. With `uiLength` every tier is also
+## written as assets/weapons/<kind>/ui_<tier>.png: the same canvas with the iron gun uiLength px long
+## (mipmaps), drawn by the screens outside the match in the match sprite's place (ui/art.gd
+## ui_gun_texture()).
 ## Icons: the kind's sheet-resolution canvas turned `tiltDeg` (muzzle up), the union of the
 ## file group's tiers fitted into size − 2 × margin (one scale per group), centred, Lanczos once.
 
@@ -122,6 +125,9 @@ func _import(cfg_path: String) -> void:
 			canvases[kind][tier] = canvas
 			var out := scaled(canvas, dst)
 			_save(out, OUT + "%s/%s.png" % [kind, tier], false)
+			if cfg.has("uiLength"): # the screens outside the match: the same canvas, the iron gun uiLength px long
+				var su := float(cfg["uiLength"]) / ref_w
+				_save(scaled(canvas, Vector2i(maxi(1, roundi(src.x * su)), maxi(1, roundi(src.y * su)))), OUT + "%s/ui_%s.png" % [kind, tier], true)
 			var grip := (-u.position) * k
 			var muzzle: Vector2 = (parts[tier]["muzzle"] - u.position) * k
 			guns[kind][tier] = {"size": [dst.x, dst.y], "grip": [snappedf(grip.x, 0.1), snappedf(grip.y, 0.1)],

@@ -5,6 +5,7 @@
 	"holeTolerance": 0.04,
 	"holeMinArea": 40,
 	"texPxPerWorldPx": 2.0,
+	"uiLength": 512,
 	"worldPxPerUnit": 0.35,
 	"pad": 2,
 	"cells": {
@@ -47,8 +48,8 @@
 		], "sparkles": [[0.84, 0.11, 0.11], [0.16, 0.14, 0.08], [0.57, 0.62, 0.07]]}
 	},
 	"icons": {
-		"size": 128,
-		"margin": 6,
+		"size": 256,
+		"margin": 12,
 		"tiltDeg": -14,
 		"files": {
 			"weapon_<tier>": {"gun": "blaster", "tiers": ["iron", "steel", "mithril", "dragon", "silver", "gold", "titan", "diamond"]}

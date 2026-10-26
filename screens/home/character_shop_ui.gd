@@ -205,7 +205,7 @@ static func open_info(overlay: Control, id: String, data: Variant, c: Dictionary
 	var weapon := Ui.hbox(12)
 	gear.add_child(weapon)
 	var gun := TextureRect.new()
-	gun.texture = Art.hug_gun(info["weapon"]["kind"], info["weapon"]["tier"])["texture"]
+	gun.texture = Art.ui_gun_texture(Art.hug_gun(info["weapon"]["kind"], info["weapon"]["tier"]))
 	gun.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	gun.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	gun.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS

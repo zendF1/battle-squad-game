@@ -17,7 +17,11 @@ extends SceneTree
 ## in source px); scaled once (Lanczos, premultiplied colour) so the gun is `length` world px long ×
 ## `texPxPerWorldPx` (the held guns' 2 texture px per world px: drawn at the weapons' scale it is
 ## `length` world px long). Writes assets/weapons/<kind>/hug_<tier>.png (a new PNG gets an .import
-## without mipmaps; an existing .import is never touched: let the editor import them) and
+## without mipmaps; an existing .import is never touched: let the editor import them), with
+## `uiLength` also assets/weapons/<kind>/ui_<tier>.png (the same canvas scaled once from the source
+## so the tube is uiLength px long, an .import with mipmaps: the screens outside the match draw it
+## in the match texture's place, ui/art.gd ui_gun_texture(), as they show the gun several times
+## bigger than the match does) and
 ## assets/weapons/hug.json {source, pxPerUnit, guns {kind: {tier: {size, hold, muzzle}}}} (px in the
 ## PNG), keeping the entries of the guns not imported this run.
 ##
@@ -36,7 +40,7 @@ extends SceneTree
 ## same shape, hold and muzzle. It is imported with every run, and with its source when some guns
 ## are named.
 ##
-## hug.json: {length (world px, default for every gun), texPxPerWorldPx, worldPxPerUnit, pad,
+## hug.json: {length (world px, default for every gun), texPxPerWorldPx, uiLength, worldPxPerUnit, pad,
 ## background (key_background() options), alphaCut, keepPieces, icons, guns {<kind>_<tier>: {length,
 ## hold [x, y], muzzle [x, y] (source px), background (key options over the shared ones, e.g. a
 ## smaller holeMin for a small enclosed pocket of backdrop; glow: a soft glow painted into the
@@ -310,6 +314,10 @@ func _import(cfg: Dictionary, kind: String, tier: String, source: String = "", p
 	var dst := Vector2i(maxi(1, roundi(from.size.x * s)), maxi(1, roundi(from.size.y * s)))
 	var k := Vector2(dst) / Vector2(from.size)
 	_save(ImportGuns.scaled(canvas, dst), OUT + "%s/hug_%s.png" % [kind, tier], false)
+	if cfg.has("uiLength"): # the screens outside the match: the same canvas, the tube uiLength px long
+		var su := float(cfg["uiLength"]) / float(tp["rect"].size.x)
+		var dst_ui := Vector2i(maxi(1, roundi(from.size.x * su)), maxi(1, roundi(from.size.y * su)))
+		_save(ImportGuns.scaled(canvas, dst_ui), OUT + "%s/ui_%s.png" % [kind, tier], true)
 	var hold_out := (hold - Vector2(from.position)) * k
 	var muzzle_out := (muzzle - Vector2(from.position)) * k
 	print("  %s%s %dx%d: backdrop %d px, removed %d stray px, gun %s, hold %s, muzzle %s source px → %s px, %.1f world px long (×%.4f)" % [

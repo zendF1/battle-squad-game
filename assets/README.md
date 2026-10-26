@@ -502,8 +502,21 @@ weapons/
   seed_launcher/  hug_basic hug_iron hug_steel hug_mithril hug_dragon   (Flora's: hug art only, below)
   blaster/        basic iron steel mithril dragon silver gold titan diamond   (generic + crafted)
   hug.json                          size + hold + muzzle of every hug gun
-  <kind>/hug_<tier>.png             the hug guns of the ready pose (today: bazooka/, cannon/, seed_launcher/ and shock_rifle/ hug_basic, iron, steel, mithril, dragon)
+  <kind>/hug_<tier>.png             the hug guns of the ready pose (today: bazooka/, cannon/, seed_launcher/, shock_rifle/ and water_gun/ hug_basic, iron, steel, mithril, dragon)
+  <kind>/ui_<tier>.png              every gun and tier again at high resolution for the screens outside the match
 ```
+
+**UI guns** (`<kind>/ui_<tier>.png`, ~515–570 px wide, 4.5 MB for the 34): the screens outside the
+match show a gun much bigger than the match does: the lobby / Nhân vật pedestal draws it about 230–260
+design px long (`screens/home/pedestal_gun.gd`, fitted into its 262 × 180 box), Prep 0.6 × and a party
+slot 0.7 × that, the character info popup 120 × 52; the stretch (`canvas_items`, 1600 × 900 design)
+multiplies that by the window (1.6 × at 2560 × 1440, 2.4 × in 4K), so the match sprites (68–118 px wide)
+were magnified 2–6 times and looked blurry. Each `ui_<tier>.png` is the same canvas as the match picture
+(`hug_<tier>.png`, or `<tier>.png` for the blaster), scaled once from the source art so the tube is
+`uiLength` (512) px long (`art_source/weapons/hug/hug.json`, `guns_v1.json`), imported with mipmaps;
+`ui/art.gd` `ui_gun_texture()` returns it for a `gun()` / `hug_gun()` dictionary (the match picture
+while it is missing) and the pedestal draws the same region of it in the match picture's place (the
+layout, sizes and hold numbers stay the match picture's). The match never uses them.
 
 | File | Size | Notes |
 |---|---|---|
@@ -518,7 +531,7 @@ un-blended from white (no halo). Each tier gets its `recolour` at sheet resoluti
 multipliers; the crafted blasters: ramp rules mapping a hue range onto a palette by luminance, keeping the
 shading and the outline), the kind's tiers go on one grip-aligned canvas and are scaled once (Lanczos, the
 kind's iron gun `length` world px × `texPxPerWorldPx`). The icons: the same canvas turned `tiltDeg` (muzzle
-up), each file group fitted into 128 − 2 × `margin`. New PNGs get an `.import` (mipmaps for icons); an
+up), each file group fitted into `size` (256) − 2 × `margin` (12). New PNGs get an `.import` (mipmaps for icons); an
 existing one is kept.
 
 Which gun: `screens/home/equipment_model.gd` `gun()` maps a weapon item to {kind, tier}
@@ -626,7 +639,7 @@ carry their character's basic gun) would hold the hug gun by its middle.
 **Their icons** (hug.json `icons` {`files` {`weapon_bazooka_<tier>`, `weapon_cannon_<tier>`, `weapon_launcher_<tier>`: {gun, tiers}}}): each tier's picture
 keyed and cleaned as above, scaled at source resolution so every tier's tube is as long as the first's,
 lined up on the hold, then turned, fitted and scaled exactly like the held guns' icons
-(`tools/import_guns.gd` `icons()`, with `guns_v1.json`'s `size` 128, `margin` 6, `tiltDeg` −14 unless
+(`tools/import_guns.gd` `icons()`, with `guns_v1.json`'s `size` 256, `margin` 12, `tiltDeg` −14 unless
 hug.json sets them): `icons/equipment/weapon_bazooka_<iron|steel|mithril|dragon>.png` and
 `weapon_cannon_<…>.png`, `weapon_launcher_<…>.png`, rewritten by every run that imports a gun of that kind.
 
@@ -737,8 +750,8 @@ takes the tier accent), keep the kind's own colours. The kind still shapes the b
 | File | Size | Notes | Used by |
 |---|---|---|---|
 | `<slot>_<tier>.png` | 128x128 (20–30 KB) | one per slot × tier, transparent (no backing), dark outline. Slots `armor`, `helmet`, `pants`, `boots`, `gloves` (`weapon`: the next rows); tiers `iron` (Sắt, grey + brown leather), `steel` (Thép, blue steel), `mithril` (teal), `dragon` (Rồng, red dragon scales + gold, horns) for shop items, `silver` (Bạc, engraved silver), `gold` (Vàng, gold + red), `titan` (dark gunmetal, orange studs), `diamond` (Kim cương, icy crystal) for crafted ones. Cut from the AI-drawn sheets `art_source/equipment/<tier>.png` by `tools/import_equipment.gd` (config `equipment.json`): magenta keyed (the corners' colour, soft edge, pink rim despilled; enclosed pockets of backdrop between the legs, in the straps, between fingers keyed too), the ✦ sparkle and stray specks dropped, the sheet split into its items by their connected pieces grouped in columns (left → right helmet, armor, gloves, pants, boots; a pair of gloves / boots is one item); every tier of a slot at one scale and place (the union of the 8 tiers fitted into 128 − 2 × 6 px, the weapon icons' margin; outline about 2–3 px like theirs), Lanczos once; then the old painted icons' white sparkles per tier (silver 1, gold 2, diamond 3, dragon 1 gold-tinted but not on the helmet; titan and the shop tiers none), nudged up to 14 px off the art (`tools/art/equipment_painter.gd` still draws them all: `tools/bake_art.gd` bakes them only while there are no sheets). A normal item's tier comes from its name / id (`screens/home/equipment_model.gd` `tier()`); an unknown tier draws as iron | Shop → Trang bị, Túi đồ, Nhân vật slots and list, piece popup, Prep gear row |
-| `weapon_<tier>.png` | 128x128 (10–15 KB) | cut from the blaster guns (`tools/import_guns.gd`, tilted 14°, muzzle up); weapons are guns: the generic blaster per tier (retired generic weapons, crafted Silver/Gold/Titan/Diamond Blaster); also the empty weapon slot's shape | as above |
-| `weapon_<kind>_<iron\|steel\|mithril\|dragon>.png` | 128x128 (9–17 KB) | cut from that kind's hug art (`tools/import_hug_guns.gd`, the same look as the blaster's from `tools/import_guns.gd`: tilted 14°, muzzle up); each character's gun in the shop tiers: `bazooka` (Rookie), `cannon` (Tanko, đại pháo), `rifle` (Spark, súng điện), `launcher` (Flora, súng hạt). The kind comes from the item's `characterId` (`equipment_model.gd` `weapon_kind()`); a missing or not yet imported file falls back to `weapon_<tier>.png` | as above |
+| `weapon_<tier>.png` | 256x256 (30–40 KB: twice the other icons, `Art.EQUIP_WEAPON_ICON_SIZE`, as the Túi đồ card shows an icon 112 design px wide, up to 2.4 × that on a big window) | cut from the blaster guns (`tools/import_guns.gd`, tilted 14°, muzzle up); weapons are guns: the generic blaster per tier (retired generic weapons, crafted Silver/Gold/Titan/Diamond Blaster); also the empty weapon slot's shape | as above |
+| `weapon_<kind>_<iron\|steel\|mithril\|dragon>.png` | 256x256 (30–60 KB) | cut from that kind's hug art (`tools/import_hug_guns.gd`, the same look as the blaster's from `tools/import_guns.gd`: tilted 14°, muzzle up); each character's gun in the shop tiers: `bazooka` (Rookie), `cannon` (Tanko, đại pháo), `rifle` (Spark, súng điện), `launcher` (Flora, súng hạt), `water` (Tide, súng nước). The kind comes from the item's `characterId` (`equipment_model.gd` `weapon_kind()`); a missing or not yet imported file falls back to `weapon_<tier>.png` | as above |
 | `slot_<slot>.png` | 128x128 (1 KB) | the slot's shape in plain white; the UI tints it faint blue for an empty slot | Nhân vật slots, Prep gear row |
 | `hex_empty.png`, `hex_filled.png`, `hex_selected.png` | 132x152 (7 KB) | pointy-top hexagon (radius 70) centred: empty (dark, faint rim), filled (blue, light rim), selected (gold rim + glow); stretched to the slot size | Nhân vật slots (shown at 0.85), piece popup, Prep gear row |
 | `badge.png` | 52x32 | the "+N" pill (dark, gold rim); 9-patch, texture margins 15 all (`EQUIP_BADGE_MARGINS`) | upgrade level on every equipment icon |

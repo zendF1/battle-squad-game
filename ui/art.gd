@@ -118,6 +118,10 @@ const EQUIP_TIERS := ["iron", "steel", "mithril", "dragon", "silver", "gold", "t
 const EQUIP_WEAPON_KINDS := ["bazooka", "cannon", "rifle", "launcher", "water"]
 const EQUIP_KIND_TIERS := ["iron", "steel", "mithril", "dragon"]
 const EQUIP_ICON_SIZE := Vector2i(128, 128)
+## The gun icons (weapon_<tier>.png, weapon_<kind>_<tier>.png: tools/import_guns.gd and
+## import_hug_guns.gd from the high-resolution gun art) are twice that: the Túi đồ card shows an icon
+## 112 design px wide, up to 2.4 × that on a 4K window.
+const EQUIP_WEAPON_ICON_SIZE := Vector2i(256, 256)
 const EQUIP_FRAMES := ["hex_empty", "hex_filled", "hex_selected"]
 const EQUIP_FRAME_SIZE := Vector2i(132, 152)
 const EQUIP_BADGE := ROOT + "icons/equipment/badge.png"
@@ -257,6 +261,26 @@ static func gun_path(kind: String, tier: String) -> String:
 
 static func hug_gun_path(kind: String, tier: String) -> String:
 	return ROOT + "weapons/%s/hug_%s.png" % [kind, tier]
+
+
+## The screens outside the match show a gun several times bigger than the match draws it (the
+## lobby / Nhân vật / Prep pedestal, a party slot, the character info): its high-resolution picture,
+## assets/weapons/<kind>/ui_<tier>.png (tools/import_hug_guns.gd / import_guns.gd `uiLength`: the
+## same canvas as the match picture, hug_<tier>.png or <tier>.png, only more px), mipmapped.
+static func ui_gun_path(kind: String, tier: String) -> String:
+	return ROOT + "weapons/%s/ui_%s.png" % [kind, tier]
+
+
+## The UI picture of the gun a gun() / hug_gun() dictionary names (its kind / tier after the
+## fallbacks), else its match texture (no UI picture yet). Same canvas: a region of the match
+## texture is the same region of it scaled by ui_size / match_size.
+static func ui_gun_texture(g: Dictionary) -> Texture2D:
+	var path := ui_gun_path(str(g.get("kind", "")), str(g.get("tier", "")))
+	if g.has("kind") and FileAccess.file_exists(path):
+		var t := _png_texture(path)
+		if t != null:
+			return t
+	return g.get("texture")
 
 
 static func gun_anchors_path(id: String) -> String:

@@ -8,7 +8,8 @@ extends Control
 ## set_gun() on equip / unequip and when the character changes.
 ## The gun is ui/art.gd gun(): the held sprite, or the hug art for a kind without held sprites
 ## (Rookie's bazooka, Tanko's cannon, Flora's seed launcher, Spark's shock rifle: hug_<tier>.png), leaned and fitted the same way.
-## The rect: the gun fitted into the top BOX (its foot on the bottom edge).
+## The rect: the gun fitted into the top BOX (its foot on the bottom edge). Laid out on the match
+## picture's px, drawn from its high-resolution UI picture (Art.ui_gun_texture(), mipmapped).
 
 const Art := preload("res://ui/art.gd")
 const ShotLook := preload("res://match/views/shot_look.gd")
@@ -110,9 +111,12 @@ func _draw() -> void:
 	var a := _glow * (0.75 + 0.25 * sin(_t * 3.0))
 	draw_set_transform(centre, -TILT)
 	draw_texture_rect(glow, Rect2(-Vector2(w, h * 1.8) * 0.75, Vector2(w, h * 1.8) * 1.5), false, Color(_glow_color, a))
-	# The gun, its drawn part centred.
+	# The gun, its drawn part centred: the same part of its high-resolution UI picture (the same
+	# canvas, more px: the match picture would be magnified 2-4 times here).
+	var ui := Art.ui_gun_texture(_gun)
+	var ui_k := ui.get_size() / tex.get_size()
 	draw_set_transform(centre, -TILT, Vector2(k, k))
-	draw_texture_rect_region(tex, Rect2(-part.size / 2, part.size), part)
+	draw_texture_rect_region(ui, Rect2(-part.size / 2, part.size), Rect2(part.position * ui_k, part.size * ui_k))
 	draw_set_transform(Vector2.ZERO)
 	if _rank >= 3:
 		var sparkle := Art.tier_fx("sparkle")

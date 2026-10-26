@@ -73,8 +73,10 @@ func test_equipment_art_covers_the_model() -> void:
 	eq(Art.equipment_icon_path("boots", "gold"), "res://assets/icons/equipment/boots_gold.png", "icon path")
 	eq(Art.equipment_slot_path("weapon"), "res://assets/icons/equipment/slot_weapon.png", "slot path")
 	check(Art.all_paths().has(Art.EQUIP_BADGE), "badge listed")
-	var img := Image.load_from_file(ProjectSettings.globalize_path(Art.equipment_icon_path("weapon", "iron")))
+	var img := Image.load_from_file(ProjectSettings.globalize_path(Art.equipment_icon_path("armor", "iron")))
 	check(img != null and img.get_size() == Art.EQUIP_ICON_SIZE, "icon size")
+	img = Image.load_from_file(ProjectSettings.globalize_path(Art.equipment_icon_path("weapon", "iron")))
+	check(img != null and img.get_size() == Art.EQUIP_WEAPON_ICON_SIZE, "gun icon size")
 	img = Image.load_from_file(ProjectSettings.globalize_path(Art.equipment_frame_path("hex_empty")))
 	check(img != null and img.get_size() == Art.EQUIP_FRAME_SIZE, "frame size")
 	check(Art.equipment_icon("ring", "iron") != null, "unknown slot gets a texture")
@@ -82,7 +84,7 @@ func test_equipment_art_covers_the_model() -> void:
 	for kind in GameData.character_ids().map(func(c): return M.character_weapon_kind(c)):
 		check(Art.EQUIP_WEAPON_KINDS.has(kind), "gun %s has art" % kind)
 		img = Image.load_from_file(ProjectSettings.globalize_path(Art.equipment_weapon_path(kind, "iron")))
-		check(img != null and img.get_size() == Art.EQUIP_ICON_SIZE, "%s icon size" % kind)
+		check(img != null and img.get_size() == Art.EQUIP_WEAPON_ICON_SIZE, "%s icon size" % kind)
 	check(Art.equipment_icon("weapon", "gold", "bazooka") != null, "a gun in a crafted tier gets the blaster")
 
 
@@ -145,8 +147,8 @@ func test_weapon_icons_present() -> void:
 		if img == null:
 			check(false, "%s loads" % path)
 			continue
-		eq(img.get_size(), Art.EQUIP_ICON_SIZE, "%s size" % path)
-		check(img.get_used_rect().size.x >= Art.EQUIP_ICON_SIZE.x * 0.8, "%s: the gun fills the icon's width" % path)
+		eq(img.get_size(), Art.EQUIP_WEAPON_ICON_SIZE, "%s size" % path)
+		check(img.get_used_rect().size.x >= Art.EQUIP_WEAPON_ICON_SIZE.x * 0.8, "%s: the gun fills the icon's width" % path)
 
 
 func test_gun_fallbacks() -> void:
@@ -1280,8 +1282,9 @@ func test_hug_gun_icons() -> void:
 		# The tube's middle line near both ends (the seed launcher's and the shock rifle's: inside the
 		# back cap and before the flared muzzle / the pod / the prongs).
 		var along := kind == "launcher" or kind == "rifle"
-		var xa := u.position.x + (6 if not along else int(u.size.x * 0.1))
-		var xb := u.end.x - 12 if not along else u.position.x + int(u.size.x * 0.7)
+		var px := img.get_width() / 128.0 # the offsets were set on a 128 px icon
+		var xa := u.position.x + (int(6 * px) if not along else int(u.size.x * 0.1))
+		var xb := u.end.x - int(12 * px) if not along else u.position.x + int(u.size.x * 0.7)
 		var rise: float = mid.call(xa) - mid.call(xb)
 		var slope := rise / float(xb - xa)
 		near(rad_to_deg(atan(slope)), -float(held["icons"]["tiltDeg"]), 4.0, "%s %s icon: the tube turned %s° (muzzle up)" % [kind, tier, held["icons"]["tiltDeg"]])
