@@ -48,3 +48,7 @@ window/handheld/orientation=4
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
+
+[debug]
+
+file_logging/enable_file_logging.ios=true

@@ -9,7 +9,7 @@ HOST=${1:-$(ipconfig getifaddr en0 || ipconfig getifaddr en1)}
 
 printf '[server]\n\napi_url="http://%s:9090"\nws_url="ws://%s:9091"\n' "$HOST" "$HOST" > server.cfg
 trap 'rm -f server.cfg' EXIT
-rm -rf build/ios && mkdir -p build/ios
+rm -rf build/ios && mkdir -p build/ios && touch build/.gdignore # keep Godot from importing the build output
 "$GODOT" --headless --path . --export-debug "iOS" build/ios/battle-squad.ipa
 echo "server: http://$HOST:9090  ws://$HOST:9091"
 echo "Xcode project: build/ios/battle-squad.xcodeproj"
