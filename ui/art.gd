@@ -287,7 +287,7 @@ static func ui_gun_path(kind: String, tier: String) -> String:
 ## texture is the same region of it scaled by ui_size / match_size.
 static func ui_gun_texture(g: Dictionary) -> Texture2D:
 	var path := ui_gun_path(str(g.get("kind", "")), str(g.get("tier", "")))
-	if g.has("kind") and FileAccess.file_exists(path):
+	if g.has("kind") and has_png(path):
 		var t := _png_texture(path)
 		if t != null:
 			return t
@@ -1060,7 +1060,7 @@ static func lobby_full(id: String) -> Dictionary:
 
 
 static func parse_full(json_path: String, png_path: String) -> Dictionary:
-	if not FileAccess.file_exists(json_path) or not FileAccess.file_exists(png_path):
+	if not FileAccess.file_exists(json_path) or not has_png(png_path):
 		return {}
 	var data := _load_json(json_path)
 	var mesh = data.get("mesh")
@@ -1154,6 +1154,12 @@ static func _imported(path: String) -> bool:
 	return not FileAccess.file_exists(path + ".import") or FileAccess.get_file_as_string(path + ".import").contains("\npath")
 
 
+## The project has this PNG: the file itself (the editor, imported or not yet), or its imported
+## copy (an export keeps only the .import remap, never the PNG, so FileAccess alone misses it).
+static func has_png(path: String) -> bool:
+	return FileAccess.file_exists(path) or ResourceLoader.exists(path)
+
+
 # ── Guns ────────────────────────────────────────────────────────────────────
 
 ## The sprite of a gun: {kind, tier, texture, grip, muzzle (px in the texture), scale (texture
@@ -1171,7 +1177,7 @@ static func gun(kind: String, tier: String) -> Dictionary:
 				return {"kind": kt[0], "tier": kt[1], "texture": t, "grip": meta["grip"], "muzzle": meta["muzzle"],
 					"scale": gun_scale(), "hug": false}
 		var hm := hug_meta(kt[0], kt[1])
-		if not hm.is_empty() and FileAccess.file_exists(hug_gun_path(kt[0], kt[1])):
+		if not hm.is_empty() and has_png(hug_gun_path(kt[0], kt[1])):
 			var ht := _png_texture(hug_gun_path(kt[0], kt[1]))
 			if ht != null:
 				return {"kind": kt[0], "tier": kt[1], "texture": ht, "grip": hm["pivot"], "muzzle": hm["muzzle"],
@@ -1243,7 +1249,7 @@ static func hug_gun(kind: String, tier: String) -> Dictionary:
 			tiers.append(t)
 	for t in tiers:
 		var meta := hug_meta(kind, str(t))
-		if meta.is_empty() or not FileAccess.file_exists(hug_gun_path(kind, str(t))):
+		if meta.is_empty() or not has_png(hug_gun_path(kind, str(t))):
 			continue
 		var tex := _png_texture(hug_gun_path(kind, str(t)))
 		if tex == null:

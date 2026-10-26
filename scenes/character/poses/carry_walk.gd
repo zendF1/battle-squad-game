@@ -114,7 +114,7 @@ func _texture(path: String) -> Texture2D:
 				and ResourceLoader.exists(path):
 			var r = load(path)
 			t = r if r is Texture2D else null
-	elif FileAccess.file_exists(path):
+	elif Art.has_png(path):
 		t = Art.texture(path)
 	if t != null:
 		_textures[path] = t
