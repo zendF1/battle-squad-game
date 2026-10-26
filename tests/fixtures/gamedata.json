@@ -51,6 +51,7 @@
       "defenseK": 600,
       "powerShotFactor": 1.5,
       "lavaDamage": 75,
+      "poisonMaxHpPercent": 4,
       "critMultiplier": 1.5
     },
     "terrain": {
@@ -811,6 +812,15 @@
         "marker": "",
         "banner": "",
         "bad": false,
+        "skipsTurn": false,
+        "blocksMove": false
+      },
+      {
+        "effectId": "poison",
+        "name": "Trúng độc",
+        "marker": "",
+        "banner": "",
+        "bad": true,
         "skipsTurn": false,
         "blocksMove": false
       }

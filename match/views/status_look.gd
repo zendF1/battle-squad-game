@@ -11,6 +11,9 @@ extends RefCounted
 ##   round it; popping out it crumbles into pebbles (Tanko's earth element);
 ## - "vines": vines and roots wound round the feet (kept for a future wood boss's root; no effect
 ##   maps to it now);
+## - "poison" (boss v4, Mộc Tinh's poison): a sickly green glow behind the body, green bubbles rising
+##   off it and popping, drips running down and falling, a small green drop over the head (the
+##   status's icon on the body);
 ## - "stars" (stun): stars circling the head;
 ## - "aura": a good effect (an armed shot item: power_shot, drill_bomb, spider_net, freeze_bomb,
 ##   air_strike; wind_stop): a soft glow round the body in the effect's colour (AURA_COLORS; the
@@ -28,10 +31,10 @@ const POP_OUT := 0.22
 ## A look that takes longer to leave (s): the ice cracks, then its fragments fall.
 const POP_OUT_OF := {"ice": 0.55, "stone": 0.5}
 ## The look of an effect with its own picture on the body.
-const LOOKS := {"freeze": "ice", "burn": "flames", "net": "web", "root": "stone", "stun": "stars"}
-## Back to front: the aura behind the body, the vines / the earth and stone at its feet, the flames on it, the web over
+const LOOKS := {"freeze": "ice", "burn": "flames", "net": "web", "root": "stone", "stun": "stars", "poison": "poison"}
+## Back to front: the aura behind the body, the vines / the earth and stone at its feet, the poison's bubbles, the flames on it, the web over
 ## it, the ice crystals over everything on the body, the stars round the head.
-const ORDER := ["aura", "vines", "stone", "flames", "web", "ice", "stars"]
+const ORDER := ["aura", "vines", "stone", "poison", "flames", "web", "ice", "stars"]
 ## A good effect's aura colour (DEFAULT_AURA for one not listed).
 const AURA_COLORS := {
 	"power_shot": Color(1.0, 0.42, 0.18),

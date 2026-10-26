@@ -16,7 +16,16 @@ extends Node2D
 ##   flight; frost mist and glints;
 ## - drone_bolt (a drone's shot): an energy bolt stretched along its flight, a hot streak;
 ## - crab_spit (a crabling's shot): an orange glob, wobbling, dripping;
-## - snowball (a snowman's shot): a shaded snowball rolling over, a powder trail.
+## - snowball (a snowman's shot): a shaded snowball rolling over, a powder trail;
+## boss v4:
+## - boulder (Khổng Lồ Đá's Mưa đá tảng): a lumpy sandstone boulder with a crack and chips, tumbling;
+##   a dust trail;
+## - giant_boulder (Ném tảng đá khổng lồ, one huge shell: GIANT_SIZE × a player's shell): a huge
+##   sandstone boulder cracked with glowing amber runes, chunks missing, tumbling slowly; a thick
+##   dust trail with amber glints;
+## - pebble (a stone totem's shot): a small sharp pebble with an amber chip; a little dust;
+## - poison_thorn (Mộc Tinh's Mưa gai độc): a curved wooden thorn pointing along its flight, a drop
+##   of glowing yellow-green poison at its tip, two leaves at its base; a poison mist trail.
 ## Any other kind is not this view: ShotPlayer keeps the gun's shell for it (is_kind()). The
 ## impact of each kind is UnitImpact's. Trail particles live in a fixed pool (global positions,
 ## oldest reused), so a long flight costs the same.
@@ -32,14 +41,23 @@ const ICE_SPIKE := "ice_spike"
 const DRONE_BOLT := "drone_bolt"
 const CRAB_SPIT := "crab_spit"
 const SNOWBALL := "snowball"
-const KINDS := [STEEL_SHELL, MAGMA_BOMB, ICE_SHARD, ICE_SPIKE, DRONE_BOLT, CRAB_SPIT, SNOWBALL]
-const BOSS_KINDS := [STEEL_SHELL, MAGMA_BOMB, ICE_SHARD, ICE_SPIKE]
+const BOULDER := "boulder"
+const GIANT_BOULDER := "giant_boulder"
+const PEBBLE := "pebble"
+const POISON_THORN := "poison_thorn"
+const KINDS := [STEEL_SHELL, MAGMA_BOMB, ICE_SHARD, ICE_SPIKE, DRONE_BOLT, CRAB_SPIT, SNOWBALL, BOULDER, GIANT_BOULDER, PEBBLE,
+	POISON_THORN]
+const BOSS_KINDS := [STEEL_SHELL, MAGMA_BOMB, ICE_SHARD, ICE_SPIKE, BOULDER, GIANT_BOULDER, POISON_THORN]
 ## The kinds drawn turned to their flight (the rest tumble or roll).
-const POINTED := [STEEL_SHELL, ICE_SPIKE, DRONE_BOLT]
+const POINTED := [STEEL_SHELL, ICE_SPIKE, DRONE_BOLT, POISON_THORN]
 const BOSS_SIZE := 1.8 # a boss's projectile × a player's shell
+## A boss kind drawn at its own size (× a player's shell) instead of BOSS_SIZE: the giant boulder
+## huge, the thorns of a 30-thorn rain smaller.
+const SIZE := {GIANT_BOULDER: 4.2, POISON_THORN: 1.3}
 const BOMB_PX := 2.0 # ProjectileView's picture px per world px
 ## Each body's longest side in its drawing frame (units), so it is drawn at its size.
-const EXTENT := {STEEL_SHELL: 30.0, MAGMA_BOMB: 24.0, ICE_SHARD: 24.0, ICE_SPIKE: 38.0, DRONE_BOLT: 26.0, CRAB_SPIT: 16.0, SNOWBALL: 17.0}
+const EXTENT := {STEEL_SHELL: 30.0, MAGMA_BOMB: 24.0, ICE_SHARD: 24.0, ICE_SPIKE: 38.0, DRONE_BOLT: 26.0, CRAB_SPIT: 16.0, SNOWBALL: 17.0,
+	BOULDER: 24.0, GIANT_BOULDER: 26.0, PEBBLE: 12.0, POISON_THORN: 30.0}
 
 const OUT := Color(0.08, 0.06, 0.12)
 const POOL := 18 # trail particles per shell (40 of the witch's shards fly at once)
@@ -58,6 +76,13 @@ const TRAILS := {
 	DRONE_BOLT: {"every": 5.0, "life": 0.22, "r0": 3.0, "r1": 0.8, "color": Color(1.0, 0.42, 0.3, 0.9), "drift": 0.0, "glow": true},
 	CRAB_SPIT: {"every": 7.0, "life": 0.4, "r0": 2.6, "r1": 0.8, "color": Color(1.0, 0.6, 0.2, 0.85), "drift": 60.0},
 	SNOWBALL: {"every": 7.0, "life": 0.45, "r0": 2.0, "r1": 6.0, "color": Color(0.96, 0.98, 1.0, 0.6), "drift": 8.0},
+	BOULDER: {"every": 6.0, "life": 0.6, "r0": 3.0, "r1": 8.0, "color": Color(0.76, 0.62, 0.44, 0.7), "drift": -10.0,
+		"mix": 0.3, "look2": "smoke", "color2": Color(0.55, 0.42, 0.28, 0.45)},
+	GIANT_BOULDER: {"every": 5.0, "life": 0.75, "r0": 4.0, "r1": 10.0, "color": Color(0.76, 0.62, 0.44, 0.75), "drift": -12.0,
+		"mix": 0.35, "look2": "spark", "color2": Color(1.0, 0.78, 0.3)},
+	PEBBLE: {"every": 7.0, "life": 0.35, "r0": 2.0, "r1": 4.5, "color": Color(0.78, 0.66, 0.48, 0.6), "drift": -6.0},
+	POISON_THORN: {"every": 5.0, "life": 0.45, "r0": 2.6, "r1": 0.8, "color": Color(0.72, 0.95, 0.3, 0.85), "drift": 24.0, "glow": true,
+		"mix": 0.25, "look2": "glint", "color2": Color(0.92, 1.0, 0.6)},
 }
 
 static var _player_px := -1.0
@@ -108,7 +133,7 @@ static func player_shell_px() -> float:
 
 ## The drawn length (px) of a kind's body: a player shell's for a minion's, BOSS_SIZE × for a boss's.
 static func size_px(k: String) -> float:
-	return player_shell_px() * (BOSS_SIZE if is_boss_kind(k) else 1.0)
+	return player_shell_px() * float(SIZE.get(k, BOSS_SIZE if is_boss_kind(k) else 1.0))
 
 
 func _init(kind_id: String = ICE_SHARD) -> void:
@@ -152,6 +177,12 @@ func draw_angle() -> float:
 			return _spin + _t * 9.0
 		SNOWBALL:
 			return _spin + _t * 6.0 * signf(_dir.x if _dir.x != 0.0 else 1.0)
+		BOULDER:
+			return _spin + _t * 4.0 * signf(_dir.x if _dir.x != 0.0 else 1.0)
+		GIANT_BOULDER:
+			return _spin + _t * 1.6 * signf(_dir.x if _dir.x != 0.0 else 1.0)
+		PEBBLE:
+			return _spin + _t * 10.0
 	return _spin + _t * 2.0
 
 
@@ -201,6 +232,14 @@ func _draw() -> void:
 			_crab_spit()
 		SNOWBALL:
 			_snowball()
+		BOULDER:
+			_boulder(false)
+		GIANT_BOULDER:
+			_boulder(true)
+		PEBBLE:
+			_pebble()
+		POISON_THORN:
+			_poison_thorn()
 	draw_set_transform(Vector2.ZERO)
 	if kind == MAGMA_BOMB:
 		_drips()
@@ -336,6 +375,60 @@ func _ice_spike() -> void:
 	draw_line(Vector2(-6, -1.2), Vector2(14, -0.4), Color(1, 1, 1, 0.45 * inner), 3.0, true) # the inner light
 	for x in [-7.0, 1.0, 9.0]:
 		draw_line(Vector2(x, -4.8 + x * 0.12), Vector2(x + 3.0, -1.0), Color(0.25, 0.55, 0.85, 0.6), 0.9, true)
+
+
+## A lumpy sandstone boulder (r about 11 units), shaded round, a crack and chips; giant: glowing
+## amber rune cracks over it, a chunk missing, a faint amber glow.
+func _boulder(giant: bool) -> void:
+	var r := 11.0 if not giant else 12.0
+	if giant:
+		draw_circle(Vector2.ZERO, r * 1.35, Color(1.0, 0.72, 0.25, 0.14 + 0.06 * sin(_t * 6.0)))
+	var pts := PackedVector2Array()
+	for i in 16:
+		var a := TAU * i / 16.0
+		var k := 1.0 + 0.09 * sin(a * 3.0 + 1.3) + 0.05 * sin(a * 5.0)
+		if giant and i >= 2 and i <= 3: # a chunk missing
+			k *= 0.78
+		pts.append(Vector2.from_angle(a) * r * k)
+	_outlined(pts, Color(0.47, 0.32, 0.19))
+	var lit := PackedVector2Array()
+	for p in pts:
+		lit.append(p * 0.8 + Vector2(-1.6, -1.8))
+	draw_colored_polygon(lit, Color(0.69, 0.48, 0.27))
+	draw_colored_polygon(_ellipse(Vector2(-4, -5), 4.0, 2.2), Color(0.86, 0.68, 0.43))
+	if giant:
+		var glow := 0.75 + 0.25 * sin(_t * 7.0)
+		for line in [[Vector2(-9, -3), Vector2(-3, 0), Vector2(1, -4), Vector2(7, -1)], [Vector2(-2, 2), Vector2(1, 7), Vector2(-3, 9)],
+				[Vector2(4, -9), Vector2(3, -5)]]:
+			var pl := PackedVector2Array(line)
+			draw_polyline(pl, Color(1.0, 0.72, 0.22, 0.45 * glow), 3.6, true)
+			draw_polyline(pl, Color(1.0, 0.9, 0.55, glow), 1.4, true)
+	else:
+		draw_polyline(PackedVector2Array([Vector2(-6, 2), Vector2(-1, 0), Vector2(2, 4), Vector2(6, 3)]), Color(0.3, 0.2, 0.12), 1.4, true)
+		draw_circle(Vector2(5, -5), 1.4, Color(0.35, 0.24, 0.14))
+
+
+func _pebble() -> void:
+	var pts := PackedVector2Array([Vector2(6, 0), Vector2(2, -4.5), Vector2(-4, -4), Vector2(-6, 0.5), Vector2(-2, 4.5), Vector2(4, 4)])
+	_outlined(pts, Color(0.62, 0.44, 0.27), 1.6)
+	draw_colored_polygon(PackedVector2Array([Vector2(2, -4.5), Vector2(-4, -4), Vector2(-3, -1), Vector2(1, -1.5)]), Color(0.82, 0.64, 0.42))
+	draw_circle(Vector2(1, 1), 1.6, Color(1.0, 0.78, 0.3))
+
+
+## A curved wooden thorn pointing right (along its flight), its tip dripping glowing poison.
+func _poison_thorn() -> void:
+	draw_circle(Vector2(14, 0), 5.0, Color(0.75, 1.0, 0.3, 0.3))
+	var body := PackedVector2Array([Vector2(15, 0), Vector2(6, -2.4), Vector2(-6, -4.2), Vector2(-12, -3.4), Vector2(-13, 0.5), Vector2(-9, 3.6),
+		Vector2(2, 2.6)])
+	_outlined(body, Color(0.36, 0.22, 0.12), 1.6)
+	draw_colored_polygon(PackedVector2Array([Vector2(15, 0), Vector2(6, -2.4), Vector2(-6, -4.2), Vector2(-10, -2.8), Vector2(2, -0.6)]),
+		Color(0.55, 0.36, 0.2))
+	for side in [-1.0, 1.0]: # two small leaves at its base
+		var leaf := PackedVector2Array([Vector2(-11, 0), Vector2(-15, side * 4.5), Vector2(-20, side * 5.5), Vector2(-16, side * 1.5)])
+		_outlined(leaf, Color(0.42, 0.75, 0.26), 1.2)
+	var drip := 0.7 + 0.3 * sin(_t * 9.0)
+	draw_circle(Vector2(15.5, 1.2), 2.6 * drip, Color(0.84, 1.0, 0.4))
+	draw_circle(Vector2(15.0, 0.6), 1.0, Color(1, 1, 0.85))
 
 
 # ── Minion projectiles (a player shell's size) ───────────────────────────────

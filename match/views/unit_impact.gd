@@ -6,7 +6,10 @@ extends Node2D
 ## - ice_shard / ice_spike: the ice shatters (crystal splinters spinning out), a frost ring;
 ## - drone_bolt: an energy pop (a ring and short sparks in the drone's red);
 ## - crab_spit: an orange splat (droplets and a flattened blob fading);
-## - snowball: a powder burst (white puffs swelling and falling apart, a few snow chunks).
+## - snowball: a powder burst (white puffs swelling and falling apart, a few snow chunks);
+## - boulder / giant_boulder: a dust burst, rock chunks tumbling out and falling (the giant's
+##   bigger, with a dust ring and amber sparks); pebble: a small dust puff and grit;
+## - poison_thorn: a yellow-green poison splash, droplets and a small spore puff.
 ## Stateless: everything comes from its age (seeded per impact); it frees itself after LIFE s.
 
 const UnitShell := preload("res://match/views/unit_shell.gd")
@@ -71,6 +74,23 @@ func _draw() -> void:
 		UnitShell.SNOWBALL:
 			_puffs(Color(0.97, 0.99, 1.0), k, 7, 10.0)
 			_drops(Color(0.92, 0.96, 1.0), k, 5.5, 0.8)
+		UnitShell.BOULDER, UnitShell.GIANT_BOULDER:
+			var giant := kind == UnitShell.GIANT_BOULDER
+			_flash(Color(1.0, 0.86, 0.6), k, 0.3)
+			_puffs(Color(0.72, 0.58, 0.4), k, 9 if giant else 6, -30.0)
+			_rocks(k, 1.4 if giant else 1.0)
+			if giant:
+				_ring(Color(0.8, 0.66, 0.46), k)
+				_sparks(Color(1.0, 0.78, 0.3), k, 1.0)
+		UnitShell.PEBBLE:
+			_puffs(Color(0.76, 0.64, 0.48), k, 4, -12.0)
+			_rocks(k, 0.5)
+		UnitShell.POISON_THORN:
+			draw_set_transform(Vector2(0, 3), 0.0, Vector2(1.0, 0.4))
+			draw_circle(Vector2.ZERO, radius * 0.5 * (0.6 + 0.4 * k), Color(0.7, 0.92, 0.25, 0.65 * life))
+			draw_set_transform(Vector2.ZERO)
+			_drops(Color(0.78, 1.0, 0.35), k, 4.0, 0.7)
+			_puffs(Color(0.76, 0.9, 0.3), k, 4, -20.0)
 
 
 func _flash(col: Color, k: float, share: float) -> void:
@@ -110,6 +130,23 @@ func _drops(col: Color, k: float, size: float, speed: float) -> void:
 		var v := Vector2.from_angle(a) * radius * (2.2 + 2.5 * _n(i, 7.0)) * speed
 		var p := v * _t + Vector2(0, 0.5 * GRAVITY * _t * _t)
 		draw_circle(p, size * (1.0 - 0.6 * k) * (0.6 + 0.4 * _n(i, 8.0)), Color(col, 1.0 - k * k))
+
+
+## Sandstone chunks thrown up and out, tumbling and falling (size: their scale).
+func _rocks(k: float, size: float) -> void:
+	for i in PIECES:
+		var a := -PI * 0.5 + (_n(i, 13.0) - 0.5) * PI * 1.5
+		var v := Vector2.from_angle(a) * radius * (2.4 + 2.6 * _n(i, 14.0))
+		var p := v * _t + Vector2(0, 0.5 * GRAVITY * _t * _t)
+		var rot := _t * (6.0 + 6.0 * _n(i, 15.0))
+		var r := (3.5 + 4.0 * _n(i, 16.0)) * size
+		var pts := PackedVector2Array()
+		for j in 6:
+			pts.append(p + Vector2.from_angle(rot + TAU * j / 6.0) * r * (0.8 + 0.3 * sin(j * 2.1 + i)))
+		var col := Color(0.62, 0.45, 0.28) if i % 2 == 0 else Color(0.45, 0.31, 0.19)
+		draw_colored_polygon(pts, Color(col, 1.0 - k * k))
+		pts.append(pts[0])
+		draw_polyline(pts, Color(0.12, 0.08, 0.05, 1.0 - k * k), 1.2, true)
 
 
 func _splinters(col: Color, k: float) -> void:

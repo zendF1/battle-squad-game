@@ -67,6 +67,24 @@ extends Node2D
 ## Elements: a damage event's elementEffect ("strong" / "weak", the server's element rules) styles
 ## its number (DamagePopup.style(): bigger gold-orange with "Khắc hệ!" / smaller greyish blue), the
 ## running tally of a multi-hit skill too; every name carries its element's badge (PlayerView).
+## Boss mode v4 (Khổng Lồ Đá, Mộc Tinh; the server's earth / wood contract): an eruption skill's mark
+## events leave glowing cracked circles under the party (BossMarks, MarkView), kept through turns
+## and restored from MatchStateSync / TurnStarted marks; the boss's turn starts with a ShotResolved
+## actionMode "turn_start" (it does not end the turn: the summon and the attack follow) in which the
+## marks rumble until their eruption events, then stone spikes burst up across each one
+## (BombChainFx.erupt()) and the members hit hop a little (cosmetic: the server moves nobody); the
+## boss's death clears them. A ground_strike event bursts thorny vines up under a member
+## (VineStrikeFx). A heal event on the boss (cause drain: life flowing from the drained member into
+## its heart, LifeStreamFx, while the green-gold beam holds; cause regen: leaves and sparkles rising
+## from each mushroom into it) glows on it, a green number, the HUD's bar rising. The poison status
+## is drawn on the body (StatusFx), its turn-start PlayerDamaged type poison a green number and a
+## puff of spores. The minion auras (BossHudModel armorMinions / regenMinions, BossShieldChanged, a
+## minion's death or summon): rune links from each stone totem to the giant and stone plates on it
+## (AuraLinks, BossBody.set_armored(); they snap and fly off when the last totem falls, "Phá giáp!"),
+## vine threads from the mushrooms; a hit on the armoured boss shows a stone-grey number ("Giáp đá"
+## over the first). A mushroom's turn (ShotResolved actionMode "spore") puffs a spore cloud out to
+## its radius (SporeFx), its death blast bursts into spores. The camera frames the marks, the
+## eruptions and the strikes of a shot (_frame_ground()).
 ## See docs/superpowers/specs/2026-10-15-godot-client-roadmap-design.md.
 
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
@@ -127,6 +145,13 @@ const UnitImpact := preload("res://match/views/unit_impact.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const WaterSplash := preload("res://match/views/water_splash.gd")
+const BossMarks := preload("res://match/boss/boss_marks.gd")
+const MarkView := preload("res://match/boss/mark_view.gd")
+const AuraLinks := preload("res://match/boss/aura_links.gd")
+const VineStrikeFx := preload("res://match/boss/vine_strike_fx.gd")
+const SporeFx := preload("res://match/boss/spore_fx.gd")
+const LifeStreamFx := preload("res://match/boss/life_stream_fx.gd")
+const BombChainFx := preload("res://match/views/skills/bomb_chain_fx.gd")
 const WATER_GUN := "water_gun" # a shot of this gun kind bursts into water (visual only)
 
 ## Actions go out at least the server's timings.actionIntervalSec apart (it drops closer ones)
@@ -230,6 +255,11 @@ var _lava_view: LavaView
 var _screen_fx: CanvasLayer # screen overlays over the world, under the HUD (a boss's storm)
 var _wave_fx: Node2D = null # the replayed shot's ground shockwave (ShockwaveFx), null none
 var _leaps := LeapWarning.new() # the leapt snowmen about to blow up
+var _marks := BossMarks.new() # boss v4: the eruption marks on the ground
+var _mark_view := MarkView.new()
+var _links := AuraLinks.new() # boss v4: the totems' rune links, the mushrooms' vine threads
+var _armor_tagged := false # the "Giáp đá" tag was shown on this armour's first hit
+var _drain := {} # the replayed shot drains: {until: s the life flows until}
 
 var _hold_dir := 0
 var _action_at := -10_000_000 # Time.get_ticks_usec() when my last Move/Shoot/EndTurn/UseItem was sent
@@ -248,6 +278,9 @@ func _ready() -> void:
 	add_child(_bottom)
 	_lava_view = LavaView.new() # on the ground, under the players
 	add_child(_lava_view)
+	_links.views = _views # under the players
+	add_child(_links)
+	add_child(_mark_view) # on the ground, under the players
 	_players_layer = Node2D.new()
 	add_child(_players_layer)
 	_fx_layer = Node2D.new()
@@ -315,6 +348,14 @@ func _ready() -> void:
 ## Leaving the match: the lobby's game data is in use again.
 func _exit_tree() -> void:
 	GameData.end_match()
+
+
+## The ground views made before _ready() (tests build the screen without it) go with the screen.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		for n in [_mark_view, _links]:
+			if is_instance_valid(n) and n.get_parent() == null:
+				n.free()
 
 
 func _process(delta: float) -> void:
@@ -693,6 +734,9 @@ func _apply(event: String, data: Variant) -> void:
 				if data.has("lavaZones"):
 					_lava.set_all(data["lavaZones"])
 					_lava_view.sync(_lava.zones)
+				if data.get("marks") is Array:
+					_marks.set_all(data["marks"])
+					_mark_view.sync(_marks.marks, true)
 				_hud.set_boss(_boss.state())
 			_set_current(current, int(data.get("moveEnergy", 0)))
 			_announce_skip(current)
@@ -709,10 +753,10 @@ func _apply(event: String, data: Variant) -> void:
 			var shooter := str(data.get("shooterId", ""))
 			_count_damage(shooter, data.get("events"))
 			var timeline := ShotTimeline.new(data)
-			# A boss's free summon (v3) does not end its turn: its attack follows.
-			if timeline.action_mode != SUMMON:
+			# A boss's free summon (v3) and its turn start (v4) do not end its turn: its attack follows.
+			if timeline.action_mode != SUMMON and timeline.action_mode != TURN_START:
 				_turn_resolved = true # the server takes no more actions until TurnStarted
-			elif _boss.active and shooter == _boss.player_id:
+			elif timeline.action_mode == SUMMON and _boss.active and shooter == _boss.player_id:
 				_hud.announce_boss_skill(SUMMON_TEXT)
 			_hud.pause_timer() # resumed by the next TurnTimerTick / TurnStarted
 			_snap_to_server(shooter)
@@ -758,6 +802,10 @@ func _apply(event: String, data: Variant) -> void:
 				_hud.fade_boss_skill() # the map's top (the boss in the air) comes under it
 			elif wide_summon:
 				_cam.frame_map() # a wave over the whole map: all of it in view (Triệu hồi stays)
+			elif _boss.active:
+				_frame_ground(timeline.events, timeline.duration + 0.5)
+			if _boss.active:
+				_begin_v4(timeline, shooter)
 			_shot_player.play(timeline, lead_in)
 			_refresh_controls()
 		"PlayerDamaged": # lava / burn at turn start, out_of_map after a walk's fall (shot damage comes in ShotResolved)
@@ -767,7 +815,13 @@ func _apply(event: String, data: Variant) -> void:
 				if e.get("shield") is int or e.get("shield") is float:
 					_set_shield(id, int(e["shield"]))
 				var amount := int(e.get("damage", 0))
-				if amount > 0 and str(e.get("type", "")) != OUT_OF_MAP: # fallen out: no number, the body is gone below
+				if amount > 0 and str(e.get("type", "")) == POISON: # the poison tick: a green number, a puff of spores
+					_popup(id, DamagePopup.damage_text(amount), DamagePopup.POISON)
+					if _views.has(id):
+						var puff := SporeFx.new(SporeFx.TICK, 34.0 * maxf(_views[id].body_size, 1.0))
+						puff.position = _views[id].body_centre()
+						_fx_layer.add_child(puff)
+				elif amount > 0 and str(e.get("type", "")) != OUT_OF_MAP: # fallen out: no number, the body is gone below
 					var burn := str(e.get("type", "")) in ["burn", "lava"]
 					_popup(id, DamagePopup.damage_text(amount), Color(1.0, 0.55, 0.15) if burn else Color(1, 0.3, 0.3))
 					if burn and _views.has(id): # the burn tick: a fire flash over the body
@@ -1052,14 +1106,26 @@ func _on_shot_event(e: Dictionary) -> void:
 				pass # fell out of the bottom: no number, the body drops out of sight
 			elif _skill_view != null and _skill_view.merges_damage():
 				_tally(id, int(e.get("amount", 0)), crit, DamagePopup.effect_of(e))
+			elif _boss.active and id == _boss.player_id and _boss.armored(): # the armour took most of it
+				_popup(id, DamagePopup.damage_text(int(e.get("amount", 0))), Color.WHITE, Vector2.ZERO,
+					DamagePopup.armored_style(DamagePopup.effect_of(e), crit, not _armor_tagged))
+				_armor_tagged = true
 			else:
 				_damage_popup(id, int(e.get("amount", 0)), crit, DamagePopup.effect_of(e)) # elementEffect styles it
+			if str(e.get("cause", "")) == ERUPTION and _views.has(id): # thrown up a little (cosmetic)
+				_views[id].hop()
+			if not _drain.is_empty() and _views.has(id) and id != _boss.player_id:
+				_drain_from(id, float(e.get("t", 0.0)))
 			_show_energies(_energy_reveal.on_event(e)) # the hit's +10, after the HP drop
 		"heal":
 			_set_hp(id, int(e.get("hp", 0)))
 			var amount := int(e.get("amount", 0))
 			if amount > 0:
-				_popup(id, DamagePopup.heal_text(amount), Color(0.4, 1, 0.5))
+				_popup(id, DamagePopup.heal_text(amount), DamagePopup.HEAL)
+			if _views.has(id) and str(e.get("cause", "")) in [DRAIN, REGEN]: # the boss heals: its glow
+				_views[id].heal_glow()
+				if str(e.get("cause", "")) == REGEN:
+					_links.pulse_regen()
 		"shield": # Flora's bloom: the bubble in the caster's gun tier colour
 			if e.get("shield") is int or e.get("shield") is float:
 				_set_shield(id, int(e["shield"]), _shot_timeline.shooter_id if _shot_timeline != null else "")
@@ -1118,6 +1184,26 @@ func _on_shot_event(e: Dictionary) -> void:
 			var zone := _lava.add_event(e, _boss.boss_round)
 			if not zone.is_empty():
 				_lava_view.show_zone(zone, true)
+		"mark":
+			var m := _marks.add_event(e, _boss.boss_round)
+			if not m.is_empty():
+				_mark_view.show_mark(m, true)
+		"eruption":
+			_erupt(e)
+		"ground_strike":
+			if e.get("position") is Dictionary:
+				var vines := VineStrikeFx.new(float(e.get("radius", 60.0)))
+				vines.position = _vec(e["position"])
+				_fx_layer.add_child(vines)
+				_cam.shake(14.0)
+		"spore":
+			if e.get("position") is Dictionary:
+				var cloud := SporeFx.new(SporeFx.PUFF, float(e.get("radius", 120.0)))
+				cloud.position = _vec(e["position"]) - Vector2(0, 16)
+				_fx_layer.add_child(cloud)
+				if _views.has(id):
+					_views[id].puff()
+				_hold_focus({"pos": _vec(e["position"]) + LOOK_LIFT}, 1.0)
 		"status":
 			if _players.has(id):
 				_players[id]["statusEffects"] = Status.apply(_players[id].get("statusEffects"), str(e.get("effectId", "")), int(e.get("turns", 1)))
@@ -1125,7 +1211,8 @@ func _on_shot_event(e: Dictionary) -> void:
 			var text := Skills.status_label(str(e.get("effectId", "")))
 			if text != "":
 				# over the running damage number, or the one just shown (a nova's hit and freeze land together)
-				_popup(id, text, Color(0.7, 0.85, 1), Vector2(0, -64) if _has_tally(id) or _just_popped(id) else Vector2.ZERO)
+				_popup(id, text, DamagePopup.POISON if str(e.get("effectId", "")) == POISON else Color(0.7, 0.85, 1),
+					Vector2(0, -64) if _has_tally(id) or _just_popped(id) else Vector2.ZERO)
 	# beam, flare, rain (and the rest): the skill draws them
 	if _skill_view != null:
 		_skill_view.on_event(e)
@@ -1171,8 +1258,9 @@ func _on_shot_finished() -> void:
 		_resync_after_shot = false
 		GameSocket.send("Reconnect", {}) # the terrain drifted during the replay
 	_skill_view = null
+	_drain = {}
 	_cam.unframe()
-	if _shot_timeline != null and _shot_timeline.action_mode == SUMMON and _views.has(_current) and not _ended:
+	if _shot_timeline != null and _shot_timeline.action_mode in [SUMMON, TURN_START] and _views.has(_current) and not _ended:
 		_cam.pan_to(_pos(_current) + _look_lift(_current)) # the summon played: back on the boss for its attack
 	if _wave_fx != null and is_instance_valid(_wave_fx):
 		_wave_fx.release()
@@ -1469,6 +1557,14 @@ const SUMMON := "summon" # a boss's free summon (ShotResolved / ActionSelected a
 const SUMMON_TEXT := "Triệu hồi"
 const SHIELD_ON := "Khiên bảo vệ!"
 const SHIELD_OFF := "Phá khiên!"
+const TURN_START := "turn_start" # boss v4: the boss's turn start (eruptions, regen) before its summon and attack
+const SPORE := "spore" # a poison mushroom's turn (ShotResolved actionMode)
+const ERUPTION := "eruption" # a damage cause / event type
+const DRAIN := "drain" # heal causes
+const REGEN := "regen"
+const POISON := "poison" # the status / the PlayerDamaged type
+const ARMOR_ON := "Giáp đá!"
+const ARMOR_OFF := "Phá giáp!"
 
 
 ## A snapshot's boss fight: the bar, the lava pools (a boss snapshot without lavaZones has none)
@@ -1476,24 +1572,163 @@ const SHIELD_OFF := "Phá khiên!"
 func _load_boss(snap: Dictionary) -> void:
 	if not _boss.load_snapshot(snap):
 		_hud.set_boss({})
+		_marks.clear()
+		_mark_view.sync({})
+		_links.set_links([], [], false)
 		return
 	_lava.set_all(snap.get("lavaZones", []))
 	_lava_view.sync(_lava.zones)
+	var marks = snap["boss"].get("marks") # the marks waiting for the boss's next turn (none: a server without them)
+	_marks.set_all(marks if marks is Array else [])
+	if not _boss.alive:
+		_marks.clear()
+	_mark_view.sync(_marks.marks)
 	if _views.has(_boss.player_id):
 		_views[_boss.player_id].set_shielded(_boss.shielded and _boss.alive, false)
+	_sync_aura(false, _boss.armored())
+	_armor_tagged = false
 	_hud.set_boss(_boss.state())
 
 
-## BossShieldChanged: the bubble pops on or off the boss, a line says so.
+## BossShieldChanged: the bubble pops on or off the boss, a line says so; the auras it carries
+## (boss v4) set the links and the plates (_sync_aura()).
 func _on_boss_shield(d: Variant) -> void:
+	var was_shielded := _boss.shielded
+	var was_armored := _boss.armored()
 	if not _boss.on_shield(d):
 		return
 	_hud.set_boss(_boss.state())
+	_sync_aura(true, was_armored)
 	var id := _boss.player_id
-	if _views.has(id):
+	if _views.has(id) and _boss.shielded != was_shielded:
 		_views[id].set_shielded(_boss.shielded)
 		_popup(id, SHIELD_ON if _boss.shielded else SHIELD_OFF, Color(0.6, 0.92, 1.0) if _boss.shielded else LobbyUi.GOLD,
 			Vector2(0, -_views[id].body_size * 40.0))
+
+
+## The minion auras on screen (boss v4) from BossHudModel: the links (new ones grow, gone ones snap
+## when animate), the boss's stone plates; the armour going on or off pops a line over the boss.
+func _sync_aura(animate: bool, was_armored: bool) -> void:
+	_links.views = _views
+	_links.boss_id = _boss.player_id
+	_links.set_links(_boss.armor_minions, _boss.regen_minions, animate)
+	var now := _boss.armored()
+	var id := _boss.player_id
+	if _views.has(id):
+		_views[id].set_armored(now, animate)
+	if now == was_armored:
+		return
+	_hud.set_boss(_boss.state())
+	if now:
+		_armor_tagged = false
+	if animate and _views.has(id) and _boss.alive:
+		_popup(id, ARMOR_ON if now else ARMOR_OFF, LobbyUi.GOLD if not now else Color(1.0, 0.8, 0.4), Vector2(0, -_views[id].body_size * 40.0))
+
+
+## The links and plates (tests, the harness).
+func aura_links() -> AuraLinks:
+	return _links
+
+
+## The eruption marks held / drawn (tests, the harness).
+func marks() -> BossMarks:
+	return _marks
+
+
+func mark_view() -> MarkView:
+	return _mark_view
+
+
+## Boss v4 at the start of a boss shot's replay: the marks it erupts rumble until then, the life a
+## regen heal takes rises from the mushrooms into the boss on its way (it lands with the heal), a
+## drain beam's life flow is set up (_drain: until the beam ends).
+func _begin_v4(timeline, shooter: String) -> void:
+	_drain = {}
+	for e in timeline.events:
+		if not e is Dictionary:
+			continue
+		var t := float(e.get("t", 0.0))
+		match str(e.get("type", "")):
+			ERUPTION:
+				_mark_view.charge(str(e.get("markId", "")), t)
+			"heal":
+				if str(e.get("cause", "")) == REGEN and _views.has(str(e.get("playerId", ""))):
+					var sources: Array = []
+					for mid in _boss.regen_minions:
+						if _views.has(mid) and not _views[mid].is_dead():
+							sources.append(_views[mid])
+					if not sources.is_empty():
+						var stream := LifeStreamFx.new(LifeStreamFx.REGEN)
+						stream.sources = sources
+						stream.target = _views[str(e["playerId"])]
+						stream.emit_sec = maxf(t * 0.6, 0.2)
+						stream.travel_sec = maxf(t, 0.45)
+						_fx_layer.add_child(stream)
+	var skill := GameData.boss_skill(_boss.boss_id, timeline.skill_id) if shooter == _boss.player_id else {}
+	var pct = skill.get("drainPct")
+	if (pct is int or pct is float) and float(pct) > 0.0:
+		var until := 0.0
+		for e in timeline.events:
+			if e is Dictionary and str(e.get("type", "")) in ["beam", "heal"]:
+				until = maxf(until, float(e.get("t", 0.0)) + (float(e.get("duration", 0.0)) if str(e.get("type", "")) == "beam" else 0.0))
+		_drain = {"until": until}
+
+
+## A drained member's life flows into the boss's heart from its hit (t) until the beam ends.
+func _drain_from(id: String, t: float) -> void:
+	if not _views.has(_boss.player_id):
+		return
+	var stream := LifeStreamFx.new(LifeStreamFx.DRAIN)
+	stream.sources = [_views[id]]
+	stream.target = _views[_boss.player_id]
+	stream.emit_sec = maxf(float(_drain.get("until", t)) - t, 0.25)
+	stream.travel_sec = 0.55
+	_fx_layer.add_child(stream)
+
+
+## An eruption event {playerId, position, radius, markId}: its mark flashes out, stone spikes burst
+## up across it.
+func _erupt(e: Dictionary) -> void:
+	var id := str(e.get("markId", ""))
+	var m := _marks.erupt(id)
+	_mark_view.erupt(id)
+	var at: Vector2 = _vec(e["position"]) if e.get("position") is Dictionary else m.get("position", Vector2.INF)
+	if at == Vector2.INF:
+		return
+	var radius := float(e.get("radius", m.get("radius", 70.0)))
+	var fx := BombChainFx.new()
+	_mark_view.add_child(fx) # on the ground, under the players: they stand in front of the spikes
+	fx.z_index = 0
+	fx.erupt(at, radius, func(x: float) -> float: return _ground_y(x, at.y))
+	fx.finish()
+	_cam.shake(radius * 0.5)
+
+
+## The ground's top at x near y (the surface under a point a little above it); y when nothing is there.
+func _ground_y(x: float, y: float) -> float:
+	if _mask.width <= 0:
+		return y
+	var g: float = _mask.get_landing_y(clampf(x, 0.0, _mask.width - 1.0), maxf(y - 40.0, 0.0))
+	return g if g < _mask.height and absf(g - y) < 90.0 else y
+
+
+## Frames the ground a shot acts on (boss v4: its marks, eruptions, ground strikes): the camera
+## holds their middle for sec, zoomed out until they all fit.
+func _frame_ground(events: Array, sec: float) -> void:
+	var box := Rect2()
+	var any := false
+	for e in events:
+		if e is Dictionary and str(e.get("type", "")) in ["mark", ERUPTION, "ground_strike"] and e.get("position") is Dictionary:
+			var p := _vec(e["position"])
+			box = box.expand(p) if any else Rect2(p, Vector2.ZERO)
+			any = true
+	if not any:
+		return
+	box = box.grow(150.0)
+	var view := _cam.world_view()
+	if box.size.x > view.x * 0.92 or box.size.y > view.y * 0.92:
+		_cam.frame_size(box.size)
+	_hold_focus({"pos": box.get_center() + LOOK_LIFT}, sec)
 
 
 ## A summon event {playerId, minionId, position, hp, maxHp, displayName, teamId, bodySize, flying,
@@ -1519,11 +1754,27 @@ func _summon(e: Dictionary) -> void:
 	_views[id] = view
 	view.scale = Vector2.ONE * 0.2
 	view.create_tween().tween_property(view, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	var fx := PopFx.new()
-	fx.position = pos - Vector2(0, PlayerView.BODY.y * view.body_size * 0.6)
-	fx.color = BossArt.accent(BossArt.art_of("", minion_id))
-	_fx_layer.add_child(fx)
+	var art := BossArt.art_of("", minion_id)
+	if art == "stone_totem": # it rises out of the ground, the earth breaking round it
+		view.scale = Vector2.ONE
+		view.rise()
+		var quake := BombChainFx.new()
+		_fx_layer.add_child(quake)
+		quake.quake(pos, 14.0, func(x: float) -> float: return _ground_y(x, pos.y), 1)
+		quake.finish()
+	else:
+		var fx := PopFx.new()
+		fx.position = pos - Vector2(0, PlayerView.BODY.y * view.body_size * 0.6)
+		fx.color = BossArt.accent(art)
+		_fx_layer.add_child(fx)
+		if art == "poison_mushroom": # it pops up in a puff of spores
+			var poof := SporeFx.new(SporeFx.TICK, 40.0)
+			poof.position = pos - Vector2(0, 14)
+			_fx_layer.add_child(poof)
 	_hold_focus({"pos": pos + _view_lift(view)}, 0.6)
+	var was_armored := _boss.armored()
+	if _boss.minion_summoned(id, GameData.boss_minion(_boss.boss_id, minion_id)):
+		_sync_aura(true, was_armored)
 
 
 ## The BattlePlayerState of a summoned minion from its summon event: the event's fields (the full
@@ -1636,12 +1887,17 @@ func _unit_blast(e: Dictionary) -> void:
 	var reach := float(b) if (b is int or b is float) and b > 0 else maxf(radius, GameData.unit_explode_radius(unit))
 	if _views.has(id) and _views[id].has_method("vanish"):
 		_views[id].vanish()
-	var fx := ExplosionFx.new()
-	fx.radius = reach
-	fx.kind = str(look["kind"])
-	fx.tier = str(look["tier"])
-	fx.position = p
-	_fx_layer.add_child(fx)
+	if look.get("spore", false): # a poison mushroom bursts into spores
+		var cloud := SporeFx.new(SporeFx.BURST, reach)
+		cloud.position = p - Vector2(0, 14)
+		_fx_layer.add_child(cloud)
+	else:
+		var fx := ExplosionFx.new()
+		fx.radius = reach
+		fx.kind = str(look["kind"])
+		fx.tier = str(look["tier"])
+		fx.position = p
+		_fx_layer.add_child(fx)
 	var wave := BlastFx.new()
 	wave.radius = reach
 	wave.icy = bool(look["icy"])
@@ -1855,9 +2111,15 @@ func _kill(id: String) -> void:
 	_views[id].set_dead()
 	if _leaps.clear(id):
 		_views[id].set_leapt(false)
+	var was_armored := _boss.armored()
 	if _boss.kill(id):
 		_views[id].set_shielded(false)
+		_marks.clear() # the marks vanish with the boss
+		_mark_view.clear()
+		_sync_aura(true, was_armored)
 		_hud.set_boss(_boss.state())
+	elif _boss.minion_died(id): # its aura goes at once: its link snaps (the last totem: the plates break)
+		_sync_aura(true, was_armored)
 
 
 ## A hit in a multi-hit skill shot: added to the player's running number (DamageTally), a new

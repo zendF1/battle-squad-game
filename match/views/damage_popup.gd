@@ -4,6 +4,9 @@ extends Label
 ## A damage event's elementEffect (the server's element rules, GET /gamedata elementRules) styles
 ## its number (style()): "strong" bigger in a warm gold-orange with a small "Khắc hệ!" tag above it,
 ## popping harder; "weak" smaller and greyish blue; none the usual red (gold for a critical hit).
+## Boss v4: a hit on an armoured boss (its stone totems standing) reads as reduced (armored_style():
+## a stone-grey, smaller number, the first one of an armour with a small "Giáp đá" tag); a poison
+## tick's number is green (POISON).
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Fmt := preload("res://core/fmt.gd")
@@ -39,6 +42,11 @@ const STRONG_TEXT := "Khắc hệ!"
 const FONT := 34
 const STRONG_FONT := 46
 const WEAK_FONT := 27
+const ARMORED := Color(0.8, 0.74, 0.64) # stone grey: the armour took most of the hit
+const ARMOR_TAG := "Giáp đá"
+const ARMOR_TAG_COLOR := Color(1.0, 0.8, 0.36)
+const POISON := Color(0.62, 0.95, 0.3)
+const HEAL := Color(0.4, 1, 0.5)
 
 
 ## How a damage number looks: {color, font_size, tag ("" none: the "Khắc hệ!" over it), tag_color,
@@ -50,6 +58,20 @@ static func style(effect: String, critical: bool = false) -> Dictionary:
 		"weak":
 			return {"color": WEAK, "font_size": WEAK_FONT, "tag": "", "tag_color": WEAK, "pop": 1.08, "from": 0.6}
 	return {"color": CRIT if critical else RED, "font_size": FONT, "tag": "", "tag_color": RED, "pop": 1.2, "from": 0.5}
+
+
+## A hit on an armoured boss: style() turned stone grey and smaller; tag: the "Giáp đá" tag over it
+## (in place of "Khắc hệ!").
+static func armored_style(effect: String, critical: bool = false, tag: bool = false) -> Dictionary:
+	var st := style(effect, critical)
+	st["color"] = Color(st["color"]).lerp(ARMORED, 0.75)
+	st["font_size"] = int(round(float(st["font_size"]) * 0.88))
+	st["pop"] = minf(float(st["pop"]), 1.15)
+	st["armored"] = true
+	if tag:
+		st["tag"] = ARMOR_TAG
+		st["tag_color"] = ARMOR_TAG_COLOR
+	return st
 
 
 ## A damage event's elementEffect ("strong" / "weak"; "" for none or anything else).

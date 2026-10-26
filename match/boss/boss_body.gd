@@ -30,6 +30,11 @@ extends Node2D
 ## (Art.boss_skin(art, "fly"): her side view, SkinFly) glides on it during a hover move instead of the
 ## fly frames: the lean and the streaming cape blend in over SkinFly.BLEND_SEC, the cape settles
 ## with a little overshoot on landing (it shows until settled), the bob blends to the glide's smaller one.
+## Boss v4: set_armored() puts the stone plates of its totems' armour on Khổng Lồ Đá (they pop on one
+## after another; when the armour breaks they fly off and fade, BossArt.PLATE_BREAK_SEC); heal_glow()
+## flashes a green halo behind the figure and lights its heart (a drain or a regen heal); puff()
+## squashes a poison mushroom and springs it up as it puffs its spores; a stone totem nods as it
+## shoots; a stone totem crumbles into falling stones as it dies.
 
 const BossArt := preload("res://match/boss/boss_art.gd")
 const BossAnim := preload("res://match/boss/boss_anim.gd")
@@ -124,6 +129,18 @@ var _skin := {} # the skinned idle (Art.boss_skin()); {} the idle frames
 var _skin_view: BossSkinView
 var _fly_view: BossSkinView # the skinned glide (Art.boss_skin(art, "fly")); null: the fly frames
 var _flying_now := false # a hover move under way (set_flight())
+var armored := false # boss v4: the totems' stone plates are on (set_armored())
+var _plates := 0.0 # 0..1 the plates shown (popping on)
+var _plate_break := -1.0 # s since they broke off (-1 none)
+var _heal := 0.0 # 0..1 the heal glow (heal_glow())
+var _puff := -1.0 # s into a spore puff (puff(); -1 none)
+var _nod := 0.0 # 0..1 a totem's shot nod
+const HEAL_SEC := 1.1
+const PLATES_IN_SEC := 0.5
+const NOD_SEC := 0.45
+const PUFF_SEC := 0.7
+const HEAL_GLOW := Color(0.6, 1.0, 0.4)
+const CRUMBLE := [Color(0.69, 0.48, 0.27), Color(0.43, 0.29, 0.18), Color(0.85, 0.65, 0.4)]
 
 
 func setup(art_id: String, height_px: float) -> void:
@@ -204,6 +221,18 @@ func _process(delta: float) -> void:
 		_flash = maxf(_flash, 0.35 + 0.35 * absf(sin(_t * 18.0)))
 	_step_shards(delta)
 	_step_trail(delta)
+	_heal = maxf(0.0, _heal - delta / HEAL_SEC)
+	_nod = maxf(0.0, _nod - delta / NOD_SEC)
+	if _puff >= 0.0:
+		_puff += delta
+		if _puff >= PUFF_SEC:
+			_puff = -1.0
+	if armored and not _dead:
+		_plates = minf(1.0, _plates + delta / PLATES_IN_SEC)
+	if _plate_break >= 0.0:
+		_plate_break += delta
+		if _plate_break >= BossArt.PLATE_BREAK_SEC:
+			_plate_break = -1.0
 	if _ball != null:
 		var alpha := maxf(_shield, _shield_pop * 0.8) if not _vanished else 0.0
 		_ball.set_look(1.0 + _shield_pop * 0.12, alpha)
@@ -244,6 +273,10 @@ func _draw() -> void:
 				draw_line(at - Vector2(0, g), at + Vector2(0, g), Color(1, 1, 1, 0.7 * (1.0 - k)), 1.2, true)
 	if _vanished:
 		return
+	if _heal > 0.0 and not _dead: # a heal: a green halo behind the figure
+		var hr := height * (0.6 + 0.12 * (1.0 - _heal))
+		draw_texture_rect(halo_texture(), Rect2(Vector2(-hr, -height * 0.5 - hr), Vector2(hr, hr) * 2.0), false,
+			Color(HEAL_GLOW, 0.55 * _heal))
 	var glow := leap_glow()
 	if glow > 0.0:
 		var r := height * (0.62 + 0.08 * glow)
@@ -258,7 +291,17 @@ func _draw() -> void:
 	if _walking and not _dead and not flying:
 		wobble = Vector2(0, -absf(sin(_t * 14.0)) * height * 0.03)
 	BossArt.draw(self, art, wobble, height, _t if not _dead else 0.0, facing, _flash, {"flying": flying, "lean": lean if not _dead else 0.0,
-		"tint": tint, "shards": shards()})
+		"tint": tint, "shards": shards(), "plates": _plates if armored else 0.0, "plates_break": _plate_break, "heal": _heal,
+		"puff": _puff, "nod": _nod})
+	if _dead and art == "stone_totem" and _death < 1.0: # it crumbles: stones fall off it
+		for i in 9:
+			var u := _death * 1.6 - i * 0.05
+			if u <= 0.0 or u >= 1.0:
+				continue
+			var x := (fmod(i * 0.618, 1.0) - 0.5) * height * 0.6
+			var y0 := -height * (0.2 + 0.7 * fmod(i * 0.37, 1.0))
+			var p := Vector2(x * (1.0 + u), minf(y0 + 0.5 * 1400.0 * u * u * 0.5, 2.0))
+			draw_circle(p, height * 0.05 * (1.0 - 0.4 * u), Color(CRUMBLE[i % 3], 1.0 - u))
 
 
 ## The witch casts her shards (her blizzard): over lead s they spin up and multiply round her,
@@ -330,7 +373,7 @@ static func halo_texture() -> GradientTexture2D:
 
 ## The figure's height (px, the unit PlayerView reads art_height() × scale in).
 func art_height() -> float:
-	return height
+	return height * BossArt.top(art)
 
 
 ## Turns the shield on or off; animate: with the pop.
@@ -682,10 +725,59 @@ func gun_state() -> String:
 	return "holstered"
 
 
-## The shot leaves at once (no gun to draw): a small flash, no wait.
+## The shot leaves at once (no gun to draw): a small flash (a totem nods), no wait.
 func shoot(_with_gun: bool = true) -> float:
 	_flash = maxf(_flash, 0.35)
+	if art == "stone_totem":
+		_nod = 1.0
 	return 0.0
+
+
+## Boss v4: the stone plates of its totems' armour go on (pop on one after another) or break off
+## (animate: they fly off and fade; else gone at once).
+func set_armored(on: bool, animate: bool = true) -> void:
+	if on == armored:
+		return
+	armored = on
+	if on:
+		_plate_break = -1.0
+		_plates = 0.0 if animate else 1.0
+	else:
+		_plate_break = 0.0 if animate and _plates > 0.0 else -1.0
+		_plates = 0.0
+
+
+## The plates shown now (0..1; tests).
+func plates_shown() -> float:
+	return _plates if armored else 0.0
+
+
+## The plates are flying off (tests).
+func plates_breaking() -> bool:
+	return _plate_break >= 0.0
+
+
+## A heal (a drain, a regen): the green glow behind the figure, its heart lit.
+func heal_glow() -> void:
+	_heal = 1.0
+
+
+func heal_shown() -> float:
+	return _heal
+
+
+## A poison mushroom's spore puff: squashed, then sprung up.
+func puff() -> void:
+	_puff = 0.0
+
+
+func puffing() -> bool:
+	return _puff >= 0.0
+
+
+## The heart point (global): where drained life flows in (BossArt.HEART).
+func heart_position() -> Vector2:
+	return to_global(BossArt.heart(art, height, facing) + Vector2(0, _bob_px()))
 
 
 func muzzle_position() -> Vector2:

@@ -50,12 +50,12 @@ func test_aura_colours() -> void:
 	check(mixed.is_equal_approx(avg), "two buffs: their colours mixed (%s)" % mixed)
 	var d: Dictionary = GameData.data.duplicate(true)
 	d["version"] = "edited"
-	d["statusEffects"].append({"effectId": "poison", "name": "Trúng độc", "marker": "", "banner": "", "bad": true,
+	d["statusEffects"].append({"effectId": "curse", "name": "Nguyền", "marker": "", "banner": "", "bad": true,
 		"skipsTurn": false, "blocksMove": false})
 	d["statusEffects"].append({"effectId": "haste", "name": "Nhanh", "marker": "", "banner": "", "bad": false,
 		"skipsTurn": false, "blocksMove": false})
 	GameData.take(d, "", false)
-	eq(StatusLook.looks_of(_fx(["poison"]))["aura"], StatusLook.CURSE, "a new bad effect: the violet aura")
+	eq(StatusLook.looks_of(_fx(["curse"]))["aura"], StatusLook.CURSE, "a new bad effect: the violet aura")
 	eq(StatusLook.looks_of(_fx(["haste"]))["aura"], StatusLook.DEFAULT_AURA, "a new good one: the default gold")
 
 

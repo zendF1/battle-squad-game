@@ -8,12 +8,24 @@ extends "res://match/views/skills/laser.gd"
 ## (a stun / freeze shows on the body: PlayerView's StatusFx); the camera frames the whole map
 ## for it (frames_map()). Boss skills have no game data tuning of their own: the laser effect's
 ## (the first laser skill's params) is used.
+## Boss v4: a beam that drains (its skill's drainPct, Mộc Tinh's Hút sinh lực) is drawn green-gold
+## (DRAIN_PALETTE); match_screen draws the life flowing from the member it hits into the boss's heart
+## (LifeStreamFx) and the heal on the boss.
 
 const BeamFan := preload("res://match/boss/beam_fan.gd")
 const BeamFanFx := preload("res://match/views/skills/beam_fan_fx.gd")
 const ShotLook := preload("res://match/views/shot_look.gd")
 
+const DRAIN_PALETTE := {"glow": Color(0.55, 1.0, 0.35), "mid": Color(0.86, 1.0, 0.55), "core": Color(1.0, 0.98, 0.82),
+	"arc": Color(1.0, 0.84, 0.34)}
+
 var _fan: Node2D = null
+
+
+## The skill heals the boss by a share of its beam's damage (GET /gamedata bosses skills drainPct).
+func drains() -> bool:
+	var d = GameData.boss_skill("", _skill).get("drainPct")
+	return (d is int or d is float) and float(d) > 0.0
 
 
 func param(key: String) -> float:
@@ -30,6 +42,8 @@ func begin(context: Dictionary) -> void:
 	var list := shot_beams(context.get("timeline"))
 	if list.size() <= 1:
 		super.begin(context)
+		if drains() and _fx != null:
+			_fx.colors = DRAIN_PALETTE
 		return
 	ctx = context
 	_fx = null

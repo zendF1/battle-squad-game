@@ -2,7 +2,8 @@ extends Node2D
 ## A storm over the whole screen while a boss's map-wide rain plays (boss mode v3): Phù Thuỷ
 ## Băng's Bão tuyết is a snowstorm (SNOW: flakes driven slantwise across the view, a few long
 ## streaks, a pale veil), Cua Dung Nham's map-wide fire bombs an ember storm (EMBER: sparks and ash
-## drifting up through a warm haze). Screen space (a child of a CanvasLayer over the world, under
+## drifting up through a warm haze), Mộc Tinh's Mưa gai độc a spore storm (SPORES, boss v4: yellow-green
+## spores and a few leaves swirling down through a sickly green haze). Screen space (a child of a CanvasLayer over the world, under
 ## the HUD), visual only. It fades in over FADE_IN, stays while the rain plays, and after release()
 ## fades out and frees itself (MAX_SEC at the latest).
 ## Cheap: the flakes are a fixed table made once; their positions come from the time (no
@@ -10,6 +11,8 @@ extends Node2D
 
 const SNOW := "snow"
 const EMBER := "ember"
+const SPORES := "spores"
+const SPORE_FLAKES := 140
 const FADE_IN := 0.5
 const FADE_OUT := 0.9
 const MAX_SEC := 9.0
@@ -52,7 +55,12 @@ func _init(storm_kind: String = SNOW) -> void:
 
 
 func flake_count() -> int:
-	return SNOW_FLAKES if kind == SNOW else EMBER_FLAKES
+	match kind:
+		SNOW:
+			return SNOW_FLAKES
+		SPORES:
+			return SPORE_FLAKES
+	return EMBER_FLAKES
 
 
 func _ready() -> void:
@@ -96,8 +104,29 @@ func _draw() -> void:
 		return
 	if kind == SNOW:
 		_draw_snow(k)
+	elif kind == SPORES:
+		_draw_spores(k)
 	else:
 		_draw_embers(k)
+
+
+func _draw_spores(k: float) -> void:
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.55, 0.75, 0.15, 0.1 * k))
+	for i in _x.size():
+		var fall := _speed[i] * 0.6 * _t
+		var y := fposmod(_y[i] * (size.y + 40.0) + fall, size.y + 40.0) - 20.0
+		var x := fposmod(_x[i] * size.x + sin(_t * 1.1 + _phase[i]) * 40.0 + wind * fall * 0.5, size.x)
+		var tw := 0.6 + 0.4 * sin(_t * 5.0 + _phase[i] * 3.0)
+		if i % 9 == 0: # a leaf turning over
+			var rot := _t * 2.0 + _phase[i]
+			var r := 5.0 + _r[i]
+			var pts := PackedVector2Array()
+			for j in 8:
+				var ang := TAU * j / 8.0
+				pts.append(Vector2(x, y) + Vector2(cos(ang) * r, sin(ang) * r * 0.4).rotated(rot))
+			draw_colored_polygon(pts, Color(0.38, 0.7, 0.24, 0.7 * k))
+		else:
+			draw_circle(Vector2(x, y), _r[i] * 1.2, Color(0.82, 0.95, 0.35, 0.55 * k * tw))
 
 
 func _draw_snow(k: float) -> void:

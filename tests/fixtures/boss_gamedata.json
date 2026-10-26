@@ -1,5 +1,5 @@
 {
- "_comment": "GET /gamedata boss additions (server 6472eb7, migrations 044-051; modes.lobby maxItems from 85c3591 / 052): modes.lobby / modes.categories / extra modes.match and bosses, merged over tests/fixtures/gamedata.json by tests/boss_fixture.gd. Bosses from the server's gamedata.DefaultBosses() through api/gamedata.Build (v2: flying, hover, the minions' behavior / movement / explosions; v3: summon, attack skills only with pattern / projectileKind / launchFrom, the leaping snowmen, the islands arena; modeId as the DB's lobby modes).",
+ "_comment": "GET /gamedata boss additions (the real GET /gamedata of server 7c15bfa, migrations 044-058: boss v4 rock_giant / tree_spirit with the eruption / ground_strike skill kinds, drainPct, the minion auras, spawn, spore and death status fields; the old bosses' status / statusTurns / statusChance): modes.lobby / modes.categories / extra modes.match and bosses, merged over tests/fixtures/gamedata.json by tests/boss_fixture.gd.",
  "categories": [
   {
    "categoryId": "pvp",
@@ -94,6 +94,30 @@
    "partySize": 4,
    "ranked": false,
    "maxItems": 6
+  },
+  {
+   "modeId": "boss_rock_giant",
+   "name": "Khổng Lồ Đá",
+   "description": "Đánh boss, tối đa 4 người",
+   "queue": "boss:rock_giant",
+   "bot": "",
+   "category": "boss",
+   "icon": "boss",
+   "partySize": 4,
+   "ranked": false,
+   "maxItems": 6
+  },
+  {
+   "modeId": "boss_tree_spirit",
+   "name": "Mộc Tinh",
+   "description": "Đánh boss, tối đa 4 người",
+   "queue": "boss:tree_spirit",
+   "bot": "",
+   "category": "boss",
+   "icon": "boss",
+   "partySize": 4,
+   "ranked": false,
+   "maxItems": 6
   }
  ],
  "match": [
@@ -112,6 +136,14 @@
   {
    "modeId": "boss:ice_witch",
    "name": "Phù Thuỷ Băng"
+  },
+  {
+   "modeId": "boss:rock_giant",
+   "name": "Khổng Lồ Đá"
+  },
+  {
+   "modeId": "boss:tree_spirit",
+   "name": "Mộc Tinh"
   }
  ],
  "bosses": [
@@ -138,6 +170,7 @@
      "explodeOnDeath": false,
      "explodeRadius": 80,
      "explodeDamagePct": 50,
+     "deathBlastDamageFactor": 1,
      "explodeDamageOf": "target",
      "explodeCrater": 20,
      "detonateRange": 70,
@@ -149,7 +182,17 @@
      "leapRange": 0,
      "leapDetonateNextTurn": true,
      "shootAfterLeap": false,
-     "projectileKind": "drone_bolt"
+     "projectileKind": "drone_bolt",
+     "bossDamageTakenFactor": 0,
+     "bossRegenPctPerMinion": 0,
+     "spawn": "",
+     "auraRadius": 0,
+     "auraStatus": "",
+     "auraStatusTurns": 0,
+     "auraStatusChance": 0,
+     "deathStatus": "",
+     "deathStatusTurns": 0,
+     "deathStatusChance": 0
     }
    ],
    "skills": [
@@ -202,6 +245,7 @@
      "explodeOnDeath": false,
      "explodeRadius": 80,
      "explodeDamagePct": 35,
+     "deathBlastDamageFactor": 1,
      "explodeDamageOf": "target",
      "explodeCrater": 20,
      "detonateRange": 70,
@@ -213,16 +257,29 @@
      "leapRange": 0,
      "leapDetonateNextTurn": true,
      "shootAfterLeap": false,
-     "projectileKind": "crab_spit"
+     "projectileKind": "crab_spit",
+     "bossDamageTakenFactor": 0,
+     "bossRegenPctPerMinion": 0,
+     "spawn": "",
+     "auraRadius": 0,
+     "auraStatus": "",
+     "auraStatusTurns": 0,
+     "auraStatusChance": 0,
+     "deathStatus": "",
+     "deathStatusTurns": 0,
+     "deathStatusChance": 0
     }
    ],
    "skills": [
     {
      "skillId": "fire_bombs",
      "name": "Bom dung nham",
-     "description": "Mười sáu quả bom lửa rơi khắp chiến trường, gây bỏng và để lại vũng dung nham hai lượt.",
+     "description": "Mười quả bom lửa rơi khắp chiến trường; ai trúng có 50 % bị bỏng, mỗi chỗ nổ để lại vũng dung nham một lượt.",
      "kind": "rain",
-     "projectileKind": "magma_bomb"
+     "projectileKind": "magma_bomb",
+     "status": "burn",
+     "statusTurns": 1,
+     "statusChance": 0.5
     },
     {
      "skillId": "claw_slam",
@@ -250,7 +307,7 @@
    "modeId": "boss_ice_witch",
    "queue": "boss:ice_witch",
    "mapId": "arena_ice_witch_islands",
-   "hp": 13000,
+   "hp": 14000,
    "bodySize": 2.8,
    "turnLimit": 30,
    "shieldedDamageFactor": 0.1,
@@ -265,6 +322,7 @@
      "explodeOnDeath": true,
      "explodeRadius": 140,
      "explodeDamagePct": 15,
+     "deathBlastDamageFactor": 0.5,
      "explodeDamageOf": "target",
      "explodeCrater": 24,
      "detonateRange": 70,
@@ -276,31 +334,50 @@
      "leapRange": 0,
      "leapDetonateNextTurn": true,
      "shootAfterLeap": false,
-     "projectileKind": "snowball"
+     "projectileKind": "snowball",
+     "bossDamageTakenFactor": 0,
+     "bossRegenPctPerMinion": 0,
+     "spawn": "",
+     "auraRadius": 0,
+     "auraStatus": "",
+     "auraStatusTurns": 0,
+     "auraStatusChance": 0,
+     "deathStatus": "",
+     "deathStatusTurns": 0,
+     "deathStatusChance": 0
     }
    ],
    "skills": [
     {
      "skillId": "ice_spikes",
      "name": "Gai băng",
-     "description": "Mười bốn gai băng rơi rộng quanh một người chơi; ai trúng bị đóng băng một lượt.",
+     "description": "Mười bốn gai băng rơi rộng quanh một người chơi; ai trúng có 50 % bị đóng băng một lượt.",
      "kind": "rain",
-     "projectileKind": "ice_spike"
+     "projectileKind": "ice_spike",
+     "status": "freeze",
+     "statusTurns": 1,
+     "statusChance": 0.5
     },
     {
      "skillId": "frost_beam",
      "name": "Tia băng",
-     "description": "Hai mươi tia băng toả tròn đều từ phù thuỷ ra tới mép map, xuyên địa hình; ai trúng bị choáng một lượt.",
+     "description": "Hai mươi tia băng toả tròn đều từ phù thuỷ ra tới mép map, xuyên địa hình; ai trúng có 50 % bị choáng một lượt.",
      "kind": "beam",
-     "pattern": "radial"
+     "pattern": "radial",
+     "status": "stun",
+     "statusTurns": 1,
+     "statusChance": 0.5
     },
     {
      "skillId": "blizzard",
      "name": "Bão tuyết",
-     "description": "Bốn mươi mảnh băng từ quanh phù thuỷ bay ra trút xuống khắp chiến trường; ai trúng bị đóng băng một lượt.",
+     "description": "Bốn mươi mảnh băng từ quanh phù thuỷ bay ra trút xuống khắp chiến trường; ai trúng có 50 % bị đóng băng một lượt.",
      "kind": "rain",
      "projectileKind": "ice_shard",
-     "launchFrom": "boss"
+     "launchFrom": "boss",
+     "status": "freeze",
+     "statusTurns": 1,
+     "statusChance": 0.5
     }
    ],
    "dailyBonusRuns": 3,
@@ -320,6 +397,182 @@
     "firstRound": 2
    },
    "element": "water"
+  },
+  {
+   "bossId": "rock_giant",
+   "name": "Khổng Lồ Đá",
+   "description": "Người khổng lồ ghép từ những tảng đá, canh giữ hẻm núi sa mạc. Trụ đá đứng quanh giúp nó chỉ nhận 40 % sát thương; nó dội mưa đá tảng, đánh dấu chân cả đội để gai đá trồi lên ở lượt sau và ném tảng đá khổng lồ.",
+   "recommendedLevel": 55,
+   "modeId": "boss_rock_giant",
+   "queue": "boss:rock_giant",
+   "mapId": "arena_rock_giant_canyon",
+   "hp": 19500,
+   "bodySize": 3.4,
+   "turnLimit": 20,
+   "shieldedDamageFactor": 1,
+   "minions": [
+    {
+     "minionId": "stone_totem",
+     "name": "Trụ đá",
+     "hp": 1400,
+     "bodySize": 1,
+     "behavior": "shooter",
+     "movement": "none",
+     "explodeOnDeath": false,
+     "explodeRadius": 80,
+     "explodeDamagePct": 50,
+     "deathBlastDamageFactor": 1,
+     "explodeDamageOf": "target",
+     "explodeCrater": 20,
+     "detonateRange": 70,
+     "shotDamageFactor": 0.6,
+     "flyRange": 90,
+     "walkRange": 80,
+     "hoverHeight": 60,
+     "flySpeed": 220,
+     "leapRange": 0,
+     "leapDetonateNextTurn": true,
+     "shootAfterLeap": false,
+     "projectileKind": "pebble",
+     "bossDamageTakenFactor": 0.4,
+     "bossRegenPctPerMinion": 0,
+     "spawn": "between",
+     "auraRadius": 0,
+     "auraStatus": "",
+     "auraStatusTurns": 0,
+     "auraStatusChance": 0,
+     "deathStatus": "",
+     "deathStatusTurns": 0,
+     "deathStatusChance": 0
+    }
+   ],
+   "skills": [
+    {
+     "skillId": "boulder_rain",
+     "name": "Mưa đá tảng",
+     "description": "Tám tảng đá lớn bay lên từ tay người khổng lồ rồi dội xuống quanh cả đội, khoét những hố rất sâu.",
+     "kind": "rain",
+     "projectileKind": "boulder",
+     "launchFrom": "boss"
+    },
+    {
+     "skillId": "stone_spikes",
+     "name": "Gai đá trồi",
+     "description": "Mặt đất dưới chân mỗi người nứt sáng một vòng; đầu lượt sau của người khổng lồ, gai đá trồi lên trong vòng: ai còn đứng trong đó mất nhiều máu, có 50 % bị cầm chân một lượt. Hãy bước ra khỏi vòng.",
+     "kind": "eruption",
+     "radius": 70,
+     "status": "root",
+     "statusTurns": 1,
+     "statusChance": 0.5
+    },
+    {
+     "skillId": "giant_boulder",
+     "name": "Ném tảng đá khổng lồ",
+     "description": "Ném một tảng đá khổng lồ vào một người chơi: sát thương rất lớn, khoét hố khổng lồ có thể làm người trúng rơi xuống.",
+     "kind": "rain",
+     "projectileKind": "giant_boulder",
+     "launchFrom": "boss"
+    }
+   ],
+   "dailyBonusRuns": 3,
+   "flying": false,
+   "hover": null,
+   "summon": {
+    "minionId": "stone_totem",
+    "count": 3,
+    "cooldownRounds": 3,
+    "firstRound": 2
+   },
+   "element": "earth"
+  },
+  {
+   "bossId": "tree_spirit",
+   "name": "Mộc Tinh",
+   "description": "Cây cổ thụ ngàn năm thức giấc giữa rừng sâu, bám rễ tại chỗ. Mỗi cây nấm độc còn sống giúp nó hồi 3 % máu đầu lượt; roi dây leo trồi lên dưới chân cả đội, mưa gai độc phủ khắp rừng và hút sinh lực người yếu nhất.",
+   "recommendedLevel": 70,
+   "modeId": "boss_tree_spirit",
+   "queue": "boss:tree_spirit",
+   "mapId": "arena_tree_spirit_forest",
+   "hp": 21500,
+   "bodySize": 3.6,
+   "turnLimit": 20,
+   "shieldedDamageFactor": 1,
+   "minions": [
+    {
+     "minionId": "poison_mushroom",
+     "name": "Nấm độc",
+     "hp": 600,
+     "bodySize": 0.8,
+     "behavior": "spore",
+     "movement": "none",
+     "explodeOnDeath": true,
+     "explodeRadius": 120,
+     "explodeDamagePct": 5,
+     "deathBlastDamageFactor": 1,
+     "explodeDamageOf": "target",
+     "explodeCrater": 10,
+     "detonateRange": 70,
+     "shotDamageFactor": 1,
+     "flyRange": 90,
+     "walkRange": 80,
+     "hoverHeight": 60,
+     "flySpeed": 220,
+     "leapRange": 0,
+     "leapDetonateNextTurn": true,
+     "shootAfterLeap": false,
+     "projectileKind": "",
+     "bossDamageTakenFactor": 0,
+     "bossRegenPctPerMinion": 3,
+     "spawn": "near_party",
+     "auraRadius": 120,
+     "auraStatus": "poison",
+     "auraStatusTurns": 2,
+     "auraStatusChance": 0.5,
+     "deathStatus": "poison",
+     "deathStatusTurns": 2,
+     "deathStatusChance": 0.5
+    }
+   ],
+   "skills": [
+    {
+     "skillId": "vine_lash",
+     "name": "Roi dây leo",
+     "description": "Dây leo gai bật lên ngay dưới chân mỗi người chơi; ai trúng có 50 % bị cầm chân một lượt.",
+     "kind": "ground_strike",
+     "radius": 60,
+     "status": "root",
+     "statusTurns": 1,
+     "statusChance": 0.5
+    },
+    {
+     "skillId": "poison_thorns",
+     "name": "Mưa gai độc",
+     "description": "Ba mươi chiếc gai độc từ tán cây bay ra trút xuống khắp khu rừng; ai trúng có 50 % bị trúng độc hai lượt (mất máu đầu lượt, medkit giải độc).",
+     "kind": "rain",
+     "projectileKind": "poison_thorn",
+     "launchFrom": "boss",
+     "status": "poison",
+     "statusTurns": 2,
+     "statusChance": 0.5
+    },
+    {
+     "skillId": "life_drain",
+     "name": "Hút sinh lực",
+     "description": "Một luồng sinh lực xuyên địa hình hút máu người chơi yếu nhất; Mộc Tinh hồi đúng bằng lượng máu đã hút.",
+     "kind": "beam",
+     "drainPct": 100
+    }
+   ],
+   "dailyBonusRuns": 3,
+   "flying": false,
+   "hover": null,
+   "summon": {
+    "minionId": "poison_mushroom",
+    "count": 4,
+    "cooldownRounds": 3,
+    "firstRound": 2
+   },
+   "element": "wood"
   }
  ]
 }

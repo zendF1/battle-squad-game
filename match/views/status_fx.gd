@@ -10,7 +10,7 @@ extends Node2D
 ## another and crack and shatter popping out), flames licking up it with embers, a web wrapped
 ## over it, earth and stone heaped round the feet (root: a mound rising with stones in it and
 ## shards jutting up, the ground cracked round it; crumbling into pebbles popping out; the vines
-## wound round the feet stay drawn for a future wood boss, no effect uses them now), stars circling the
+## wound round the feet stay drawn: no effect maps to them, Mộc Tinh's vine lash bursts them, draw_vines()), stars circling the
 ## head (the far ones behind it) and a soft aura behind the body with a few motes rising. Each
 ## pops in and out (StatusLook.pop_scale / pop_alpha; the vines and the crystals grow up from the
 ## ground instead). All computed from the time in _draw(); off (nothing to draw) it neither
@@ -148,6 +148,7 @@ func _draw() -> void:
 		match str(l["look"]):
 			"vines": _vines(self, l, true)
 			"stone": _stone(self, l, true)
+			"poison": _poison(self, l, true)
 			"flames": _flames(l)
 			"web": _web(l)
 			"ice": _ice(self, l, true)
@@ -163,6 +164,7 @@ func draw_back(ci: CanvasItem) -> void:
 			"aura": _aura(ci, l)
 			"vines": _vines(ci, l, false)
 			"stone": _stone(ci, l, false)
+			"poison": _poison(ci, l, false)
 			"ice": _ice(ci, l, false)
 			"stars": _stars(ci, l, false)
 
@@ -727,52 +729,130 @@ func _rock_shard(ci: CanvasItem, base: Vector2, h: float, w: float, lean: float,
 	ci.draw_polyline(PackedVector2Array([left, tip, right]), Color(ROCK_INK, a), 1.6 * _s(), true)
 
 
-# ── Vines (a future wood boss's root; no effect maps to it now) ─────────────
+# ── Vines (no effect maps to them; Mộc Tinh's Roi dây leo bursts them: vine_strike_fx.gd) ──
 
 ## front: the parts of the vines in front of the legs (and the soil), else those behind.
 func _vines(ci: CanvasItem, l: Dictionary, front: bool) -> void:
-	var s := _s()
-	var a: float = l["alpha"]
 	var grow := clampf(float(l["k"]) * 1.15, 0.0, 1.0) if not l["popping_out"] else 1.0
-	grow = 1.0 - pow(1.0 - grow, 2.0)
-	var n := clampi(roundi(width / (13.0 * s)) + 1, 2, 8)
-	var reach := width * 0.24
+	draw_vines(ci, height, width, 1.0 - pow(1.0 - grow, 2.0), float(l["alpha"]), front)
+
+
+## The vines wound up round a body `h` tall and `w` wide from its feet (the origin), grown `grow`
+## (0..1) of their height, alpha a; front: the parts in front of the body (and the soil, the root
+## claws), else those behind. thorny: brown thorns along them (Roi dây leo's); lash: their tops
+## whip sideways by this share of the width (0 still); seed shifts their twists.
+static func draw_vines(ci: CanvasItem, h: float, w: float, grow: float, a: float, front: bool, thorny: bool = false,
+		lash: float = 0.0, seed: float = 0.0) -> void:
+	var s := maxf(h / REF_H, 0.3)
+	var n := clampi(roundi(w / (13.0 * s)) + 1, 2, 8)
+	var reach := w * 0.24
 	for i in n:
-		var x0 := lerpf(-0.5, 0.5, i / float(n - 1)) * width
-		var vh := height * (0.3 + 0.12 * _hash(i * 2.9)) * grow
-		var phase := i * 1.9 + 0.4
+		var x0 := lerpf(-0.5, 0.5, i / float(n - 1)) * w
+		var vh := h * (0.3 + 0.12 * _hash(i * 2.9 + seed)) * grow
+		var phase := i * 1.9 + 0.4 + seed
 		var steps := 12
 		var prev := Vector2(x0, 0)
+		var whip := lash * w * (1.0 if i % 2 == 0 else -0.7)
 		for j in range(1, steps + 1):
 			var f := j / float(steps)
 			var q := phase + f * 5.2
-			var p := Vector2(x0 + sin(q) * reach * (1.0 - f * 0.35), -vh * f)
+			var p := Vector2(x0 + sin(q) * reach * (1.0 - f * 0.35) + whip * f * f, -vh * f)
 			var near := cos(q) > 0.0
 			if near == front:
-				var w := lerpf(3.6, 1.4, f) * s
-				ci.draw_line(prev, p, Color(VINE_OUT, a), w + 2.0 * s, true)
-				ci.draw_line(prev, p, Color(VINE if front else VINE_BACK, a), w, true)
+				var lw := lerpf(3.6, 1.4, f) * s
+				ci.draw_line(prev, p, Color(VINE_OUT, a), lw + 2.0 * s, true)
+				ci.draw_line(prev, p, Color(VINE if front else VINE_BACK, a), lw, true)
 				if front and (j == 5 or j == 9):
-					_leaf(ci, p, (4.0 + _hash(i + j) * 2.0) * s * grow, sin(q) * 0.9 + (0.6 if j == 9 else -0.4), a)
+					_leaf_at(ci, p, (4.0 + _hash(i + j) * 2.0) * s * grow, sin(q) * 0.9 + (0.6 if j == 9 else -0.4), a)
+				if thorny and j % 2 == 0 and j < steps:
+					var d := (p - prev).normalized()
+					var side := d.orthogonal() * (1.0 if j % 4 == 0 else -1.0)
+					var tl := (3.2 - 1.4 * f) * s
+					ci.draw_colored_polygon(PackedVector2Array([p - d * tl * 0.6, p + side * tl * 1.4 + d * tl * 0.3, p + d * tl * 0.4]),
+						Color(0.36, 0.22, 0.1, a))
 			prev = p
 	if front: # churned soil and root claws at the feet
 		ci.draw_set_transform(Vector2(0, 1.0 * s), 0.0, Vector2(1.0, 0.32))
-		ci.draw_circle(Vector2.ZERO, (width * 0.5 + 3.0 * s) * grow, Color(SOIL, 0.7 * a))
+		ci.draw_circle(Vector2.ZERO, (w * 0.5 + 3.0 * s) * grow, Color(SOIL, 0.7 * a))
 		ci.draw_set_transform(Vector2.ZERO)
 		for side in [-1.0, 1.0]:
-			var r0 := Vector2(side * width * 0.55, 1.0 * s)
+			var r0 := Vector2(side * w * 0.55, 1.0 * s)
 			var r1 := r0 + Vector2(side * 6.0, -9.0 * grow) * s
 			var r2 := r1 + Vector2(-side * 5.0, -4.0 * grow) * s
 			ci.draw_polyline(PackedVector2Array([r0, r1, r2]), Color(0.45, 0.3, 0.16, a), 2.6 * s, true)
 
 
-func _leaf(ci: CanvasItem, at: Vector2, r: float, rot: float, a: float) -> void:
+static func _leaf_at(ci: CanvasItem, at: Vector2, r: float, rot: float, a: float) -> void:
 	var pts := PackedVector2Array()
 	for i in 10:
 		var ang := TAU * i / 10.0
 		pts.append(at + Vector2(cos(ang) * r, sin(ang) * r * 0.45).rotated(rot) + Vector2(r, 0).rotated(rot))
 	ci.draw_colored_polygon(pts, Color(LEAF, a))
 	ci.draw_line(at, at + Vector2(r * 1.8, 0).rotated(rot), Color(VINE_OUT, 0.6 * a), maxf(1.0, r * 0.18), true)
+
+
+# ── Poison (boss v4) ────────────────────────────────────────────────────────
+
+const POISON := Color(0.62, 0.95, 0.26)
+const POISON_DARK := Color(0.22, 0.42, 0.06)
+const POISON_GLOW := Color(0.55, 0.95, 0.2)
+
+
+## The poison. Back: a sickly green glow behind the body. Front: green bubbles rising off it and
+## popping at the top, two drips running down its sides and falling, a small green drop bobbing by
+## the head (the status's icon).
+func _poison(ci: CanvasItem, l: Dictionary, front: bool) -> void:
+	var s := _s()
+	var a: float = l["alpha"]
+	var k: float = l["scale"]
+	var pulse := 0.5 + 0.5 * sin(_t * 2.2)
+	if not front:
+		var size := Vector2(width + 24.0 * s, height + 20.0 * s) * k * (1.0 + 0.04 * pulse)
+		ci.draw_set_transform(Vector2(0, -height * 0.5), 0.0, size / 64.0)
+		ci.draw_texture_rect(_halo_tex(), Rect2(-32, -32, 64, 64), false, Color(POISON_GLOW, (0.34 + 0.14 * pulse) * a))
+		ci.draw_set_transform(Vector2.ZERO)
+		return
+	var n := clampi(roundi(width / (6.0 * s)), 5, 14)
+	for j in n:
+		var ph := fmod(_t * 0.65 + j / float(n) + _hash(j * 1.3) * 0.5, 1.0)
+		var x := lerpf(-0.5, 0.5, _hash(j * 2.17)) * width + sin(_t * 2.6 + j) * 2.5 * s
+		var p := Vector2(x, -height * (0.12 + ph * 0.92))
+		var r := (1.7 + 2.3 * _hash(j * 3.7)) * s * (0.6 + 0.6 * ph) * k
+		if ph > 0.88: # it pops
+			var u := (ph - 0.88) / 0.12
+			ci.draw_arc(p, r * (1.0 + u), 0.0, TAU, 12, Color(POISON, (1.0 - u) * 0.8 * a), 1.2 * s, true)
+			continue
+		ci.draw_circle(p, r, Color(POISON, 0.6 * a))
+		ci.draw_arc(p, r, 0.0, TAU, 12, Color(POISON_DARK, 0.85 * a), maxf(1.0, 0.9 * s), true)
+		ci.draw_circle(p + Vector2(-0.35, -0.35) * r, r * 0.3, Color(1, 1, 0.9, 0.85 * a))
+	for side in [-1.0, 1.0]: # drips down the sides, then falling off
+		var ph := fmod(_t * 0.55 + (0.5 if side > 0.0 else 0.0), 1.0)
+		var top := Vector2(side * width * 0.36, -height * 0.62)
+		var p := top + Vector2(0, height * 0.5 * smoothstep(0.0, 0.7, ph) + height * 0.6 * maxf(0.0, ph - 0.7) / 0.3)
+		var r := 2.4 * s * k
+		var fade := 1.0 - maxf(0.0, ph - 0.75) / 0.25
+		if ph < 0.7:
+			ci.draw_line(top, p, Color(POISON, 0.45 * a), 1.6 * s, true)
+		_drop(ci, p, r, Color(POISON, fade * a))
+	# the icon: a green drop bobbing by the head
+	var ic := Vector2(width * 0.42 + 6.0 * s, -height * 0.94 + sin(_t * 3.0) * 1.5 * s)
+	_drop(ci, ic, 5.2 * s * k, Color(POISON, a), true)
+
+
+## A drop of poison at c (radius r, its point up); outlined: an ink outline and a highlight.
+static func _drop(ci: CanvasItem, c: Vector2, r: float, col: Color, outlined: bool = false) -> void:
+	if r < 0.4 or col.a <= 0.0:
+		return
+	var pts := PackedVector2Array([c + Vector2(0, -r * 1.9)])
+	for i in 11:
+		var ang := -PI * 0.15 + PI * 1.3 * i / 10.0
+		pts.append(c + Vector2(cos(ang), sin(ang)) * r)
+	ci.draw_colored_polygon(pts, col)
+	if outlined:
+		var ring := pts.duplicate()
+		ring.append(pts[0])
+		ci.draw_polyline(ring, Color(POISON_DARK.darkened(0.4), col.a), maxf(1.0, r * 0.28), true)
+		ci.draw_circle(c + Vector2(-r * 0.35, -r * 0.25), r * 0.28, Color(1, 1, 0.9, 0.85 * col.a))
 
 
 # ── Stars (stun) ────────────────────────────────────────────────────────────

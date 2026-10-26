@@ -38,6 +38,10 @@ extends Node2D
 ## eased, a slight arc, the body leaning into it). A bomber (unit_behavior "bomber") pulses red
 ## after set_warning(true) (a party player within its detonateRange); prime() swells it until it
 ## blows up, vanish() takes the body away at once then.
+## Boss v4: set_armored() (the boss: its totems' stone plates), heal_glow() (a drain / regen heal),
+## puff() (a mushroom's spore puff), heart_position() (where drained life flows in), hop() (a
+## cosmetic hop of the figure: an eruption's hit; the server moves nobody), rise() (a summoned
+## stone totem growing up out of the ground).
 
 const AimSweep := preload("res://match/aim/aim_sweep.gd")
 const AimSnap := preload("res://scenes/character/aim_snap.gd")
@@ -127,6 +131,7 @@ var _land_since := -1.0 # s since a jump landed (its squash), -1 none
 var _base_scale := Vector2.ONE # the figure's own scale (a jump squashes and stretches round it)
 var _bubble: ShieldBall # the shield's bubble round the body
 var _fx: StatusFx # the status effects on the body (its back twin under the figure)
+var _hops := 0 # cosmetic hops made (hop())
 
 
 ## my_team: the local player's team; allies are blue, enemies red. -1 colours by team id.
@@ -277,6 +282,59 @@ func head_lift() -> float:
 func set_shielded(on: bool, animate: bool = true) -> void:
 	if is_boss() and _sprite.has_method("set_shielded"):
 		_sprite.set_shielded(on, animate)
+
+
+## Boss v4: the boss's stone plates (its totems' armour) on or breaking off.
+func set_armored(on: bool, animate: bool = true) -> void:
+	if is_boss() and _sprite.has_method("set_armored"):
+		_sprite.set_armored(on, animate)
+
+
+## A heal's glow on a boss / minion figure.
+func heal_glow() -> void:
+	if _sprite.has_method("heal_glow"):
+		_sprite.heal_glow()
+
+
+## A poison mushroom puffs its spores.
+func puff() -> void:
+	if _sprite.has_method("puff"):
+		_sprite.puff()
+
+
+## Where drained life flows in (the views' layer): a boss's heart, anyone else's body middle.
+func heart_position() -> Vector2:
+	if _sprite.has_method("heart_position") and is_inside_tree() and get_parent() is Node2D:
+		return get_parent().to_local(_sprite.heart_position())
+	if _sprite.has_method("heart_position"):
+		return position + BossArt.heart(_sprite.art, _sprite.height, _sprite.facing)
+	return body_centre()
+
+
+## A cosmetic hop of the figure (px up, s): an eruption's hit throws it up a little and it lands.
+func hop(height_px: float = 18.0, sec: float = 0.36) -> void:
+	if _dead or _sprite == null:
+		return
+	_hops += 1
+	var t := _sprite.create_tween()
+	t.tween_property(_sprite, "position:y", -height_px, sec * 0.42).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_property(_sprite, "position:y", 0.0, sec * 0.58).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+## The figure's hop now (px up) and how many it made (tests).
+func hop_offset() -> float:
+	return -_sprite.position.y if _sprite != null else 0.0
+
+
+func hops() -> int:
+	return _hops
+
+
+## A summoned stone totem grows up out of the ground (its feet stay there) over sec.
+func rise(sec: float = 0.45) -> void:
+	_sprite.scale = Vector2(_base_scale.x * 1.15, _base_scale.y * 0.05)
+	var t := _sprite.create_tween()
+	t.tween_property(_sprite, "scale", _base_scale, sec).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## The shield bubble shown (0..1; 0 for anyone but a shielded boss).

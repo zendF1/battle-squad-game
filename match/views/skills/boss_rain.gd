@@ -25,9 +25,14 @@ var _storm: Node2D = null
 var _marks: Node2D = null
 
 
-## The camera looks at the target's ground, not at the shells high above it.
+## The camera looks at the target's ground, not at the shells high above it; a rain of one shell
+## (boss v4: Khổng Lồ Đá's giant boulder, thrown up from its hands and falling on one member) is
+## followed on its way.
 func tracks_shells() -> bool:
-	return false
+	return _single
+
+
+var _single := false
 
 
 func begin(context: Dictionary) -> void:
@@ -36,6 +41,7 @@ func begin(context: Dictionary) -> void:
 	_storm = null
 	_marks = null
 	var timeline = ctx.get("timeline")
+	_single = timeline != null and timeline.projectiles.size() == 1
 	if timeline != null: # the boss's own shells (steel_shell, magma_bomb, ice_shard, ice_spike) are its rain's too
 		for i in timeline.projectiles.size():
 			if UnitShell.is_kind(timeline.kind(i)):

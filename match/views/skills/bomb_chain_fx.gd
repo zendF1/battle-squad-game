@@ -4,7 +4,8 @@ extends Node2D
 ## contact, a burst of brown and ochre dust and dirt clods, grey-brown rock chunks thrown in arcs
 ## that bounce off the ground and fade, a dust ring rolling along the ground, cracks flashing as
 ## they run out along the surface from both sides of the pit, stone spikes erupting round its rim
-## and sinking back; for every explosion down the shaft a
+## and sinking back (boss v4: erupt(), Khổng Lồ Đá's Gai đá trồi: a cluster of tall stone spikes
+## with amber crystal tips bursting up across a mark, rocks, dust and cracks); for every explosion down the shaft a
 ## geyser out of the hole (dirt chunks and the gun tier's embers thrown up past its mouth, falling
 ## back; a column of dust rising up the shaft; dust rolling out over the rim), and a smoke puff at
 ## the muzzle as each later bomb leaves. One fixed pool of particles (MAX), reused: no per-frame
@@ -44,6 +45,7 @@ var _cracks: Array = []
 var _spikes: Array = []
 var _rings: Array = [] # the quakes' dust rings along the ground [{at, r, age}]
 var _surface := Callable() # the ground's top at x (the last quake's), for the rocks' bounces
+var _dust_under := false # an eruption's: the dust under the spikes (they stay clear)
 
 
 func _init() -> void:
@@ -167,6 +169,53 @@ func quake(at: Vector2, crater: float, surface: Callable, index: int) -> void:
 				-_rng.randf_range(15.0, 45.0)), _rng.randf_range(0.8, 1.2), _rng.randf_range(16.0, 26.0), Color(0.66, 0.56, 0.44, 0.72))
 
 
+const AMBER_TIP := Color(1.0, 0.78, 0.3)
+## An eruption's spikes are the giant's sandstone: lit, shaded, mid.
+const SAND_SPIKE := [Color(0.95, 0.79, 0.53), Color(0.42, 0.27, 0.15), Color(0.74, 0.54, 0.33)]
+const ERUPT_HOLD := 0.55 # s an eruption's spikes stand
+
+
+## Boss v4 (Khổng Lồ Đá's Gai đá trồi): stone spikes burst up across a mark (`at` its centre on the
+## ground, `radius` its reach; `surface(x)` the ground's top at x), the middle ones tallest, leaning
+## out, amber crystal tips; cracks run out from its edges, rocks, clods and dust fly, a dust ring.
+func erupt(at: Vector2, radius: float, surface: Callable) -> void:
+	var k := clampf(radius / 70.0, 0.5, 2.0)
+	var n := clampi(int(radius / 13.0), 5, 11)
+	_dust_under = true
+	for i in n:
+		var u := lerpf(-1.0, 1.0, (i + 0.5) / n) + _rng.randf_range(-0.04, 0.04)
+		var x: float = at.x + u * radius * 0.92
+		var mid := 1.0 - absf(u)
+		_spikes.append({"base": Vector2(x, float(surface.call(x)) + 4.0), "h": (34.0 + 54.0 * mid) * _rng.randf_range(0.88, 1.12) * k,
+			"w": _rng.randf_range(12.0, 16.0) * k * (0.85 + 0.3 * mid), "lean": u * 0.34 + _rng.randf_range(-0.06, 0.06), "age": 0.0,
+			"delay": absf(u) * 0.07 + _rng.randf_range(0.0, 0.025), "hold": ERUPT_HOLD, "tip": true,
+			"life": SPIKE_RISE + ERUPT_HOLD + SPIKE_SINK})
+	for side in [-1.0, 1.0]:
+		for c in 2:
+			var x: float = at.x + side * (radius * 0.9)
+			var pts := PackedVector2Array()
+			var step := _rng.randf_range(9.0, 14.0) * k
+			for j in 7:
+				pts.append(Vector2(x, float(surface.call(x)) + 2.0 + _rng.randf_range(0.0, 5.0) + c * 3.0))
+				x += side * step * _rng.randf_range(0.7, 1.3)
+			_cracks.append({"pts": pts, "age": 0.0, "life": CRACK_LIFE, "width": _rng.randf_range(2.0, 3.0) * k})
+	_surface = surface
+	_spawn(EMBER, at + Vector2(0, -10), Vector2.ZERO, 0.12, 22.0 * k, Color(1.0, 0.85, 0.5))
+	for i in QUAKE_BURST:
+		var ang := _rng.randf_range(-PI * 0.92, -PI * 0.08)
+		_spawn(DUST, at + Vector2(_rng.randf_range(-radius, radius) * 0.7, -4.0), Vector2.from_angle(ang) * _rng.randf_range(80.0, 220.0),
+			_rng.randf_range(0.7, 1.1), _rng.randf_range(16.0, 28.0) * k, DUSTS[i % DUSTS.size()])
+	for i in QUAKE_ROCKS:
+		var v := Vector2(_rng.randf_range(-260.0, 260.0), -_rng.randf_range(300.0, 600.0))
+		_spawn(ROCK, at + Vector2(_rng.randf_range(-radius, radius) * 0.6, -8.0), v, _rng.randf_range(1.0, 1.4),
+			_rng.randf_range(3.5, 7.0) * k, ROCKS[i % ROCKS.size()])
+	for i in QUAKE_CLODS:
+		var v := Vector2(_rng.randf_range(-200.0, 200.0), -_rng.randf_range(260.0, 500.0))
+		_spawn(CHUNK, at + Vector2(_rng.randf_range(-radius, radius) * 0.5, -4.0), v, _rng.randf_range(0.6, 0.95),
+			_rng.randf_range(3.0, 6.0) * k, CLODS[i % CLODS.size()])
+	_rings.append({"at": at, "r": radius * 1.25, "age": 0.0})
+
+
 ## The spikes and cracks shown now (tests).
 func spikes() -> int:
 	return _spikes.size()
@@ -182,7 +231,7 @@ func rings() -> int:
 
 ## A spike's height share at its age: 0 before its delay, erupting with a small overshoot, standing,
 ## sinking back; 0 once it is gone.
-static func spike_k(age: float, delay: float) -> float:
+static func spike_k(age: float, delay: float, hold: float = SPIKE_HOLD) -> float:
 	var t := age - delay
 	if t <= 0.0:
 		return 0.0
@@ -190,9 +239,9 @@ static func spike_k(age: float, delay: float) -> float:
 		var u := t / SPIKE_RISE
 		return 1.0 + 2.7 * pow(u - 1.0, 3.0) + 1.7 * pow(u - 1.0, 2.0)
 	t -= SPIKE_RISE
-	if t < SPIKE_HOLD:
+	if t < hold:
 		return 1.0
-	t -= SPIKE_HOLD
+	t -= hold
 	return clampf(1.0 - t / SPIKE_SINK, 0.0, 1.0)
 
 
@@ -279,10 +328,19 @@ func _draw() -> void:
 		_draw_ring(r)
 	for c in _cracks:
 		_draw_crack(c)
+	if _dust_under:
+		_draw_pool(true)
 	for sp in _spikes:
 		_draw_spike(sp)
+	_draw_pool(false if _dust_under else null)
+
+
+## The particles (only_dust: true the dust only, false all but it, null all of them).
+func _draw_pool(only_dust: Variant) -> void:
 	for q in _pool:
 		if q[3] >= q[4]:
+			continue
+		if only_dust is bool and (int(q[0]) == DUST) != only_dust:
 			continue
 		var f: float = q[3] / q[4]
 		var at: Vector2 = q[1]
@@ -339,7 +397,7 @@ func _draw_crack(c: Dictionary) -> void:
 ## A stone spike erupting from the ground at its base: a leaning faceted prism, lit on its left,
 ## shaded on its right, an ink outline, a little dirt heaped round its foot.
 func _draw_spike(sp: Dictionary) -> void:
-	var k := spike_k(sp["age"], sp["delay"])
+	var k := spike_k(sp["age"], sp["delay"], float(sp.get("hold", SPIKE_HOLD)))
 	if k <= 0.0:
 		return
 	var base: Vector2 = sp["base"]
@@ -349,11 +407,18 @@ func _draw_spike(sp: Dictionary) -> void:
 	var left := base + Vector2(-w, 0)
 	var right := base + Vector2(w, 0)
 	var mid := base + Vector2(w * 0.15, 0)
-	draw_colored_polygon(PackedVector2Array([left, tip, mid]), STONE_LIT)
-	draw_colored_polygon(PackedVector2Array([mid, tip, right]), STONE_DARK)
-	draw_colored_polygon(PackedVector2Array([left.lerp(tip, 0.25), tip, mid.lerp(tip, 0.3)]), STONE)
+	var sand: bool = sp.get("tip", false)
+	draw_colored_polygon(PackedVector2Array([left, tip, mid]), SAND_SPIKE[0] if sand else STONE_LIT)
+	draw_colored_polygon(PackedVector2Array([mid, tip, right]), SAND_SPIKE[1] if sand else STONE_DARK)
+	draw_colored_polygon(PackedVector2Array([left.lerp(tip, 0.25), tip, mid.lerp(tip, 0.3)]), SAND_SPIKE[2] if sand else STONE)
 	draw_polyline(PackedVector2Array([left, tip, right]), STONE_INK, 2.0, true)
 	draw_line(mid, tip, Color(STONE_INK, 0.6), 1.2, true)
+	if sp.get("tip", false) and h > 8.0: # an amber crystal tip, glowing (none while it is a stub: nothing to triangulate)
+		var t0 := left.lerp(tip, 0.72)
+		var t1 := right.lerp(tip, 0.72)
+		draw_colored_polygon(PackedVector2Array([t0, tip, t1]), AMBER_TIP)
+		draw_colored_polygon(PackedVector2Array([t0, tip, t0.lerp(t1, 0.45)]), AMBER_TIP.lightened(0.4))
+		draw_polyline(PackedVector2Array([t0, tip, t1, t0]), STONE_INK, 1.4, true)
 	# dirt heaped at the foot
 	draw_set_transform(base + Vector2(0, 1), 0.0, Vector2(1.0, 0.4))
 	draw_circle(Vector2.ZERO, w * 1.25, Color(0.4, 0.28, 0.16, 0.95))
