@@ -1,5 +1,5 @@
 extends RefCounted
-## Code-drawn icons (bake source only), one per ui/art.gd ICONS name, on a 96x96 transparent
+## Code-drawn icons (bake source only), one per ui/art.gd ICONS name, on a 96x96 (baked 2 x: ICON_SIZE) transparent
 ## canvas: bright shapes with a dark rounded outline so they read on any panel or coloured
 ## button. tools/bake_art.gd saves them as assets/icons/<name>.png.
 

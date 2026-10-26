@@ -604,7 +604,7 @@ func set_actions(skill: Dictionary, energy: int, skill_enabled: bool, armed: Str
 			continue
 		var it: Dictionary = items[i]
 		if b.get_meta("item_id", "") != it["id"]:
-			b.icon = Art.item_icon(str(it["id"]))
+			b.icon = Art.item_button_icon(str(it["id"]))
 		b.tooltip_text = str(it.get("name", it["id"]))
 		b.set_meta("item_id", it["id"])
 		(b.get_node("Count") as Label).text = "x%d" % int(it.get("count", 1))

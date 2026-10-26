@@ -46,7 +46,9 @@ func setup(data: Dictionary) -> void:
 	_mesh = Polygon2D.new()
 	_mesh.name = "Mesh"
 	_mesh.texture = data["texture"]
-	_mesh.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR # drawn about 1:1: no mipmaps (they blur)
+	# full.png has more px than it is drawn with (full.json motionScale: 2–3 ×, for big windows) and
+	# is drawn smaller still on the party slots and Prep: mipmapped.
+	_mesh.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_mesh.polygon = data["vertices"]
 	_mesh.uv = data["vertices"]
 	_mesh.polygons = data["polygons"]
@@ -69,14 +71,15 @@ func setup(data: Dictionary) -> void:
 	_player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 	var lib := AnimationLibrary.new()
 	for anim_name in data["anims"]:
-		lib.add_animation(anim_name, build_animation(data["anims"][anim_name], _bones, self))
+		lib.add_animation(anim_name, build_animation(data["anims"][anim_name], _bones, self, float(data.get("motionScale", 1.0))))
 	_player.add_animation_library("", lib)
 	play("idle")
 
 
 ## An Animation of a lobby_full_anims.json spec moving `bones` (name -> Node2D with the metas
-## rest_pos / rest_rot; paths from `root`).
-static func build_animation(spec: Dictionary, bones: Dictionary, root: Node) -> Animation:
+## rest_pos / rest_rot; paths from `root`). The spec's x / y are layout px (the picture at
+## resolution 1): × motion (full.json motionScale: full.png px per layout px).
+static func build_animation(spec: Dictionary, bones: Dictionary, root: Node, motion: float = 1.0) -> Animation:
 	var a := Animation.new()
 	a.length = maxf(0.05, float(spec.get("length", 1.0)))
 	a.loop_mode = Animation.LOOP_LINEAR if bool(spec.get("loop", false)) else Animation.LOOP_NONE
@@ -99,7 +102,7 @@ static func build_animation(spec: Dictionary, bones: Dictionary, root: Node) -> 
 			a.value_track_set_update_mode(t, Animation.UPDATE_CONTINUOUS)
 		for k in times.size():
 			var time := clampf(float(times[k]), 0.0, a.length)
-			a.track_insert_key(pos, time, rest_pos + Vector2(_key(tr, "x", k, 0.0), _key(tr, "y", k, 0.0)))
+			a.track_insert_key(pos, time, rest_pos + Vector2(_key(tr, "x", k, 0.0), _key(tr, "y", k, 0.0)) * motion)
 			a.track_insert_key(rot, time, rest_rot + deg_to_rad(_key(tr, "rot", k, 0.0)))
 			a.track_insert_key(scl, time, Vector2(_key(tr, "sx", k, 1.0), _key(tr, "sy", k, 1.0)))
 	return a

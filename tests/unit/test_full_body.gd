@@ -28,10 +28,12 @@ func test_every_character_has_a_full_body_picture() -> void:
 		if img == null:
 			continue
 		eq(full["size"], Vector2(img.get_size()), "%s size matches the PNG" % id)
+		var res := float(full["motionScale"]) # full.png px per layout px (tools/cut_sheet.gd resolution)
+		check(res >= 2.0, "%s full.png at least twice the layout's px (%s)" % [id, res])
 		var pv: Vector2 = full["pivot"]
-		check(pv.y > img.get_height() - 16 and pv.y <= img.get_height() and absf(pv.x - img.get_width() / 2.0) < 40.0, "%s feet at the bottom centre: %s" % [id, pv])
-		check(float(full["height"]) > 320.0 and float(full["height"]) <= 380.0, "%s about 375 px tall at most: %s" % [id, full["height"]])
-		near(float(full["scale"]), 0.64, 0.001, "%s drawn 1:1 on the lobby stage" % id)
+		check(pv.y > img.get_height() - 16 * res and pv.y <= img.get_height() and absf(pv.x - img.get_width() / 2.0) < 40.0 * res, "%s feet at the bottom centre: %s" % [id, pv])
+		check(float(full["height"]) / res > 320.0 and float(full["height"]) / res <= 380.0, "%s about 375 layout px tall at most: %s" % [id, full["height"]])
+		near(float(full["scale"]) * res, 0.64, 0.001, "%s drawn 1:1 on the lobby stage (per layout px)" % id)
 
 
 func test_skeleton_mesh_and_weights_are_sane() -> void:

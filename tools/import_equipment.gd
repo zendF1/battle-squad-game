@@ -23,7 +23,7 @@ extends SceneTree
 ## tier keeps its place), the union of the tiers fitted into `size` − 2 × `margin` (one scale per
 ## slot: the largest tier fits, the tiers do not jump in size or place), centred, scaled once
 ## (Lanczos, premultiplied colour: tools/import_guns.gd scaled()); then the tier's sparkles (white
-## four-point stars in icon px, as the old painted icons had: `sparkles` {tier: {stars [[x, y, r]],
+## four-point stars in px of a 128 px icon, scaled to `size`, as the old painted icons had: `sparkles` {tier: {stars [[x, y, r]],
 ## colour [r, g, b, a], slots (default every item)}}).
 ## Writes assets/icons/equipment/<slot>_<tier>.png (the names ui/art.gd equipment_icon_path()
 ## reads: every screen shows them, no code change; a new PNG gets an .import with mipmaps, an
@@ -37,6 +37,9 @@ const Art := preload("res://ui/art.gd")
 const SRC := "res://art_source/equipment/"
 const CONFIG := SRC + "equipment.json"
 const OUT := "res://assets/icons/equipment/"
+## The icon size the sparkles' stars and nudge (equipment.json "sparkles", from the old painted
+## 128 px icons) are given for: scaled to the icon's `size`.
+const SPARKLE_ICON_PX := 128.0
 
 var _written := 0
 var _bytes := 0
@@ -320,11 +323,12 @@ static func add_sparkles(img: Image, slot: String, tier: String, cfg: Dictionary
 	if sp.get("colour") is Array and sp["colour"].size() >= 3:
 		var c: Array = sp["colour"]
 		colour = Color8(int(c[0]), int(c[1]), int(c[2]), int(c[3]) if c.size() > 3 else 255)
-	var nudge := int(sp.get("nudge", all.get("nudge", 0)))
+	var k := img.get_width() / SPARKLE_ICON_PX # the stars and the nudge are given on a 128 px icon
+	var nudge := roundi(float(sp.get("nudge", all.get("nudge", 0))) * k)
 	var spots: Array = [] # the stars are placed on the art as it was before any of them
 	for st in sp.get("stars", []):
 		if st is Array and st.size() >= 3:
-			spots.append([free_spot(img, Vector2(float(st[0]), float(st[1])), float(st[2]), nudge), float(st[2])])
+			spots.append([free_spot(img, Vector2(float(st[0]), float(st[1])) * k, float(st[2]) * k, nudge), float(st[2]) * k])
 	for s in spots:
 		sparkle(img, s[0], s[1], colour)
 

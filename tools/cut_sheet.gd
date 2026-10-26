@@ -11,7 +11,8 @@ extends SceneTree
 ## lineup_parts.json: {"sheet" (the lineup; a figure drawn alone gives its own "sheet", a path
 ## under art_source/characters/, e.g. Tide's tide/lobby/full_v1.png), "tolerance": 0..1 (how far from white still counts as
 ## background), "pad" (transparent px kept round the figure), "drawScale" (full.png px →
-## character px, 0.64 = 1:1 on the lobby stage), "figures": {id: figure}}. A figure: "rect"
+## character px, 0.64 = 1:1 on the lobby stage), "resolution" (full.png px per layout px, default 1:
+## see below; a figure may set its own), "figures": {id: figure}}. A figure: "rect"
 ## [x, y, w, h] in sheet px (loose is fine), optional "seed" [x, y] (a sheet point on the figure:
 ## the connected piece under it is kept, otherwise the largest piece in the rect), "clip" [[x,
 ## y], ...] a convex polygon in sheet px it is cut to with "feather" px of soft edge along the
@@ -27,7 +28,13 @@ extends SceneTree
 ## from white and their colour un-blended from white (no white halo, the anti-aliased outline
 ## stays soft); then the clip, a trim to the visible pixels (+pad), the scale (Lanczos on
 ## premultiplied colour, once, from the full-resolution cut) and the PNG. A new PNG gets an
-## .import without mipmaps; an existing .import is never touched.
+## .import with mipmaps (it is also drawn small: party slots, Prep); an existing .import is never
+## touched. Resolution: the layout picture (the figure at `scale`) is what the joints, the feet, the
+## mesh and its weights are measured on, exactly as at resolution 1; full.png is the same trimmed box
+## at `resolution` × its px (scaled once from the source), and full.json's px (size, pivot, height,
+## bones, mesh) are the layout's × resolution, its scale drawScale / resolution and motionScale =
+## resolution (the anims' x / y px are layout px: scenes/character/full_body.gd multiplies them), so
+## the figure is drawn the same size, bends and moves the same, with more px.
 ##
 ## full.json: {size, pivot (the feet: the middle of the boots' outer edges, the soles' bottom; px
 ## in full.png), height (feet to the top of the head, px), scale (= drawScale), bones [{name,
@@ -84,9 +91,14 @@ func _cut_lineup(spec_path: String) -> void:
 		if cut.is_empty():
 			push_error("cut_sheet: lineup figure %s is empty" % id)
 			continue
-		var img: Image = cut["image"]
+		var img: Image = cut["image"] # the layout picture: the mesh, weights, joints and feet are measured on it
+		var res := maxi(1, int(p.get("resolution", spec.get("resolution", 1))))
+		var tex := img
+		if res > 1: # full.png at res × the layout's px, scaled once from the source (the same trimmed box)
+			var hi := cut_part(sheet, p, tol, 1.0)
+			tex = resampled(hi["image"], img.get_size() * res)
 		var out := OUT + "%s/lobby/full" % id
-		_save(img, out + ".png", cut["origin"])
+		_save(tex, out + ".png", cut["origin"])
 		if p.get("portrait") is Dictionary:
 			var pic := portrait_of(sheet, p, tol)
 			if pic != null:
@@ -110,8 +122,8 @@ func _cut_lineup(spec_path: String) -> void:
 		var mesh := FullMesh.build(img)
 		var weights := FullMesh.weights(img, mesh["vertices"], bones)
 		print("  mesh: %d vertices, %d triangles, %d uncovered px, %.1f s" % [mesh["vertices"].size(), mesh["triangles"].size() / 3, mesh["gaps"], (Time.get_ticks_msec() - t0) / 1000.0])
-		_write_full_json(out + ".json", img, feet, bones, mesh, weights, float(spec.get("drawScale", 0.64)),
-			"art_source/characters/" + sheet_name, p.get("anims", {}))
+		_write_full_json(out + ".json", tex, feet, bones, mesh, weights, float(spec.get("drawScale", 0.64)),
+			"art_source/characters/" + sheet_name, p.get("anims", {}), res)
 
 
 ## The skeleton every lineup figure gets: [bone, parent, joint it turns at, joint its segment
@@ -141,10 +153,10 @@ const STRENGTH := {"root": 0.0, "hips": 1.5, "chest": 2.0, "head": 4.0}
 
 
 func _write_full_json(path: String, img: Image, feet: Dictionary, bones: Array, mesh: Dictionary, weights: Array,
-		draw_scale: float, source: String, anims: Dictionary) -> void:
+		draw_scale: float, source: String, anims: Dictionary, res: int = 1) -> void:
 	var v: Array = []
 	for p in mesh["vertices"]:
-		v.append([snappedf(p.x, 0.1), snappedf(p.y, 0.1)])
+		v.append([snappedf(p.x * res, 0.1), snappedf(p.y * res, 0.1)])
 	var wt: Array = []
 	for row in weights:
 		var flat: Array = []
@@ -154,16 +166,17 @@ func _write_full_json(path: String, img: Image, feet: Dictionary, bones: Array, 
 		wt.append(flat)
 	var bone_lines: Array = []
 	for b in bones:
-		bone_lines.append("\t\t" + JSON.stringify({"name": b["name"], "parent": b["parent"], "at": [b["at"].x, b["at"].y],
-			"tip": [b["tip"].x, b["tip"].y], "strength": b["strength"]}))
+		bone_lines.append("\t\t" + JSON.stringify({"name": b["name"], "parent": b["parent"], "at": [b["at"].x * res, b["at"].y * res],
+			"tip": [b["tip"].x * res, b["tip"].y * res], "strength": b["strength"]}))
 	var lines: Array = [
 		"{",
 		'\t"_doc": "Generated by tools/cut_sheet.gd from art_source/characters/lineup_parts.json: edit that and re-cut. Drawn by scenes/character/full_body.gd, see assets/README.md.",',
 		'\t"source": %s,' % JSON.stringify(source),
 		'\t"size": [%d, %d],' % [img.get_width(), img.get_height()],
-		'\t"pivot": [%d, %d],' % [feet["pivot"].x, feet["pivot"].y],
-		'\t"height": %d,' % feet["height"],
-		'\t"scale": %s,' % JSON.stringify(draw_scale),
+		'\t"pivot": [%d, %d],' % [feet["pivot"].x * res, feet["pivot"].y * res],
+		'\t"height": %d,' % (feet["height"] * res),
+		'\t"scale": %s,' % JSON.stringify(draw_scale / res),
+		'\t"motionScale": %d,' % res,
 		'\t"bones": [\n%s\n\t],' % ",\n".join(bone_lines),
 		'\t"anims": %s,' % JSON.stringify(anims),
 		'\t"mesh": {"vertices": %s,\n\t\t"triangles": %s},' % [JSON.stringify(v), JSON.stringify(Array(mesh["triangles"]))],
@@ -424,6 +437,14 @@ static func _inside_distance(poly: PackedVector2Array, p: Vector2, ccw: bool) ->
 	return d
 
 
+## img (straight alpha) scaled once to size (Lanczos on premultiplied colour).
+static func resampled(img: Image, size: Vector2i) -> Image:
+	var c := img.duplicate() as Image
+	c.premultiply_alpha()
+	c.resize(size.x, size.y, Image.INTERPOLATE_LANCZOS)
+	return _unpremultiply(c)
+
+
 static func _unpremultiply(img: Image) -> Image:
 	var data := img.get_data()
 	for o in range(0, data.size(), 4):
@@ -443,7 +464,7 @@ func _save(img: Image, path: String, origin: Vector2i) -> void:
 	DirAccess.make_dir_recursive_absolute(abs_path.get_base_dir())
 	if not FileAccess.file_exists(abs_path + ".import"):
 		var f := FileAccess.open(abs_path + ".import", FileAccess.WRITE)
-		f.store_string('[remap]\n\nimporter="texture"\ntype="CompressedTexture2D"\n\n[params]\n\ncompress/mode=0\nmipmaps/generate=false\n')
+		f.store_string('[remap]\n\nimporter="texture"\ntype="CompressedTexture2D"\n\n[params]\n\ncompress/mode=0\nmipmaps/generate=true\n')
 		f.close()
 	var err := img.save_png(abs_path)
 	if err != OK:

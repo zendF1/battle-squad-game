@@ -99,7 +99,7 @@ static func icon_text(parent: Node, source: Variant, value: String, font_size: i
 
 ## Puts an icon (assets/icons/<name>.png) on a button, at most px wide.
 static func set_icon(b: Button, icon_name: String, px: int = 32) -> void:
-	b.icon = Art.icon(icon_name)
+	b.icon = Art.button_icon(icon_name) # sized as the 96 px icons were: the button's layout stays
 	b.add_theme_constant_override("icon_max_width", px)
 	b.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 

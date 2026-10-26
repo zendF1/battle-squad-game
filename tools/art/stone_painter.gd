@@ -1,5 +1,5 @@
 extends RefCounted
-## Code-drawn upgrade stones (bake source only): one 128x128 icon per stone level 1..12, a cut
+## Code-drawn upgrade stones (bake source only): one icon per stone level 1..12 on a 128x128 canvas (baked 3 x: ui/art.gd STONE_ICON_SIZE), a cut
 ## gem with a dark rounded outline (like tools/art/icon_painter.gd) whose colour and cut escalate
 ## with the level: 1–3 a small hexagonal crystal (grey, grey-green, green), 4–6 an octagonal
 ## brilliant (light blue to deep blue), 7–9 a tall faceted crystal (violet to magenta), 10–12 a

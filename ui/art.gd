@@ -9,6 +9,7 @@ extends RefCounted
 const GameData := preload("res://autoload/game_data_model.gd")
 
 const ROOT := "res://assets/"
+const LogicalSizeTexture := preload("res://ui/logical_size_texture.gd")
 
 # ── Characters ──────────────────────────────────────────────────────────────
 
@@ -98,7 +99,10 @@ const HUG_DATA := ROOT + "weapons/hug.json"
 
 # ── Icons (96x96, drawn shapes) ─────────────────────────────────────────────
 
-const ICON_SIZE := Vector2i(96, 96)
+## The icons are drawn on a 96 px canvas (tools/art/icon_painter.gd) and baked at twice that
+## (tools/bake_art.gd): a box up to 64 design px, up to 2.4 × that on a big window.
+const ICON_PAINT_SIZE := Vector2i(96, 96)
+const ICON_SIZE := Vector2i(192, 192)
 const ICONS := [
 	"gem", "coin", "plus", "weapon", "skill", "battle",
 	"characters", "inventory", "history", "shop", "upgrade", "milestone",
@@ -117,11 +121,15 @@ const EQUIP_TIERS := ["iron", "steel", "mithril", "dragon", "silver", "gold", "t
 ## character's gun has its own icons in the normal tiers, weapon_<kind>_<tier>.png.
 const EQUIP_WEAPON_KINDS := ["bazooka", "cannon", "rifle", "launcher", "water"]
 const EQUIP_KIND_TIERS := ["iron", "steel", "mithril", "dragon"]
-const EQUIP_ICON_SIZE := Vector2i(128, 128)
-## The gun icons (weapon_<tier>.png, weapon_<kind>_<tier>.png: tools/import_guns.gd and
-## import_hug_guns.gd from the high-resolution gun art) are twice that: the Túi đồ card shows an icon
-## 112 design px wide, up to 2.4 × that on a 4K window.
-const EQUIP_WEAPON_ICON_SIZE := Vector2i(256, 256)
+## The equipment icons (<slot>_<tier>.png: tools/import_equipment.gd; the guns' weapon_<tier>.png,
+## weapon_<kind>_<tier>.png: tools/import_guns.gd, import_hug_guns.gd): twice the biggest box one is
+## shown in (the Túi đồ card, 112 design px), as a big window shows that box up to 2.4 × bigger.
+const EQUIP_ICON_SIZE := Vector2i(256, 256)
+const EQUIP_WEAPON_ICON_SIZE := EQUIP_ICON_SIZE
+## The code-drawn equipment art's canvas (tools/art/equipment_painter.gd, baked by tools/bake_art.gd
+## only for what is not imported, and the slot silhouettes slot_<slot>.png, the Nhân vật page's
+## empty slots 70 design px wide), baked at EQUIP_ICON_SIZE.
+const EQUIP_PAINT_SIZE := Vector2i(128, 128)
 const EQUIP_FRAMES := ["hex_empty", "hex_filled", "hex_selected"]
 const EQUIP_FRAME_SIZE := Vector2i(132, 152)
 const EQUIP_BADGE := ROOT + "icons/equipment/badge.png"
@@ -133,7 +141,10 @@ const EQUIP_BADGE_MARGINS := [15, 15, 15, 15]
 ## One icon per stone level 1..12 (128x128, tools/art/stone_painter.gd): a gem whose colour and
 ## cut escalate with the level (1–3 grey / green, 4–6 blue, 7–9 purple, 10–12 gold / red, glowing).
 const STONE_LEVELS := 12
-const STONE_ICON_SIZE := Vector2i(128, 128)
+## The stones are drawn on a 128 px canvas (tools/art/stone_painter.gd) and baked at three times
+## that: the Ghép đá page shows the merged stone 150 design px wide.
+const STONE_PAINT_SIZE := Vector2i(128, 128)
+const STONE_ICON_SIZE := Vector2i(384, 384)
 
 # ── Environment, terrain, effects ───────────────────────────────────────────
 
@@ -565,6 +576,21 @@ static func icon(icon_name: String) -> Texture2D:
 		return texture(path)
 	_warn(path)
 	return texture(icon_path(UNKNOWN_ICON))
+
+
+## An icon for a Button (assets/icons/<name>.png, Art.icon()): the baked picture with all its px,
+## standing in at the paint size (ui/logical_size_texture.gd: a Button's minimum size counts its
+## icon's px, so the buttons keep the layout they had with the 96 px icons). Cached.
+static func button_icon(icon_name: String) -> Texture2D:
+	var key := "button:" + icon_name
+	if not _textures.has(key):
+		_textures[key] = LogicalSizeTexture.of(icon(icon_name), ICON_PAINT_SIZE)
+	return _textures[key]
+
+
+## An item's icon for a Button (Art.item_icon() as button_icon()).
+static func item_button_icon(item_id: String) -> Texture2D:
+	return button_icon(item_id if ICONS.has(item_id) else UNKNOWN_ICON)
 
 
 ## The icon of an item id (the icon has the item's name), or the "unknown" icon.
@@ -1098,7 +1124,8 @@ static func parse_full(json_path: String, png_path: String) -> Dictionary:
 	if tex == null:
 		return {}
 	return {"texture": tex, "size": _vec2(data.get("size", [])), "pivot": _vec2(data["pivot"]), "height": float(data.get("height", 0.0)),
-		"scale": float(data["scale"]), "bones": bones, "vertices": vertices, "polygons": polygons, "weights": weights, "anims": anims}
+		"scale": float(data["scale"]), "motionScale": float(data.get("motionScale", 1.0)), "bones": bones, "vertices": vertices,
+		"polygons": polygons, "weights": weights, "anims": anims}
 
 
 ## A picture: the imported texture, else the PNG itself (not imported yet), else null.

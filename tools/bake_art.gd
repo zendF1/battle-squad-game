@@ -88,8 +88,9 @@ func _bake() -> void:
 
 
 ## Draws `paint(ci)` on a size canvas and returns the straight-alpha image.
-func _render(size: Vector2i, paint: Callable) -> Image:
+func _render(size: Vector2i, paint: Callable, k: float = 1.0) -> Image:
 	_paint = paint
+	_canvas.scale = Vector2(k, k) # a painter's canvas drawn k × bigger (the icons: twice their paint size)
 	_vp.size = size
 	_out.size = size
 	_view.size = Vector2(size)
@@ -274,7 +275,8 @@ func _bake_fx() -> void:
 
 func _bake_icons() -> void:
 	for icon_name in Art.ICONS:
-		_save(await _render(Art.ICON_SIZE, func(ci: CanvasItem) -> void: IconPainter.paint(ci, icon_name)), Art.icon_path(icon_name))
+		_save(await _render(Art.ICON_SIZE, func(ci: CanvasItem) -> void: IconPainter.paint(ci, icon_name),
+			float(Art.ICON_SIZE.x) / Art.ICON_PAINT_SIZE.x), Art.icon_path(icon_name))
 
 
 func _bake_ui() -> void:
@@ -303,11 +305,14 @@ func _bake_equipment() -> void:
 		for tier in Art.EQUIP_TIERS:
 			if (slot == "weapon" and guns_imported) or imported.has(slot):
 				continue
-			_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint(ci, slot, tier)), Art.equipment_icon_path(slot, tier))
-		_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint_slot(ci, slot)), Art.equipment_slot_path(slot))
+			_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint(ci, slot, tier),
+				float(Art.EQUIP_ICON_SIZE.x) / Art.EQUIP_PAINT_SIZE.x), Art.equipment_icon_path(slot, tier))
+		_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint_slot(ci, slot),
+			float(Art.EQUIP_ICON_SIZE.x) / Art.EQUIP_PAINT_SIZE.x), Art.equipment_slot_path(slot))
 	for kind in Art.EQUIP_WEAPON_KINDS if not guns_imported else []:
 		for tier in Art.EQUIP_KIND_TIERS:
-			_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint(ci, "weapon", tier, kind)), Art.equipment_weapon_path(kind, tier))
+			_save(await _render(Art.EQUIP_ICON_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint(ci, "weapon", tier, kind),
+				float(Art.EQUIP_ICON_SIZE.x) / Art.EQUIP_PAINT_SIZE.x), Art.equipment_weapon_path(kind, tier))
 	for frame in Art.EQUIP_FRAMES:
 		_save(await _render(Art.EQUIP_FRAME_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint_frame(ci, frame)), Art.equipment_frame_path(frame))
 	_save(await _render(EquipmentPainter.BADGE_SIZE, func(ci: CanvasItem) -> void: EquipmentPainter.paint_badge(ci)), Art.EQUIP_BADGE)
@@ -316,4 +321,5 @@ func _bake_equipment() -> void:
 ## The upgrade stone icons, levels 1..12 (tools/art/stone_painter.gd).
 func _bake_stones() -> void:
 	for level in range(1, Art.STONE_LEVELS + 1):
-		_save(await _render(Art.STONE_ICON_SIZE, func(ci: CanvasItem) -> void: StonePainter.paint(ci, level)), Art.stone_path(level))
+		_save(await _render(Art.STONE_ICON_SIZE, func(ci: CanvasItem) -> void: StonePainter.paint(ci, level),
+			float(Art.STONE_ICON_SIZE.x) / Art.STONE_PAINT_SIZE.x), Art.stone_path(level))

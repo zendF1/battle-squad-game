@@ -1,9 +1,10 @@
 {
-	"_doc": "tools/cut_sheet.gd: one full-body picture per character for the screens outside the match (assets/characters/<id>/lobby/full.png + full.json, skinned on a skeleton by scenes/character/full_body.gd). rect / seed / holes / joints in sheet px; scale = full.png px per sheet px (about 375 px tall at most, drawn 1:1 on the lobby stage); holes = the enclosed white gaps between an arm and the body; joints = where the bones turn (l / r = the left / right of the picture); anims = this character's tracks merged over assets/characters/lobby_full_anims.json. Run: $GODOT --headless --path . -s tools/cut_sheet.gd [-- <id> ...]",
+	"_doc": "tools/cut_sheet.gd: one full-body picture per character for the screens outside the match (assets/characters/<id>/lobby/full.png + full.json, skinned on a skeleton by scenes/character/full_body.gd). rect / seed / holes / joints in sheet px; resolution: full.png px per layout px (2: the lineup figures, their sheet only has about 1.4 × the layout's px; Tide 3: her own 1783 px drawing, a 4K window's 2.4 × with room; see tools/cut_sheet.gd); scale = layout px per sheet px (the layout picture about 375 px tall at most, drawn 1:1 on the lobby stage); holes = the enclosed white gaps between an arm and the body; joints = where the bones turn (l / r = the left / right of the picture); anims = this character's tracks merged over assets/characters/lobby_full_anims.json. Run: $GODOT --headless --path . -s tools/cut_sheet.gd [-- <id> ...]",
 	"sheet": "lineup_v1.png",
 	"tolerance": 0.1,
 	"pad": 10,
 	"drawScale": 0.64,
+	"resolution": 2,
 	"figures": {
 		"rookie": {"rect": [0, 130, 312, 530], "seed": [170, 400], "scale": 0.75, "holes": [],
 			"joints": {"hips": [150, 450], "chest": [152, 380], "neck": [160, 312], "crown": [160, 165],
@@ -46,7 +47,7 @@
 				"arm_r_upper": {"t": [0, 1.5, 3.0], "y": [0, -1, 0], "rot": [0, -1, 0]}
 			}}}},
 		"tide": {"_doc": "drawn alone (sheet: tide/lobby/full_v1.png, 911x1783 on white, facing the viewer, the left hand hanging, the right fist on her hip, the water tank behind her shoulders, the hose looping by her hip): rect round her, the white flood-filled from it (her white shirt, shorts and boots walled in by the outline stay), holes: the white inside the hose's loop; scale: about as tall as Flora / Spark on the stage; portrait: her head and shoulders from the same cut",
-			"sheet": "tide/lobby/full_v1.png", "rect": [70, 160, 670, 1560], "seed": [400, 900], "scale": 0.245, "holes": [[594, 1040]],
+			"sheet": "tide/lobby/full_v1.png", "rect": [70, 160, 670, 1560], "seed": [400, 900], "scale": 0.245, "resolution": 3, "holes": [[594, 1040]],
 			"portrait": {"rect": [95, 175, 610, 610], "size": 128},
 			"joints": {"hips": [400, 1020], "chest": [400, 860], "neck": [400, 650], "crown": [400, 185],
 				"l_shoulder": [215, 830], "l_elbow": [160, 960], "l_wrist": [140, 1080], "l_hand": [140, 1200],
