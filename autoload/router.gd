@@ -28,6 +28,10 @@ var home_notice := ""
 ## Matchmaking opens as the party's member (the host started the queue, screens/home/party.gd);
 ## the Matchmaking scene takes it.
 var ranked_member := false
+## The player picked a lobby mode this session (the mode card / Mode Select, the party's queue;
+## screens/home/lobby.gd): the lobby stage shows that mode's background from then on, lobby_bg
+## before (LobbyModel.stage_background()). The mode restored from the settings file does not count.
+var mode_chosen := false
 ## The 2v2 party (screens/home/party.gd), kept here so it outlives the scenes.
 var party: Node
 

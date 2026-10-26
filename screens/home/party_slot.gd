@@ -1,6 +1,6 @@
 extends Control
 ## The teammate slot right of the Home stage (the ranked mode only, screens/home/lobby.gd), at
-## about SCALE of the stage. Empty: a rounded-square "+" on a small pedestal, "Mời" under it
+## about SCALE of the stage. Empty: a "+" on a round translucent disc over a small pedestal, "Mời" under it
 ## (invite_pressed: the invite popup). With a teammate (PartyModel.parse_member()): their name,
 ## "Lv.N" and tier badge above their character (CharacterView of their characterId, hands free)
 ## with their gun on the pedestal (PedestalGun of their gun {kind, tier}); for the host a ready
@@ -31,6 +31,8 @@ const ART := Vector2(375, 400) # the lobby stage's character rect, scaled by SCA
 const ART_FEET := 380.0 # its feet from its top on the stage
 const PEDESTAL_DROP := 6.0 # the pedestal's centre below the feet (lobby: 528 vs 522)
 const PLUS := 150.0
+const PLUS_DISC := 112.0
+const PLUS_DISC_COLOR := Color(0.05, 0.08, 0.2, 0.55)
 const READY_COLOR := Color(0.35, 0.85, 0.45)
 
 var _pedestal: Control
@@ -65,7 +67,13 @@ func _ready() -> void:
 	_plus.custom_minimum_size = Vector2(PLUS, PLUS)
 	_plus.size = Vector2(PLUS, PLUS)
 	_plus.position = Vector2(FEET.x - PLUS / 2.0, FEET.y - PLUS - 30.0)
-	LobbyUi.style_button(_plus, Color(1, 1, 1, 0), 28, 0) # just the "+", no box
+	# the "+" on a round translucent navy disc (PLUS_DISC across), so it reads on a bright
+	# background (snow, sky)
+	LobbyUi.style_button(_plus, PLUS_DISC_COLOR, int(PLUS_DISC / 2.0), 0)
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+		var box := _plus.get_theme_stylebox(state) as StyleBoxFlat
+		if box != null:
+			box.set_expand_margin_all(-(PLUS - PLUS_DISC) / 2.0)
 	_plus.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_plus.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
 	LobbyUi.set_icon(_plus, "plus", 76)
@@ -73,6 +81,7 @@ func _ready() -> void:
 	add_child(_plus)
 	_plus_label = LobbyUi.text("Mời", 26, Color.WHITE, true)
 	_plus_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	LobbyUi.outline(_plus_label, 8) # reads on a bright ground (snow)
 	_plus_label.size = Vector2(SIZE.x, 34)
 	_plus_label.position = Vector2(0, FEET.y + 34.0) # under the pedestal
 	add_child(_plus_label)

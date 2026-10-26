@@ -10,7 +10,7 @@ const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const Fmt := preload("res://core/fmt.gd")
 
-const CATEGORY := "boss"
+const CATEGORY := LobbyModel.CATEGORY_BOSS
 const RUNS_LOADING := "Lượt thưởng lớn: ..."
 
 

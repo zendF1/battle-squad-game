@@ -1,6 +1,6 @@
 extends Control
 ## The boss match's end screen (the result screen flow: shown RESULT_DELAY_SEC after MatchEnded,
-## the same signals and buttons as match/result_screen.gd): the lobby backdrop; the title of how
+## the same signals and buttons as match/result_screen.gd): the result background (result.png); the title of how
 ## it ended slamming in ("CHIẾN THẮNG" gold with confetti, as any match's win, "Cả đội đã gục" /
 ## "Boss đã trốn thoát" grey-blue with rain) over "<boss> · Vòng 9/15" (a loss adds the boss's HP
 ## left, BossResultModel.subtitle()); dead centre the PvP result's podium under its spotlight
@@ -77,7 +77,8 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	mouse_filter = MOUSE_FILTER_STOP
 	theme = LobbyUi.theme()
-	var bg := Backdrop.new()
+	var bg := Backdrop.new() # result.png; the shade, the confetti / rain on top
+	bg.show_image(Art.BG_RESULT, false)
 	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(bg)
 	var shade := ColorRect.new()

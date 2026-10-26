@@ -22,6 +22,8 @@ extends Control
 ## cards in a 2x2 grid (my teammates from the start), right one big card of the same size with
 ## the boss's figure and name, which stays: only the party's cards flip at MatchFound (bot
 ## teammates included).
+## The background is the queued mode's image (the one the lobby shows for it,
+## LobbyModel.background_of_queue()), blurred and dimmed under the cards.
 ## offline_preview (the preview harness, set before it enters
 ## the tree): no socket; the harness feeds on_event().
 
@@ -45,6 +47,7 @@ const BOSS_CARD_SCALE := 0.74 # the party's compact cards in a boss queue
 const BOSS_GAP := 16 # between the boss queue's cards
 
 const MARGIN := 18
+const DIM := Color(0.01, 0.03, 0.1, 0.42) # over the blurred background: the cards and texts lead
 const TIP_SEC := 6.0
 const CENTRE_W := 330
 const BLUE := Color(0.5, 0.74, 1.0)
@@ -144,11 +147,14 @@ func _on_rank_changed() -> void:
 # ── Layout ──────────────────────────────────────────────────────────────────
 
 func _build() -> void:
-	var bg := Backdrop.new()
+	var bg := Backdrop.new() # the queued mode's image, blurred (LobbyModel.background_of_queue())
+	bg.blurred = true
+	bg.top_shade = false # the dim covers it
+	bg.show_image(LobbyModel.background_of_queue(_queue), false)
 	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(bg)
 	var dim := ColorRect.new()
-	dim.color = Color(0.01, 0.02, 0.08, 0.5)
+	dim.color = DIM
 	dim.mouse_filter = MOUSE_FILTER_IGNORE
 	dim.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(dim)

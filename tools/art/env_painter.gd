@@ -1,5 +1,5 @@
 extends RefCounted
-## Code-drawn backgrounds (bake source only): the lobby night sky, its ground band and stage
+## Code-drawn backgrounds (bake source only): the Home night sky (home_bg.png), the lobby stage
 ## pedestal, the match day sky with sun and hills, and three clouds. Each painter draws onto ci
 ## in a canvas of the given size; tools/bake_art.gd saves the result under assets/env/.
 
@@ -9,7 +9,6 @@ const Art := preload("res://ui/art.gd")
 const LOBBY_TOP := Color(0.06, 0.08, 0.2)
 const LOBBY_MID := Color(0.17, 0.13, 0.34)
 const LOBBY_LOW := Color(0.1, 0.3, 0.42)
-const LOBBY_GROUND := Color(0.14, 0.22, 0.36)
 const STARS := 46
 const GLOWS := [
 	[Vector2(0.16, 0.3), 0.35, Color(0.45, 0.35, 0.95, 0.22)],
@@ -17,10 +16,8 @@ const GLOWS := [
 	[Vector2(0.5, 0.5), 0.45, Color(0.6, 0.45, 1.0, 0.2)],
 	[Vector2(0.94, 0.72), 0.25, Color(1.0, 0.6, 0.85, 0.12)],
 ]
-## The lobby screen the backgrounds are designed for; lobby_ground.png is its bottom
-## GROUND_FROM..1 part.
+## The screen the night sky is drawn for.
 const LOBBY_SCREEN := Vector2(1600, 900)
-const GROUND_FROM := Art.LOBBY_GROUND_FROM
 ## Pedestal ovals, bottom to top: [radii, colour, y offset] (centre at PEDESTAL_CENTER).
 const PEDESTAL := [
 	[Vector2(196, 50), Color(0.06, 0.1, 0.24, 0.9), 10.0],
@@ -70,27 +67,6 @@ static func lobby_sky(ci: CanvasItem, size: Vector2) -> void:
 		var r := rng.randf_range(1.0, 2.6)
 		ci.draw_circle(p, r * 2.4, Color(1, 1, 1, 0.06), true, -1.0, true)
 		ci.draw_circle(p, r, Color(1, 1, 1, rng.randf_range(0.35, 0.85)), true, -1.0, true)
-
-
-## The lobby ground: a wide soft hill and the faint stage ovals, transparent above the hill. The
-## canvas is the bottom (1 - GROUND_FROM) of the lobby screen.
-static func lobby_ground(ci: CanvasItem, size: Vector2) -> void:
-	var w := size.x
-	var h := size.y / (1.0 - GROUND_FROM) # the full screen height
-	ci.draw_set_transform(Vector2(0, -h * GROUND_FROM))
-	var top := h * 0.7
-	var hill := PackedVector2Array()
-	var steps := 64
-	for i in steps + 1:
-		var x := w * i / steps
-		var t := (float(i) / steps - 0.5) * 2.0
-		hill.append(Vector2(x, top + t * t * h * 0.06))
-	hill.append(Vector2(w, h))
-	hill.append(Vector2(0, h))
-	ci.draw_colored_polygon(hill, LOBBY_GROUND)
-	_oval(ci, Vector2(w / 2, h * 0.86), Vector2(w * 0.32, h * 0.1), Color(0.35, 0.5, 0.75, 0.18))
-	_oval(ci, Vector2(w / 2, h * 0.86), Vector2(w * 0.2, h * 0.065), Color(0.45, 0.62, 0.9, 0.16))
-	ci.draw_set_transform(Vector2.ZERO)
 
 
 ## The stage pedestal: four ovals, a dark base under light rims.

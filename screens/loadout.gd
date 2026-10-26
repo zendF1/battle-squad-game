@@ -102,8 +102,7 @@ func _ready() -> void:
 	add_child(_quick_play)
 	_quick_play.changed.connect(_refresh) # also on connect / disconnect
 
-	var bg := Backdrop.new()
-	bg.ground = false
+	var bg := Backdrop.new() # the night sky (Art.BG_HOME)
 	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(bg)
 	var margin := MarginContainer.new()

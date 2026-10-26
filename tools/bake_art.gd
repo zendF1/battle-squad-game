@@ -10,7 +10,8 @@ extends SceneTree
 ## weapons.json), prints every file it wrote and quits. A character with a side view
 ## (assets/characters/<id>/side/, tools/import_frames.gd) gets only its portrait, no frames; the
 ## guns and the weapon icons are not baked while they are imported art (tools/import_guns.gd), nor
-## the other equipment icons (tools/import_equipment.gd). Then import them once
+## the other equipment icons (tools/import_equipment.gd); the bright screen backgrounds (env/lobby_bg,
+## matchmaking_*, result: art_source/ui/backgrounds/) are drawn art, never baked. Then import them once
 ## (editor, or `$GODOT --headless --path . --import`) so the .import files exist. An existing
 ## .import file is never touched, so import settings changed in the editor survive a re-bake.
 ##
@@ -238,9 +239,7 @@ func _write_frames(id: String) -> void:
 
 
 func _bake_env() -> void:
-	_save(await _render(Vector2i(EnvPainter.LOBBY_SCREEN), func(ci: CanvasItem) -> void: EnvPainter.lobby_sky(ci, EnvPainter.LOBBY_SCREEN)), Art.ENV["lobby_bg"])
-	var ground := Vector2i(EnvPainter.LOBBY_SCREEN * Vector2(1.0, 1.0 - EnvPainter.GROUND_FROM))
-	_save(await _render(ground, func(ci: CanvasItem) -> void: EnvPainter.lobby_ground(ci, Vector2(ground))), Art.ENV["lobby_ground"])
+	_save(await _render(Vector2i(EnvPainter.LOBBY_SCREEN), func(ci: CanvasItem) -> void: EnvPainter.lobby_sky(ci, EnvPainter.LOBBY_SCREEN)), Art.ENV[Art.BG_HOME])
 	_save(await _render(EnvPainter.PEDESTAL_SIZE, func(ci: CanvasItem) -> void: EnvPainter.pedestal(ci, Vector2(EnvPainter.PEDESTAL_SIZE))), Art.ENV["pedestal"])
 	var sky := Vector2i(1600, 512)
 	_save(await _render(sky, func(ci: CanvasItem) -> void: EnvPainter.match_sky(ci, Vector2(sky))), Art.ENV["sky_match"])

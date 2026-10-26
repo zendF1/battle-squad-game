@@ -153,15 +153,31 @@ const ENV := {
 	"cloud_0": ROOT + "env/cloud_0.png",
 	"cloud_1": ROOT + "env/cloud_1.png",
 	"cloud_2": ROOT + "env/cloud_2.png",
+	"home_bg": ROOT + "env/home_bg.png",
 	"lobby_bg": ROOT + "env/lobby_bg.png",
-	"lobby_ground": ROOT + "env/lobby_ground.png",
+	"matchmaking_pvp": ROOT + "env/matchmaking_pvp.png",
+	"matchmaking_boss_ice_witch": ROOT + "env/matchmaking_boss_ice_witch.png",
+	"matchmaking_boss_lava_crab": ROOT + "env/matchmaking_boss_lava_crab.png",
+	"matchmaking_boss_steel_robot": ROOT + "env/matchmaking_boss_steel_robot.png",
+	"matchmaking_boss_rock_giant": ROOT + "env/matchmaking_boss_rock_giant.png",
+	"matchmaking_boss_tree_spirit": ROOT + "env/matchmaking_boss_tree_spirit.png",
+	"result": ROOT + "env/result.png",
 	"pedestal": ROOT + "env/pedestal.png",
 }
 const CLOUDS := ["cloud_0", "cloud_1", "cloud_2"]
 ## pedestal.png: the centre of the stage's top face (where the feet go), px in the image.
 const PEDESTAL_CENTER := Vector2(200, 52)
-## lobby_ground.png is the bottom part of the lobby screen from this height (0..1) down.
-const LOBBY_GROUND_FROM := 0.6
+## The screen backgrounds (ui/backdrop.gd). home_bg (BG_HOME, the night sky, 1600x900, stretched
+## over the screen): the Home pages and the Loadout. The bright ones (assets/env/<key>.png, opaque,
+## about 2.36:1, their own ground, drawn "cover"): lobby_bg (the lobby stage before a mode is
+## picked), matchmaking_pvp (a PvP mode), matchmaking_boss_<bossId> (a boss mode; ENV lists the
+## bosses with art, a boss without one gets lobby_bg) and result (the result screens). The mode →
+## key mapping is LobbyModel.background().
+const BG_HOME := "home_bg"
+const BG_DEFAULT := "lobby_bg"
+const BG_PVP := "matchmaking_pvp"
+const BG_BOSS_PREFIX := "matchmaking_boss_"
+const BG_RESULT := "result"
 ## sky_match.png covers the map plus this margin (px) on the left and right.
 const SKY_MARGIN := 600.0
 const TERRAIN := {
@@ -650,6 +666,109 @@ static func portrait(id: String) -> Texture2D:
 
 static func env(key: String) -> Texture2D:
 	return texture(ENV.get(key, ""))
+
+
+## The file of a screen background key (BG_*; a boss's BG_BOSS_PREFIX + bossId).
+static func background_path(key: String) -> String:
+	return ROOT + "env/%s.png" % key
+
+
+## The background key of a boss (matchmaking_boss_<bossId>).
+static func boss_background(boss_id: String) -> String:
+	return BG_BOSS_PREFIX + boss_id
+
+
+## The key a screen draws for `key`: itself when its image is in the project, else BG_DEFAULT (a
+## new boss without art, "" none).
+static func background_key(key: String) -> String:
+	if key == "" or key.contains("/") or key.contains(".") or not has_png(background_path(key)):
+		return BG_DEFAULT
+	return key
+
+
+## A screen background (background_key(): lobby_bg when `key` has no image).
+static func background(key: String) -> Texture2D:
+	return texture(background_path(background_key(key)))
+
+
+## The part of a `tex_size` texture that fills a `rect_size` rect "cover": the texture's aspect
+## kept, the rect filled, the overflow cut off evenly on both sides (texture px).
+static func cover_source(tex_size: Vector2, rect_size: Vector2) -> Rect2:
+	if tex_size.x <= 0.0 or tex_size.y <= 0.0 or rect_size.x <= 0.0 or rect_size.y <= 0.0:
+		return Rect2(Vector2.ZERO, tex_size.max(Vector2.ZERO))
+	var k := maxf(rect_size.x / tex_size.x, rect_size.y / tex_size.y) # texture px → rect px
+	var part := rect_size / k
+	return Rect2((tex_size - part) / 2.0, part)
+
+
+static var _blurred := {} # background key → its blurred ImageTexture
+
+## A blurred copy of a screen background (the Matchmaking screen's): the image shrunk to
+## BLUR_WIDTH px wide (Lanczos), a Gaussian of BLUR_SIGMA px over it, then grown to BLUR_KEEP px
+## (cubic) for the GPU to stretch (smooth at any screen size), made once per key. The sharp one
+## when its pixels cannot be read.
+const BLUR_WIDTH := 128
+const BLUR_SIGMA := 1.8
+const BLUR_KEEP := 512
+static func blurred_background(key: String) -> Texture2D:
+	key = background_key(key)
+	if _blurred.has(key):
+		return _blurred[key]
+	var sharp := background(key)
+	var img: Image = sharp.get_image() if sharp != placeholder() else null
+	if img == null or img.is_empty():
+		return sharp
+	img = img.duplicate()
+	if img.is_compressed():
+		img.decompress()
+	img.convert(Image.FORMAT_RGB8)
+	var aspect := float(img.get_height()) / img.get_width()
+	img.resize(BLUR_WIDTH, maxi(roundi(BLUR_WIDTH * aspect), 1), Image.INTERPOLATE_LANCZOS)
+	img = gaussian_blur(img, BLUR_SIGMA)
+	img.resize(BLUR_KEEP, maxi(roundi(BLUR_KEEP * aspect), 1), Image.INTERPOLATE_CUBIC)
+	var t := ImageTexture.create_from_image(img)
+	_blurred[key] = t
+	return t
+
+
+## A separable Gaussian blur (sigma px, edges clamped) of an RGB8 image.
+static func gaussian_blur(img: Image, sigma: float) -> Image:
+	var w := img.get_width()
+	var h := img.get_height()
+	var r := maxi(ceili(sigma * 3.0), 1)
+	var k := PackedFloat32Array()
+	var sum := 0.0
+	for i in range(-r, r + 1):
+		k.append(exp(-float(i * i) / (2.0 * sigma * sigma)))
+		sum += k[k.size() - 1]
+	for i in k.size():
+		k[i] /= sum
+	var src := img.get_data()
+	var tmp := PackedFloat32Array()
+	tmp.resize(w * h * 3)
+	for y in h:
+		for x in w:
+			var c := Vector3.ZERO
+			for i in range(-r, r + 1):
+				var o := (y * w + clampi(x + i, 0, w - 1)) * 3
+				c += Vector3(src[o], src[o + 1], src[o + 2]) * k[i + r]
+			var d := (y * w + x) * 3
+			tmp[d] = c.x
+			tmp[d + 1] = c.y
+			tmp[d + 2] = c.z
+	var out := PackedByteArray()
+	out.resize(w * h * 3)
+	for y in h:
+		for x in w:
+			var c := Vector3.ZERO
+			for i in range(-r, r + 1):
+				var o := (clampi(y + i, 0, h - 1) * w + x) * 3
+				c += Vector3(tmp[o], tmp[o + 1], tmp[o + 2]) * k[i + r]
+			var d := (y * w + x) * 3
+			out[d] = clampi(roundi(c.x), 0, 255)
+			out[d + 1] = clampi(roundi(c.y), 0, 255)
+			out[d + 2] = clampi(roundi(c.z), 0, 255)
+	return Image.create_from_data(w, h, false, Image.FORMAT_RGB8, out)
 
 
 static func terrain(key: String) -> Texture2D:

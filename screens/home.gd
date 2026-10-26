@@ -67,7 +67,7 @@ var _invite_popup: InviteReceivedPopup
 
 func _ready() -> void:
 	theme = LobbyUi.theme()
-	var bg := Backdrop.new()
+	var bg := Backdrop.new() # the lobby stage's: lobby_bg, the picked mode's image (lobby.gd)
 	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(bg)
 
@@ -76,6 +76,8 @@ func _ready() -> void:
 	_lobby = Lobby.new()
 	_lobby.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(_lobby)
+	bg.show_image(_lobby.background(), false)
+	_lobby.background_changed.connect(bg.show_image)
 	_lobby.open_profile.connect(open_profile)
 	_lobby.open_shop.connect(open_shop)
 	_lobby.open_bag.connect(open_bag)
@@ -151,7 +153,7 @@ func _exit_tree() -> void:
 		EquipmentUi.open_upgrade = Callable()
 
 
-## A full-screen page: the backdrop without the ground, the header row (`extra` after the title,
+## A full-screen page: the night backdrop (Art.BG_HOME), the header row (`extra` after the title,
 ## taking the room the title leaves), then `content`.
 func _build_page(title: String, content: Control, extra: Control = null) -> Control:
 	var page := Control.new()
@@ -159,7 +161,6 @@ func _build_page(title: String, content: Control, extra: Control = null) -> Cont
 	page.visible = false
 	add_child(page)
 	var bg := Backdrop.new()
-	bg.ground = false
 	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	page.add_child(bg)
 	var col := VBoxContainer.new()

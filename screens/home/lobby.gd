@@ -34,6 +34,10 @@ extends Control
 ## left (screens/home/party_layout.gd); switching a party bigger than a mode holds is refused
 ## ("Đội đông hơn số người của chế độ này", also the server's PARTY_TOO_LARGE, which puts the
 ## lobby's mode back).
+## The stage's background (background_changed, drawn by Home's ui/backdrop.gd) is lobby_bg until
+## the player picks a mode this session (Router.mode_chosen: the mode card / Mode Select, an invite
+## accepted, the host's mode followed), then that mode's image (LobbyModel.stage_background()),
+## kept for the session; a change cross-fades.
 
 signal open_profile
 signal open_shop(section: int)
@@ -43,6 +47,7 @@ signal open_upgrade
 signal open_milestones
 signal open_daily
 signal open_modes
+signal background_changed(key: String)
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -83,6 +88,7 @@ var settings_path := LoadoutModel.SETTINGS_PATH
 
 var _model := LoadoutModel.new() # the character choice (items kept as the Loadout left them)
 var _mode := 0
+var _background := "" # the stage's background key (background())
 
 # Player block
 var _avatar: PanelContainer
@@ -671,6 +677,10 @@ func choose_mode(index: int) -> void:
 			_confirm_leave(_switch_mode.bind(index)) # "Rời đội?" first
 		ModeSelectModel.LOCKED:
 			Ui.toast(self, ModeSelectModel.LOCKED_TEXT)
+		ModeSelectModel.NOTHING:
+			if index == _mode and not party.is_member(): # the restored mode picked again: picked now
+				Router.mode_chosen = true
+				_render_background()
 		ModeSelectModel.TOO_LARGE:
 			Ui.toast(self, ModeSelectModel.TOO_LARGE_TEXT)
 
@@ -681,6 +691,7 @@ func _on_queue_refused() -> void:
 
 
 func _switch_mode(index: int) -> void:
+	Router.mode_chosen = true
 	_mode = clampi(index, 0, maxi(LobbyModel.modes().size() - 1, 0))
 	LobbyModel.remember_mode(settings_path, _mode)
 	Router.party.select_queue(_party_queue()) # my lobby follows a party mode's queue
@@ -695,7 +706,11 @@ func _party_queue() -> String:
 ## Shows the mode of `queue` and remembers it (an invite accepted from any mode: the lobby's queue).
 func show_queue_mode(queue: String) -> void:
 	var i := LobbyModel.index_of_queue(queue)
-	if i < 0 or i == _mode:
+	if i < 0:
+		return
+	Router.mode_chosen = true
+	if i == _mode:
+		_render_background()
 		return
 	_mode = i
 	LobbyModel.remember_mode(settings_path, _mode)
@@ -736,6 +751,8 @@ func _render_mode() -> void:
 	var member: bool = party.is_member()
 	if member: # the host's mode
 		var i := LobbyModel.index_of_queue(party.lobby_queue())
+		if i >= 0:
+			Router.mode_chosen = true # the host's pick
 		if i >= 0 and i != _mode:
 			_mode = i
 			LobbyModel.remember_mode(settings_path, _mode)
@@ -763,6 +780,19 @@ func _render_mode() -> void:
 		_mode_rank_text.text = RankModel.mode_line(r) if not data.is_empty() else "Đang tải hạng..."
 		_mode_rank_text.add_theme_color_override("font_color", TierBadge.COLORS[_mode_rank_badge.tier][0])
 	_render_party()
+	_render_background()
+
+
+## The stage's background key: lobby_bg until a mode is picked this session, then the mode's.
+func background() -> String:
+	return LobbyModel.stage_background(_mode, Router.mode_chosen)
+
+
+func _render_background() -> void:
+	var key := background()
+	if key != _background:
+		_background = key
+		background_changed.emit(key)
 
 
 const SLOT_X := STAGE.x / 2.0 + 175.0 # the teammate slot's centre right of the stage's centre

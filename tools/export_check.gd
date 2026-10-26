@@ -1,6 +1,6 @@
 extends SceneTree
 ## Export check: prints what the game resolves at run time, one line per item: every runtime script
-## and whether it compiles, the art ui/art.gd picks for each character, gun and boss.
+## and whether it compiles, the art ui/art.gd picks for each character, gun and boss, and the screen backgrounds.
 ## tools/build_ios.sh runs it on the project and on the exported .pck (from an empty folder, so
 ## nothing falls back to the project's files) and stops the build on any difference: what works in
 ## the editor but not in a build (a preload from a folder the export leaves out, a FileAccess check on
@@ -29,6 +29,10 @@ func _initialize() -> void:
 		out.append("boss %s skin: %s" % [boss, _desc(Art.boss_skin(boss))])
 		for pic in ["portrait", "bust"]:
 			out.append("boss %s %s: %s" % [boss, pic, _tex(Art.boss_picture(boss, pic))])
+	var bgs: Array = [Art.BG_HOME, Art.BG_DEFAULT, Art.BG_PVP, Art.BG_RESULT, Art.boss_background("no_such_boss")]
+	bgs.append_array(Art.ENV.keys().filter(func(k): return str(k).begins_with(Art.BG_BOSS_PREFIX)))
+	for key in bgs:
+		out.append("bg %s: %s %s blurred=%s" % [key, Art.background_key(key), _tex(Art.background(key)), _tex(Art.blurred_background(key))])
 	print("\n".join(out))
 	quit()
 

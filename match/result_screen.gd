@@ -1,6 +1,6 @@
 extends Control
 ## The end-of-match screen (every mode; a cancelled match keeps the HUD's small panel): the
-## lobby backdrop, "CHIẾN THẮNG" (gold, confetti over the winners) / "THẤT BẠI" (grey-blue, rain)
+## result background (assets/env/result.png), "CHIẾN THẮNG" (gold, confetti over the winners) / "THẤT BẠI" (grey-blue, rain)
 ## / "HOÀ" slamming in at the top; the winning team on the left on a lit pink podium under a
 ## spotlight (two winners: one step each, the MVP's higher with a gold star; an MVP of the losing
 ## side: the winner with the most damage stands higher, ResultModel.podium_top()), the other team
@@ -91,7 +91,8 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	mouse_filter = MOUSE_FILTER_STOP # the match under it takes no input any more
 	theme = LobbyUi.theme()
-	var bg := Backdrop.new()
+	var bg := Backdrop.new() # result.png; the shade, the confetti / rain on top
+	bg.show_image(Art.BG_RESULT, false)
 	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(bg)
 	var shade := ColorRect.new()

@@ -14,6 +14,11 @@ const BattleStats := preload("res://screens/home/battle_stats.gd")
 const Progress := preload("res://screens/home/progress.gd")
 const Fmt := preload("res://core/fmt.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
+const Art := preload("res://ui/art.gd")
+
+## The game data's mode categories (modes.categories categoryId) the screen backgrounds follow.
+const CATEGORY_PVP := "pvp"
+const CATEGORY_BOSS := "boss"
 
 const SECTION := "lobby"
 const MODE_KEY := "mode"
@@ -176,6 +181,51 @@ static func stat_pairs(stats: Dictionary) -> Array:
 		dmg += int(weapon)
 	return [["Máu", Fmt.thousands(int(stats["maxHp"]))], ["Sát thương", Fmt.thousands(dmg)],
 		["Phòng thủ", Fmt.thousands(int(stats["defense"]))]]
+
+
+## The screen background key (ui/art.gd) of the mode at `index` (mode()): a boss mode's
+## matchmaking_boss_<bossId> (its boss by modeId, else by queue), a PvP mode's matchmaking_pvp,
+## lobby_bg for any other category or none. A key without an image draws lobby_bg (Art.background_key()).
+static func background(index: int) -> String:
+	return background_of(mode(index))
+
+
+## background() of a mode entry (modes()).
+static func background_of(m: Dictionary) -> String:
+	match str(m.get("category", "")):
+		CATEGORY_BOSS:
+			var b := GameData.boss_of_mode(str(m.get("id", "")))
+			if b.is_empty():
+				b = GameData.boss_of_queue(str(m.get("queue", "")))
+			var id := str(b.get("bossId", ""))
+			var queue := str(m.get("queue", ""))
+			if id == "" and queue.begins_with(GameData.BOSS_QUEUE_PREFIX):
+				id = queue.trim_prefix(GameData.BOSS_QUEUE_PREFIX)
+			return Art.boss_background(id) if id != "" else Art.BG_DEFAULT
+		CATEGORY_PVP:
+			return Art.BG_PVP
+	return Art.BG_DEFAULT
+
+
+## The lobby stage's background: lobby_bg until the player picks a mode this session (`chosen`:
+## the mode card / Mode Select, the party's queue; the mode restored from the settings file does
+## not count), then the mode's (background()).
+static func stage_background(index: int, chosen: bool) -> String:
+	return background(index) if chosen else Art.BG_DEFAULT
+
+
+## The Matchmaking screen's background for `queue`: its lobby mode's (background()); a queue no
+## lobby mode joins: its boss's, else the PvP one (Matchmaking queues are PvP or boss).
+static func background_of_queue(queue: String) -> String:
+	var i := index_of_queue(queue)
+	if i >= 0:
+		return background(i)
+	var b := GameData.boss_of_queue(queue)
+	if not b.is_empty():
+		return Art.boss_background(str(b.get("bossId", "")))
+	if queue.begins_with(GameData.BOSS_QUEUE_PREFIX):
+		return Art.boss_background(queue.trim_prefix(GameData.BOSS_QUEUE_PREFIX))
+	return Art.BG_PVP
 
 
 ## The remembered mode index (0 without a file or for an unknown id).

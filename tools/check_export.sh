@@ -11,7 +11,7 @@ PCK="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 mkdir "$TMP/home" "$TMP/empty"
-ITEMS='^(script|look|full|portrait|gun|boss) '
+ITEMS='^(script|look|full|portrait|gun|boss|bg) '
 HOME="$TMP/home" "$GODOT" --headless --path . --script res://tools/export_check.gd 2>/dev/null | grep -E "$ITEMS" > "$TMP/project.txt" || true
 (cd "$TMP/empty" && HOME="$TMP/home" "$GODOT" --headless --main-pack "$PCK" --script res://tools/export_check.gd 2>/dev/null) | grep -E "$ITEMS" > "$TMP/export.txt" || true
 if [ ! -s "$TMP/project.txt" ] || ! diff "$TMP/project.txt" "$TMP/export.txt" > "$TMP/diff.txt"; then
