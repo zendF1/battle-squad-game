@@ -78,8 +78,9 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   weights, drawn by `match/boss/boss_skin_view.gd` on the same feet and body height; the motions are
   `match/boss/skin_idle.gd` and `skin_fly.gd`),
   `portrait.png` (the Boss tab card, the matchmaking card) and `bust.png` (the boss HP bar's icon,
-  the turn portrait; `match/boss/boss_art_view.gd`). AI-drawn sheets on magenta,
-  `art_source/bosses/<bossId>/side_<anim>/sheet_v1.png` and `portrait/`, cut by
+  the turn portrait; `match/boss/boss_art_view.gd`). AI-drawn sheets on a flat key colour,
+  `art_source/bosses/<bossId>/side_<anim>/sheet_v1.png` (one row; a grid with `grid` [cols, rows];
+  or one picture per frame, `frame_1.png` …, `src` a list) and `portrait/`, cut by
   `tools/import_boss_frames.gd` (config `art_source/bosses/<bossId>/import.json`: frame counts,
   watermarks, boundaries, anchors, the body's height, a tone lift, the skins' joints, bones and
   shards; `README.txt` there):

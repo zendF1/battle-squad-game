@@ -11,7 +11,12 @@ extends SceneTree
 ## sheet: every cut frame on a checkerboard, a row per animation, the shared pivot (the feet) as
 ## a red cross, the body's top as a green line (to check the alignment and the scale).
 ##
-## Per sheet (`anims.<name>`: src, frames (how many), fps, loop):
+## Per sheet (`anims.<name>`: src, frames (how many), fps, loop). Besides one row, a sheet may be a
+## grid (`grid` [cols, rows], read left to right, top to bottom: keyed, its rows split at the empty
+## rows between the figures and each row at its empty columns, grid_cells()) or one picture per frame
+## (`src` a list of files in frame order, each keyed on its own corners, the `watermark` spots in
+## every picture's px); either is laid out as one row (laid_in_row(), `gap` px apart, default 32) and
+## cut at the joins, the steps below unchanged (`anchors` / `cuts` then in that row's px, printed):
 ##   1. the generator's "✦" watermarks painted out (`watermark` [[x, y, r], ...] sheet px: the star
 ##      shape refilled from the px round it, tools/import_titles.gd remove_watermark(): on the
 ##      backdrop it becomes backdrop, on the art the art carries on);
@@ -112,16 +117,34 @@ func _import(id: String, contact: String) -> bool:
 	var order: Array = []
 	for anim in cfg.get("anims", {}):
 		var spec: Dictionary = cfg["anims"][anim]
-		var sheet := _load(dir + str(spec["src"]))
-		if sheet == null:
-			return false
 		var opts := spec_cfg(cfg, spec)
-		for wm in spec.get("watermark", []):
-			ImportTitles.remove_watermark(sheet, Vector2(float(wm[0]), float(wm[1])), float(wm[2]), float(wm[2]), 2.0,
-				ImportFrames.corner_colour(sheet, 8))
-		var k := keyed(sheet, opts)
 		var n := int(spec["frames"])
-		var cut := boundaries(sheet, n, opts, spec.get("cuts"))
+		var srcs: Array = spec["src"] if spec["src"] is Array else [spec["src"]]
+		var pics: Array = []
+		var k := 0
+		for path in srcs:
+			var pic := _load(dir + str(path))
+			if pic == null:
+				return false
+			for wm in spec.get("watermark", []): # a list of pictures: the same spot in each
+				ImportTitles.remove_watermark(pic, Vector2(float(wm[0]), float(wm[1])), float(wm[2]), float(wm[2]), 2.0,
+					ImportFrames.corner_colour(pic, 8))
+			k += keyed(pic, opts)
+			pics.append(pic)
+		var sheet: Image = pics[0]
+		var cut := {}
+		var grid: Array = spec["grid"] if spec.get("grid") is Array else []
+		if pics.size() > 1 or (grid.size() >= 2 and int(grid[1]) > 1):
+			var cells: Array = pics if pics.size() > 1 else grid_cells(sheet, int(grid[0]), int(grid[1]), n, opts)
+			if cells.size() < n:
+				push_error("import_boss_frames: %s: %d frames wanted, %d pictures / cells" % [anim, n, cells.size()])
+				return false
+			var row := laid_in_row(cells.slice(0, n), int(spec.get("gap", 32)))
+			sheet = row["image"]
+			cut = {"cuts": spec["cuts"] if spec.get("cuts") is Array else row["cuts"], "fallback": []}
+			print("  %s: %d pictures / cells laid in one row, frame x offsets %s (anchors / cuts: px of that row)" % [anim, cells.size(), row["offsets"]])
+		else:
+			cut = boundaries(sheet, n, opts, spec.get("cuts"))
 		var parts := split_frames(sheet, cut["cuts"], opts)
 		var frames: Array = []
 		var heights: Array = []
@@ -531,6 +554,46 @@ static func keyed(img: Image, opts: Dictionary) -> int:
 				Vector2(float(hues[0]), float(hues[1])) if hues is Array and hues.size() >= 2 else Vector2(-1, -1))
 	ImportFrames.clean(img, {"alphaCut": opts["alphaCut"], "keepPieces": 0.0, "defringe": {"band": 0}})
 	return n
+
+
+## A keyed sheet drawn as a grid of `cols` × `rows` cells, read left to right, top to bottom: the
+## row boundaries at the empty rows between the figures (boundaries() on the sheet turned a quarter
+## turn), then each row's column boundaries at its empty columns; the first n cells (Images).
+static func grid_cells(img: Image, cols: int, rows: int, n: int, opts: Dictionary) -> Array:
+	var turned := img.duplicate() as Image
+	turned.rotate_90(COUNTERCLOCKWISE) # row y → column y
+	var ys: Array = [0] + boundaries(turned, rows, opts)["cuts"] + [img.get_height()]
+	var cells: Array = []
+	for r in rows:
+		var band := img.get_region(Rect2i(0, int(ys[r]), img.get_width(), int(ys[r + 1]) - int(ys[r])))
+		var xs: Array = [0] + boundaries(band, maxi(cols, 1), opts)["cuts"] + [band.get_width()]
+		for c in cols:
+			if cells.size() < n:
+				cells.append(band.get_region(Rect2i(int(xs[c]), 0, int(xs[c + 1]) - int(xs[c]), band.get_height())))
+	return cells
+
+
+## Keyed frames (one picture each, or a grid's cells) side by side in one transparent row, `gap` px
+## apart, their tops level: {image, cuts [x] (the gaps' middles), offsets [x] (each frame's left)}.
+static func laid_in_row(cells: Array, gap: int) -> Dictionary:
+	var w := 0
+	var h := 0
+	for c in cells:
+		w += (c as Image).get_width()
+		h = maxi(h, (c as Image).get_height())
+	w += gap * (cells.size() - 1)
+	var row := Image.create(maxi(w, 1), maxi(h, 1), false, Image.FORMAT_RGBA8)
+	var x := 0
+	var cuts: Array = []
+	var offsets: Array = []
+	for i in cells.size():
+		var c: Image = cells[i]
+		if i > 0:
+			cuts.append(x - gap + gap / 2)
+		offsets.append(x)
+		row.blit_rect(c, Rect2i(Vector2i.ZERO, c.get_size()), Vector2i(x, 0))
+		x += c.get_width() + gap
+	return {"image": row, "cuts": cuts, "offsets": offsets}
 
 
 ## A keyed sheet's n − 1 frame boundaries: {cuts [x], fallback [the boundaries (1..n − 1) with no

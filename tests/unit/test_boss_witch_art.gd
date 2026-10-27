@@ -45,6 +45,32 @@ func test_boundaries_at_the_empty_columns() -> void:
 	eq(given["cuts"], [90, 190], "the config's cuts")
 
 
+func test_grid_cells_read_left_to_right_top_to_bottom() -> void:
+	var img := _sheet(300, 200) # 3 × 2 cells of 100 × 100, 5 frames: the last cell empty
+	for i in 5:
+		var at := Vector2i((i % 3) * 100 + 15 + i * 2, (i / 3) * 100 + 12) # a little off the equal grid
+		_rect(img, Rect2i(at, Vector2i(60 + i, 75)), CLOAK)
+	var cells := ImportBossFrames.grid_cells(img, 3, 2, 5, {"search": 0.35})
+	eq(cells.size(), 5, "the first five cells")
+	for i in 5:
+		var used := (cells[i] as Image).get_used_rect()
+		eq(used.size, Vector2i(60 + i, 75), "cell %d holds its whole figure" % i)
+
+
+func test_frames_laid_in_one_row_cut_at_the_gaps() -> void:
+	var a := _sheet(80, 100)
+	_rect(a, Rect2i(10, 20, 60, 70), CLOAK)
+	var b := _sheet(90, 110)
+	_rect(b, Rect2i(5, 30, 80, 70), CLOAK)
+	var row := ImportBossFrames.laid_in_row([a, b, a], 20)
+	eq((row["image"] as Image).get_size(), Vector2i(80 + 90 + 80 + 40, 110), "side by side, the gaps between")
+	eq(row["offsets"], [0, 100, 210], "each frame's left")
+	eq(row["cuts"], [90, 200], "cut in the middle of each gap")
+	var parts := ImportBossFrames.split_frames(row["image"], row["cuts"], {"share": 0.8, "smallPiece": 10, "edgeFade": 4,
+		"body": {}, "seedMargin": 0.2})
+	eq((parts[1]["rect"] as Rect2i).position.x, 105, "the second frame's figure where it was laid")
+
+
 func test_split_keeps_a_reaching_piece_whole_and_cuts_a_shared_one() -> void:
 	var img := _sheet(300, 100)
 	_rect(img, Rect2i(20, 20, 50, 70), CLOAK)
