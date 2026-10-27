@@ -1,0 +1,41 @@
+{
+	"_doc": "Written by tools/import_rank_art.gd (do not edit; edit art_source/ranks/ranks.json and re-run). Texture px of every frame_<grade>.png (all share it): size [w, h]; window [x, y, w, h] (the transparent opening the card fills); seat {centre [x, y], radius} (the plain medallion on the top edge the badge is drawn on); stretchX / stretchY [[from, to], ...] (plain band runs, empty arrays: none on that axis: to frame a card of another proportion, draw the frame at one scale k = card w / window w when only stretchY has runs (card h / window h when only stretchX has; the smaller of both when both have) and heighten / widen only these runs by their share of the card's missing (negative: surplus) height / width, so the ornaments are never squashed; tools/import_rank_art.gd sliced()). frames / badges: the grades that have one.",
+	"frame": {
+		"size": [
+			768,
+			960
+		],
+		"window": [
+			92,
+			115,
+			584,
+			730
+		],
+		"seat": {
+			"centre": [
+				384,
+				115
+			],
+			"radius": 58
+		},
+		"stretchX": [],
+		"stretchY": [
+			[
+				288,
+				413
+			],
+			[
+				547,
+				672
+			]
+		]
+	},
+	"badge": {
+		"size": [
+			256,
+			256
+		]
+	},
+	"frames": [],
+	"badges": []
+}

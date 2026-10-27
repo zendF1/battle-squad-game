@@ -1,0 +1,37 @@
+{
+	"_doc": "tools/import_rank_art.gd reads this: the AI-drawn rank art (PROMPTS.md here) → assets/ranks/frame_<grade>.png + badge_<grade>.png + ranks.json. Sources: frames/frame_<grade>.png, badges/badge_<grade>.png (flat magenta backdrop, keyed from the corners), or a cell of a sheet (sheets: file, kind frame|badge, cols, rows, grades row-major, \"\" = empty cell; a single file wins over its cell). groups: the art group of every grade id (art only: the names and the order are the game data's). frame: the shipped canvas size (px), window [x0, y0, x1, y1] (fractions of the canvas: the transparent opening the card fills, = ui/art.gd RANK_FRAME_INSET each side), windowRadius (fraction of the canvas width: the opening's corner radius, used by forceWindow), seat {centre [fx, fy], radius (fraction of the width)}: the plain medallion the game draws the badge on, stretchX / stretchY (fractions: the plain band runs a wider / taller card stretches; the art must be uniform there, the tool measures it; stretchX is empty: every card is narrower than the 4:5 opening, so only the side bands stretch and the top / bottom margins are free for crests, rays and wings), stretchTolerance (warn above this mean difference), measureX / measureY (fractions: the columns / rows the opening's edges are measured on: plain band clear of the seat and the bottom emblem, and the side stretch runs), background (tools/import_frames.gd key_background() options), minIsland (opaque specks smaller than this many source px are dropped), watermarkBox (the bottom-right box, fraction of the picture, where a small separate piece is the AI ✦ and is dropped), watermarkMaxArea (fraction of the picture's area: bigger pieces there are art). badge: size, margin (px), fill per group (fraction of size − 2 × margin the badge's longer side fills: the silhouette grows with the group), background, minIsland. glow {group: key_background glow options} when a group's light is painted soft into the backdrop. files {frame_<grade> | badge_<grade>: per picture: watermarks [{centre [x, y], size [rx, ry]}] in source px (a ✦ over the art: rebuilt from the px round it), window [x0, y0, x1, y1] source px (when the opening cannot be measured), forceWindow true (clear everything inside the opening), mirror \"left\" | \"right\" (copy that half onto the other, for a frame drawn lopsided)}. See the tool's header and assets/README.md.",
+	"groups": {
+		"enlisted": ["binh_nhi", "binh_nhat", "ha_si", "trung_si", "thuong_si"],
+		"cadet": ["hoc_vien"],
+		"company": ["thieu_uy", "trung_uy", "thuong_uy", "dai_uy"],
+		"field": ["thieu_ta", "trung_ta", "thuong_ta", "dai_ta"],
+		"general": ["thieu_tuong", "trung_tuong", "thuong_tuong", "dai_tuong"]
+	},
+	"frame": {
+		"size": [768, 960],
+		"window": [0.12, 0.12, 0.88, 0.88],
+		"windowRadius": 0.06,
+		"seat": {"centre": [0.5, 0.12], "radius": 0.075},
+		"stretchX": [],
+		"stretchY": [[0.3, 0.43], [0.57, 0.7]],
+		"stretchTolerance": 0.08,
+		"measureX": [0.28, 0.31, 0.34, 0.66, 0.69, 0.72],
+		"measureY": [0.33, 0.37, 0.41, 0.59, 0.63, 0.67],
+		"background": {"key": "corners", "corner": 8, "tolerance": 45, "soft": 45, "holeMin": 30, "holePure": 0.5, "spill": 3},
+		"minIsland": 40,
+		"watermarkBox": 0.16,
+		"watermarkMaxArea": 0.004
+	},
+	"badge": {
+		"size": [256, 256],
+		"margin": 8,
+		"fill": {"enlisted": 0.8, "cadet": 0.84, "company": 0.88, "field": 0.94, "general": 1.0},
+		"background": {"key": "corners", "corner": 8, "tolerance": 45, "soft": 45, "holeMin": 20, "holePure": 0.5, "spill": 3},
+		"minIsland": 30,
+		"watermarkBox": 0.16,
+		"watermarkMaxArea": 0.006
+	},
+	"glow": {},
+	"sheets": [],
+	"files": {}
+}
