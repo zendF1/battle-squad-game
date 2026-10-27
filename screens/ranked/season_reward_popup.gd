@@ -85,7 +85,7 @@ func _claim() -> void:
 	if not is_inside_tree():
 		return
 	set_busy(false)
-	if not res.ok and str(res.get("code", "")) != "SEASON_REWARD_ALREADY_CLAIMED":
+	if not res.ok and not str(res.get("code", "")) in ["SEASON_REWARD_ALREADY_CLAIMED", "SEASON_REWARD_NOT_FOUND"]:
 		set_message(ErrorText.season_reward(res))
 		return
 	claimed.emit(str(reward["seasonId"]))

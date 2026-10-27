@@ -116,3 +116,58 @@ func test_season_rewards_claim() -> void:
 	eq(s.my_season_rewards(), [], "gone from the list")
 	check(api.gets().has("/chests") or s.chests_stale, "the chests are out of date")
 	s.free()
+
+
+func test_gem_answers_carry_both_gems() -> void:
+	var api := FakeApi.new()
+	api.answers["/shop/stones/buy"] = FakeApi._ok({"stoneLevel": 5, "quantity": 1, "currency": "gem", "balance": 4, "gemUnlocked": 3, "replay": false})
+	var s = _state(api)
+	var seen := []
+	s.changed.connect(func(): seen.append([s.gem_locked(), s.gem_unlocked()]))
+	await s.buy_stones(5, 1)
+	check(seen.has([4, 3]), "stone buy: balance is the locked gem left, gemUnlocked next to it (%s)" % str(seen))
+	s.free()
+
+
+func test_sell_and_milestone_and_upgrade_gems() -> void:
+	var api := FakeApi.new()
+	api.answers["/player/equipment/sell"] = FakeApi._ok({"currency": "gem", "amount": 7, "balance": 37, "gemUnlocked": 12, "stones": []})
+	api.answers["/milestones/claim"] = FakeApi._ok({"coin": 100, "gem": 60, "gemUnlocked": 12, "rewards": {"gem": 23}})
+	api.answers["/player/equipment/upgrade"] = FakeApi._ok({"success": true, "newLevel": 6, "careful": true, "gemSpent": 20,
+		"gemBalance": 40, "gemUnlocked": 0})
+	var s = _state(api)
+	s.equipment = []
+	s.equipment_stale = false
+	var seen := []
+	s.changed.connect(func(): seen.append([s.gem_locked(), s.gem_unlocked()]))
+	await s.sell_equipment("e1")
+	check(seen.has([37, 12]), "sell: both gems (%s)" % str(seen))
+	seen.clear()
+	await s.claim_milestone("ms_grade_ha_si")
+	check(seen.has([60, 12]), "milestone claim: gem and gemUnlocked (%s)" % str(seen))
+	seen.clear()
+	s.profile["gemUnlocked"] = 30
+	s.stones = {5: 3}
+	s.stones_stale = false
+	await s.upgrade("e1", [5], true)
+	check(seen.has([40, 0]), "careful upgrade: gemBalance and gemUnlocked (%s)" % str(seen))
+	s.free()
+
+
+func test_chest_open_takes_remaining_and_season_not_found() -> void:
+	var api := FakeApi.new()
+	api.answers["/chests"] = FakeApi._ok({"chests": [{"chestId": "stone_chest", "quantity": 12}]})
+	var s = _state(api)
+	await s.load_chests()
+	api.answers["/chests/open"] = FakeApi._ok({"chestId": "stone_chest", "opened": 10, "stones": [{"level": 5, "qty": 10}],
+		"equipment": [], "remaining": 2})
+	api.answers["/chests"] = FakeApi.fail(500, "INTERNAL") # the reload fails: the answer's count stays
+	await s.open_chest("stone_chest", 10)
+	eq(s.chests.map(func(c): return c["quantity"]), [2], "the answer's remaining at once")
+	api.answers["/rank/season-rewards"] = FakeApi._ok({"rewards": [{"seasonId": "s9", "grade": "ha_si", "division": 1}]})
+	await s.load_season_rewards()
+	api.answers["/rank/season-rewards/claim"] = FakeApi.fail(404, "SEASON_REWARD_NOT_FOUND")
+	api.answers["/rank/season-rewards"] = FakeApi.fail(500, "INTERNAL")
+	await s.claim_season_reward("s9")
+	eq(s.my_season_rewards(), [], "not found: nothing to claim, off the list")
+	s.free()

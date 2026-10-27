@@ -595,12 +595,13 @@ func _take_balance(data: Dictionary) -> void:
 	var balance = data.get("balance")
 	if profile.is_empty() or not (balance is int or balance is float) or not currency in ["coin", "gem"]:
 		return
-	if currency == "gem":
-		var unlocked = data.get("gemUnlocked")
-		if unlocked is int or unlocked is float: # both gems given
-			profile["gemUnlocked"] = int(unlocked)
-		elif gem_unlocked() > 0:
-			return # one gem balance with both kinds held: which is it? the refresh brings both
+	# stone buy / sell: with currency gem, balance is the locked gem left and gemUnlocked comes next
+	# to it (always sent by the server)
+	var unlocked = data.get("gemUnlocked")
+	if unlocked is int or unlocked is float:
+		profile["gemUnlocked"] = int(unlocked)
+	elif currency == "gem" and gem_unlocked() > 0:
+		return # an older answer with one gem balance while both kinds are held: the refresh brings both
 	profile[currency] = int(balance)
 	changed.emit()
 
@@ -798,9 +799,12 @@ func upgrade(equipment_id: String, stone_list: Array, careful: bool = false, exp
 	stones_dirty()
 	if careful:
 		var data: Dictionary = res.data if res.ok and res.data is Dictionary else {}
-		var balance = data.get("gemBalance")
+		var balance = data.get("gemBalance") # careful: the locked gem left, the unlocked next to it
 		if not profile.is_empty() and (balance is int or balance is float):
 			profile["gem"] = int(balance)
+			var unlocked = data.get("gemUnlocked")
+			if unlocked is int or unlocked is float:
+				profile["gemUnlocked"] = int(unlocked)
 			changed.emit()
 		refresh() # the wallet's truth, also after a refusal or no answer
 	return res
@@ -961,7 +965,7 @@ func _claim(path: String, body: Dictionary, busy: String) -> Dictionary:
 	if res.ok and res.data is Dictionary:
 		var data: Dictionary = res.data
 		if not profile.is_empty():
-			for currency in ["coin", "gem"]:
+			for currency in ["coin", "gem", "gemUnlocked"]:
 				if data.get(currency) is int or data.get(currency) is float:
 					profile[currency] = int(data[currency])
 			changed.emit()
@@ -1185,6 +1189,12 @@ func open_chest(chest_id: String, count: int) -> Dictionary:
 	chests_changed.emit()
 	var res: Dictionary = await _api().post_json("/chests/open", {"chestId": chest_id, "count": count})
 	chest_busy = ""
+	var left = res.data.get("remaining") if res.ok and res.data is Dictionary else null
+	if (left is int or left is float) and chests is Array: # the count at once; the reload confirms it
+		for c in chests:
+			if c["chestId"] == chest_id:
+				c["quantity"] = int(left)
+		chests = chests.filter(func(c): return int(c["quantity"]) > 0)
 	chests_stale = true
 	load_chests()
 	stones_dirty()
@@ -1226,6 +1236,9 @@ func claim_season_reward(season_id: String) -> Dictionary:
 	season_rewards_changed.emit()
 	var res: Dictionary = await _api().post_json("/rank/season-rewards/claim", {"seasonId": season_id})
 	season_busy = ""
+	var gone := str(res.get("code", "")) in ["SEASON_REWARD_ALREADY_CLAIMED", "SEASON_REWARD_NOT_FOUND"]
+	if gone: # claimed elsewhere, or nothing to claim: off the list, the reload below confirms
+		season_rewards = season_rewards.filter(func(r): return r["seasonId"] != season_id)
 	if res.ok:
 		var wallet := SeasonRewardModel.wallet_of(res.data)
 		if not profile.is_empty() and not wallet.is_empty():

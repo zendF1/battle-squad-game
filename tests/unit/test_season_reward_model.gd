@@ -54,3 +54,9 @@ func test_season_end_preview_from_game_data() -> void:
 	eq(SeasonRewardModel.preview_text("wood"), "", "unknown grade")
 	var rr := GameData.ranked_rewards()
 	eq([int(rr.get("winCoin")), int(rr.get("lossCoin"))], [150, 60], "the ranked bonus is the game data's")
+
+
+func test_stone_items_with_level() -> void:
+	var r := SeasonRewardModel.parse_one({"seasonId": "s3", "grade": "ha_si", "division": 1, "coin": 0, "gem": 0,
+		"items": [{"kind": "stone", "id": "", "level": 7, "qty": 2, "name": ""}]})
+	eq(SeasonRewardModel.lines(r).map(func(l): return l["text"]), ["2 × Đá cấp 7"], "a stone item named by its level")

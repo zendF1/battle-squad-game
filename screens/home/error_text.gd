@@ -21,6 +21,7 @@ const CHEST := {
 }
 const SEASON_REWARD := {
 	"SEASON_REWARD_ALREADY_CLAIMED": "Phần thưởng mùa này đã được nhận",
+	"SEASON_REWARD_NOT_FOUND": "Không có phần thưởng mùa để nhận",
 	"BUSY": "Đang nhận thưởng, chờ chút",
 }
 const IAP := {

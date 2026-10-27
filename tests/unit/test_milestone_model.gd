@@ -155,3 +155,14 @@ func test_title_only_node_is_shown() -> void:
 	eq(MilestoneModel.nodes(p, "rank").size(), 1, "a node giving only a title is shown")
 	eq(MilestoneModel.claimable_total(p), 1, "and counted")
 
+
+
+func test_grade_peak_labels() -> void:
+	var ha_si := _node("ms_grade_ha_si", "rank", "grade_peak", 3, 1, "locked")
+	eq([MilestoneModel.threshold(ha_si), MilestoneModel.progress_text(ha_si), MilestoneModel.title(ha_si)],
+		["Hạ sĩ", "Đang: Binh nhì", "Đạt cấp Hạ sĩ"], "grade index 3: Hạ sĩ (the game data's grade order)")
+	var dai_ta := _node("ms_grade_dai_ta", "rank", "grade_peak", 14, 0, "locked")
+	eq([MilestoneModel.threshold(dai_ta), MilestoneModel.progress_text(dai_ta)], ["Đại tá", "Đang: Chưa có cấp bậc"], "Đại tá, none yet")
+	eq(MilestoneModel.group_key("grade_peak"), "grade_peak", "its own sub-track")
+	var chest := MilestoneModel.parse_rewards({"items": [{"kind": "chest", "id": "stone_chest", "qty": 2}]})
+	eq(MilestoneModel.reward_lines(chest).map(func(l): return l["text"]), ["2 × Rương đá"], "a chest reward line")

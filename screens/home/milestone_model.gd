@@ -28,6 +28,7 @@ const GROUPS := [
 	["matches", "Số trận", "Trận ghép hoặc đấu với máy, chơi đến hết"],
 	["wins", "Số trận thắng", "Trận ghép hoặc đấu với máy"],
 	["char_wins", "Thắng với 1 nhân vật", "Số trận thắng của nhân vật thắng nhiều nhất"],
+	["grade_peak", "Cấp bậc cao nhất", "Lần đầu đạt cấp bậc, không mất khi xuống cấp"],
 	["rank_peak", "Hạng cao nhất", "Lần đầu đạt hạng, không mất khi tụt hạng"],
 ]
 
@@ -185,6 +186,15 @@ static func tier_name(order: int) -> String:
 	return GameData.tier_name(str(tiers[order - 1]))
 
 
+## The name of a grade_peak threshold: the grade at that place in the game data's grades
+## (lowest first, 1-based: Binh nhì 1 … Đại tá 14); "Chưa có cấp bậc" outside them.
+static func grade_name(order: int) -> String:
+	var grades := GameData.grade_ids()
+	if order < 1 or order > grades.size():
+		return "Chưa có cấp bậc"
+	return GameData.grade_name(str(grades[order - 1]))
+
+
 ## The set level of a "set_level:N" target (0 when not one).
 static func set_level(target: String) -> int:
 	return int(target.trim_prefix("set_level:")) if target.begins_with("set_level:") else 0
@@ -203,6 +213,7 @@ static func threshold(node: Dictionary) -> String:
 		"matches": return "%s trận" % Fmt.thousands(req)
 		"wins", "char_wins": return "%s thắng" % Fmt.thousands(req)
 		"rank_peak": return tier_name(req)
+		"grade_peak": return grade_name(req)
 	return Fmt.thousands(req)
 
 
@@ -216,6 +227,7 @@ static func progress_text(node: Dictionary) -> String:
 		"upgrade_peak", "weapon_upgrade_peak": return "+%d/+%d" % [p, req]
 		"set_level:": return "%d/%d món" % [p, req]
 		"rank_peak": return "Đang: %s" % tier_name(node["progress"])
+		"grade_peak": return "Đang: %s" % grade_name(node["progress"])
 	return "%s/%s" % [Fmt.thousands(p), Fmt.thousands(req)]
 
 
@@ -233,6 +245,7 @@ static func title(node: Dictionary) -> String:
 		"wins": return "Thắng %s trận" % Fmt.thousands(req)
 		"char_wins": return "Thắng %s trận với 1 nhân vật" % Fmt.thousands(req)
 		"rank_peak": return "Đạt hạng %s" % tier_name(req)
+		"grade_peak": return "Đạt cấp %s" % grade_name(req)
 	return threshold(node)
 
 
