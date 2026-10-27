@@ -1,8 +1,13 @@
 extends Control
 ## The frame (khung) of a player's badge (rankBadge: last season's final grade) round a player
-## card, over the control's rect (the card's rect). The real art (assets/ranks/frame_<grade>.png,
-## Art.rank_frame(): a 512 × 640 portrait with a transparent window inset Art.RANK_FRAME_INSET each
-## side) is stretched so its window covers the rect, its ornaments outside it. Without it, a
+## card: the card is the control's rect less `window_inset` each side. The real art
+## (assets/ranks/frame_<grade>.png, Art.rank_frame()) is sliced with the layout of
+## assets/ranks/ranks.json (written by tools/import_rank_art.gd: window, seat, stretch runs): drawn
+## at one scale k (card width / window width when only stretchY runs exist; card height / window
+## height when only stretchX; the smaller with both), the card's missing (or surplus) height /
+## width shared out over the plain stretch bands, so the ornaments are never squashed; the badge
+## sits on the art's medallion (seat). No layout file: the art stretched so its window
+## (Art.RANK_FRAME_INSET each side) covers the card. Without the art, a
 ## placeholder drawn in code, richer by group (grade_badge.gd GROUPS) and by rank inside a group
 ## (GradeBadge.marks_of: more ornament with each step): enlisted a green border (studs from the
 ## third chevron); cadets and company officers silver with diamond studs (side diamonds from the
@@ -10,7 +15,7 @@ extends Control
 ## top / bottom notches; generals a red-and-gold double border, gold stars in the corners (and on
 ## the sides from the third) and a warm glow growing with each star. A crest at the top centre
 ## carries the badge (grade_badge.gd; on a plate of the frame's colours for the placeholder)
-## (crest_px, 0 none). No badge ("") draws the plain default frame when `plain` (a thin light
+## (crest_px, 0 none; the real art's medallion always carries it). No badge ("") draws the plain default frame when `plain` (a thin light
 ## border, no crest), else nothing (a card that has its own rim).
 
 const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
@@ -28,6 +33,14 @@ var crest_px := 52.0
 var plain := false
 ## A fill under the frame (transparent: none), so a frame with no card under it reads as one.
 var fill := Color(0, 0, 0, 0)
+## The card sits this far inside the control's rect (the code frame draws round the whole rect).
+var window_inset := 0.0
+
+const LAYOUT_PATH := "res://assets/ranks/ranks.json"
+## The badge's size on the art's medallion, of the medallion's diameter.
+const SEAT_FILL := 0.8
+
+static var _layout: Variant = null # ranks.json's "frame" ({} none), read once
 
 var _badge: Control
 
@@ -53,8 +66,87 @@ func badge() -> Control:
 	return _badge
 
 
-## Where the real art goes for a card rect: stretched so its window (inset `inset` of the art each
-## side) covers `card` exactly.
+## The frame layout of assets/ranks/ranks.json ("frame": size, window, seat, stretchX, stretchY in
+## texture px), {} when the file is missing or unreadable (read once per run).
+static func layout() -> Dictionary:
+	if _layout == null:
+		_layout = {}
+		if FileAccess.file_exists(LAYOUT_PATH):
+			var parsed = JSON.parse_string(FileAccess.get_file_as_string(LAYOUT_PATH))
+			if parsed is Dictionary and parsed.get("frame") is Dictionary and _valid(parsed["frame"]):
+				_layout = parsed["frame"]
+	return _layout
+
+
+static func _valid(fc: Dictionary) -> bool:
+	return fc.get("size") is Array and fc["size"].size() == 2 and fc.get("window") is Array and fc["window"].size() == 4 \
+		and float(fc["window"][2]) > 0.0 and float(fc["window"][3]) > 0.0
+
+
+## How the art of layout `fc` frames a card of size `card` (tools/import_rank_art.gd sliced(), in
+## texture px): {k (the ornaments' scale), xs, ys ([[src0, src1, dst0, dst1], ...] per axis, dst
+## from the drawn frame's origin), size (the drawn frame), window (the card's rect in it), seat
+## (the medallion's centre in it), seat_r}.
+static func slices(fc: Dictionary, card: Vector2) -> Dictionary:
+	var s := Vector2(float(fc["size"][0]), float(fc["size"][1]))
+	var w: Array = fc["window"]
+	var win := Rect2(float(w[0]), float(w[1]), float(w[2]), float(w[3]))
+	var runs_x: Array = fc.get("stretchX", []) if fc.get("stretchX") is Array else []
+	var runs_y: Array = fc.get("stretchY", []) if fc.get("stretchY") is Array else []
+	var k := minf(card.x / win.size.x, card.y / win.size.y)
+	if runs_x.is_empty() and not runs_y.is_empty():
+		k = card.x / win.size.x
+	elif runs_y.is_empty() and not runs_x.is_empty():
+		k = card.y / win.size.y
+	var xs := segments(s.x, runs_x, card.x - win.size.x * k, k)
+	var ys := segments(s.y, runs_y, card.y - win.size.y * k, k)
+	var x0 := mapped(win.position.x, xs)
+	var y0 := mapped(win.position.y, ys)
+	var seat: Dictionary = fc.get("seat", {}) if fc.get("seat") is Dictionary else {}
+	var sc: Array = seat.get("centre", [s.x / 2.0, win.position.y]) if seat.get("centre") is Array else [s.x / 2.0, win.position.y]
+	return {"k": k, "xs": xs, "ys": ys, "size": Vector2(xs[-1][3], ys[-1][3]),
+		"window": Rect2(x0, y0, mapped(win.end.x, xs) - x0, mapped(win.end.y, ys) - y0),
+		"seat": Vector2(mapped(float(sc[0]), xs), mapped(float(sc[1]), ys)), "seat_r": float(seat.get("radius", 0.0)) * k}
+
+
+## [[src0, src1, dst0, dst1], ...] along one axis of `length` texture px: the fixed parts × k, the
+## runs ([from, to] px) × k plus their share (by length) of `extra` (never under 1 px).
+static func segments(length: float, runs: Array, extra: float, k: float) -> Array:
+	var cuts := [0.0]
+	var run_px := 0.0
+	for r in runs:
+		cuts.append(float(r[0]))
+		cuts.append(float(r[1]))
+		run_px += float(r[1]) - float(r[0])
+	cuts.append(length)
+	var out := []
+	var at := 0.0
+	for i in cuts.size() - 1:
+		var a: float = cuts[i]
+		var b: float = cuts[i + 1]
+		var d := (b - a) * k
+		if i % 2 == 1 and run_px > 0.0: # a run
+			d = maxf(1.0, d + extra * (b - a) / run_px)
+		out.append([a, b, at, at + d])
+		at += d
+	return out
+
+
+## A texture coordinate along one axis → its place in the drawn frame.
+static func mapped(v: float, segs: Array) -> float:
+	for sg in segs:
+		if v <= sg[1]:
+			return sg[2] + (v - sg[0]) / maxf(0.001, sg[1] - sg[0]) * (sg[3] - sg[2])
+	return segs[-1][3]
+
+
+## The card's rect in this control.
+func card_rect() -> Rect2:
+	return Rect2(Vector2.ONE * window_inset, size - Vector2.ONE * window_inset * 2.0)
+
+
+## Where the real art goes for a card rect without a layout file: stretched so its window (inset
+## `inset` of the art each side) covers `card` exactly.
 static func art_rect(card: Rect2, inset: float = Art.RANK_FRAME_INSET) -> Rect2:
 	var k := 1.0 - 2.0 * inset
 	var full := card.size / k
@@ -63,15 +155,37 @@ static func art_rect(card: Rect2, inset: float = Art.RANK_FRAME_INSET) -> Rect2:
 
 func _sync() -> void:
 	queue_redraw()
-	var want := grade != "" and crest_px > 0.0
+	var seat := _art_seat()
+	var want := grade != "" and (crest_px > 0.0 or not seat.is_empty()) # the art's medallion always carries it
 	if want and _badge == null:
-		_badge = GradeBadge.make(grade, 0, crest_px)
+		_badge = GradeBadge.make(grade, 0, maxf(crest_px, 24.0))
 		add_child(_badge)
 	if _badge != null:
 		_badge.visible = want
 		_badge.grade = grade
-		_badge.size = Vector2(crest_px, crest_px)
-		_badge.position = Vector2((size.x - crest_px) / 2.0, -crest_px * 0.55)
+		if not seat.is_empty(): # on the art's medallion
+			var px: float = seat["px"]
+			_badge.size = Vector2(px, px)
+			_badge.position = seat["centre"] - Vector2(px, px) / 2.0
+		else:
+			_badge.size = Vector2(crest_px, crest_px)
+			_badge.position = Vector2((size.x - crest_px) / 2.0, -crest_px * 0.55)
+
+
+## The real art's medallion in this control: {centre, px (the badge's size)}; {} without the art,
+## its layout or a seat.
+func _art_seat() -> Dictionary:
+	if grade == "" or Art.rank_frame(grade) == null:
+		return {}
+	var fc := layout()
+	if fc.is_empty():
+		return {}
+	var card := card_rect()
+	var sl := slices(fc, card.size)
+	if float(sl["seat_r"]) <= 0.0:
+		return {}
+	var origin: Vector2 = card.position - Rect2(sl["window"]).position
+	return {"centre": origin + Vector2(sl["seat"]), "px": float(sl["seat_r"]) * 2.0 * SEAT_FILL}
 
 
 func _draw() -> void:
@@ -88,7 +202,7 @@ func _draw() -> void:
 		return
 	var tex := Art.rank_frame(grade)
 	if tex != null: # the real art
-		draw_texture_rect(tex, art_rect(r), false)
+		_draw_art(tex)
 		return
 	var c: Array = GradeBadge.colors(grade)
 	var n := GradeBadge.marks_of(grade)
@@ -133,6 +247,25 @@ func _draw() -> void:
 					_stud(p, 3.5 + (n - 3), c)
 	if crest_px > 0.0:
 		_crest(Vector2(size.x / 2.0, -crest_px * 0.05), c)
+
+
+## The real art round the card: sliced by the layout (ornaments at one scale, the plain bands
+## stretched), else stretched whole.
+func _draw_art(tex: Texture2D) -> void:
+	var card := card_rect()
+	var fc := layout()
+	if fc.is_empty():
+		draw_texture_rect(tex, art_rect(card), false)
+		return
+	var sl := slices(fc, card.size)
+	var origin: Vector2 = card.position - Rect2(sl["window"]).position
+	var t := tex.get_size() / Vector2(float(fc["size"][0]), float(fc["size"][1])) # layout px → texture px
+	for sy in sl["ys"]:
+		for sx in sl["xs"]:
+			var src := Rect2(sx[0] * t.x, sy[0] * t.y, (sx[1] - sx[0]) * t.x, (sy[1] - sy[0]) * t.y)
+			var dst := Rect2(origin + Vector2(sx[2], sy[2]), Vector2(sx[3] - sx[2], sy[3] - sy[2]))
+			if src.has_area() and dst.has_area():
+				draw_texture_rect_region(tex, dst, src)
 
 
 ## The plate behind the crest's badge: a rounded diamond of the frame's colours.

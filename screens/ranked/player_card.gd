@@ -118,6 +118,7 @@ func _ready() -> void:
 	_rim_layer = _layer(_draw_rim)
 	_frame = GradeFrame.make("", RADIUS + FRAME_OUT, 0.0)
 	_frame.name = "Frame"
+	_frame.window_inset = FRAME_OUT # the real art's window on the card itself
 	_frame.position = -Vector2.ONE * FRAME_OUT
 	_frame.size = _size() + Vector2.ONE * FRAME_OUT * 2.0
 	add_child(_frame)

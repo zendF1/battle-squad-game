@@ -195,3 +195,40 @@ func test_rank_art_is_optional_and_frames_fit_the_card() -> void:
 	near(r.size.x * 0.76, 380.0, 0.01, "the art's window spans the card's width")
 	near(r.position.x + r.size.x * 0.12, 10.0, 0.01, "the window's left on the card's")
 	near(r.position.y + r.size.y * 0.12, 20.0, 0.01, "the window's top on the card's")
+
+
+## The layout tools/import_rank_art.gd writes to assets/ranks/ranks.json (768 × 960 frames).
+const FRAME_LAYOUT := {"size": [768, 960], "window": [92, 115, 584, 730], "seat": {"centre": [384, 115], "radius": 58},
+	"stretchX": [], "stretchY": [[288, 413], [547, 672]]}
+
+
+func _check_slices(card: Vector2, what: String) -> void:
+	var sl := GradeFrame.slices(FRAME_LAYOUT, card)
+	var k := card.x / 584.0
+	near(float(sl["k"]), k, 0.0001, "%s: one scale, the card's width over the window's" % what)
+	var win: Rect2 = sl["window"]
+	near(win.size.x, card.x, 0.01, "%s: the window as wide as the card" % what)
+	near(win.size.y, card.y, 0.01, "%s: the window as tall as the card" % what)
+	near(win.position.x, 92.0 * k, 0.01, "%s: the left ornaments at k" % what)
+	near(win.position.y, 115.0 * k, 0.01, "%s: the top ornaments at k" % what)
+	var ys: Array = sl["ys"]
+	eq(ys.size(), 5, "%s: fixed, run, fixed, run, fixed" % what)
+	for i in [0, 2, 4]:
+		near(float(ys[i][3] - ys[i][2]), float(ys[i][1] - ys[i][0]) * k, 0.01, "%s: fixed band %d never stretched" % [what, i])
+	var extra := card.y - 730.0 * k
+	near(float(ys[1][3] - ys[1][2]) + float(ys[3][3] - ys[3][2]), 250.0 * k + extra, 0.01, "%s: the runs take the missing height" % what)
+	near(float(ys[1][3] - ys[1][2]), float(ys[3][3] - ys[3][2]), 0.01, "%s: shared by length (equal runs)" % what)
+	eq(sl["xs"].size(), 1, "%s: no horizontal runs" % what)
+	near(Vector2(sl["size"]).x, 768.0 * k, 0.01, "%s: the frame's width at k" % what)
+	near(Vector2(sl["size"]).y, 960.0 * k + extra, 0.01, "%s: the frame's height" % what)
+	near(Vector2(sl["seat"]).x, win.get_center().x, 0.01, "%s: the medallion centred on the card" % what)
+	near(Vector2(sl["seat"]).y, win.position.y, 0.01, "%s: the medallion on the window's top edge" % what)
+	near(float(sl["seat_r"]), 58.0 * k, 0.001, "%s: the medallion at k" % what)
+
+
+func test_frame_art_slices_party_slot_and_vs_card() -> void:
+	_check_slices(Vector2(330, 500), "party slot 330×500")
+	_check_slices(Vector2(268, 520), "VS card 268×520")
+	var short := GradeFrame.slices(FRAME_LAYOUT, Vector2(584, 650)) # shorter than the art's window: the runs shrink
+	near(Rect2(short["window"]).size.y, 650.0, 0.01, "a surplus height comes out of the runs")
+	near(GradeFrame.mapped(0.0, short["ys"]), 0.0, 0.001, "the top edge stays put")
