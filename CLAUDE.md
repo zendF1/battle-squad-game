@@ -11,6 +11,7 @@ An editor run proves nothing about an export. The first iOS build (2026-10) show
 
 How to build and check:
 
-- iOS: run `tools/build_ios.sh [host]`. It bakes the server URL into `res://server.cfg`, exports, then runs `tools/check_export.sh`, which compares what the project and the `.pck` resolve (scripts compiling, the art picked) and stops on any difference.
+- iOS: run `tools/build_ios.sh [host | https://domain]`; macOS: `tools/build_macos.sh [host | https://domain]`. They bake the server into `res://server.cfg` (a host: `http://host:9090` / `ws://host:9091`; a URL: the API on it, the socket on `wss://domain/ws`), export, then run `tools/check_export.sh`, which compares what the project and the `.pck` resolve (scripts compiling, the art picked) and stops on any difference.
+- Production server: `https://battlesquad.chuongnguyen.online` (contabo, `deploy/docker-compose.prod.yml` in the server repo).
 - Any other export: run `tools/check_export.sh <pck>` before handing it over.
 - Device log (Developer Mode on): `Documents/logs/godot.log`. Fetch it with `xcrun devicectl device copy from --domain-type appDataContainer --domain-identifier com.inspius.battlesquad --source Documents/logs/godot.log --destination <file> --device <id>`.
