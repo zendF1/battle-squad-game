@@ -64,6 +64,8 @@ const FlightModel := preload("res://match/boss/flight_model.gd")
 const JumpModel := preload("res://match/boss/jump_model.gd")
 const ShieldBall := preload("res://match/views/shield_ball.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
+const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
+const RankModel := preload("res://screens/ranked/rank_model.gd")
 
 const BODY := Vector2(28, 40) # server PlayerHeight = 40
 ## px per art unit: the baked art (about 150 units) stands about 52 px tall over the 28x40
@@ -89,6 +91,7 @@ const SHADOW_FADE_PX := 420.0 # a flier's ground shadow is faintest this high ov
 const ELEMENT_PX := 20 # the element badge before a name (a boss's bigger, its name too)
 const ELEMENT_PX_BOSS := 26
 const ELEMENT_GAP := 4.0
+const RANK_BADGE_PX := 24 # the badge (rankBadge) after a player's name, mirroring the element badge
 
 var player_id := ""
 var team_id := 1
@@ -106,6 +109,7 @@ var _status: Label
 var _name: Label
 var _element # ElementBadge before the name (the unit's element, GameData.unit_element()); hidden with none
 var element_id := ""
+var _rank_badge: Control # GradeBadge after the name (the player's rankBadge); null without one
 var _title: TitlePlate
 var _title_rise := 0.0 # px the status markers and the turn arrow sit higher for the plate
 var _sprite: Node2D # scenes/character/character.gd
@@ -200,6 +204,11 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_element.name = "ElementBadge"
 	_element.visible = element_id != ""
 	add_child(_element)
+	var badge := RankModel.badge_of(p) if role == "" else ""
+	if badge != "":
+		_rank_badge = GradeBadge.make(badge, 0, RANK_BADGE_PX)
+		_rank_badge.name = "RankBadge"
+		add_child(_rank_badge)
 	_place_element()
 	_title = TitlePlate.new()
 	_title.plate_height = TITLE_H
@@ -238,11 +247,20 @@ func _place_element() -> void:
 	var d: float = _element.size.x
 	var x := -minf(w, _name.size.x) / 2.0 - ELEMENT_GAP - d if w > 0.0 else -d / 2.0 # no name: centred alone
 	_element.position = Vector2(x, _name.position.y + (_name.size.y - d) / 2.0)
+	if _rank_badge != null: # mirrored: just right of the name's text
+		# the insignia's board fills the middle half of its square: its left margin counts as gap
+		var bx := minf(w, _name.size.x) / 2.0 + ELEMENT_GAP - RANK_BADGE_PX * 0.2 if w > 0.0 else -RANK_BADGE_PX / 2.0
+		_rank_badge.position = Vector2(bx, _name.position.y + (_name.size.y - RANK_BADGE_PX) / 2.0)
 
 
 ## The element badge before the name (tests).
 func element_badge() -> Control:
 	return _element
+
+
+## The badge after the name (rankBadge; null without one).
+func rank_badge() -> Control:
+	return _rank_badge
 
 
 ## A boss / minion's bodySize: the state's, else its game data entry's (GET /gamedata bosses), 1
@@ -524,6 +542,8 @@ func set_dead() -> void:
 	_badge.show_use({})
 	_name.modulate.a = 0.5
 	_element.modulate.a = 0.5
+	if _rank_badge != null:
+		_rank_badge.modulate.a = 0.5
 	_title.modulate.a = 0.5
 	_status.modulate.a = 0.5
 	_ring.queue_redraw()
@@ -779,6 +799,8 @@ func vanish() -> void:
 	_fx.vanish()
 	for n in [_name, _element, _title, _status, _ring, _badge]:
 		n.visible = false
+	if _rank_badge != null:
+		_rank_badge.visible = false
 
 
 func vanished() -> bool:

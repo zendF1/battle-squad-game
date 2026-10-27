@@ -20,6 +20,7 @@ const Modal := preload("res://ui/modal.gd")
 const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
+const ChestIcon := preload("res://ui/chest_icon.gd")
 
 const NODE_W := 150
 const WIDE_W := 196
@@ -260,7 +261,7 @@ func _node(n: Dictionary, height: int) -> Control:
 		rewards.add_child(row)
 		for line in MilestoneModel.other_lines(lines).slice(0, 2):
 			var cell := Ui.hbox(4)
-			cell.add_child(LobbyUi.icon(reward_icon(line), 30))
+			cell.add_child(reward_icon_node(line, 30))
 			var q := LobbyUi.text(line["short"], 19, Color.WHITE, true)
 			q.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			cell.add_child(q)
@@ -270,7 +271,7 @@ func _node(n: Dictionary, height: int) -> Control:
 		for line in lines.slice(0, 3):
 			var row := Ui.hbox(6)
 			row.alignment = BoxContainer.ALIGNMENT_CENTER
-			row.add_child(LobbyUi.icon(reward_icon(line), px))
+			row.add_child(reward_icon_node(line, px))
 			var q := LobbyUi.text(line["short"], 22 if lines.size() <= 1 else 20, Color.WHITE, true)
 			q.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			row.add_child(q)
@@ -340,6 +341,14 @@ static func _box_style(state: String) -> StyleBoxFlat:
 		MilestoneModel.LOCKED:
 			s.bg_color = Color(0.1, 0.11, 0.16, 0.9)
 	return s
+
+
+## The icon of a reward line as a control px wide: a chest's drawn icon (ui/chest_icon.gd), else
+## reward_icon()'s texture.
+static func reward_icon_node(line: Dictionary, px: int) -> Control:
+	if str(line.get("kind", "")) == "chest":
+		return ChestIcon.make(str(line.get("id", "")), px)
+	return LobbyUi.icon(reward_icon(line), px)
 
 
 ## The icon of a reward line (MilestoneModel.reward_lines).
@@ -451,7 +460,7 @@ static func show_rewards(host: Control, heading: String, all_lines: Array) -> Mo
 		var line: Dictionary = lines[i]
 		var row := Ui.hbox(14)
 		row.alignment = BoxContainer.ALIGNMENT_CENTER if per_column == lines.size() else BoxContainer.ALIGNMENT_BEGIN
-		row.add_child(LobbyUi.icon(reward_icon(line), 52))
+		row.add_child(reward_icon_node(line, 52))
 		var l := LobbyUi.text(line["text"], 28, Color.WHITE, true)
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(l)

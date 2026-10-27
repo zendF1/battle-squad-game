@@ -267,3 +267,11 @@ func test_switching_party_modes_moves_my_lobby() -> void:
 	h.on_event("LobbyUpdated", _lobby([HOST]), 0.0)
 	eq(h.select_queue("boss_dragon", 1.0), [["send", "SetLobbyQueue", {"queue": "boss_dragon"}]], "a queue the server may not run")
 	eq(h.on_event("LobbyError", _err("INVALID_QUEUE"), 1.5), [["toast", "Chế độ này chưa mở, hãy chọn chế độ khác"]], "INVALID_QUEUE shown")
+
+
+func test_member_and_player_badges() -> void:
+	var m := PartyModel.parse_member({"playerId": "p2", "rankBadge": "thuong_ta", "tier": "gold", "division": 1})
+	eq(m["rankBadge"], "thuong_ta", "the slot's frame")
+	check(not m.has("tier"), "the old tier is not carried")
+	eq(PartyModel.parse_member({"playerId": "p2"})["rankBadge"], "", "none (omitempty)")
+	eq(PartyModel.parse_player({"playerId": "p3", "rankBadge": "dai_uy"})["rankBadge"], "dai_uy", "an online player's")

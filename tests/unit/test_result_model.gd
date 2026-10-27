@@ -44,17 +44,20 @@ func test_mvp() -> void:
 
 
 func test_entries() -> void:
-	var me := ResultModel.entry("me", PLAYERS["me"], {}, "me", 40, {"rating": 1300, "tier": "gold", "division": 2}, 900)
-	eq([me["mine"], me["tier"], me["division"], me["level"]], [true, "gold", 2, 40], "me: my rank and level")
+	var me := ResultModel.entry("me", PLAYERS["me"], {}, "me", 40, "thieu_uy", 900)
+	eq([me["mine"], me["badge"], me["level"]], [true, "thieu_uy", 40], "me: my badge and level")
 	eq(me["title"]["name"], "Thợ rèn", "title from the match player")
 	eq(ResultModel.level_text(me), "Lv.40", "level line")
-	var mate := ResultModel.entry("mate", PLAYERS["mate"], {"level": 33, "tier": "silver", "division": 1}, "me", 40, {}, -1)
-	eq([mate["mine"], mate["tier"], mate["level"], mate["title"]], [false, "silver", 33, {}], "roster rank")
-	var bot := ResultModel.entry("bot_a", PLAYERS["bot_a"], {}, "me", 40, {}, 0)
-	eq([bot["tier"], ResultModel.level_text(bot)], ["", ""], "a quick play bot: no line")
-	var ranked_bot := ResultModel.entry("bot_a", PLAYERS["bot_a"], {"level": 30}, "me", 40, {}, 0)
+	var mate := ResultModel.entry("mate", PLAYERS["mate"], {"level": 33, "rankBadge": "ha_si"}, "me", 40, "", -1)
+	eq([mate["mine"], mate["badge"], mate["level"], mate["title"]], [false, "ha_si", 33, {}], "the roster's badge")
+	var own := {"playerId": "mate", "teamId": 2, "rankBadge": "dai_tuong"}
+	eq(ResultModel.entry("mate", own, {"rankBadge": "ha_si"}, "me", 40, "", -1)["badge"], "dai_tuong", "the match player's badge first")
+	var bot := ResultModel.entry("bot_a", PLAYERS["bot_a"], {}, "me", 40, "", 0)
+	eq([bot["badge"], ResultModel.level_text(bot)], ["", ""], "a quick play bot: no line")
+	var ranked_bot := ResultModel.entry("bot_a", PLAYERS["bot_a"], {"level": 30}, "me", 40, "", 0)
 	eq(ResultModel.level_text(ranked_bot), "Lv.30 · Máy", "a ranked bot")
-	eq(ResultModel.entry("me", PLAYERS["me"], {}, "me", 7, {}, 0)["tier"], "", "my rank not loaded")
+	eq(ResultModel.entry("me", PLAYERS["me"], {}, "me", 7, "", 0)["badge"], "", "no badge")
+	check(not me.has("tier"), "the old tier is never shown")
 
 
 func test_rewards() -> void:
@@ -64,7 +67,8 @@ func test_rewards() -> void:
 		[true, 120, 200, true, 41, true, 13], "fields")
 	eq(r["rank"], {}, "no rating outside ranked")
 	var ranked := ResultModel.reward({"expGained": 50, "coinGained": 80, "ratingChange": 22, "newRating": 1212,
-		"newTier": "gold", "newDivision": 3, "oldRating": 1190, "oldTier": "silver", "oldDivision": 1}, "ranked_2v2")
+		"grade": {"oldPoints": 280, "newPoints": 310, "pointsChange": 30, "oldGrade": "binh_nhat", "oldGradeDivision": 1,
+		"newGrade": "ha_si", "newGradeDivision": 3}}, "ranked_2v2")
 	eq(ranked["rank"]["move"], 1, "promoted")
 	eq(ResultModel.reward(null, "ranked_2v2")["ok"], false, "granting failed")
 	eq(ResultModel.reward({"expGained": -3}, "pvp_1v1")["exp"], 0, "never negative")
@@ -150,3 +154,35 @@ func test_podium_top() -> void:
 	eq(ResultModel.podium_top([a, b], "x"), "b", "the MVP lost: the winner with the most damage")
 	eq(ResultModel.podium_top([a], "a"), "", "one winner: one step")
 	eq(ResultModel.podium_top([{"playerId": "a", "damage": 0}, {"playerId": "b", "damage": 0}], ""), "", "no damage: level")
+
+
+## A ranked MatchEnded.rewards[me], shaped like the contract (spec 5 / 8a).
+const RANKED_WIN := {"expGained": 60, "coinGained": 210, "bonusCoin": 150, "ratingChange": 14, "newRating": 1014,
+	"stones": [{"level": 3, "qty": 1}, {"level": 2, "qty": 1}, {"level": 3, "qty": 1}],
+	"grade": {"oldPoints": 90, "newPoints": 120, "pointsChange": 30, "oldGrade": "binh_nhi", "oldGradeDivision": 3,
+		"newGrade": "binh_nhi", "newGradeDivision": 2}}
+
+
+func test_ranked_rewards_points_bonus_and_stones() -> void:
+	var r := ResultModel.reward(RANKED_WIN, "ranked_2v2")
+	eq([r["coin"], r["bonus_coin"]], [210, 150], "the bonus is inside the coins")
+	eq(ResultModel.bonus_text(r["bonus_coin"]), "(+150 thưởng xếp hạng)", "bonus line")
+	eq(ResultModel.bonus_text(0), "", "no bonus")
+	eq(r["stones"], [{"level": 2, "qty": 1}, {"level": 3, "qty": 2}], "stones merged by level")
+	eq(ResultModel.stone_text(r["stones"][1]), "Đá cấp 3 ×2", "stone line")
+	eq([r["rank"]["change"], r["rank"]["old_rank"], r["rank"]["new_rank"]], [30, ["binh_nhi", 3], ["binh_nhi", 2]], "points change")
+	eq(r["empty"], false, "rows to show")
+	var loss := ResultModel.reward({"expGained": 30, "coinGained": 90, "bonusCoin": 60, "stones": [{"level": 4, "qty": 1}],
+		"grade": {"oldPoints": 120, "newPoints": 115, "pointsChange": -5}}, "ranked_2v2")
+	eq([loss["rank"]["change"], loss["rank"]["move"]], [-5, 0], "a loss: -5, same division")
+
+
+func test_boss_chests_and_empty_rewards() -> void:
+	var boss := ResultModel.reward({"expGained": 200, "coinGained": 120, "chests": [{"chestId": "stone_chest", "quantity": 2}]}, "boss:lava_crab")
+	eq(boss["chests"].map(func(c): return c["text"]), ["2 × Rương đá"], "a bonus run's chests")
+	eq(boss["stones"], [], "no stones outside ranked")
+	var ai := ResultModel.reward({"expGained": 0, "coinGained": 0, "levelUp": false}, "pvp_1v1")
+	check(ai["ok"] and ai["empty"], "QuickPlay vs AI / practice: granted, but nothing to show")
+	check(not ResultModel.reward(null, "pvp_1v1")["empty"], "a failed grant is not 'nothing'")
+	check(not ResultModel.reward({"expGained": 0, "coinGained": 0, "levelUp": true, "newLevel": 3}, "pvp_1v1")["empty"],
+		"a level up still shows")

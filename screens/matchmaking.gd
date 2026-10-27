@@ -2,7 +2,7 @@ extends Control
 ## Matchmaking (opened by the Loadout's "TÌM TRẬN" on a queue mode: Đấu hạng 2vs2, Đấu thường
 ## 2vs2, ...): the queue Router.queue (screens/ranked/ranked_flow.gd) with the Loadout's character
 ## and items (Router.ranked_loadout) and the screen around it. Left, my team's two cards (mine filled:
-## character, name, Lv, tier badge; my teammate a silhouette "Đang ghép..." with a light sweep),
+## character, name, Lv, the frame of their badge; my teammate a silhouette "Đang ghép..." with a light sweep),
 ## right the two enemy silhouettes, in the middle the VS emblem under the mode's name in capitals
 ## and its description (the game data's, "ĐẤU HẠNG 2VS2") and over
 ## "Đang ghép... 0:31" with a spinner ("Đang vào hàng chờ..." until the server says the queue
@@ -136,7 +136,7 @@ func _exit_tree() -> void:
 
 func _my_player() -> Dictionary:
 	var character := str(Router.ranked_loadout.get("characterId", GameData.default_character_id()))
-	return MatchmakingModel.my_player(_me, PlayerState.display_name(), character, PlayerState.level(), PlayerState.my_rank())
+	return MatchmakingModel.my_player(_me, PlayerState.display_name(), character, PlayerState.level(), PlayerState.profile, PlayerState.my_rank())
 
 
 func _on_rank_changed() -> void:

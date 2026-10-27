@@ -2,14 +2,14 @@ extends "res://ui/modal.gd"
 ## A party invite to me (LobbyInvite through Router.party), shown over any Home page: the
 ## inviter's head, "<name> mời bạn chơi Đấu thường 2vs2" (the game data's name of the mode of the
 ## invite's queue),
-## their level and rank, a bar running down over the invite's expiresInSec, "Đồng ý" / "Từ chối".
+## their level and badge (rankBadge, when they have one), a bar running down over the invite's expiresInSec, "Đồng ý" / "Từ chối".
 ## accepted / declined tell Home; the bar running out (or InviteExpired) just closes it.
 
 signal accepted
 signal declined
 
 const HeadIcon := preload("res://screens/home/head_icon.gd")
-const TierBadge := preload("res://screens/ranked/tier_badge.gd")
+const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 
 var party # Router.party (screens/home/party.gd)
@@ -39,10 +39,12 @@ func open_for(host: Node, p, invite: Dictionary, mode_name: String) -> void:
 	var level := int(from.get("level", 0))
 	if level > 0:
 		rank_row.add_child(LobbyUi.text("Lv.%d" % level, 22, LobbyUi.GOLD, true))
-	rank_row.add_child(TierBadge.make(str(from.get("tier", "")), int(from.get("division", 3)), 30))
-	var rank := LobbyUi.text(RankModel.label(str(from.get("tier", "")), int(from.get("division", 3))), 22, Ui.TEXT_DIM)
-	rank.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	rank_row.add_child(rank)
+	var badge := str(from.get("rankBadge", ""))
+	if badge != "":
+		rank_row.add_child(GradeBadge.make(badge, 0, 32))
+		var rank := LobbyUi.text(RankModel.grade_name(badge), 22, GradeBadge.text_color(badge))
+		rank.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		rank_row.add_child(rank)
 	bar = Ui.bar(1.0, 14)
 	bar.add_theme_stylebox_override("fill", LobbyUi.box(LobbyUi.GOLD, 7, 0))
 	body.add_child(bar)

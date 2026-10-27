@@ -1,8 +1,9 @@
 extends Control
 ## The teammate slot right of the Home stage (the ranked mode only, screens/home/lobby.gd), at
 ## about SCALE of the stage. Empty: a "+" on a round translucent disc over a small pedestal, "Mời" under it
-## (invite_pressed: the invite popup). With a teammate (PartyModel.parse_member()): their name,
-## "Lv.N" and tier badge above their character (CharacterView of their characterId, hands free)
+## (invite_pressed: the invite popup). With a teammate (PartyModel.parse_member()): a frame round
+## the slot (screens/ranked/grade_frame.gd: their rankBadge's, the badge on its crest; the plain
+## default frame without one), their name and "Lv.N" above their character (CharacterView of their characterId, hands free)
 ## with their gun on the pedestal (PedestalGun of their gun {kind, tier}); for the host a ready
 ## mark under it ("Sẵn sàng" green tick / "Chưa sẵn sàng" grey) and a small "×" (kick_pressed), for
 ## the member (the host shown, always ready) "Rời đội" there instead (leave_pressed). Each player sees the other here: a
@@ -19,8 +20,7 @@ const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Art := preload("res://ui/art.gd")
 const CharacterView := preload("res://ui/character_view.gd")
 const PedestalGun := preload("res://screens/home/pedestal_gun.gd")
-const TierBadge := preload("res://screens/ranked/tier_badge.gd")
-const RankModel := preload("res://screens/ranked/rank_model.gd")
+const GradeFrame := preload("res://screens/ranked/grade_frame.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
@@ -34,6 +34,8 @@ const PLUS := 150.0
 const PLUS_DISC := 112.0
 const PLUS_DISC_COLOR := Color(0.05, 0.08, 0.2, 0.55)
 const READY_COLOR := Color(0.35, 0.85, 0.45)
+const FRAME := Rect2(22, 46, 286, 446) # round the name, the figure, the pedestal and the ready mark
+const CREST := 46.0
 
 var _pedestal: Control
 var _plus: Button
@@ -44,7 +46,7 @@ var _head: VBoxContainer
 var _name: Label
 var _name_row: HBoxContainer # the teammate's character's element badge before the name
 var _level: Label
-var _badge: TierBadge
+var _frame: GradeFrame
 var _ready_mark: PanelContainer
 var _ready_text: Label
 var _kick: Button
@@ -61,6 +63,13 @@ func _ready() -> void:
 	_pedestal.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_pedestal.draw.connect(_draw_pedestal)
 	add_child(_pedestal)
+	_frame = GradeFrame.make("", 26.0, CREST, true)
+	_frame.name = "Frame"
+	_frame.fill = Color(0.04, 0.06, 0.16, 0.3)
+	_frame.position = FRAME.position
+	_frame.size = FRAME.size
+	add_child(_frame)
+	move_child(_frame, 0) # behind the pedestal and the figure
 
 	_plus = Button.new()
 	_plus.name = "InvitePlus"
@@ -114,8 +123,6 @@ func _ready() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.mouse_filter = MOUSE_FILTER_IGNORE
 	_head.add_child(row)
-	_badge = TierBadge.make("", 3, 30)
-	row.add_child(_badge)
 	_level = LobbyUi.text("", 22, LobbyUi.GOLD, true)
 	_level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(_level)
@@ -158,7 +165,7 @@ func show_member(m: Dictionary, host_view: bool, is_host_card: bool = true, can_
 	_plus.modulate.a = 1.0 if can_invite else 0.4
 	_plus_label.text = "Mời" if can_invite else "Trống"
 	_plus_label.modulate.a = 1.0 if can_invite else 0.6
-	for c in [_art, _gun, _head, _ready_mark]:
+	for c in [_art, _gun, _head, _ready_mark, _frame]:
 		c.visible = not empty
 	_kick.visible = not empty and host_view
 	_leave.visible = not empty and not host_view and is_host_card
@@ -174,9 +181,7 @@ func show_member(m: Dictionary, host_view: bool, is_host_card: bool = true, can_
 	ElementBadge.fit_label(_name, SIZE.x - (2 * (30 + 6) if element != "" else 0))
 	var level := int(m.get("level", 0))
 	_level.text = "Lv.%d" % level if level > 0 else ""
-	_badge.tier = str(m.get("tier", ""))
-	_badge.division = int(m.get("division", 3))
-	_badge.visible = _badge.tier != ""
+	_frame.grade = str(m.get("rankBadge", ""))
 	var ready := bool(m.get("ready", false))
 	_ready_mark.visible = host_view or not is_host_card # the member sees the host, always ready: "Rời đội" there instead
 	_ready_text.text = "Sẵn sàng" if ready else "Chưa sẵn sàng"

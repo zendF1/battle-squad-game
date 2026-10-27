@@ -2,9 +2,9 @@ extends Control
 ## One tall card of the matchmaking screen. Empty (searching): a dark silhouette of a fighter,
 ## a big "?" and "Đang ghép..." with a light band sweeping over the card. Filled: the player's
 ## title plate (when known), the character's full-body picture breathing on a glowing floor,
-## name, "Lv.N" (" · Máy" for a bot) and the tier badge with "Bạc II". The rim and the glow are
-## the team's colour (blue mine, red the enemies'), gold for my own card with a "BẠN" tag at the
-## bottom; the face is a rounded-rect shader (FACE_CODE). flip_to() turns
+## name, "Lv.N" (" · Máy" for a bot) and, with a badge (rankBadge: last season's final grade),
+## its insignia with the grade's name; the badge's frame (grade_frame.gd) round the card. The rim
+## and the glow are the team's colour (blue mine, red the enemies'); the face is a rounded-rect shader (FACE_CODE). flip_to() turns
 ## the card edge-on, swaps the content and turns it back with a white flash.
 
 const Ui := preload("res://ui/ui.gd")
@@ -12,7 +12,9 @@ const LobbyUi := preload("res://ui/lobby_ui.gd")
 const CharacterView := preload("res://ui/character_view.gd")
 const Art := preload("res://ui/art.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
-const TierBadge := preload("res://screens/ranked/tier_badge.gd")
+const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
+const GradeFrame := preload("res://screens/ranked/grade_frame.gd")
+const RankModel := preload("res://screens/ranked/rank_model.gd")
 const MatchmakingModel := preload("res://screens/ranked/matchmaking_model.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
@@ -27,6 +29,7 @@ const GOLD := Color(1.0, 0.8, 0.22)
 const BG := Color(0.05, 0.08, 0.2, 0.9)
 const RADIUS := 22
 const FLIP_SEC := 0.16
+const FRAME_OUT := 5.0 # the badge's frame sits this far outside the card's rim
 
 ## The card's face: a rounded rect (so nothing shows past the corners) with the team's glow from
 ## the top and the sweeping light band of a searching card.
@@ -81,6 +84,7 @@ var _shine_tween: Tween
 var _flash := 0.0
 var _flash_box: StyleBoxFlat
 var _art: CharacterView
+var _frame: GradeFrame
 
 
 ## The card's size: COMPACT_SIZE when compact, else SIZE.
@@ -112,6 +116,11 @@ func _ready() -> void:
 	_content.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(_content)
 	_rim_layer = _layer(_draw_rim)
+	_frame = GradeFrame.make("", RADIUS + FRAME_OUT, 0.0)
+	_frame.name = "Frame"
+	_frame.position = -Vector2.ONE * FRAME_OUT
+	_frame.size = _size() + Vector2.ONE * FRAME_OUT * 2.0
+	add_child(_frame)
 	_restyle()
 	_build()
 
@@ -216,6 +225,7 @@ func _build() -> void:
 	_art = null
 	var empty := _player.is_empty()
 	_set_shine(empty)
+	_frame.grade = "" if empty else str(_player.get("rankBadge", ""))
 	if not empty and title.size() > 0:
 		var plate := TitlePlate.new()
 		plate.plate_height = 34
@@ -258,13 +268,13 @@ func _build() -> void:
 	var lv := MatchmakingModel.level_text(_player)
 	if lv != "":
 		col.add_child(_label(lv, 22, LobbyUi.GOLD))
-	var rank := "" if compact else MatchmakingModel.rank_text(_player)
-	if rank != "":
+	var badge := "" if compact else str(_player.get("rankBadge", ""))
+	if badge != "":
 		var row := Ui.hbox(6)
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
 		row.mouse_filter = MOUSE_FILTER_IGNORE
-		row.add_child(TierBadge.make(str(_player["tier"]), int(_player["division"]), 52))
-		var rl := _label(rank, 24, TierBadge.COLORS.get(str(_player["tier"]), TierBadge.COLORS[""])[0])
+		row.add_child(GradeBadge.make(badge, 0, 48))
+		var rl := _label(RankModel.grade_name(badge), 24, GradeBadge.text_color(badge))
 		rl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(rl)
 		col.add_child(row)

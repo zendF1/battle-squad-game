@@ -5,7 +5,7 @@ const MatchmakingModel := preload("res://screens/ranked/matchmaking_model.gd")
 
 static func _p(id: String, extra: Dictionary = {}) -> Dictionary:
 	var p := {"playerId": id, "displayName": id.capitalize(), "characterId": "spark", "isBot": id.begins_with("bot_"),
-		"level": 40, "rating": 1050, "tier": "silver", "division": 2, "titleId": ""}
+		"level": 40, "rankBadge": "trung_si", "titleId": ""}
 	p.merge(extra, true)
 	return p
 
@@ -45,11 +45,13 @@ func test_parse_player() -> void:
 	eq(bot["isBot"], true, "a bot by its id")
 	eq(bot["displayName"], "Bot", "a bot's default name")
 	eq(bot["characterId"], "rookie", "default character")
-	eq(bot["tier"], "", "no rank given")
+	eq(bot["rankBadge"], "", "no badge given")
 	eq(MatchmakingModel.level_text(bot), "Lv.1 · Máy", "bot line")
-	var p := MatchmakingModel.parse_player({"playerId": "p1", "displayName": "Smoke", "rating": 1250})
-	eq([p["tier"], p["division"]], ["gold", 3], "tier from the rating")
-	eq(MatchmakingModel.rank_text(p), "Vàng III", "rank line")
+	var p := MatchmakingModel.parse_player({"playerId": "p1", "displayName": "Smoke", "rating": 1250, "tier": "gold",
+		"rankBadge": "dai_ta"})
+	eq(p["rankBadge"], "dai_ta", "the badge (the card's frame)")
+	check(not p.has("tier") and not p.has("rating"), "the old tier is never carried to a card")
+	eq(MatchmakingModel.parse_player({"playerId": "p1", "rankBadge": "wood"})["rankBadge"], "", "an unknown grade: no badge")
 	eq(MatchmakingModel.level_text(p), "", "no level")
 	eq(MatchmakingModel.parse_player({"displayName": "x"}), {}, "no id")
 	eq(MatchmakingModel.parse_player("x"), {}, "not a player")
@@ -70,7 +72,8 @@ func test_teams_from_match_started() -> void:
 
 
 func test_my_player_while_searching() -> void:
-	var p := MatchmakingModel.my_player("me", "Smoke", "flora", 12, {"rating": 1300, "tier": "gold", "division": 2})
+	var p := MatchmakingModel.my_player("me", "Smoke", "flora", 12, {"rankBadge": "ha_si"}, {"rankBadge": "dai_ta"})
 	eq([p["displayName"], p["characterId"], p["level"]], ["Smoke", "flora", 12], "profile")
-	eq(MatchmakingModel.rank_text(p), "Vàng II", "rank")
-	eq(MatchmakingModel.rank_text(MatchmakingModel.my_player("me", "S", "rookie", 1, {})), "Bạc III", "not loaded: the default")
+	eq(p["rankBadge"], "ha_si", "the profile's badge first")
+	eq(MatchmakingModel.my_player("me", "S", "rookie", 1, {}, {"rankBadge": "dai_ta"})["rankBadge"], "dai_ta", "else /rank/me's")
+	eq(MatchmakingModel.my_player("me", "S", "rookie", 1, {})["rankBadge"], "", "not loaded: none")

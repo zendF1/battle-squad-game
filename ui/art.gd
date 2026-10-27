@@ -1279,6 +1279,41 @@ static func has_png(path: String) -> bool:
 	return FileAccess.file_exists(path) or ResourceLoader.exists(path)
 
 
+# ── Rank art (grades) ───────────────────────────────────────────────────────
+
+## A grade's card frame (assets/ranks/frame_<grade>.png: a 512 × 640 portrait, transparent
+## centre, the card's window inset RANK_FRAME_INSET each side) and badge (badge_<grade>.png, 256 ×
+## 256). Optional: null when the file is not there (yet), and the caller draws its placeholder in
+## code (screens/ranked/grade_frame.gd, grade_badge.gd).
+const RANK_FRAME_INSET := 0.12
+
+
+static func rank_frame_path(grade: String) -> String:
+	return ROOT + "ranks/frame_%s.png" % grade
+
+
+static func rank_badge_path(grade: String) -> String:
+	return ROOT + "ranks/badge_%s.png" % grade
+
+
+static func rank_frame(grade: String) -> Texture2D:
+	return _optional_png(rank_frame_path(grade)) if grade != "" else null
+
+
+static func rank_badge(grade: String) -> Texture2D:
+	return _optional_png(rank_badge_path(grade)) if grade != "" else null
+
+
+## A texture that may not exist: null (no warning) when the file is missing.
+static func _optional_png(path: String) -> Texture2D:
+	if _textures.has(path):
+		return _textures[path]
+	if not has_png(path):
+		_textures[path] = null # looked once per run
+		return null
+	return _png_texture(path)
+
+
 # ── Guns ────────────────────────────────────────────────────────────────────
 
 ## The sprite of a gun: {kind, tier, texture, grip, muzzle (px in the texture), scale (texture

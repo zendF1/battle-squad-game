@@ -5,15 +5,17 @@ extends Control
 ## spotlight (two winners: one step each, the MVP's higher with a gold star; an MVP of the losing
 ## side: the winner with the most damage stands higher, ResultModel.podium_top()), the other team
 ## on the right, dimmed, on the ground (a draw: my team left, no podium); each player in full pose
-## (ui/character_view.gd, bots too) on their own step under their title plate, the tier badge with
-## the name (mine gold) and "Lv.N" / the damage dealt, "MVP" on the best one, "ĐỘI CỦA BẠN" /
+## (ui/character_view.gd, bots too) on their own step under their title plate, their badge
+## (rankBadge, grade_badge.gd) with the name (mine gold) and "Lv.N" / the damage dealt, "MVP" on the best one, "ĐỘI CỦA BẠN" /
 ## "ĐỐI THỦ" under each team. Bottom left my rewards card (its size never changes: what grew it
-## is in the popups): "+N EXP" counting with its bar filling, "+N xu", a small gold chip by
-## "PHẦN THƯỞNG" with the new levels after a level up, and for ranked the tier badge with
-## "Điểm hạng a → b (+c)". One after another: the EXP, then "LÊN CẤP!" (match/level_up_popup.gd)
-## when the player or the character levelled up, the coins, then the rank popup
-## (match/rank_popup.gd) when the division or tier changed (the badge then flips to the new rank),
-## else the rating line counting. Bottom right, always in place: "Chơi tiếp" (ranked) /
+## is in the popups): "+N EXP" counting with its bar filling, "+N xu" (a ranked match: "(+150
+## thưởng xếp hạng)" after it and the stones won), a small gold chip by "PHẦN THƯỞNG" with the new
+## levels after a level up, and for ranked the grade's insignia with its name and "+30 điểm hạng"
+## (or −). A match that gives nothing (QuickPlay vs AI, practice: all 0) shows no rewards card.
+## One after another: the EXP, then "LÊN CẤP!" (match/level_up_popup.gd) when the player or the
+## character levelled up, the coins, then the rank popup (match/rank_popup.gd) when the division
+## or grade changed (the insignia and the name then flip to the new rank), else the points
+## counting. Bottom right, always in place: "Chơi tiếp" (ranked) /
 ## "Chơi lại" (Quick Play), "Về sảnh" and "Tự động về sảnh sau N giây" (AUTO_EXIT_SEC, then
 ## home_pressed; paused while a popup is open). The players rise onto their places one by one
 ## after the title.
@@ -31,7 +33,7 @@ const Art := preload("res://ui/art.gd")
 const Backdrop := preload("res://ui/backdrop.gd")
 const CharacterView := preload("res://ui/character_view.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
-const TierBadge := preload("res://screens/ranked/tier_badge.gd")
+const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const ResultModel := preload("res://match/result_model.gd")
 const LevelUpPopup := preload("res://match/level_up_popup.gd")
@@ -77,7 +79,8 @@ var _level_chip_text: Label
 var _card_clip: Control
 var _card: Control
 var _right: Control
-var _rank_badge: TierBadge
+var _rank_badge: GradeBadge
+var _rank_name: Label
 var _rank_line: Label
 var _popup_open := false
 var _top_id := "" # the winner on the podium's top step
@@ -223,8 +226,8 @@ func _add_slot(e: Dictionary, left: bool) -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.mouse_filter = MOUSE_FILTER_IGNORE
 	head.add_child(row)
-	if str(e["tier"]) != "":
-		row.add_child(TierBadge.make(e["tier"], e["division"], 44))
+	if str(e.get("badge", "")) != "":
+		row.add_child(GradeBadge.make(e["badge"], 0, 40))
 	var name_label := LobbyUi.text(str(e["displayName"]), 28, GOLD.lightened(0.35) if e["mine"] else Color.WHITE, true)
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	name_label.mouse_filter = MOUSE_FILTER_IGNORE
@@ -276,6 +279,8 @@ func _build_bottom() -> Control:
 	var row := Ui.hbox(36)
 	inner.add_child(row)
 	var reward: Dictionary = info.get("reward", {})
+	if reward.get("empty", false): # nothing to show (QuickPlay vs AI, practice)
+		_card_clip.visible = false
 	var col := Ui.vbox(8)
 	col.size_flags_horizontal = SIZE_EXPAND_FILL
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -324,9 +329,21 @@ func _build_bottom() -> Control:
 		_exp_value = LobbyUi.text("+0 EXP", 28, Color.WHITE, true)
 		_exp_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		exp_row.add_child(_exp_value)
-		var coin_row := Ui.hbox(18)
+		var coin_row := Ui.hbox(10)
+		coin_row.name = "CoinRow"
 		col.add_child(coin_row)
 		_coin_value = LobbyUi.icon_text(coin_row, "coin", "+0 xu", 28, Color.WHITE, true, 36)
+		var bonus := ResultModel.bonus_text(int(reward.get("bonus_coin", 0)))
+		if bonus != "":
+			var b := LobbyUi.text(bonus, 20, LobbyUi.GOLD, true)
+			b.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			coin_row.add_child(b)
+		for s in reward.get("stones", []):
+			var gap := Control.new()
+			gap.custom_minimum_size.x = 8
+			coin_row.add_child(gap)
+			var st := LobbyUi.icon_text(coin_row, Art.stone_icon(int(s["level"])), "×%d" % int(s["qty"]), 24, Color.WHITE, true, 40)
+			st.tooltip_text = ResultModel.stone_text(s)
 	var rank: Dictionary = reward.get("rank", {})
 	if not rank.is_empty():
 		var sep := ColorRect.new()
@@ -336,14 +353,18 @@ func _build_bottom() -> Control:
 		var rank_row := Ui.hbox(16)
 		rank_row.alignment = BoxContainer.ALIGNMENT_CENTER
 		row.add_child(rank_row)
-		_rank_badge = TierBadge.make(rank["old_rank"][0], rank["old_rank"][1], 92)
+		_rank_badge = GradeBadge.make(rank["old_rank"][0], rank["old_rank"][1], 92)
 		_rank_badge.size_flags_vertical = SIZE_SHRINK_CENTER
 		rank_row.add_child(_rank_badge)
 		var texts := Ui.vbox(2)
 		texts.alignment = BoxContainer.ALIGNMENT_CENTER
 		rank_row.add_child(texts)
 		texts.add_child(LobbyUi.text("XẾP HẠNG", 20, Ui.TEXT_DIM, true))
-		_rank_line = LobbyUi.text(RankModel.rating_line(rank, rank["old"]), 28, Color.WHITE, true)
+		_rank_name = LobbyUi.text(RankModel.label(rank["old_rank"][0], rank["old_rank"][1]), 28,
+			GradeBadge.text_color(rank["old_rank"][0]), true)
+		texts.add_child(_rank_name)
+		_rank_line = LobbyUi.text(RankModel.points_change_text(0), 26, _change_color(int(rank["change"])), true)
+		_rank_line.name = "RankPoints"
 		texts.add_child(_rank_line)
 	var right := Ui.vbox(8)
 	right.alignment = BoxContainer.ALIGNMENT_END
@@ -596,10 +617,10 @@ func _count_rest() -> void:
 	if rank.is_empty():
 		return
 	var popup_data := RankModel.popup_of(rank)
+	t.tween_interval(0.15)
+	t.tween_method(func(v: float) -> void: _rank_line.text = RankModel.points_change_text(roundi(v)),
+		0.0, float(rank["change"]), 0.8).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	if popup_data.is_empty():
-		t.tween_interval(0.15)
-		t.tween_method(func(v: float) -> void: _rank_line.text = RankModel.rating_line(rank, roundi(v)),
-			float(rank["old"]), float(rank["new"]), 1.0).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		return
 	t.tween_interval(0.25)
 	t.tween_callback(func() -> void:
@@ -608,15 +629,23 @@ func _count_rest() -> void:
 		_open_popup(popup, _rank_settled.bind(rank)))
 
 
-## After the rank popup: the card's badge flips to the new rank, its line shows the new rating.
+## +30 green, -15 red, 0 white.
+static func _change_color(change: int) -> Color:
+	if change > 0:
+		return Color(0.55, 1.0, 0.6)
+	return Color(1.0, 0.55, 0.5) if change < 0 else Color.WHITE
+
+
+## After the rank popup: the card's insignia and name flip to the new rank.
 func _rank_settled(rank: Dictionary) -> void:
-	_rank_line.text = RankModel.rating_line(rank)
+	_rank_line.text = RankModel.points_change_text(int(rank["change"]))
 	_rank_badge.pivot_offset = _rank_badge.size / 2.0
 	var t := create_tween()
 	t.tween_property(_rank_badge, "scale", Vector2.ONE * 0.2, 0.14).set_trans(Tween.TRANS_SINE)
 	t.tween_callback(func() -> void:
-		_rank_badge.tier = rank["new_rank"][0]
-		_rank_badge.division = rank["new_rank"][1])
+		_rank_badge.grade = rank["new_rank"][0]
+		_rank_name.text = RankModel.label(rank["new_rank"][0], rank["new_rank"][1])
+		_rank_name.add_theme_color_override("font_color", GradeBadge.text_color(rank["new_rank"][0])))
 	t.tween_property(_rank_badge, "scale", Vector2.ONE * 1.3, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	t.tween_property(_rank_badge, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_SINE)
 

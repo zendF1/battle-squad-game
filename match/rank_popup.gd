@@ -1,23 +1,24 @@
 extends "res://match/result_popup.gd"
-## The rank change over the result screen (match/result_screen.gd opens it after the level up,
-## when RankModel.popup_of() has one): it opens on the old rank (the tier badge, "Vàng II", the
-## rating) and counts the rating to the new one, then walks the popup's steps, one rank each:
-## - a division inside a tier: the old badge slides out left, the next slides in with a pop, a
-##   ring and sparks in the tier's colours, the rank's name ticks over;
-## - into a higher tier: the badge charges up shaking, shatters (shards, a white flash), light,
-##   rays, sparks and two shockwaves in the new tier's colours, the new badge slams in big and
-##   settles (the screen shakes), "THĂNG HẠNG!" slams over it with the new rank's name; the top
-##   tier (crown) adds a gold flash and confetti over everything;
-## - down (a demotion): the badge sinks and greys, the lower one rises dimmed; no fireworks.
-## The tier colours are the badge's (screens/ranked/tier_badge.gd). setup(popup) before it
+## The grade change over the result screen (match/result_screen.gd opens it after the level up,
+## when RankModel.popup_of() has one): it opens on the old rank (the grade's insignia, "Binh nhì
+## 1", the points) and counts the points to the new count, then walks the popup's steps, one rank
+## each:
+## - a division inside a grade: the old insignia slides out left, the next slides in with a pop,
+##   a ring and sparks in the grade's colours, the rank's name ticks over;
+## - into a higher grade: the insignia charges up shaking, shatters (shards, a white flash),
+##   light, rays, sparks and two shockwaves in the new grade's colours, the new insignia slams in
+##   big and settles (the screen shakes), "THĂNG CẤP!" slams over it with the new rank's name;
+##   reaching the ladder's top (crown) adds a gold flash and confetti over everything;
+## - down (a demotion): the insignia sinks and greys, the lower one rises dimmed; no fireworks.
+## The colours are the grade group's (screens/ranked/grade_badge.gd). setup(popup) before it
 ## enters the tree.
 
-const TierBadge := preload("res://screens/ranked/tier_badge.gd")
+const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const Fmt := preload("res://core/fmt.gd")
 
 const BADGE := 250.0
-const BADGE_TIER := 290.0 # the badge of a new tier
+const BADGE_GRADE := 290.0 # the insignia of a new grade
 const UP_GREEN := Color(0.55, 1.0, 0.6)
 const DOWN_RED := Color(1.0, 0.5, 0.45)
 const DOWN_TITLE := Color(0.62, 0.72, 0.9)
@@ -42,16 +43,16 @@ func _up() -> bool:
 	return int(popup["move"]) == RankModel.UP
 
 
-func _tier_up() -> bool:
-	return popup["kind"] == "tier"
+func _grade_up() -> bool:
+	return popup["kind"] == "grade"
 
 
-func _colors(tier: String) -> Array:
-	return TierBadge.COLORS.get(tier, TierBadge.COLORS[""])
+func _colors(grade: String) -> Array:
+	return GradeBadge.colors(grade)
 
 
 func build() -> void:
-	var grand := _tier_up()
+	var grand := _grade_up()
 	_title = label(str(popup["title"]), 120 if grand else (92 if _up() else 80), GOLD if _up() else DOWN_TITLE, 24 if grand else 18)
 	_title.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
 	_title.add_theme_constant_override("shadow_offset_y", 8)
@@ -60,16 +61,16 @@ func build() -> void:
 	_caption = label("XẾP HẠNG", 30, Color(0.75, 0.85, 1.0), 6)
 	stage.add_child(_caption)
 	var old: Array = popup["old_rank"]
-	_badge = TierBadge.make(str(old[0]), int(old[1]), BADGE)
+	_badge = GradeBadge.make(str(old[0]), int(old[1]), BADGE)
 	stage.add_child(_badge)
-	_name = label(RankModel.label(str(old[0]), int(old[1])), 54, _colors(str(old[0]))[0], 12)
+	_name = label(RankModel.label(str(old[0]), int(old[1])), 54, GradeBadge.text_color(str(old[0])), 12)
 	stage.add_child(_name)
 	_rating = label(RankModel.points_text(int(popup["old"])), 34, Color.WHITE, 8)
 	stage.add_child(_rating)
 	_change = label(RankModel.change_text(int(popup["change"])), 34, UP_GREEN if int(popup["change"]) >= 0 else DOWN_RED, 8)
 	_change.modulate.a = 0.0
 	stage.add_child(_change)
-	_crown_line = label("Bạn đã chạm tới đỉnh cao danh vọng!", 32, TierBadge.CROWN[0], 8)
+	_crown_line = label("Đỉnh cấp bậc! Đua top mùa để được phong tướng", 32, GradeBadge.CROWN[0], 8)
 	_crown_line.modulate.a = 0.0
 	stage.add_child(_crown_line)
 
@@ -114,7 +115,7 @@ func play() -> void:
 		if not _up():
 			_down(step)
 		elif str(step[0]) != str(prev[0]):
-			_tier(step, prev)
+			_grade(step, prev)
 		else:
 			_division(step)
 		prev = step
@@ -123,7 +124,7 @@ func play() -> void:
 	seq.tween_callback(done_playing)
 
 
-## The next division of the same tier: out left, in from the right with a pop.
+## The next division of the same grade: out left, in from the right with a pop.
 func _division(step: Array) -> void:
 	seq.tween_callback(func() -> void:
 		var old := _badge
@@ -131,7 +132,7 @@ func _division(step: Array) -> void:
 		t.tween_property(old, "position:x", old.position.x - 260.0, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		t.parallel().tween_property(old, "modulate:a", 0.0, 0.24)
 		t.tween_callback(old.queue_free)
-		_badge = TierBadge.make(str(step[0]), int(step[1]), _badge_px)
+		_badge = GradeBadge.make(str(step[0]), int(step[1]), _badge_px)
 		stage.add_child(_badge)
 		_place_badge(_badge, _badge_px, 260.0)
 		_badge.modulate.a = 0.0
@@ -147,8 +148,8 @@ func _division(step: Array) -> void:
 	seq.tween_interval(0.75)
 
 
-## Into a higher tier: charge, shatter, light and rays, the new badge slams in.
-func _tier(step: Array, prev: Array) -> void:
+## Into a higher grade: charge, shatter, light and rays, the new insignia slams in.
+func _grade(step: Array, prev: Array) -> void:
 	var old_c := _colors(str(prev[0]))
 	var cs := _colors(str(step[0]))
 	var c := _badge_centre()
@@ -168,8 +169,8 @@ func _tier(step: Array, prev: Array) -> void:
 		ring(c, Color.WHITE, 30.0, maxf(size.x, size.y) * 0.4, 0.55, 8.0)
 		_rays_on = rays(c, [cs[0], cs[1]], size.y * 0.95, 0.34, 22)
 		var old := _badge
-		_badge_px = BADGE_TIER
-		_badge = TierBadge.make(str(step[0]), int(step[1]), _badge_px)
+		_badge_px = BADGE_GRADE
+		_badge = GradeBadge.make(str(step[0]), int(step[1]), _badge_px)
 		stage.add_child(_badge)
 		_place_badge(_badge, _badge_px)
 		old.queue_free()
@@ -182,7 +183,7 @@ func _tier(step: Array, prev: Array) -> void:
 		t.tween_property(b, "scale", Vector2.ONE * 0.88, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN))
 	seq.tween_callback(func() -> void: # the slam
 		shake(0.35)
-		ring(c, cs[0].lightened(0.3), BADGE_TIER * 0.4, BADGE_TIER * 1.4, 0.5, 12.0)
+		ring(c, cs[0].lightened(0.3), BADGE_GRADE * 0.4, BADGE_GRADE * 1.4, 0.5, 12.0)
 		burst(c, cs + [Color.WHITE], 30, 520.0, 11.0)
 		_set_name(step, true)
 		_show_title(2.4)
@@ -201,13 +202,13 @@ func _on_badge(sec: float, make: Callable) -> void:
 	seq.tween_interval(sec)
 
 
-## The top tier: a gold flash, gold rays and confetti over everything.
+## The ladder top: a gold flash, gold rays and confetti over everything.
 func _crown() -> void:
 	flash(Color(1.0, 0.85, 0.3, 0.7), 0.5)
-	var gold := rays(_badge_centre(), [TierBadge.CROWN[0], TierBadge.CROWN[1]], size.y * 0.95, 0.26, 12)
+	var gold := rays(_badge_centre(), [GradeBadge.CROWN[0], GradeBadge.CROWN[1]], size.y * 0.95, 0.26, 12)
 	gold["spin"] = -0.18
-	shower(_colors(str(popup["new_rank"][0])) + [TierBadge.CROWN[0], TierBadge.CROWN[1], Color.WHITE], 110)
-	burst(_badge_centre() + Vector2(0, -_badge_px * 0.42), [TierBadge.CROWN[0], Color.WHITE], 28, 460.0, 12.0)
+	shower(_colors(str(popup["new_rank"][0])) + [GradeBadge.CROWN[0], GradeBadge.CROWN[1], Color.WHITE], 110)
+	burst(_badge_centre() + Vector2(0, -_badge_px * 0.42), [GradeBadge.CROWN[0], Color.WHITE], 28, 460.0, 12.0)
 	_crown_line.modulate.a = 1.0
 	pop(_crown_line, 0.4, 0.3)
 
@@ -220,7 +221,7 @@ func _down(step: Array) -> void:
 		t.parallel().tween_property(b, "modulate", Color(0.45, 0.47, 0.55, 0.0), 0.5))
 	seq.tween_callback(func() -> void:
 		var old := _badge
-		_badge = TierBadge.make(str(step[0]), int(step[1]), _badge_px)
+		_badge = GradeBadge.make(str(step[0]), int(step[1]), _badge_px)
 		stage.add_child(_badge)
 		_place_badge(_badge, _badge_px)
 		old.queue_free()
@@ -235,12 +236,12 @@ func _down(step: Array) -> void:
 
 func _set_name(rank: Array, lit: bool) -> void:
 	_name.text = RankModel.label(str(rank[0]), int(rank[1]))
-	_name.add_theme_color_override("font_color", _colors(str(rank[0]))[0] if lit else Color(0.75, 0.78, 0.86))
+	_name.add_theme_color_override("font_color", GradeBadge.text_color(str(rank[0])) if lit else Color(0.75, 0.78, 0.86))
 	if lit:
 		pop(_name, 1.5, 0.3)
 
 
-## After the last step: the title (when no tier slam showed it) and faint rays for a division up.
+## After the last step: the title (when no grade slam showed it) and faint rays for a division up.
 func _ending() -> void:
 	if _title.modulate.a < 1.0:
 		_show_title(1.8 if _up() else 0.7)
@@ -258,14 +259,14 @@ func _show_title(from: float) -> void:
 func show_end() -> void:
 	var nr: Array = popup["new_rank"]
 	var keep := _badge
-	_badge_px = BADGE_TIER if _tier_up() else BADGE
-	_badge = TierBadge.make(str(nr[0]), int(nr[1]), _badge_px)
+	_badge_px = BADGE_GRADE if _grade_up() else BADGE
+	_badge = GradeBadge.make(str(nr[0]), int(nr[1]), _badge_px)
 	stage.add_child(_badge)
 	_place_badge(_badge, _badge_px)
 	if not _up():
 		_badge.modulate = Color(0.72, 0.74, 0.82, 1.0)
 	for c in stage.get_children(): # the badges still sliding
-		if c is TierBadge and c != _badge:
+		if c is GradeBadge and c != _badge:
 			c.queue_free()
 	if is_instance_valid(keep) and keep != _badge:
 		keep.queue_free()
@@ -282,5 +283,5 @@ func show_end() -> void:
 		_crown_line.scale = Vector2.ONE
 	if _up() and _rays_on.is_empty():
 		var cs := _colors(str(nr[0]))
-		_rays_on = rays(_badge_centre(), [cs[0], cs[1]] if _tier_up() else [cs[0], Color.WHITE], size.y * (0.95 if _tier_up() else 0.8),
-			0.34 if _tier_up() else 0.18, 22 if _tier_up() else 18)
+		_rays_on = rays(_badge_centre(), [cs[0], cs[1]] if _grade_up() else [cs[0], Color.WHITE], size.y * (0.95 if _grade_up() else 0.8),
+			0.34 if _grade_up() else 0.18, 22 if _grade_up() else 18)

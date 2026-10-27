@@ -83,6 +83,8 @@ signal boss_runs_changed # a GET /boss/runs answer was applied
 signal maps_changed # a GET /maps answer changed the map catalog
 signal gamedata_changed # a GET /gamedata answer brought a new game data version
 signal _gamedata_done # a load_gamedata() fetch ended
+signal chests_changed # owned chests, their loading / error or chest_busy changed
+signal season_rewards_changed # a GET /rank/season-rewards answer was applied, or a claim ended
 
 const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
 const Coalescer := preload("res://core/coalescer.gd")
@@ -93,6 +95,8 @@ const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
 const DailyModel := preload("res://screens/home/daily_model.gd")
 const MapCatalog := preload("res://match/theme/map_catalog.gd")
+const ChestModel := preload("res://screens/home/chest_model.gd")
+const SeasonRewardModel := preload("res://screens/ranked/season_reward_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
 ## What a payment refreshes once it succeeded.
@@ -200,10 +204,39 @@ var _boss_runs_gate := Coalescer.new()
 const BOSS_RUNS_MAX_AGE_MSEC := 30 * 1000
 var _gamedata_gate := Coalescer.new()
 
+# Chests: [{chestId, quantity, name}] (ChestModel.parse_owned), null until loaded
+var chests: Variant = null
+var chests_loading := false
+var chests_error := "" # Vietnamese; "" after a success
+var chests_stale := true
+var _chests_player := ""
+var _chests_gate := Coalescer.new()
+var chest_busy := "" # the chest being opened
+
+# Season rewards: the unclaimed ones (SeasonRewardModel.parse), [] none or not loaded
+var season_rewards: Array = []
+var _season_rewards_player := ""
+var _season_gate := Coalescer.new()
+var season_busy := "" # the season being claimed
+
 var _equipment_gate := Coalescer.new()
 var _profile_gate := Coalescer.new()
 var _characters_gate := Coalescer.new()
 var _known_ids := {} # purchaseIds / transactionIds this client has seen (replay detection)
+## Chests ("Rương"): GET /chests (ChestModel.parse_owned, coalesced; stale after a match, a claim
+## that gave some and an open), open_chest(id, count) runs POST /chests/open {chestId, count} one
+## at a time (chest_busy) and reloads the chests and the stones (and the equipment when it gave a
+## piece) whatever the answer.
+##
+## Season rewards: GET /rank/season-rewards (SeasonRewardModel.parse) when Home shows
+## (load_season_rewards(), coalesced; season_rewards_changed), claim_season_reward(seasonId) runs
+## POST /rank/season-rewards/claim {seasonId} one at a time: the wallet takes the answer's wallet
+## at once, the chests / stones / profile reload, the list reloads whatever the answer.
+##
+## Gems: the profile's gem is the locked gem (kim cương khoá: daily activities, milestones, season
+## rewards), gemUnlocked the unlocked gem (kim cương: top-ups); a gem price takes the locked first,
+## so what the player can pay is their sum (gem()).
+
 ## The REST client: the Api autoload, or a stand-in set by the tests.
 var api: Object = null
 
@@ -232,8 +265,29 @@ func coin() -> int:
 	return int(profile.get("coin", 0))
 
 
+## What the player can pay in gem: locked plus unlocked.
 func gem() -> int:
+	return gem_locked() + gem_unlocked()
+
+
+## Kim cương khoá (the profile's gem).
+func gem_locked() -> int:
 	return int(profile.get("gem", 0))
+
+
+## Kim cương (top-ups; the profile's gemUnlocked).
+func gem_unlocked() -> int:
+	var v = profile.get("gemUnlocked", 0)
+	return int(v) if v is int or v is float else 0
+
+
+## My badge (rankBadge: last season's final grade): the profile's, else GET /rank/me's; "" none.
+func rank_badge() -> String:
+	var b = profile.get("rankBadge")
+	if b is String and b != "":
+		return b
+	b = my_rank().get("rankBadge")
+	return b if b is String else ""
 
 
 ## The worn title {id, name, rarity}, {} when none (the profile's equippedTitle).
@@ -539,9 +593,16 @@ func _after_pay(after: int) -> void:
 func _take_balance(data: Dictionary) -> void:
 	var currency := str(data.get("currency", ""))
 	var balance = data.get("balance")
-	if not profile.is_empty() and currency in ["coin", "gem"] and (balance is int or balance is float):
-		profile[currency] = int(balance)
-		changed.emit()
+	if profile.is_empty() or not (balance is int or balance is float) or not currency in ["coin", "gem"]:
+		return
+	if currency == "gem":
+		var unlocked = data.get("gemUnlocked")
+		if unlocked is int or unlocked is float: # both gems given
+			profile["gemUnlocked"] = int(unlocked)
+		elif gem_unlocked() > 0:
+			return # one gem balance with both kinds held: which is it? the refresh brings both
+	profile[currency] = int(balance)
+	changed.emit()
 
 
 ## Per-player key target ids, so another account on this device never sends them.
@@ -916,6 +977,8 @@ func _claim(path: String, body: Dictionary, busy: String) -> Dictionary:
 			titles_stale = true
 			if titles != null:
 				load_titles()
+		if rewards["items"].any(func(it): return it["kind"] == "chest"):
+			chests_dirty()
 	refresh() # the wallet's truth, also after a refusal or no answer
 	milestones_stale = true
 	load_milestones()
@@ -1043,6 +1106,8 @@ func claim_chest(id: String) -> Dictionary:
 		var rewards := MilestoneModel.parse_rewards(res.data.get("rewards") if res.data is Dictionary else null)
 		if rewards["items"].any(func(it): return it["kind"] == "stone"):
 			stones_dirty()
+		if rewards["items"].any(func(it): return it["kind"] == "chest"):
+			chests_dirty()
 		if rewards["items"].any(func(it): return it["kind"] == "item"):
 			assets_changed() # the wallet too
 		else:
@@ -1065,4 +1130,113 @@ func _daily_claim(path: String, body: Dictionary, busy: String) -> Dictionary:
 	else:
 		daily_changed.emit()
 		load_daily() # a refusal (another device took it, the day turned) or no state: the truth
+	return res
+
+
+# ── Chests ──────────────────────────────────────────────────────────────────
+
+## Loads GET /chests unless a fresh copy is cached or already on its way.
+func need_chests() -> void:
+	if _chests_player != Session.player_id:
+		chests = null
+	if not _chests_gate.running and (chests == null or chests_stale):
+		load_chests()
+
+
+func load_chests() -> void:
+	if not _chests_gate.ask():
+		return
+	chests_loading = true
+	chests_error = ""
+	chests_changed.emit()
+	while true:
+		var t := _chests_gate.ticket()
+		var player := Session.player_id
+		var res: Dictionary = await _api().get_json("/chests")
+		if not _chests_gate.finish(t):
+			continue
+		var parsed = ChestModel.parse_owned(res.data) if res.ok else null
+		if parsed is Array:
+			chests = parsed
+			chests_stale = false
+			_chests_player = player
+		else:
+			chests_error = ErrorText.load_failed(res) if not res.ok else "Dữ liệu rương không hợp lệ"
+		break
+	chests_loading = false
+	chests_changed.emit()
+
+
+## The chests are out of date (a match or a claim gave some): reloaded when shown next.
+func chests_dirty() -> void:
+	chests_stale = true
+	if _chests_gate.running:
+		load_chests()
+	chests_changed.emit()
+
+
+## POST /chests/open {chestId, count}: the Api result; the chests and the stones reload whatever
+## the answer, the equipment too when it gave a piece. {ok: false, code: "BUSY"} while another
+## open runs.
+func open_chest(chest_id: String, count: int) -> Dictionary:
+	if chest_busy != "":
+		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null}
+	chest_busy = chest_id
+	chests_changed.emit()
+	var res: Dictionary = await _api().post_json("/chests/open", {"chestId": chest_id, "count": count})
+	chest_busy = ""
+	chests_stale = true
+	load_chests()
+	stones_dirty()
+	if res.ok and res.data is Dictionary and not ChestModel.parse_open(res.data)["equipment"].is_empty():
+		equipment_dirty()
+	return res
+
+
+# ── Season rewards ──────────────────────────────────────────────────────────
+
+## Loads GET /rank/season-rewards; a failure keeps the last answer for this account.
+func load_season_rewards() -> void:
+	if not _season_gate.ask():
+		return
+	while true:
+		var t := _season_gate.ticket()
+		var player := Session.player_id
+		var res: Dictionary = await _api().get_json("/rank/season-rewards")
+		if not _season_gate.finish(t):
+			continue
+		if res.ok and res.data is Dictionary:
+			season_rewards = SeasonRewardModel.parse(res.data)
+			_season_rewards_player = player
+			season_rewards_changed.emit()
+		break
+
+
+## The unclaimed season rewards of the signed-in player, oldest first ([] none or not loaded).
+func my_season_rewards() -> Array:
+	return season_rewards if _season_rewards_player == Session.player_id else []
+
+
+## POST /rank/season-rewards/claim {seasonId}: the wallet takes the answer's wallet at once; the
+## chests, the stones and the profile reload; the list reloads whatever the answer.
+func claim_season_reward(season_id: String) -> Dictionary:
+	if season_busy != "":
+		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null}
+	season_busy = season_id
+	season_rewards_changed.emit()
+	var res: Dictionary = await _api().post_json("/rank/season-rewards/claim", {"seasonId": season_id})
+	season_busy = ""
+	if res.ok:
+		var wallet := SeasonRewardModel.wallet_of(res.data)
+		if not profile.is_empty() and not wallet.is_empty():
+			for k in wallet:
+				profile[k] = wallet[k]
+			changed.emit()
+		season_rewards = season_rewards.filter(func(r): return r["seasonId"] != season_id)
+		chests_dirty()
+		stones_dirty()
+		milestones_dirty()
+		refresh()
+	season_rewards_changed.emit()
+	load_season_rewards()
 	return res

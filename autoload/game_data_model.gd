@@ -300,6 +300,9 @@ static func _build_index() -> void:
 	_index["gunKinds"] = _by(list("gunKinds"), "id")
 	_index["bosses"] = _by(list("bosses"), "bossId")
 	_index["elements"] = _by(list("elements"), "elementId")
+	_index["grades"] = _by(_list_in(section("grades"), "list"), "grade")
+	_index["seasonRewards"] = _by(list("seasonRewards"), "grade")
+	_index["chests"] = _by(list("chests"), "chestId")
 
 
 static func _by(entries: Array, key: String) -> Dictionary:
@@ -912,6 +915,106 @@ static func tier_of_rating(rating: int) -> Array:
 	if size > 0:
 		division = clampi(divisions - floori(float(rating - _i(t, "minRating")) / size), 1, divisions)
 	return [_s(t, "tier"), division]
+
+
+# ── grades (cấp bậc, the visible rank from rank points), season and match rewards, chests ──
+
+## grades: {divisionPoints, ladderTop, list: [{grade, name, divisions, minPoints, winPoints,
+## lossPoints, general}], generals: [{grade, fromPos, toPos}]}.
+static func grades() -> Dictionary:
+	return section("grades")
+
+
+## The grades, lowest first (the generals last).
+static func grade_list() -> Array:
+	return _list_in(grades(), "list")
+
+
+static func grade_ids() -> Array:
+	return grade_list().map(func(g): return _s(g, "grade")).filter(func(id): return id != "")
+
+
+static func grade(grade_id: String) -> Dictionary:
+	return _entry("grades", grade_id)
+
+
+## "Binh nhì"; "" for an unknown grade.
+static func grade_name(grade_id: String) -> String:
+	return _s(grade(grade_id), "name")
+
+
+## The grade's number of divisions (1: none shown), 0 for an unknown grade.
+static func grade_divisions(grade_id: String) -> int:
+	return _i(grade(grade_id), "divisions")
+
+
+static func grade_min_points(grade_id: String) -> int:
+	return _i(grade(grade_id), "minPoints")
+
+
+## A general grade (set at season end for the top of the leaderboard, never reached by playing).
+static func grade_general(grade_id: String) -> bool:
+	return _b(grade(grade_id), "general")
+
+
+## The points of one division (100).
+static func division_points() -> int:
+	return _i(grades(), "divisionPoints")
+
+
+## The highest grade reached by playing ("dai_ta").
+static func ladder_top() -> String:
+	return _s(grades(), "ladderTop")
+
+
+## [{grade, fromPos, toPos}]: the general grades by season leaderboard position.
+static func grade_generals() -> Array:
+	return _list_in(grades(), "generals")
+
+
+## seasonRewards: [{grade, coin, gem, items: [{kind, id, qty}]}] in grade order.
+static func season_rewards() -> Array:
+	return list("seasonRewards")
+
+
+## The season reward of a final grade, {} none.
+static func season_reward(grade_id: String) -> Dictionary:
+	return _entry("seasonRewards", grade_id)
+
+
+## rankedRewards: {winCoin, lossCoin, winStoneRolls, lossStoneRolls, stoneWeights: [{level, weight}]}.
+static func ranked_rewards() -> Dictionary:
+	return section("rankedRewards")
+
+
+## chests: [{chestId, name, kind, stones: [{level, weight}], upgradeLevel}].
+static func chests() -> Array:
+	return list("chests")
+
+
+static func chest(chest_id: String) -> Dictionary:
+	return _entry("chests", chest_id)
+
+
+## "Rương đá"; the id itself for an unknown chest.
+static func chest_name(chest_id: String) -> String:
+	var n := _s(chest(chest_id), "name")
+	return n if n != "" else chest_id
+
+
+## "stone" / "equipment"; "" for an unknown chest.
+static func chest_kind(chest_id: String) -> String:
+	return _s(chest(chest_id), "kind")
+
+
+## A stone chest's rolls [{level, weight}] (only positive weights), in the server's order.
+static func chest_stones(chest_id: String) -> Array:
+	return _list_in(chest(chest_id), "stones").filter(func(s): return _i(s, "level") > 0 and _f(s, "weight") > 0.0)
+
+
+## An equipment chest's upgrade level (+14), 0 none.
+static func chest_upgrade_level(chest_id: String) -> int:
+	return _i(chest(chest_id), "upgradeLevel")
 
 
 # ── levels ──────────────────────────────────────────────────────────────────

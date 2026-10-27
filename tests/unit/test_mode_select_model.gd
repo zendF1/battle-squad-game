@@ -61,7 +61,8 @@ func test_queue_mapping() -> void:
 		["Chơi tiếp", "Chơi lại", ""], "casual plays on like ranked")
 	eq(RankModel.result_of("casual_2v2", {"exp": 120, "coins": 50, "ratingChange": 0}), {}, "no rating row for casual (ratingChange 0, no rank fields)")
 	eq(RankModel.result_of("casual_2v2", {"newRating": 1040, "ratingChange": 20}), {}, "never for casual")
-	check(not RankModel.result_of("ranked_2v2", {"newRating": 1040, "ratingChange": 20}).is_empty(), "ranked has one")
+	check(RankModel.result_of("ranked_2v2", {"newRating": 1040, "ratingChange": 20}).is_empty(), "the rating alone is never shown")
+	check(not RankModel.result_of("ranked_2v2", {"grade": {"newPoints": 30, "pointsChange": 30}}).is_empty(), "ranked has one")
 
 
 func test_ranked_flag_decides_not_the_id() -> void:

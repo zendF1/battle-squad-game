@@ -19,6 +19,9 @@ extends Control
 ## A party invite to me (Router.party) shows on its own layer over every page
 ## (invite_received_popup.gd, "… mời bạn chơi <the mode of the invite's queue>"): Đồng ý answers it
 ## and shows the lobby on that mode, Từ chối answers no. The party's messages (declined, expired, kicked, the host left, errors) are toasts.
+## The reward of an ended season not yet claimed (GET /rank/season-rewards, loaded each time Home
+## shows) opens as a popup over the lobby (screens/ranked/season_reward_popup.gd), the oldest
+## first, the next one after "Nhận".
 
 const Backdrop := preload("res://ui/backdrop.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -39,6 +42,7 @@ const InviteReceivedPopup := preload("res://screens/home/invite_received_popup.g
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const ModeSelect := preload("res://screens/home/mode_select.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
+const SeasonRewardPopup := preload("res://screens/ranked/season_reward_popup.gd")
 
 const LOBBY := 0
 const PROFILE := 1
@@ -63,6 +67,7 @@ var _pages := {} # PROFILE / SHOP / BAG / CHARACTER -> the page (header + conten
 var _shown := LOBBY
 var _invite_layer: Control # over every page: the invite to me
 var _invite_popup: InviteReceivedPopup
+var _season_popup: SeasonRewardPopup
 
 
 func _ready() -> void:
@@ -128,6 +133,8 @@ func _ready() -> void:
 	PlayerState.refresh()
 	PlayerState.load_rank() # the rank chip, the ranked mode card; the match's aiming aid reads the tier
 	PlayerState.load_maps() # map names (history, matchmaking, the match toast) and themes from the server
+	PlayerState.season_rewards_changed.connect(show_season_reward)
+	PlayerState.load_season_rewards() # an ended season's reward to claim: its popup
 	var layer := CanvasLayer.new()
 	layer.layer = 20
 	add_child(layer)
@@ -200,6 +207,19 @@ func _connect_wallet(wallet: WalletPills) -> void:
 
 
 ## An invite to me (PartyModel.parse_invite()): its popup over whatever page shows.
+## The oldest unclaimed season reward's popup (none open yet, PlayerState.my_season_rewards());
+## null when there is none.
+func show_season_reward() -> SeasonRewardPopup:
+	if is_instance_valid(_season_popup) and not _season_popup.is_queued_for_deletion():
+		return _season_popup
+	var list := PlayerState.my_season_rewards()
+	if list.is_empty() or PlayerState.season_busy != "":
+		return null
+	_season_popup = SeasonRewardPopup.new()
+	_season_popup.open_for(self, list[0])
+	return _season_popup
+
+
 func show_invite(invite: Dictionary) -> InviteReceivedPopup:
 	if is_instance_valid(_invite_popup) and not _invite_popup.is_queued_for_deletion():
 		_invite_popup.close() # a newer invite replaces it

@@ -93,7 +93,8 @@ static func mvp_of(d: Dictionary, players: Dictionary, me: String) -> String:
 	return str(rows[0]["playerId"]) if not rows.is_empty() and int(rows[0]["damage"]) > 0 else ""
 
 
-## My rewards: ResultModel.reward() (ok, exp, coin, the level ups) plus boss_damage, minion_damage,
+## My rewards: ResultModel.reward() (ok, exp, coin, the level ups, chests: a bonus run's stone
+## chests [{chestId, qty, name, text}]) plus boss_damage, minion_damage,
 ## bonus_run, bonus_left (-1 unknown), items [{itemId, qty, name}], badge (BONUS / NORMAL),
 ## left_text ("Còn 2 lượt thưởng lớn hôm nay"), damage_text ("Sát thương boss 9.000").
 static func reward(r: Variant, mode: String) -> Dictionary:

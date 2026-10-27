@@ -100,10 +100,12 @@ static func parse_rewards(r: Variant) -> Dictionary:
 				entry = {"kind": "stone", "level": _int(it["level"]), "qty": qty}
 			elif kind == "item" and str(it.get("id", "")) != "":
 				entry = {"kind": "item", "id": str(it["id"]), "qty": qty}
+			elif kind == "chest" and str(it.get("id", "")) != "":
+				entry = {"kind": "chest", "id": str(it["id"]), "qty": qty}
 			if not entry.is_empty():
 				_merge_item(out["items"], entry)
-	# Titles first, then stones by level, then items in the server's order
-	var rank := {"title": 0, "stone": 1, "item": 2}
+	# Titles first, then stones by level, then chests and items in the server's order
+	var rank := {"title": 0, "stone": 1, "chest": 2, "item": 3}
 	out["items"].sort_custom(func(a, b):
 		if a["kind"] != b["kind"]:
 			return rank[a["kind"]] < rank[b["kind"]]
@@ -269,6 +271,9 @@ static func reward_lines(rewards: Dictionary) -> Array:
 			"item":
 				out.append({"kind": "item", "id": str(it.get("id", "")), "qty": qty, "short": "×%d" % qty,
 					"text": "%d × %s" % [qty, str(it.get("id", ""))]})
+			"chest":
+				out.append({"kind": "chest", "id": str(it.get("id", "")), "qty": qty, "short": "×%d" % qty,
+					"text": "%d × %s" % [qty, GameData.chest_name(str(it.get("id", "")))]})
 	return out
 
 
