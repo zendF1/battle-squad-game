@@ -4,7 +4,10 @@ extends Control
 ## title plate (when known), the character's full-body picture breathing on a glowing floor,
 ## name, "Lv.N" (" · Máy" for a bot) and, with a badge (rankBadge: last season's final grade),
 ## its insignia with the grade's name; the badge's frame (grade_frame.gd) round the card. The rim
-## and the glow are the team's colour (blue mine, red the enemies'); the face is a rounded-rect shader (FACE_CODE). flip_to() turns
+## and the glow are the team's colour (blue mine, red the enemies'). With real frame art in the
+## row (fit_art, set by the screen for every card when any card's badge has art): the art's outer
+## bounds fit the card's own rect and everything else shrinks into its window
+## (GradeFrame.fit(): the same size for every card of the row, mirrored sides alike); the face is a rounded-rect shader (FACE_CODE). flip_to() turns
 ## the card edge-on, swaps the content and turns it back with a white flash.
 
 const Ui := preload("res://ui/ui.gd")
@@ -85,6 +88,12 @@ var _flash := 0.0
 var _flash_box: StyleBoxFlat
 var _art: CharacterView
 var _frame: GradeFrame
+var _body: Control # everything but the flip: shrunk into the art's window when fit_art
+## Real frame art somewhere in the row: this card shrinks into the window the art leaves in its rect.
+var fit_art := false:
+	set(v):
+		fit_art = v
+		_apply_fit()
 
 
 ## The card's size: COMPACT_SIZE when compact, else SIZE.
@@ -97,6 +106,11 @@ func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_IGNORE
 	resized.connect(func() -> void: pivot_offset = size / 2.0)
 	pivot_offset = _size() / 2.0
+	_body = Control.new()
+	_body.name = "Body"
+	_body.size = _size()
+	_body.mouse_filter = MOUSE_FILTER_IGNORE
+	add_child(_body)
 	if _face_shader == null:
 		_face_shader = Shader.new()
 		_face_shader.code = FACE_CODE
@@ -109,19 +123,17 @@ func _ready() -> void:
 	mat.set_shader_parameter("radius", float(RADIUS))
 	mat.set_shader_parameter("bg", BG)
 	_face.material = mat
-	add_child(_face)
+	_body.add_child(_face)
 	_floor = _layer(_draw_floor)
 	_content = Control.new()
 	_content.size = _size()
 	_content.mouse_filter = MOUSE_FILTER_IGNORE
-	add_child(_content)
+	_body.add_child(_content)
 	_rim_layer = _layer(_draw_rim)
 	_frame = GradeFrame.make("", RADIUS + FRAME_OUT, 0.0)
 	_frame.name = "Frame"
-	_frame.window_inset = FRAME_OUT # the real art's window on the card itself
-	_frame.position = -Vector2.ONE * FRAME_OUT
-	_frame.size = _size() + Vector2.ONE * FRAME_OUT * 2.0
-	add_child(_frame)
+	_body.add_child(_frame)
+	_apply_fit()
 	_restyle()
 	_build()
 
@@ -131,8 +143,29 @@ func _layer(draw: Callable) -> Control:
 	c.size = _size()
 	c.mouse_filter = MOUSE_FILTER_IGNORE
 	c.draw.connect(draw.bind(c))
-	add_child(c)
+	_body.add_child(c)
 	return c
+
+
+## The body at full size with the code frame round it, or (fit_art) shrunk into the window the
+## art leaves in the card's rect, the frame's window on it.
+func _apply_fit() -> void:
+	if _body == null:
+		return
+	var fc := GradeFrame.layout()
+	if fit_art and not fc.is_empty():
+		var f := GradeFrame.fit(fc, _size(), _size())
+		_body.scale = Vector2.ONE * float(f["s"])
+		_body.position = Rect2(f["card"]).position
+		_frame.window_inset = 0.0
+		_frame.position = Vector2.ZERO
+		_frame.size = _size()
+	else:
+		_body.scale = Vector2.ONE
+		_body.position = Vector2.ZERO
+		_frame.window_inset = FRAME_OUT # the real art's window on the card itself
+		_frame.position = -Vector2.ONE * FRAME_OUT
+		_frame.size = _size() + Vector2.ONE * FRAME_OUT * 2.0
 
 
 func player() -> Dictionary:

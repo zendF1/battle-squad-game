@@ -140,6 +140,35 @@ static func mapped(v: float, segs: Array) -> float:
 	return segs[-1][3]
 
 
+## A grade with real frame art and its layout (fit() applies).
+static func has_art(g: String) -> bool:
+	return g != "" and Art.rank_frame(g) != null and not layout().is_empty()
+
+
+## Any of these grades has real frame art: a row of cards (or slots) then all fit() the same way,
+## so mirrored cards keep one size.
+static func any_art(grades: Array) -> bool:
+	return grades.any(func(g): return g is String and has_art(g))
+
+
+## How a framed card fits the space it owns (`box`, its own rect: the art's ornaments never cross
+## into a neighbour's gap or a header): the art at the largest scale whose OUTER bounds fit `box`,
+## the card content (`content`) shrunk uniformly (never grown) to the window of the largest sliced
+## frame that fits, the frame centred in the box. {s (the content's scale), card (the window: the shrunk content's rect in box px),
+## frame (the art's outer rect)}. Linear in the box, so every card of a row with the same box gets
+## the same s and mirrored cards stay mirrored.
+static func fit(fc: Dictionary, box: Vector2, content: Vector2) -> Dictionary:
+	# the sliced frame scales with its window: size the frame round the full content once, then
+	# take the largest scale (never above 1) at which it fits the box
+	var full: Vector2 = slices(fc, content)["size"]
+	var sc := minf(1.0, minf(box.x / full.x, box.y / full.y))
+	var card := content * sc
+	var sl := slices(fc, card)
+	var frame_size: Vector2 = sl["size"]
+	var origin := (box - frame_size) / 2.0
+	return {"s": sc, "card": Rect2(origin + Rect2(sl["window"]).position, card), "frame": Rect2(origin, frame_size)}
+
+
 ## The card's rect in this control.
 func card_rect() -> Rect2:
 	return Rect2(Vector2.ONE * window_inset, size - Vector2.ONE * window_inset * 2.0)

@@ -232,3 +232,35 @@ func test_frame_art_slices_party_slot_and_vs_card() -> void:
 	var short := GradeFrame.slices(FRAME_LAYOUT, Vector2(584, 650)) # shorter than the art's window: the runs shrink
 	near(Rect2(short["window"]).size.y, 650.0, 0.01, "a surplus height comes out of the runs")
 	near(GradeFrame.mapped(0.0, short["ys"]), 0.0, 0.001, "the top edge stays put")
+
+
+## A framed card fits the space it owns: the art's outer bounds inside the box, the content shrunk
+## (never grown) into the window, centred; the same for every card of a row.
+func _check_fit(box: Vector2, content: Vector2, what: String) -> Dictionary:
+	var f := GradeFrame.fit(FRAME_LAYOUT, box, content)
+	var frame: Rect2 = f["frame"]
+	var card: Rect2 = f["card"]
+	check(frame.position.x >= -0.01 and frame.position.y >= -0.01 and frame.end.x <= box.x + 0.01 and frame.end.y <= box.y + 0.01,
+		"%s: the art's outer bounds inside the box (%s)" % [what, frame])
+	near(frame.position.x, box.x - frame.end.x, 0.01, "%s: centred left / right (mirrored)" % what)
+	near(frame.position.y, box.y - frame.end.y, 0.01, "%s: centred top / bottom" % what)
+	check(float(f["s"]) > 0.0 and float(f["s"]) <= 1.0, "%s: the content only shrinks" % what)
+	near(card.size.x, content.x * float(f["s"]), 0.01, "%s: the window is the shrunk content (width)" % what)
+	near(card.size.y, content.y * float(f["s"]), 0.01, "%s: the window is the shrunk content (height)" % what)
+	check(frame.encloses(card), "%s: the card inside its frame" % what)
+	var sl := GradeFrame.slices(FRAME_LAYOUT, card.size)
+	near(Vector2(sl["size"]).x, frame.size.x, 0.01, "%s: the frame is the art sliced round that window" % what)
+	near(card.position.x - frame.position.x, Rect2(sl["window"]).position.x, 0.01, "%s: the window where the art has it" % what)
+	return f
+
+
+func test_framed_cards_fit_their_own_rect() -> void:
+	var party := _check_fit(Vector2(330, 500), Vector2(286, 446), "party slot")
+	near(Rect2(party["frame"]).size.x, 330.0, 0.01, "party slot: the art as wide as the slot")
+	var vs := _check_fit(Vector2(268, 520), Vector2(268, 520), "VS card")
+	near(Rect2(vs["frame"]).size.x, 268.0, 0.01, "VS card: the art as wide as the card, not past it")
+	near(float(vs["s"]), 584.0 / 768.0, 0.001, "VS card: the content shrinks to the window's share of the width")
+	eq(GradeFrame.fit(FRAME_LAYOUT, Vector2(268, 520), Vector2(268, 520)), vs, "every card of a row: the same fit")
+	var wide := _check_fit(Vector2(600, 500), Vector2(268, 520), "a box wider than the card needs")
+	near(Rect2(wide["frame"]).size.y, 500.0, 0.5, "a wide box: the height limits it")
+	check(not GradeFrame.any_art(["", "dai_ta"]) or GradeFrame.has_art("dai_ta"), "any_art only for grades with art")

@@ -69,6 +69,7 @@ const RankChip := preload("res://screens/ranked/rank_chip.gd")
 const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const PartySlot := preload("res://screens/home/party_slot.gd")
+const GradeFrame := preload("res://screens/ranked/grade_frame.gd")
 const InvitePopup := preload("res://screens/home/invite_popup.gd")
 const Modal := preload("res://ui/modal.gd")
 const ModeSelectModel := preload("res://screens/home/mode_select_model.gd")
@@ -821,6 +822,8 @@ func _render_party() -> void:
 	var layout := PartyLayout.slots(capacity)
 	var shown := PartyLayout.fill(party.teammates(), capacity)
 	var host_view: bool = not party.is_member()
+	# real frame art on any teammate: every slot shrinks the same way, the art inside its rect
+	var fit := GradeFrame.any_art(shown.map(func(m): return str(m.get("rankBadge", "")) if m is Dictionary else ""))
 	for i in _slots.size():
 		var slot := _slots[i]
 		slot.visible = i < layout.size()
@@ -835,6 +838,7 @@ func _render_party() -> void:
 		slot.offset_top = float(at["y"])
 		slot.offset_bottom = float(at["y"])
 		var m: Dictionary = shown[i]
+		slot.fit_art = fit
 		slot.show_member(m, host_view, str(m.get("playerId", "")) == str(party.lobby.get("hostPlayerId", "")), host_view)
 	var state: Dictionary = party.start_button() if with_party else {"text": "BẮT ĐẦU", "disabled": false, "action": "start"}
 	_start.text = state["text"]

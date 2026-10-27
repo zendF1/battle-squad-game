@@ -34,6 +34,7 @@ const RankedFlow := preload("res://screens/ranked/ranked_flow.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const MatchmakingModel := preload("res://screens/ranked/matchmaking_model.gd")
 const PlayerCard := preload("res://screens/ranked/player_card.gd")
+const GradeFrame := preload("res://screens/ranked/grade_frame.gd")
 const VsEmblem := preload("res://screens/ranked/vs_emblem.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
@@ -89,8 +90,9 @@ func _ready() -> void:
 	_queue = Router.queue if Router.queue != "" else GameData.ranked_mode()
 	_boss = GameData.boss_of_queue(_queue)
 	_build()
-	_cards[0].show_player(_my_player())
 	var mates := _teammates()
+	_fit_cards([_my_player()] + mates)
+	_cards[0].show_player(_my_player())
 	for i in mini(mates.size(), _cards.size() - 1):
 		_cards[i + 1].show_player(mates[i])
 	PlayerState.rank_changed.connect(_on_rank_changed)
@@ -503,6 +505,7 @@ func _reveal(teams: Dictionary) -> void:
 	_revealed = true
 	var slots := MatchmakingModel.slots(teams, _me, _left_size(), 0) if _is_boss() else MatchmakingModel.slots(teams, _me)
 	var order := MatchmakingModel.reveal_order(slots, _me)
+	_fit_cards(slots)
 	for i in slots.size():
 		var p: Dictionary = slots[i]
 		var card: PlayerCard = _cards[i]
@@ -513,6 +516,14 @@ func _reveal(teams: Dictionary) -> void:
 	for k in order.size():
 		var i: int = order[k]
 		get_tree().create_timer(MatchmakingModel.FLIP_GAP * (k + 1)).timeout.connect(_cards[i].flip_to.bind(slots[i]))
+
+
+## Real frame art on any of these players' badges: every card shrinks the same way (the art inside
+## each card's rect, both sides alike); none: full-size cards with code frames.
+func _fit_cards(players: Array) -> void:
+	var fit := GradeFrame.any_art(players.map(func(p): return str(p.get("rankBadge", "")) if p is Dictionary else ""))
+	for c in _cards:
+		c.fit_art = fit
 
 
 func _title_of(p: Dictionary) -> Dictionary:
