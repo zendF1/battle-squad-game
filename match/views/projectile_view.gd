@@ -47,6 +47,7 @@ const ITEM_LOOKS := {
 	"drill_bomb": {"tint": Color(0.72, 0.72, 0.78), "mark": "spiral"},
 	"power_shot": {"tint": Color(1.0, 0.62, 0.42), "mark": ""},
 	"teleport": {"tint": Color(0.8, 0.62, 1.0), "mark": ""},
+	"poison_bomb": {"tint": Color(0.55, 1.0, 0.35), "mark": "toxic"},
 }
 
 static var _contents := {} # Texture2D -> base_content()
@@ -524,6 +525,11 @@ func _draw_mark(r: float) -> void:
 				var a := i * 0.7 + _t * 18.0
 				pts.append(Vector2.from_angle(a) * r * (0.15 + 0.85 * i / 17.0))
 			draw_polyline(pts, Color(0.3, 0.3, 0.35, 0.95), 2.0, true)
+		"toxic": # a green glow with bubbles circling it
+			draw_circle(Vector2.ZERO, r * 1.35, Color(0.45, 0.95, 0.2, 0.28), true, -1.0, true)
+			for i in 3:
+				var b := Vector2.from_angle(_t * 7.0 + TAU * i / 3.0) * r * 1.25
+				draw_circle(b, r * 0.28, Color(0.7, 1.0, 0.35, 0.9), true, -1.0, true)
 		"frost":
 			draw_arc(Vector2.ZERO, r * 1.3, 0.0, TAU, 20, Color(0.8, 0.95, 1.0, 0.7), 2.5, true)
 			for i in 3:

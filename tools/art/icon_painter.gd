@@ -42,6 +42,11 @@ static func paint(ci: CanvasItem, icon_name: String) -> void:
 		"freeze_bomb": _bomb(ci, Color(0.5, 0.8, 1.0), true)
 		"air_strike": _air_strike(ci)
 		"wind_stopper": _wind_stopper(ci)
+		"poison_bomb": _poison_bomb(ci)
+		"double_shot": _double_shot(ci)
+		"triple_shot": _triple_shot(ci)
+		"nuke_bomb": _nuke_bomb(ci)
+		"laser_strike": _laser_strike(ci)
 		_: _unknown(ci)
 
 
@@ -426,3 +431,89 @@ static func _wind_stopper(ci: CanvasItem) -> void:
 		leaf.append(Vector2(26, 66).lerp(Vector2(82, 18), t) + Vector2(1, 1).normalized() * sin(t * PI) * 16.0)
 	_poly(ci, leaf, Color(0.4, 0.8, 0.35))
 	ci.draw_line(Vector2(22, 70), Vector2(76, 24), Color(0.2, 0.5, 0.2), 3.5, true)
+
+
+## A green bomb with a white skull on it and poison dripping off it.
+static func _poison_bomb(ci: CanvasItem) -> void:
+	var green := Color(0.36, 0.78, 0.22)
+	_bomb(ci, green, false)
+	var c := Vector2(45, 56)
+	# skull
+	_disc(ci, c + Vector2(0, -3), 12.0, WHITE, 0.0)
+	_rect(ci, Rect2(c.x - 7, c.y + 4, 14, 9), WHITE, 3, 0.0)
+	ci.draw_circle(c + Vector2(-4.5, -3), 3.6, OUTLINE, true, -1.0, true)
+	ci.draw_circle(c + Vector2(4.5, -3), 3.6, OUTLINE, true, -1.0, true)
+	_fill(ci, [c + Vector2(0, 2), c + Vector2(-2, 5), c + Vector2(2, 5)], OUTLINE)
+	for i in 3:
+		ci.draw_line(c + Vector2(-4 + i * 4, 8), c + Vector2(-4 + i * 4, 13), OUTLINE, 1.6, true)
+	# drips and bubbles
+	for d in [[Vector2(28, 80), 5.0], [Vector2(56, 86), 4.0]]:
+		_poly(ci, [d[0] + Vector2(0, -d[1] * 2.2), d[0] + Vector2(d[1], 0)] + _arc_pts(d[0], d[1], 0.0, PI, 10), Color(0.62, 0.95, 0.3), 3.0)
+	_disc(ci, Vector2(16, 40), 5.0, Color(0.62, 0.95, 0.3), 3.0)
+	_disc(ci, Vector2(10, 26), 3.0, Color(0.62, 0.95, 0.3), 2.5)
+
+
+## A shell pointing along `angle` (rad, 0 = +x) centred at c: an outlined body with a pointed
+## nose, a band and tail fins, and speed streaks behind it.
+static func _shell(ci: CanvasItem, c: Vector2, angle: float, k: float, body: Color) -> void:
+	ci.draw_set_transform(c, angle, Vector2(k, k))
+	for i in 3: # speed streaks behind it
+		var y := (i - 1) * 7.0
+		_stroke(ci, [Vector2(-36 + absf(y), y), Vector2(-22, y)], Color(1, 1, 1, 0.85), 3.5, 2.5)
+	_poly(ci, [Vector2(-14, -9), Vector2(-20, -15), Vector2(-20, 15), Vector2(-14, 9)], Color(0.55, 0.58, 0.66), 3.5)
+	_poly(ci, [Vector2(-16, -8), Vector2(6, -8)] + _arc_pts(Vector2(6, 0), 8.0, -PI / 2, PI / 2, 10) + [Vector2(-16, 8)], body, 3.5)
+	_fill(ci, [Vector2(6, -8)] + _arc_pts(Vector2(6, 0), 8.0, -PI / 2, PI / 2, 10) + [Vector2(6, 8)], body.lightened(0.35))
+	ci.draw_rect(Rect2(-8, -8, 4, 16), body.darkened(0.35))
+	ci.draw_line(Vector2(-12, -4), Vector2(4, -4), Color(1, 1, 1, 0.55), 2.5, true)
+	ci.draw_set_transform(Vector2.ZERO)
+
+
+## Two shells one behind the other on the same line.
+static func _double_shot(ci: CanvasItem) -> void:
+	var a := -PI / 4
+	_shell(ci, Vector2(30, 66), a, 1.0, Color(0.98, 0.62, 0.18))
+	_shell(ci, Vector2(63, 33), a, 1.0, Color(0.98, 0.62, 0.18))
+
+
+## Three shells fanning out.
+static func _triple_shot(ci: CanvasItem) -> void:
+	var o := Vector2(12, 84)
+	for d in [-0.6, 0.0, 0.6]:
+		var a: float = -PI / 4 + d
+		_shell(ci, o + Vector2.from_angle(a) * 58.0, a, 0.9, Color(0.3, 0.72, 1.0))
+
+
+## A fat yellow bomb falling nose-down, tail fins up, the radiation sign on it.
+static func _nuke_bomb(ci: CanvasItem) -> void:
+	var c := Vector2(48, 54)
+	var fin := Color(0.4, 0.42, 0.5)
+	_poly(ci, [Vector2(32, 10), Vector2(64, 10), Vector2(58, 30), Vector2(38, 30)], fin)
+	_poly(ci, [Vector2(44, 4), Vector2(52, 4), Vector2(52, 30), Vector2(44, 30)], fin.lightened(0.15), 4.0)
+	var body := []
+	for i in 40:
+		var t := TAU * i / 40.0
+		body.append(c + Vector2(cos(t) * 25.0, sin(t) * 34.0 + (6.0 if sin(t) > 0 else 0.0) * sin(t)))
+	_poly(ci, body, Color(0.99, 0.82, 0.12))
+	ci.draw_arc(c + Vector2(-8, -10), 14, PI * 1.05, PI * 1.5, 10, Color(1, 1, 1, 0.7), 4.0, true)
+	# radiation sign
+	var s := c + Vector2(0, 6)
+	ci.draw_circle(s, 4.0, OUTLINE, true, -1.0, true)
+	for i in 3:
+		var a0 := -PI / 2 + TAU * i / 3.0 - PI / 6
+		var pts := _arc_pts(s, 17.0, a0, a0 + PI / 3, 8) + _arc_pts(s, 7.0, a0 + PI / 3, a0, 6)
+		_fill(ci, pts, OUTLINE)
+
+
+## A red target reticle with laser beams converging on it from the sky.
+static func _laser_strike(ci: CanvasItem) -> void:
+	var c := Vector2(48, 60)
+	var red := Color(1.0, 0.22, 0.3)
+	for from in [Vector2(8, 2), Vector2(48, -4), Vector2(88, 2)]:
+		_stroke(ci, [from, c], red, 8.0, 3.0)
+		_stroke(ci, [from, c], Color(1, 0.85, 0.9), 3.0, 0.0)
+	ci.draw_circle(c, 22.0, Color(1.0, 0.3, 0.4, 0.35), true, -1.0, true)
+	ci.draw_arc(c, 22.0, 0.0, TAU, 40, OUTLINE, 9.0, true)
+	ci.draw_arc(c, 22.0, 0.0, TAU, 40, red, 5.0, true)
+	for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+		_stroke(ci, [c + d * 16.0, c + d * 32.0], red, 5.0, 3.0)
+	_disc(ci, c, 7.0, WHITE, 3.0)

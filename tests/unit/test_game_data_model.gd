@@ -91,7 +91,7 @@ func test_characters_weapons_items() -> void:
 	eq([GameData.character_weapon_id("spark"), GameData.character_skill_id("spark")], ["electric_orb", "shock_field"], "spark's gear")
 	eq(GameData.weapon_crater_radius("seed_bomb"), 14.399999999999999, "the exact crater")
 	eq([GameData.weapon_wind_influence("cannon_ball"), GameData.weapon_projectile_weight("cannon_ball")], [0.5, 1.5], "wind")
-	eq(GameData.item_ids().size(), 8, "eight items")
+	eq(GameData.item_ids().size(), 13, "thirteen items")
 	eq([GameData.item_name("air_strike"), GameData.item_aim_kind("air_strike"), GameData.item_instant("medkit")],
 		["Không kích", "targetX", true], "items")
 	eq([GameData.max_loadout(), GameData.air_strike_angle(), GameData.air_strike_power()], [3, 270.0, 80.0], "item rules")

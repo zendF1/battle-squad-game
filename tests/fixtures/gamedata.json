@@ -706,6 +706,91 @@
         "cooldown": 0,
         "instant": true,
         "aimKind": "none"
+      },
+      {
+        "itemId": "poison_bomb",
+        "name": "Bom độc",
+        "description": "Phát bắn thường; ai trúng vụ nổ bị trúng độc 2 lượt, mất 5 % máu tối đa đầu mỗi lượt.",
+        "type": "poison",
+        "targetType": "shoot",
+        "value": 5,
+        "maxUsePerMatch": 1,
+        "cooldown": 0,
+        "instant": false,
+        "aimKind": "arc",
+        "params": {
+          "turns": 2,
+          "damageFactor": 1
+        }
+      },
+      {
+        "itemId": "double_shot",
+        "name": "Bắn đôi (x2)",
+        "description": "Bắn liền hai quả đạn cùng đường bay, mỗi quả 75 % sát thương.",
+        "type": "multi_shot",
+        "targetType": "shoot",
+        "value": 0.75,
+        "maxUsePerMatch": 1,
+        "cooldown": 0,
+        "instant": false,
+        "aimKind": "arc",
+        "params": {
+          "count": 2,
+          "delaySec": 0.25
+        }
+      },
+      {
+        "itemId": "triple_shot",
+        "name": "Bắn ba tia (x3)",
+        "description": "Bắn ba quả đạn toả hình quạt, mỗi quả 67 % sát thương.",
+        "type": "fan_shot",
+        "targetType": "shoot",
+        "value": 0.667,
+        "maxUsePerMatch": 1,
+        "cooldown": 0,
+        "instant": false,
+        "aimKind": "arc",
+        "params": {
+          "count": 3,
+          "spreadDeg": 5
+        }
+      },
+      {
+        "itemId": "nuke_bomb",
+        "name": "Bom huỷ diệt",
+        "description": "Bắn pháo hiệu; chỗ pháo hiệu chạm, bom huỷ diệt rơi từ trời xuống: 150 % sát thương, vùng nổ rất rộng, hố lớn.",
+        "type": "nuke",
+        "targetType": "shoot",
+        "value": 1.5,
+        "maxUsePerMatch": 1,
+        "cooldown": 0,
+        "instant": false,
+        "aimKind": "arc",
+        "params": {
+          "blastFactor": 2.5,
+          "craterFactor": 2.5,
+          "delaySec": 0.5,
+          "dropSpeed": 1600,
+          "startY": -80
+        }
+      },
+      {
+        "itemId": "laser_strike",
+        "name": "Laze",
+        "description": "Bắn pháo hiệu; chỗ pháo hiệu chạm, năm tia laze từ trời hội tụ: 130 % sát thương quanh điểm đó.",
+        "type": "laser",
+        "targetType": "shoot",
+        "value": 1.3,
+        "maxUsePerMatch": 1,
+        "cooldown": 0,
+        "instant": false,
+        "aimKind": "arc",
+        "params": {
+          "beams": 5,
+          "blastFactor": 1,
+          "craterFactor": 0.3,
+          "delaySec": 0.8
+        }
       }
     ],
     "itemRules": {

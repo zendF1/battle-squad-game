@@ -798,6 +798,18 @@ static func item_value(item_id: String) -> float:
 	return _f(item(item_id), "value")
 
 
+## An item's Vietnamese description ("" none; an older server sends none).
+static func item_description(item_id: String) -> String:
+	return _s(item(item_id), "description")
+
+
+## A number of an item's params (poison_bomb turns, triple_shot spreadDeg, nuke_bomb blastFactor;
+## `fallback` when absent).
+static func item_param(item_id: String, key: String, fallback: float = 0.0) -> float:
+	var v = _sub(item(item_id), "params").get(key)
+	return float(v) if v is int or v is float else fallback
+
+
 ## True: UseItem acts at once (the turn goes on); false: it arms the next shot.
 static func item_instant(item_id: String) -> bool:
 	return _b(item(item_id), "instant")

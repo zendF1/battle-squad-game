@@ -5,7 +5,7 @@ const GameData := preload("res://autoload/game_data_model.gd")
 
 
 func test_every_server_item_has_a_label() -> void:
-	eq(Items.order().size(), 8, "eight items")
+	eq(Items.order().size(), 13, "thirteen items (the five shot items of 073 too)")
 	for id in Items.order():
 		check(Items.is_known(id), "known " + id)
 	eq(Items.label("medkit"), "Hộp cứu thương", "medkit")

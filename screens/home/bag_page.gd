@@ -6,7 +6,7 @@ extends Control
 ##   level; slot filter chips on top. A tap opens the piece popup with everything else
 ##   (equipment_ui.gd) for the character chosen in the lobby: worn → Chuyển cho <nhân vật> /
 ##   Nâng cấp / Tháo, not worn → Mặc cho <nhân vật> / Bán / Vứt, closed by its X.
-## - "Vật phẩm": the equipment chests owned (ChestModel.by_tab), then the eight battle items with
+## - "Vật phẩm": the equipment chests owned (ChestModel.by_tab), then the battle items (game data order) with
 ##   their GET /player/inventory counts.
 ## - "Nguyên liệu": the stone chests owned, then the upgrade stones owned (PlayerState.stones):
 ##   icon, level, count, power (an upgrade arrow by the number); "Mua đá" (Shop → Đá nâng cấp)
@@ -26,6 +26,7 @@ const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Art := preload("res://ui/art.gd")
 const LoadStatus := preload("res://ui/load_status.gd")
 const Items := preload("res://match/items.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
@@ -303,6 +304,8 @@ func _render_inventory() -> void:
 		card.add_child(row)
 		var icon := LobbyUi.icon(Art.item_icon(id), 72)
 		icon.size_flags_vertical = SIZE_SHRINK_CENTER
+		icon.tooltip_text = GameData.item_description(id)
+		icon.mouse_filter = MOUSE_FILTER_PASS
 		row.add_child(icon)
 		var box := Ui.vbox(4)
 		box.alignment = BoxContainer.ALIGNMENT_CENTER

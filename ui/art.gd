@@ -108,6 +108,7 @@ const ICONS := [
 	"characters", "inventory", "history", "shop", "upgrade", "milestone",
 	"swap", "send", "back", "arrow_left", "arrow_right", "check", "close", "end_turn", "unknown",
 	"medkit", "teleport", "power_shot", "drill_bomb", "spider_net", "freeze_bomb", "air_strike", "wind_stopper",
+	"poison_bomb", "double_shot", "triple_shot", "nuke_bomb", "laser_strike",
 ]
 const UNKNOWN_ICON := "unknown"
 

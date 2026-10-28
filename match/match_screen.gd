@@ -125,6 +125,7 @@ const MoveSync := preload("res://match/move/move_sync.gd")
 const WalkPath := preload("res://match/move/walk_path.gd")
 const Hud := preload("res://match/hud.gd")
 const Skills := preload("res://match/skills.gd")
+const ItemViews := preload("res://match/views/items/item_views.gd")
 const Items := preload("res://match/items.gd")
 const Status := preload("res://match/status_effects.gd")
 const ActionLock := preload("res://match/action_lock.gd")
@@ -195,6 +196,7 @@ const ITEM_ACK_TIMEOUT := 1.5 # input waits this long for ItemUsed after a UseIt
 const TELEPORT_SEC := 0.3
 const WEAPON := "weapon"
 const SKILL := "skill"
+const ITEM := "item"
 const RESYNC_RETRY := 3.0 # re-ask for MatchStateSync if none arrived
 ## Before the player may aim or act in a match whose gamedataVersion is not the cached one, the
 ## game data is fetched again; "Đang cập nhật dữ liệu..." shows if that takes longer than this.
@@ -822,6 +824,9 @@ func _apply(event: String, data: Variant) -> void:
 			_tallies.clear() # the last shot's tallies finish on their own
 			if timeline.action_mode == SKILL:
 				_skill_view = Skills.view_for_skill(timeline.skill_id)
+			elif timeline.action_mode == ITEM:
+				_skill_view = ItemViews.view_for(timeline) # a shot item's visuals (poison cloud, nuke, laser), null none
+			if _skill_view != null:
 				_skill_view.begin({"layer": _fx_layer, "timeline": timeline, "style": _shot_player.style,
 					"views": _views, "players": _players, "shooter": shooter, "terrain": _mask, "screen": _screen_fx,
 					"wind": int(_wind.get("direction", 0))})
@@ -1214,6 +1219,9 @@ func _on_shot_event(e: Dictionary) -> void:
 				_hold_focus({"pos": _cam.keep_in_view(_vec(e["to"]), _vec(e["from"]))}, float(e.get("duration", 0.0)) + CameraModel.HOLD_SEC)
 		"die":
 			_kill(id)
+		"strike": # a nuke's / laser's signal landed: the camera stays on the target until the hit
+			if e.get("position") is Dictionary:
+				_hold_focus({"pos": _vec(e["position"]) + LOOK_LIFT}, float(e.get("duration", 0.0)) + CameraModel.HOLD_SEC)
 		"bounce": # the water orb bounces off the ground: a splash where it touched
 			if e.get("position") is Dictionary:
 				var splash := WaterSplash.new()
