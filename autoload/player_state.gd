@@ -575,12 +575,19 @@ func note_purchases(purchases: Array) -> void:
 			_known_ids[str(p["purchaseId"])] = true
 
 
-## POST /shop/purchase {offerId, idempotencyKey}. Returns the Api result plus "replay": true
-## when the server answered an earlier request with the same key (nothing new was bought).
-## {ok: false, code: "BUSY"} while another purchase or top-up runs.
-func buy(offer_id: String) -> Dictionary:
-	return await _pay("/shop/purchase", purchase_keys, offer_id, "purchaseId", AFTER_ASSETS,
-		func(key: String) -> Dictionary: return {"offerId": offer_id, "idempotencyKey": key})
+## POST /shop/purchase {offerId, idempotencyKey, quantity}: `quantity` times the offer (sent
+## when above 1; the server's default is 1). Returns the Api result plus "replay": true when the
+## server answered an earlier request with the same key (nothing new was bought). The key is per
+## offer and quantity (the server refuses one key for another quantity). {ok: false, code:
+## "BUSY"} while another purchase or top-up runs.
+func buy(offer_id: String, quantity: int = 1) -> Dictionary:
+	var id := offer_id if quantity <= 1 else "%s_x%d" % [offer_id, quantity]
+	return await _pay("/shop/purchase", purchase_keys, id, "purchaseId", AFTER_ASSETS,
+		func(key: String) -> Dictionary:
+			var body := {"offerId": offer_id, "idempotencyKey": key}
+			if quantity > 1:
+				body["quantity"] = quantity
+			return body)
 
 
 ## POST /iap/verify {productId, platform, purchaseToken} with a mock token, like buy().

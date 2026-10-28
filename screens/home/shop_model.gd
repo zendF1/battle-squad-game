@@ -132,6 +132,33 @@ static func remaining_text(n: int) -> String:
 	return "Còn %d lượt" % n if n > 0 else "Đã hết lượt mua"
 
 
+## The most of the offer's item a player may own after buying it: the offer's maxStack, else the
+## game data's itemRules.maxItemStack; 0 when neither says (a server that sells one at a time).
+static func max_stack(offer: Dictionary) -> int:
+	var v = offer.get("maxStack")
+	if (v is int or v is float) and int(v) > 0:
+		return int(v)
+	return GameData.max_item_stack()
+
+
+## Whether the offer is bought with a quantity (the "Mua" dialog with ▲ / ▼ and presets): an
+## item offer without a per-player limit that has a max stack.
+static func sells_quantity(offer: Dictionary) -> bool:
+	return str(offer.get("offerType", "")) == "item" and offer.get("limitPerPlayer") == null and max_stack(offer) > 0
+
+
+## How many more times the offer fits in the bag: (max stack - owned) / the offer's quantity,
+## rounded down, never below 0; `owned` -1 (unknown): as if none.
+static func room(offer: Dictionary, owned: int) -> int:
+	var per := maxi(int(offer.get("quantity", 1)), 1)
+	return maxi((max_stack(offer) - maxi(owned, 0)) / per, 0)
+
+
+## What a coin or gem balance is for the offer's currency (gem: locked + unlocked).
+static func wallet_for(offer: Dictionary, coin: int, gem: int) -> int:
+	return gem if str(offer.get("priceCurrency", "")) == "gem" else coin
+
+
 static func offer_name(offer: Dictionary) -> String:
 	var id := str(offer.get("itemId", ""))
 	if is_coin_pack(offer):

@@ -825,6 +825,12 @@ static func max_loadout() -> int:
 	return _i(section("itemRules"), "maxLoadout")
 
 
+## The most of one item a player may own after a shop purchase (itemRules.maxItemStack), 0 when
+## the game data has none.
+static func max_item_stack() -> int:
+	return _i(section("itemRules"), "maxItemStack")
+
+
 static func air_strike_angle() -> float:
 	return _f(_sub(section("itemRules"), "airStrike"), "angle")
 

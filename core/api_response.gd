@@ -1,6 +1,7 @@
 extends RefCounted
 ## Turns an HTTPRequest result into {ok, status, code, message, data}. Success bodies use the
-## server envelope {"success":true,"data":X} (data = X); errors use {"error":{"code","message"}}.
+## server envelope {"success":true,"data":X} (data = X); errors use {"error":{"code","message"}}
+## (and its "details" object, when it has one, as `details`).
 ## 304 Not Modified (a conditional GET: Api.get_cached()) is ok with no data.
 
 
@@ -27,6 +28,8 @@ static func parse(result: int, status: int, body: PackedByteArray) -> Dictionary
 	if parsed is Dictionary and parsed.get("error") is Dictionary:
 		code = str(parsed["error"].get("code", code))
 		message = str(parsed["error"].get("message", message))
+		if parsed["error"].get("details") is Dictionary:
+			return {"ok": false, "status": status, "code": code, "message": message, "data": null, "details": parsed["error"]["details"]}
 	return {"ok": false, "status": status, "code": code, "message": message, "data": null}
 
 

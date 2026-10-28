@@ -1,6 +1,10 @@
 extends Control
 ## "Shop": six sub-tabs.
-## - "Vật phẩm": item offers (GET /shop/offers) with "Còn N lượt" from GET /shop/purchases;
+## - "Vật phẩm": item offers (GET /shop/offers) with "Còn N lượt" from GET /shop/purchases; one
+##   card each (the same size, a real grid: ui/card_grid.gd): the big icon, the name small, the
+##   price with the currency icon, Mua. A unit-priced item (ShopModel.sells_quantity()) buys through
+##   the quantity dialog (buy_quantity_dialog.gd: ▲ / ▼, x3 / x5 / x10, capped by the bag's count
+##   from GET /player/inventory and the offer's maxStack), then POST /shop/purchase with quantity;
 ## - "Trang bị": the equipment the catalog sells (PlayerState.catalog, active normal items with a
 ##   price): the gear shared by every character plus the weapons of the lobby's character only
 ##   ("Vũ khí của Rookie"), filtered by slot: icon, name, "Lv N", stats, price, "Đã có N"; "Mua" asks "Mua
@@ -47,6 +51,7 @@ const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
 const CharacterShopModel := preload("res://screens/home/character_shop_model.gd")
 const CharacterShopUi := preload("res://screens/home/character_shop_ui.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
+const BuyQuantityDialog := preload("res://screens/home/buy_quantity_dialog.gd")
 const CardGrid := preload("res://ui/card_grid.gd")
 
 const SUB_TABS := ["Vật phẩm", "Trang bị", "Đá nâng cấp", "Nhân vật", "Kim cương", "Đổi xu"]
@@ -60,9 +65,10 @@ const SOURCES := {
 	"offers": "/shop/offers",
 	"purchases": "/shop/purchases",
 	"products": "/iap/products",
+	"inventory": "/player/inventory",
 }
 ## The sources each sub-tab needs ("characters", "equipment": the PlayerState caches).
-const NEEDS := [["offers", "purchases"], ["equipment"], ["equipment", "stones"], ["offers", "purchases", "characters"], ["products"], ["offers", "purchases"]]
+const NEEDS := [["offers", "purchases", "inventory"], ["equipment"], ["equipment", "stones"], ["offers", "purchases", "characters"], ["products"], ["offers", "purchases"]]
 ## The quantities a stone card offers.
 const STONE_QUANTITIES := [1, 5, 10]
 const STONE_CARD_W := 246
@@ -247,6 +253,8 @@ static func _parse(source: String, data: Variant) -> Variant:
 			return ShopModel.parse_purchases(data)
 		"products":
 			return ShopModel.parse_products(data)
+		"inventory":
+			return LoadoutModel.parse_inventory(data)
 	return null
 
 
@@ -265,7 +273,7 @@ func _reload_failed() -> void:
 
 
 func _on_assets_dirty() -> void:
-	for source in ["offers", "purchases"]:
+	for source in ["offers", "purchases", "inventory"]:
 		if _data.has(source):
 			_stale[source] = true
 	_ensure_loaded()
@@ -633,6 +641,11 @@ static func _empty(message: String) -> Label:
 func _on_buy(offer: Dictionary) -> void:
 	if PlayerState.busy_id != "":
 		return
+	if ShopModel.sells_quantity(offer):
+		var dialog := BuyQuantityDialog.new()
+		var wallet := ShopModel.wallet_for(offer, PlayerState.coin(), PlayerState.gem()) if PlayerState.is_loaded() else -1
+		dialog.open_for(overlay, offer, owned(str(offer.get("itemId", ""))), wallet, func(total: int) -> void: _purchase(offer, total))
+		return
 	var swap := ShopModel.is_coin_pack(offer)
 	var m := Modal.new()
 	m.open(overlay, "Xác nhận đổi" if swap else "Xác nhận mua")
@@ -646,12 +659,19 @@ func _confirm_buy(m: Modal, offer: Dictionary) -> void:
 	_purchase(offer)
 
 
-func _purchase(offer: Dictionary) -> void:
+## How many of the item the bag holds (GET /player/inventory), -1 while unknown.
+func owned(item_id: String) -> int:
+	var inv = _data.get("inventory")
+	return int(inv.get(item_id, 0)) if inv is Dictionary else -1
+
+
+## Buys the offer `quantity` times (the quantity dialog's total; 1 otherwise).
+func _purchase(offer: Dictionary, quantity: int = 1) -> void:
 	if PlayerState.busy_id != "":
 		return
 	var swap := ShopModel.is_coin_pack(offer)
 	_action_status.show_loading(("Đang đổi lấy %s..." if swap else "Đang mua %s...") % ShopModel.offer_name(offer))
-	var res: Dictionary = await PlayerState.buy(str(offer.get("offerId", "")))
+	var res: Dictionary = await PlayerState.buy(str(offer.get("offerId", "")), quantity)
 	if not is_inside_tree():
 		return
 	if res.code == "BUSY":
@@ -664,8 +684,11 @@ func _purchase(offer: Dictionary) -> void:
 		else:
 			Ui.toast(overlay, ShopModel.coin_pack_success(offer, res.data) if swap else "Mua thành công!")
 		return
-	var retry := _purchase.bind(offer) if not IdempotencyKeys.is_definite(res.status) else Callable()
+	var retry := _purchase.bind(offer, quantity) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.purchase(res, str(offer.get("priceCurrency", ""))), retry)
+	if res.code == "SHOP_STACK_LIMIT" and _data.has("inventory"): # the bag holds more than shown
+		_stale["inventory"] = true
+		_ensure_loaded()
 
 
 func _on_buy_equipment(item: Dictionary) -> void:

@@ -174,6 +174,10 @@ static func purchase(res: Dictionary, currency: String = "") -> String:
 			"coin": return "Không đủ xu"
 			"gem": return "Không đủ kim cương"
 		return "Không đủ xu/kim cương"
+	if code == "SHOP_STACK_LIMIT": # the bag would pass the stack cap; details.maxQuantity still fit
+		var details = res.get("details")
+		var left := int(details.get("maxQuantity", 0)) if details is Dictionary else 0
+		return "Kho đồ chỉ còn chỗ cho %d" % left if left > 0 else "Kho đồ đã đầy vật phẩm này"
 	return PURCHASE.get(code, "Mua thất bại: %s" % res.get("message", ""))
 
 
