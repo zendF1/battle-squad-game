@@ -6,14 +6,16 @@ extends Control
 ## lightning bolt on an orange burst), the leaderboard's tabs ("level": up chevrons on a blue disc,
 ## "insignia": a shoulder board with chevrons) and its lobby button ("trophy"); the showcase's other
 ## stats ("boot": Năng lượng di chuyển, "magic": Sức mạnh kỹ năng, "terrain": Phá địa hình, "crit":
-## Chí mạng), the match's wind ("wind": three gusts curling at their ends) and a socketed gem ("gem", in `tint`: ShowcaseModel.GEM_COLORS). Drawn on a 96 × 96
+## Chí mạng), the match's wind ("wind": three gusts curling at their ends), a socketed gem ("gem", in
+## `tint`: ShowcaseModel.GEM_COLORS) and the loading screen's failure ("offline": wi-fi arcs crossed
+## out in red; "retry": a white turning arrow on a blue disc, its button). Drawn on a 96 × 96
 ## canvas scaled into the control's square and centred (a single-focus picture). make() for a
 ## layout, info_button() for the round "i" button that opens a card's popup.
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 
 const KINDS := ["heart", "sword", "shield", "info", "clock", "arrow", "power", "level", "insignia", "trophy",
-	"boot", "magic", "terrain", "crit", "gem", "wind"]
+	"boot", "magic", "terrain", "crit", "gem", "wind", "offline", "retry"]
 const OUTLINE := Color(0.07, 0.07, 0.14)
 const W := 5.0
 const HEART := Color(1.0, 0.33, 0.4)
@@ -140,6 +142,8 @@ func _draw() -> void:
 		"crit": _crit()
 		"gem": _gem()
 		"wind": _wind()
+		"offline": _offline()
+		"retry": _retry()
 
 
 func _poly(pts: PackedVector2Array, fill: Color, w: float = W) -> void:
@@ -344,3 +348,27 @@ func _wind() -> void:
 			var a := PI / 2 - TAU * 0.75 * i / 9.0
 			pts.append(Vector2(x1, y - 8.0) + Vector2(cos(a), -sin(a)) * 8.0 * (1.0 - i / 14.0))
 		_stroke(pts, WING, 7.0)
+
+
+func _offline() -> void:
+	var c := Vector2(48, 70)
+	for r in [50.0, 34.0, 18.0]:
+		var pts := PackedVector2Array()
+		for i in 13:
+			pts.append(c + Vector2.from_angle(lerpf(PI * 1.25, PI * 1.75, i / 12.0)) * r)
+		_stroke(pts, STEEL, 7.0)
+	draw_circle(c, 9.0, OUTLINE, true, -1.0, true)
+	draw_circle(c, 5.0, STEEL, true, -1.0, true)
+	_stroke(PackedVector2Array([Vector2(20, 20), Vector2(76, 76)]), CRIT, 9.0)
+
+
+func _retry() -> void:
+	draw_circle(Vector2(48, 48), 42, OUTLINE, true, -1.0, true)
+	draw_circle(Vector2(48, 48), 37, INFO, true, -1.0, true)
+	draw_arc(Vector2(48, 48), 31, PI * 1.1, PI * 1.6, 16, Color(1, 1, 1, 0.35), 4.0, true)
+	var pts := PackedVector2Array()
+	for i in 17:
+		pts.append(Vector2(48, 50) + Vector2.from_angle(lerpf(-PI * 0.35, PI * 1.25, i / 16.0)) * 20.0)
+	_stroke(pts, Color.WHITE, 8.0, 0.0)
+	var tip := Vector2(48, 50) + Vector2.from_angle(-PI * 0.35) * 20.0
+	draw_colored_polygon(PackedVector2Array([tip + Vector2(-13, -4), tip + Vector2(9, -13), tip + Vector2(6, 11)]), Color.WHITE)

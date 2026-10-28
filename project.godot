@@ -13,7 +13,10 @@ config_version=5
 config/name="battle-squad-game"
 run/main_scene="res://screens/splash.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
-config/icon="res://icon.svg"
+config/icon="res://assets/branding/icon/app_icon_macos.png"
+boot_splash/bg_color=Color(0.604, 0.851, 0.945, 1)
+boot_splash/image="res://assets/branding/splash.png"
+boot_splash/stretch_mode=4
 
 [autoload]
 

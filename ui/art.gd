@@ -164,6 +164,8 @@ const ENV := {
 	"matchmaking_boss_tree_spirit": ROOT + "env/matchmaking_boss_tree_spirit.png",
 	"result": ROOT + "env/result.png",
 	"pedestal": ROOT + "env/pedestal.png",
+	"login_bg": ROOT + "env/login_bg.png",
+	"loading_bg": ROOT + "env/loading_bg.png",
 }
 const CLOUDS := ["cloud_0", "cloud_1", "cloud_2"]
 ## pedestal.png: the centre of the stage's top face (where the feet go), px in the image.
@@ -179,6 +181,15 @@ const BG_DEFAULT := "lobby_bg"
 const BG_PVP := "matchmaking_pvp"
 const BG_BOSS_PREFIX := "matchmaking_boss_"
 const BG_RESULT := "result"
+## The first screens' pictures (2048 x 1144, opaque, drawn framed: frame_rect()): login_bg (the squad on
+## a hill, screens/login.gd), loading_bg (two floating forts over the clouds, screens/splash.gd).
+const BG_LOGIN := "login_bg"
+const BG_LOADING := "loading_bg"
+## The game's logo (assets/branding/logo.png: the helmet emblem over the BATTLE SQUAD wordmark,
+## transparent, 628 x 631; ui/brand.gd places it). assets/branding/splash.png (the boot splash: the
+## logo on the splash colour) and assets/branding/icon/ (the app icons) are export-time files read by
+## project.godot / export_presets.cfg only.
+const LOGO := ROOT + "branding/logo.png"
 ## sky_match.png covers the map plus this margin (px) on the left and right.
 const SKY_MARGIN := 600.0
 const TERRAIN := {
@@ -519,7 +530,7 @@ static func title_meta(rarity: String) -> Dictionary:
 
 ## Every file this script names (the test checks they all exist).
 static func all_paths() -> Array[String]:
-	var out: Array[String] = [SHADOW, HAND, GUNS_DATA, HUG_DATA, FULL_ANIMS]
+	var out: Array[String] = [SHADOW, HAND, GUNS_DATA, HUG_DATA, FULL_ANIMS, LOGO]
 	for id in CHARACTERS:
 		out.append(portrait_path(id))
 		if has_side_view(id):
@@ -701,6 +712,104 @@ static func cover_source(tex_size: Vector2, rect_size: Vector2) -> Rect2:
 	var k := maxf(rect_size.x / tex_size.x, rect_size.y / tex_size.y) # texture px → rect px
 	var part := rect_size / k
 	return Rect2((tex_size - part) / 2.0, part)
+
+
+## Where a `tex_size` picture goes in a `rect_size` rect, drawn "framed" (the whole texture's rect,
+## rect px): cover (the aspect kept, the rect filled), the overflow cut by `align` (0 keeps the top /
+## left, 1 the bottom / right, 0.5 even); but never cutting into `keep` (texture UV 0..1, the part of
+## the picture that must stay on screen: the squad on the login picture). Where cover would, the
+## picture is drawn just small enough to show all of `keep` and placed by `align`, leaving a band of
+## the rect uncovered (ui/backdrop.gd fills it from the picture's edges). `keep` with no area: cover.
+static func frame_rect(tex_size: Vector2, rect_size: Vector2, keep: Rect2 = Rect2(), align: Vector2 = Vector2(0.5, 0.5)) -> Rect2:
+	if tex_size.x <= 0.0 or tex_size.y <= 0.0 or rect_size.x <= 0.0 or rect_size.y <= 0.0:
+		return Rect2(Vector2.ZERO, rect_size.max(Vector2.ZERO))
+	var k := maxf(rect_size.x / tex_size.x, rect_size.y / tex_size.y)
+	var has_keep := keep.size.x > 0.0 and keep.size.y > 0.0
+	if has_keep:
+		var ks := keep.size * tex_size
+		k = minf(k, minf(rect_size.x / ks.x, rect_size.y / ks.y))
+	var drawn := tex_size * k
+	var pos := (rect_size - drawn) * align
+	if has_keep:
+		var k0 := keep.position * drawn
+		var k1 := keep.end * drawn
+		pos.x = clampf(pos.x, -k0.x, rect_size.x - k1.x)
+		pos.y = clampf(pos.y, -k0.y, rect_size.y - k1.y)
+	return Rect2(pos, drawn)
+
+
+## Sides of a picture (edge_strip()).
+enum { SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM, SIDE_LEFT }
+## edge_strip(): the averaged edge is this share of the picture deep, in EDGE_STRIP_PX buckets.
+const EDGE_DEPTH := 0.02
+const EDGE_STRIP_PX := 8
+static var _edges := {} # "key/side" → ImageTexture
+
+## A background's colours along one side (SIDE_*), averaged EDGE_DEPTH deep into EDGE_STRIP_PX buckets
+## along the side: an EDGE_STRIP_PX x 1 texture (top, bottom) or 1 x EDGE_STRIP_PX (left, right) that
+## ui/backdrop.gd stretches over a band frame_rect() leaves uncovered, so the sky or the grass goes on.
+## Made once per key and side; a 1 x 1 grey when the pixels cannot be read.
+static func edge_strip(key: String, side: int) -> Texture2D:
+	key = background_key(key)
+	var id := "%s/%d" % [key, side]
+	if _edges.has(id):
+		return _edges[id]
+	var img: Image = background(key).get_image()
+	var out: Image
+	if img == null or img.is_empty():
+		out = Image.create(1, 1, false, Image.FORMAT_RGB8)
+		out.fill(Color(0.5, 0.6, 0.7))
+	else:
+		img = img.duplicate()
+		if img.is_compressed():
+			img.decompress()
+		img.convert(Image.FORMAT_RGB8)
+		var w := img.get_width()
+		var h := img.get_height()
+		var across := side == SIDE_TOP or side == SIDE_BOTTOM
+		var length := w if across else h
+		var depth := maxi(1, roundi((h if across else w) * EDGE_DEPTH))
+		out = Image.create(EDGE_STRIP_PX if across else 1, 1 if across else EDGE_STRIP_PX, false, Image.FORMAT_RGB8)
+		for b in EDGE_STRIP_PX:
+			var sum := Color(0, 0, 0)
+			var n := 0
+			for along in range(floori(float(b * length) / EDGE_STRIP_PX), floori(float((b + 1) * length) / EDGE_STRIP_PX)):
+				for d in depth:
+					var p: Vector2i
+					match side:
+						SIDE_TOP: p = Vector2i(along, d)
+						SIDE_BOTTOM: p = Vector2i(along, h - 1 - d)
+						SIDE_LEFT: p = Vector2i(d, along)
+						_: p = Vector2i(w - 1 - d, along)
+					var c := img.get_pixelv(p)
+					sum.r += c.r
+					sum.g += c.g
+					sum.b += c.b
+					n += 1
+			var avg := Color(sum.r / n, sum.g / n, sum.b / n)
+			out.set_pixel(b if across else 0, 0 if across else b, avg)
+	var t := ImageTexture.create_from_image(out)
+	_edges[id] = t
+	return t
+
+
+## The mean of a background's top and bottom edge colours (edge_strip()), made once per key.
+static func edge_mean(key: String) -> Color:
+	key = background_key(key)
+	var id := key + "/mean"
+	if not _edges.has(id):
+		var sum := Color(0, 0, 0)
+		var n := 0
+		for side in [SIDE_TOP, SIDE_BOTTOM]:
+			var img: Image = edge_strip(key, side).get_image()
+			for x in img.get_width():
+				var c := img.get_pixel(x, 0)
+				sum.r += c.r
+				sum.g += c.g
+				sum.b += c.b
+				n += 1
+		_edges[id] = Color(sum.r / n, sum.g / n, sum.b / n)
+	return _edges[id]
 
 
 static var _blurred := {} # background key → its blurred ImageTexture
@@ -1315,6 +1424,11 @@ static func _imported(path: String) -> bool:
 
 ## The project has this PNG: the file itself (the editor, imported or not yet), or its imported
 ## copy (an export keeps only the .import remap, never the PNG, so FileAccess alone misses it).
+## The game's logo (LOGO), null without the file (the first screens then show the name as text).
+static func logo() -> Texture2D:
+	return _png_texture(LOGO) if has_png(LOGO) else null
+
+
 static func has_png(path: String) -> bool:
 	return FileAccess.file_exists(path) or ResourceLoader.exists(path)
 

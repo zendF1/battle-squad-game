@@ -109,6 +109,21 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   stretch runs: `ranks.json`); the side bands between `stretchY` are plain, so a card taller than
   4:5 is framed by drawing the frame at card width / window width and heightening only those runs
   (the tool's `sliced()`; the debug previews show the party slot's and the VS card's proportions).
+- **Branding** (the first screens; prompts `art_source/branding/PROMPTS.md`, originals in
+  `art_source/branding/logo/`, `art_source/branding/icon/`, `art_source/ui/backgrounds/login_bg.png`,
+  `loading_bg.png`): `branding/logo.png` (628 × 631, transparent: the magenta keyed out, the edge
+  pixels unmixed from the key, the ✦ dropped; `ui/brand.gd` draws it 315 design px tall on the loading
+  and login screens), `env/login_bg.png` and `env/loading_bg.png` (2048 × 1144, opaque, drawn framed by
+  `ui/backdrop.gd`: `keep` the part that stays on screen at any aspect, a tall screen's band painted
+  from the picture's edge colours; login: the generator's darker side bands lifted; loading: its
+  translucent panel matched into the border, the strip and the green bar under it replaced by the
+  cloud sea, the ✦ blurred away). Export-time only (`.import` set to skip, never loaded by scripts):
+  `branding/splash.png` (the boot splash and the iOS launch image: the logo where `ui/brand.gd` puts
+  it on `Brand.SPLASH_BG`, 1920 × 1080, cover), `branding/icon/app_icon.png` (1024, no alpha, the ✦
+  repainted from the rays), `icon_<size>.png` (the iOS sizes, Lanczos from it) and
+  `app_icon_macos.png` (the macOS rounded tile with its margin and shadow; also `config/icon`).
+  The wordmark alone (`art_source/branding/logo/wordmark_v1.png`) is not shipped: no screen draws the
+  name without the emblem.
 - **9-patches** (`ui/`): keep the corners inside the texture margins listed below
   (`ui/art.gd` `UI_BOXES`), or change the margins there.
 - Import settings: icons, effects and clouds are imported with mipmaps (they are shown smaller
