@@ -628,7 +628,9 @@
         "maxUsePerMatch": 1,
         "cooldown": 0,
         "instant": true,
-        "aimKind": "none"
+        "aimKind": "none",
+        "description": "Hồi 450 máu và giải độc.",
+        "params": {}
       },
       {
         "itemId": "teleport",
@@ -639,7 +641,9 @@
         "maxUsePerMatch": 1,
         "cooldown": 0,
         "instant": false,
-        "aimKind": "arc"
+        "aimKind": "arc",
+        "description": "Bắn đạn dịch chuyển, tới ngay chỗ đạn rơi.",
+        "params": {}
       },
       {
         "itemId": "power_shot",
@@ -650,7 +654,9 @@
         "maxUsePerMatch": 1,
         "cooldown": 0,
         "instant": false,
-        "aimKind": "arc"
+        "aimKind": "arc",
+        "description": "Phát bắn hoặc kỹ năng kế tiếp mạnh gấp 1,5.",
+        "params": {}
       },
       {
         "itemId": "drill_bomb",
@@ -661,7 +667,9 @@
         "maxUsePerMatch": 1,
         "cooldown": 0,
         "instant": false,
-        "aimKind": "arc"
+        "aimKind": "arc",
+        "description": "Đạn khoan xuyên lớp địa hình đầu tiên.",
+        "params": {}
       },
       {
         "itemId": "spider_net",
@@ -672,7 +680,9 @@
         "maxUsePerMatch": 1,
         "cooldown": 0,
         "instant": false,
-        "aimKind": "arc"
+        "aimKind": "arc",
+        "description": "Địch trúng nổ bị lưới, lượt sau chỉ đi được nửa đường.",
+        "params": {}
       },
       {
         "itemId": "freeze_bomb",
@@ -683,7 +693,9 @@
         "maxUsePerMatch": 1,
         "cooldown": 0,
         "instant": false,
-        "aimKind": "arc"
+        "aimKind": "arc",
+        "description": "Địch trúng nổ bị đóng băng một lượt; sát thương bằng nửa phát thường.",
+        "params": {}
       },
       {
         "itemId": "air_strike",
@@ -694,7 +706,9 @@
         "maxUsePerMatch": 1,
         "cooldown": 0,
         "instant": false,
-        "aimKind": "targetX"
+        "aimKind": "targetX",
+        "description": "Gọi không kích rơi thẳng xuống cột đã chọn.",
+        "params": {}
       },
       {
         "itemId": "wind_stopper",
@@ -705,12 +719,13 @@
         "maxUsePerMatch": 1,
         "cooldown": 0,
         "instant": true,
-        "aimKind": "none"
+        "aimKind": "none",
+        "description": "Tắt gió hai lượt.",
+        "params": {}
       },
       {
         "itemId": "poison_bomb",
         "name": "Bom độc",
-        "description": "Phát bắn thường; ai trúng vụ nổ bị trúng độc 2 lượt, mất 5 % máu tối đa đầu mỗi lượt.",
         "type": "poison",
         "targetType": "shoot",
         "value": 5,
@@ -718,6 +733,7 @@
         "cooldown": 0,
         "instant": false,
         "aimKind": "arc",
+        "description": "Phát bắn thường; ai trúng vụ nổ bị trúng độc 2 lượt, mất 5 % máu tối đa đầu mỗi lượt.",
         "params": {
           "turns": 2,
           "damageFactor": 1
@@ -726,7 +742,6 @@
       {
         "itemId": "double_shot",
         "name": "Bắn đôi (x2)",
-        "description": "Bắn liền hai quả đạn cùng đường bay, mỗi quả 75 % sát thương.",
         "type": "multi_shot",
         "targetType": "shoot",
         "value": 0.75,
@@ -734,6 +749,7 @@
         "cooldown": 0,
         "instant": false,
         "aimKind": "arc",
+        "description": "Bắn liền hai quả đạn cùng đường bay, mỗi quả 75 % sát thương.",
         "params": {
           "count": 2,
           "delaySec": 0.25
@@ -742,7 +758,6 @@
       {
         "itemId": "triple_shot",
         "name": "Bắn ba tia (x3)",
-        "description": "Bắn ba quả đạn toả hình quạt, mỗi quả 67 % sát thương.",
         "type": "fan_shot",
         "targetType": "shoot",
         "value": 0.667,
@@ -750,6 +765,7 @@
         "cooldown": 0,
         "instant": false,
         "aimKind": "arc",
+        "description": "Bắn ba quả đạn toả hình quạt, mỗi quả 67 % sát thương.",
         "params": {
           "count": 3,
           "spreadDeg": 5
@@ -758,7 +774,6 @@
       {
         "itemId": "nuke_bomb",
         "name": "Bom huỷ diệt",
-        "description": "Bắn pháo hiệu; chỗ pháo hiệu chạm, bom huỷ diệt rơi từ trời xuống: 150 % sát thương, vùng nổ rất rộng, hố lớn.",
         "type": "nuke",
         "targetType": "shoot",
         "value": 1.5,
@@ -766,6 +781,7 @@
         "cooldown": 0,
         "instant": false,
         "aimKind": "arc",
+        "description": "Bắn pháo hiệu; chỗ pháo hiệu chạm, bom huỷ diệt rơi từ trời xuống: 150 % sát thương, vùng nổ rất rộng, hố lớn.",
         "params": {
           "blastFactor": 2.5,
           "craterFactor": 2.5,
@@ -777,7 +793,6 @@
       {
         "itemId": "laser_strike",
         "name": "Laze",
-        "description": "Bắn pháo hiệu; chỗ pháo hiệu chạm, năm tia laze từ trời hội tụ: 130 % sát thương quanh điểm đó.",
         "type": "laser",
         "targetType": "shoot",
         "value": 1.3,
@@ -785,6 +800,7 @@
         "cooldown": 0,
         "instant": false,
         "aimKind": "arc",
+        "description": "Bắn pháo hiệu; chỗ pháo hiệu chạm, năm tia laze từ trời hội tụ: 130 % sát thương quanh điểm đó.",
         "params": {
           "beams": 5,
           "blastFactor": 1,
