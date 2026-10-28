@@ -1,0 +1,2825 @@
+{
+ "_comment": "Boss v5 (server feat/visual-ui-boss-skills, migration 063), recorded from the server's match code with the boss_v5_test.go set-ups: per case the ShotResolved as sent (shot) and the living units before it (players: position, role, bossId, minionId, bodySize, teamId, characterId); frozen_turn: a frozen boss's TurnStarted.",
+ "blind_bomb": {
+  "shot": {
+   "actionMode": "skill",
+   "duration": 1.9,
+   "events": [
+    {
+     "playerId": "boss_steel_robot",
+     "position": {
+      "x": 168,
+      "y": 608
+     },
+     "radius": 200,
+     "skillId": "blind_bomb",
+     "t": 1.9,
+     "type": "airburst"
+    },
+    {
+     "amount": 206,
+     "cause": "airburst",
+     "hp": 99794,
+     "playerId": "p0",
+     "t": 1.9,
+     "type": "damage"
+    },
+    {
+     "effectId": "blind",
+     "playerId": "p0",
+     "t": 1.9,
+     "turns": 1,
+     "type": "status"
+    },
+    {
+     "amount": 168,
+     "cause": "airburst",
+     "hp": 99832,
+     "playerId": "p1",
+     "t": 1.9,
+     "type": "damage"
+    },
+    {
+     "effectId": "blind",
+     "playerId": "p1",
+     "t": 1.9,
+     "turns": 1,
+     "type": "status"
+    }
+   ],
+   "projectiles": [
+    {
+     "craterRadius": 0,
+     "explosionPoint": {
+      "x": 168,
+      "y": 608
+     },
+     "explosionRadius": 200,
+     "kind": "orb",
+     "launchDelay": 0.6,
+     "ownerPlayerId": "boss_steel_robot",
+     "path": [
+      {
+       "position": {
+        "x": 1992,
+        "y": 612
+       },
+       "time": 0.6,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": -1787.6923076923076
+       }
+      },
+      {
+       "position": {
+        "x": 1878,
+        "y": 475.8125
+       },
+       "time": 0.681,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": -1564.6153846153845
+       }
+      },
+      {
+       "position": {
+        "x": 1764,
+        "y": 357.75
+       },
+       "time": 0.763,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": -1341.5384615384614
+       }
+      },
+      {
+       "position": {
+        "x": 1650,
+        "y": 257.8125
+       },
+       "time": 0.844,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": -1118.4615384615383
+       }
+      },
+      {
+       "position": {
+        "x": 1536,
+        "y": 176
+       },
+       "time": 0.925,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": -895.3846153846154
+       }
+      },
+      {
+       "position": {
+        "x": 1422,
+        "y": 112.3125
+       },
+       "time": 1.006,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": -672.3076923076923
+       }
+      },
+      {
+       "position": {
+        "x": 1308,
+        "y": 66.75
+       },
+       "time": 1.088,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": -449.2307692307692
+       }
+      },
+      {
+       "position": {
+        "x": 1194,
+        "y": 39.3125
+       },
+       "time": 1.169,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": -226.15384615384613
+       }
+      },
+      {
+       "position": {
+        "x": 1080,
+        "y": 30
+       },
+       "time": 1.25,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": -3.0769230769230766
+       }
+      },
+      {
+       "position": {
+        "x": 966,
+        "y": 38.8125
+       },
+       "time": 1.331,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": 220
+       }
+      },
+      {
+       "position": {
+        "x": 852,
+        "y": 65.75
+       },
+       "time": 1.413,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": 443.07692307692304
+       }
+      },
+      {
+       "position": {
+        "x": 738,
+        "y": 110.8125
+       },
+       "time": 1.494,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": 666.1538461538461
+       }
+      },
+      {
+       "position": {
+        "x": 624,
+        "y": 174
+       },
+       "time": 1.575,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": 889.2307692307692
+       }
+      },
+      {
+       "position": {
+        "x": 510,
+        "y": 255.3125
+       },
+       "time": 1.656,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": 1112.3076923076924
+       }
+      },
+      {
+       "position": {
+        "x": 396,
+        "y": 354.75
+       },
+       "time": 1.738,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": 1335.3846153846152
+       }
+      },
+      {
+       "position": {
+        "x": 282,
+        "y": 472.3125
+       },
+       "time": 1.819,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": 1558.4615384615383
+       }
+      },
+      {
+       "position": {
+        "x": 168,
+        "y": 608
+       },
+       "time": 1.9,
+       "velocity": {
+        "x": -1403.076923076923,
+        "y": 1781.5384615384614
+       }
+      }
+     ],
+     "projectileId": "proj-edcd3e6c54eef48d",
+     "skillId": "blind_bomb"
+    }
+   ],
+   "shooterId": "boss_steel_robot",
+   "skillEnergies": {
+    "boss_steel_robot": 0,
+    "minion_drone_1": 0,
+    "minion_drone_2": 0,
+    "p0": 10,
+    "p1": 10
+   },
+   "skillEnergy": 0,
+   "skillId": "blind_bomb"
+  },
+  "players": {
+   "boss_steel_robot": {
+    "bodySize": 3,
+    "bossId": "steel_robot",
+    "characterId": "",
+    "displayName": "Rô-bốt Thép",
+    "hp": 19000,
+    "isAlive": true,
+    "maxHp": 19000,
+    "playerId": "boss_steel_robot",
+    "position": {
+     "x": 1992,
+     "y": 672
+    },
+    "role": "boss",
+    "teamId": 2
+   },
+   "p0": {
+    "characterId": "rookie",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p0",
+    "position": {
+     "x": 168,
+     "y": 768
+    },
+    "teamId": 1
+   },
+   "p1": {
+    "characterId": "tanko",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p1",
+    "position": {
+     "x": 296,
+     "y": 768
+    },
+    "teamId": 1
+   }
+  }
+ },
+ "blizzard": {
+  "shot": {
+   "actionMode": "skill",
+   "duration": 1.7999999999999998,
+   "events": [
+    {
+     "duration": 1.2,
+     "playerId": "boss_ice_witch",
+     "skillId": "blizzard",
+     "t": 0.6,
+     "type": "global"
+    },
+    {
+     "amount": 238,
+     "cause": "global",
+     "elementEffect": "strong",
+     "hp": 99762,
+     "playerId": "p0",
+     "t": 1.45,
+     "type": "damage"
+    },
+    {
+     "amount": 213,
+     "cause": "global",
+     "hp": 99787,
+     "playerId": "p1",
+     "t": 1.53,
+     "type": "damage"
+    },
+    {
+     "amount": 223,
+     "cause": "global",
+     "hp": 99777,
+     "playerId": "p2",
+     "t": 1.61,
+     "type": "damage"
+    },
+    {
+     "amount": 203,
+     "cause": "global",
+     "hp": 99797,
+     "playerId": "p3",
+     "t": 1.69,
+     "type": "damage"
+    }
+   ],
+   "projectiles": [
+    {
+     "craterRadius": 0,
+     "explosionPoint": {
+      "x": 2280,
+      "y": 652
+     },
+     "explosionRadius": 30,
+     "hitPlayerId": "p0",
+     "kind": "ice_shard",
+     "launchDelay": 0.6,
+     "ownerPlayerId": "boss_ice_witch",
+     "path": [
+      {
+       "position": {
+        "x": 1185.793369188014,
+        "y": 420.11972452248057
+       },
+       "time": 0.6,
+       "velocity": {
+        "x": 1287.3019186023366,
+        "y": -611.7647058823529
+       }
+      },
+      {
+       "position": {
+        "x": 1295.2140322692126,
+        "y": 375.6385272772558
+       },
+       "time": 0.685,
+       "velocity": {
+        "x": 1287.3019186023366,
+        "y": -434.8516998876425
+       }
+      },
+      {
+       "position": {
+        "x": 1404.6346953504114,
+        "y": 346.1949355415814
+       },
+       "time": 0.77,
+       "velocity": {
+        "x": 1287.3019186023366,
+        "y": -257.93869389293206
+       }
+      },
+      {
+       "position": {
+        "x": 1514.0553584316096,
+        "y": 331.7889493154573
+       },
+       "time": 0.855,
+       "velocity": {
+        "x": 1287.3019186023366,
+        "y": -81.02568789822155
+       }
+      },
+      {
+       "position": {
+        "x": 1623.4760215128085,
+        "y": 332.4205685988837
+       },
+       "time": 0.94,
+       "velocity": {
+        "x": 1287.3019186023366,
+        "y": 95.8873180964889
+       }
+      },
+      {
+       "position": {
+        "x": 1732.896684594007,
+        "y": 348.08979339186044
+       },
+       "time": 1.025,
+       "velocity": {
+        "x": 1287.3019186023366,
+        "y": 272.80032409119934
+       }
+      },
+      {
+       "position": {
+        "x": 1842.3173476752056,
+        "y": 378.79662369438756
+       },
+       "time": 1.11,
+       "velocity": {
+        "x": 1287.3019186023366,
+        "y": 449.7133300859098
+       }
+      },
+      {
+       "position": {
+        "x": 1951.7380107564043,
+        "y": 424.54105950646505
+       },
+       "time": 1.195,
+       "velocity": {
+        "x": 1287.3019186023366,
+        "y": 626.6263360806201
+       }
+      },
+      {
+       "position": {
+        "x": 2061.158673837603,
+        "y": 485.32310082809306
+       },
+       "time": 1.28,
+       "velocity": {
+        "x": 1287.3019186023366,
+        "y": 803.5393420753308
+       }
+      },
+      {
+       "position": {
+        "x": 2170.5793369188013,
+        "y": 561.1427476592713
+       },
+       "time": 1.365,
+       "velocity": {
+        "x": 1287.3019186023366,
+        "y": 980.4523480700412
+       }
+      },
+      {
+       "position": {
+        "x": 2280,
+        "y": 652
+       },
+       "time": 1.45,
+       "velocity": {
+        "x": 1287.3019186023366,
+        "y": 1157.3653540647517
+       }
+      }
+     ],
+     "projectileId": "proj-ca731383f1dc200b",
+     "skillId": "blizzard"
+    },
+    {
+     "craterRadius": 0,
+     "explosionPoint": {
+      "x": 440,
+      "y": 508
+     },
+     "explosionRadius": 30,
+     "hitPlayerId": "p1",
+     "kind": "ice_shard",
+     "launchDelay": 0.68,
+     "ownerPlayerId": "boss_ice_witch",
+     "path": [
+      {
+       "position": {
+        "x": 1209.8802754775195,
+        "y": 303.7933691880139
+       },
+       "time": 0.68,
+       "velocity": {
+        "x": -905.7415005617877,
+        "y": -611.7647058823529
+       }
+      },
+      {
+       "position": {
+        "x": 1132.8922479297678,
+        "y": 259.0354354961338
+       },
+       "time": 0.765,
+       "velocity": {
+        "x": -905.7415005617877,
+        "y": -441.3631456912974
+       }
+      },
+      {
+       "position": {
+        "x": 1055.9042203820156,
+        "y": 228.76163442049338
+       },
+       "time": 0.85,
+       "velocity": {
+        "x": -905.7415005617877,
+        "y": -270.9615855002419
+       }
+      },
+      {
+       "position": {
+        "x": 978.9161928342636,
+        "y": 212.97196596109265
+       },
+       "time": 0.935,
+       "velocity": {
+        "x": -905.7415005617877,
+        "y": -100.56002530918627
+       }
+      },
+      {
+       "position": {
+        "x": 901.9281652865117,
+        "y": 211.6664301179317
+       },
+       "time": 1.02,
+       "velocity": {
+        "x": -905.7415005617877,
+        "y": 69.84153488186931
+       }
+      },
+      {
+       "position": {
+        "x": 824.9401377387597,
+        "y": 224.84502689101043
+       },
+       "time": 1.105,
+       "velocity": {
+        "x": -905.7415005617877,
+        "y": 240.2430950729248
+       }
+      },
+      {
+       "position": {
+        "x": 747.9521101910078,
+        "y": 252.5077562803289
+       },
+       "time": 1.19,
+       "velocity": {
+        "x": -905.7415005617877,
+        "y": 410.6446552639803
+       }
+      },
+      {
+       "position": {
+        "x": 670.9640826432559,
+        "y": 294.65461828588707
+       },
+       "time": 1.275,
+       "velocity": {
+        "x": -905.7415005617877,
+        "y": 581.0462154550358
+       }
+      },
+      {
+       "position": {
+        "x": 593.9760550955039,
+        "y": 351.28561290768505
+       },
+       "time": 1.36,
+       "velocity": {
+        "x": -905.7415005617877,
+        "y": 751.4477756460915
+       }
+      },
+      {
+       "position": {
+        "x": 516.9880275477519,
+        "y": 422.4007401457227
+       },
+       "time": 1.445,
+       "velocity": {
+        "x": -905.7415005617877,
+        "y": 921.849335837147
+       }
+      },
+      {
+       "position": {
+        "x": 440,
+        "y": 508
+       },
+       "time": 1.53,
+       "velocity": {
+        "x": -905.7415005617877,
+        "y": 1092.2508960282025
+       }
+      }
+     ],
+     "projectileId": "proj-0f9c36b14995383d",
+     "skillId": "blizzard"
+    },
+    {
+     "craterRadius": 0,
+     "explosionPoint": {
+      "x": 952,
+      "y": 876
+     },
+     "explosionRadius": 30,
+     "hitPlayerId": "p2",
+     "kind": "ice_shard",
+     "launchDelay": 0.76,
+     "ownerPlayerId": "boss_ice_witch",
+     "path": [
+      {
+       "position": {
+        "x": 1326.206630811986,
+        "y": 327.8802754775195
+       },
+       "time": 0.76,
+       "velocity": {
+        "x": -440.2430950729248,
+        "y": -611.7647058823529
+       }
+      },
+      {
+       "position": {
+        "x": 1288.7859677307877,
+        "y": 286.5614727227443
+       },
+       "time": 0.845,
+       "velocity": {
+        "x": -440.2430950729248,
+        "y": -360.44241775941634
+       }
+      },
+      {
+       "position": {
+        "x": 1251.365304649589,
+        "y": 266.6050644584188
+       },
+       "time": 0.93,
+       "velocity": {
+        "x": -440.2430950729248,
+        "y": -109.12012963647977
+       }
+      },
+      {
+       "position": {
+        "x": 1213.9446415683901,
+        "y": 268.0110506845427
+       },
+       "time": 1.015,
+       "velocity": {
+        "x": -440.2430950729248,
+        "y": 142.20215848645685
+       }
+      },
+      {
+       "position": {
+        "x": 1176.5239784871915,
+        "y": 290.7794314011164
+       },
+       "time": 1.1,
+       "velocity": {
+        "x": -440.2430950729248,
+        "y": 393.52444660939346
+       }
+      },
+      {
+       "position": {
+        "x": 1139.103315405993,
+        "y": 334.9102066081396
+       },
+       "time": 1.185,
+       "velocity": {
+        "x": -440.2430950729248,
+        "y": 644.84673473233
+       }
+      },
+      {
+       "position": {
+        "x": 1101.6826523247944,
+        "y": 400.4033763056125
+       },
+       "time": 1.27,
+       "velocity": {
+        "x": -440.2430950729248,
+        "y": 896.1690228552666
+       }
+      },
+      {
+       "position": {
+        "x": 1064.261989243596,
+        "y": 487.2589404935349
+       },
+       "time": 1.355,
+       "velocity": {
+        "x": -440.2430950729248,
+        "y": 1147.491310978203
+       }
+      },
+      {
+       "position": {
+        "x": 1026.8413261623973,
+        "y": 595.4768991719071
+       },
+       "time": 1.44,
+       "velocity": {
+        "x": -440.2430950729248,
+        "y": 1398.81359910114
+       }
+      },
+      {
+       "position": {
+        "x": 989.4206630811987,
+        "y": 725.0572523407287
+       },
+       "time": 1.525,
+       "velocity": {
+        "x": -440.2430950729248,
+        "y": 1650.1358872240764
+       }
+      },
+      {
+       "position": {
+        "x": 952,
+        "y": 876
+       },
+       "time": 1.61,
+       "velocity": {
+        "x": -440.2430950729248,
+        "y": 1901.458175347013
+       }
+      }
+     ],
+     "projectileId": "proj-62a9876e2fd4d1e3",
+     "skillId": "blizzard"
+    },
+    {
+     "craterRadius": 0,
+     "explosionPoint": {
+      "x": 1256,
+      "y": 732
+     },
+     "explosionRadius": 30,
+     "hitPlayerId": "p3",
+     "kind": "ice_shard",
+     "launchDelay": 0.84,
+     "ownerPlayerId": "boss_ice_witch",
+     "path": [
+      {
+       "position": {
+        "x": 1302.1197245224805,
+        "y": 444.20663081198603
+       },
+       "time": 0.84,
+       "velocity": {
+        "x": -54.25849943821263,
+        "y": -611.7647058823529
+       }
+      },
+      {
+       "position": {
+        "x": 1297.5077520702325,
+        "y": 400.2845645038662
+       },
+       "time": 0.925,
+       "velocity": {
+        "x": -54.25849943821258,
+        "y": -421.69567783811436
+       }
+      },
+      {
+       "position": {
+        "x": 1292.8957796179845,
+        "y": 372.5183655795067
+       },
+       "time": 1.01,
+       "velocity": {
+        "x": -54.258499438212525,
+        "y": -231.62664979387586
+       }
+      },
+      {
+       "position": {
+        "x": 1288.283807165736,
+        "y": 360.90803403890726
+       },
+       "time": 1.095,
+       "velocity": {
+        "x": -54.258499438212475,
+        "y": -41.557621749637214
+       }
+      },
+      {
+       "position": {
+        "x": 1283.6718347134881,
+        "y": 365.4535698820683
+       },
+       "time": 1.18,
+       "velocity": {
+        "x": -54.25849943821242,
+        "y": 148.51140629460136
+       }
+      },
+      {
+       "position": {
+        "x": 1279.0598622612401,
+        "y": 386.1549731089895
+       },
+       "time": 1.265,
+       "velocity": {
+        "x": -54.25849943821237,
+        "y": 338.5804343388399
+       }
+      },
+      {
+       "position": {
+        "x": 1274.4478898089922,
+        "y": 423.01224371967106
+       },
+       "time": 1.35,
+       "velocity": {
+        "x": -54.25849943821232,
+        "y": 528.6494623830785
+       }
+      },
+      {
+       "position": {
+        "x": 1269.8359173567442,
+        "y": 476.0253817141128
+       },
+       "time": 1.435,
+       "velocity": {
+        "x": -54.25849943821227,
+        "y": 718.7184904273171
+       }
+      },
+      {
+       "position": {
+        "x": 1265.2239449044962,
+        "y": 545.1943870923151
+       },
+       "time": 1.52,
+       "velocity": {
+        "x": -54.2584994382122,
+        "y": 908.7875184715556
+       }
+      },
+      {
+       "position": {
+        "x": 1260.611972452248,
+        "y": 630.5192598542774
+       },
+       "time": 1.605,
+       "velocity": {
+        "x": -54.258499438212155,
+        "y": 1098.8565465157942
+       }
+      },
+      {
+       "position": {
+        "x": 1256,
+        "y": 732
+       },
+       "time": 1.69,
+       "velocity": {
+        "x": -54.2584994382121,
+        "y": 1288.9255745600328
+       }
+      }
+     ],
+     "projectileId": "proj-7bac3843111dab2c",
+     "skillId": "blizzard"
+    }
+   ],
+   "shooterId": "boss_ice_witch",
+   "skillEnergies": {
+    "boss_ice_witch": 0,
+    "minion_snowman_1": 0,
+    "minion_snowman_2": 0,
+    "minion_snowman_3": 0,
+    "p0": 10,
+    "p1": 10,
+    "p2": 10,
+    "p3": 10
+   },
+   "skillEnergy": 0,
+   "skillId": "blizzard"
+  },
+  "players": {
+   "boss_ice_witch": {
+    "bodySize": 2.8,
+    "bossId": "ice_witch",
+    "characterId": "",
+    "displayName": "Phù Thuỷ Băng",
+    "flying": true,
+    "hp": 23000,
+    "isAlive": true,
+    "maxHp": 23000,
+    "playerId": "boss_ice_witch",
+    "position": {
+     "x": 1256,
+     "y": 430
+    },
+    "role": "boss",
+    "teamId": 2
+   },
+   "p0": {
+    "characterId": "rookie",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p0",
+    "position": {
+     "x": 2280,
+     "y": 672
+    },
+    "teamId": 1
+   },
+   "p1": {
+    "characterId": "tanko",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p1",
+    "position": {
+     "x": 440,
+     "y": 528
+    },
+    "teamId": 1
+   },
+   "p2": {
+    "characterId": "spark",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p2",
+    "position": {
+     "x": 952,
+     "y": 896
+    },
+    "teamId": 1
+   },
+   "p3": {
+    "characterId": "flora",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p3",
+    "position": {
+     "x": 1256,
+     "y": 752
+    },
+    "teamId": 1
+   }
+  }
+ },
+ "earthquake": {
+  "shot": {
+   "actionMode": "skill",
+   "duration": 1.7999999999999998,
+   "events": [
+    {
+     "duration": 1.2,
+     "playerId": "boss_rock_giant",
+     "skillId": "earthquake",
+     "t": 0.6,
+     "type": "global"
+    },
+    {
+     "amount": 271,
+     "cause": "global",
+     "hp": 99729,
+     "playerId": "p0",
+     "t": 0.6,
+     "type": "damage"
+    },
+    {
+     "amount": 267,
+     "cause": "global",
+     "hp": 99733,
+     "playerId": "p1",
+     "t": 0.6799999999999999,
+     "type": "damage"
+    },
+    {
+     "amount": 280,
+     "cause": "global",
+     "hp": 99720,
+     "playerId": "p2",
+     "t": 0.76,
+     "type": "damage"
+    },
+    {
+     "amount": 256,
+     "cause": "global",
+     "hp": 99744,
+     "playerId": "p3",
+     "t": 0.84,
+     "type": "damage"
+    }
+   ],
+   "projectiles": [],
+   "shooterId": "boss_rock_giant",
+   "skillEnergies": {
+    "boss_rock_giant": 0,
+    "minion_stone_totem_1": 0,
+    "minion_stone_totem_2": 0,
+    "minion_stone_totem_3": 0,
+    "minion_stone_totem_4": 0,
+    "minion_stone_totem_5": 0,
+    "p0": 10,
+    "p1": 10,
+    "p2": 10,
+    "p3": 10
+   },
+   "skillEnergy": 0,
+   "skillId": "earthquake"
+  },
+  "players": {
+   "boss_rock_giant": {
+    "bodySize": 3.4,
+    "bossId": "rock_giant",
+    "characterId": "",
+    "displayName": "Khổng Lồ Đá",
+    "hp": 26000,
+    "isAlive": true,
+    "maxHp": 26000,
+    "playerId": "boss_rock_giant",
+    "position": {
+     "x": 2008,
+     "y": 896
+    },
+    "role": "boss",
+    "teamId": 2
+   },
+   "p0": {
+    "characterId": "rookie",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p0",
+    "position": {
+     "x": 232,
+     "y": 608
+    },
+    "teamId": 1
+   },
+   "p1": {
+    "characterId": "tanko",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p1",
+    "position": {
+     "x": 344,
+     "y": 608
+    },
+    "teamId": 1
+   },
+   "p2": {
+    "characterId": "spark",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p2",
+    "position": {
+     "x": 504,
+     "y": 736
+    },
+    "teamId": 1
+   },
+   "p3": {
+    "characterId": "flora",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p3",
+    "position": {
+     "x": 776,
+     "y": 640
+    },
+    "teamId": 1
+   }
+  }
+ },
+ "frozen_turn": {
+  "turnStarted": {
+   "currentPlayerId": "boss_steel_robot",
+   "lavaZones": [],
+   "marks": [],
+   "maxMoveEnergy": 0,
+   "moveEnergy": 0,
+   "round": 1,
+   "skillEnergy": {
+    "boss_steel_robot": 0,
+    "minion_drone_1": 0,
+    "minion_drone_2": 0,
+    "p0": 0
+   },
+   "skipAfter": 5,
+   "skipped": "freeze",
+   "turnIndex": 0,
+   "turnTimeLeft": 20,
+   "wind": {
+    "direction": -1,
+    "power": 0.05460915641619876
+   }
+  },
+  "players": {
+   "boss_steel_robot": {
+    "bodySize": 3,
+    "bossId": "steel_robot",
+    "characterId": "",
+    "displayName": "Rô-bốt Thép",
+    "hp": 19000,
+    "isAlive": true,
+    "maxHp": 19000,
+    "playerId": "boss_steel_robot",
+    "position": {
+     "x": 1992,
+     "y": 672
+    },
+    "role": "boss",
+    "teamId": 2
+   },
+   "minion_drone_1": {
+    "bodySize": 0.7,
+    "bossId": "steel_robot",
+    "characterId": "spark",
+    "displayName": "Drone",
+    "flying": true,
+    "hp": 650,
+    "isAlive": true,
+    "maxHp": 650,
+    "minionId": "drone",
+    "playerId": "minion_drone_1",
+    "position": {
+     "x": 1768,
+     "y": 612
+    },
+    "role": "minion",
+    "teamId": 2
+   },
+   "minion_drone_2": {
+    "bodySize": 0.7,
+    "bossId": "steel_robot",
+    "characterId": "spark",
+    "displayName": "Drone",
+    "flying": true,
+    "hp": 650,
+    "isAlive": true,
+    "maxHp": 650,
+    "minionId": "drone",
+    "playerId": "minion_drone_2",
+    "position": {
+     "x": 1448,
+     "y": 676
+    },
+    "role": "minion",
+    "teamId": 2
+   },
+   "p0": {
+    "characterId": "rookie",
+    "displayName": "",
+    "hp": 1500,
+    "isAlive": true,
+    "maxHp": 1500,
+    "playerId": "p0",
+    "position": {
+     "x": 168,
+     "y": 768
+    },
+    "teamId": 1
+   }
+  }
+ },
+ "ice_lance": {
+  "shot": {
+   "actionMode": "skill",
+   "duration": 1.4,
+   "events": [
+    {
+     "duration": 0.8,
+     "from": {
+      "x": 1256,
+      "y": 374
+     },
+     "playerId": "boss_ice_witch",
+     "t": 0.6,
+     "to": {
+      "x": -9.550657176945314e-14,
+      "y": 580.2549019607843
+     },
+     "type": "beam"
+    },
+    {
+     "amount": 780,
+     "cause": "laser",
+     "hp": 99220,
+     "playerId": "p1",
+     "t": 0.668910771614055,
+     "type": "damage"
+    }
+   ],
+   "projectiles": [],
+   "shooterId": "boss_ice_witch",
+   "skillEnergies": {
+    "boss_ice_witch": 0,
+    "minion_snowman_1": 0,
+    "minion_snowman_2": 0,
+    "minion_snowman_3": 0,
+    "p0": 0,
+    "p1": 10
+   },
+   "skillEnergy": 0,
+   "skillId": "ice_lance"
+  },
+  "players": {
+   "boss_ice_witch": {
+    "bodySize": 2.8,
+    "bossId": "ice_witch",
+    "characterId": "",
+    "displayName": "Phù Thuỷ Băng",
+    "flying": true,
+    "hp": 23000,
+    "isAlive": true,
+    "maxHp": 23000,
+    "playerId": "boss_ice_witch",
+    "position": {
+     "x": 1256,
+     "y": 430
+    },
+    "role": "boss",
+    "teamId": 2
+   },
+   "p0": {
+    "characterId": "rookie",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p0",
+    "position": {
+     "x": 2280,
+     "y": 672
+    },
+    "teamId": 1
+   },
+   "p1": {
+    "characterId": "tanko",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p1",
+    "position": {
+     "x": 440,
+     "y": 528
+    },
+    "teamId": 1
+   }
+  }
+ },
+ "pincer": {
+  "shot": {
+   "actionMode": "skill",
+   "duration": 1.822,
+   "events": [
+    {
+     "duration": 0.922,
+     "from": {
+      "x": 1192,
+      "y": 640
+     },
+     "path": [
+      {
+       "x": 1192,
+       "y": 640
+      },
+      {
+       "x": 1168,
+       "y": 640
+      },
+      {
+       "x": 1144,
+       "y": 640
+      },
+      {
+       "x": 1120,
+       "y": 640
+      },
+      {
+       "x": 1096,
+       "y": 640
+      },
+      {
+       "x": 1072,
+       "y": 640
+      },
+      {
+       "x": 1048,
+       "y": 663
+      },
+      {
+       "x": 1024,
+       "y": 687
+      },
+      {
+       "x": 1000,
+       "y": 711
+      }
+     ],
+     "playerId": "boss_lava_crab",
+     "skillId": "pincer",
+     "t": 0.6,
+     "to": {
+      "x": 1000,
+      "y": 711
+     },
+     "type": "move"
+    },
+    {
+     "playerId": "boss_lava_crab",
+     "position": {
+      "x": 892,
+      "y": 780
+     },
+     "skillId": "pincer",
+     "t": 1.522,
+     "targetId": "p0",
+     "type": "pincer"
+    },
+    {
+     "amount": 665,
+     "cause": "pincer",
+     "hp": 99335,
+     "playerId": "p0",
+     "t": 1.522,
+     "type": "damage"
+    },
+    {
+     "effectId": "root",
+     "playerId": "p0",
+     "t": 1.522,
+     "turns": 1,
+     "type": "status"
+    }
+   ],
+   "projectiles": [],
+   "shooterId": "boss_lava_crab",
+   "skillEnergies": {
+    "boss_lava_crab": 0,
+    "minion_crab_1": 0,
+    "minion_crab_2": 0,
+    "p0": 10,
+    "p1": 0
+   },
+   "skillEnergy": 0,
+   "skillId": "pincer"
+  },
+  "players": {
+   "boss_lava_crab": {
+    "bodySize": 3.2,
+    "bossId": "lava_crab",
+    "characterId": "",
+    "displayName": "Cua Dung Nham",
+    "hp": 26000,
+    "isAlive": true,
+    "maxHp": 26000,
+    "playerId": "boss_lava_crab",
+    "position": {
+     "x": 1192,
+     "y": 640
+    },
+    "role": "boss",
+    "teamId": 2
+   },
+   "p0": {
+    "characterId": "rookie",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p0",
+    "position": {
+     "x": 892,
+     "y": 800
+    },
+    "teamId": 1
+   },
+   "p1": {
+    "characterId": "tanko",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p1",
+    "position": {
+     "x": 2200,
+     "y": 800
+    },
+    "teamId": 1
+   }
+  }
+ },
+ "poison_thorns": {
+  "shot": {
+   "actionMode": "skill",
+   "duration": 1.7999999999999998,
+   "events": [
+    {
+     "duration": 1.2,
+     "playerId": "boss_tree_spirit",
+     "skillId": "poison_thorns",
+     "t": 0.6,
+     "type": "global"
+    },
+    {
+     "amount": 208,
+     "cause": "global",
+     "hp": 99792,
+     "playerId": "p0",
+     "t": 1.45,
+     "type": "damage"
+    },
+    {
+     "effectId": "poison",
+     "playerId": "p0",
+     "t": 1.45,
+     "turns": 2,
+     "type": "status"
+    },
+    {
+     "amount": 225,
+     "cause": "global",
+     "elementEffect": "strong",
+     "hp": 99775,
+     "playerId": "p1",
+     "t": 1.53,
+     "type": "damage"
+    },
+    {
+     "effectId": "poison",
+     "playerId": "p1",
+     "t": 1.53,
+     "turns": 2,
+     "type": "status"
+    },
+    {
+     "amount": 214,
+     "cause": "global",
+     "hp": 99786,
+     "playerId": "p2",
+     "t": 1.61,
+     "type": "damage"
+    },
+    {
+     "effectId": "poison",
+     "playerId": "p2",
+     "t": 1.61,
+     "turns": 2,
+     "type": "status"
+    },
+    {
+     "amount": 196,
+     "cause": "global",
+     "hp": 99804,
+     "playerId": "p3",
+     "t": 1.69,
+     "type": "damage"
+    },
+    {
+     "effectId": "poison",
+     "playerId": "p3",
+     "t": 1.69,
+     "turns": 2,
+     "type": "status"
+    }
+   ],
+   "projectiles": [
+    {
+     "craterRadius": 0,
+     "explosionPoint": {
+      "x": 136,
+      "y": 780
+     },
+     "explosionRadius": 30,
+     "hitPlayerId": "p0",
+     "kind": "poison_thorn",
+     "launchDelay": 0.6,
+     "ownerPlayerId": "boss_tree_spirit",
+     "path": [
+      {
+       "position": {
+        "x": 1960.0036341196378,
+        "y": 710.5156819005896
+       },
+       "time": 0.6,
+       "velocity": {
+        "x": -2145.8866283760444,
+        "y": -611.7647058823529
+       }
+      },
+      {
+       "position": {
+        "x": 1777.603270707674,
+        "y": 664.4105250815837
+       },
+       "time": 0.685,
+       "velocity": {
+        "x": -2145.8866283760444,
+        "y": -473.06251338837404
+       }
+      },
+      {
+       "position": {
+        "x": 1595.2029072957107,
+        "y": 630.0950546245662
+       },
+       "time": 0.77,
+       "velocity": {
+        "x": -2145.8866283760444,
+        "y": -334.3603208943951
+       }
+      },
+      {
+       "position": {
+        "x": 1412.8025438837462,
+        "y": 607.5692705295365
+       },
+       "time": 0.855,
+       "velocity": {
+        "x": -2145.8866283760444,
+        "y": -195.65812840041616
+       }
+      },
+      {
+       "position": {
+        "x": 1230.4021804717827,
+        "y": 596.8331727964953
+       },
+       "time": 0.94,
+       "velocity": {
+        "x": -2145.8866283760444,
+        "y": -56.95593590643724
+       }
+      },
+      {
+       "position": {
+        "x": 1048.001817059819,
+        "y": 597.8867614254422
+       },
+       "time": 1.025,
+       "velocity": {
+        "x": -2145.8866283760444,
+        "y": 81.74625658754167
+       }
+      },
+      {
+       "position": {
+        "x": 865.6014536478552,
+        "y": 610.7300364163773
+       },
+       "time": 1.11,
+       "velocity": {
+        "x": -2145.8866283760444,
+        "y": 220.44844908152058
+       }
+      },
+      {
+       "position": {
+        "x": 683.2010902358915,
+        "y": 635.3629977693007
+       },
+       "time": 1.195,
+       "velocity": {
+        "x": -2145.8866283760444,
+        "y": 359.15064157549944
+       }
+      },
+      {
+       "position": {
+        "x": 500.8007268239275,
+        "y": 671.7856454842123
+       },
+       "time": 1.28,
+       "velocity": {
+        "x": -2145.8866283760444,
+        "y": 497.85283406947843
+       }
+      },
+      {
+       "position": {
+        "x": 318.4003634119637,
+        "y": 719.9979795611121
+       },
+       "time": 1.365,
+       "velocity": {
+        "x": -2145.8866283760444,
+        "y": 636.5550265634573
+       }
+      },
+      {
+       "position": {
+        "x": 136,
+        "y": 780
+       },
+       "time": 1.45,
+       "velocity": {
+        "x": -2145.8866283760444,
+        "y": 775.2572190574363
+       }
+      }
+     ],
+     "projectileId": "proj-4697c37c8d9fdd92",
+     "skillId": "poison_thorns"
+    },
+    {
+     "craterRadius": 0,
+     "explosionPoint": {
+      "x": 392,
+      "y": 620
+     },
+     "explosionRadius": 30,
+     "hitPlayerId": "p1",
+     "kind": "poison_thorn",
+     "launchDelay": 0.68,
+     "ownerPlayerId": "boss_tree_spirit",
+     "path": [
+      {
+       "position": {
+        "x": 2105.4843180994103,
+        "y": 664.0036341196378
+       },
+       "time": 0.68,
+       "velocity": {
+        "x": -2015.863903646365,
+        "y": -715.3026685167948
+       }
+      },
+      {
+       "position": {
+        "x": 1934.1358862894695,
+        "y": 608.8429436369067
+       },
+       "time": 0.765,
+       "velocity": {
+        "x": -2015.863903646365,
+        "y": -582.5959310768801
+       }
+      },
+      {
+       "position": {
+        "x": 1762.7874544795286,
+        "y": 564.9623258365682
+       },
+       "time": 0.85,
+       "velocity": {
+        "x": -2015.863903646365,
+        "y": -449.8891936369653
+       }
+      },
+      {
+       "position": {
+        "x": 1591.439022669587,
+        "y": 532.3617807186224
+       },
+       "time": 0.935,
+       "velocity": {
+        "x": -2015.863903646365,
+        "y": -317.1824561970505
+       }
+      },
+      {
+       "position": {
+        "x": 1420.0905908596462,
+        "y": 511.0413082830696
+       },
+       "time": 1.02,
+       "velocity": {
+        "x": -2015.863903646365,
+        "y": -184.47571875713572
+       }
+      },
+      {
+       "position": {
+        "x": 1248.7421590497052,
+        "y": 501.00090852990945
+       },
+       "time": 1.105,
+       "velocity": {
+        "x": -2015.863903646365,
+        "y": -51.768981317220955
+       }
+      },
+      {
+       "position": {
+        "x": 1077.393727239764,
+        "y": 502.24058145914205
+       },
+       "time": 1.19,
+       "velocity": {
+        "x": -2015.863903646365,
+        "y": 80.93775612269381
+       }
+      },
+      {
+       "position": {
+        "x": 906.0452954298231,
+        "y": 514.7603270707674
+       },
+       "time": 1.275,
+       "velocity": {
+        "x": -2015.863903646365,
+        "y": 213.64449356260857
+       }
+      },
+      {
+       "position": {
+        "x": 734.696863619882,
+        "y": 538.5601453647856
+       },
+       "time": 1.36,
+       "velocity": {
+        "x": -2015.863903646365,
+        "y": 346.3512310025234
+       }
+      },
+      {
+       "position": {
+        "x": 563.348431809941,
+        "y": 573.6400363411964
+       },
+       "time": 1.445,
+       "velocity": {
+        "x": -2015.863903646365,
+        "y": 479.05796844243815
+       }
+      },
+      {
+       "position": {
+        "x": 392,
+        "y": 620
+       },
+       "time": 1.53,
+       "velocity": {
+        "x": -2015.863903646365,
+        "y": 611.7647058823529
+       }
+      }
+     ],
+     "projectileId": "proj-62087ddc6e0aa064",
+     "skillId": "poison_thorns"
+    },
+    {
+     "craterRadius": 0,
+     "explosionPoint": {
+      "x": 536,
+      "y": 620
+     },
+     "explosionRadius": 30,
+     "hitPlayerId": "p2",
+     "kind": "poison_thorn",
+     "launchDelay": 0.76,
+     "ownerPlayerId": "boss_tree_spirit",
+     "path": [
+      {
+       "position": {
+        "x": 2151.996365880362,
+        "y": 809.4843180994104
+       },
+       "time": 0.76,
+       "velocity": {
+        "x": -1901.1721951533673,
+        "y": -1057.610160233907
+       }
+      },
+      {
+       "position": {
+        "x": 1990.396729292326,
+        "y": 726.6822976605225
+       },
+       "time": 0.845,
+       "velocity": {
+        "x": -1901.1721951533673,
+        "y": -890.6726736222809
+       }
+      },
+      {
+       "position": {
+        "x": 1828.7970927042902,
+        "y": 658.0699635836228
+       },
+       "time": 0.93,
+       "velocity": {
+        "x": -1901.1721951533673,
+        "y": -723.735187010655
+       }
+      },
+      {
+       "position": {
+        "x": 1667.1974561162533,
+        "y": 603.647315868711
+       },
+       "time": 1.015,
+       "velocity": {
+        "x": -1901.1721951533673,
+        "y": -556.7977003990288
+       }
+      },
+      {
+       "position": {
+        "x": 1505.5978195282173,
+        "y": 563.4143545157877
+       },
+       "time": 1.1,
+       "velocity": {
+        "x": -1901.1721951533673,
+        "y": -389.8602137874029
+       }
+      },
+      {
+       "position": {
+        "x": 1343.998182940181,
+        "y": 537.3710795248526
+       },
+       "time": 1.185,
+       "velocity": {
+        "x": -1901.1721951533673,
+        "y": -222.92272717577697
+       }
+      },
+      {
+       "position": {
+        "x": 1182.3985463521449,
+        "y": 525.5174908959057
+       },
+       "time": 1.27,
+       "velocity": {
+        "x": -1901.1721951533673,
+        "y": -55.985240564151006
+       }
+      },
+      {
+       "position": {
+        "x": 1020.7989097641088,
+        "y": 527.8535886289469
+       },
+       "time": 1.355,
+       "velocity": {
+        "x": -1901.1721951533673,
+        "y": 110.95224604747496
+       }
+      },
+      {
+       "position": {
+        "x": 859.1992731760724,
+        "y": 544.3793727239764
+       },
+       "time": 1.44,
+       "velocity": {
+        "x": -1901.1721951533673,
+        "y": 277.889732659101
+       }
+      },
+      {
+       "position": {
+        "x": 697.5996365880362,
+        "y": 575.0948431809941
+       },
+       "time": 1.525,
+       "velocity": {
+        "x": -1901.1721951533673,
+        "y": 444.82721927072697
+       }
+      },
+      {
+       "position": {
+        "x": 536,
+        "y": 620
+       },
+       "time": 1.61,
+       "velocity": {
+        "x": -1901.1721951533673,
+        "y": 611.7647058823529
+       }
+      }
+     ],
+     "projectileId": "proj-f3823bd9a2c2097a",
+     "skillId": "poison_thorns"
+    },
+    {
+     "craterRadius": 0,
+     "explosionPoint": {
+      "x": 760,
+      "y": 755
+     },
+     "explosionRadius": 30,
+     "hitPlayerId": "p3",
+     "kind": "poison_thorn",
+     "launchDelay": 0.84,
+     "ownerPlayerId": "boss_tree_spirit",
+     "path": [
+      {
+       "position": {
+        "x": 2006.5156819005897,
+        "y": 855.9963658803622
+       },
+       "time": 0.84,
+       "velocity": {
+        "x": -1466.4890375301056,
+        "y": -849.4032138361464
+       }
+      },
+      {
+       "position": {
+        "x": 1881.8641137105308,
+        "y": 790.0070563630934
+       },
+       "time": 0.925,
+       "velocity": {
+        "x": -1466.4890375301056,
+        "y": -703.2864218642965
+       }
+      },
+      {
+       "position": {
+        "x": 1757.212545520472,
+        "y": 736.437674163432
+       },
+       "time": 1.01,
+       "velocity": {
+        "x": -1466.4890375301056,
+        "y": -557.1696298924466
+       }
+      },
+      {
+       "position": {
+        "x": 1632.5609773304127,
+        "y": 695.2882192813775
+       },
+       "time": 1.095,
+       "velocity": {
+        "x": -1466.4890375301056,
+        "y": -411.0528379205965
+       }
+      },
+      {
+       "position": {
+        "x": 1507.909409140354,
+        "y": 666.5586917169304
+       },
+       "time": 1.18,
+       "velocity": {
+        "x": -1466.4890375301056,
+        "y": -264.9360459487466
+       }
+      },
+      {
+       "position": {
+        "x": 1383.2578409502948,
+        "y": 650.2490914700905
+       },
+       "time": 1.265,
+       "velocity": {
+        "x": -1466.4890375301056,
+        "y": -118.8192539768967
+       }
+      },
+      {
+       "position": {
+        "x": 1258.606272760236,
+        "y": 646.359418540858
+       },
+       "time": 1.35,
+       "velocity": {
+        "x": -1466.4890375301056,
+        "y": 27.297537994953213
+       }
+      },
+      {
+       "position": {
+        "x": 1133.954704570177,
+        "y": 654.8896729292326
+       },
+       "time": 1.435,
+       "velocity": {
+        "x": -1466.4890375301056,
+        "y": 173.41432996680314
+       }
+      },
+      {
+       "position": {
+        "x": 1009.303136380118,
+        "y": 675.8398546352146
+       },
+       "time": 1.52,
+       "velocity": {
+        "x": -1466.4890375301056,
+        "y": 319.53112193865314
+       }
+      },
+      {
+       "position": {
+        "x": 884.6515681900589,
+        "y": 709.2099636588036
+       },
+       "time": 1.605,
+       "velocity": {
+        "x": -1466.4890375301056,
+        "y": 465.647913910503
+       }
+      },
+      {
+       "position": {
+        "x": 760,
+        "y": 755
+       },
+       "time": 1.69,
+       "velocity": {
+        "x": -1466.4890375301056,
+        "y": 611.7647058823529
+       }
+      }
+     ],
+     "projectileId": "proj-b9d2089fe6c80748",
+     "skillId": "poison_thorns"
+    }
+   ],
+   "shooterId": "boss_tree_spirit",
+   "skillEnergies": {
+    "boss_tree_spirit": 0,
+    "minion_poison_mushroom_1": 0,
+    "minion_poison_mushroom_2": 0,
+    "p0": 10,
+    "p1": 10,
+    "p2": 10,
+    "p3": 10
+   },
+   "skillEnergy": 0,
+   "skillId": "poison_thorns"
+  },
+  "players": {
+   "boss_tree_spirit": {
+    "bodySize": 3.6,
+    "bossId": "tree_spirit",
+    "characterId": "",
+    "displayName": "Mộc Tinh",
+    "hp": 37000,
+    "isAlive": true,
+    "maxHp": 37000,
+    "playerId": "boss_tree_spirit",
+    "position": {
+     "x": 2056,
+     "y": 832
+    },
+    "role": "boss",
+    "teamId": 2
+   },
+   "p0": {
+    "characterId": "rookie",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p0",
+    "position": {
+     "x": 136,
+     "y": 800
+    },
+    "teamId": 1
+   },
+   "p1": {
+    "characterId": "tanko",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p1",
+    "position": {
+     "x": 392,
+     "y": 640
+    },
+    "teamId": 1
+   },
+   "p2": {
+    "characterId": "spark",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p2",
+    "position": {
+     "x": 536,
+     "y": 640
+    },
+    "teamId": 1
+   },
+   "p3": {
+    "characterId": "flora",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p3",
+    "position": {
+     "x": 760,
+     "y": 775
+    },
+    "teamId": 1
+   }
+  }
+ },
+ "rolling_boulder": {
+  "shot": {
+   "actionMode": "skill",
+   "duration": 1.774,
+   "events": [
+    {
+     "duration": 0.274,
+     "from": {
+      "x": 352,
+      "y": 608
+     },
+     "path": [
+      {
+       "x": 352,
+       "y": 608
+      },
+      {
+       "x": 328,
+       "y": 608
+      },
+      {
+       "x": 304,
+       "y": 608
+      },
+      {
+       "x": 280,
+       "y": 608
+      },
+      {
+       "x": 256,
+       "y": 608
+      },
+      {
+       "x": 232,
+       "y": 608
+      },
+      {
+       "x": 208,
+       "y": 608
+      },
+      {
+       "x": 184,
+       "y": 608
+      },
+      {
+       "x": 160,
+       "y": 608
+      }
+     ],
+     "playerId": "boss_rock_giant",
+     "radius": 60,
+     "skillId": "rolling_boulder",
+     "t": 1.5,
+     "to": {
+      "x": 160,
+      "y": 608
+     },
+     "type": "roll"
+    },
+    {
+     "amount": 573,
+     "cause": "roll",
+     "hp": 99427,
+     "playerId": "p1",
+     "t": 1.5114285714285713,
+     "type": "damage"
+    },
+    {
+     "amount": 582,
+     "cause": "roll",
+     "hp": 99418,
+     "playerId": "p0",
+     "t": 1.6714285714285715,
+     "type": "damage"
+    }
+   ],
+   "projectiles": [
+    {
+     "craterRadius": 0,
+     "explosionPoint": {
+      "x": 352,
+      "y": 548
+     },
+     "explosionRadius": 60,
+     "kind": "rolling_boulder",
+     "launchDelay": 0.6,
+     "ownerPlayerId": "boss_rock_giant",
+     "path": [
+      {
+       "position": {
+        "x": 2008,
+        "y": 828
+       },
+       "time": 0.6,
+       "velocity": {
+        "x": -1840,
+        "y": -1333.3333333333333
+       }
+      },
+      {
+       "position": {
+        "x": 1904.5,
+        "y": 756.59375
+       },
+       "time": 0.656,
+       "velocity": {
+        "x": -1840,
+        "y": -1205.5555555555554
+       }
+      },
+      {
+       "position": {
+        "x": 1801,
+        "y": 692.375
+       },
+       "time": 0.713,
+       "velocity": {
+        "x": -1840,
+        "y": -1077.7777777777778
+       }
+      },
+      {
+       "position": {
+        "x": 1697.5,
+        "y": 635.34375
+       },
+       "time": 0.769,
+       "velocity": {
+        "x": -1840,
+        "y": -950
+       }
+      },
+      {
+       "position": {
+        "x": 1594,
+        "y": 585.5
+       },
+       "time": 0.825,
+       "velocity": {
+        "x": -1840,
+        "y": -822.2222222222222
+       }
+      },
+      {
+       "position": {
+        "x": 1490.5,
+        "y": 542.84375
+       },
+       "time": 0.881,
+       "velocity": {
+        "x": -1840,
+        "y": -694.4444444444445
+       }
+      },
+      {
+       "position": {
+        "x": 1387,
+        "y": 507.375
+       },
+       "time": 0.938,
+       "velocity": {
+        "x": -1840,
+        "y": -566.6666666666666
+       }
+      },
+      {
+       "position": {
+        "x": 1283.5,
+        "y": 479.09375
+       },
+       "time": 0.994,
+       "velocity": {
+        "x": -1840,
+        "y": -438.88888888888886
+       }
+      },
+      {
+       "position": {
+        "x": 1180,
+        "y": 458
+       },
+       "time": 1.05,
+       "velocity": {
+        "x": -1840,
+        "y": -311.1111111111111
+       }
+      },
+      {
+       "position": {
+        "x": 1076.5,
+        "y": 444.09375
+       },
+       "time": 1.106,
+       "velocity": {
+        "x": -1840,
+        "y": -183.33333333333334
+       }
+      },
+      {
+       "position": {
+        "x": 973,
+        "y": 437.375
+       },
+       "time": 1.163,
+       "velocity": {
+        "x": -1840,
+        "y": -55.55555555555556
+       }
+      },
+      {
+       "position": {
+        "x": 869.5,
+        "y": 437.84375
+       },
+       "time": 1.219,
+       "velocity": {
+        "x": -1840,
+        "y": 72.22222222222221
+       }
+      },
+      {
+       "position": {
+        "x": 766,
+        "y": 445.5
+       },
+       "time": 1.275,
+       "velocity": {
+        "x": -1840,
+        "y": 200
+       }
+      },
+      {
+       "position": {
+        "x": 662.5,
+        "y": 460.34375
+       },
+       "time": 1.331,
+       "velocity": {
+        "x": -1840,
+        "y": 327.77777777777777
+       }
+      },
+      {
+       "position": {
+        "x": 559,
+        "y": 482.375
+       },
+       "time": 1.388,
+       "velocity": {
+        "x": -1840,
+        "y": 455.55555555555554
+       }
+      },
+      {
+       "position": {
+        "x": 455.5,
+        "y": 511.59375
+       },
+       "time": 1.444,
+       "velocity": {
+        "x": -1840,
+        "y": 583.3333333333334
+       }
+      },
+      {
+       "position": {
+        "x": 352,
+        "y": 548
+       },
+       "time": 1.5,
+       "velocity": {
+        "x": -1840,
+        "y": 711.1111111111111
+       }
+      }
+     ],
+     "projectileId": "proj-adad14f2e257aefb",
+     "skillId": "rolling_boulder"
+    }
+   ],
+   "shooterId": "boss_rock_giant",
+   "skillEnergies": {
+    "boss_rock_giant": 0,
+    "minion_stone_totem_1": 0,
+    "minion_stone_totem_2": 0,
+    "minion_stone_totem_3": 0,
+    "minion_stone_totem_4": 0,
+    "minion_stone_totem_5": 0,
+    "p0": 10,
+    "p1": 10
+   },
+   "skillEnergy": 0,
+   "skillId": "rolling_boulder"
+  },
+  "players": {
+   "boss_rock_giant": {
+    "bodySize": 3.4,
+    "bossId": "rock_giant",
+    "characterId": "",
+    "displayName": "Khổng Lồ Đá",
+    "hp": 26000,
+    "isAlive": true,
+    "maxHp": 26000,
+    "playerId": "boss_rock_giant",
+    "position": {
+     "x": 2008,
+     "y": 896
+    },
+    "role": "boss",
+    "teamId": 2
+   },
+   "p0": {
+    "characterId": "rookie",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p0",
+    "position": {
+     "x": 232,
+     "y": 608
+    },
+    "teamId": 1
+   },
+   "p1": {
+    "characterId": "tanko",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p1",
+    "position": {
+     "x": 344,
+     "y": 608
+    },
+    "teamId": 1
+   }
+  }
+ },
+ "root_drag": {
+  "shot": {
+   "actionMode": "skill",
+   "duration": 2.364,
+   "events": [
+    {
+     "duration": 1.464,
+     "from": {
+      "x": 136,
+      "y": 800
+     },
+     "path": [
+      {
+       "x": 136,
+       "y": 800
+      },
+      {
+       "x": 160,
+       "y": 800
+      },
+      {
+       "x": 184,
+       "y": 800
+      },
+      {
+       "x": 208,
+       "y": 801
+      },
+      {
+       "x": 232,
+       "y": 825
+      },
+      {
+       "x": 256,
+       "y": 849
+      },
+      {
+       "x": 280,
+       "y": 873
+      },
+      {
+       "x": 304,
+       "y": 896
+      },
+      {
+       "x": 328,
+       "y": 896
+      },
+      {
+       "x": 352,
+       "y": 896
+      },
+      {
+       "x": 376,
+       "y": 896
+      },
+      {
+       "x": 400,
+       "y": 896
+      },
+      {
+       "x": 424,
+       "y": 896
+      },
+      {
+       "x": 448,
+       "y": 896
+      },
+      {
+       "x": 472,
+       "y": 896
+      },
+      {
+       "x": 496,
+       "y": 896
+      },
+      {
+       "x": 520,
+       "y": 896
+      },
+      {
+       "x": 536,
+       "y": 896
+      }
+     ],
+     "playerId": "p0",
+     "skillId": "root_drag",
+     "t": 0.6,
+     "to": {
+      "x": 536,
+      "y": 896
+     },
+     "type": "pull"
+    },
+    {
+     "amount": 498,
+     "cause": "pull",
+     "hp": 99502,
+     "playerId": "p0",
+     "t": 2.064,
+     "type": "damage"
+    },
+    {
+     "effectId": "root",
+     "playerId": "p0",
+     "t": 2.064,
+     "turns": 1,
+     "type": "status"
+    }
+   ],
+   "projectiles": [],
+   "shooterId": "boss_tree_spirit",
+   "skillEnergies": {
+    "boss_tree_spirit": 0,
+    "minion_poison_mushroom_1": 0,
+    "minion_poison_mushroom_2": 0,
+    "p0": 10,
+    "p1": 0
+   },
+   "skillEnergy": 0,
+   "skillId": "root_drag"
+  },
+  "players": {
+   "boss_tree_spirit": {
+    "bodySize": 3.6,
+    "bossId": "tree_spirit",
+    "characterId": "",
+    "displayName": "Mộc Tinh",
+    "hp": 37000,
+    "isAlive": true,
+    "maxHp": 37000,
+    "playerId": "boss_tree_spirit",
+    "position": {
+     "x": 2056,
+     "y": 832
+    },
+    "role": "boss",
+    "teamId": 2
+   },
+   "p0": {
+    "characterId": "rookie",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p0",
+    "position": {
+     "x": 136,
+     "y": 800
+    },
+    "teamId": 1
+   },
+   "p1": {
+    "characterId": "tanko",
+    "displayName": "",
+    "hp": 100000,
+    "isAlive": true,
+    "maxHp": 100000,
+    "playerId": "p1",
+    "position": {
+     "x": 392,
+     "y": 640
+    },
+    "teamId": 1
+   }
+  }
+ },
+ "totem_raise": {
+  "shot": {
+   "actionMode": "summon",
+   "duration": 1.7999999999999998,
+   "events": [
+    {
+     "behavior": "shooter",
+     "bodySize": 1,
+     "displayName": "Trụ đá",
+     "element": "earth",
+     "flying": false,
+     "hp": 1400,
+     "maxHp": 1400,
+     "minionId": "stone_totem",
+     "movement": "none",
+     "playerId": "minion_stone_totem_6",
+     "position": {
+      "x": 1205.0740511689626,
+      "y": 918
+     },
+     "t": 0.6,
+     "teamId": 2,
+     "type": "summon"
+    },
+    {
+     "behavior": "shooter",
+     "bodySize": 1,
+     "displayName": "Trụ đá",
+     "element": "earth",
+     "flying": false,
+     "hp": 1400,
+     "maxHp": 1400,
+     "minionId": "stone_totem",
+     "movement": "none",
+     "playerId": "minion_stone_totem_7",
+     "position": {
+      "x": 994.471471500153,
+      "y": 861
+     },
+     "t": 0.8999999999999999,
+     "teamId": 2,
+     "type": "summon"
+    },
+    {
+     "behavior": "shooter",
+     "bodySize": 1,
+     "displayName": "Trụ đá",
+     "element": "earth",
+     "flying": false,
+     "hp": 1400,
+     "maxHp": 1400,
+     "minionId": "stone_totem",
+     "movement": "none",
+     "playerId": "minion_stone_totem_8",
+     "position": {
+      "x": 1121.629678698315,
+      "y": 835
+     },
+     "t": 1.2,
+     "teamId": 2,
+     "type": "summon"
+    },
+    {
+     "behavior": "shooter",
+     "bodySize": 1,
+     "displayName": "Trụ đá",
+     "element": "earth",
+     "flying": false,
+     "hp": 1400,
+     "maxHp": 1400,
+     "minionId": "stone_totem",
+     "movement": "none",
+     "playerId": "minion_stone_totem_9",
+     "position": {
+      "x": 1291.8326853223575,
+      "y": 928
+     },
+     "t": 1.5,
+     "teamId": 2,
+     "type": "summon"
+    },
+    {
+     "behavior": "shooter",
+     "bodySize": 1,
+     "displayName": "Trụ đá",
+     "element": "earth",
+     "flying": false,
+     "hp": 1400,
+     "maxHp": 1400,
+     "minionId": "stone_totem",
+     "movement": "none",
+     "playerId": "minion_stone_totem_10",
+     "position": {
+      "x": 780.1640181612622,
+      "y": 640
+     },
+     "t": 1.7999999999999998,
+     "teamId": 2,
+     "type": "summon"
+    }
+   ],
+   "projectiles": [],
+   "shooterId": "boss_rock_giant",
+   "skillEnergies": {
+    "boss_rock_giant": 0,
+    "minion_stone_totem_1": 0,
+    "minion_stone_totem_10": 0,
+    "minion_stone_totem_2": 0,
+    "minion_stone_totem_3": 0,
+    "minion_stone_totem_4": 0,
+    "minion_stone_totem_5": 0,
+    "minion_stone_totem_6": 0,
+    "minion_stone_totem_7": 0,
+    "minion_stone_totem_8": 0,
+    "minion_stone_totem_9": 0,
+    "p0": 0,
+    "p1": 0
+   },
+   "skillEnergy": 0,
+   "skillId": "totem_raise"
+  },
+  "players": {
+   "boss_rock_giant": {
+    "bodySize": 3.4,
+    "bossId": "rock_giant",
+    "characterId": "",
+    "displayName": "Khổng Lồ Đá",
+    "hp": 26000,
+    "isAlive": true,
+    "maxHp": 26000,
+    "playerId": "boss_rock_giant",
+    "position": {
+     "x": 2008,
+     "y": 896
+    },
+    "role": "boss",
+    "teamId": 2
+   },
+   "p0": {
+    "characterId": "rookie",
+    "displayName": "",
+    "hp": 1500,
+    "isAlive": true,
+    "maxHp": 1500,
+    "playerId": "p0",
+    "position": {
+     "x": 232,
+     "y": 608
+    },
+    "teamId": 1
+   },
+   "p1": {
+    "characterId": "tanko",
+    "displayName": "",
+    "hp": 1650,
+    "isAlive": true,
+    "maxHp": 1650,
+    "playerId": "p1",
+    "position": {
+     "x": 344,
+     "y": 608
+    },
+    "teamId": 1
+   }
+  }
+ }
+}

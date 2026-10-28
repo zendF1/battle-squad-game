@@ -55,10 +55,12 @@ func test_rewards() -> void:
 	eq([r["exp"], r["coin"], r["boss_damage"], r["minion_damage"]], [393, 1058, 4000, 1000], "numbers")
 	eq(r["items"].map(func(i): return [i["itemId"], i["qty"]]), [["medkit", 2], ["teleport", 1]], "items")
 	check(str(r["items"][0]["name"]) != "medkit" and str(r["items"][0]["name"]) != "", "named from the game data")
-	eq([r["badge"], r["left_text"]], ["Lượt thưởng lớn", "Còn 2 lượt thưởng lớn hôm nay"], "a big-reward run")
+	eq([r["bonus_run"], r["gift_text"]], [true, "×2"], "a big-reward run: the gift box lit, 2 left")
+	check(not r.has("badge") and not r.has("left_text"), "no run sentence")
 	eq(r["damage_text"], "Sát thương boss 4.000", "my damage")
 	var normal := BossResultModel.reward({"expGained": 10, "coinGained": 20, "bonusRun": false, "bonusRunsLeft": 0}, "")
-	eq([normal["badge"], normal["left_text"], normal["items"]], ["Thưởng thường", "Hết lượt thưởng lớn hôm nay", []], "a normal run")
+	eq([normal["bonus_run"], normal["gift_text"], normal["items"]], [false, "×0", []], "a normal run: dimmed, none left")
+	eq(BossResultModel.reward({"expGained": 1}, "")["gift_text"], "", "runs left unknown: no count")
 	check(not BossResultModel.reward(null, "")["ok"], "rewards null: not granted")
 
 

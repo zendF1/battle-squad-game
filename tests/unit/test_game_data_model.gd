@@ -79,7 +79,7 @@ func test_terrain_movement_timings() -> void:
 	eq([GameData.bowl_depth(), GameData.bowl_ceiling(), GameData.crater_px_per_terrain_damage()], [0.72, 1.5, 0.6], "bowl")
 	eq([GameData.px_per_energy(), GameData.energy_per_px(), GameData.default_move_energy()], [2.0, 0.5, 100], "movement")
 	eq([GameData.turn_sec(), GameData.action_interval_sec(), GameData.bot_follow_up_delay_sec(), GameData.skip_turn_delay_sec()],
-		[20, 0.15, 1.5, 2.0], "timings")
+		[20, 0.15, 1.5, 5.0], "timings (skipTurnDelaySec 5 since 063)")
 	eq([GameData.skill_energy_max(), GameData.skill_energy_per_turn(), GameData.skill_energy_on_hit()], [100, 20, 10], "skill energy")
 
 

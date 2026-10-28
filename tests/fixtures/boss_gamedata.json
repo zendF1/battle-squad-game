@@ -1,5 +1,5 @@
 {
- "_comment": "GET /gamedata boss additions (the real GET /gamedata of server 7c15bfa, migrations 044-058: boss v4 rock_giant / tree_spirit with the eruption / ground_strike skill kinds, drainPct, the minion auras, spawn, spore and death status fields; the old bosses' status / statusTurns / statusChance): modes.lobby / modes.categories / extra modes.match and bosses, merged over tests/fixtures/gamedata.json by tests/boss_fixture.gd.",
+ "_comment": "GET /gamedata boss additions (built by the server's gamedata.Build from its configs and boss defaults at feat/visual-ui-boss-skills, migration 063: every boss turnLimit 20, summon rounds [0, 10, 15] with skillId / name / description, the five-role kits with skills[].role, the new kinds airburst / pincer / global / roll / pull with moveRange / reach / moveSpeed / projectileKind, minions[].maxLeaps; earlier: boss v4 rock_giant / tree_spirit, eruption / ground_strike, drainPct, the minion auras): modes.lobby / modes.categories / extra modes.match and bosses, merged over tests/fixtures/gamedata.json by tests/boss_fixture.gd.",
  "categories": [
   {
    "categoryId": "pvp",
@@ -150,14 +150,14 @@
   {
    "bossId": "steel_robot",
    "name": "Rô-bốt Thép",
-   "description": "Người khổng lồ cơ khí canh giữ xưởng sắt bỏ hoang. Nã pháo phủ kín chiến trường, quét năm tia laze ngang map và thả drone che chắn.",
+   "description": "Người khổng lồ cơ khí canh giữ xưởng sắt bỏ hoang. Nã pháo phủ kín chiến trường, quét năm tia laze ngang map, bắn bom mù làm loá mắt và thả drone che chắn.",
    "recommendedLevel": 10,
-   "modeId": "boss_steel_robot",
+   "modeId": "",
    "queue": "boss:steel_robot",
    "mapId": "arena_steel_robot",
-   "hp": 10000,
+   "hp": 19000,
    "bodySize": 3,
-   "turnLimit": 15,
+   "turnLimit": 20,
    "shieldedDamageFactor": 0.1,
    "minions": [
     {
@@ -182,6 +182,7 @@
      "leapRange": 0,
      "leapDetonateNextTurn": true,
      "shootAfterLeap": false,
+     "maxLeaps": 0,
      "projectileKind": "drone_bolt",
      "bossDamageTakenFactor": 0,
      "bossRegenPctPerMinion": 0,
@@ -209,6 +210,17 @@
      "description": "Năm tia laze xuyên địa hình quét ngang toàn map ở độ cao của từng người chơi.",
      "kind": "beam",
      "pattern": "sweep"
+    },
+    {
+     "skillId": "blind_bomb",
+     "name": "Bom mù",
+     "description": "Quả cầu năng lượng vút lên cao rồi nổ chói loà trên đầu một người chơi: ai trong vùng nổ mất máu và bị mù một lượt.",
+     "kind": "airburst",
+     "projectileKind": "orb",
+     "radius": 200,
+     "status": "blind",
+     "statusTurns": 1,
+     "statusChance": 1
     }
    ],
    "dailyBonusRuns": 3,
@@ -217,22 +229,30 @@
    "summon": {
     "minionId": "drone",
     "count": 3,
-    "cooldownRounds": 3,
-    "firstRound": 2
+    "cooldownRounds": 0,
+    "firstRound": 0,
+    "rounds": [
+     0,
+     10,
+     15
+    ],
+    "skillId": "drone_call",
+    "name": "Gọi drone",
+    "description": "Drone bay ra che chắn cho rô-bốt: hai chiếc từ đầu trận, ba chiếc ở vòng 10 và vòng 15."
    },
    "element": "metal"
   },
   {
    "bossId": "lava_crab",
    "name": "Cua Dung Nham",
-   "description": "Con cua khổng lồ sống trong miệng núi lửa. Ném bom dung nham khắp map để lại vũng lửa, đập càng tạo sóng chấn động chạy dọc mặt đất.",
+   "description": "Con cua khổng lồ sống trong miệng núi lửa. Ném bom dung nham khắp map để lại vũng lửa, đập càng tạo sóng chấn động chạy dọc mặt đất và bò tới kẹp người đứng gần.",
    "recommendedLevel": 25,
-   "modeId": "boss_lava_crab",
+   "modeId": "",
    "queue": "boss:lava_crab",
    "mapId": "arena_lava_crab_mound",
-   "hp": 15000,
+   "hp": 26000,
    "bodySize": 3.2,
-   "turnLimit": 15,
+   "turnLimit": 20,
    "shieldedDamageFactor": 0.1,
    "minions": [
     {
@@ -257,6 +277,7 @@
      "leapRange": 0,
      "leapDetonateNextTurn": true,
      "shootAfterLeap": false,
+     "maxLeaps": 0,
      "projectileKind": "crab_spit",
      "bossDamageTakenFactor": 0,
      "bossRegenPctPerMinion": 0,
@@ -286,6 +307,18 @@
      "name": "Cú kẹp đập",
      "description": "Càng đập xuống đất, sóng chấn động chạy ra hai mép map, trúng mọi người đứng trên mặt đất.",
      "kind": "shockwave"
+    },
+    {
+     "skillId": "pincer",
+     "name": "Kẹp càng",
+     "description": "Cua bò dọc mặt đất tới người chơi gần nhất; tới đủ gần thì kẹp càng: sát thương lớn, có 50 % bị cầm chân một lượt.",
+     "kind": "pincer",
+     "status": "root",
+     "statusTurns": 1,
+     "statusChance": 0.5,
+     "moveRange": 600,
+     "reach": 60,
+     "moveSpeed": 240
     }
    ],
    "dailyBonusRuns": 3,
@@ -294,22 +327,30 @@
    "summon": {
     "minionId": "crab",
     "count": 4,
-    "cooldownRounds": 3,
-    "firstRound": 2
+    "cooldownRounds": 0,
+    "firstRound": 0,
+    "rounds": [
+     0,
+     10,
+     15
+    ],
+    "skillId": "crab_call",
+    "name": "Gọi cua con",
+    "description": "Cua con bò ra từ dung nham: hai con từ đầu trận, bốn con ở vòng 10 và vòng 15."
    },
    "element": "fire"
   },
   {
    "bossId": "ice_witch",
    "name": "Phù Thuỷ Băng",
-   "description": "Phù thuỷ của đỉnh tuyết vĩnh cửu, bay giữa các đảo băng. Hai mươi tia băng toả tròn làm choáng, bão tuyết phủ cả map đóng băng người trúng, người tuyết nhảy tới nổ tung.",
+   "description": "Phù thuỷ của đỉnh tuyết vĩnh cửu, bay giữa các đảo băng. Gai băng đóng băng, bão tuyết trúng mọi người, thương băng xuyên một người, hai mươi tia băng toả tròn làm choáng; người tuyết nhảy tới rồi ném cầu tuyết.",
    "recommendedLevel": 40,
-   "modeId": "boss_ice_witch",
+   "modeId": "",
    "queue": "boss:ice_witch",
    "mapId": "arena_ice_witch_islands",
-   "hp": 14000,
+   "hp": 23000,
    "bodySize": 2.8,
-   "turnLimit": 30,
+   "turnLimit": 20,
    "shieldedDamageFactor": 0.1,
    "minions": [
     {
@@ -332,8 +373,9 @@
      "hoverHeight": 60,
      "flySpeed": 220,
      "leapRange": 0,
-     "leapDetonateNextTurn": true,
+     "leapDetonateNextTurn": false,
      "shootAfterLeap": false,
+     "maxLeaps": 1,
      "projectileKind": "snowball",
      "bossDamageTakenFactor": 0,
      "bossRegenPctPerMinion": 0,
@@ -356,7 +398,24 @@
      "projectileKind": "ice_spike",
      "status": "freeze",
      "statusTurns": 1,
-     "statusChance": 0.5
+     "statusChance": 0.5,
+     "role": "element"
+    },
+    {
+     "skillId": "blizzard",
+     "name": "Bão tuyết",
+     "description": "Bão tuyết phủ cả chiến trường: mỗi người chơi, đứng ở đâu cũng vậy, bị một mảnh băng từ quanh phù thuỷ lao tới.",
+     "kind": "global",
+     "projectileKind": "ice_shard",
+     "launchFrom": "boss",
+     "role": "aoe"
+    },
+    {
+     "skillId": "ice_lance",
+     "name": "Thương băng",
+     "description": "Một mũi thương băng xuyên địa hình phóng thẳng vào một người chơi: sát thương rất lớn.",
+     "kind": "beam",
+     "role": "single"
     },
     {
      "skillId": "frost_beam",
@@ -366,18 +425,8 @@
      "pattern": "radial",
      "status": "stun",
      "statusTurns": 1,
-     "statusChance": 0.5
-    },
-    {
-     "skillId": "blizzard",
-     "name": "Bão tuyết",
-     "description": "Bốn mươi mảnh băng từ quanh phù thuỷ bay ra trút xuống khắp chiến trường; ai trúng có 50 % bị đóng băng một lượt.",
-     "kind": "rain",
-     "projectileKind": "ice_shard",
-     "launchFrom": "boss",
-     "status": "freeze",
-     "statusTurns": 1,
-     "statusChance": 0.5
+     "statusChance": 0.5,
+     "role": "signature"
     }
    ],
    "dailyBonusRuns": 3,
@@ -393,20 +442,28 @@
    "summon": {
     "minionId": "snowman",
     "count": 5,
-    "cooldownRounds": 3,
-    "firstRound": 2
+    "cooldownRounds": 0,
+    "firstRound": 0,
+    "rounds": [
+     0,
+     10,
+     15
+    ],
+    "skillId": "snowman_call",
+    "name": "Gọi người tuyết",
+    "description": "Người tuyết trỗi dậy trên các đảo băng: ba con từ đầu trận, năm con ở vòng 10 và vòng 15; mỗi con nhảy tới cạnh một người chơi một lần rồi ném cầu tuyết."
    },
    "element": "water"
   },
   {
    "bossId": "rock_giant",
    "name": "Khổng Lồ Đá",
-   "description": "Người khổng lồ ghép từ những tảng đá, canh giữ hẻm núi sa mạc. Trụ đá đứng quanh giúp nó chỉ nhận 40 % sát thương; nó dội mưa đá tảng, đánh dấu chân cả đội để gai đá trồi lên ở lượt sau và ném tảng đá khổng lồ.",
+   "description": "Người khổng lồ ghép từ những tảng đá, canh giữ hẻm núi sa mạc. Năm trụ đá đứng quanh giúp nó chỉ nhận 40 % sát thương; nó đánh dấu chân cả đội để gai đá trồi lên ở lượt sau, dậm chân gây động đất, ném tảng đá khổng lồ và cho đá lăn dọc mặt đất.",
    "recommendedLevel": 55,
-   "modeId": "boss_rock_giant",
+   "modeId": "",
    "queue": "boss:rock_giant",
    "mapId": "arena_rock_giant_canyon",
-   "hp": 19500,
+   "hp": 26000,
    "bodySize": 3.4,
    "turnLimit": 20,
    "shieldedDamageFactor": 1,
@@ -433,6 +490,7 @@
      "leapRange": 0,
      "leapDetonateNextTurn": true,
      "shootAfterLeap": false,
+     "maxLeaps": 0,
      "projectileKind": "pebble",
      "bossDamageTakenFactor": 0.4,
      "bossRegenPctPerMinion": 0,
@@ -448,14 +506,6 @@
    ],
    "skills": [
     {
-     "skillId": "boulder_rain",
-     "name": "Mưa đá tảng",
-     "description": "Tám tảng đá lớn bay lên từ tay người khổng lồ rồi dội xuống quanh cả đội, khoét những hố rất sâu.",
-     "kind": "rain",
-     "projectileKind": "boulder",
-     "launchFrom": "boss"
-    },
-    {
      "skillId": "stone_spikes",
      "name": "Gai đá trồi",
      "description": "Mặt đất dưới chân mỗi người nứt sáng một vòng; đầu lượt sau của người khổng lồ, gai đá trồi lên trong vòng: ai còn đứng trong đó mất nhiều máu, có 50 % bị cầm chân một lượt. Hãy bước ra khỏi vòng.",
@@ -463,7 +513,15 @@
      "radius": 70,
      "status": "root",
      "statusTurns": 1,
-     "statusChance": 0.5
+     "statusChance": 0.5,
+     "role": "element"
+    },
+    {
+     "skillId": "earthquake",
+     "name": "Động đất",
+     "description": "Người khổng lồ dậm chân, cả hẻm núi rung chuyển: mọi người chơi, đứng ở đâu cũng vậy, đều mất máu.",
+     "kind": "global",
+     "role": "aoe"
     },
     {
      "skillId": "giant_boulder",
@@ -471,7 +529,18 @@
      "description": "Ném một tảng đá khổng lồ vào một người chơi: sát thương rất lớn, khoét hố khổng lồ có thể làm người trúng rơi xuống.",
      "kind": "rain",
      "projectileKind": "giant_boulder",
-     "launchFrom": "boss"
+     "launchFrom": "boss",
+     "role": "single"
+    },
+    {
+     "skillId": "rolling_boulder",
+     "name": "Đá lăn",
+     "description": "Người khổng lồ ném một tảng đá tròn xuống cạnh một người chơi; tảng đá lăn dọc mặt đất ra xa, nghiền mọi người trên đường lăn. Đứng trên gờ cao hơn để tránh.",
+     "kind": "roll",
+     "projectileKind": "rolling_boulder",
+     "radius": 60,
+     "role": "signature",
+     "moveSpeed": 700
     }
    ],
    "dailyBonusRuns": 3,
@@ -479,21 +548,29 @@
    "hover": null,
    "summon": {
     "minionId": "stone_totem",
-    "count": 3,
-    "cooldownRounds": 3,
-    "firstRound": 2
+    "count": 5,
+    "cooldownRounds": 0,
+    "firstRound": 0,
+    "rounds": [
+     0,
+     10,
+     15
+    ],
+    "skillId": "totem_raise",
+    "name": "Dựng trụ đá",
+    "description": "Năm trụ đá trồi lên giữa người khổng lồ và cả đội (từ đầu trận, ở vòng 10 và vòng 15, tối đa năm trụ); còn trụ đứng, người khổng lồ chỉ nhận 40 % sát thương."
    },
    "element": "earth"
   },
   {
    "bossId": "tree_spirit",
    "name": "Mộc Tinh",
-   "description": "Cây cổ thụ ngàn năm thức giấc giữa rừng sâu, bám rễ tại chỗ. Mỗi cây nấm độc còn sống giúp nó hồi 3 % máu đầu lượt; roi dây leo trồi lên dưới chân cả đội, mưa gai độc phủ khắp rừng và hút sinh lực người yếu nhất.",
+   "description": "Cây cổ thụ ngàn năm thức giấc giữa rừng sâu, bám rễ tại chỗ. Mỗi cây nấm độc còn sống giúp nó hồi 3 % máu đầu lượt; roi dây leo trồi lên dưới chân cả đội, gai độc trúng mọi người, hút sinh lực người yếu nhất và rễ kéo người đứng xa nhất về phía nó.",
    "recommendedLevel": 70,
-   "modeId": "boss_tree_spirit",
+   "modeId": "",
    "queue": "boss:tree_spirit",
    "mapId": "arena_tree_spirit_forest",
-   "hp": 21500,
+   "hp": 37000,
    "bodySize": 3.6,
    "turnLimit": 20,
    "shieldedDamageFactor": 1,
@@ -520,6 +597,7 @@
      "leapRange": 0,
      "leapDetonateNextTurn": true,
      "shootAfterLeap": false,
+     "maxLeaps": 0,
      "projectileKind": "",
      "bossDamageTakenFactor": 0,
      "bossRegenPctPerMinion": 3,
@@ -542,25 +620,40 @@
      "radius": 60,
      "status": "root",
      "statusTurns": 1,
-     "statusChance": 0.5
+     "statusChance": 0.5,
+     "role": "element"
     },
     {
      "skillId": "poison_thorns",
      "name": "Mưa gai độc",
-     "description": "Ba mươi chiếc gai độc từ tán cây bay ra trút xuống khắp khu rừng; ai trúng có 50 % bị trúng độc hai lượt (mất máu đầu lượt, medkit giải độc).",
-     "kind": "rain",
+     "description": "Gai độc từ tán cây bay ra, mỗi người chơi trúng một chiếc dù đứng ở đâu; có 50 % bị trúng độc hai lượt (mất máu đầu lượt, medkit giải độc).",
+     "kind": "global",
      "projectileKind": "poison_thorn",
      "launchFrom": "boss",
      "status": "poison",
      "statusTurns": 2,
-     "statusChance": 0.5
+     "statusChance": 0.5,
+     "role": "aoe"
     },
     {
      "skillId": "life_drain",
      "name": "Hút sinh lực",
      "description": "Một luồng sinh lực xuyên địa hình hút máu người chơi yếu nhất; Mộc Tinh hồi đúng bằng lượng máu đã hút.",
      "kind": "beam",
-     "drainPct": 100
+     "drainPct": 100,
+     "role": "single"
+    },
+    {
+     "skillId": "root_drag",
+     "name": "Rễ kéo",
+     "description": "Rễ cây trồi lên dưới chân người chơi đứng xa nhất, quấn lấy và kéo người đó về phía Mộc Tinh rồi siết: mất máu, có 50 % bị cầm chân một lượt.",
+     "kind": "pull",
+     "status": "root",
+     "statusTurns": 1,
+     "statusChance": 0.5,
+     "role": "signature",
+     "moveRange": 400,
+     "moveSpeed": 300
     }
    ],
    "dailyBonusRuns": 3,
@@ -569,8 +662,16 @@
    "summon": {
     "minionId": "poison_mushroom",
     "count": 4,
-    "cooldownRounds": 3,
-    "firstRound": 2
+    "cooldownRounds": 0,
+    "firstRound": 0,
+    "rounds": [
+     0,
+     10,
+     15
+    ],
+    "skillId": "mushroom_sprout",
+    "name": "Mọc nấm độc",
+    "description": "Nấm độc mọc lên gần cả đội: hai cây từ đầu trận, bốn cây ở vòng 10 và vòng 15; mỗi cây còn sống giúp Mộc Tinh hồi 3 % máu đầu lượt."
    },
    "element": "wood"
   }

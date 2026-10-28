@@ -10,7 +10,7 @@ extends Node2D
 ## Skills: each character's skill has a SkillView (match/views/skills/): its aim mode (an arc, a
 ## straight line, or none: fired on tap) and, for a skill ShotResolved, the replay visuals on top
 ## of the default handling here. Status effects: stun and freeze lose the whole turn (controls off,
-## a banner; the server ends it), root keeps the move controls off ("Bị cầm chân"); burn ticks at
+## a countdown; the server ends it), root keeps the move controls off ("Bị cầm chân"); burn ticks at
 ## turn start (PlayerDamaged type burn); the shield shows on the HP bar and absorbs damage first.
 ## Skill energy: players[id].skillEnergy is the value on screen (the HUD's skill slot, the
 ## full-energy aura over each player). A ShotResolved's new energies wait for the replay
@@ -85,6 +85,21 @@ extends Node2D
 ## over the first). A mushroom's turn (ShotResolved actionMode "spore") puffs a spore cloud out to
 ## its radius (SporeFx), its death blast bursts into spores. The camera frames the marks, the
 ## eruptions and the strikes of a shot (_frame_ground()).
+## Lost turns and blind (063): a stunned / frozen unit's TurnStarted (skipped + skipAfter) shows a
+## countdown, no text: a ring emptying with the seconds left over the unit (CountdownRing on its
+## PlayerView) and, for my own, dead centre on the HUD under the turn banner (SkipCountdown; a
+## TurnStarted held back by a replay counts from its arrival). While I am blinded my own turn is
+## whited out (BlindOverlay on the screen layer, until my shot is answered); others see the
+## blindfold on my unit (StatusLook "blind"). The snowman (leapDetonateNextTurn false) leaps
+## without the fuse warning. The summon is named as the boss's kit names it (summon.name).
+## Boss mode v5 (063): the new ShotResolved events play on the replay's clock: airburst (Bom mù:
+## the orb is OrbView via the boss_airburst skill view; AirburstFx and a white blink at the
+## burst), move (a unit walks its ground path: BossMoves drives the view, its state is `to`),
+## pincer (PincerFx snaps on the target), global (boss_global: the map framed, the boss's storm;
+## the earthquake shakes the camera for its duration and splits the ground under every member hit,
+## GroundCrackFx; a shard / thorn bursts on the member it hits), roll (the thrown boulder is a
+## RollingBoulderView via boss_roll, then rolls along the path from where it lands) and pull (the
+## member dragged along the path, RootDragFx along the ground, its state `to`).
 ## See docs/superpowers/specs/2026-10-15-godot-client-roadmap-design.md.
 
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
@@ -152,6 +167,17 @@ const VineStrikeFx := preload("res://match/boss/vine_strike_fx.gd")
 const SporeFx := preload("res://match/boss/spore_fx.gd")
 const LifeStreamFx := preload("res://match/boss/life_stream_fx.gd")
 const BombChainFx := preload("res://match/views/skills/bomb_chain_fx.gd")
+const SkipCountdown := preload("res://match/skip_countdown.gd")
+const CountdownRing := preload("res://match/views/countdown_ring.gd")
+const BlindOverlay := preload("res://match/views/blind_overlay.gd")
+const BossMoves := preload("res://match/boss/boss_moves.gd")
+const AirburstFx := preload("res://match/boss/airburst_fx.gd")
+const PincerFx := preload("res://match/boss/pincer_fx.gd")
+const GroundCrackFx := preload("res://match/boss/ground_crack_fx.gd")
+const RollingBoulderView := preload("res://match/boss/rolling_boulder_view.gd")
+const RootDragFx := preload("res://match/boss/root_drag_fx.gd")
+const QUAKE_SHAKE := 70.0 # the earthquake's shake (as an explosion of this radius), renewed every QUAKE_EVERY s
+const QUAKE_EVERY := 0.12
 const WATER_GUN := "water_gun" # a shot of this gun kind bursts into water (visual only)
 
 ## Actions go out at least the server's timings.actionIntervalSec apart (it drops closer ones)
@@ -174,9 +200,7 @@ const RESYNC_RETRY := 3.0 # re-ask for MatchStateSync if none arrived
 ## game data is fetched again; "Đang cập nhật dữ liệu..." shows if that takes longer than this.
 const DATA_NOTICE_SEC := 0.3
 const DATA_NOTICE := "Đang cập nhật dữ liệu..."
-## A lost turn's banner holds until about when the server ends that turn (skipTurnDelaySec), less
-## its fade.
-const SKIP_BANNER_FADE := 0.2
+const UNIT_RING_RADIUS := 26.0 # a lost turn's countdown ring over the unit
 const MIN_AIM_SEC := 0.15 # a PlayerAiming with less left (held back by a replay) is not shown
 const ITEM_BADGE_SEC := 1.5 # an instant item's badge stays this long, then fades
 const LOOK_LIFT := Vector2(0, -60) # the camera centres a player this far above its feet
@@ -240,6 +264,12 @@ var _shot_badge := {} # the replayed shot's badge: {shooter, content (UseBadge.c
 var _popup_row := {} # playerId -> [msec of its last popup, how many came in a row] (DamagePopup.stagger)
 var _tallies := {} # playerId -> its running DamageTally in a multi-hit skill shot (SkillView.merges_damage())
 var _skip := "" # the current player loses this turn: "stun" / "freeze" (TurnStarted.skipped), "" none
+var _countdown := SkipCountdown.new() # the lost turn's countdown (TurnStarted skipAfter)
+var _unit_ring: Node2D = null # its ring over the unit (a CountdownRing on its PlayerView)
+var _blind: BlindOverlay = null # my blind white-out (on the screen layer, under the HUD)
+var _moves_fx := BossMoves.new() # boss v5: the walks, drags and rolls along a ShotResolved path
+var _quake_until := -1.0 # boss v5: the earthquake shakes the camera until this _clock s
+var _quake_next := 0.0
 var _hud: Hud
 var _cam := CameraModel.new() # what the camera does (MatchCamera applies it)
 var _camera: MatchCamera
@@ -297,6 +327,8 @@ func _ready() -> void:
 	add_child(_camera)
 	_screen_fx = CanvasLayer.new() # same layer as the HUD's, before it: under the HUD
 	add_child(_screen_fx)
+	_blind = BlindOverlay.new()
+	_screen_fx.add_child(_blind)
 	var ui := CanvasLayer.new()
 	add_child(ui)
 	_markers = OffscreenMarkers.new() # under the HUD's controls
@@ -360,6 +392,13 @@ func _notification(what: int) -> void:
 
 func _process(delta: float) -> void:
 	_track_camera(delta)
+	_step_countdown(delta)
+	_refresh_blind(delta)
+	if _shot_player != null and _shot_player.is_playing():
+		_moves_fx.sync(_shot_player.time())
+	if _clock < _quake_until and _clock >= _quake_next:
+		_quake_next = _clock + QUAKE_EVERY
+		_cam.shake(QUAKE_SHAKE)
 	_release_fall_hold()
 	_release_flight_hold()
 	_update_bombers()
@@ -425,6 +464,8 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 	var current := str(snap.get("currentPlayerId", ""))
 	var continuing := is_sync and current == _current
 	_shot_player.stop()
+	_moves_fx = BossMoves.new()
+	_quake_until = -1.0
 	_deferred.clear()
 	_fall_hold = false
 	_flight_hold = false
@@ -467,6 +508,7 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 		_moves.apply_snapshot(_pos(_me), energy, int(last_seq) if (last_seq is int or last_seq is float) else -1)
 	_hud.set_time(int(snap.get("turnTimeLeft", GameData.turn_sec())))
 	_skip = Status.skip_effect(_players.get(current, {}).get("statusEffects")) # a lost turn goes on
+	_start_countdown({}) # a snapshot has no skipAfter: the views are new, no countdown
 	if continuing and _turn_resolved:
 		_hud.pause_timer() # this turn's shot is resolving: the server clock waits for TurnStarted
 	_focus.clear()
@@ -670,7 +712,7 @@ func _on_event(event: String, data: Variant) -> void:
 		_load_snapshot(data, true)
 		_check_gamedata(data)
 		return
-	if event == "PlayerAiming" and data is Dictionary:
+	if event in ["PlayerAiming", "TurnStarted"] and data is Dictionary:
 		data = data.duplicate()
 		data["receivedAt"] = Time.get_ticks_usec() # a replay may hold it back: show only what is left
 	if _shot_player.is_playing() or _fall_hold or _flight_hold:
@@ -740,7 +782,7 @@ func _apply(event: String, data: Variant) -> void:
 					_mark_view.sync(_marks.marks, true)
 				_hud.set_boss(_boss.state())
 			_set_current(current, int(data.get("moveEnergy", 0)))
-			_announce_skip(current)
+			_start_countdown(data)
 		"TurnTimerTick":
 			_hud.set_time(int(data.get("timeLeft", 0)))
 		"PlayerMoved":
@@ -758,7 +800,7 @@ func _apply(event: String, data: Variant) -> void:
 			if timeline.action_mode != SUMMON and timeline.action_mode != TURN_START:
 				_turn_resolved = true # the server takes no more actions until TurnStarted
 			elif timeline.action_mode == SUMMON and _boss.active and shooter == _boss.player_id:
-				_hud.announce_boss_skill(SUMMON_TEXT)
+				_hud.announce_boss_skill(_summon_name())
 			_hud.pause_timer() # resumed by the next TurnTimerTick / TurnStarted
 			_snap_to_server(shooter)
 			_shot_timeline = timeline
@@ -890,7 +932,7 @@ func _on_action_selected(d: Variant) -> void:
 	if _boss.active and id == _boss.player_id and str(d.get("actionMode", "")) == SKILL:
 		_hud.announce_boss_skill(str(GameData.boss_skill(_boss.boss_id, str(d.get("skillId", ""))).get("name", "")))
 	elif _boss.active and id == _boss.player_id and str(d.get("actionMode", "")) == SUMMON:
-		_hud.announce_boss_skill(SUMMON_TEXT)
+		_hud.announce_boss_skill(_summon_name())
 		return
 	_hold_badge(id, UseBadge.content(str(d.get("actionMode", "")), str(d.get("skillId", "")), str(d.get("itemId", ""))))
 
@@ -1115,6 +1157,10 @@ func _on_shot_event(e: Dictionary) -> void:
 				_damage_popup(id, int(e.get("amount", 0)), crit, DamagePopup.effect_of(e)) # elementEffect styles it
 			if str(e.get("cause", "")) == ERUPTION and _views.has(id): # thrown up a little (cosmetic)
 				_views[id].hop()
+			elif str(e.get("cause", "")) == GLOBAL:
+				_global_hit(id)
+			elif str(e.get("cause", "")) == ROLL and _views.has(id): # crushed by the boulder
+				_views[id].hop(22.0, 0.32)
 			if not _drain.is_empty() and _views.has(id) and id != _boss.player_id:
 				_drain_from(id, float(e.get("t", 0.0)))
 			_show_energies(_energy_reveal.on_event(e)) # the hit's +10, after the HP drop
@@ -1205,6 +1251,18 @@ func _on_shot_event(e: Dictionary) -> void:
 				if _views.has(id):
 					_views[id].puff()
 				_hold_focus({"pos": _vec(e["position"]) + LOOK_LIFT}, 1.0)
+		"airburst":
+			_airburst(e)
+		"move":
+			_path_walk(e)
+		"pincer":
+			_pincer(e)
+		"global":
+			_global_start(e)
+		"roll":
+			_roll(e)
+		"pull":
+			_pull(e)
 		"status":
 			if _players.has(id):
 				_players[id]["statusEffects"] = Status.apply(_players[id].get("statusEffects"), str(e.get("effectId", "")), int(e.get("turns", 1)))
@@ -1255,6 +1313,11 @@ func _check_terrain_version(e: Dictionary) -> void:
 
 
 func _on_shot_finished() -> void:
+	_moves_fx.finish() # every walk / drag / roll on its end
+	for n in _fx_layer.get_children():
+		if n is RollingBoulderView:
+			n.settle()
+	_quake_until = -1.0
 	if _resync_after_shot:
 		_resync_after_shot = false
 		GameSocket.send("Reconnect", {}) # the terrain drifted during the replay
@@ -1280,6 +1343,8 @@ func _on_shot_finished() -> void:
 
 func _on_match_ended(d: Dictionary) -> void:
 	_ended = true
+	_countdown.stop()
+	_show_countdown()
 	for id in _held_badges.keys(): # an armed skill / item never fired
 		_hold_badge(id, {})
 	for view in _views.values():
@@ -1566,6 +1631,8 @@ const ERUPTION := "eruption" # a damage cause / event type
 const DRAIN := "drain" # heal causes
 const REGEN := "regen"
 const POISON := "poison" # the status / the PlayerDamaged type
+const GLOBAL := "global" # boss v5 damage causes
+const ROLL := "roll"
 const ARMOR_ON := "Giáp đá!"
 const ARMOR_OFF := "Phá giáp!"
 
@@ -1808,6 +1875,134 @@ static func _num(d: Dictionary, key: String, fallback: float) -> float:
 	return float(v) if v is int or v is float else fallback
 
 
+# ── Boss v5 (063): airburst, the pincer walk, global, roll, pull ─────────────
+
+## Bom mù bursts (airburst {position, radius}): a white flash and shock ring over the target
+## area, the screen blinks white; the blind comes in its status events.
+func _airburst(e: Dictionary) -> void:
+	if not e.get("position") is Dictionary:
+		return
+	var fx := AirburstFx.new(float(e.get("radius", 200.0)))
+	fx.position = _vec(e["position"])
+	_fx_layer.add_child(fx)
+	if _screen_fx != null:
+		_screen_fx.add_child(AirburstFx.ScreenFlash.new(0.22, 0.45))
+	_hold_focus({"pos": fx.position}, AirburstFx.LIFE * 0.6)
+	_cam.shake(fx.radius * 0.3)
+
+
+## A unit walks along the ground (move {playerId, from, to, duration, path}: the crab to its
+## pincer grab): its view follows the path on the replay's clock, the camera with it; the
+## server's position is `to` from now on.
+func _path_walk(e: Dictionary) -> void:
+	var id := str(e.get("playerId", ""))
+	if e.get("to") is Dictionary:
+		_set_pos(id, _vec(e["to"]))
+	var view = _views.get(id)
+	if view == null:
+		return
+	var m = _moves_fx.add(view, e)
+	_hold_focus({"view": view}, m.duration + CameraModel.HOLD_SEC)
+
+
+## The crab's claw grabs (pincer {playerId: the crab, targetId, position: the target's body
+## centre}): the claw snaps shut on the target from the crab's side, the target jolts.
+func _pincer(e: Dictionary) -> void:
+	var target := str(e.get("targetId", ""))
+	var at := Vector2.INF
+	if e.get("position") is Dictionary:
+		at = _vec(e["position"])
+	elif _views.has(target):
+		at = _views[target].body_centre()
+	if at == Vector2.INF:
+		return
+	var crab = _views.get(str(e.get("playerId", "")))
+	var side := 1.0 if crab == null or crab.position.x >= at.x else -1.0
+	if crab != null:
+		crab.face(-side)
+	var fx := PincerFx.new(side)
+	fx.position = at
+	_fx_layer.add_child(fx)
+	if _views.has(target):
+		_views[target].hop(10.0, 0.22)
+	_hold_focus({"pos": at}, PincerFx.LIFE)
+	_cam.shake(24.0)
+
+
+## A global skill starts (global {skillId, duration}): without projectiles (the earthquake) the
+## camera shakes for its duration; the storm of the others is the skill view's.
+func _global_start(e: Dictionary) -> void:
+	if _shot_timeline != null and not _shot_timeline.projectiles.is_empty():
+		return
+	_quake_until = _clock + maxf(float(e.get("duration", 0.0)), 0.3)
+	_quake_next = _clock
+
+
+## A member hit by a global skill: its projectile (an ice shard, a poison thorn) bursts on it, or,
+## with none (the earthquake), the ground splits under it and it is thrown up a little.
+func _global_hit(id: String) -> void:
+	var view = _views.get(id)
+	if view == null:
+		return
+	var kind := ""
+	if _shot_timeline != null:
+		for p in _shot_timeline.projectiles:
+			if p is Dictionary and str(p.get("hitPlayerId", "")) == id:
+				kind = str(p.get("kind", ""))
+	if kind != "":
+		if UnitShell.is_kind(kind):
+			var hit := UnitImpact.new(kind, 34.0)
+			hit.position = view.body_centre()
+			_fx_layer.add_child(hit)
+		return
+	var crack := GroundCrackFx.new(170.0 * maxf(view.body_size, 1.0), absi(hash(id)) % 997)
+	crack.position = view.position
+	_mark_view.add_child(crack) # on the ground, under the players
+	view.hop(14.0, 0.3)
+
+
+## The giant's boulder lands and rolls (roll {from, to, duration, path, radius}): the same
+## boulder rolls on along the ground path on the replay's clock, the camera with it.
+func _roll(e: Dictionary) -> void:
+	var r := float(e.get("radius", 60.0))
+	var boulder := RollingBoulderView.new(r)
+	_fx_layer.add_child(boulder)
+	var m = _moves_fx.add(boulder, e)
+	_hold_focus({"view": boulder}, m.duration + CameraModel.HOLD_SEC)
+	_cam.shake(r * 0.5)
+
+
+## The tree's roots drag a member (pull {playerId, from, to, duration, path}): roots burst under
+## it and haul it along the ground toward the tree on the replay's clock; its position is `to`.
+func _pull(e: Dictionary) -> void:
+	var id := str(e.get("playerId", ""))
+	if e.get("to") is Dictionary:
+		_set_pos(id, _vec(e["to"]))
+	var view = _views.get(id)
+	if view == null:
+		return
+	var from: Vector2 = _vec(e["from"]) if e.get("from") is Dictionary else view.position
+	var burst := VineStrikeFx.new(50.0)
+	burst.position = from
+	_fx_layer.add_child(burst)
+	var m = _moves_fx.add(view, e)
+	_mark_view.add_child(RootDragFx.new(m.points, view, m.duration))
+	_hold_focus({"view": view}, m.duration + CameraModel.HOLD_SEC)
+	_cam.shake(16.0)
+
+
+## The boss's summon as its kit names it (bosses[].summon.name, 063: "Gọi drone"), else "Triệu hồi".
+func _summon_name() -> String:
+	var sm = GameData.boss(_boss.boss_id).get("summon")
+	var n = sm.get("name") if sm is Dictionary else null
+	return str(n) if n is String and n != "" else SUMMON_TEXT
+
+
+## The boss v5 movers (tests).
+func boss_moves() -> BossMoves:
+	return _moves_fx
+
+
 ## UnitFlew {playerId, from, to, duration}: the unit flies there (PlayerView.fly()), the camera
 ## goes with it; the events after it wait until it lands (_flight_hold).
 func _on_unit_flew(d: Variant) -> void:
@@ -1947,12 +2142,16 @@ func _on_unit_jumped(d: Variant) -> void:
 	if jump == null or not _players.has(id):
 		return
 	_set_pos(id, jump.to)
-	_players[id]["leapt"] = true
-	_leaps.on_jump(id, _turn_index)
+	# a leaper that blows up after its leap glows until then; the snowman (063: leapDetonateNextTurn
+	# false) leaps once and shoots snowballs after it: no warning
+	var detonates := GameData.minion_leap_detonates(str(_players[id].get("bossId", "")), str(_players[id].get("minionId", "")))
+	if detonates:
+		_players[id]["leapt"] = true
+		_leaps.on_jump(id, _turn_index)
 	var view = _views.get(id)
 	if view == null or not view.has_method("jump"):
 		return
-	view.set_leapt(true)
+	view.set_leapt(detonates)
 	view.jump(jump.from, jump.to, jump.duration, jump.height)
 	_cam.sky = true # its arc may top out above the map (this turn's follow rises with it)
 	if view.in_flight():
@@ -2096,15 +2295,66 @@ func shield_state() -> ShieldState:
 	return _shields
 
 
-## A lost turn's banner: "Choáng — mất lượt" for me, "X: Choáng — mất lượt" for another player.
-func _announce_skip(id: String) -> void:
-	if _skip == "" or _ended:
-		_hud.announce_skip("")
+## A lost turn (TurnStarted skipped + skipAfter): its countdown over the unit (a ring and the
+## seconds left, no text) and, for my own, dead centre on the HUD; a TurnStarted held back by a
+## replay counts from its arrival. Anything else (a normal turn, a snapshot) stops it.
+func _start_countdown(data: Dictionary) -> void:
+	var elapsed := _since(int(data["receivedAt"])) if data.get("receivedAt") is int else 0.0
+	if _ended or not _countdown.start(data, _skip, elapsed):
+		_countdown.stop()
+	if _unit_ring != null and is_instance_valid(_unit_ring):
+		_unit_ring.queue_free()
+	_unit_ring = null
+	var view = _views.get(_countdown.player_id)
+	if _countdown.active() and view != null and view.has_method("overhead_point"):
+		_unit_ring = CountdownRing.new()
+		_unit_ring.radius = UNIT_RING_RADIUS * clampf(view.body_size, 1.0, 1.6) if "body_size" in view else UNIT_RING_RADIUS
+		_unit_ring.position = view.overhead_point(_unit_ring.radius)
+		_unit_ring.z_index = 5
+		view.add_child(_unit_ring)
+	_show_countdown()
+
+
+func _step_countdown(delta: float) -> void:
+	if _countdown.total <= 0.0:
 		return
-	var text := Status.skip_text(_skip)
-	if id != _me:
-		text = "%s: %s" % [str(_players.get(id, {}).get("displayName", "")), text]
-	_hud.announce_skip(text, maxf(GameData.skip_turn_delay_sec() - SKIP_BANNER_FADE, 0.5))
+	var before := _countdown.number()
+	_countdown.step(delta)
+	if _countdown.number() != before or _countdown.active():
+		_show_countdown()
+	if not _countdown.active():
+		_countdown.stop()
+		_show_countdown()
+
+
+func _show_countdown() -> void:
+	var n := _countdown.number()
+	if _unit_ring != null and is_instance_valid(_unit_ring):
+		_unit_ring.show_time(_countdown.effect, n, _countdown.fraction())
+		if n <= 0:
+			_unit_ring.queue_free()
+			_unit_ring = null
+	var mine := _countdown.player_id == _me and _me != ""
+	_hud.show_countdown(_countdown.effect, n if mine else 0, _countdown.fraction())
+
+
+## The countdown (tests): {active, effect, player, number, fraction, unit_ring}.
+func countdown_state() -> Dictionary:
+	return {"active": _countdown.active(), "effect": _countdown.effect, "player": _countdown.player_id,
+		"number": _countdown.number(), "fraction": _countdown.fraction(),
+		"unit_ring": _unit_ring != null and is_instance_valid(_unit_ring) and _unit_ring.visible}
+
+
+## My blind white-out: on while BlindOverlay.wanted() (my turn, blinded, before my shot is answered).
+func _refresh_blind(delta: float) -> void:
+	if _blind == null:
+		return
+	_blind.set_on(BlindOverlay.wanted(_is_my_turn(), _players.get(_me, {}).get("statusEffects"), _turn_resolved))
+	_blind.step(delta)
+
+
+func blind_overlay() -> BlindOverlay:
+	return _blind
 
 
 func _set_hp(id: String, hp: int) -> void:

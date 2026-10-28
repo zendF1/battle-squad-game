@@ -821,6 +821,13 @@ static func air_strike_power() -> float:
 	return _f(_sub(section("itemRules"), "airStrike"), "power")
 
 
+## The freeze bomb's shot damage × this of a normal shot (itemRules.freezeBombDamageFactor, 063);
+## 1 from a server that does not send it (full damage, as before).
+static func freeze_bomb_damage_factor() -> float:
+	var v = section("itemRules").get("freezeBombDamageFactor")
+	return float(v) if v is int or v is float else 1.0
+
+
 # ── status effects ──────────────────────────────────────────────────────────
 
 static func status_effects() -> Array:
@@ -1299,6 +1306,14 @@ static func boss_minion(boss_id: String, minion_id: String) -> Dictionary:
 			if _s(m, "minionId") == minion_id:
 				return m
 	return {}
+
+
+## A leaper of this minion type blows up at the end of its turn after a leap
+## (minions[].leapDetonateNextTurn; the snowman no longer does since 063: it leaps once, then
+## shoots): true when the game data does not say (the old behaviour).
+static func minion_leap_detonates(boss_id: String, minion_id: String) -> bool:
+	var v = boss_minion(boss_id, minion_id).get("leapDetonateNextTurn")
+	return v if v is bool else true
 
 
 ## A boss skill ({skillId, name, description, kind}) of the boss boss_id, or of any boss when

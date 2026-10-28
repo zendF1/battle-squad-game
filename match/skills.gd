@@ -49,6 +49,9 @@ static func view_for_character(character_id: String):
 const BOSS_VIEWS := {
 	"rain": preload("res://match/views/skills/boss_rain.gd"),
 	"beam": preload("res://match/views/skills/boss_beam.gd"),
+	"airburst": preload("res://match/views/skills/boss_airburst.gd"),
+	"global": preload("res://match/views/skills/boss_global.gd"),
+	"roll": preload("res://match/views/skills/boss_roll.gd"),
 }
 
 

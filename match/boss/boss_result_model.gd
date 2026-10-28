@@ -4,8 +4,9 @@ extends RefCounted
 ## bossDamage: {playerId: damage}}, rewards[me] {expGained, coinGained, ..., bossDamage,
 ## minionDamage, bonusRun, bonusRunsLeft, items: [{itemId, quantity}]}, mvpPlayerId}: the title
 ## of how it ended, the damage ranking of the party (bots too) on a podium (podium(): ranks 3, 1,
-## 2, 4 left to right, #1 tallest), the MVP, the boss's HP left (in the subtitle of a loss), and my rewards with the run's table ("Lượt thưởng lớn" / "Thưởng thường") and the big
-## runs left today. Item names come from the game data.
+## 2, 4 left to right, #1 tallest), the MVP, the boss's HP left (in the subtitle of a loss), and my rewards with the
+## big-reward runs left today as a gift box and "×2" (lit for a big-reward run, dimmed for a normal
+## one; no sentence). Item names come from the game data.
 
 const ResultModel := preload("res://match/result_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
@@ -24,8 +25,6 @@ const TITLES := {DEFEATED: "", PARTY_DEFEATED: "Cả đội đã gục", ESCAPED
 ## lowest step.
 const PODIUM_ORDER := [3, 1, 2, 4]
 const STEP_HEIGHTS := [128.0, 100.0, 76.0, 58.0]
-const BONUS := "Lượt thưởng lớn"
-const NORMAL := "Thưởng thường"
 
 
 static func _num(v: Variant, fallback: float = 0.0) -> float:
@@ -95,8 +94,8 @@ static func mvp_of(d: Dictionary, players: Dictionary, me: String) -> String:
 
 ## My rewards: ResultModel.reward() (ok, exp, coin, the level ups, chests: a bonus run's stone
 ## chests [{chestId, qty, name, text}]) plus boss_damage, minion_damage,
-## bonus_run, bonus_left (-1 unknown), items [{itemId, qty, name}], badge (BONUS / NORMAL),
-## left_text ("Còn 2 lượt thưởng lớn hôm nay"), damage_text ("Sát thương boss 9.000").
+## bonus_run, bonus_left (-1 unknown), items [{itemId, qty, name}], gift_text (the big runs left by
+## the gift box: "×2"; "" unknown), damage_text ("Sát thương boss 9.000").
 static func reward(r: Variant, mode: String) -> Dictionary:
 	var out := ResultModel.reward(r, mode)
 	out["rank"] = {}
@@ -116,8 +115,7 @@ static func reward(r: Variant, mode: String) -> Dictionary:
 			var id := str(it["itemId"])
 			items.append({"itemId": id, "qty": qty, "name": item_name(id)})
 	out["items"] = items
-	out["badge"] = BONUS if out["bonus_run"] else NORMAL
-	out["left_text"] = left_text(int(out["bonus_left"]))
+	out["gift_text"] = gift_text(int(out["bonus_left"]))
 	out["damage_text"] = "Sát thương boss %s" % Fmt.thousands(int(out["boss_damage"]))
 	return out
 
@@ -128,11 +126,9 @@ static func item_name(item_id: String) -> String:
 	return n if n != "" else item_id
 
 
-## "Còn 2 lượt thưởng lớn hôm nay", "Hết lượt thưởng lớn hôm nay"; "" unknown.
-static func left_text(left: int) -> String:
-	if left < 0:
-		return ""
-	return "Còn %d lượt thưởng lớn hôm nay" % left if left > 0 else "Hết lượt thưởng lớn hôm nay"
+## The big-reward runs left by the gift box: "×2", "×0"; "" unknown.
+static func gift_text(left: int) -> String:
+	return "×%d" % left if left >= 0 else ""
 
 
 ## "Vòng 9/15" of the fight's boss block; "" without one.

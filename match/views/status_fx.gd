@@ -63,11 +63,15 @@ const VINE_BACK := Color(0.2, 0.38, 0.12)
 const VINE_OUT := Color(0.08, 0.16, 0.05)
 const LEAF := Color(0.48, 0.82, 0.3)
 const SOIL := Color(0.36, 0.25, 0.14)
+const BLINDFOLD := Color(0.98, 0.98, 1.0)
+const BLINDFOLD_FOLD := Color(0.78, 0.82, 0.92)
+const BLINDFOLD_OUT := Color(0.22, 0.24, 0.34)
 const STAR := Color(1.0, 0.9, 0.3)
 const STAR_OUT := Color(0.42, 0.24, 0.04)
 
 var height := 53.0
 var width := 30.0
+var facing := 1.0 # the figure faces right (+1) or left (-1): the blindfold's knot sits behind the head
 var look := StatusLook.new()
 var back: Node2D # the twin under the figure (draws through draw_back())
 
@@ -153,6 +157,7 @@ func _draw() -> void:
 			"web": _web(l)
 			"ice": _ice(self, l, true)
 			"stars": _stars(self, l, true)
+			"blind": _blindfold(l)
 			"aura": _motes(l)
 
 
@@ -875,6 +880,33 @@ func _stars(ci: CanvasItem, l: Dictionary, front: bool) -> void:
 		var r := 6.5 * s * k * (0.82 + 0.18 * depth)
 		var col := Color(STAR, a * (0.75 + 0.25 * depth))
 		_star(ci, p, r, ang * 0.6, col)
+
+
+## Blind: a white cloth band tied round the head over the eyes, a knot at the back with two ends
+## fluttering, a faint shadow fold along it; scaled with the pop.
+func _blindfold(l: Dictionary) -> void:
+	var s := _s()
+	var a: float = l["alpha"]
+	var k: float = l["scale"]
+	var y := -height * 0.77
+	var half := maxf(width * 0.26, 8.0 * s) * k
+	var band := 3.0 * s * k
+	var tilt := 0.05 * sin(_t * 1.3)
+	var pts := PackedVector2Array([Vector2(-half, y - band + tilt * half), Vector2(half, y - band - tilt * half),
+		Vector2(half, y + band - tilt * half), Vector2(-half, y + band + tilt * half)])
+	draw_colored_polygon(pts, Color(BLINDFOLD, a))
+	draw_line(Vector2(-half, y + band * 0.3), Vector2(half, y + band * 0.3), Color(BLINDFOLD_FOLD, 0.7 * a), maxf(1.0, 1.0 * s), true)
+	pts.append(pts[0])
+	draw_polyline(pts, Color(BLINDFOLD_OUT, a), maxf(1.0, 1.2 * s), true)
+	# the knot behind the head and its two ends fluttering out
+	var back := -signf(facing) if facing != 0.0 else -1.0
+	var knot := Vector2(back * half, y)
+	draw_circle(knot, band * 0.9, Color(BLINDFOLD, a))
+	for i in 2:
+		var flap := sin(_t * 7.0 + i * 1.7) * 2.0 * s
+		var tail := knot + Vector2(back * (6.0 + 3.0 * i) * s * k, (3.0 + 4.0 * i) * s * k + flap)
+		draw_line(knot, tail, Color(BLINDFOLD_OUT, a), band * 1.1, true)
+		draw_line(knot, tail, Color(BLINDFOLD, a), band * 0.7, true)
 
 
 func _star(ci: CanvasItem, c: Vector2, r: float, rot: float, col: Color) -> void:
