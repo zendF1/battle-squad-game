@@ -2,7 +2,9 @@ extends RefCounted
 ## "Xếp hạng" (the leaderboards) without UI: GET /leaderboard?type=level|rank|power&limit&offset →
 ## {type, seasonId?, seasonName?, entries: [entry], me: entry | null, total}, entry {pos, playerId,
 ## displayName, level, rankBadge, grade, gradeDivision, rankPoints, power, powerCharacterId,
-## equippedTitle?}. The server orders and numbers the rows (pos); the client only shows them: the
+## equippedTitle?, characterId (the character drawn, never "" from a current server), look
+## {characterId, weaponItemId, weaponUpgradeLevel} (what the lobby draws: the gun and the back aura;
+## docs: the server's docs/contracts/leaderboard-showcase.md)}. The server orders and numbers the rows (pos); the client only shows them: the
 ## top three on the podium (2nd left, 1st centre, 3rd right), the rest in the list, the caller's
 ## own row (me) pinned under it. The sorted value is the big one: "Lv.37", "Đại tá 1" + "4.230
 ## điểm", the power number. Lực chiến (power) is always the server's number (GET /player/characters
@@ -11,6 +13,7 @@ extends RefCounted
 const Fmt := preload("res://core/fmt.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
+const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 
 const LEVEL := "level"
 const RANK := "rank"
@@ -43,8 +46,9 @@ static func _str(v: Variant) -> String:
 
 
 ## One row → {pos, player_id, name, level, badge (rankBadge, "" none or unknown), grade, division,
-## points, power (-1 unknown), power_character, title ({id, name, rarity} or {})}; {} when it is not
-## a row (no player id).
+## points, power (-1 unknown), power_character, character (characterId, else power_character),
+## look (the server's look {characterId, weaponItemId, weaponUpgradeLevel}, {} none), title
+## ({id, name, rarity} or {})}; {} when it is not a row (no player id).
 static func entry(e: Variant) -> Dictionary:
 	if not e is Dictionary or _str(e.get("playerId")) == "":
 		return {}
@@ -53,7 +57,17 @@ static func entry(e: Variant) -> Dictionary:
 	return {"pos": _num(e.get("pos")), "player_id": _str(e["playerId"]), "name": _str(e.get("displayName")),
 		"level": maxi(_num(e.get("level"), 1), 1), "badge": RankModel.badge_of(e), "grade": rank[0],
 		"division": rank[1], "points": points, "power": _num(e.get("power"), -1),
-		"power_character": _str(e.get("powerCharacterId")), "title": TitleModel.from_profile(e)}
+		"power_character": _str(e.get("powerCharacterId")), "character": _character_of(e),
+		"look": e.get("look") if e.get("look") is Dictionary else {}, "title": TitleModel.from_profile(e)}
+
+
+## A row's characterId, else its powerCharacterId (an older server), else its look's character.
+static func _character_of(e: Dictionary) -> String:
+	for v in [e.get("characterId"), e.get("powerCharacterId")]:
+		if _str(v) != "":
+			return str(v)
+	var look = e.get("look")
+	return _str(look.get("characterId")) if look is Dictionary else ""
 
 
 ## A GET /leaderboard data → {type, season_id, season_name, season_ends_at, entries (rows in the
@@ -141,7 +155,31 @@ static func is_me(e: Dictionary, player_id: String) -> bool:
 	return not e.is_empty() and player_id != "" and e["player_id"] == player_id
 
 
-## The character whose head a row shows: its strongest (power_character), else `fallback`.
-static func head_character(e: Dictionary, fallback: String) -> String:
-	var c := _str(e.get("power_character"))
+## The character whose head a row shows: the server's characterId (power_character from an
+## older server), else `fallback`.
+static func head_character(e: Dictionary, fallback: String = "") -> String:
+	var c := _str(e.get("character"))
+	if c == "":
+		c = _str(e.get("power_character"))
 	return c if c != "" else fallback
+
+
+## What player_figure.gd draws for a row ({} for an empty place): {character_id, gun: {kind, tier}
+## (the look's weaponItemId through the catalog, EquipmentModel.player_gun(); the character's basic
+## gun without one), aura_level (weaponUpgradeLevel: the back aura)}. A look of another character
+## than the row's is not used (the basic gun then).
+static func look(e: Dictionary, catalog: Variant = null) -> Dictionary:
+	var id := head_character(e)
+	if e.is_empty() or id == "":
+		return {}
+	var raw = e.get("look")
+	var lk: Dictionary = raw if raw is Dictionary and _str(raw.get("characterId")) in ["", id] else {}
+	return look_of(id, lk, catalog)
+
+
+## The figure of character `id` wearing look `lk` ({characterId, weaponItemId, weaponUpgradeLevel}).
+static func look_of(id: String, lk: Dictionary, catalog: Variant = null) -> Dictionary:
+	var player := lk.duplicate()
+	player["characterId"] = id
+	return {"character_id": id, "gun": EquipmentModel.player_gun(player, catalog),
+		"aura_level": EquipmentModel.player_weapon_level(player)}

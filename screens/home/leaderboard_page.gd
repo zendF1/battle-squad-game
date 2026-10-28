@@ -1,13 +1,15 @@
 extends Control
 ## "Xếp hạng" (a Home page, the lobby's trophy shortcut): three tabs with a picture and a short name
 ## (LeaderboardModel.TABS: Cấp độ, Rank, Lực chiến), the podium on the left (2nd, 1st, 3rd:
-## leaderboard_place.gd; on the Rank tab the season's name and end date as a chip over it), the
-## rows from the 4th in a list on the right (position, the head of the player's strongest
-## character's lobby picture ringed in their badge's frame colour, name with the badge's insignia, the
-## board's value with its picture) and my own row pinned under the list (highlighted; "Chưa có
-## hạng" when I am not on that board). The boards come from GET /leaderboard through PlayerState
+## leaderboard_place.gd, each player's character standing on their step as on the lobby stage; on
+## the Rank tab the season's name and end date as a chip over it), the rows from the 4th in a list
+## on the right (position, the head of the lobby picture of the player's character (the server's
+## characterId) ringed in their badge's frame colour, name with the badge's insignia, the board's
+## value with its picture) and my own row pinned under the list (highlighted; "Chưa có hạng" when I
+## am not on that board). A tap on a podium place or a row (mine too) opens that player's showcase
+## (showcase_popup.gd). The boards come from GET /leaderboard through PlayerState
 ## (load_leaderboard: loaded when the tab shows, kept a minute), the order and positions are the
-## server's.
+## server's; the equipment catalog (the guns of the looks) is asked for when the page shows.
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -19,6 +21,7 @@ const HeadIcon := preload("res://screens/home/head_icon.gd")
 const LeaderboardModel := preload("res://screens/home/leaderboard_model.gd")
 const LeaderboardPlace := preload("res://screens/home/leaderboard_place.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
+const ShowcasePopup := preload("res://screens/home/showcase_popup.gd")
 
 const PODIUM_W := 800
 const ROW_H := 76
@@ -28,6 +31,8 @@ const ME_BG := Color(0.1, 0.24, 0.42, 0.95)
 
 ## The lobby's character: my head when the board does not say my strongest.
 var lobby_character := Callable()
+## Where the showcase opens (Home); defaults to this page.
+var overlay: Control
 
 var _tab := 0
 var _armed := false
@@ -38,6 +43,8 @@ var _podium: HBoxContainer
 var _status: LoadStatus
 var _list: VBoxContainer
 var _pinned: PanelContainer
+var _had_catalog := false
+var _press_at := Vector2.INF
 
 
 func _ready() -> void:
@@ -65,6 +72,12 @@ func _ready() -> void:
 	PlayerState.changed.connect(func() -> void:
 		if is_visible_in_tree():
 			_render_pinned())
+	PlayerState.equipment_changed.connect(func() -> void:
+		if PlayerState.catalog != null and not _had_catalog: # the looks' guns can be told now
+			_had_catalog = true
+			if is_visible_in_tree():
+				_render.call_deferred())
+	_had_catalog = PlayerState.catalog != null
 	visibility_changed.connect(_ensure_loaded)
 	Ui.select_tab(_tabs, _tab)
 	_render()
@@ -80,6 +93,7 @@ func _arm() -> void:
 func _ensure_loaded() -> void:
 	if _armed and is_visible_in_tree():
 		PlayerState.load_leaderboard(board())
+		PlayerState.need_equipment()
 		_render()
 
 
@@ -157,8 +171,10 @@ func _render_podium(parsed: Dictionary) -> void:
 	var places := LeaderboardModel.podium(parsed.get("entries", []))
 	for i in places.size():
 		var e: Dictionary = places[i]
-		_podium.add_child(LeaderboardPlace.make(LeaderboardModel.podium_place(i), e, board(),
-			LeaderboardModel.is_me(e, Session.player_id)))
+		var place = LeaderboardPlace.make(LeaderboardModel.podium_place(i), e, board(),
+			LeaderboardModel.is_me(e, Session.player_id))
+		place.tapped.connect(open_showcase)
+		_podium.add_child(place)
 	var bias := int(Time.get_time_zone_from_system().get("bias", 0))
 	var ends := str(PlayerState.my_rank().get("season", {}).get("endsAt", "")) if PlayerState.my_rank().get("season") is Dictionary else ""
 	_season_text.text = LeaderboardModel.season_text(parsed, ends, bias)
@@ -229,9 +245,9 @@ func _render_pinned() -> void:
 		fallback = mine
 	if me.is_empty():
 		me = {"pos": 0, "player_id": Session.player_id, "name": PlayerState.display_name(), "level": PlayerState.level(),
-			"badge": PlayerState.rank_badge(), "power_character": fallback, "unranked": true}
-	elif str(me.get("power_character", "")) == "":
-		me["power_character"] = fallback
+			"badge": PlayerState.rank_badge(), "character": fallback, "unranked": true}
+	elif LeaderboardModel.head_character(me) == "":
+		me["character"] = fallback
 	_pinned.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	_pinned.add_child(_row(me, type, true))
 
@@ -241,12 +257,33 @@ static func ring_color(badge: String) -> Color:
 	return GradeBadge.colors(badge)[1] if badge != "" else Color(0.85, 0.88, 0.95)
 
 
+## Opens the showcase of row `e` (a podium place or a list row).
+func open_showcase(e: Dictionary) -> Control:
+	if e.is_empty() or str(e.get("player_id", "")) == "":
+		return null
+	return ShowcasePopup.show_player(overlay if overlay != null else self, e)
+
+
+## A tap on a row (a press released near where it began: a drag scrolls the list).
+func _on_row_input(event: InputEvent, e: Dictionary) -> void:
+	if not event is InputEventMouseButton or event.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if event.pressed:
+		_press_at = event.global_position
+	elif _press_at != Vector2.INF:
+		if event.global_position.distance_to(_press_at) <= LeaderboardPlace.TAP_SLOP:
+			open_showcase(e)
+		_press_at = Vector2.INF
+
+
 ## A list row: position, head (the lobby picture's, Art.lobby_head()), name with the badge's insignia, the board's value with its picture.
 func _row(e: Dictionary, type: String, me: bool) -> Control:
 	var row := PanelContainer.new()
 	row.name = "Row%d" % int(e.get("pos", 0))
 	row.custom_minimum_size.y = ROW_H
-	row.mouse_filter = MOUSE_FILTER_IGNORE
+	row.mouse_filter = MOUSE_FILTER_PASS # a drag still scrolls the list
+	row.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+	row.gui_input.connect(_on_row_input.bind(e))
 	var bg := LobbyUi.box(ME_BG if me else ROW_BG, 14, 8, ME if me else Color(1, 1, 1, 0.08), 3 if me else 1)
 	bg.content_margin_right = 22
 	row.add_theme_stylebox_override("panel", bg)
@@ -259,7 +296,7 @@ func _row(e: Dictionary, type: String, me: bool) -> Control:
 	pos.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pos.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	h.add_child(pos)
-	var head = HeadIcon.make(str(e.get("power_character", "")), str(e.get("name", "")), 62)
+	var head = HeadIcon.make(LeaderboardModel.head_character(e), str(e.get("name", "")), 62)
 	head.name = "Head"
 	head.lobby = true
 	head.ring_width = 4.0

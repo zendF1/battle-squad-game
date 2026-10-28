@@ -4,13 +4,16 @@ extends Control
 ## (heart: Máu, sword: Sát thương, shield: Phòng thủ), the "i" disc of an info button, a clock
 ## (a refresh time), the arrows of the element chain (beats → / weak to ←), Lực chiến ("power": a
 ## lightning bolt on an orange burst), the leaderboard's tabs ("level": up chevrons on a blue disc,
-## "insignia": a shoulder board with chevrons) and its lobby button ("trophy"). Drawn on a 96 × 96
+## "insignia": a shoulder board with chevrons) and its lobby button ("trophy"); the showcase's other
+## stats ("boot": Năng lượng di chuyển, "magic": Sức mạnh kỹ năng, "terrain": Phá địa hình, "crit":
+## Chí mạng) and a socketed gem ("gem", in `tint`: ShowcaseModel.GEM_COLORS). Drawn on a 96 × 96
 ## canvas scaled into the control's square and centred (a single-focus picture). make() for a
 ## layout, info_button() for the round "i" button that opens a card's popup.
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 
-const KINDS := ["heart", "sword", "shield", "info", "clock", "arrow", "power", "level", "insignia", "trophy"]
+const KINDS := ["heart", "sword", "shield", "info", "clock", "arrow", "power", "level", "insignia", "trophy",
+	"boot", "magic", "terrain", "crit", "gem"]
 const OUTLINE := Color(0.07, 0.07, 0.14)
 const W := 5.0
 const HEART := Color(1.0, 0.33, 0.4)
@@ -25,6 +28,15 @@ const BURST_LIGHT := Color(1.0, 0.72, 0.22)
 const BOLT := Color(1.0, 0.97, 0.62)
 const LEVEL := Color(0.2, 0.52, 1.0)
 const BOARD := Color(0.22, 0.42, 0.2)
+const LEATHER := Color(0.62, 0.38, 0.2)
+const LEATHER_DARK := Color(0.42, 0.24, 0.12)
+const WING := Color(0.92, 0.97, 1.0)
+const MAGIC := Color(0.72, 0.42, 1.0)
+const MAGIC_LIGHT := Color(0.9, 0.78, 1.0)
+const ROCK := Color(0.62, 0.48, 0.34)
+const ROCK_DARK := Color(0.4, 0.3, 0.2)
+const GRASS := Color(0.42, 0.78, 0.3)
+const CRIT := Color(1.0, 0.3, 0.28)
 
 @export var kind := "heart":
 	set(v):
@@ -99,6 +111,11 @@ func _draw() -> void:
 		"level": _level()
 		"insignia": _insignia()
 		"trophy": _trophy()
+		"boot": _boot()
+		"magic": _magic()
+		"terrain": _terrain()
+		"crit": _crit()
+		"gem": _gem()
 
 
 func _poly(pts: PackedVector2Array, fill: Color, w: float = W) -> void:
@@ -237,3 +254,54 @@ func _trophy() -> void:
 	_poly(bowl, GOLD)
 	draw_colored_polygon(PackedVector2Array([Vector2(28, 16), Vector2(38, 16), Vector2(40, 50), Vector2(30, 40)]), Color(1, 1, 1, 0.4))
 	draw_colored_polygon(_star(Vector2(50, 32), 10, 4.5, 5), Color(1.0, 0.98, 0.8))
+
+
+func _boot() -> void:
+	# a winged boot, toe to the right
+	_poly(PackedVector2Array([Vector2(30, 16), Vector2(54, 16), Vector2(56, 56), Vector2(80, 64), Vector2(86, 74),
+		Vector2(84, 84), Vector2(22, 84), Vector2(24, 60)]), LEATHER)
+	draw_colored_polygon(PackedVector2Array([Vector2(22, 74), Vector2(84, 74), Vector2(84, 84), Vector2(22, 84)]), LEATHER_DARK)
+	_stroke(PackedVector2Array([Vector2(28, 24), Vector2(54, 24)]), GOLD, 6.0, 0.0) # the cuff
+	for i in 3: # the wing at the heel
+		var y := 30.0 + i * 9.0
+		_poly(PackedVector2Array([Vector2(28, y), Vector2(6, y - 8 + i * 2), Vector2(10, y + 2), Vector2(28, y + 7)]), WING, 3.0)
+
+
+func _magic() -> void:
+	# a four-point spark with two small ones: skill power
+	_poly(_star(Vector2(44, 52), 38, 11, 4, 0.0), MAGIC)
+	draw_colored_polygon(_star(Vector2(44, 52), 24, 7, 4, 0.0), MAGIC_LIGHT)
+	_poly(_star(Vector2(78, 20), 14, 5, 4, 0.0), MAGIC_LIGHT, 3.0)
+	_poly(_star(Vector2(80, 76), 9, 3.5, 4, 0.0), MAGIC_LIGHT, 3.0)
+
+
+func _terrain() -> void:
+	# a ground block with grass on top, cracked through by a bolt of impact
+	_poly(PackedVector2Array([Vector2(8, 40), Vector2(30, 30), Vector2(52, 38), Vector2(72, 28), Vector2(88, 36),
+		Vector2(88, 86), Vector2(8, 86)]), ROCK)
+	draw_colored_polygon(PackedVector2Array([Vector2(8, 40), Vector2(30, 30), Vector2(52, 38), Vector2(72, 28),
+		Vector2(88, 36), Vector2(88, 46), Vector2(72, 38), Vector2(52, 48), Vector2(30, 40), Vector2(8, 50)]), GRASS)
+	draw_colored_polygon(PackedVector2Array([Vector2(8, 70), Vector2(88, 66), Vector2(88, 86), Vector2(8, 86)]), ROCK_DARK)
+	_stroke(PackedVector2Array([Vector2(50, 40), Vector2(42, 56), Vector2(54, 64), Vector2(44, 84)]), OUTLINE, 6.0, 0.0)
+	_poly(_star(Vector2(50, 18), 16, 7, 6), GOLD, 3.0)
+
+
+func _crit() -> void:
+	# a red target with a cross-hair
+	draw_circle(Vector2(48, 48), 40, OUTLINE, true, -1.0, true)
+	draw_circle(Vector2(48, 48), 35, CRIT, true, -1.0, true)
+	draw_circle(Vector2(48, 48), 25, Color.WHITE, true, -1.0, true)
+	draw_circle(Vector2(48, 48), 15, CRIT, true, -1.0, true)
+	draw_circle(Vector2(48, 48), 6, Color.WHITE, true, -1.0, true)
+	for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+		_stroke(PackedVector2Array([Vector2(48, 48) + d * 30, Vector2(48, 48) + d * 46]), OUTLINE, 6.0, 0.0)
+
+
+func _gem() -> void:
+	# a cut gem in `tint`: the table on top, the facets down to the point
+	var crown := PackedVector2Array([Vector2(28, 18), Vector2(68, 18), Vector2(88, 40), Vector2(48, 88), Vector2(8, 40)])
+	_poly(crown, tint)
+	draw_colored_polygon(PackedVector2Array([Vector2(28, 18), Vector2(68, 18), Vector2(60, 40), Vector2(36, 40)]), tint.lightened(0.45))
+	draw_colored_polygon(PackedVector2Array([Vector2(8, 40), Vector2(36, 40), Vector2(48, 88)]), tint.darkened(0.2))
+	draw_colored_polygon(PackedVector2Array([Vector2(60, 40), Vector2(88, 40), Vector2(48, 88)]), tint.darkened(0.35))
+	draw_colored_polygon(PackedVector2Array([Vector2(32, 22), Vector2(42, 22), Vector2(36, 34)]), Color(1, 1, 1, 0.7))

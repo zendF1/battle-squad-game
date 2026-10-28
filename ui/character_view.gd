@@ -66,6 +66,14 @@ var aura_level := -1:
 		if _character != null:
 			_show_worn_gun()
 
+## Another player's gun {kind, tier} instead of the one I put on this character ({}: mine,
+## PlayerState); the leaderboard's podium and showcase (screens/home/player_figure.gd).
+var gun := {}:
+	set(value):
+		gun = value
+		if _character != null:
+			_show_worn_gun()
+
 var _character: Node2D
 var _aura: BackAura
 var _t := 0.0
@@ -90,7 +98,7 @@ func _ready() -> void:
 ## The gun of the weapon the character wears (its basic gun when none or not loaded), and its
 ## back aura (back_aura on).
 func _show_worn_gun() -> void:
-	var g := EquipmentModel.worn_gun(PlayerState.equipment, PlayerState.catalog, character_id)
+	var g := gun if not gun.is_empty() else EquipmentModel.worn_gun(PlayerState.equipment, PlayerState.catalog, character_id)
 	_character.set_weapon(g["kind"], g["tier"])
 	var lv := aura_level if aura_level >= 0 else worn_weapon_level(PlayerState.equipment, character_id)
 	_aura.level = lv if back_aura else 0

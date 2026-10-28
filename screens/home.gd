@@ -134,6 +134,7 @@ func _ready() -> void:
 	_pages[PROFILE] = _build_page("Hồ sơ", _profile)
 	_leaderboard = LeaderboardPage.new()
 	_leaderboard.lobby_character = _lobby.character_id
+	_leaderboard.overlay = self
 	_pages[LEADERBOARD] = _build_page("Xếp hạng", _leaderboard)
 	_pages[SHOP] = _build_page("Shop", _shop)
 	_show(LOBBY)

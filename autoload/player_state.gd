@@ -99,6 +99,7 @@ const MapCatalog := preload("res://match/theme/map_catalog.gd")
 const ChestModel := preload("res://screens/home/chest_model.gd")
 const SeasonRewardModel := preload("res://screens/ranked/season_reward_model.gd")
 const LeaderboardModel := preload("res://screens/home/leaderboard_model.gd")
+const ShowcaseModel := preload("res://screens/home/showcase_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
 ## What a payment refreshes once it succeeded.
@@ -433,6 +434,17 @@ func load_leaderboard(type: String, force: bool = false) -> void:
 	else:
 		leaderboard_errors[type] = ErrorText.load_failed(res) if not res.ok else "Dữ liệu bảng xếp hạng không hợp lệ"
 	leaderboard_changed.emit(type)
+
+
+## Another player's showcase (GET /players/{id}/showcase, ShowcaseModel.parse), their power
+## character's without `character_id`: {showcase} or {error (Vietnamese)}. Not kept: each tap asks
+## again (the gear may have changed).
+func fetch_showcase(player_id: String, character_id: String = "") -> Dictionary:
+	var res: Dictionary = await _api().get_json(ShowcaseModel.path(player_id, character_id))
+	if not res.ok:
+		return {"error": "Không tìm thấy người chơi" if int(res.get("status", 0)) == 404 else ErrorText.load_failed(res)}
+	var parsed := ShowcaseModel.parse(res.data)
+	return {"showcase": parsed} if not parsed.is_empty() else {"error": "Dữ liệu người chơi không hợp lệ"}
 
 
 ## This account's last answer of board `type` (LeaderboardModel.parse), {} none.
