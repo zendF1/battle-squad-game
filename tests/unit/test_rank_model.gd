@@ -1,97 +1,167 @@
 extends "res://tests/test_case.gd"
 
 const RankModel := preload("res://screens/ranked/rank_model.gd")
+const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
+const GradeFrame := preload("res://screens/ranked/grade_frame.gd")
+const Art := preload("res://ui/art.gd")
 
 
-func test_tier_names_and_numerals() -> void:
-	eq(RankModel.tier_name("bronze"), "Đồng", "bronze")
-	eq(RankModel.tier_name("platinum"), "Bạch kim", "platinum")
-	eq(RankModel.tier_name("master"), "Cao thủ", "master")
-	eq(RankModel.tier_name("wood"), "", "unknown")
-	eq(RankModel.numeral(3), "III", "lowest division")
-	eq(RankModel.numeral(2), "II", "II")
-	eq(RankModel.numeral(1), "I", "highest division")
-	eq(RankModel.numeral(0), "", "none")
-	eq(RankModel.numeral(4), "", "out of range")
-	eq(RankModel.label("silver", 2), "Bạc II", "label")
-	eq(RankModel.label("diamond", 1), "Kim cương I", "two-word tier")
-	eq(RankModel.label("master", 1), "Cao thủ", "master has no division")
-	eq(RankModel.label("gold", 0), "Vàng", "no division known")
-	eq(RankModel.label("", 3), "Chưa xếp hạng", "unknown tier")
+func test_grade_names_and_labels() -> void:
+	eq(RankModel.grade_name("binh_nhi"), "Binh nhì", "the lowest")
+	eq(RankModel.grade_name("dai_ta"), "Đại tá", "the ladder top")
+	eq(RankModel.grade_name("dai_tuong"), "Đại tướng", "a general")
+	eq(RankModel.grade_name("wood"), "", "unknown")
+	eq(RankModel.label("binh_nhi", 3), "Binh nhì 3", "division after the name")
+	eq(RankModel.label("thuong_uy", 1), "Thượng úy 1", "division 1")
+	eq(RankModel.label("thieu_tuong", 1), "Thiếu tướng", "a general has no division")
+	eq(RankModel.label("ha_si", 0), "Hạ sĩ", "no division known")
+	eq(RankModel.label("", 3), "", "unknown grade")
+	check(RankModel.is_general("trung_tuong") and not RankModel.is_general("dai_ta"), "the game data's general flag")
+	eq(RankModel.grades().size(), 18, "every grade of the game data")
 
 
-func test_rating_to_tier_like_the_server() -> void:
-	eq(RankModel.of_rating(0), ["bronze", 3], "floor")
-	eq(RankModel.of_rating(333), ["bronze", 2], "bronze II")
-	eq(RankModel.of_rating(999), ["bronze", 1], "bronze I")
-	eq(RankModel.of_rating(1000), ["silver", 3], "default rating")
-	eq(RankModel.of_rating(1066), ["silver", 2], "silver II")
-	eq(RankModel.of_rating(1199), ["silver", 1], "silver I (capped)")
-	eq(RankModel.of_rating(1200), ["gold", 3], "gold")
-	eq(RankModel.of_rating(1499), ["gold", 1], "gold I")
-	eq(RankModel.of_rating(1650), ["platinum", 2], "platinum II")
-	eq(RankModel.of_rating(1800), ["diamond", 3], "diamond")
-	eq(RankModel.of_rating(2200), ["master", 1], "master")
-	eq(RankModel.of_rating(-5), ["bronze", 3], "below the floor")
+func test_division_from_points() -> void:
+	eq(RankModel.of_points(0), ["binh_nhi", 3], "a new season: Binh nhì 3")
+	eq(RankModel.of_points(99), ["binh_nhi", 3], "Binh nhì 3 ends at 99")
+	eq(RankModel.of_points(100), ["binh_nhi", 2], "Binh nhì 2")
+	eq(RankModel.of_points(299), ["binh_nhi", 1], "Binh nhì 1")
+	eq(RankModel.of_points(300), ["binh_nhat", 3], "the next grade")
+	eq(RankModel.of_points(1500), ["hoc_vien", 3], "Học viên 3")
+	eq(RankModel.of_points(4099), ["dai_ta", 2], "Đại tá 2")
+	eq(RankModel.of_points(4100), ["dai_ta", 1], "Đại tá 1 starts at 4100")
+	eq(RankModel.of_points(9999), ["dai_ta", 1], "past the ladder: still Đại tá 1, never a general")
+	eq(RankModel.of_points(-5), ["binh_nhi", 3], "below 0")
+	eq(RankModel.division_start(["binh_nhi", 2]), 100, "a division's first point")
+	eq(RankModel.division_start(["dai_ta", 1]), 4100, "Đại tá 1's")
+	eq(RankModel.division_start(["wood", 1]), -1, "unknown")
 
 
-func test_compare_ranks() -> void:
-	eq(RankModel.compare(["silver", 3], ["silver", 2]), RankModel.UP, "division up")
-	eq(RankModel.compare(["silver", 1], ["gold", 3]), RankModel.UP, "tier up")
-	eq(RankModel.compare(["gold", 3], ["silver", 1]), RankModel.DOWN, "tier down")
-	eq(RankModel.compare(["gold", 1], ["gold", 2]), RankModel.DOWN, "division down")
-	eq(RankModel.compare(["gold", 2], ["gold", 2]), RankModel.SAME, "same")
-	eq(RankModel.compare(["master", 1], ["master", 1]), RankModel.SAME, "master")
+func test_progress_inside_the_division() -> void:
+	near(RankModel.progress(145, ["binh_nhi", 2]), 0.45, 0.001, "45 of 100")
+	near(RankModel.progress(100, ["binh_nhi", 2]), 0.0, 0.001, "the division's start")
+	eq(RankModel.progress_text(145, ["binh_nhi", 2]), "45/100", "points in the division")
+	eq(RankModel.progress_text(4099, ["dai_ta", 2]), "99/100", "Đại tá 2's last")
+	check(RankModel.at_top(["dai_ta", 1]) and not RankModel.at_top(["dai_ta", 2]), "only Đại tá 1 is the top")
+	check(RankModel.at_top(["dai_tuong", 1]), "a general too")
+	near(RankModel.progress(4230, ["dai_ta", 1]), 1.0, 0.001, "the top: a full bar")
+	eq(RankModel.progress_text(4230, ["dai_ta", 1]), "", "no bar text at the top")
 
 
 func test_from_me_and_its_texts() -> void:
-	var r := RankModel.from_me({"rating": 1050, "tier": "silver", "division": 2, "wins": 12, "losses": 8, "draws": 0,
-		"rankPos": 7, "season": {"seasonId": "s1", "name": "Mùa 1", "endsAt": "2026-11-30T17:00:00Z"}})
-	eq(r["rating"], 1050, "rating")
-	eq(RankModel.mode_line(r), "Bạc II · 1.050 điểm", "mode card line")
+	var r := RankModel.from_me({"rating": 1050, "tier": "silver", "rankPoints": 145, "grade": "binh_nhi", "gradeDivision": 2,
+		"generalCandidate": "", "rankBadge": "trung_si", "wins": 12, "losses": 8, "draws": 0, "rankPos": 7,
+		"season": {"seasonId": "s1", "name": "Mùa 1", "endsAt": "2026-11-30T17:00:00Z"}})
+	eq([r["points"], r["grade"], r["division"], r["badge"]], [145, "binh_nhi", 2, "trung_si"], "fields")
+	check(not r.has("tier") and not r.has("rating"), "the old tier and the rating are not shown")
+	eq(RankModel.rank_line(r), "Binh nhì 2 · 45/100", "the chip / mode line")
 	eq(RankModel.position_text(r["rankPos"]), "Hạng #7", "position")
 	eq(RankModel.position_text(0), "Chưa có thứ hạng", "no position")
-	eq(RankModel.position_text(1234), "Hạng #1.234", "big position")
 	eq(RankModel.record_text(r), "Thắng 12 · Thua 8", "record")
-	r["draws"] = 2
-	eq(RankModel.record_text(r), "Thắng 12 · Thua 8 · Hoà 2", "with draws")
-	eq(RankModel.season_text(r, 0), "Mùa 1 · Kết thúc 30/11", "season, UTC")
-	eq(RankModel.season_text(r, 7 * 60), "Mùa 1 · Kết thúc 01/12", "season, Vietnam time")
+	eq(RankModel.season_text(r, 7 * 60), "Mùa 1 · Kết thúc 01/12", "season end, Vietnam time")
 	var bare := RankModel.from_me({})
-	eq([bare["rating"], bare["tier"], bare["division"]], [1000, "silver", 3], "the server's default")
-	eq(RankModel.season_text(bare, 0), "Mùa giải hiện tại", "no season")
-	var odd := RankModel.from_me({"rating": 1700, "tier": "nope", "division": 9})
-	eq([odd["tier"], odd["division"]], ["platinum", 1], "bad tier and division from the rating")
-	eq(RankModel.from_me(null)["rating"], 1000, "not a dictionary")
+	eq([bare["points"], bare["grade"], bare["division"], bare["badge"]], [0, "binh_nhi", 3, ""], "no row: Binh nhì 3")
+	eq(RankModel.rank_line(bare), "Binh nhì 3 · 0/100", "from the bottom")
+	var odd := RankModel.from_me({"rankPoints": 1530, "grade": "nope", "gradeDivision": 9})
+	eq([odd["grade"], odd["division"]], ["hoc_vien", 3], "bad grade and division: from the points")
+	eq(RankModel.from_me(null)["points"], 0, "not a dictionary")
+
+
+func test_above_dai_ta_and_the_general_candidate() -> void:
+	var r := RankModel.from_me({"rankPoints": 4230, "grade": "dai_ta", "gradeDivision": 1, "generalCandidate": "thieu_tuong"})
+	eq(RankModel.rank_line(r), "Đại tá 1 · 4.230 điểm", "above Đại tá 1: the total")
+	eq(r["candidate"], "thieu_tuong", "the candidate")
+	eq(RankModel.candidate_text(r["candidate"]), "Dự kiến: Thiếu tướng", "its label")
+	eq(RankModel.candidate_text(""), "", "none")
+	eq(RankModel.from_me({"generalCandidate": "wood"})["candidate"], "", "an unknown grade is no candidate")
+	var general := RankModel.from_me({"rankPoints": 5000, "grade": "dai_tuong", "gradeDivision": 1})
+	eq(RankModel.rank_line(general), "Đại tướng · 5.000 điểm", "a general (at season end)")
 
 
 func test_result_of_a_ranked_reward() -> void:
-	var reward := {"expGained": 50, "coinGained": 100, "ratingChange": 18, "newRating": 1068, "newTier": "silver",
-		"newDivision": 2, "oldRating": 1050, "oldTier": "silver", "oldDivision": 3}
+	var reward := {"expGained": 50, "coinGained": 210, "bonusCoin": 150, "ratingChange": 18, "newRating": 1068,
+		"grade": {"oldPoints": 280, "newPoints": 310, "pointsChange": 30, "oldGrade": "binh_nhi", "oldGradeDivision": 1,
+		"newGrade": "binh_nhat", "newGradeDivision": 3}}
 	var res := RankModel.result_of("ranked_2v2", reward)
-	eq([res["old"], res["new"], res["change"]], [1050, 1068, 18], "ratings")
-	eq(res["old_rank"], ["silver", 3], "old rank")
-	eq(res["new_rank"], ["silver", 2], "new rank")
+	eq([res["old"], res["new"], res["change"]], [280, 310, 30], "points")
+	eq(res["old_rank"], ["binh_nhi", 1], "old rank")
+	eq(res["new_rank"], ["binh_nhat", 3], "new rank")
 	eq(res["move"], RankModel.UP, "promoted")
-	eq(RankModel.rating_line(res), "Điểm hạng 1.050 → 1.068 (+18)", "line")
-	eq(RankModel.rating_line(res, 1059), "Điểm hạng 1.050 → 1.059 (+18)", "line while counting")
-	eq(RankModel.move_text(res["move"]), "Thăng hạng!", "promotion text")
-	eq(RankModel.result_of("pvp_1v1", reward), {}, "unranked modes show nothing")
+	eq(RankModel.points_change_text(res["change"]), "+30 điểm hạng", "the points line")
+	eq(RankModel.points_change_text(-15), "-15 điểm hạng", "a loss")
+	eq(RankModel.points_change_text(0), "±0 điểm hạng", "a draw")
+	eq(RankModel.points_line(res), "Điểm hạng 280 → 310", "the count")
+	eq(RankModel.move_text(res["move"]), "Thăng cấp!", "promotion text")
+	eq(RankModel.result_of("casual_2v2", reward), {}, "not ranked: nothing")
 	eq(RankModel.result_of("ranked_2v2", null), {}, "no reward")
-	eq(RankModel.result_of("ranked_2v2", {"expGained": 5}), {}, "no rating in it")
+	eq(RankModel.result_of("ranked_2v2", {"newRating": 1068, "ratingChange": 18}), {}, "the hidden rating is never shown")
 
 
 func test_result_without_old_fields_and_demotion() -> void:
-	var res := RankModel.result_of("ranked_2v2", {"ratingChange": -20, "newRating": 1190, "newTier": "silver", "newDivision": 1})
-	eq(res["old"], 1210, "old from new - change")
-	eq(res["old_rank"], ["gold", 3], "old tier from the rating")
-	eq(res["move"], RankModel.DOWN, "demoted")
-	eq(RankModel.rating_line(res), "Điểm hạng 1.210 → 1.190 (-20)", "falling line")
-	eq(RankModel.move_text(res["move"]), "Rớt hạng", "demotion text")
-	var same := RankModel.result_of("ranked_2v2", {"ratingChange": 0, "newRating": 1000, "oldRating": 1000})
-	eq(same["move"], RankModel.SAME, "same rank")
-	eq(RankModel.rating_line(same), "Điểm hạng 1.000 → 1.000 (±0)", "no change")
-	eq(RankModel.move_text(same["move"]), "", "no move text")
+	var res := RankModel.result_of("ranked_2v2", {"grade": {"newPoints": 285, "pointsChange": -15}})
+	eq([res["old"], res["new"], res["change"]], [300, 285, -15], "old from new - change")
+	eq([res["old_rank"], res["new_rank"], res["move"]], [["binh_nhat", 3], ["binh_nhi", 1], RankModel.DOWN],
+		"ranks from the points")
+	var bottom := RankModel.result_of("ranked_2v2", {"grade": {"oldPoints": 0, "newPoints": 0, "pointsChange": 0}})
+	eq(bottom["move"], RankModel.SAME, "never below 0: same rank")
+
+
+func _popup(old_rank: Array, new_rank: Array, old := 290, new := 320) -> Dictionary:
+	return RankModel.popup_of({"old": old, "new": new, "change": new - old, "old_rank": old_rank, "new_rank": new_rank,
+		"move": RankModel.compare(old_rank, new_rank)})
+
+
+func test_rank_popup_division_up() -> void:
+	var p := _popup(["trung_si", 2], ["trung_si", 1])
+	eq([p["kind"], p["move"], p["steps"], p["crown"], p["title"], p["label"]],
+		["division", RankModel.UP, [["trung_si", 1]], false, "THĂNG CẤP!", "Trung sĩ 1"], "Trung sĩ 2 → 1")
+
+
+func test_rank_popup_grade_up() -> void:
+	var p := _popup(["binh_nhi", 1], ["binh_nhat", 3])
+	eq([p["kind"], p["steps"], p["label"]], ["grade", [["binh_nhat", 3]], "Binh nhất 3"], "Binh nhì 1 → Binh nhất 3")
+	var far := _popup(["binh_nhi", 2], ["binh_nhat", 2])
+	eq(far["steps"], [["binh_nhi", 1], ["binh_nhat", 3], ["binh_nhat", 2]], "every division passed")
+
+
+func test_rank_popup_demotion_and_none() -> void:
+	var p := _popup(["hoc_vien", 3], ["thuong_si", 1], 1500, 1485)
+	eq([p["kind"], p["move"], p["steps"], p["title"], p["crown"]], ["down", RankModel.DOWN, [["thuong_si", 1]], "HẠ CẤP", false],
+		"Học viên 3 → Thượng sĩ 1")
+	eq(_popup(["ha_si", 2], ["ha_si", 2]), {}, "only the points moved: no popup")
+	eq(RankModel.popup_of({}), {}, "not ranked")
+
+
+func test_rank_popup_ladder_top() -> void:
+	var p := _popup(["dai_ta", 2], ["dai_ta", 1], 4090, 4110)
+	eq([p["kind"], p["crown"], p["label"]], ["division", true, "Đại tá 1"], "the crown at Đại tá 1")
+	eq(RankModel.next_rank(["dai_ta", 1]), [], "the generals are never reached by playing")
+	eq(RankModel.prev_rank(["binh_nhi", 3]), [], "nothing under Binh nhì 3")
+	eq(RankModel.next_rank(["binh_nhi", 1]), ["binh_nhat", 3], "a grade's top → the next grade's lowest")
+	eq(RankModel.prev_rank(["binh_nhat", 3]), ["binh_nhi", 1], "a grade's lowest → the lower grade's top")
+	eq(_popup(["dai_ta", 1], ["dai_ta", 1], 4300, 4320), {}, "points above the top: no popup")
+
+
+func test_badge_groups_and_looks() -> void:
+	eq([GradeBadge.group_of("binh_nhi"), GradeBadge.marks_of("binh_nhi")], ["enlisted", 1], "one chevron")
+	eq([GradeBadge.group_of("thuong_si"), GradeBadge.marks_of("thuong_si")], ["enlisted", 5], "five chevrons")
+	eq(GradeBadge.group_of("hoc_vien"), "cadet", "a bar")
+	eq([GradeBadge.group_of("dai_uy"), GradeBadge.marks_of("dai_uy")], ["company", 4], "four stars, one stripe")
+	eq([GradeBadge.group_of("thieu_ta"), GradeBadge.marks_of("thieu_ta")], ["field", 1], "one star, two stripes")
+	eq([GradeBadge.group_of("dai_tuong"), GradeBadge.marks_of("dai_tuong")], ["general", 4], "four big stars")
+	eq(GradeBadge.group_of(""), "", "no badge")
+	eq(GradeBadge.group_of("wood"), "", "unknown")
+	for g in RankModel.grades():
+		check(GradeBadge.LOOKS.has(g), "%s has a look" % g)
+	check(GradeBadge.text_color("dai_ta") != GradeBadge.text_color("binh_nhi"), "groups read apart")
+
+
+func test_badge_of_payloads() -> void:
+	eq(RankModel.badge_of({"rankBadge": "dai_ta"}), "dai_ta", "a grade")
+	eq(RankModel.badge_of({"rankBadge": ""}), "", "none")
+	eq(RankModel.badge_of({}), "", "absent (omitempty)")
+	eq(RankModel.badge_of({"rankBadge": "gold"}), "", "an old tier is no badge")
+	eq(RankModel.badge_of(null), "", "not a dictionary")
 
 
 func test_timer_and_tips() -> void:
@@ -106,43 +176,91 @@ func test_timer_and_tips() -> void:
 	eq(RankModel.tip(-1), RankModel.tips()[-1], "wraps back")
 
 
-func _popup(old_rank: Array, new_rank: Array, old := 1290, new := 1310) -> Dictionary:
-	return RankModel.popup_of({"old": old, "new": new, "change": new - old, "old_rank": old_rank, "new_rank": new_rank,
-		"move": RankModel.compare(old_rank, new_rank)})
+func test_grades_follow_the_game_data() -> void:
+	var d: Dictionary = GameData.data.duplicate(true)
+	d["grades"]["divisionPoints"] = 50
+	d["version"] = "grades-test"
+	GameData.take(d, "", false)
+	eq(RankModel.of_points(60), ["binh_nhi", 2], "the division size is the game data's")
+	eq(RankModel.progress_text(60, ["binh_nhi", 2]), "10/50", "and its bar")
 
 
-func test_rank_popup_division_up() -> void:
-	var p := _popup(["gold", 2], ["gold", 1])
-	eq([p["kind"], p["move"], p["steps"], p["crown"], p["title"], p["label"]],
-		["division", RankModel.UP, [["gold", 1]], false, "THĂNG HẠNG!", "Vàng I"], "Vàng II → Vàng I")
+func test_rank_art_is_optional_and_frames_fit_the_card() -> void:
+	eq(Art.rank_frame_path("dai_ta"), "res://assets/ranks/frame_dai_ta.png", "frame file")
+	eq(Art.rank_badge_path("dai_ta"), "res://assets/ranks/badge_dai_ta.png", "badge file")
+	eq(Art.rank_badge(""), null, "no badge: no art")
+	if not Art.has_png(Art.rank_badge_path("no_such_grade")):
+		eq(Art.rank_badge("no_such_grade"), null, "a missing file: null, the code drawing")
+	var r := GradeFrame.art_rect(Rect2(10, 20, 380, 500), 0.12)
+	near(r.size.x * 0.76, 380.0, 0.01, "the art's window spans the card's width")
+	near(r.position.x + r.size.x * 0.12, 10.0, 0.01, "the window's left on the card's")
+	near(r.position.y + r.size.y * 0.12, 20.0, 0.01, "the window's top on the card's")
 
 
-func test_rank_popup_tier_up() -> void:
-	var p := _popup(["gold", 1], ["platinum", 3], 1490, 1512)
-	eq([p["kind"], p["steps"], p["label"], p["old"], p["new"]], ["tier", [["platinum", 3]], "Bạch kim III", 1490, 1512],
-		"Vàng I → Bạch kim III")
-	var far := _popup(["gold", 3], ["platinum", 2])
-	eq(far["kind"], "tier", "across several divisions")
-	eq(far["steps"], [["gold", 2], ["gold", 1], ["platinum", 3], ["platinum", 2]], "every division passed")
+## The layout tools/import_rank_art.gd writes to assets/ranks/ranks.json (768 × 960 frames).
+const FRAME_LAYOUT := {"size": [768, 960], "window": [92, 115, 584, 730], "seat": {"centre": [384, 115], "radius": 58},
+	"stretchX": [], "stretchY": [[288, 413], [547, 672]]}
 
 
-func test_rank_popup_demotion() -> void:
-	var p := _popup(["platinum", 3], ["gold", 1], 1505, 1490)
-	eq([p["kind"], p["move"], p["steps"], p["title"], p["crown"]], ["down", RankModel.DOWN, [["gold", 1]], "RỚT HẠNG", false],
-		"Bạch kim III → Vàng I")
-	eq(_popup(["gold", 1], ["gold", 3])["steps"], [["gold", 2], ["gold", 3]], "two divisions down")
+func _check_slices(card: Vector2, what: String) -> void:
+	var sl := GradeFrame.slices(FRAME_LAYOUT, card)
+	var k := card.x / 584.0
+	near(float(sl["k"]), k, 0.0001, "%s: one scale, the card's width over the window's" % what)
+	var win: Rect2 = sl["window"]
+	near(win.size.x, card.x, 0.01, "%s: the window as wide as the card" % what)
+	near(win.size.y, card.y, 0.01, "%s: the window as tall as the card" % what)
+	near(win.position.x, 92.0 * k, 0.01, "%s: the left ornaments at k" % what)
+	near(win.position.y, 115.0 * k, 0.01, "%s: the top ornaments at k" % what)
+	var ys: Array = sl["ys"]
+	eq(ys.size(), 5, "%s: fixed, run, fixed, run, fixed" % what)
+	for i in [0, 2, 4]:
+		near(float(ys[i][3] - ys[i][2]), float(ys[i][1] - ys[i][0]) * k, 0.01, "%s: fixed band %d never stretched" % [what, i])
+	var extra := card.y - 730.0 * k
+	near(float(ys[1][3] - ys[1][2]) + float(ys[3][3] - ys[3][2]), 250.0 * k + extra, 0.01, "%s: the runs take the missing height" % what)
+	near(float(ys[1][3] - ys[1][2]), float(ys[3][3] - ys[3][2]), 0.01, "%s: shared by length (equal runs)" % what)
+	eq(sl["xs"].size(), 1, "%s: no horizontal runs" % what)
+	near(Vector2(sl["size"]).x, 768.0 * k, 0.01, "%s: the frame's width at k" % what)
+	near(Vector2(sl["size"]).y, 960.0 * k + extra, 0.01, "%s: the frame's height" % what)
+	near(Vector2(sl["seat"]).x, win.get_center().x, 0.01, "%s: the medallion centred on the card" % what)
+	near(Vector2(sl["seat"]).y, win.position.y, 0.01, "%s: the medallion on the window's top edge" % what)
+	near(float(sl["seat_r"]), 58.0 * k, 0.001, "%s: the medallion at k" % what)
 
 
-func test_rank_popup_no_change() -> void:
-	eq(_popup(["gold", 2], ["gold", 2]), {}, "only the rating moved: no popup")
-	eq(RankModel.popup_of({}), {}, "not ranked")
-	eq(_popup(["master", 1], ["master", 1], 2300, 2330), {}, "master to master")
+func test_frame_art_slices_party_slot_and_vs_card() -> void:
+	_check_slices(Vector2(330, 500), "party slot 330×500")
+	_check_slices(Vector2(268, 520), "VS card 268×520")
+	var short := GradeFrame.slices(FRAME_LAYOUT, Vector2(584, 650)) # shorter than the art's window: the runs shrink
+	near(Rect2(short["window"]).size.y, 650.0, 0.01, "a surplus height comes out of the runs")
+	near(GradeFrame.mapped(0.0, short["ys"]), 0.0, 0.001, "the top edge stays put")
 
 
-func test_rank_popup_master() -> void:
-	var p := _popup(["diamond", 1], ["master", 1], 2190, 2215)
-	eq([p["kind"], p["steps"], p["crown"], p["label"]], ["tier", [["master", 1]], true, "Cao thủ"], "the crown")
-	eq(RankModel.next_rank(["master", 1]), [], "nothing above master")
-	eq(RankModel.prev_rank(["bronze", 3]), [], "nothing under bronze")
-	eq(RankModel.next_rank(["silver", 1]), ["gold", 3], "a tier's top → the next tier's lowest")
-	eq(RankModel.prev_rank(["gold", 3]), ["silver", 1], "a tier's lowest → the lower tier's top")
+## A framed card fits the space it owns: the art's outer bounds inside the box, the content shrunk
+## (never grown) into the window, centred; the same for every card of a row.
+func _check_fit(box: Vector2, content: Vector2, what: String) -> Dictionary:
+	var f := GradeFrame.fit(FRAME_LAYOUT, box, content)
+	var frame: Rect2 = f["frame"]
+	var card: Rect2 = f["card"]
+	check(frame.position.x >= -0.01 and frame.position.y >= -0.01 and frame.end.x <= box.x + 0.01 and frame.end.y <= box.y + 0.01,
+		"%s: the art's outer bounds inside the box (%s)" % [what, frame])
+	near(frame.position.x, box.x - frame.end.x, 0.01, "%s: centred left / right (mirrored)" % what)
+	near(frame.position.y, box.y - frame.end.y, 0.01, "%s: centred top / bottom" % what)
+	check(float(f["s"]) > 0.0 and float(f["s"]) <= 1.0, "%s: the content only shrinks" % what)
+	near(card.size.x, content.x * float(f["s"]), 0.01, "%s: the window is the shrunk content (width)" % what)
+	near(card.size.y, content.y * float(f["s"]), 0.01, "%s: the window is the shrunk content (height)" % what)
+	check(frame.encloses(card), "%s: the card inside its frame" % what)
+	var sl := GradeFrame.slices(FRAME_LAYOUT, card.size)
+	near(Vector2(sl["size"]).x, frame.size.x, 0.01, "%s: the frame is the art sliced round that window" % what)
+	near(card.position.x - frame.position.x, Rect2(sl["window"]).position.x, 0.01, "%s: the window where the art has it" % what)
+	return f
+
+
+func test_framed_cards_fit_their_own_rect() -> void:
+	var party := _check_fit(Vector2(330, 500), Vector2(286, 446), "party slot")
+	near(Rect2(party["frame"]).size.x, 330.0, 0.01, "party slot: the art as wide as the slot")
+	var vs := _check_fit(Vector2(268, 520), Vector2(268, 520), "VS card")
+	near(Rect2(vs["frame"]).size.x, 268.0, 0.01, "VS card: the art as wide as the card, not past it")
+	near(float(vs["s"]), 584.0 / 768.0, 0.001, "VS card: the content shrinks to the window's share of the width")
+	eq(GradeFrame.fit(FRAME_LAYOUT, Vector2(268, 520), Vector2(268, 520)), vs, "every card of a row: the same fit")
+	var wide := _check_fit(Vector2(600, 500), Vector2(268, 520), "a box wider than the card needs")
+	near(Rect2(wide["frame"]).size.y, 500.0, 0.5, "a wide box: the height limits it")
+	check(not GradeFrame.any_art(["", "dai_ta"]) or GradeFrame.has_art("dai_ta"), "any_art only for grades with art")

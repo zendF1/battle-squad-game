@@ -28,6 +28,7 @@ extends RefCounted
 
 const ErrorText := preload("res://screens/home/error_text.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
+const RankModel := preload("res://screens/ranked/rank_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
 const IDLE := "idle"
@@ -68,8 +69,8 @@ static func _str(v: Variant, fallback: String = "") -> String:
 	return str(v) if v is String and str(v) != "" else fallback
 
 
-## A LobbyMember: {playerId, displayName, characterId, level (0 unknown), rating, tier, division,
-## ready, gun: {kind, tier}} (gun: the server's, else the character's basic gun); {} not a member.
+## A LobbyMember: {playerId, displayName, characterId, level (0 unknown), rankBadge (last season's
+## final grade: the slot's frame, "" none), ready, gun: {kind, tier}} (gun: the server's, else the character's basic gun); {} not a member.
 static func parse_member(m: Variant) -> Dictionary:
 	if not m is Dictionary or _str(m.get("playerId")) == "":
 		return {}
@@ -81,8 +82,7 @@ static func parse_member(m: Variant) -> Dictionary:
 	if g is Dictionary:
 		gun = {"kind": _str(g.get("kind"), basic["kind"]), "tier": _str(g.get("tier"), basic["tier"])}
 	return {"playerId": id, "displayName": _str(m.get("displayName"), id.left(8)), "characterId": character,
-		"level": _num(m.get("level")), "rating": _num(m.get("rating"), -1), "tier": _str(m.get("tier")),
-		"division": clampi(_num(m.get("division")), 0, 3), "ready": m.get("ready") == true, "gun": gun}
+		"level": _num(m.get("level")), "rankBadge": RankModel.badge_of(m), "ready": m.get("ready") == true, "gun": gun}
 
 
 ## A LobbyState: {lobbyId, hostPlayerId, status, queue, members: [parse_member()]} (the host always
@@ -104,7 +104,7 @@ static func parse_lobby(d: Variant) -> Dictionary:
 		"queue": _str(d.get("queue"), GameData.ranked_mode()), "members": members}
 
 
-## An OnlinePlayer: {playerId, displayName, level, tier, division, characterId, status (idle /
+## An OnlinePlayer: {playerId, displayName, level, rankBadge ("" none), characterId, status (idle /
 ## in_lobby / in_match)}; {} not a player.
 static func parse_player(p: Variant) -> Dictionary:
 	if not p is Dictionary or _str(p.get("playerId")) == "":
@@ -112,7 +112,7 @@ static func parse_player(p: Variant) -> Dictionary:
 	var id := _str(p.get("playerId"))
 	var status := _str(p.get("status"), IDLE)
 	return {"playerId": id, "displayName": _str(p.get("displayName"), id.left(8)), "level": _num(p.get("level")),
-		"tier": _str(p.get("tier")), "division": clampi(_num(p.get("division")), 0, 3),
+		"rankBadge": RankModel.badge_of(p),
 		"characterId": _str(p.get("characterId"), GameData.default_character_id()), "status": status}
 
 

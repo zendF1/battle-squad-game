@@ -445,8 +445,11 @@ func _history_row(t: Dictionary) -> Control:
 	r.add_child(where)
 	r.add_child(Ui.text(t["exp"], 22, Ui.TONES["good"]))
 	r.add_child(Ui.text(t["coin"], 22, Ui.TONES["draw"]))
-	var rating := Ui.text("Hạng %s" % t["rating"], 22)
-	rating.custom_minimum_size.x = 110
-	r.add_child(rating)
+	# a ranked match's rank points; the column kept on every row, so the dates line up
+	var change := int(t.get("points_change", 0))
+	var points := Ui.text(t["points"], 22, Ui.TONES["good"] if change > 0 else (Ui.TONES["error"] if change < 0 else Color.WHITE))
+	points.name = "Points"
+	points.custom_minimum_size.x = 200
+	r.add_child(points)
 	r.add_child(Ui.text(t["date"], 22, Ui.TEXT_DIM))
 	return card

@@ -240,7 +240,7 @@ func _week_tile(c: Dictionary) -> Control:
 	for line in lines.slice(0, 2):
 		var r := Ui.hbox(6)
 		r.alignment = BoxContainer.ALIGNMENT_CENTER
-		r.add_child(LobbyUi.icon(MilestonePage.reward_icon(line), 40 if lines.size() <= 1 else 34))
+		r.add_child(MilestonePage.reward_icon_node(line, 40 if lines.size() <= 1 else 34))
 		var q := LobbyUi.text(line["short"], 22 if lines.size() <= 1 else 20, Color.WHITE, true)
 		q.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		r.add_child(q)
@@ -655,7 +655,7 @@ func _show_chest(c: Dictionary) -> Modal:
 	for line in DailyModel.reward_lines(c["rewards"]):
 		var r := Ui.hbox(14)
 		r.alignment = BoxContainer.ALIGNMENT_CENTER
-		r.add_child(LobbyUi.icon(MilestonePage.reward_icon(line), 48))
+		r.add_child(MilestonePage.reward_icon_node(line, 48))
 		var l := LobbyUi.text(line["text"], 26, Color.WHITE, true)
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		r.add_child(l)

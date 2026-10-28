@@ -1,7 +1,7 @@
 extends Control
 ## The Home lobby (a Gunny-style mobile lobby). Corners: the player (avatar letter, name, EXP
-## bar, "Lv.N"; tap opens the Nhân vật page) top-left with the rank chip beside it (tier badge,
-## "Bạc II", points; tap: the rank popup, screens/ranked/rank_chip.gd), the wallet pills top-right, the connection
+## bar, "Lv.N"; tap opens the Nhân vật page) top-left with the rank chip beside it (grade insignia,
+## "Binh nhì 2", the division's points; tap: the rank popup, screens/ranked/rank_chip.gd), the wallet pills top-right, the connection
 ## state top-centre, one round shortcut per page down the right (Nhân vật, Kho đồ → Túi đồ,
 ## Nâng cấp, Lịch sử → Hồ sơ, Shop), the
 ## selected character's info card (role, skill, stats; its name and level are on the stage) on
@@ -16,8 +16,8 @@ extends Control
 ## (pedestal_gun.gd, no name under it), updated on equip / unequip. ◀ ▶ or a swipe cycles
 ## the four characters. The character is the Loadout's (saved
 ## in the same settings file, so the Loadout opens with it) and the mode is remembered there
-## too; the card shows the mode's name and description (a ranked mode: the tier badge and "Bạc II ·
-## 1.050 điểm" instead), its swap button (or a tap on the card) opens the Mode Select page
+## too; the card shows the mode's name and description (a ranked mode: the grade insignia and "Binh nhì 2 ·
+## 45/100" instead), its swap button (or a tap on the card) opens the Mode Select page
 ## (open_modes, mode_select.gd), which calls choose_mode(). "BẮT ĐẦU" puts
 ## the mode's QuickPlay base in Router.quick_play_base and opens the Loadout. Character levels and stats come from the PlayerState characters cache, loaded when
 ## the lobby is shown; until then the card shows name, role and skill only.
@@ -66,9 +66,10 @@ const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
 const MissionArt := preload("res://screens/home/mission_art.gd")
 const RankChip := preload("res://screens/ranked/rank_chip.gd")
-const TierBadge := preload("res://screens/ranked/tier_badge.gd")
+const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const PartySlot := preload("res://screens/home/party_slot.gd")
+const GradeFrame := preload("res://screens/ranked/grade_frame.gd")
 const InvitePopup := preload("res://screens/home/invite_popup.gd")
 const Modal := preload("res://ui/modal.gd")
 const ModeSelectModel := preload("res://screens/home/mode_select_model.gd")
@@ -123,8 +124,8 @@ var rank_chip: RankChip
 # Mode card
 var _mode_name: Label
 var _mode_text: Label
-var _mode_rank: Control # ranked: the tier badge and "Bạc II · 1.050 điểm"
-var _mode_rank_badge: TierBadge
+var _mode_rank: Control # ranked: the grade insignia and "Binh nhì 2 · 45/100"
+var _mode_rank_badge: GradeBadge
 var _mode_rank_text: Label
 var _mode_lock: Label # the member's "Chủ phòng chọn chế độ"
 var _mode_runs: Label # a boss mode's "Lv đề xuất 10 · Lượt thưởng lớn: 2/3"
@@ -623,7 +624,7 @@ func _build_mode_card() -> Control:
 	texts.add_child(_mode_runs)
 	var rank_row := Ui.hbox(8)
 	rank_row.mouse_filter = MOUSE_FILTER_IGNORE
-	_mode_rank_badge = TierBadge.make("", 3, 34)
+	_mode_rank_badge = GradeBadge.make("", 0, 34)
 	rank_row.add_child(_mode_rank_badge)
 	_mode_rank_text = LobbyUi.text("", 22, Color.WHITE, true)
 	_mode_rank_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -775,10 +776,9 @@ func _render_mode() -> void:
 	if ranked:
 		var data := PlayerState.my_rank()
 		var r := RankModel.from_me(data)
-		_mode_rank_badge.tier = r["tier"] if not data.is_empty() else ""
-		_mode_rank_badge.division = r["division"]
+		_mode_rank_badge.grade = r["grade"] if not data.is_empty() else ""
 		_mode_rank_text.text = RankModel.mode_line(r) if not data.is_empty() else "Đang tải hạng..."
-		_mode_rank_text.add_theme_color_override("font_color", TierBadge.COLORS[_mode_rank_badge.tier][0])
+		_mode_rank_text.add_theme_color_override("font_color", GradeBadge.text_color(_mode_rank_badge.grade))
 	_render_party()
 	_render_background()
 
@@ -822,6 +822,8 @@ func _render_party() -> void:
 	var layout := PartyLayout.slots(capacity)
 	var shown := PartyLayout.fill(party.teammates(), capacity)
 	var host_view: bool = not party.is_member()
+	# real frame art on any teammate: every slot shrinks the same way, the art inside its rect
+	var fit := GradeFrame.any_art(shown.map(func(m): return str(m.get("rankBadge", "")) if m is Dictionary else ""))
 	for i in _slots.size():
 		var slot := _slots[i]
 		slot.visible = i < layout.size()
@@ -836,6 +838,7 @@ func _render_party() -> void:
 		slot.offset_top = float(at["y"])
 		slot.offset_bottom = float(at["y"])
 		var m: Dictionary = shown[i]
+		slot.fit_art = fit
 		slot.show_member(m, host_view, str(m.get("playerId", "")) == str(party.lobby.get("hostPlayerId", "")), host_view)
 	var state: Dictionary = party.start_button() if with_party else {"text": "BẮT ĐẦU", "disabled": false, "action": "start"}
 	_start.text = state["text"]

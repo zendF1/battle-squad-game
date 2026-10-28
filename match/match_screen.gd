@@ -441,6 +441,7 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 		view.queue_free()
 	_views.clear()
 	_players = snap.get("players", {}).duplicate(true)
+	_fill_badges()
 	var my_team := int(_players.get(_me, {}).get("teamId", -1))
 	for id in _players:
 		var view := PlayerView.new()
@@ -1290,8 +1291,10 @@ func _on_match_ended(d: Dictionary) -> void:
 		return
 	if RankModel.is_ranked_mode(_mode):
 		PlayerState.load_rank() # Home shows the new rank
+		PlayerState.stones_dirty() # the ranked stone rolls
 	if _boss.active or GameData.is_boss_queue(_mode):
 		PlayerState.boss_runs_stale() # the Boss tab reloads the runs left
+		PlayerState.chests_dirty() # a bonus run's chests
 	var info := result_info(d)
 	# A Timer child: leaving the screen during the wait frees it with the screen, nothing fires.
 	var delay := Timer.new()
@@ -1316,11 +1319,11 @@ func result_info(d: Dictionary) -> Dictionary:
 	var stats = d.get("stats")
 	var sides := ResultModel.sides(_players, _me, winning_team)
 	var order: Array = sides["left"] + sides["right"]
-	var my_rank := PlayerState.my_rank()
+	var my_badge := PlayerState.rank_badge()
 	var entries := {"left": [], "right": []}
 	for side in entries:
 		for id in sides[side]:
-			entries[side].append(ResultModel.entry(id, _players[id], _roster.get(id, {}), _me, PlayerState.level(), my_rank,
+			entries[side].append(ResultModel.entry(id, _players[id], _roster.get(id, {}), _me, PlayerState.level(), my_badge,
 				ResultModel.damage_of(id, stats, _damage_by)))
 	var char_id := str(_players.get(_me, {}).get("characterId", ""))
 	if d.get("boss") is Dictionary or (_boss.active and d.has("result")):
@@ -2067,6 +2070,20 @@ func _set_shield(id: String, shield: int, caster: String = "") -> void:
 	if (change == ShieldState.GAIN or (change == ShieldState.KEEP and caster_tier != "")) and _views[id].has_method("set_shield_tint"):
 		_views[id].set_shield_tint(_shields.colour_of(id))
 	_views[id].set_shield(shield)
+
+
+## Each player's badge (rankBadge, the name's badge): the BattlePlayerState's, else the MatchFound
+## card's (Router.match_roster), mine else the profile's.
+func _fill_badges() -> void:
+	for id in _players:
+		var p = _players[id]
+		if not p is Dictionary or str(p.get("role", "")) != "" or str(p.get("rankBadge", "")) != "":
+			continue
+		var badge := str(_roster.get(id, {}).get("rankBadge", ""))
+		if badge == "" and id == _me:
+			badge = PlayerState.rank_badge()
+		if badge != "":
+			p["rankBadge"] = badge
 
 
 ## The tier of the gun a player brought (its weaponItemId; "basic" for its character's own gun).

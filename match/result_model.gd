@@ -1,10 +1,14 @@
 extends RefCounted
 ## The end-of-match screen without UI (match/result_screen.gd): the outcome and its title, who
 ## stands where (the winners on the left, on the podium, the MVP on its top step; a draw puts my
-## team left), the MVP, each player's labels, my rewards (EXP bar steps, coins, the level-up
-## popup's stages, the ranked rating line) and the buttons' texts.
+## team left), the MVP, each player's labels (their badge: rankBadge), my rewards (EXP bar steps,
+## coins with a ranked match's bonus, stones, chests, the level-up popup's stages, the rank points
+## line) and the buttons' texts. A match that gives nothing (QuickPlay vs AI, practice: the server
+## sends 0) shows no reward rows.
 
 const RankModel := preload("res://screens/ranked/rank_model.gd")
+const ChestModel := preload("res://screens/home/chest_model.gd")
+const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
 const Fmt := preload("res://core/fmt.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
@@ -82,26 +86,26 @@ static func damage_of(id: String, stats: Variant, tally: Dictionary) -> int:
 	return int(tally[id]) if tally.has(id) else -1
 
 
-## One player's labels: {playerId, displayName, characterId, teamId, isBot, mine, title, tier,
-## division, level, damage}. `roster` is the MatchFound entry (MatchmakingModel.parse_player, {} if
-## none: level and rank); for me `my_level` and `my_rank` (GET /rank/me, {} unknown) fill the gaps.
-static func entry(id: String, p: Dictionary, roster: Dictionary, me: String, my_level: int, my_rank: Dictionary,
+## One player's labels: {playerId, displayName, characterId, teamId, isBot, mine, title, badge
+## (rankBadge: the BattlePlayerState's, else the MatchFound entry's; "" none), level, damage}.
+## `roster` is the MatchFound entry (MatchmakingModel.parse_player, {} if none: level and badge);
+## for me `my_level` and `my_badge` (the profile's rankBadge) fill the gaps.
+static func entry(id: String, p: Dictionary, roster: Dictionary, me: String, my_level: int, my_badge: String,
 		damage: int) -> Dictionary:
 	var mine := id == me
-	var tier := str(roster.get("tier", ""))
-	var division := int(roster.get("division", 0))
+	var badge := RankModel.badge_of(p)
+	if badge == "":
+		badge = RankModel.badge_of(roster)
 	var level := int(roster.get("level", 0))
 	if mine:
-		if tier == "" and not my_rank.is_empty():
-			var r := RankModel.from_me(my_rank)
-			tier = r["tier"]
-			division = r["division"]
+		if badge == "":
+			badge = my_badge if RankModel.grade_index(my_badge) >= 0 else ""
 		if level <= 0:
 			level = my_level
 	var is_bot: bool = p.get("isBot") if p.get("isBot") is bool else id.begins_with("bot_")
 	return {"playerId": id, "displayName": str(p.get("displayName", roster.get("displayName", id))),
 		"characterId": str(p.get("characterId", roster.get("characterId", GameData.default_character_id()))), "teamId": int(p.get("teamId", 0)),
-		"isBot": is_bot, "mine": mine, "title": TitleModel.from_player(p), "tier": tier, "division": division,
+		"isBot": is_bot, "mine": mine, "title": TitleModel.from_player(p), "badge": badge,
 		"level": level, "damage": damage}
 
 
@@ -118,17 +122,47 @@ static func damage_text(damage: int) -> String:
 
 
 ## My rewards from MatchEnded.rewards[me] (null: granting failed) for a match in `mode`:
-## {ok, exp, coin, level_up, new_level, char_level_up, char_level, char_gained (levels), rank
-## (RankModel.result_of)}.
+## {ok, exp, coin (bonus included), bonus_coin (a ranked match's bonus, inside coin), stones
+## [{level, qty}], chests [ChestModel.match_chests()], level_up, new_level, char_level_up,
+## char_level, char_gained (levels), rank (RankModel.result_of), empty (granted but nothing: no
+## reward rows)}.
 static func reward(r: Variant, mode: String) -> Dictionary:
 	if not r is Dictionary:
-		return {"ok": false, "exp": 0, "coin": 0, "level_up": false, "new_level": 0, "char_level_up": false,
-			"char_level": 0, "char_gained": 0, "rank": {}}
-	return {"ok": true, "exp": int(_num(r.get("expGained"))) if _num(r.get("expGained")) > 0 else 0,
+		return {"ok": false, "exp": 0, "coin": 0, "bonus_coin": 0, "stones": [], "chests": [], "level_up": false, "new_level": 0,
+			"char_level_up": false, "char_level": 0, "char_gained": 0, "rank": {}, "empty": false}
+	var out := {"ok": true, "exp": int(_num(r.get("expGained"))) if _num(r.get("expGained")) > 0 else 0,
 		"coin": int(_num(r.get("coinGained"))) if _num(r.get("coinGained")) > 0 else 0,
+		"bonus_coin": int(_num(r.get("bonusCoin"))) if _num(r.get("bonusCoin")) > 0 else 0,
+		"stones": stones_of(r.get("stones")), "chests": ChestModel.match_chests(r.get("chests")),
 		"level_up": r.get("levelUp") is bool and r["levelUp"], "new_level": maxi(0, int(_num(r.get("newLevel")))),
 		"char_level_up": r.get("charLevelUp") is bool and r["charLevelUp"], "char_level": maxi(0, int(_num(r.get("charNewLevel")))),
 		"char_gained": maxi(0, int(_num(r.get("charLevelsGained")))), "rank": RankModel.result_of(mode, r)}
+	out["empty"] = out["exp"] == 0 and out["coin"] == 0 and out["stones"].is_empty() and out["chests"].is_empty() \
+		and out["rank"].is_empty() and not out["level_up"] and not out["char_level_up"]
+	return out
+
+
+## A reward's stones ([{level, qty}]) merged by level, lowest first, qty > 0.
+static func stones_of(v: Variant) -> Array:
+	var by := {}
+	if v is Array:
+		for s in v:
+			if s is Dictionary and _num(s.get("level")) >= 1 and _num(s.get("qty")) > 0:
+				var lv := int(_num(s["level"]))
+				by[lv] = int(by.get(lv, 0)) + int(_num(s["qty"]))
+	var keys: Array = by.keys()
+	keys.sort()
+	return keys.map(func(lv): return {"level": lv, "qty": by[lv]})
+
+
+## "(+150 thưởng xếp hạng)" for a ranked bonus inside the coins; "" none.
+static func bonus_text(bonus: int) -> String:
+	return "(+%s thưởng xếp hạng)" % Fmt.thousands(bonus) if bonus > 0 else ""
+
+
+## "Đá cấp 3 ×2".
+static func stone_text(s: Dictionary) -> String:
+	return "%s ×%d" % [UpgradeModel.stone_name(int(s["level"])), int(s["qty"])]
 
 
 ## The levels a popup counts through from `from` to `to`, one per step: (3, 5) → [4, 5]; [] when

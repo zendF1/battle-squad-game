@@ -5,6 +5,7 @@ extends RefCounted
 ## requests shifts the offsets).
 
 const Fmt := preload("res://core/fmt.gd")
+const RankModel := preload("res://screens/ranked/rank_model.gd")
 const MapCatalog := preload("res://match/theme/map_catalog.gd") # map names from GET /maps; unknown ids raw
 
 const RESULTS := {
@@ -74,7 +75,9 @@ func reset() -> void:
 	error = ""
 
 
-## A history entry as row texts: {result, tone (win|loss|draw), mode, map, exp, coin, rating, date}.
+## A history entry as row texts: {result, tone (win|loss|draw), mode, map, exp, coin, points ("+30
+## điểm hạng" for a ranked match: rankPointsChange; "" otherwise: the hidden rating is never shown),
+## date}.
 static func row_text(e: Dictionary, bias_minutes: int) -> Dictionary:
 	var r: Dictionary = RESULTS.get(str(e.get("result", "")), {"text": str(e.get("result", "?")), "tone": "draw"})
 	var mode := str(e.get("mode", ""))
@@ -85,6 +88,7 @@ static func row_text(e: Dictionary, bias_minutes: int) -> Dictionary:
 		"map": MapCatalog.name_of(str(e.get("mapId", ""))),
 		"exp": "+%d EXP" % int(e.get("expGained", 0)),
 		"coin": "+%s xu" % Fmt.thousands(int(e.get("coinGained", 0))),
-		"rating": Fmt.signed(int(e.get("ratingChange", 0))),
+		"points_change": int(e.get("rankPointsChange", 0)) if RankModel.is_ranked_mode(mode) else 0,
+		"points": RankModel.points_change_text(int(e.get("rankPointsChange", 0))) if RankModel.is_ranked_mode(mode) else "",
 		"date": Fmt.short_date(str(e.get("playedAt", "")), bias_minutes),
 	}

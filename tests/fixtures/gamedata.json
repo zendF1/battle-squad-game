@@ -1522,6 +1522,504 @@
       "pvpWeakPct": 10,
       "bossStrongPct": 20,
       "bossTakenPct": 10
-    }
+    },
+    "grades": {
+      "divisionPoints": 100,
+      "ladderTop": "dai_ta",
+      "list": [
+        {
+          "grade": "binh_nhi",
+          "name": "Binh nhì",
+          "divisions": 3,
+          "minPoints": 0,
+          "winPoints": 30,
+          "lossPoints": 5,
+          "general": false
+        },
+        {
+          "grade": "binh_nhat",
+          "name": "Binh nhất",
+          "divisions": 3,
+          "minPoints": 300,
+          "winPoints": 30,
+          "lossPoints": 5,
+          "general": false
+        },
+        {
+          "grade": "ha_si",
+          "name": "Hạ sĩ",
+          "divisions": 3,
+          "minPoints": 600,
+          "winPoints": 30,
+          "lossPoints": 5,
+          "general": false
+        },
+        {
+          "grade": "trung_si",
+          "name": "Trung sĩ",
+          "divisions": 3,
+          "minPoints": 900,
+          "winPoints": 30,
+          "lossPoints": 5,
+          "general": false
+        },
+        {
+          "grade": "thuong_si",
+          "name": "Thượng sĩ",
+          "divisions": 3,
+          "minPoints": 1200,
+          "winPoints": 30,
+          "lossPoints": 5,
+          "general": false
+        },
+        {
+          "grade": "hoc_vien",
+          "name": "Học viên",
+          "divisions": 3,
+          "minPoints": 1500,
+          "winPoints": 25,
+          "lossPoints": 15,
+          "general": false
+        },
+        {
+          "grade": "thieu_uy",
+          "name": "Thiếu úy",
+          "divisions": 3,
+          "minPoints": 1800,
+          "winPoints": 25,
+          "lossPoints": 15,
+          "general": false
+        },
+        {
+          "grade": "trung_uy",
+          "name": "Trung úy",
+          "divisions": 3,
+          "minPoints": 2100,
+          "winPoints": 25,
+          "lossPoints": 15,
+          "general": false
+        },
+        {
+          "grade": "thuong_uy",
+          "name": "Thượng úy",
+          "divisions": 3,
+          "minPoints": 2400,
+          "winPoints": 25,
+          "lossPoints": 15,
+          "general": false
+        },
+        {
+          "grade": "dai_uy",
+          "name": "Đại úy",
+          "divisions": 3,
+          "minPoints": 2700,
+          "winPoints": 25,
+          "lossPoints": 15,
+          "general": false
+        },
+        {
+          "grade": "thieu_ta",
+          "name": "Thiếu tá",
+          "divisions": 3,
+          "minPoints": 3000,
+          "winPoints": 20,
+          "lossPoints": 15,
+          "general": false
+        },
+        {
+          "grade": "trung_ta",
+          "name": "Trung tá",
+          "divisions": 3,
+          "minPoints": 3300,
+          "winPoints": 20,
+          "lossPoints": 15,
+          "general": false
+        },
+        {
+          "grade": "thuong_ta",
+          "name": "Thượng tá",
+          "divisions": 3,
+          "minPoints": 3600,
+          "winPoints": 20,
+          "lossPoints": 15,
+          "general": false
+        },
+        {
+          "grade": "dai_ta",
+          "name": "Đại tá",
+          "divisions": 3,
+          "minPoints": 3900,
+          "winPoints": 20,
+          "lossPoints": 15,
+          "general": false
+        },
+        {
+          "grade": "thieu_tuong",
+          "name": "Thiếu tướng",
+          "divisions": 1,
+          "minPoints": 4100,
+          "winPoints": 0,
+          "lossPoints": 0,
+          "general": true
+        },
+        {
+          "grade": "trung_tuong",
+          "name": "Trung tướng",
+          "divisions": 1,
+          "minPoints": 4100,
+          "winPoints": 0,
+          "lossPoints": 0,
+          "general": true
+        },
+        {
+          "grade": "thuong_tuong",
+          "name": "Thượng tướng",
+          "divisions": 1,
+          "minPoints": 4100,
+          "winPoints": 0,
+          "lossPoints": 0,
+          "general": true
+        },
+        {
+          "grade": "dai_tuong",
+          "name": "Đại tướng",
+          "divisions": 1,
+          "minPoints": 4100,
+          "winPoints": 0,
+          "lossPoints": 0,
+          "general": true
+        }
+      ],
+      "generals": [
+        {
+          "grade": "dai_tuong",
+          "fromPos": 1,
+          "toPos": 1
+        },
+        {
+          "grade": "thuong_tuong",
+          "fromPos": 2,
+          "toPos": 3
+        },
+        {
+          "grade": "trung_tuong",
+          "fromPos": 4,
+          "toPos": 6
+        },
+        {
+          "grade": "thieu_tuong",
+          "fromPos": 7,
+          "toPos": 10
+        }
+      ]
+    },
+    "seasonRewards": [
+      {
+        "grade": "binh_nhi",
+        "coin": 2000,
+        "gem": 0,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 1
+          }
+        ]
+      },
+      {
+        "grade": "binh_nhat",
+        "coin": 3000,
+        "gem": 0,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 1
+          }
+        ]
+      },
+      {
+        "grade": "ha_si",
+        "coin": 4000,
+        "gem": 10,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 2
+          }
+        ]
+      },
+      {
+        "grade": "trung_si",
+        "coin": 5000,
+        "gem": 20,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 2
+          }
+        ]
+      },
+      {
+        "grade": "thuong_si",
+        "coin": 6000,
+        "gem": 30,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 3
+          }
+        ]
+      },
+      {
+        "grade": "hoc_vien",
+        "coin": 8000,
+        "gem": 50,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 3
+          }
+        ]
+      },
+      {
+        "grade": "thieu_uy",
+        "coin": 10000,
+        "gem": 80,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 4
+          }
+        ]
+      },
+      {
+        "grade": "trung_uy",
+        "coin": 12000,
+        "gem": 100,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 4
+          }
+        ]
+      },
+      {
+        "grade": "thuong_uy",
+        "coin": 15000,
+        "gem": 130,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 5
+          }
+        ]
+      },
+      {
+        "grade": "dai_uy",
+        "coin": 18000,
+        "gem": 160,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 5
+          }
+        ]
+      },
+      {
+        "grade": "thieu_ta",
+        "coin": 22000,
+        "gem": 200,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 6
+          }
+        ]
+      },
+      {
+        "grade": "trung_ta",
+        "coin": 26000,
+        "gem": 250,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 7
+          }
+        ]
+      },
+      {
+        "grade": "thuong_ta",
+        "coin": 30000,
+        "gem": 300,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 8
+          }
+        ]
+      },
+      {
+        "grade": "dai_ta",
+        "coin": 40000,
+        "gem": 400,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 10
+          },
+          {
+            "kind": "chest",
+            "id": "equip_chest_14",
+            "qty": 1
+          }
+        ]
+      },
+      {
+        "grade": "thieu_tuong",
+        "coin": 60000,
+        "gem": 600,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 12
+          },
+          {
+            "kind": "chest",
+            "id": "equip_chest_14",
+            "qty": 1
+          }
+        ]
+      },
+      {
+        "grade": "trung_tuong",
+        "coin": 80000,
+        "gem": 800,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 15
+          },
+          {
+            "kind": "chest",
+            "id": "equip_chest_16",
+            "qty": 1
+          }
+        ]
+      },
+      {
+        "grade": "thuong_tuong",
+        "coin": 100000,
+        "gem": 1000,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 18
+          },
+          {
+            "kind": "chest",
+            "id": "equip_chest_16",
+            "qty": 1
+          }
+        ]
+      },
+      {
+        "grade": "dai_tuong",
+        "coin": 150000,
+        "gem": 1500,
+        "items": [
+          {
+            "kind": "chest",
+            "id": "stone_chest",
+            "qty": 25
+          },
+          {
+            "kind": "chest",
+            "id": "equip_chest_16",
+            "qty": 1
+          },
+          {
+            "kind": "chest",
+            "id": "equip_chest_14",
+            "qty": 1
+          }
+        ]
+      }
+    ],
+    "rankedRewards": {
+      "winCoin": 150,
+      "lossCoin": 60,
+      "winStoneRolls": 2,
+      "lossStoneRolls": 1,
+      "stoneWeights": [
+        {
+          "level": 2,
+          "weight": 25
+        },
+        {
+          "level": 3,
+          "weight": 35
+        },
+        {
+          "level": 4,
+          "weight": 28
+        },
+        {
+          "level": 5,
+          "weight": 12
+        }
+      ]
+    },
+    "chests": [
+      {
+        "chestId": "stone_chest",
+        "name": "Rương đá",
+        "kind": "stone",
+        "stones": [
+          {
+            "level": 5,
+            "weight": 60
+          },
+          {
+            "level": 6,
+            "weight": 30
+          },
+          {
+            "level": 7,
+            "weight": 10
+          }
+        ],
+        "upgradeLevel": 0
+      },
+      {
+        "chestId": "equip_chest_14",
+        "name": "Rương trang bị +14",
+        "kind": "equipment",
+        "stones": [],
+        "upgradeLevel": 14
+      },
+      {
+        "chestId": "equip_chest_16",
+        "name": "Rương trang bị +16",
+        "kind": "equipment",
+        "stones": [],
+        "upgradeLevel": 16
+      }
+    ]
   }
 }

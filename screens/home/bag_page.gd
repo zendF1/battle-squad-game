@@ -9,6 +9,9 @@ extends Control
 ## - "Vật phẩm": the eight battle items with their GET /player/inventory counts.
 ## - "Nguyên liệu": the upgrade stones owned (PlayerState.stones): icon, level, power, count;
 ##   "Mua đá" (Shop → Đá nâng cấp) and "Ghép đá" (the Nâng cấp page's Ghép đá).
+## - "Rương": the chests owned (PlayerState.chests, GET /chests): icon, name, count, the odds
+##   (ChestModel.odds_text: the game data's) and "Mở" / "Mở 10" (POST /chests/open, one open at a
+##   time); the result opens a popup listing the stones and pieces received.
 ## Each tab loads the first time it is shown; failures show inline with "Thử lại". Upgraded
 ## pieces show their milestone aura and their name in the milestone colour.
 
@@ -28,11 +31,15 @@ const ErrorText := preload("res://screens/home/error_text.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
 const Fmt := preload("res://core/fmt.gd")
+const ChestModel := preload("res://screens/home/chest_model.gd")
+const ChestIcon := preload("res://ui/chest_icon.gd")
+const Modal := preload("res://ui/modal.gd")
 
-const SUB_TABS := ["Trang bị", "Vật phẩm", "Nguyên liệu"]
+const SUB_TABS := ["Trang bị", "Vật phẩm", "Nguyên liệu", "Rương"]
 const EQUIPMENT := 0
 const ITEMS := 1
 const MATERIALS := 2
+const CHESTS := 3
 ## The Nâng cấp page's Ghép đá tab (upgrade_page.gd MERGE).
 const UPGRADE_MERGE := 1
 const CARD := Vector2(208, 196)
@@ -60,6 +67,8 @@ var _inv_status: LoadStatus
 var _inv_flow: HFlowContainer
 var _stone_status: LoadStatus
 var _stone_flow: HFlowContainer
+var _chest_status: LoadStatus
+var _chest_flow: HFlowContainer
 
 
 func _ready() -> void:
@@ -80,7 +89,7 @@ func _ready() -> void:
 	var pages := Control.new()
 	pages.size_flags_vertical = SIZE_EXPAND_FILL
 	col.add_child(pages)
-	for builder in [_build_gear_page, _build_items_page, _build_stones_page]:
+	for builder in [_build_gear_page, _build_items_page, _build_stones_page, _build_chests_page]:
 		var page: Control = builder.call()
 		page.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		pages.add_child(page)
@@ -90,11 +99,13 @@ func _ready() -> void:
 	PlayerState.characters_changed.connect(_on_equipment_changed)
 	PlayerState.assets_dirty.connect(_on_assets_dirty)
 	PlayerState.stones_changed.connect(_on_stones_changed)
+	PlayerState.chests_changed.connect(_on_chests_changed)
 	visibility_changed.connect(_ensure_loaded)
 	show_section(EQUIPMENT)
 	_render_gear()
 	_render_inventory()
 	_render_stones()
+	_render_chests()
 	_arm.call_deferred()
 
 
@@ -124,6 +135,8 @@ func _ensure_loaded() -> void:
 		_render_gear() # the lobby character may have changed
 	elif _sub == MATERIALS:
 		PlayerState.need_stones()
+	elif _sub == CHESTS:
+		PlayerState.need_chests()
 	elif (_inventory == null or _inv_stale) and not _inv_loading:
 		_load_inventory()
 
@@ -351,3 +364,136 @@ func _render_stones() -> void:
 		box.add_child(Ui.text("x%s" % Fmt.thousands(int(PlayerState.stones[lv])), 26, Ui.TONES["draw"]))
 		box.add_child(Ui.text("Sức mạnh %s" % Fmt.thousands(UpgradeModel.power(PlayerState.catalog, int(lv))), 18, Ui.TEXT_DIM))
 		_stone_flow.add_child(card)
+
+
+# ── Rương ───────────────────────────────────────────────────────────────────
+
+func _build_chests_page() -> Control:
+	var col := Ui.vbox(14)
+	_chest_status = LoadStatus.new()
+	col.add_child(_chest_status)
+	_chest_flow = HFlowContainer.new()
+	_chest_flow.add_theme_constant_override("h_separation", 14)
+	_chest_flow.add_theme_constant_override("v_separation", 14)
+	col.add_child(_chest_flow)
+	return Ui.scroll(col)
+
+
+## Deferred: a press inside the list must not free its own card mid-signal.
+func _on_chests_changed() -> void:
+	if is_inside_tree():
+		_render_chests.call_deferred()
+
+
+func _render_chests() -> void:
+	if _chest_flow == null:
+		return
+	if PlayerState.chests_error != "":
+		_chest_status.show_error(PlayerState.chests_error, PlayerState.load_chests)
+	elif PlayerState.chests == null:
+		_chest_status.show_loading()
+	else:
+		_chest_status.clear()
+	Ui.clear(_chest_flow)
+	if not PlayerState.chests is Array:
+		return
+	if PlayerState.chests.is_empty():
+		_chest_flow.add_child(LobbyUi.text("Chưa có rương nào — nhận rương từ Boss, thưởng mùa và mốc thưởng", 24, Ui.TEXT_DIM))
+		return
+	for c in PlayerState.chests:
+		_chest_flow.add_child(_chest_card(c))
+
+
+## A chest card: its icon, name and count, the odds under them, the open buttons on the right.
+func _chest_card(c: Dictionary) -> Control:
+	var card := Ui.card(Ui.CARD_BG, 16)
+	card.name = "Chest_" + str(c["chestId"])
+	card.custom_minimum_size = Vector2(660, 150)
+	var row := Ui.hbox(16)
+	card.add_child(row)
+	var icon := ChestIcon.make(str(c["chestId"]), 104)
+	icon.size_flags_vertical = SIZE_SHRINK_CENTER
+	row.add_child(icon)
+	var box := Ui.vbox(4)
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.size_flags_horizontal = SIZE_EXPAND_FILL
+	row.add_child(box)
+	var head := Ui.hbox(10)
+	box.add_child(head)
+	head.add_child(LobbyUi.text(str(c["name"]), 26, Color.WHITE, true))
+	var count := LobbyUi.text(ChestModel.count_text(int(c["quantity"])), 26, Ui.TONES["draw"], true)
+	count.name = "Count"
+	head.add_child(count)
+	var odds := LobbyUi.text(ChestModel.odds_text(str(c["chestId"])), 19, Ui.TEXT_DIM)
+	odds.name = "Odds"
+	odds.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(odds)
+	var buttons := Ui.vbox(8)
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(buttons)
+	for spec in ChestModel.open_buttons(int(c["quantity"])):
+		var b := Ui.button(str(spec["text"]), 22)
+		b.name = "Open%d" % int(spec["count"])
+		b.custom_minimum_size = Vector2(130, 54)
+		b.focus_mode = FOCUS_NONE
+		b.disabled = PlayerState.chest_busy != ""
+		b.pressed.connect(_open_chest.bind(str(c["chestId"]), int(spec["count"])))
+		buttons.add_child(b)
+	return card
+
+
+func _open_chest(chest_id: String, count: int) -> void:
+	var res: Dictionary = await PlayerState.open_chest(chest_id, count)
+	if not is_inside_tree():
+		return
+	if not res.ok:
+		Ui.toast(overlay, ErrorText.chest(res))
+		return
+	var result := ChestModel.parse_open(res.data)
+	if result.is_empty():
+		return
+	if str(result["chestId"]) == "":
+		result["chestId"] = chest_id
+	show_open_result(overlay, result)
+
+
+## The "Mở rương" popup: "Mở 3 Rương đá", then one row per stone level and per piece (icon, text).
+static func show_open_result(host: Control, result: Dictionary) -> Modal:
+	var m := Modal.new()
+	m.open(host, "Mở rương", 620)
+	m.title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var top := Ui.hbox(12)
+	top.alignment = BoxContainer.ALIGNMENT_CENTER
+	m.body.add_child(top)
+	top.add_child(ChestIcon.make(str(result.get("chestId", "")), 72))
+	var h := LobbyUi.text(ChestModel.opened_text(result), 26, Color(0.85, 0.92, 1.0), true)
+	h.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	top.add_child(h)
+	var lines := ChestModel.open_lines(result, PlayerState.catalog)
+	var columns := Ui.hbox(40)
+	columns.name = "Lines"
+	columns.alignment = BoxContainer.ALIGNMENT_CENTER
+	m.body.add_child(columns)
+	var per_column := ceili(lines.size() / 2.0) if lines.size() > 5 else lines.size()
+	var column: VBoxContainer = null
+	for i in lines.size():
+		if i % maxi(1, per_column) == 0:
+			column = Ui.vbox(10)
+			columns.add_child(column)
+		var line: Dictionary = lines[i]
+		var r := Ui.hbox(12)
+		if line["kind"] == "stone":
+			r.add_child(LobbyUi.icon(Art.stone_icon(int(line["level"])), 52))
+		else:
+			var item := EquipmentModel.item_of(PlayerState.catalog, str(line["itemId"]))
+			r.add_child(EquipmentUi.item_icon(item, {"upgradeLevel": int(line["upgradeLevel"])}, 52))
+		var l := LobbyUi.text(str(line["text"]), 24, Color.WHITE, true)
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		r.add_child(l)
+		column.add_child(r)
+	if lines.is_empty():
+		var none := LobbyUi.text("Rương trống", 22, Ui.TEXT_DIM)
+		none.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		m.body.add_child(none)
+	m.add_button("Tuyệt!", m.close)
+	return m

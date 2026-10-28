@@ -1,8 +1,10 @@
 extends Control
 ## The teammate slot right of the Home stage (the ranked mode only, screens/home/lobby.gd), at
 ## about SCALE of the stage. Empty: a "+" on a round translucent disc over a small pedestal, "Mời" under it
-## (invite_pressed: the invite popup). With a teammate (PartyModel.parse_member()): their name,
-## "Lv.N" and tier badge above their character (CharacterView of their characterId, hands free)
+## (invite_pressed: the invite popup). With a teammate (PartyModel.parse_member()): a frame round
+## the slot (screens/ranked/grade_frame.gd: their rankBadge's, the badge on its crest; the plain
+## default frame without one; with real frame art on any slot, fit_art shrinks the slot so the
+## art's ornaments stay inside its rect), their name and "Lv.N" above their character (CharacterView of their characterId, hands free)
 ## with their gun on the pedestal (PedestalGun of their gun {kind, tier}); for the host a ready
 ## mark under it ("Sẵn sàng" green tick / "Chưa sẵn sàng" grey) and a small "×" (kick_pressed), for
 ## the member (the host shown, always ready) "Rời đội" there instead (leave_pressed). Each player sees the other here: a
@@ -19,8 +21,7 @@ const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Art := preload("res://ui/art.gd")
 const CharacterView := preload("res://ui/character_view.gd")
 const PedestalGun := preload("res://screens/home/pedestal_gun.gd")
-const TierBadge := preload("res://screens/ranked/tier_badge.gd")
-const RankModel := preload("res://screens/ranked/rank_model.gd")
+const GradeFrame := preload("res://screens/ranked/grade_frame.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
@@ -34,6 +35,8 @@ const PLUS := 150.0
 const PLUS_DISC := 112.0
 const PLUS_DISC_COLOR := Color(0.05, 0.08, 0.2, 0.55)
 const READY_COLOR := Color(0.35, 0.85, 0.45)
+const FRAME := Rect2(22, 46, 286, 446) # round the name, the figure, the pedestal and the ready mark
+const CREST := 46.0
 
 var _pedestal: Control
 var _plus: Button
@@ -44,23 +47,43 @@ var _head: VBoxContainer
 var _name: Label
 var _name_row: HBoxContainer # the teammate's character's element badge before the name
 var _level: Label
-var _badge: TierBadge
+var _frame: GradeFrame
 var _ready_mark: PanelContainer
 var _ready_text: Label
 var _kick: Button
 var _leave: Button
 var _member := {} # the teammate shown; {} the "+"
+var _body: Control # everything: shrunk into the art's window when fit_art
+## Real frame art on some slot of the party (Lobby sets it on every slot): the frame's outer bounds
+## fit this slot's rect, the slot's content shrinks into the window (GradeFrame.fit(), the same for
+## every slot).
+var fit_art := false:
+	set(v):
+		fit_art = v
+		_apply_fit()
 
 
 func _ready() -> void:
 	custom_minimum_size = SIZE
 	size = SIZE
 	mouse_filter = MOUSE_FILTER_IGNORE
+	_body = Control.new()
+	_body.name = "Body"
+	_body.size = SIZE
+	_body.mouse_filter = MOUSE_FILTER_IGNORE
+	add_child(_body)
 	_pedestal = Control.new()
 	_pedestal.mouse_filter = MOUSE_FILTER_IGNORE
 	_pedestal.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_pedestal.draw.connect(_draw_pedestal)
-	add_child(_pedestal)
+	_body.add_child(_pedestal)
+	_frame = GradeFrame.make("", 26.0, CREST, true)
+	_frame.name = "Frame"
+	_frame.fill = Color(0.04, 0.06, 0.16, 0.3)
+	_frame.position = FRAME.position
+	_frame.size = FRAME.size
+	_body.add_child(_frame)
+	_body.move_child(_frame, 0) # behind the pedestal and the figure
 
 	_plus = Button.new()
 	_plus.name = "InvitePlus"
@@ -78,13 +101,13 @@ func _ready() -> void:
 	_plus.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
 	LobbyUi.set_icon(_plus, "plus", 76)
 	_plus.pressed.connect(func() -> void: invite_pressed.emit())
-	add_child(_plus)
+	_body.add_child(_plus)
 	_plus_label = LobbyUi.text("Mời", 26, Color.WHITE, true)
 	_plus_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	LobbyUi.outline(_plus_label, 8) # reads on a bright ground (snow)
 	_plus_label.size = Vector2(SIZE.x, 34)
 	_plus_label.position = Vector2(0, FEET.y + 34.0) # under the pedestal
-	add_child(_plus_label)
+	_body.add_child(_plus_label)
 
 	_art = CharacterView.new()
 	_art.size = ART * SCALE
@@ -92,18 +115,18 @@ func _ready() -> void:
 	_art.idle = true
 	_art.hands_free = true # the gun rests on the pedestal
 	_art.back_aura = false # the worn weapon's ring is mine (PlayerState), not theirs
-	add_child(_art)
+	_body.add_child(_art)
 	_gun = PedestalGun.new()
 	_gun.size = PedestalGun.STAGE_RECT.size
 	_gun.scale = Vector2.ONE * SCALE
 	_gun.position = FEET + (PedestalGun.STAGE_RECT.position - PedestalGun.FEET) * SCALE
-	add_child(_gun)
+	_body.add_child(_gun)
 
 	_head = Ui.vbox(2)
 	_head.mouse_filter = MOUSE_FILTER_IGNORE
 	_head.size = Vector2(SIZE.x, 0)
 	_head.position = Vector2(0, _art.position.y - 58.0) # over the figure's head
-	add_child(_head)
+	_body.add_child(_head)
 	_name = LobbyUi.text("", 28, Color.WHITE, true)
 	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_name.clip_text = true
@@ -114,8 +137,6 @@ func _ready() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.mouse_filter = MOUSE_FILTER_IGNORE
 	_head.add_child(row)
-	_badge = TierBadge.make("", 3, 30)
-	row.add_child(_badge)
 	_level = LobbyUi.text("", 22, LobbyUi.GOLD, true)
 	_level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(_level)
@@ -130,20 +151,21 @@ func _ready() -> void:
 	mark_row.add_child(tick)
 	_ready_text = LobbyUi.text("", 21, Color.WHITE, true)
 	mark_row.add_child(_ready_text)
-	add_child(_ready_mark)
+	_body.add_child(_ready_mark)
 
 	_kick = LobbyUi.round_button("close", 46, LobbyUi.ICON_COLORS["red"], 0.5)
 	_kick.name = "Kick"
 	_kick.tooltip_text = "Mời ra khỏi đội"
 	_kick.position = Vector2(SIZE.x - 58, _art.position.y + 20.0)
 	_kick.pressed.connect(func() -> void: kick_pressed.emit())
-	add_child(_kick)
+	_body.add_child(_kick)
 	_leave = LobbyUi.pill_button("Rời đội", 22, 48, "back")
 	LobbyUi.texture_button(_leave, "button_navy", 14)
 	_leave.name = "LeaveParty"
 	_leave.pressed.connect(func() -> void: leave_pressed.emit())
-	add_child(_leave)
+	_body.add_child(_leave)
 	show_member({}, false)
+	_apply_fit()
 
 
 ## Shows the teammate `m` (PartyModel.parse_member()) or, with {}, the "+". host_view: I am the
@@ -158,7 +180,7 @@ func show_member(m: Dictionary, host_view: bool, is_host_card: bool = true, can_
 	_plus.modulate.a = 1.0 if can_invite else 0.4
 	_plus_label.text = "Mời" if can_invite else "Trống"
 	_plus_label.modulate.a = 1.0 if can_invite else 0.6
-	for c in [_art, _gun, _head, _ready_mark]:
+	for c in [_art, _gun, _head, _ready_mark, _frame]:
 		c.visible = not empty
 	_kick.visible = not empty and host_view
 	_leave.visible = not empty and not host_view and is_host_card
@@ -174,9 +196,7 @@ func show_member(m: Dictionary, host_view: bool, is_host_card: bool = true, can_
 	ElementBadge.fit_label(_name, SIZE.x - (2 * (30 + 6) if element != "" else 0))
 	var level := int(m.get("level", 0))
 	_level.text = "Lv.%d" % level if level > 0 else ""
-	_badge.tier = str(m.get("tier", ""))
-	_badge.division = int(m.get("division", 3))
-	_badge.visible = _badge.tier != ""
+	_frame.grade = str(m.get("rankBadge", ""))
 	var ready := bool(m.get("ready", false))
 	_ready_mark.visible = host_view or not is_host_card # the member sees the host, always ready: "Rời đội" there instead
 	_ready_text.text = "Sẵn sàng" if ready else "Chưa sẵn sàng"
@@ -184,6 +204,22 @@ func show_member(m: Dictionary, host_view: bool, is_host_card: bool = true, can_
 	_ready_mark.get_child(0).get_node("Tick").visible = ready
 	_place_marks()
 	_pedestal.queue_redraw()
+
+
+## The content at full size, or (fit_art) shrunk so FRAME (the frame's window) becomes the window
+## the art leaves inside SIZE, centred.
+func _apply_fit() -> void:
+	if _body == null:
+		return
+	var fc := GradeFrame.layout()
+	if fit_art and not fc.is_empty():
+		var f := GradeFrame.fit(fc, SIZE, FRAME.size)
+		var k := float(f["s"])
+		_body.scale = Vector2.ONE * k
+		_body.position = Rect2(f["card"]).position - FRAME.position * k
+	else:
+		_body.scale = Vector2.ONE
+		_body.position = Vector2.ZERO
 
 
 ## The teammate shown ({} the "+").

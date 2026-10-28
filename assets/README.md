@@ -93,6 +93,22 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   `tools/import_titles.gd` (config `art_source/ui/titles/titles.json`: the "✦" watermarks, the
   stretch runs a long name widens, the name's box): replace a picture (or edit the config) and
   re-run it (`$GODOT --headless --path . -s tools/import_titles.gd`); it rewrites titles.json.
+- **Rank frames and badges** (cấp bậc: `ranks/frame_<grade>.png` 768 × 960, the frame round a
+  player card on the lobby party slots and the Matchmaking / VS cards; `ranks/badge_<grade>.png`
+  256 × 256, the insignia next to the name in the match, on the result screens and on the frame's
+  top medallion; `ranks/ranks.json`, the frame layout in texture px; grade ids as in the game data,
+  `binh_nhi` … `dai_tuong`): optional, `ui/art.gd` `rank_frame()` / `rank_badge()` return null
+  without the file and `screens/ranked/grade_frame.gd` / `grade_badge.gd` draw their code
+  placeholder. AI-drawn on flat magenta from `art_source/ranks/PROMPTS.md`:
+  `art_source/ranks/frames/frame_<grade>.png` (1024 × 1280, 4:5, the empty card window 12 % in from
+  every edge, filled with the backdrop) and `badges/badge_<grade>.png` (square), imported by
+  `tools/import_rank_art.gd` (config `art_source/ranks/ranks.json`: groups, frame layout, badge fill
+  per group, ✦ watermarks over the art, sheets):
+  `$GODOT --headless --path . -s tools/import_rank_art.gd [-- <grade> ...] [--debug=<dir>]`. Every
+  frame is registered by its measured window (all grades share the same window rect, seat and
+  stretch runs: `ranks.json`); the side bands between `stretchY` are plain, so a card taller than
+  4:5 is framed by drawing the frame at card width / window width and heightening only those runs
+  (the tool's `sliced()`; the debug previews show the party slot's and the VS card's proportions).
 - **9-patches** (`ui/`): keep the corners inside the texture margins listed below
   (`ui/art.gd` `UI_BOXES`), or change the margins there.
 - Import settings: icons, effects and clouds are imported with mipmaps (they are shown smaller

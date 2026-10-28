@@ -10,8 +10,8 @@ extends Control
 ## their name (mine gold) and damage, "MVP" on the best one as in PvP; they rise onto their steps
 ## from #4 to #1, the damage counting up. Bottom left my rewards card:
 ## the run's table badge ("Lượt thưởng lớn" gold / "Thưởng thường" grey) with "Còn x lượt thưởng
-## lớn hôm nay", +EXP with its bar, +xu, my damage to the boss, and the items won (icons and names
-## from the game data); a level up opens the "LÊN CẤP!" popup after the EXP. Bottom right "Chơi
+## lớn hôm nay", +EXP with its bar, +xu, my damage to the boss, and the items and chests won
+## (icons and names from the game data; a bonus run's stone chests, MatchEnded chests); a level up opens the "LÊN CẤP!" popup after the EXP. Bottom right "Chơi
 ## tiếp" (the same boss's queue again; not for the party's member), "Về sảnh" (the party kept) and
 ## "Tự động về sảnh sau N giây".
 ##
@@ -31,6 +31,7 @@ const ResultModel := preload("res://match/result_model.gd")
 const BossResultModel := preload("res://match/boss/boss_result_model.gd")
 const LevelUpPopup := preload("res://match/level_up_popup.gd")
 const Fmt := preload("res://core/fmt.gd")
+const ChestIcon := preload("res://ui/chest_icon.gd")
 
 const GOLD := Color(1.0, 0.8, 0.22)
 const LOSE_TITLE := Color(0.62, 0.72, 0.9)
@@ -320,8 +321,17 @@ func _build_bottom() -> Control:
 	items.name = "Items"
 	col.add_child(items)
 	var list: Array = reward.get("items", [])
-	if list.is_empty():
+	var chests: Array = reward.get("chests", [])
+	if list.is_empty() and chests.is_empty():
 		items.add_child(LobbyUi.text("Không rơi vật phẩm", 20, Ui.TEXT_DIM))
+	for c in chests:
+		var one := Ui.hbox(6)
+		one.name = "Chest_" + str(c["chestId"])
+		one.add_child(ChestIcon.make(str(c["chestId"]), 48))
+		var l := LobbyUi.text(str(c["text"]), 22, LobbyUi.GOLD, true)
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		one.add_child(l)
+		items.add_child(one)
 	for it in list:
 		var one := Ui.hbox(6)
 		var icon := LobbyUi.icon(Art.item_icon(str(it["itemId"])), 44)

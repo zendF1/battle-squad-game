@@ -14,6 +14,16 @@ const PURCHASE := {
 	"SHOP_ALREADY_OWNED": "Bạn đã có nhân vật này",
 	"SHOP_OFFER_INACTIVE": "Gói này không còn bán",
 }
+const CHEST := {
+	"CHEST_NOT_ENOUGH": "Không đủ rương để mở",
+	"CHEST_UNKNOWN": "Rương này không còn",
+	"BUSY": "Đang mở rương, chờ chút",
+}
+const SEASON_REWARD := {
+	"SEASON_REWARD_ALREADY_CLAIMED": "Phần thưởng mùa này đã được nhận",
+	"SEASON_REWARD_NOT_FOUND": "Không có phần thưởng mùa để nhận",
+	"BUSY": "Đang nhận thưởng, chờ chút",
+}
 const IAP := {
 	"IAP_VERIFICATION_FAILED": "Giao dịch bị từ chối",
 	"IAP_TRANSACTION_CONFLICT": "Giao dịch này đã được dùng cho gói khác",
@@ -285,6 +295,26 @@ static func milestone(res: Dictionary) -> String:
 	if int(res.get("status", 0)) == 0:
 		return OFFLINE
 	return MILESTONE.get(code, "Nhận thưởng thất bại: %s" % res.get("message", ""))
+
+
+## POST /chests/open failure.
+static func chest(res: Dictionary) -> String:
+	var code := str(res.get("code", ""))
+	if code == "BUSY":
+		return CHEST[code]
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	return CHEST.get(code, "Mở rương thất bại: %s" % res.get("message", ""))
+
+
+## POST /rank/season-rewards/claim failure.
+static func season_reward(res: Dictionary) -> String:
+	var code := str(res.get("code", ""))
+	if code == "BUSY":
+		return SEASON_REWARD[code]
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	return SEASON_REWARD.get(code, "Nhận thưởng mùa thất bại: %s" % res.get("message", ""))
 
 
 ## POST /player/titles/equip failure.

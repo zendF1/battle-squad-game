@@ -1,14 +1,14 @@
 extends "res://ui/modal.gd"
 ## "Mời đồng đội" (the "+" of the Home teammate slot): a name search (ListOnlinePlayers {query},
 ## DEBOUNCE after the last key) over a scrolling list of the online players (OnlinePlayers through
-## Router.party): head, name, "Lv.N", tier badge and a "Mời" button, off with "Bận" / "Đang trận"
+## Router.party): head, name, "Lv.N", their badge (rankBadge, when they have one) and a "Mời" button, off with "Bận" / "Đang trận"
 ## for a busy player and "Đã mời (12s)" counting down once invited (PartyModel.row_button()). It
 ## asks for the list on opening and every REFRESH_SEC while open, and closes itself once a
 ## teammate joined.
 
 const PartyModel := preload("res://screens/home/party_model.gd")
 const HeadIcon := preload("res://screens/home/head_icon.gd")
-const TierBadge := preload("res://screens/ranked/tier_badge.gd")
+const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 
 const DEBOUNCE := 0.4
@@ -115,10 +115,11 @@ func _row(p: Dictionary) -> Control:
 	var lv := LobbyUi.text("Lv.%d" % level if level > 0 else "", 21, LobbyUi.GOLD, true)
 	lv.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	line.add_child(lv)
-	line.add_child(TierBadge.make(str(p["tier"]), int(p["division"]), 28))
-	var rank := LobbyUi.text(RankModel.label(str(p["tier"]), int(p["division"])), 20, Ui.TEXT_DIM)
-	rank.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	line.add_child(rank)
+	if str(p.get("rankBadge", "")) != "":
+		line.add_child(GradeBadge.make(str(p["rankBadge"]), 0, 30))
+		var rank := LobbyUi.text(RankModel.grade_name(str(p["rankBadge"])), 20, GradeBadge.text_color(str(p["rankBadge"])))
+		rank.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		line.add_child(rank)
 	var b := Ui.button("Mời", 24)
 	b.name = "Invite_" + str(p["playerId"])
 	b.custom_minimum_size = Vector2(190, 64)

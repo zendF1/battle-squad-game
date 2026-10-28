@@ -1,8 +1,8 @@
 extends RefCounted
 ## The matchmaking screen without UI: the four card slots (my team on the left, me first; the
 ## enemies on the right) from a MatchFound payload ({roomId, matchId, mapId, mode, teams:
-## [{teamId, players: [{playerId, displayName, characterId, isBot, level, rating, tier,
-## division, titleId}]}]}) or, from a server that sends no teams, from MatchStarted's players;
+## [{teamId, players: [{playerId, displayName, characterId, isBot, level, rankBadge,
+## titleId}]}]}) or, from a server that sends no teams, from MatchStarted's players;
 ## the order the cards flip in; and my own card while searching.
 
 const RankModel := preload("res://screens/ranked/rank_model.gd")
@@ -45,25 +45,17 @@ static func _str(v: Variant, fallback: String = "") -> String:
 	return str(v) if v is String and str(v) != "" else fallback
 
 
-## A card's player: {playerId, displayName, characterId, isBot, level (0 unknown), rating (-1
-## unknown), tier ("" unknown), division, titleId}; {} for anything that is not a player.
+## A card's player: {playerId, displayName, characterId, isBot, level (0 unknown), rankBadge
+## (last season's final grade: the card's frame; "" none), titleId, teamId}; {} for anything that
+## is not a player.
 static func parse_player(p: Variant) -> Dictionary:
 	if not p is Dictionary or _str(p.get("playerId")) == "":
 		return {}
 	var id := _str(p.get("playerId"))
 	var is_bot: bool = p.get("isBot") if p.get("isBot") is bool else id.begins_with("bot_")
-	var rating := _num(p.get("rating"), -1)
-	var tier := _str(p.get("tier"))
-	var division := _num(p.get("division"), 0)
-	if RankModel.tier_index(tier) < 0:
-		tier = ""
-		if rating >= 0:
-			var r := RankModel.of_rating(rating)
-			tier = r[0]
-			division = r[1]
 	return {"playerId": id, "displayName": _str(p.get("displayName"), "Bot" if is_bot else id.left(8)),
 		"characterId": _str(p.get("characterId"), GameData.default_character_id()), "isBot": is_bot, "level": _num(p.get("level"), 0),
-		"rating": rating, "tier": tier, "division": clampi(division, 0, 3), "titleId": _str(p.get("titleId")),
+		"rankBadge": RankModel.badge_of(p), "titleId": _str(p.get("titleId")),
 		"teamId": _num(p.get("teamId"), 0)}
 
 
@@ -144,12 +136,15 @@ static func reveal_order(found_slots: Array, me: String) -> Array:
 	return out
 
 
-## My card while searching: name, character and level from the profile, the rank from GET
-## /rank/me (PlayerState.my_rank(), {} when not loaded: the defaults).
-static func my_player(me: String, display_name: String, character_id: String, level: int, rank_data: Variant) -> Dictionary:
-	var rank := RankModel.from_me(rank_data)
+## My card while searching: name, character and level from the profile, the badge (rankBadge)
+## from the profile (GET /player/profile), else GET /rank/me ({} when not loaded: none).
+static func my_player(me: String, display_name: String, character_id: String, level: int, profile: Variant,
+		rank_data: Variant = {}) -> Dictionary:
+	var badge := RankModel.badge_of(profile)
+	if badge == "":
+		badge = RankModel.badge_of(rank_data)
 	return {"playerId": me, "displayName": display_name, "characterId": character_id, "isBot": false,
-		"level": level, "rating": rank["rating"], "tier": rank["tier"], "division": rank["division"], "titleId": "", "teamId": 0}
+		"level": level, "rankBadge": badge, "titleId": "", "teamId": 0}
 
 
 ## The line under a card's name: "Lv.40" (with " · Máy" for a bot); "" with neither.
@@ -160,9 +155,3 @@ static func level_text(p: Dictionary) -> String:
 	if p.get("isBot", false):
 		parts.append("Máy")
 	return " · ".join(parts)
-
-
-## The rank line of a card: "Bạc II" (or "" when unknown).
-static func rank_text(p: Dictionary) -> String:
-	var tier := str(p.get("tier", ""))
-	return RankModel.label(tier, int(p.get("division", 0))) if tier != "" else ""

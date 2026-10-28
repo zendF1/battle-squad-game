@@ -3,7 +3,7 @@ extends Control
 ## ModeSelectModel.sections() (the game data's categories in order: PvP, Boss, ...), the tab row
 ## of the other Home pages (Ui.tab_row). A cards section (PvP) shows one big card per mode in its
 ## order: the icon on a round plate, the name, the description, the party badge ("2 người"), for a
-## ranked mode the player's tier badge and "Bạc II · 1.050 điểm"; the chosen mode framed and tagged
+## ranked mode the player's grade insignia and "Binh nhì 2 · 45/100"; the chosen mode framed and tagged
 ## "Đang chọn". A grid section (Boss) shows a grid of small cards, one per mode. A section without
 ## modes shows one disabled card: "Sắp ra mắt" and its line ("Phòng 4 người cùng đánh boss").
 ## The Boss section shows one card per boss mode (screens/home/boss_card_model.gd): the boss's
@@ -20,7 +20,7 @@ const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const ModeSelectModel := preload("res://screens/home/mode_select_model.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
-const TierBadge := preload("res://screens/ranked/tier_badge.gd")
+const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
 const BossCardModel := preload("res://screens/home/boss_card_model.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
 const ElementBackdrop := preload("res://ui/element_backdrop.gd")
@@ -208,17 +208,17 @@ func _big_card(c: Dictionary, order: int) -> Button:
 	return b
 
 
-## The player's tier badge and "Bạc II · 1.050 điểm" ("Đang tải hạng..." until GET /rank/me).
+## The player's grade insignia and "Binh nhì 2 · 45/100" ("Đang tải hạng..." until GET /rank/me).
 func _rank_row() -> Control:
 	var row := Ui.hbox(8)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.mouse_filter = MOUSE_FILTER_IGNORE
 	var data := PlayerState.my_rank()
 	var r := RankModel.from_me(data)
-	var tier: String = r["tier"] if not data.is_empty() else ""
-	row.add_child(TierBadge.make(tier, r["division"], 40))
+	var grade: String = r["grade"] if not data.is_empty() else ""
+	row.add_child(GradeBadge.make(grade, r["division"], 40))
 	var line := LobbyUi.text(RankModel.mode_line(r) if not data.is_empty() else "Đang tải hạng...", 22,
-		TierBadge.COLORS[tier if TierBadge.COLORS.has(tier) else ""][0], true)
+		GradeBadge.text_color(grade), true)
 	line.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	line.mouse_filter = MOUSE_FILTER_IGNORE
 	row.add_child(line)
