@@ -47,6 +47,7 @@ const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
 const CharacterShopModel := preload("res://screens/home/character_shop_model.gd")
 const CharacterShopUi := preload("res://screens/home/character_shop_ui.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
+const CardGrid := preload("res://ui/card_grid.gd")
 
 const SUB_TABS := ["Vật phẩm", "Trang bị", "Đá nâng cấp", "Nhân vật", "Kim cương", "Đổi xu"]
 const ITEMS := 0
@@ -65,6 +66,9 @@ const NEEDS := [["offers", "purchases"], ["equipment"], ["equipment", "stones"],
 ## The quantities a stone card offers.
 const STONE_QUANTITIES := [1, 5, 10]
 const STONE_CARD_W := 246
+## The Vật phẩm card (every card this size: ui/card_grid.gd; seven a row at 1600 px) and its icon.
+const ITEM_CARD := Vector2(206, 0)
+const ITEM_ICON_PX := 88
 const REPLAYED := "Giao dịch trước đã hoàn tất"
 
 ## Where dialogs and toasts go (the Home shell); defaults to this tab.
@@ -84,7 +88,7 @@ var _sub_tabs: Array[Button]
 var _load_status: LoadStatus
 var _action_status: LoadStatus
 var _pages: Array[Control] = []
-var _flows: Array[HFlowContainer] = []
+var _flows: Array[Container] = [] # each sub-tab's CardGrid (null: Nhân vật)
 var _slot := "" # the Trang bị slot filter, "" = all
 var _chips: Array[Button]
 var _equipment_dirty := false # equipment changed while Trang bị was not shown
@@ -124,9 +128,8 @@ func _ready() -> void:
 			_pages.append(row)
 			_flows.append(null)
 			continue
-		var flow := HFlowContainer.new()
-		flow.add_theme_constant_override("h_separation", 14)
-		flow.add_theme_constant_override("v_separation", 14)
+		var flow := CardGrid.new()
+		flow.name = "Grid%d" % i
 		var page: Control = Ui.scroll(flow)
 		if i == EQUIPMENT:
 			var box := Ui.vbox(12)
@@ -324,25 +327,32 @@ func _render_items() -> void:
 	var offers := ShopModel.item_offers(_data["offers"])
 	if offers.is_empty():
 		flow.add_child(_empty("Chưa có vật phẩm nào được bán"))
+	var limited := offers.any(func(o): return o.get("limitPerPlayer") != null)
 	for o in offers:
-		var box := _card(flow, Vector2(300, 0))
-		var head := Ui.hbox(12)
-		box.add_child(head)
-		var icon := LobbyUi.icon(Art.item_icon(str(o.get("itemId", ""))), 56)
-		icon.tooltip_text = GameData.item_description(str(o.get("itemId", "")))
+		# Pictures first: the big icon (its description as the tooltip), the name small on one
+		# line, the price with the currency icon, Mua. Every card the same size (CardGrid).
+		var box := _card(flow, ITEM_CARD)
+		box.alignment = BoxContainer.ALIGNMENT_CENTER
+		var id := str(o.get("itemId", ""))
+		var icon := LobbyUi.icon(Art.item_icon(id), ITEM_ICON_PX)
+		icon.size_flags_horizontal = SIZE_SHRINK_CENTER
+		icon.tooltip_text = GameData.item_description(id)
 		icon.mouse_filter = MOUSE_FILTER_PASS
-		head.add_child(icon)
-		var names := Ui.vbox(0)
-		head.add_child(names)
-		names.add_child(Ui.text(ShopModel.offer_name(o), 26))
-		names.add_child(Ui.text("x%d" % int(o.get("quantity", 1)), 24, Ui.TONES["draw"]))
-		_price(box, o)
+		box.add_child(icon)
+		var name_label := Ui.text(ShopModel.offer_name(o), 20, Ui.TEXT_DIM)
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_label.clip_text = true
+		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		box.add_child(name_label)
+		var price := CenterContainer.new()
+		box.add_child(price)
+		_price(price, o)
 		var left := ShopModel.remaining(o, _data["purchases"]) if _data.has("purchases") else ShopModel.UNLIMITED
-		# The limit line is always reserved, so every card has the same height and the "Mua"
-		# buttons line up.
-		var note := Ui.text(ShopModel.remaining_text(left), 20, Ui.TEXT_DIM)
-		note.custom_minimum_size.y = 28
-		box.add_child(note)
+		if limited: # a limit line only when some offer has one; every card reserves it then
+			var note := Ui.text(ShopModel.remaining_text(left), 18, Ui.TEXT_DIM)
+			note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			note.custom_minimum_size.y = 24
+			box.add_child(note)
 		var buy := _action_button("Mua")
 		buy.disabled = PlayerState.busy_id != "" or left == 0
 		buy.pressed.connect(_on_buy.bind(o))
@@ -596,7 +606,7 @@ func _price(box: Control, offer: Dictionary) -> void:
 	LobbyUi.icon_text(box, ShopModel.currency_icon(str(offer.get("priceCurrency", ""))), ShopModel.price_text(offer), 26, Color.WHITE, false, 34)
 
 
-func _card(flow: HFlowContainer, min_size: Vector2) -> VBoxContainer:
+func _card(flow: Container, min_size: Vector2) -> VBoxContainer:
 	var card := Ui.card(Ui.CARD_BG, 18)
 	card.custom_minimum_size = min_size
 	flow.add_child(card)
