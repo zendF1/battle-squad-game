@@ -20,8 +20,9 @@ extends Control
 ## There is no end-turn button (a turn ends with a shot or the clock) and no weapon button (the
 ## normal shot is the default). A special (the skill or a shot item) once tapped stays armed for
 ## the turn (match/action_lock.gd: the other shot slots go off). A turn change also shows a short
-## centre banner ("Lượt của bạn" / "Lượt của X"); a lost turn (stun / freeze) shows a longer one
-## under it ("Choáng — mất lượt", announce_skip()). The small result panel (show_result()) is
+## centre banner ("Lượt của bạn" / "Lượt của X"); my own lost turn (stun / freeze, TurnStarted
+## skipAfter) shows its countdown dead centre under it: a ring emptying and the seconds left, no
+## text (show_countdown(), match/views/countdown_ring.gd). The small result panel (show_result()) is
 ## only for a cancelled match and a lost connection: a match that ended shows the full-screen
 ## result (match/result_screen.gd).
 ## Boss mode: under the top centre the boss's bar (match/boss/boss_hud.gd: name, HP, shield,
@@ -45,6 +46,7 @@ const GameData := preload("res://autoload/game_data_model.gd")
 const BossHud := preload("res://match/boss/boss_hud.gd")
 const BossArt := preload("res://match/boss/boss_art.gd")
 const BossArtView := preload("res://match/boss/boss_art_view.gd")
+const CountdownRing := preload("res://match/views/countdown_ring.gd")
 
 const NAVY := Color(0.06, 0.09, 0.22, 0.78)
 const MODE_BG := Color(0.13, 0.2, 0.42, 0.9)
@@ -65,6 +67,8 @@ const MOVE_SIZE := 110
 const ENERGY_GAP := 10 # between the left move button and the energy under it
 const NOTICE_GAP := 8 # between the notice and the left move button over which it sits
 const PORTRAIT_SLIDE := 70.0 # px the portrait slides in from the right
+const COUNTDOWN_RADIUS := 64.0
+const COUNTDOWN_Y := 0.62 # of the screen's height: the ring's centre (under the turn banner, centred across)
 ## The chat's line until match chat exists.
 const CHAT_LINE := {"channel": "Hệ thống", "name": "", "text": "Trận đấu bắt đầu!"}
 
@@ -77,9 +81,7 @@ var _aim: Label
 var _aim_panel: PanelContainer
 var _energy: ProgressBar
 var _move_notice: Label
-var _skip_banner: PanelContainer
-var _skip_label: Label
-var _skip_tween: Tween
+var _countdown: Node2D # my lost turn's ring (CountdownRing), centred under the turn banner
 var _data_notice: Label = null # set_data_notice(), made on first use
 var _left: Button
 var _right: Button
@@ -517,24 +519,17 @@ func move_notice() -> String:
 	return _move_notice.text if _move_notice.visible else ""
 
 
-## A lost turn: a red banner under the turn banner, held for `hold` s ("" hides it).
-func announce_skip(text: String, hold: float = 1.8) -> void:
-	_skip_label.text = text
-	if _skip_tween:
-		_skip_tween.kill()
-	if text == "":
-		_skip_banner.modulate.a = 0.0
-		return
-	_skip_banner.modulate.a = 1.0
-	if not is_inside_tree():
-		return
-	_skip_tween = create_tween()
-	_skip_tween.tween_interval(hold)
-	_skip_tween.tween_property(_skip_banner, "modulate:a", 0.0, 0.4)
+## My lost turn's countdown: the seconds left (0 hides it) and the ring's share still filled,
+## in the effect's colour (CountdownRing).
+func show_countdown(effect: String, number: int, fraction: float) -> void:
+	_countdown.show_time(effect, number, fraction)
 
 
-func skip_text() -> String:
-	return _skip_label.text if _skip_banner.modulate.a > 0.0 else ""
+## The countdown shown: {visible, effect, number, fraction, centre (screen px)}.
+func countdown() -> Dictionary:
+	return {"visible": _countdown.visible and _countdown.number > 0, "effect": _countdown.effect,
+		"number": _countdown.number, "fraction": _countdown.fraction,
+		"centre": _countdown.get_parent().get_global_rect().position if _countdown.get_parent() is Control else Vector2.ZERO}
 
 
 ## A short notice under the turn clock while the match waits for something (the game data being
@@ -725,23 +720,18 @@ func _build_banner() -> void:
 	_banner_label = LobbyUi.text("", 56, Color.WHITE, true)
 	_banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_banner.add_child(_banner_label)
-	var skip_center := CenterContainer.new() # under the turn banner
-	skip_center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	skip_center.anchor_top = 0.3
-	skip_center.anchor_bottom = 0.72
-	skip_center.mouse_filter = MOUSE_FILTER_IGNORE
-	add_child(skip_center)
-	_skip_banner = _ignore(PanelContainer.new())
-	_skip_banner.name = "SkipBanner"
-	_skip_banner.modulate.a = 0.0
-	var box := LobbyUi.box(Color(0.32, 0.05, 0.08, 0.9), 26, 14, Color(1.0, 0.5, 0.4, 0.9), 3)
-	box.content_margin_left = 44
-	box.content_margin_right = 44
-	_skip_banner.add_theme_stylebox_override("panel", box)
-	skip_center.add_child(_skip_banner)
-	_skip_label = LobbyUi.text("", 40, Color(1.0, 0.92, 0.85), true)
-	_skip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_skip_banner.add_child(_skip_label)
+	var holder := Control.new() # my lost turn's countdown, dead centre
+	holder.name = "SkipCountdown"
+	holder.mouse_filter = MOUSE_FILTER_IGNORE
+	holder.anchor_left = 0.5
+	holder.anchor_right = 0.5
+	holder.anchor_top = COUNTDOWN_Y
+	holder.anchor_bottom = COUNTDOWN_Y
+	add_child(holder)
+	_countdown = CountdownRing.new()
+	_countdown.radius = COUNTDOWN_RADIUS
+	_countdown.visible = false
+	holder.add_child(_countdown)
 
 
 ## The centre banner: pops in, holds, fades out.

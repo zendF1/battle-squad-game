@@ -427,7 +427,7 @@ func test_free_summon_then_attack() -> void:
 			"movement": "none"}]}
 	m._on_event("ShotResolved", summon)
 	check(not m._turn_resolved, "the summon leaves the boss's turn open")
-	eq(m._hud.boss_hud()._skill_label.text, "Triệu hồi", "Triệu hồi under the boss bar")
+	eq(m._hud.boss_hud()._skill_label.text, "Gọi người tuyết", "the summon's name (063: summon.name) under the boss bar")
 	m._on_event("ActionSelected", {"playerId": "boss_ice_witch", "actionMode": "skill", "skillId": "ice_spikes"})
 	eq(m._deferred.size(), 1, "the attack waits for the summon's replay")
 	_run(m, 1.1)
@@ -443,7 +443,7 @@ func test_free_summon_then_attack() -> void:
 func test_frozen_boss_summons_only() -> void:
 	var m := _screen()
 	m._on_event("ActionSelected", {"playerId": "boss_ice_witch", "actionMode": "summon"})
-	eq(m._hud.boss_hud()._skill_label.text, "Triệu hồi", "an ActionSelected summon names it too")
+	eq(m._hud.boss_hud()._skill_label.text, "Gọi người tuyết", "an ActionSelected summon names it too")
 	m._on_event("ShotResolved", {"shooterId": "boss_ice_witch", "actionMode": "summon", "projectiles": [], "duration": 0.4, "events": []})
 	_run(m, 0.5)
 	m._on_event("TurnStarted", {"currentPlayerId": "me", "turnIndex": 6, "moveEnergy": 100})
@@ -453,6 +453,7 @@ func test_frozen_boss_summons_only() -> void:
 
 func test_unit_jumped_and_leapt_through_turns() -> void:
 	var m := _screen()
+	GameData.boss_minion("ice_witch", "snowman")["leapDetonateNextTurn"] = true # a leaper that blows up (the snowman before 063)
 	m._apply("TurnStarted", {"currentPlayerId": "minion_snowman_1", "turnIndex": 6, "moveEnergy": 0})
 	m._on_event("UnitJumped", {"playerId": "minion_snowman_1", "from": {"x": 1500, "y": 700}, "to": {"x": 950, "y": 700}, "duration": 0.9,
 		"height": 160})

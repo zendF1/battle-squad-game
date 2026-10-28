@@ -158,17 +158,20 @@ func test_player_view_shield_and_status_looks() -> void:
 	v.get_parent().free()
 
 
-func test_hud_notice_and_skip_banner() -> void:
+func test_hud_notice_and_skip_countdown() -> void:
 	var h: Control = Hud.new()
 	h._ready()
 	h.set_move_notice("Bị cầm chân")
 	eq(h.move_notice(), "Bị cầm chân", "root notice")
 	h.set_move_notice("")
 	eq(h.move_notice(), "", "hidden")
-	h.announce_skip("Choáng — mất lượt")
-	eq(h.skip_text(), "Choáng — mất lượt", "skip banner")
-	h.announce_skip("")
-	eq(h.skip_text(), "", "hidden")
+	check(not h.has_method("announce_skip"), "no lost-turn sentence banner any more")
+	h.show_countdown("freeze", 4, 0.7)
+	var c: Dictionary = h.countdown()
+	eq([c["visible"], c["effect"], c["number"]], [true, "freeze", 4], "my lost turn: the ring and its seconds")
+	near(c["fraction"], 0.7, 1e-6, "the ring's share")
+	h.show_countdown("freeze", 0, 0.0)
+	eq(h.countdown()["visible"], false, "hidden")
 	h.free()
 
 

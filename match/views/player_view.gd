@@ -329,6 +329,12 @@ func heart_position() -> Vector2:
 	return body_centre()
 
 
+## Where a thing hovering over the unit is centred (local px, origin at the feet): `radius` px
+## clear above the turn arrow and the status markers (a lost turn's countdown ring).
+func overhead_point(radius: float) -> Vector2:
+	return Vector2(0, -_art_top - 64.0 - _title_rise - radius - 6.0)
+
+
 ## A cosmetic hop of the figure (px up, s): an eruption's hit throws it up a little and it lands.
 func hop(height_px: float = 18.0, sec: float = 0.36) -> void:
 	if _dead or _sprite == null:
@@ -397,6 +403,9 @@ func _process(delta: float) -> void:
 	if absf(dx) > 0.01:
 		_walk_left = WALK_HOLD
 		_sprite.face(dx)
+	if _fx != null and _fx.facing != float(_sprite.facing):
+		_fx.facing = float(_sprite.facing)
+		_fx.queue_redraw()
 	else:
 		_walk_left = maxf(0.0, _walk_left - delta)
 	_sprite.set_walking(_walk_left > 0.0 and not _dead)

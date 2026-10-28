@@ -15,6 +15,8 @@ extends RefCounted
 ##   off it and popping, drips running down and falling, a small green drop over the head (the
 ##   status's icon on the body);
 ## - "stars" (stun): stars circling the head;
+## - "blind" (063, Rô-bốt Thép's Bom mù): a white blindfold tied over the eyes, its ends fluttering
+##   (the blinded player's own turn is whited out besides: match/views/blind_overlay.gd);
 ## - "aura": a good effect (an armed shot item: power_shot, drill_bomb, spider_net, freeze_bomb,
 ##   air_strike; wind_stop): a soft glow round the body in the effect's colour (AURA_COLORS; the
 ##   colours of several mixed); a bad effect with no look of its own (one the game data adds)
@@ -31,10 +33,11 @@ const POP_OUT := 0.22
 ## A look that takes longer to leave (s): the ice cracks, then its fragments fall.
 const POP_OUT_OF := {"ice": 0.55, "stone": 0.5}
 ## The look of an effect with its own picture on the body.
-const LOOKS := {"freeze": "ice", "burn": "flames", "net": "web", "root": "stone", "stun": "stars", "poison": "poison"}
+const LOOKS := {"freeze": "ice", "burn": "flames", "net": "web", "root": "stone", "stun": "stars", "poison": "poison",
+	"blind": "blind"}
 ## Back to front: the aura behind the body, the vines / the earth and stone at its feet, the poison's bubbles, the flames on it, the web over
-## it, the ice crystals over everything on the body, the stars round the head.
-const ORDER := ["aura", "vines", "stone", "poison", "flames", "web", "ice", "stars"]
+## it, the ice crystals over everything on the body, the stars round the head, the blindfold on it.
+const ORDER := ["aura", "vines", "stone", "poison", "flames", "web", "ice", "stars", "blind"]
 ## A good effect's aura colour (DEFAULT_AURA for one not listed).
 const AURA_COLORS := {
 	"power_shot": Color(1.0, 0.42, 0.18),

@@ -81,7 +81,7 @@ func test_unit_kinds_from_state_and_game_data() -> void:
 	check(GameData.unit_explodes_on_death({"role": "minion", "bossId": "ice_witch", "minionId": "snowman"}), "a snowman blasts when it dies")
 	check(not GameData.unit_explodes_on_death({"role": "minion", "bossId": "steel_robot", "minionId": "drone"}), "a drone does not")
 	eq(GameData.unit_explode_radius({"role": "minion", "bossId": "ice_witch", "minionId": "snowman"}), 140.0, "explodeRadius")
-	eq(int(GameData.boss("ice_witch")["turnLimit"]), 30, "the witch's 30 turns")
+	eq(int(GameData.boss("ice_witch")["turnLimit"]), 20, "the witch's 20 turns (every boss 20 since 063)")
 	check(GameData.boss_hover("ice_witch").has("minX"), "her hover band")
 	eq(GameData.boss_hover("steel_robot"), {}, "none on the ground")
 

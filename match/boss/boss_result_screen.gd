@@ -9,8 +9,8 @@ extends Control
 ## on each step's face, each player standing on theirs in full pose (ui/character_view.gd) under
 ## their name (mine gold) and damage, "MVP" on the best one as in PvP; they rise onto their steps
 ## from #4 to #1, the damage counting up. Bottom left my rewards card:
-## the run's table badge ("Lượt thưởng lớn" gold / "Thưởng thường" grey) with "Còn x lượt thưởng
-## lớn hôm nay", +EXP with its bar, +xu, my damage to the boss, and the items and chests won
+## the gift box (the lobby's milestone icon: lit for a big-reward run, dimmed for a normal one) with
+## the big-reward runs left today ("×2"), +EXP with its bar, +xu, my damage to the boss, and the items and chests won
 ## (icons and names from the game data; a bonus run's stone chests, MatchEnded chests); a level up opens the "LÊN CẤP!" popup after the EXP. Bottom right "Chơi
 ## tiếp" (the same boss's queue again; not for the party's member), "Về sảnh" (the party kept) and
 ## "Tự động về sảnh sau N giây".
@@ -239,25 +239,6 @@ func _draw_stage() -> void:
 
 # ── Rewards and buttons ─────────────────────────────────────────────────────
 
-static func _chip(text: String, bg: Color, fg: Color) -> PanelContainer:
-	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", LobbyUi.box(bg, 10, 0))
-	p.size_flags_vertical = SIZE_SHRINK_CENTER
-	p.mouse_filter = MOUSE_FILTER_IGNORE
-	var l := LobbyUi.text(text, 18, fg, true)
-	if fg == LobbyUi.TEXT_DARK:
-		l.add_theme_constant_override("outline_size", 0)
-	l.custom_minimum_size = Vector2(0, 28)
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	var m := MarginContainer.new()
-	m.add_theme_constant_override("margin_left", 10)
-	m.add_theme_constant_override("margin_right", 10)
-	m.mouse_filter = MOUSE_FILTER_IGNORE
-	m.add_child(l)
-	p.add_child(m)
-	return p
-
-
 func _build_bottom() -> Control:
 	var bar := Control.new()
 	bar.mouse_filter = MOUSE_FILTER_IGNORE
@@ -280,12 +261,20 @@ func _build_bottom() -> Control:
 	head.add_child(LobbyUi.text("PHẦN THƯỞNG", 20, Ui.TEXT_DIM, true))
 	if reward.get("ok", false):
 		var bonus: bool = reward.get("bonus_run", false)
-		var badge := _chip(str(reward.get("badge", "")), GOLD if bonus else Color(0.36, 0.4, 0.55), LobbyUi.TEXT_DARK if bonus else Color.WHITE)
-		badge.name = "RunBadge"
-		head.add_child(badge)
-		var left := str(reward.get("left_text", ""))
-		if left != "":
-			head.add_child(LobbyUi.text(left, 20, Color(0.85, 0.92, 1.0), true))
+		var gift := Ui.hbox(6)
+		gift.name = "RunGift"
+		gift.mouse_filter = MOUSE_FILTER_IGNORE
+		var icon := LobbyUi.icon("milestone", 34)
+		icon.mouse_filter = MOUSE_FILTER_IGNORE
+		gift.add_child(icon)
+		var runs := str(reward.get("gift_text", ""))
+		if runs != "":
+			var count := LobbyUi.text(runs, 26, GOLD if bonus else Color(0.85, 0.92, 1.0), true)
+			count.name = "RunsLeft"
+			count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			gift.add_child(count)
+		gift.modulate = Color.WHITE if bonus else Color(1, 1, 1, 0.55)
+		head.add_child(gift)
 	if not reward.get("ok", false):
 		col.add_child(LobbyUi.text("Chưa lấy được phần thưởng của trận này", 24, Color.WHITE, true))
 		return _finish_bottom(bar)

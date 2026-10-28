@@ -74,7 +74,7 @@
       "turnSec": 20,
       "actionIntervalSec": 0.15,
       "botFollowUpDelaySec": 1.5,
-      "skipTurnDelaySec": 2
+      "skipTurnDelaySec": 5
     },
     "skillEnergy": {
       "max": 100,
@@ -713,7 +713,8 @@
       "airStrike": {
         "angle": 270,
         "power": 80
-      }
+      },
+      "freezeBombDamageFactor": 0.5
     },
     "statusEffects": [
       {
@@ -818,6 +819,15 @@
       {
         "effectId": "poison",
         "name": "Trúng độc",
+        "marker": "",
+        "banner": "",
+        "bad": true,
+        "skipsTurn": false,
+        "blocksMove": false
+      },
+      {
+        "effectId": "blind",
+        "name": "Mù",
         "marker": "",
         "banner": "",
         "bad": true,
