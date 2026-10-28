@@ -1,14 +1,14 @@
 extends RefCounted
 ## Chests (rương) without UI: the owned chests (GET /chests → {chests: [{chestId, quantity}]}),
-## a chest's odds from the game data ("60% Đá 5 · 30% Đá 6 · 10% Đá 7", "1 trang bị +14 ngẫu
-## nhiên"), the open buttons ("Mở" one, "Mở 10" up to ten), POST /chests/open's answer
-## ({chestId, opened, stones: [{level, qty}], equipment: [{equipmentId, itemId, upgradeLevel}]})
-## as popup lines, and the chests a match gave (MatchEnded.rewards[me].chests: [{chestId,
-## quantity}]). Names, kinds, odds and upgrade levels are the game data's (GET /gamedata chests).
+## a chest's odds from the game data (as pictures: odds_parts(); the tooltip "60% Đá 5 · 30% Đá
+## 6 · 10% Đá 7", "1 trang bị +14 ngẫu nhiên"), the open buttons (×1, ×N up to ten: the chest's
+## picture with the count), POST /chests/open's answer ({chestId, opened, stones: [{level, qty}],
+## equipment: [{equipmentId, itemId, upgradeLevel}]}, shown by the reward reveal:
+## RewardModel.from_chest_open), and the chests a match gave (MatchEnded.rewards[me].chests:
+## [{chestId, quantity}]). Names, kinds, odds and upgrade levels are the game data's (GET
+## /gamedata chests).
 
 const GameData := preload("res://autoload/game_data_model.gd")
-const EquipmentModel := preload("res://screens/home/equipment_model.gd")
-const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 const Fmt := preload("res://core/fmt.gd")
 
 ## The most chests one POST /chests/open opens.
@@ -103,15 +103,15 @@ static func odds_parts(chest_id: String) -> Array:
 	return []
 
 
-## The open buttons for `owned` chests: [{text, count}]: "Mở" (1) with at least one, then "Mở 10"
-## (min(owned, MAX_OPEN), its count in the text when fewer) with at least two.
+## The open buttons for `owned` chests (the chest's picture over the count): [{text, count}]: "×1"
+## with at least one, then "×10" (min(owned, MAX_OPEN)) with at least two.
 static func open_buttons(owned: int) -> Array:
 	var out: Array = []
 	if owned >= 1:
-		out.append({"text": "Mở", "count": 1})
+		out.append({"text": count_text(1), "count": 1})
 	if owned >= 2:
 		var n := mini(owned, MAX_OPEN)
-		out.append({"text": "Mở %d" % n, "count": n})
+		out.append({"text": count_text(n), "count": n})
 	return out
 
 
@@ -135,28 +135,6 @@ static func parse_open(data: Variant) -> Dictionary:
 					"upgradeLevel": maxi(_num(e.get("upgradeLevel")), 0)})
 	return {"chestId": _str(data.get("chestId")), "opened": maxi(_num(data.get("opened")), 0),
 		"stones": keys.map(func(lv): return {"level": lv, "qty": levels[lv]}), "equipment": equipment}
-
-
-## An open result's lines: [{kind: "stone", level, qty, text: "3 × Đá cấp 5"} | {kind:
-## "equipment", itemId, upgradeLevel, text: "Giáp Rồng +14"}] (the piece's name from the catalog,
-## else its id).
-static func open_lines(result: Dictionary, catalog: Variant) -> Array:
-	var out: Array = []
-	for s in result.get("stones", []):
-		out.append({"kind": "stone", "level": int(s["level"]), "qty": int(s["qty"]),
-			"text": "%d × %s" % [int(s["qty"]), UpgradeModel.stone_name(int(s["level"]))]})
-	for e in result.get("equipment", []):
-		var item := EquipmentModel.item_of(catalog, str(e["itemId"]))
-		var n := EquipmentModel.display_name(item) if not item.is_empty() else str(e["itemId"])
-		var up := int(e["upgradeLevel"])
-		out.append({"kind": "equipment", "itemId": str(e["itemId"]), "upgradeLevel": up,
-			"text": "%s +%d" % [n, up] if up > 0 else n})
-	return out
-
-
-## "Mở 3 Rương đá".
-static func opened_text(result: Dictionary) -> String:
-	return "Mở %d %s" % [int(result.get("opened", 0)), GameData.chest_name(str(result.get("chestId", "")))]
 
 
 ## The chests a match gave (MatchEnded.rewards[me].chests): [{chestId, qty, name, text: "2 ×

@@ -8,15 +8,16 @@ extends Control
 ## the reward icons with their amounts, then "Nhận" (claimable: gold glow, bouncing, tap to
 ## claim), "Đã nhận" (dim, check) or the progress ("37/50", locked: grey); the weapon aura nodes
 ## add their description; a node giving a title is wider and shows the title's small plate over
-## its other rewards (one row). A claim opens a popup listing what was received (a new title:
-## its plate, "Danh hiệu mới: …" and "Đeo ngay"); the wallet and the stones update at once
-## (PlayerState). Loads the list when shown; failures show inline with "Thử lại".
+## its other rewards (one row). A claim plays the reward reveal (ui/reward_reveal.gd) of what was
+## received (a new title: its plate and "Đeo ngay" under the tiles); the wallet and the stones
+## update at once (PlayerState). Loads the list when shown; failures show inline with "Thử lại".
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Art := preload("res://ui/art.gd")
 const LoadStatus := preload("res://ui/load_status.gd")
-const Modal := preload("res://ui/modal.gd")
+const RewardReveal := preload("res://ui/reward_reveal.gd")
+const RewardModel := preload("res://ui/reward_model.gd")
 const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
@@ -435,42 +436,21 @@ func _after_claim(res: Dictionary, heading: String) -> void:
 	show_rewards(overlay, heading, lines)
 
 
-## The "Nhận thưởng" popup: the heading, a new title's plate with "Danh hiệu mới: …" and
-## "Đeo ngay" (each title), then one row per other reward (icon and text).
-static func show_rewards(host: Control, heading: String, all_lines: Array) -> Modal:
-	var m := Modal.new()
-	m.open(host, "Nhận thưởng", 620)
-	m.title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var h := m.add_text(heading, 24)
-	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	h.add_theme_color_override("font_color", DIM)
-	for t in MilestoneModel.title_lines(all_lines):
-		m.body.add_child(_new_title_row(host, t))
-	var lines := MilestoneModel.other_lines(all_lines)
-	# Two columns when the list is long (a big claim-all)
-	var columns := Ui.hbox(40)
-	columns.alignment = BoxContainer.ALIGNMENT_CENTER
-	m.body.add_child(columns)
-	var per_column := ceili(lines.size() / 2.0) if lines.size() > 5 else lines.size()
-	var column: VBoxContainer = null
-	for i in lines.size():
-		if i % maxi(1, per_column) == 0:
-			column = Ui.vbox(10)
-			columns.add_child(column)
-		var line: Dictionary = lines[i]
-		var row := Ui.hbox(14)
-		row.alignment = BoxContainer.ALIGNMENT_CENTER if per_column == lines.size() else BoxContainer.ALIGNMENT_BEGIN
-		row.add_child(reward_icon_node(line, 52))
-		var l := LobbyUi.text(line["text"], 28, Color.WHITE, true)
-		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		row.add_child(l)
-		column.add_child(row)
-	m.add_button("Tuyệt!", m.close)
-	m.close_on_backdrop()
-	return m
+## What a claim gave, as the reward reveal (ui/reward_reveal.gd: a gift box bursting open, the
+## rewards flying out as glowing tiles); each new title's plate with "Đeo ngay" under them.
+## `heading` is unused (pictures, not words); kept for the callers.
+static func show_rewards(host: Control, _heading: String, all_lines: Array) -> Control:
+	var extra: Control = null
+	var titles := MilestoneModel.title_lines(all_lines)
+	if not titles.is_empty():
+		extra = Ui.vbox(12)
+		extra.name = "Titles"
+		for t in titles:
+			extra.add_child(_new_title_row(host, t))
+	return RewardReveal.open(host, RewardModel.from_lines(MilestoneModel.other_lines(all_lines)), {"extra": extra})
 
 
-## A title the claim gave: its plate, "Danh hiệu mới: …" and "Đeo ngay" ("Đang đeo" once worn).
+## A title the claim gave: its plate and "Đeo ngay" ("Đang đeo" once worn).
 static func _new_title_row(host: Control, line: Dictionary) -> Control:
 	var col := Ui.vbox(8)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -483,9 +463,6 @@ static func _new_title_row(host: Control, line: Dictionary) -> Control:
 	var row := Ui.hbox(18)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_child(row)
-	var l := LobbyUi.text(line["text"], 26, GOLD, true)
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(l)
 	var wear := Ui.button("Đeo ngay", 22)
 	wear.custom_minimum_size = Vector2(150, 56)
 	wear.focus_mode = FOCUS_NONE

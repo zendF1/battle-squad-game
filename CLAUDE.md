@@ -6,6 +6,8 @@ Godot 4.7 client of battle-squad (server: ../battle-squad).
 
 Show things in game with pictures (icon, colour, shape, animation), not words or numbers. Add a number only when a picture cannot carry it (a quantity, a timer), and never repeat what the picture already says (a stone's look shows its level: no level badge on it).
 
+Rewards are always shown with the one reward effect, `ui/reward_reveal.gd` (`RewardReveal.open(host, tiles, opts)`: the chest / gift box bursts open, glowing tiles with icon + "×N" only fly out; tiles from `ui/reward_model.gd`); a list of rewards that is not being granted uses its glowing tiles (`ui/reward_strip.gd`).
+
 ## Builds
 
 An editor run proves nothing about an export. The first iOS build (2026-10) showed matches with no names, HP or boss art, and the lobby with side-view characters holding the default gun, while the editor looked right. Two causes:

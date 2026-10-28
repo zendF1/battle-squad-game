@@ -10,8 +10,8 @@ extends Control
 ## title, a bar "x/y" and the button: "Nhận" (gold) claims, "Đi ngay" (blue) emits `go` with the
 ## mission's goto (Home: play → the lobby's BẮT ĐẦU, shop → Shop, equipment → Nâng cấp), "Chưa
 ## xong" / "Đã nhận" are off. A claim flies "+N" to the shield while the number and the bars
-## count up. A tap on a chest / weekly tile claims it when claimable ("Nhận được" popup, the
-## milestone one) or shows what it gives. Failures toast the server's reason (ErrorText.mission)
+## count up. A tap on a chest / weekly tile claims it when claimable (the reward reveal,
+## ui/reward_reveal.gd) or shows what it gives (glowing reward tiles). Failures toast the server's reason (ErrorText.mission)
 ## and the list reloads. Loads each time it is shown and again when the day turns.
 
 signal go(target: String)
@@ -20,6 +20,8 @@ const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const LoadStatus := preload("res://ui/load_status.gd")
 const Modal := preload("res://ui/modal.gd")
+const RewardStrip := preload("res://ui/reward_strip.gd")
+const RewardModel := preload("res://ui/reward_model.gd")
 const DailyModel := preload("res://screens/home/daily_model.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const MilestonePage := preload("res://screens/home/milestone_page.gd")
@@ -637,8 +639,7 @@ func _claim_chest(c: Dictionary) -> void:
 	var lines := DailyModel.reward_lines(MilestoneModel.parse_rewards(data.get("rewards")))
 	if lines.is_empty():
 		lines = DailyModel.reward_lines(c["rewards"])
-	var m := MilestonePage.show_rewards(overlay, DailyModel.chest_title(c), lines)
-	m.title.text = "Nhận được"
+	MilestonePage.show_rewards(overlay, DailyModel.chest_title(c), lines)
 
 
 ## What a chest gives (not claimable now): its rewards and why ("Cần 60 năng động").
@@ -650,16 +651,13 @@ func _show_chest(c: Dictionary) -> Modal:
 	var m := Modal.new()
 	m.open(overlay, DailyModel.chest_title(c), 520)
 	m.add_close_x()
-	var rows := Ui.vbox(10)
-	m.body.add_child(rows)
-	for line in DailyModel.reward_lines(c["rewards"]):
-		var r := Ui.hbox(14)
-		r.alignment = BoxContainer.ALIGNMENT_CENTER
-		r.add_child(MilestonePage.reward_icon_node(line, 48))
-		var l := LobbyUi.text(line["text"], 26, Color.WHITE, true)
-		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		r.add_child(l)
-		rows.add_child(r)
+	var tiles := RewardStrip.new()
+	tiles.name = "Rewards"
+	tiles.max_rows = 2
+	tiles.custom_minimum_size = Vector2(464, RewardStrip.TILE.y)
+	m.body.add_child(tiles)
+	tiles.size = Vector2(464, RewardStrip.TILE.y)
+	tiles.set_tiles(RewardModel.from_lines(DailyModel.reward_lines(c["rewards"])))
 	var hint := m.add_text(DailyModel.chest_hint(c, value), 22)
 	hint.add_theme_color_override("font_color", GREEN if c["state"] == DailyModel.CLAIMED else DIM)
 	return m

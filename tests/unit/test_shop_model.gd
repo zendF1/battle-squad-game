@@ -95,5 +95,3 @@ func test_coin_packs() -> void:
 	eq(ShopModel.coin_pack_button(p10, 9, true), "Không đủ kim cương", "short")
 	eq(ShopModel.coin_pack_button(p10, 10, true), "Đổi", "exact")
 	eq(ShopModel.coin_pack_button(p10, 0, false), "Đổi", "wallet unknown: the server decides")
-	eq(ShopModel.coin_pack_success(p10, {"quantityGranted": 1000}), "Đổi thành công! +1.000 xu", "success")
-	eq(ShopModel.coin_pack_success(p500, null), "Đổi thành công! +50.000 xu", "success without data")

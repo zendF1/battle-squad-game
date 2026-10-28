@@ -11,10 +11,10 @@ extends Control
 ## - "Nguyên liệu": the stone chests owned, then the upgrade stones owned (PlayerState.stones):
 ##   icon, level, count, power (an upgrade arrow by the number); "Mua đá" (Shop → Đá nâng cấp)
 ##   and "Ghép đá" (the Nâng cấp page's Ghép đá).
-## A chest card (PlayerState.chests, GET /chests; its tab by the game data's kind): icon, name,
-## count, the odds as pictures (ChestModel.odds_parts: each stone's icon over its share, a piece
-## over "+14") and "Mở" / "Mở 10" (POST /chests/open, one open at a time); the result opens a
-## popup listing the stones and pieces received.
+## A chest card (PlayerState.chests, GET /chests; its tab by the game data's kind), all pictures:
+## icon (its name the tooltip), count, the odds (ChestModel.odds_parts: each stone's icon over its
+## share, a piece over "+14") and the open buttons (the chest over "×1" / "×10": POST
+## /chests/open, one open at a time); the result plays the reward reveal (ui/reward_reveal.gd).
 ## Each tab loads the first time it is shown; failures show inline with "Thử lại". Upgraded
 ## pieces show their milestone aura and their name in the milestone colour.
 
@@ -37,7 +37,8 @@ const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
 const Fmt := preload("res://core/fmt.gd")
 const ChestModel := preload("res://screens/home/chest_model.gd")
 const ChestIcon := preload("res://ui/chest_icon.gd")
-const Modal := preload("res://ui/modal.gd")
+const RewardReveal := preload("res://ui/reward_reveal.gd")
+const RewardModel := preload("res://ui/reward_model.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
 
 const SUB_TABS := ["Trang bị", "Vật phẩm", "Nguyên liệu"]
@@ -427,8 +428,9 @@ func _render_chests() -> void:
 			flow.add_child(_chest_card(c))
 
 
-## A chest card: its icon, name and count, the odds as pictures under them, the open buttons on
-## the right.
+## A chest card, all pictures: its icon (the name as its tooltip) and count, the odds under them
+## (stone icons over their share, a piece over "+14"), the open buttons on the right (the chest
+## over "×1" / "×10").
 func _chest_card(c: Dictionary) -> Control:
 	var card := Ui.card(Ui.CARD_BG, 14)
 	card.name = "Chest_" + str(c["chestId"])
@@ -437,35 +439,52 @@ func _chest_card(c: Dictionary) -> Control:
 	card.add_child(row)
 	var icon := ChestIcon.make(str(c["chestId"]), 100)
 	icon.size_flags_vertical = SIZE_SHRINK_CENTER
+	icon.tooltip_text = str(c["name"])
+	icon.mouse_filter = MOUSE_FILTER_PASS
 	row.add_child(icon)
 	var box := Ui.vbox(4)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.size_flags_horizontal = SIZE_EXPAND_FILL
 	row.add_child(box)
-	var head := Ui.hbox(10)
-	box.add_child(head)
-	var title := LobbyUi.text(str(c["name"]), 24, Color.WHITE, true)
-	title.name = "Name"
-	head.add_child(title)
-	var count := LobbyUi.text(ChestModel.count_text(int(c["quantity"])), 24, Ui.TONES["draw"], true)
+	var count := LobbyUi.text(ChestModel.count_text(int(c["quantity"])), 28, Ui.TONES["draw"], true)
 	count.name = "Count"
-	head.add_child(count)
+	box.add_child(count)
 	var odds := _odds_row(str(c["chestId"]))
 	odds.name = "Odds"
 	odds.tooltip_text = ChestModel.odds_text(str(c["chestId"]))
 	box.add_child(odds)
-	var buttons := Ui.vbox(8)
+	var buttons := Ui.hbox(8)
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_child(buttons)
 	for spec in ChestModel.open_buttons(int(c["quantity"])):
-		var b := Ui.button(str(spec["text"]), 22)
+		var b := open_button(str(c["chestId"]), str(spec["text"]))
 		b.name = "Open%d" % int(spec["count"])
-		b.custom_minimum_size = Vector2(120, 50)
-		b.focus_mode = FOCUS_NONE
 		b.disabled = PlayerState.chest_busy != ""
 		b.pressed.connect(_open_chest.bind(str(c["chestId"]), int(spec["count"])))
 		buttons.add_child(b)
 	return card
+
+
+## An open button: the chest over its count ("×10"), gold.
+static func open_button(chest_id: String, count: String) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(100, 104)
+	b.focus_mode = FOCUS_NONE
+	LobbyUi.style_button(b, LobbyUi.ICON_COLORS["orange"], 14, 4, Color(1, 0.9, 0.55, 0.9), 2)
+	var col := Ui.vbox(0)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	col.mouse_filter = MOUSE_FILTER_IGNORE
+	b.add_child(col)
+	var icon := ChestIcon.make(chest_id, 60)
+	icon.size_flags_horizontal = SIZE_SHRINK_CENTER
+	col.add_child(icon)
+	var l := LobbyUi.text(count, 24, Color.WHITE, true)
+	LobbyUi.outline(l, 5)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.mouse_filter = MOUSE_FILTER_IGNORE
+	col.add_child(l)
+	return b
 
 
 ## A chest's odds as pictures: each stone's icon with its share ("60%"), a piece with "+14".
@@ -505,43 +524,8 @@ func _open_chest(chest_id: String, count: int) -> void:
 	show_open_result(overlay, result)
 
 
-## The "Mở rương" popup: "Mở 3 Rương đá", then one row per stone level and per piece (icon, text).
-static func show_open_result(host: Control, result: Dictionary) -> Modal:
-	var m := Modal.new()
-	m.open(host, "Mở rương", 620)
-	m.title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var top := Ui.hbox(12)
-	top.alignment = BoxContainer.ALIGNMENT_CENTER
-	m.body.add_child(top)
-	top.add_child(ChestIcon.make(str(result.get("chestId", "")), 72))
-	var h := LobbyUi.text(ChestModel.opened_text(result), 26, Color(0.85, 0.92, 1.0), true)
-	h.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	top.add_child(h)
-	var lines := ChestModel.open_lines(result, PlayerState.catalog)
-	var columns := Ui.hbox(40)
-	columns.name = "Lines"
-	columns.alignment = BoxContainer.ALIGNMENT_CENTER
-	m.body.add_child(columns)
-	var per_column := ceili(lines.size() / 2.0) if lines.size() > 5 else lines.size()
-	var column: VBoxContainer = null
-	for i in lines.size():
-		if i % maxi(1, per_column) == 0:
-			column = Ui.vbox(10)
-			columns.add_child(column)
-		var line: Dictionary = lines[i]
-		var r := Ui.hbox(12)
-		if line["kind"] == "stone":
-			r.add_child(LobbyUi.icon(Art.stone_icon(int(line["level"])), 52))
-		else:
-			var item := EquipmentModel.item_of(PlayerState.catalog, str(line["itemId"]))
-			r.add_child(EquipmentUi.item_icon(item, {"upgradeLevel": int(line["upgradeLevel"])}, 52))
-		var l := LobbyUi.text(str(line["text"]), 24, Color.WHITE, true)
-		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		r.add_child(l)
-		column.add_child(r)
-	if lines.is_empty():
-		var none := LobbyUi.text("Rương trống", 22, Ui.TEXT_DIM)
-		none.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		m.body.add_child(none)
-	m.add_button("Tuyệt!", m.close)
-	return m
+## The opened chests' reveal (ui/reward_reveal.gd): the chest bursts open, the stones and pieces
+## fly out.
+static func show_open_result(host: Control, result: Dictionary) -> Control:
+	return RewardReveal.open(host, RewardModel.from_chest_open(result),
+		{"chest_id": str(result.get("chestId", "")), "count": maxi(int(result.get("opened", 1)), 1)})

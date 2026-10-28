@@ -75,15 +75,6 @@ static func coin_pack_button(offer: Dictionary, gem: int, wallet_known: bool) ->
 	return "Không đủ kim cương" if wallet_known and not can_afford(offer, gem) else "Đổi"
 
 
-## "Đổi thành công! +1.000 xu": granted is the answer's quantityGranted (the offer's quantity
-## when the answer has none).
-static func coin_pack_success(offer: Dictionary, data: Variant) -> String:
-	var granted := int(offer.get("quantity", 0))
-	if data is Dictionary and int(data.get("quantityGranted", 0)) > 0:
-		granted = int(data["quantityGranted"])
-	return "Đổi thành công! +%s xu" % Fmt.thousands(granted)
-
-
 ## Character unlock offers grouped per character, known characters first in roster order:
 ## [{characterId, name, offers: [...]}].
 static func character_groups(offers: Array) -> Array:

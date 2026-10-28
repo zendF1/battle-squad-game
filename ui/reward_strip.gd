@@ -222,7 +222,9 @@ func _tile(t: Dictionary) -> Control:
 	icon.position = Vector2((tile_size.x - icon_px) / 2.0, top)
 	icon.size = Vector2(icon_px, icon_px)
 	tile.add_child(icon)
-	var l := LobbyUi.text(count_text(t), 24 if tile_size.x < 130 else 28, count_color(t), true)
+	var qty := count_text(t)
+	var font := (24 if tile_size.x < 130 else 28) - (4 if qty.length() > 6 else 0) # "×150.000" fits
+	var l := LobbyUi.text(qty, font, count_color(t), true)
 	l.name = "Qty"
 	LobbyUi.outline(l, 5)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -278,6 +280,33 @@ static func tile_icon(t: Dictionary, px: int) -> Control:
 			c = ItemIcon.make(str(t["id"]), px)
 	c.mouse_filter = MOUSE_FILTER_IGNORE
 	return c
+
+
+## A small inline reward (a result card's row): its icon over its glow, then its count ("×2").
+static func mini_tile(t: Dictionary, px: int, font_size: int = 24) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	row.tooltip_text = str(t.get("name", ""))
+	row.mouse_filter = MOUSE_FILTER_PASS
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(px, px)
+	holder.size_flags_vertical = SIZE_SHRINK_CENTER
+	holder.mouse_filter = MOUSE_FILTER_IGNORE
+	var g: Control = RewardGlow.make(RewardModel.glow(t), Vector2(px, px) * 1.3)
+	g.position = -Vector2(px, px) * 0.15
+	g.reach = 1.0
+	holder.add_child(g)
+	var icon := tile_icon(t, px)
+	icon.size = Vector2(px, px)
+	holder.add_child(icon)
+	row.add_child(holder)
+	var text := count_text(t)
+	if text != "":
+		var l := LobbyUi.text(text, font_size, count_color(t), true)
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		l.mouse_filter = MOUSE_FILTER_IGNORE
+		row.add_child(l)
+	return row
 
 
 func _gui_input(event: InputEvent) -> void:

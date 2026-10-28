@@ -29,7 +29,9 @@ extends Control
 ## idempotencyKey}. The key (and the mock token) is reused until a definite answer
 ## (core/idempotency_keys.gd), so a retry after a network error or a 5xx can never charge twice;
 ## PlayerState settles it even when Home is freed mid-request. An answer replaying an earlier
-## request shows "Giao dịch trước đã hoàn tất" instead of a new success. Each sub-tab loads its
+## request shows "Giao dịch trước đã hoàn tất" instead of a new success; a success plays the reward
+## reveal (ui/reward_reveal.gd) of what was bought (items ×N, stones, the piece, the character, the
+## coins of a pack, the gems of a top-up). Each sub-tab loads its
 ## data the first time it is shown; owned characters come from the PlayerState cache shared with
 ## "Hồ sơ". Requests never block the screen; one purchase runs at a time.
 
@@ -37,6 +39,8 @@ const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Art := preload("res://ui/art.gd")
 const Modal := preload("res://ui/modal.gd")
+const RewardReveal := preload("res://ui/reward_reveal.gd")
+const RewardModel := preload("res://ui/reward_model.gd")
 const LoadStatus := preload("res://ui/load_status.gd")
 const Items := preload("res://match/items.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
@@ -500,7 +504,10 @@ func _purchase_stones(row: Dictionary, quantity: int) -> void:
 		return
 	if res.ok:
 		_action_status.clear()
-		Ui.toast(overlay, REPLAYED if res.replay else "Đã mua %d × %s" % [quantity, stone_name])
+		if res.replay:
+			Ui.toast(overlay, REPLAYED)
+		else:
+			RewardReveal.open(overlay, [RewardModel.tile("stone", "stone_%d" % int(row["stoneLevel"]), quantity, int(row["stoneLevel"]))])
 		return
 	var retry := _purchase_stones.bind(row, quantity) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.stone_buy(res, str(row["currency"])), retry)
@@ -681,8 +688,8 @@ func _purchase(offer: Dictionary, quantity: int = 1) -> void:
 		_action_status.clear()
 		if res.replay:
 			Ui.toast(overlay, REPLAYED)
-		else:
-			Ui.toast(overlay, ShopModel.coin_pack_success(offer, res.data) if swap else "Mua thành công!")
+		else: # what was bought bursts out of a gift box
+			RewardReveal.open(overlay, RewardModel.from_offer(offer, quantity, res.data))
 		return
 	var retry := _purchase.bind(offer, quantity) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.purchase(res, str(offer.get("priceCurrency", ""))), retry)
@@ -715,7 +722,10 @@ func _purchase_equipment(item: Dictionary) -> void:
 		return
 	if res.ok:
 		_action_status.clear()
-		Ui.toast(overlay, REPLAYED if res.replay else "Mua thành công!")
+		if res.replay:
+			Ui.toast(overlay, REPLAYED)
+		else:
+			RewardReveal.open(overlay, [RewardModel.tile("equipment", str(item.get("itemId", "")), 1)])
 		return
 	var retry := _purchase_equipment.bind(item) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.equipment_buy(res, EquipmentModel.price(item)["currency"]), retry)
@@ -736,8 +746,10 @@ func _on_top_up(product: Dictionary) -> void:
 		var granted := int(res.data.get("gemGranted", 0)) if res.data is Dictionary else 0
 		if res.replay:
 			Ui.toast(overlay, REPLAYED)
+		elif granted > 0:
+			RewardReveal.open(overlay, [RewardModel.tile("gem", "gem", granted)])
 		else:
-			Ui.toast(overlay, "Nạp thành công! +%d kim cương" % granted if granted > 0 else "Nạp thành công!")
+			Ui.toast(overlay, "Nạp thành công!")
 		return
 	var retry := _on_top_up.bind(product) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.iap(res), retry)

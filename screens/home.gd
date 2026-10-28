@@ -21,12 +21,13 @@ extends Control
 ## and shows the lobby on that mode, Từ chối answers no. The party's messages (declined, expired, kicked, the host left, errors) are toasts.
 ## The reward of an ended season not yet claimed (GET /rank/season-rewards, loaded each time Home
 ## shows) opens as a popup over the lobby (screens/ranked/season_reward_popup.gd), the oldest
-## first, the next one after "Nhận".
+## first, the next one after "Nhận" (and its reward reveal).
 
 const Backdrop := preload("res://ui/backdrop.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Ui := preload("res://ui/ui.gd")
 const Modal := preload("res://ui/modal.gd")
+const RewardReveal := preload("res://ui/reward_reveal.gd")
 const WalletPills := preload("res://ui/wallet_pills.gd")
 const Lobby := preload("res://screens/home/lobby.gd")
 const ProfileTab := preload("res://screens/home/profile_tab.gd")
@@ -221,8 +222,8 @@ func show_season_reward() -> SeasonRewardPopup:
 	if is_instance_valid(_season_popup) and not _season_popup.is_queued_for_deletion():
 		return _season_popup
 	var list := PlayerState.my_season_rewards()
-	if list.is_empty() or PlayerState.season_busy != "":
-		return null
+	if list.is_empty() or PlayerState.season_busy != "" or _reveal_open():
+		return null # a reward reveal shows the next popup when it is collected
 	_season_popup = SeasonRewardPopup.new()
 	_season_popup.open_for(self, list[0])
 	return _season_popup
@@ -339,5 +340,13 @@ func _notification(what: int) -> void:
 func _modal_open() -> bool:
 	for c in get_children():
 		if c.get_script() == Modal and not c.is_queued_for_deletion():
+			return true
+	return _reveal_open()
+
+
+## A reward reveal (ui/reward_reveal.gd) plays over Home.
+func _reveal_open() -> bool:
+	for c in get_children():
+		if c.get_script() == RewardReveal and not c.is_queued_for_deletion():
 			return true
 	return false

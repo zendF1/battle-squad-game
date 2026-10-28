@@ -325,7 +325,9 @@ const REWARD_BUTTON := 70 # px, Mốc thưởng / Nhiệm vụ above the chat
 func _build_shortcuts() -> Control:
 	var col := Ui.vbox(2)
 	col.add_child(LobbyUi.icon_button("characters", "Nhân vật", LobbyUi.ICON_COLORS["blue"], func(): open_character.emit(), SHORTCUT))
-	col.add_child(LobbyUi.icon_button("inventory", "Kho đồ", LobbyUi.ICON_COLORS["green"], func(): open_bag.emit(), SHORTCUT))
+	var bag := LobbyUi.icon_button("inventory", "Kho đồ", LobbyUi.ICON_COLORS["green"], func(): open_bag.emit(), SHORTCUT)
+	bag.name = "BagButton" # collected rewards fly here (ui/reward_reveal.gd)
+	col.add_child(bag)
 	col.add_child(LobbyUi.icon_button("upgrade", "Nâng cấp", LobbyUi.ICON_COLORS["red"], func(): open_upgrade.emit(), SHORTCUT))
 	col.add_child(LobbyUi.icon_button("history", "Hồ sơ", LobbyUi.ICON_COLORS["purple"], func(): open_profile.emit(), SHORTCUT))
 	col.add_child(LobbyUi.icon_button("shop", "Shop", LobbyUi.ICON_COLORS["orange"], func(): open_shop.emit(ShopTab.ITEMS), SHORTCUT))

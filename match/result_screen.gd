@@ -8,8 +8,9 @@ extends Control
 ## (ui/character_view.gd, bots too) on their own step under their title plate, their badge
 ## (rankBadge, grade_badge.gd) with the name (mine gold) and "Lv.N" / the damage dealt, "MVP" on the best one, "ĐỘI CỦA BẠN" /
 ## "ĐỐI THỦ" under each team. Bottom left my rewards card (its size never changes: what grew it
-## is in the popups): "+N EXP" counting with its bar filling, "+N xu" (a ranked match: "(+150
-## thưởng xếp hạng)" after it and the stones won), a small gold chip by "PHẦN THƯỞNG" with the new
+## is in the popups): "+N EXP" counting with its bar filling, the coin with "+N" (a ranked match:
+## the insignia with "+150", its bonus inside the coins; then the stones and chests won as glowing
+## icons with "×N", ui/reward_strip.gd mini_tile), a small gold chip by "PHẦN THƯỞNG" with the new
 ## levels after a level up, and for ranked the grade's insignia with its name and "+30 điểm hạng"
 ## (or −). A match that gives nothing (QuickPlay vs AI, practice: all 0) shows no rewards card.
 ## One after another: the EXP, then "LÊN CẤP!" (match/level_up_popup.gd) when the player or the
@@ -39,6 +40,9 @@ const ResultModel := preload("res://match/result_model.gd")
 const LevelUpPopup := preload("res://match/level_up_popup.gd")
 const RankPopup := preload("res://match/rank_popup.gd")
 const Fmt := preload("res://core/fmt.gd")
+const GlyphIcon := preload("res://ui/glyph_icon.gd")
+const RewardModel := preload("res://ui/reward_model.gd")
+const RewardStrip := preload("res://ui/reward_strip.gd")
 
 const SLOT_W := 250.0
 const SLOT_GAP := 24.0
@@ -332,18 +336,26 @@ func _build_bottom() -> Control:
 		var coin_row := Ui.hbox(10)
 		coin_row.name = "CoinRow"
 		col.add_child(coin_row)
-		_coin_value = LobbyUi.icon_text(coin_row, "coin", "+0 xu", 28, Color.WHITE, true, 36)
-		var bonus := ResultModel.bonus_text(int(reward.get("bonus_coin", 0)))
-		if bonus != "":
-			var b := LobbyUi.text(bonus, 20, LobbyUi.GOLD, true)
-			b.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_coin_value = LobbyUi.icon_text(coin_row, "coin", "+0", 28, Color.WHITE, true, 36)
+		var bonus := int(reward.get("bonus_coin", 0))
+		if bonus > 0: # the ranked bonus inside the coins: the insignia with "+150"
+			var b := Ui.hbox(2)
+			b.tooltip_text = ResultModel.bonus_text(bonus)
+			b.mouse_filter = MOUSE_FILTER_PASS
+			var ins = GlyphIcon.make("insignia", 30)
+			ins.size_flags_vertical = SIZE_SHRINK_CENTER
+			b.add_child(ins)
+			var bl := LobbyUi.text("+%s" % Fmt.thousands(bonus), 22, LobbyUi.GOLD, true)
+			bl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			b.add_child(bl)
 			coin_row.add_child(b)
-		for s in reward.get("stones", []):
+		for t in RewardModel.from_match(reward):
+			if str(t["kind"]) == "coin":
+				continue
 			var gap := Control.new()
 			gap.custom_minimum_size.x = 8
 			coin_row.add_child(gap)
-			var st := LobbyUi.icon_text(coin_row, Art.stone_icon(int(s["level"])), "×%d" % int(s["qty"]), 24, Color.WHITE, true, 40)
-			st.tooltip_text = ResultModel.stone_text(s)
+			coin_row.add_child(RewardStrip.mini_tile(t, 40))
 	var rank: Dictionary = reward.get("rank", {})
 	if not rank.is_empty():
 		var sep := ColorRect.new()
@@ -612,7 +624,7 @@ func _count_rest() -> void:
 	t.tween_interval(0.1)
 	var reward: Dictionary = info.get("reward", {})
 	if reward.get("ok", false):
-		t.tween_method(func(v: float) -> void: _coin_value.text = "+%s xu" % Fmt.thousands(roundi(v)), 0.0, float(reward["coin"]), 0.5)
+		t.tween_method(func(v: float) -> void: _coin_value.text = "+%s" % Fmt.thousands(roundi(v)), 0.0, float(reward["coin"]), 0.5)
 	var rank: Dictionary = reward.get("rank", {})
 	if rank.is_empty():
 		return

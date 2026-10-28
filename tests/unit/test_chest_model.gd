@@ -36,24 +36,19 @@ func test_parse_owned() -> void:
 
 func test_open_buttons() -> void:
 	eq(ChestModel.open_buttons(0), [], "nothing to open")
-	eq(ChestModel.open_buttons(1), [{"text": "Mở", "count": 1}], "one")
-	eq(ChestModel.open_buttons(3), [{"text": "Mở", "count": 1}, {"text": "Mở 3", "count": 3}], "fewer than ten: all")
-	eq(ChestModel.open_buttons(25)[1], {"text": "Mở 10", "count": 10}, "ten at most")
+	eq(ChestModel.open_buttons(1), [{"text": "×1", "count": 1}], "one")
+	eq(ChestModel.open_buttons(3), [{"text": "×1", "count": 1}, {"text": "×3", "count": 3}], "fewer than ten: all")
+	eq(ChestModel.open_buttons(25)[1], {"text": "×10", "count": 10}, "ten at most")
 
 
-func test_parse_open_and_lines() -> void:
+func test_parse_open() -> void:
 	var r := ChestModel.parse_open({"chestId": "stone_chest", "opened": 3, "stones": [{"level": 6, "qty": 1}, {"level": 5, "qty": 1},
 		{"level": 5, "qty": 1}, {"level": 0, "qty": 4}], "equipment": []})
 	eq(r["stones"], [{"level": 5, "qty": 2}, {"level": 6, "qty": 1}], "merged by level")
-	eq(ChestModel.opened_text(r), "Mở 3 Rương đá", "heading")
-	eq(ChestModel.open_lines(r, null).map(func(l): return l["text"]), ["2 × Đá cấp 5", "1 × Đá cấp 6"], "stone lines")
-	var catalog := {"items": {"normal_armor_lv40": {"itemId": "normal_armor_lv40", "slot": "armor", "name": "Dragon Vest", "tier": "dragon"}}}
 	var e := ChestModel.parse_open({"chestId": "equip_chest_14", "opened": 1,
 		"equipment": [{"equipmentId": "e9", "itemId": "normal_armor_lv40", "upgradeLevel": 14}, {"itemId": "ghost_item", "upgradeLevel": 14}]})
 	eq(e["equipment"].size(), 2, "pieces")
-	var lines := ChestModel.open_lines(e, catalog)
-	check(lines[0]["text"].ends_with("+14") and lines[0]["text"] != "normal_armor_lv40 +14", "a catalog piece: its name +14 (%s)" % lines[0]["text"])
-	eq(lines[1]["text"], "ghost_item +14", "not in the catalog: its id")
+	eq(e["equipment"][0], {"equipmentId": "e9", "itemId": "normal_armor_lv40", "upgradeLevel": 14}, "a piece")
 	eq(ChestModel.parse_open(null), {}, "not an answer")
 
 
