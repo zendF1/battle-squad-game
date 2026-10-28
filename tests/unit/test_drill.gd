@@ -43,12 +43,12 @@ static func _reference(m: TerrainMask, path: PackedVector2Array, r: float) -> Pa
 	var out := m.solid.duplicate()
 	var reach := ceili(r)
 	for p in path:
-		for y in range(int(p.y) - reach, int(p.y) + reach + 1):
-			for x in range(int(p.x) - reach, int(p.x) + reach + 1):
+		for y in range(roundi(p.y) - reach, roundi(p.y) + reach + 1):
+			for x in range(roundi(p.x) - reach, roundi(p.x) + reach + 1):
 				if x < 0 or y < 0 or x >= m.width or y >= m.height:
 					continue
-				var dx := x - int(p.x)
-				var dy := y - int(p.y)
+				var dx := x - roundi(p.x)
+				var dy := y - roundi(p.y)
 				if float(dx * dx + dy * dy) <= r * r and m.destructible[y * m.width + x] != 0:
 					out[y * m.width + x] = 0
 	return out

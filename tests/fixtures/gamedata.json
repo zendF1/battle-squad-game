@@ -668,7 +668,7 @@
         "cooldown": 0,
         "instant": false,
         "aimKind": "arc",
-        "description": "Đạn khoan xuyên lớp địa hình đầu tiên.",
+        "description": "Đạn khoan đào đường hầm xuyên lớp địa hình đầu tiên rồi nổ.",
         "params": {}
       },
       {
@@ -811,12 +811,12 @@
     ],
     "itemRules": {
       "maxLoadout": 3,
-      "maxItemStack": 99,
       "airStrike": {
         "angle": 270,
         "power": 80
       },
-      "freezeBombDamageFactor": 0.5
+      "freezeBombDamageFactor": 0.5,
+      "maxItemStack": 99
     },
     "statusEffects": [
       {

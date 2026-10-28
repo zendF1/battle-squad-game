@@ -282,7 +282,7 @@ func carve_tunnel(path: PackedVector2Array, radius: float) -> void:
 
 ## Points [from, to) of a tunnel's path carved without a version step (the drill bores it bit by
 ## bit: match/terrain/tunnel_dig.gd; the version step is taken once when it starts). For every
-## point p: the destructible solid pixels (x, y) with x in [p.x - ceil(r), p.x + ceil(r)], y in
+## point p (rounded; the server sends whole px): the destructible solid pixels (x, y) with x in [p.x - ceil(r), p.x + ceil(r)], y in
 ## [p.y - ceil(r), p.y + ceil(r)], inside the map, and float(dx·dx + dy·dy) <= r·r. Clearing is
 ## a union, so any split into parts carves the same pixels as the whole.
 func carve_tunnel_points(path: PackedVector2Array, radius: float, from: int, to: int) -> void:
@@ -292,8 +292,8 @@ func carve_tunnel_points(path: PackedVector2Array, radius: float, from: int, to:
 	var r2 := radius * radius
 	var cleared := PackedInt32Array()
 	for k in range(maxi(from, 0), mini(to, path.size())):
-		var px := int(path[k].x)
-		var py := int(path[k].y)
+		var px := roundi(path[k].x)
+		var py := roundi(path[k].y)
 		for y in range(maxi(py - reach, 0), mini(py + reach, height - 1) + 1):
 			var dy := y - py
 			var row := y * width
