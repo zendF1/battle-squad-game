@@ -10,6 +10,7 @@ extends Control
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
+const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const Modal := preload("res://ui/modal.gd")
 const LoadStatus := preload("res://ui/load_status.gd")
 const Progress := preload("res://screens/home/progress.gd")
@@ -167,7 +168,9 @@ func _build_player_card() -> Control:
 		plate_button.custom_minimum_size = _card_title.get_combined_minimum_size()
 		plate_button.visible = _card_title.has_title())
 	_level = Ui.label("", 26)
-	col.add_child(_level)
+	var level_row := GlyphIcon.level_row(_level, 32)
+	level_row.size_flags_horizontal = SIZE_SHRINK_CENTER
+	col.add_child(level_row)
 	_exp_bar = Ui.bar(0.0, 18)
 	col.add_child(_exp_bar)
 	_exp_text = Ui.label("", 22)
@@ -202,11 +205,11 @@ func _render_player() -> void:
 	_power_row.visible = PlayerState.power() >= 0
 	if PlayerState.is_loaded():
 		var p := Progress.player(PlayerState.level(), PlayerState.player_exp())
-		_level.text = "Cấp %d" % PlayerState.level()
+		GlyphIcon.show_level(_level, str(PlayerState.level()))
 		_exp_bar.value = p["ratio"]
 		_exp_text.text = "EXP %s" % p["text"]
 	else:
-		_level.text = "Cấp —"
+		GlyphIcon.show_level(_level, "—")
 		_exp_bar.value = 0.0
 		_exp_text.text = "Đang tải..." if PlayerState.loading else PlayerState.error
 

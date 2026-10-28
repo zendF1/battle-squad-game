@@ -271,5 +271,6 @@ static func again_text(mode: String, can_replay: bool) -> String:
 	return "Chơi lại" if can_replay else ""
 
 
+## The seconds left before going home, beside the clock glyph: "19".
 static func countdown_text(seconds: int) -> String:
-	return "Tự động về sảnh sau %d giây" % maxi(seconds, 0)
+	return "%d" % maxi(seconds, 0)

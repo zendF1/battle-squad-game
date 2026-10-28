@@ -13,7 +13,8 @@ extends Node2D
 ## Skills: each character's skill has a SkillView (match/views/skills/): its aim mode (an arc, a
 ## straight line, or none: fired on tap) and, for a skill ShotResolved, the replay visuals on top
 ## of the default handling here. Status effects: stun and freeze lose the whole turn (controls off,
-## a countdown; the server ends it), root keeps the move controls off ("Bị cầm chân"); burn ticks at
+## a countdown; the server ends it), root keeps the move controls off (its picture over them); a
+## status event bursts the effect's picture over the unit (StatusBurst); burn ticks at
 ## turn start (PlayerDamaged type burn); the shield shows on the HP bar and absorbs damage first.
 ## Skill energy: players[id].skillEnergy is the value on screen (the HUD's skill slot, the
 ## full-energy aura over each player). A ShotResolved's new energies wait for the replay
@@ -83,7 +84,7 @@ extends Node2D
 ## is drawn on the body (StatusFx), its turn-start PlayerDamaged type poison a green number and a
 ## puff of spores. The minion auras (BossHudModel armorMinions / regenMinions, BossShieldChanged, a
 ## minion's death or summon): rune links from each stone totem to the giant and stone plates on it
-## (AuraLinks, BossBody.set_armored(); they snap and fly off when the last totem falls, "Phá giáp!"),
+## (AuraLinks, BossBody.set_armored(); they snap and fly off when the last totem falls, the broken armour bursting over it),
 ## vine threads from the mushrooms; a hit on the armoured boss shows a stone-grey number ("Giáp đá"
 ## over the first). A mushroom's turn (ShotResolved actionMode "spore") puffs a spore cloud out to
 ## its radius (SporeFx), its death blast bursts into spores. The camera frames the marks, the
@@ -149,6 +150,8 @@ const BossArt := preload("res://match/boss/boss_art.gd")
 const BossAnim := preload("res://match/boss/boss_anim.gd")
 const BossResultModel := preload("res://match/boss/boss_result_model.gd")
 const BossResultScreen := preload("res://match/boss/boss_result_screen.gd")
+const StatusGlyph := preload("res://match/views/status_glyph.gd")
+const StatusBurst := preload("res://match/views/status_burst.gd")
 const PopFx := preload("res://match/boss/pop_fx.gd")
 const BlastEvents := preload("res://match/boss/blast_events.gd")
 const BlastFx := preload("res://match/boss/blast_fx.gd")
@@ -622,7 +625,7 @@ func _refresh_controls() -> void:
 	var can_shoot := can and not frozen
 	var may_shoot := _is_my_turn() and not _turn_resolved and not frozen # armed mode may stay
 	_hud.set_controls_enabled(can and not rooted)
-	_hud.set_move_notice(Status.move_block_text(me.get("statusEffects")) if rooted and _skip == "" else "")
+	_hud.set_move_notice(Status.move_block_effect(me.get("statusEffects")) if rooted and _skip == "" else "")
 	var skill := _my_skill()
 	var energy := int(me.get("skillEnergy", 0))
 	var armed_ok := _armed == WEAPON or (_armed == SKILL and may_shoot and not skill.is_empty() and Skills.is_ready(energy))
@@ -1287,11 +1290,15 @@ func _on_shot_event(e: Dictionary) -> void:
 			if _players.has(id):
 				_players[id]["statusEffects"] = Status.apply(_players[id].get("statusEffects"), str(e.get("effectId", "")), int(e.get("turns", 1)))
 				_views[id].set_status(_players[id]["statusEffects"])
-			var text := Skills.status_label(str(e.get("effectId", "")))
-			if text != "":
-				# over the running damage number, or the one just shown (a nova's hit and freeze land together)
-				_popup(id, text, DamagePopup.POISON if str(e.get("effectId", "")) == POISON else Color(0.7, 0.85, 1),
-					Vector2(0, -64) if _has_tally(id) or _just_popped(id) else Vector2.ZERO)
+			var eff := str(e.get("effectId", ""))
+			# over the running damage number, or the one just shown (a nova's hit and freeze land together)
+			var lift := Vector2(0, -64) if _has_tally(id) or _just_popped(id) else Vector2.ZERO
+			if StatusGlyph.has_picture(eff):
+				_status_burst(id, eff, lift)
+			else: # an effect this client has no picture for: its name
+				var text := Skills.status_label(eff)
+				if text != "":
+					_popup(id, text, Color(0.7, 0.85, 1), lift)
 	# beam, flare, rain (and the rest): the skill draws them
 	if _skill_view != null:
 		_skill_view.on_event(e)
@@ -1686,8 +1693,6 @@ func _on_disconnected() -> void:
 
 const SUMMON := "summon" # a boss's free summon (ShotResolved / ActionSelected actionMode)
 const SUMMON_TEXT := "Triệu hồi"
-const SHIELD_ON := "Khiên bảo vệ!"
-const SHIELD_OFF := "Phá khiên!"
 const TURN_START := "turn_start" # boss v4: the boss's turn start (eruptions, regen) before its summon and attack
 const SPORE := "spore" # a poison mushroom's turn (ShotResolved actionMode)
 const ERUPTION := "eruption" # a damage cause / event type
@@ -1696,8 +1701,6 @@ const REGEN := "regen"
 const POISON := "poison" # the status / the PlayerDamaged type
 const GLOBAL := "global" # boss v5 damage causes
 const ROLL := "roll"
-const ARMOR_ON := "Giáp đá!"
-const ARMOR_OFF := "Phá giáp!"
 
 
 ## A snapshot's boss fight: the bar, the lava pools (a boss snapshot without lavaZones has none)
@@ -1723,7 +1726,7 @@ func _load_boss(snap: Dictionary) -> void:
 	_hud.set_boss(_boss.state())
 
 
-## BossShieldChanged: the bubble pops on or off the boss, a line says so; the auras it carries
+## BossShieldChanged: the bubble pops on or off the boss, its shield picture bursts over it (whole or broken); the auras it carries
 ## (boss v4) set the links and the plates (_sync_aura()).
 func _on_boss_shield(d: Variant) -> void:
 	var was_shielded := _boss.shielded
@@ -1735,12 +1738,11 @@ func _on_boss_shield(d: Variant) -> void:
 	var id := _boss.player_id
 	if _views.has(id) and _boss.shielded != was_shielded:
 		_views[id].set_shielded(_boss.shielded)
-		_popup(id, SHIELD_ON if _boss.shielded else SHIELD_OFF, Color(0.6, 0.92, 1.0) if _boss.shielded else LobbyUi.GOLD,
-			Vector2(0, -_views[id].body_size * 40.0))
+		_status_burst(id, "shield" if _boss.shielded else "shield_break", Vector2(0, -_views[id].body_size * 40.0))
 
 
 ## The minion auras on screen (boss v4) from BossHudModel: the links (new ones grow, gone ones snap
-## when animate), the boss's stone plates; the armour going on or off pops a line over the boss.
+## when animate), the boss's stone plates; the armour going on or off bursts its picture over the boss.
 func _sync_aura(animate: bool, was_armored: bool) -> void:
 	_links.views = _views
 	_links.boss_id = _boss.player_id
@@ -1755,7 +1757,7 @@ func _sync_aura(animate: bool, was_armored: bool) -> void:
 	if now:
 		_armor_tagged = false
 	if animate and _views.has(id) and _boss.alive:
-		_popup(id, ARMOR_ON if now else ARMOR_OFF, LobbyUi.GOLD if not now else Color(1.0, 0.8, 0.4), Vector2(0, -_views[id].body_size * 40.0))
+		_status_burst(id, "armor" if now else "armor_break", Vector2(0, -_views[id].body_size * 40.0))
 
 
 ## The links and plates (tests, the harness).
@@ -2479,6 +2481,16 @@ func _damage_popup(id: String, amount: int, critical: bool, element_effect: Stri
 func _just_popped(id: String) -> bool:
 	var last: Array = _popup_row.get(id, [-100000, 0])
 	return Time.get_ticks_msec() - int(last[0]) < DamagePopup.STACK_MS
+
+
+## A status effect (or the boss's shield / armour) landing on player id, as its picture bursting
+## over the unit (match/views/status_burst.gd; the lost-turn mark when it skips the turn).
+func _status_burst(id: String, effect_id: String, offset: Vector2 = Vector2.ZERO) -> void:
+	if not _views.has(id):
+		return
+	var b: Control = StatusBurst.make(effect_id, GameData.status_skips_turn(effect_id))
+	b.position = _views[id].position + Vector2(0, -150) + offset
+	_fx_layer.add_child(b)
 
 
 func _popup(id: String, text: String, color: Color, offset: Vector2 = Vector2.ZERO, st: Dictionary = {}) -> void:

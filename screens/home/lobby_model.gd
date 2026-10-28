@@ -166,11 +166,11 @@ static func character_info(id: String, data: Variant) -> Dictionary:
 	return out
 
 
-## "Lv.3", "Chưa sở hữu", or "" while ownership is unknown.
+## "3" (the level, beside the level glyph), "Chưa sở hữu", or "" while ownership is unknown.
 static func level_text(info: Dictionary) -> String:
 	if info["owned"] == null:
 		return ""
-	return "Lv.%d" % info["level"] if info["owned"] else LoadoutModel.NOT_OWNED
+	return "%d" % info["level"] if info["owned"] else LoadoutModel.NOT_OWNED
 
 
 ## A BattleStats stats object → [["Máu", "1.540"], ["Sát thương", "510"], ["Phòng thủ", "56"]]

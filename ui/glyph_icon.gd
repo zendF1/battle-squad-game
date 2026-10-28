@@ -6,14 +6,14 @@ extends Control
 ## lightning bolt on an orange burst), the leaderboard's tabs ("level": up chevrons on a blue disc,
 ## "insignia": a shoulder board with chevrons) and its lobby button ("trophy"); the showcase's other
 ## stats ("boot": Năng lượng di chuyển, "magic": Sức mạnh kỹ năng, "terrain": Phá địa hình, "crit":
-## Chí mạng) and a socketed gem ("gem", in `tint`: ShowcaseModel.GEM_COLORS). Drawn on a 96 × 96
+## Chí mạng), the match's wind ("wind": three gusts curling at their ends) and a socketed gem ("gem", in `tint`: ShowcaseModel.GEM_COLORS). Drawn on a 96 × 96
 ## canvas scaled into the control's square and centred (a single-focus picture). make() for a
 ## layout, info_button() for the round "i" button that opens a card's popup.
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 
 const KINDS := ["heart", "sword", "shield", "info", "clock", "arrow", "power", "level", "insignia", "trophy",
-	"boot", "magic", "terrain", "crit", "gem"]
+	"boot", "magic", "terrain", "crit", "gem", "wind"]
 const OUTLINE := Color(0.07, 0.07, 0.14)
 const W := 5.0
 const HEART := Color(1.0, 0.33, 0.4)
@@ -87,6 +87,29 @@ static func info_button(on_press: Callable, px: int = 44) -> Button:
 	return b
 
 
+## `label` with the "level" glyph before it, in a centred row (returned: add it where the label
+## would go). show_level() sets the value; the glyph shows only for a number ("Chưa sở hữu" alone).
+static func level_row(label: Label, px: int) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.mouse_filter = MOUSE_FILTER_IGNORE
+	var g = make("level", px)
+	g.name = "LevelGlyph"
+	g.tooltip_text = "Cấp"
+	g.mouse_filter = MOUSE_FILTER_PASS
+	row.add_child(g)
+	row.add_child(label)
+	return row
+
+
+static func show_level(label: Label, value: String) -> void:
+	label.text = value
+	var g = label.get_parent().get_node_or_null("LevelGlyph") if label.get_parent() != null else null
+	if g != null:
+		g.visible = value.is_valid_int()
+
+
 func _init() -> void:
 	resized.connect(queue_redraw)
 
@@ -116,6 +139,7 @@ func _draw() -> void:
 		"terrain": _terrain()
 		"crit": _crit()
 		"gem": _gem()
+		"wind": _wind()
 
 
 func _poly(pts: PackedVector2Array, fill: Color, w: float = W) -> void:
@@ -305,3 +329,18 @@ func _gem() -> void:
 	draw_colored_polygon(PackedVector2Array([Vector2(8, 40), Vector2(36, 40), Vector2(48, 88)]), tint.darkened(0.2))
 	draw_colored_polygon(PackedVector2Array([Vector2(60, 40), Vector2(88, 40), Vector2(48, 88)]), tint.darkened(0.35))
 	draw_colored_polygon(PackedVector2Array([Vector2(32, 22), Vector2(42, 22), Vector2(36, 34)]), Color(1, 1, 1, 0.7))
+
+
+## Three gusts, the middle one longest, each curling up at its end.
+func _wind() -> void:
+	for g in [[30.0, 18.0, 66.0], [50.0, 10.0, 80.0], [70.0, 22.0, 60.0]]:
+		var y: float = g[0]
+		var x0: float = g[1]
+		var x1: float = g[2]
+		var pts := PackedVector2Array()
+		for i in 9:
+			pts.append(Vector2(lerpf(x0, x1, i / 8.0), y + sin(i / 8.0 * PI) * -3.0))
+		for i in range(1, 10):
+			var a := PI / 2 - TAU * 0.75 * i / 9.0
+			pts.append(Vector2(x1, y - 8.0) + Vector2(cos(a), -sin(a)) * 8.0 * (1.0 - i / 14.0))
+		_stroke(pts, WING, 7.0)

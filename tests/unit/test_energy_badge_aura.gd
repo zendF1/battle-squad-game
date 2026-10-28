@@ -302,7 +302,7 @@ func test_screen_badges_per_action() -> void:
 func test_badge_sits_above_the_name_and_hp_bar() -> void:
 	var m := _screen(40)
 	m._views["me"].set_active(true) # the turn arrow
-	m._views["a1"].set_status([{"effectId": "drill_bomb", "durationTurn": 1}]) # a shot marker
+	m._views["a1"].set_status([{"effectId": "drill_bomb", "durationTurn": 1}]) # an armed item: its icon on the badge, no text marker
 	for id in ["me", "a1", "e1"]:
 		var v: Node2D = m._views[id]
 		v.show_badge(UseBadge.content("skill", "triple_shot", ""))
@@ -312,11 +312,12 @@ func test_badge_sits_above_the_name_and_hp_bar() -> void:
 		var hp_top: float = -v._art_top - 14.0
 		check(box.end.y < hp_top, "%s: over the HP bar" % id)
 		check(box.end.y < v._name.position.y - v._title_rise, "%s: over the name and title" % id)
-		if id != "e1":
-			check(box.end.y < v._name.position.y - 26.0 - v._title_rise, "%s: over the markers / the arrow" % id)
+		if id == "me":
+			check(box.end.y < v._name.position.y - 26.0 - v._title_rise, "%s: over the turn arrow" % id)
 		eq(box.size, Vector2(UseBadge.HEIGHT, UseBadge.HEIGHT), "%s: a round icon-only badge (no name)" % id)
 	var plain: Node2D = m._views["e1"].badge_node()
 	check(plain.position.y > m._views["me"].badge_node().position.y, "no arrow or markers: lower, on the name")
+	eq(m._views["a1"].status_text(), "", "an armed item adds no text marker (its icon is the badge)")
 	_free(m)
 
 

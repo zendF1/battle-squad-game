@@ -10,8 +10,9 @@ extends Control
 ##   ("Vũ khí của Rookie"), filtered by slot: icon, name, "Lv N", stats, price, "Đã có N"; "Mua" asks "Mua
 ##   <tên> với giá <giá>?", then PlayerState.buy_equipment() sends POST /shop/equipment/buy
 ##   {itemId, idempotencyKey} with the same key rules as the purchases below;
-## - "Đá nâng cấp": the upgrade stones, levels 1–12 (catalog stones): icon, power, price per stone
-##   (levels 1–6 coin, 7–10 gem), "Đang có N" (PlayerState.stones), a 1 / 5 / 10 quantity choice
+## - "Đá nâng cấp": the upgrade stones, levels 1–12 (catalog stones): icon (its look tells the
+##   level), power (the upgrade arrow with the number), owned (the bag icon with PlayerState.stones'
+##   count), price per stone (levels 1–6 coin, 7–10 gem), a 1 / 5 / 10 quantity choice
 ##   with the total, "Mua" asks "Mua 5 × Đá cấp 3 với giá 3.500 xu?", then PlayerState.buy_stones()
 ##   sends POST /shop/stones/buy {stoneLevel, quantity, idempotencyKey} (the same key rules);
 ##   levels 11–12 are "Chỉ ghép được";
@@ -447,14 +448,20 @@ func _render_stones() -> void:
 		var box := _card(flow, Vector2(STONE_CARD_W, 0))
 		var head := Ui.hbox(8)
 		box.add_child(head)
-		head.add_child(LobbyUi.icon(Art.stone_icon(lv), 64))
-		var names := Ui.vbox(0)
+		var stone_icon := LobbyUi.icon(Art.stone_icon(lv), 64)
+		stone_icon.tooltip_text = UpgradeModel.stone_name(lv) # the stone's look shows its level
+		stone_icon.mouse_filter = MOUSE_FILTER_PASS
+		head.add_child(stone_icon)
+		var names := Ui.vbox(2)
 		names.alignment = BoxContainer.ALIGNMENT_CENTER
 		head.add_child(names)
-		names.add_child(Ui.text(UpgradeModel.stone_name(lv), 23))
-		names.add_child(Ui.text("Sức mạnh %s" % Fmt.thousands(int(row["power"])), 17, Ui.TEXT_DIM))
-		var have := Ui.text("Đang có %s" % Fmt.thousands(int(owned.get(lv, 0))) if PlayerState.stones is Dictionary else "Đang có —", 20, Ui.TONES["good"])
-		box.add_child(have)
+		var power := LobbyUi.icon_text(names, "upgrade", Fmt.thousands(int(row["power"])), 20, Ui.TEXT_DIM, true, 22)
+		power.tooltip_text = "Sức mạnh"
+		power.mouse_filter = MOUSE_FILTER_PASS
+		var have := LobbyUi.icon_text(names, "inventory", Fmt.thousands(int(owned.get(lv, 0))) if PlayerState.stones is Dictionary else "—",
+			20, Ui.TONES["good"], true, 22)
+		have.tooltip_text = "Đang có"
+		have.mouse_filter = MOUSE_FILTER_PASS
 		if not row["buyable"]:
 			box.get_parent().modulate = Color(1, 1, 1, 0.6)
 			var only := Ui.text("Chỉ ghép được", 22, Ui.TONES["draw"])
@@ -462,7 +469,7 @@ func _render_stones() -> void:
 			only.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			box.add_child(only)
 			continue
-		LobbyUi.icon_text(box, ShopModel.currency_icon(row["currency"]), "%s / viên" % Fmt.thousands(int(row["price"])), 22, Color.WHITE, false, 30)
+		LobbyUi.icon_text(box, ShopModel.currency_icon(row["currency"]), Fmt.thousands(int(row["price"])), 22, Color.WHITE, false, 30)
 		var qty := int(_stone_qty.get(lv, 1))
 		var chips := Ui.tab_row(STONE_QUANTITIES.map(func(q): return "x%d" % q), 20, func(i: int):
 			_stone_qty[lv] = STONE_QUANTITIES[i]

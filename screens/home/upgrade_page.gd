@@ -18,8 +18,12 @@ extends Control
 ##   reloading; nothing under it when it can be pressed). The result plays on the piece (success: flash, rings and
 ##   sparkles, a bigger burst in the new colour when it reaches a milestone; failure: red flash,
 ##   shake, smoke) with a toast; the piece and the stones reload (PlayerState).
-## - "Ghép đá": pick a level (1–11, owned counts), 2 / 3 / 4 stones, "4 × Đá cấp 3 → 1 × Đá cấp
-##   4" with the chance (count × mergeRatePerItem %), GHÉP; the result animates on the new stone.
+## - "Ghép đá": pick a level (the stones with their owned ×N, the name only as the tooltip), ×2 /
+##   ×3 / ×4 stones (the game data's merge counts), the stones ×N → the next one as pictures with
+##   the chance (count × mergeRatePerItem %), GHÉP; the rules behind the "i"; the result animates on the new stone,
+##   a success then plays the reward reveal of the new stone (ui/reward_reveal.gd). The stone
+##   list shows each stone's icon (its look tells the level), the owned count by the bag icon and
+##   its power by the upgrade arrow.
 ## Loads the catalog, the pieces, the characters and the stones when shown; failures show inline
 ## with "Thử lại".
 
@@ -36,7 +40,10 @@ const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const Modal := preload("res://ui/modal.gd")
+const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const Fmt := preload("res://core/fmt.gd")
+const RewardReveal := preload("res://ui/reward_reveal.gd")
+const RewardModel := preload("res://ui/reward_model.gd")
 
 const SUB_TABS := ["Nâng cấp", "Ghép đá"]
 const UPGRADE := 0
@@ -683,13 +690,16 @@ func _stone_row(stone_level: int, have: int, usable: bool) -> Control:
 	card.add_theme_stylebox_override("panel", LobbyUi.box(bg, 12, 6, LobbyUi.GOLD if n > 0 else Color(1, 1, 1, 0.08), 2))
 	var row := Ui.hbox(10)
 	card.add_child(row)
-	row.add_child(LobbyUi.icon(Art.stone_icon(stone_level), 54))
-	var texts := Ui.vbox(0)
+	var stone_icon := LobbyUi.icon(Art.stone_icon(stone_level), 54)
+	stone_icon.tooltip_text = UpgradeModel.stone_name(stone_level) # its look shows the level
+	stone_icon.mouse_filter = MOUSE_FILTER_PASS
+	row.add_child(stone_icon)
+	var texts := Ui.vbox(2)
 	texts.size_flags_horizontal = SIZE_EXPAND_FILL
 	texts.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_child(texts)
-	texts.add_child(LobbyUi.text(UpgradeModel.stone_name(stone_level), 21, Color.WHITE, true))
-	texts.add_child(LobbyUi.text("Sức mạnh %s · Có %s" % [Fmt.thousands(UpgradeModel.power(PlayerState.catalog, stone_level)), Fmt.thousands(have)], 17, DIM))
+	LobbyUi.icon_text(texts, "inventory", Fmt.thousands(have), 21, Color.WHITE, true, 22) # owned
+	LobbyUi.icon_text(texts, "upgrade", Fmt.thousands(UpgradeModel.power(PlayerState.catalog, stone_level)), 17, DIM, true, 18) # power
 	var minus := _step_button("−", _on_step.bind(stone_level, -1))
 	minus.disabled = n <= 0 or _acting
 	row.add_child(minus)
@@ -990,9 +1000,11 @@ func _build_merge_page() -> Control:
 	var rcol := Ui.vbox(18)
 	rcol.alignment = BoxContainer.ALIGNMENT_CENTER
 	right.add_child(rcol)
-	var title := LobbyUi.text("Ghép đá: 2–4 viên cùng cấp → 1 viên cấp trên", 24, Color.WHITE, true)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	rcol.add_child(title)
+	# the rules (how many stones, a failure loses them) behind the "i", not on the page
+	var top := Ui.hbox(0)
+	top.alignment = BoxContainer.ALIGNMENT_END
+	rcol.add_child(top)
+	top.add_child(GlyphIcon.info_button(_show_merge_rules, 48))
 	var formula := HBoxContainer.new()
 	formula.alignment = BoxContainer.ALIGNMENT_CENTER
 	formula.add_theme_constant_override("separation", 26)
@@ -1016,16 +1028,15 @@ func _build_merge_page() -> Control:
 	_merge_fx.draw.connect(_draw_fx.bind(_merge_fx))
 	_merge_to_holder.add_child(_merge_fx)
 	_merge_text = LobbyUi.text("", 28, Color.WHITE, true)
-	_merge_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_merge_text.visible = false # the stones and the arrow say it: the line is only the tooltip
 	rcol.add_child(_merge_text)
 	var counts := HBoxContainer.new()
 	counts.alignment = BoxContainer.ALIGNMENT_CENTER
 	counts.add_theme_constant_override("separation", 10)
 	rcol.add_child(counts)
-	counts.add_child(LobbyUi.text("Số viên:", 22, DIM))
 	var count_names: Array = []
 	for n in range(UpgradeModel.merge_min(), UpgradeModel.merge_max() + 1):
-		count_names.append("%d viên" % n)
+		count_names.append("×%d" % n)
 	_merge_count_tabs = Ui.tab_row(count_names, 22, func(i: int):
 		_merge_count = UpgradeModel.merge_min() + i
 		_render_merge(), 56)
@@ -1036,9 +1047,6 @@ func _build_merge_page() -> Control:
 	_merge_chance = LobbyUi.text("", 26, LobbyUi.GOLD, true)
 	_merge_chance.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rcol.add_child(_merge_chance)
-	var note := LobbyUi.text("Thất bại: mất hết số đá đã bỏ vào", 20, WARN)
-	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	rcol.add_child(note)
 	_merge_go = LobbyUi.start_button("GHÉP")
 	_merge_go.custom_minimum_size = Vector2(360, 84)
 	_merge_go.add_theme_font_size_override("font_size", 34)
@@ -1050,6 +1058,17 @@ func _build_merge_page() -> Control:
 	_merge_reason.custom_minimum_size.y = 26
 	rcol.add_child(_merge_reason)
 	return row
+
+
+## The merge rules, behind the "i": how many stones go in, one stone of the next level comes out,
+## a failure loses them all (the numbers are the game data's).
+func _show_merge_rules() -> void:
+	var m := Modal.new()
+	m.open(overlay, "Ghép đá", 620)
+	m.add_close_x()
+	m.add_text("%d–%d viên cùng cấp → 1 viên cấp trên." % [UpgradeModel.merge_min(), UpgradeModel.merge_max()], 24)
+	var warn := m.add_text("Thất bại: mất hết số đá đã bỏ vào.", 22)
+	warn.add_theme_color_override("font_color", WARN)
 
 
 func _render_merge() -> void:
@@ -1077,11 +1096,8 @@ func _render_merge() -> void:
 		var icon := LobbyUi.icon(Art.stone_icon(lv), 72)
 		icon.size_flags_horizontal = SIZE_SHRINK_CENTER
 		col.add_child(icon)
-		var name_label := LobbyUi.text("Cấp %d" % lv, 20, Color.WHITE, true)
-		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		name_label.mouse_filter = MOUSE_FILTER_IGNORE
-		col.add_child(name_label)
-		var count := LobbyUi.text("Có %s" % Fmt.thousands(have), 18, LobbyUi.GOLD if have >= UpgradeModel.merge_min() else Ui.TEXT_DIM)
+		b.tooltip_text = UpgradeModel.stone_name(lv) # the stone's look shows its level
+		var count := LobbyUi.text("×%s" % Fmt.thousands(have), 24, LobbyUi.GOLD if have >= UpgradeModel.merge_min() else Ui.TEXT_DIM, true)
 		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		count.mouse_filter = MOUSE_FILTER_IGNORE
 		col.add_child(count)
@@ -1092,6 +1108,7 @@ func _render_merge() -> void:
 	_merge_from.texture = Art.stone_icon(_merge_level)
 	_merge_to.texture = Art.stone_icon(_merge_level + 1)
 	_merge_text.text = UpgradeModel.merge_text(_merge_level, _merge_count)
+	_merge_to_holder.tooltip_text = _merge_text.text
 	_merge_times.text = "×%d" % _merge_count
 	_merge_chance.text = "Tỉ lệ thành công %s" % BattleStats.format_chance(UpgradeModel.merge_chance(PlayerState.catalog, _merge_count))
 	var reason := _merge_reason_text()
@@ -1130,7 +1147,6 @@ func _on_merge() -> void:
 	var success: bool = res.data is Dictionary and bool(res.data.get("success", false))
 	if success:
 		_play_fx("merge_ok", Color(1.0, 0.85, 0.4), _merge_fx, "THÀNH CÔNG!")
-		Ui.toast(overlay, "Ghép thành công! +1 %s" % UpgradeModel.stone_name(lv + 1), 2.5)
 	else:
 		_play_fx("merge_fail", BAD, _merge_fx, "THẤT BẠI")
 		_shake(_merge_to_holder)
@@ -1138,5 +1154,7 @@ func _on_merge() -> void:
 	await get_tree().create_timer(1.0).timeout
 	if not is_inside_tree():
 		return
+	if success: # the new stone bursts out of a gift box
+		RewardReveal.open(overlay, [RewardModel.tile("stone", "stone_%d" % (lv + 1), 1, lv + 1)])
 	_acting = false
 	_render()

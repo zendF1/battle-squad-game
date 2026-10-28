@@ -2,7 +2,8 @@ extends Control
 ## "Nhân vật" (lobby "Nhân vật" and the avatar): the character's gear and stats, laid out like
 ## equipment_sc.png.
 ## - Left: six hexagon slots in a honeycomb (Mũ, Áo, Găng tay, Quần, Giày, Vũ khí): the worn
-##   piece's icon with its milestone aura and tinted frame (no "+N"), or the slot's silhouette.
+##   piece's icon with its milestone aura and tinted frame (no "+N"), or the slot's silhouette (no
+##   slot name: the picture says it; the name is the tooltip).
 ##   A tap on a worn piece filters the right panel to its slot and opens its popup; on an empty
 ##   slot it filters (again: all slots). Under them, what the gear adds to the battle stats.
 ## - Centre: the character on the pedestal with its name, level and Lực chiến (the power glyph and the
@@ -20,6 +21,7 @@ signal open_shop(section: int)
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
+const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const Art := preload("res://ui/art.gd")
 const CharacterView := preload("res://ui/character_view.gd")
 const PedestalGun := preload("res://screens/home/pedestal_gun.gd")
@@ -181,7 +183,8 @@ func _build_slots() -> void:
 		b.add_child(aura)
 		_slot_auras[slot] = aura
 		var icon := LobbyUi.icon(Art.equipment_slot_icon(slot), 70)
-		icon.position = Vector2((HEX.x - 70) / 2, 20)
+		b.tooltip_text = EquipmentModel.slot_name(slot) # the slot's silhouette says it
+		icon.position = Vector2((HEX.x - 70) / 2, (HEX.y - 70) / 2)
 		icon.size = Vector2(70, 70)
 		b.add_child(icon)
 		var name_label := LobbyUi.text(EquipmentModel.slot_name(slot), 17, Color(0.8, 0.88, 1.0, 0.85), true)
@@ -237,14 +240,14 @@ func _render_slots() -> void:
 			var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
 			icon.texture = Art.equipment_icon(slot, EquipmentModel.tier(item), EquipmentModel.weapon_kind(item))
 			icon.modulate = Color.WHITE
-			icon.position = Vector2((HEX.x - 80) / 2, 20)
+			icon.position = (HEX - Vector2(80, 80)) / 2
 			icon.size = Vector2(80, 80)
 		else:
 			icon.texture = Art.equipment_slot_icon(slot)
-			icon.modulate = Color(0.75, 0.85, 1.0, 0.3)
-			icon.position = Vector2((HEX.x - 56) / 2, 26)
-			icon.size = Vector2(56, 56)
-		_slot_names[slot].visible = not filled
+			icon.modulate = Color(0.75, 0.85, 1.0, 0.42)
+			icon.position = (HEX - Vector2(64, 64)) / 2
+			icon.size = Vector2(64, 64)
+		_slot_names[slot].visible = false # the silhouette (empty) or the piece's icon says it
 	var entry = EquipmentModel.character_entry(PlayerState.characters, _character)
 	var lines := EquipmentModel.bonus_lines(BattleStats.of(entry)) if entry != null else []
 	_bonus.text = ("Trang bị: " + " · ".join(lines)) if not lines.is_empty() else ""
@@ -295,7 +298,7 @@ func _build_stage() -> void:
 	_stage_level = LobbyUi.text("", 24, LobbyUi.GOLD, true)
 	_stage_level.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_stage_level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	level_row.add_child(_stage_level)
+	level_row.add_child(GlyphIcon.level_row(_stage_level, 28))
 	_stage_power = PowerTag.make(30, 24)
 	level_row.add_child(_stage_power)
 	_stage_element = ElementChain.make("", 34)
@@ -345,7 +348,7 @@ func _render_stage() -> void:
 	_art.modulate = Color(0.72, 0.72, 0.8) if info["owned"] == false else Color.WHITE
 	_stage_name.text = info["name"]
 	ElementBadge.set_row_element(_stage_name_row, GameData.character_element(_character))
-	_stage_level.text = LobbyModel.level_text(info)
+	GlyphIcon.show_level(_stage_level, LobbyModel.level_text(info))
 	_stage_power.set_power(int(info["power"]))
 	_stage_element.set_element(GameData.character_element(_character))
 	var g := EquipmentModel.worn_gun(PlayerState.equipment, PlayerState.catalog, _character)

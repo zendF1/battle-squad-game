@@ -85,7 +85,7 @@ func test_buttons_and_countdown() -> void:
 	eq(ResultModel.again_text("ranked_2v2", false), "Chơi tiếp", "ranked")
 	eq(ResultModel.again_text("pvp_1v1", true), "Chơi lại", "quick play")
 	eq(ResultModel.again_text("pvp_1v1", false), "", "nothing to replay")
-	eq(ResultModel.countdown_text(19), "Tự động về sảnh sau 19 giây", "countdown")
+	eq(ResultModel.countdown_text(19), "19", "countdown: the seconds beside the clock")
 
 
 func test_lobby_error_texts() -> void:

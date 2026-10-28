@@ -5,18 +5,20 @@ extends Control
 ## - top left: a small round Thoát (X) in the corner and the chat beside it: only its lines, plain
 ##   text with an outline and a shadow over the sky (no box, no input: match chat is not there
 ##   yet), the newest last, the older ones fading (add_chat_line());
-## - top centre: the turn timer badge and the wind (strength bar from the middle) side by side;
+## - top centre: the turn timer badge and the wind (its gusts glyph, arrow, strength, a bar from
+##   the middle) side by side;
 ## - top right: whose turn it is: only that player's lobby full-body figure (ui/character_view.gd,
 ##   its weapon's +14 / +16 back aura: the match's aura lives here, not on the small sprites), no
 ##   card, name or title (the title plates are over each sprite's name); it slides and fades in on
 ##   each turn change (mine, opponents', bots: no aura);
 ## - the move buttons on the screen's left and right edges, vertically centred (◀ left, ▶
-##   right; move_layout()); under the left one the move energy (Thể lực, a short bar as wide as
-##   the button) and over it a notice while moving is blocked ("Bị cầm chân", set_move_notice());
+##   right; move_layout()); under the left one the move energy (a boot glyph over a short bar as
+##   wide as the button) and over it the picture of the effect blocking moves (root's rocks,
+##   match/views/status_glyph.gd, set_move_notice());
 ##   between the chat (top left) and the skill slot (bottom right), clear of both;
 ## - bottom centre: the aim readout over the items in hand, a row of slots (icon + count);
 ## - bottom right: the character's skill as a round slot (its icon, the energy as a ring, off
-##   until charged).
+##   until charged; its name only as the tooltip).
 ## There is no end-turn button (a turn ends with a shot or the clock) and no weapon button (the
 ## normal shot is the default). A special (the skill or a shot item) once tapped stays armed for
 ## the turn (match/action_lock.gd: the other shot slots go off). A turn change also shows a short
@@ -47,6 +49,8 @@ const BossHud := preload("res://match/boss/boss_hud.gd")
 const BossArt := preload("res://match/boss/boss_art.gd")
 const BossArtView := preload("res://match/boss/boss_art_view.gd")
 const CountdownRing := preload("res://match/views/countdown_ring.gd")
+const StatusGlyph := preload("res://match/views/status_glyph.gd")
+const GlyphIcon := preload("res://ui/glyph_icon.gd")
 
 const NAVY := Color(0.06, 0.09, 0.22, 0.78)
 const MODE_BG := Color(0.13, 0.2, 0.42, 0.9)
@@ -66,6 +70,7 @@ const ITEM_SIZE := 96
 const MOVE_SIZE := 110
 const ENERGY_GAP := 10 # between the left move button and the energy under it
 const NOTICE_GAP := 8 # between the notice and the left move button over which it sits
+const NOTICE_PX := 64.0 # the notice's picture
 const PORTRAIT_SLIDE := 70.0 # px the portrait slides in from the right
 const COUNTDOWN_RADIUS := 64.0
 const COUNTDOWN_Y := 0.62 # of the screen's height: the ring's centre (under the turn banner, centred across)
@@ -80,7 +85,7 @@ var _wind_bar: Control
 var _aim: Label
 var _aim_panel: PanelContainer
 var _energy: ProgressBar
-var _move_notice: Label
+var _move_notice: Control # status_glyph.gd
 var _countdown: Node2D # my lost turn's ring (CountdownRing), centred under the turn banner
 var _data_notice: Label = null # set_data_notice(), made on first use
 var _left: Button
@@ -241,7 +246,10 @@ func _build_top_centre() -> void:
 	wind_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	wind_row.mouse_filter = MOUSE_FILTER_IGNORE
 	wind_col.add_child(wind_row)
-	wind_row.add_child(LobbyUi.text("Gió", 24, Color.WHITE, true))
+	var gust = GlyphIcon.make("wind", 34)
+	gust.name = "WindGlyph"
+	gust.tooltip_text = "Gió"
+	wind_row.add_child(gust)
 	_wind_arrow = LobbyUi.icon("arrow_right", 26)
 	wind_row.add_child(_wind_arrow)
 	_wind = LobbyUi.text("", 24, Color.WHITE, true)
@@ -290,9 +298,9 @@ func _build_move() -> void:
 	var energy_col := Ui.vbox(4)
 	energy_col.mouse_filter = MOUSE_FILTER_IGNORE
 	energy_panel.add_child(energy_col)
-	var label := LobbyUi.text("Thể lực", 18, Color(1, 1, 1, 0.85), true)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	energy_col.add_child(label)
+	var boot = GlyphIcon.make("boot", 30)
+	boot.tooltip_text = "Thể lực"
+	energy_col.add_child(boot)
 	_energy = ProgressBar.new()
 	_energy.max_value = GameData.default_move_energy() # set_energy() sets the player's own maximum
 	_energy.show_percentage = false
@@ -301,10 +309,11 @@ func _build_move() -> void:
 	_energy.add_theme_stylebox_override("background", LobbyUi.box(Color(0.02, 0.03, 0.1, 0.85), 8, 0, Color(1, 1, 1, 0.15), 2))
 	_energy.add_theme_stylebox_override("fill", LobbyUi.box(Color(0.35, 0.85, 0.45), 8, 0))
 	energy_col.add_child(_energy)
-	_move_notice = _pin(LobbyUi.text("", 24, Color(0.75, 1.0, 0.55), true), 0, 0.5, Vector2(MARGIN, -MOVE_SIZE / 2.0 - NOTICE_GAP))
+	_move_notice = _pin(StatusGlyph.make("", NOTICE_PX), 0, 0.5, Vector2(MARGIN + (MOVE_SIZE - NOTICE_PX) / 2.0, -MOVE_SIZE / 2.0 - NOTICE_GAP))
 	_move_notice.name = "MoveNotice"
 	_move_notice.grow_vertical = GROW_DIRECTION_BEGIN # sits on the button
-	_move_notice.offset_top = _move_notice.offset_bottom
+	_move_notice.offset_right = _move_notice.offset_left + NOTICE_PX
+	_move_notice.offset_top = _move_notice.offset_bottom - NOTICE_PX
 	_move_notice.mouse_filter = MOUSE_FILTER_IGNORE
 	_move_notice.visible = false
 	_right = _hold_button("arrow_right", 1)
@@ -370,6 +379,7 @@ func _build_skill() -> void:
 	_skill.add_child(_skill_ring)
 	_skill_name = LobbyUi.text("", 20, Color.WHITE, true)
 	_skill_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_skill_name.visible = false # the slot's picture says it: the name is only its tooltip
 	_skill_box.add_child(_skill_name)
 
 
@@ -480,14 +490,14 @@ func pause_timer() -> void:
 	_timer_running = false
 
 
-## No wind (power 0, e.g. while a wind_stopper lasts) reads "Gió: tắt".
+## No wind (power 0, e.g. while a wind_stopper lasts) reads 0, no arrow.
 func set_wind(direction: int, power: float) -> void:
 	_wind_dir = direction
 	_wind_power = power
 	_wind_bar.queue_redraw()
 	_wind_arrow.visible = power > 0.0 and direction != 0
 	if power <= 0.0:
-		_wind.text = "tắt"
+		_wind.text = "0"
 		return
 	_wind_arrow.texture = Art.icon("arrow_right" if direction > 0 else "arrow_left")
 	_wind.text = "%.1f" % power
@@ -509,14 +519,16 @@ func set_column(x: float) -> void:
 	_aim.text = "Không kích x=%d" % roundi(x)
 
 
-## The notice over the move buttons ("" hides it), e.g. "Bị cầm chân" while rooted.
-func set_move_notice(text: String) -> void:
-	_move_notice.text = text
-	_move_notice.visible = text != ""
+## The notice over the move buttons: the picture of the effect keeping me from moving (status_glyph:
+## root's rocks), "" hides it.
+func set_move_notice(effect_id: String) -> void:
+	_move_notice.effect = effect_id
+	_move_notice.tooltip_text = GameData.status_banner(effect_id)
+	_move_notice.visible = effect_id != ""
 
 
 func move_notice() -> String:
-	return _move_notice.text if _move_notice.visible else ""
+	return _move_notice.effect if _move_notice.visible else ""
 
 
 ## My lost turn's countdown: the seconds left (0 hides it) and the ring's share still filled,
@@ -761,7 +773,7 @@ func _announce(text: String, mine: bool) -> void:
 	_banner_tween.tween_property(_banner, "modulate:a", 0.0, 0.35)
 
 
-## The map's name at the match start, under the timer: "BẢN ĐỒ" over the name, sliding in,
+## The map's name at the match start, under the timer (the name alone), sliding in,
 ## held MAP_TOAST_SEC, fading out.
 func announce_map(map_name: String) -> void:
 	if _map_toast != null:
@@ -775,9 +787,6 @@ func announce_map(map_name: String) -> void:
 	var col := Ui.vbox(0)
 	col.mouse_filter = MOUSE_FILTER_IGNORE
 	_map_toast.add_child(col)
-	var cap := LobbyUi.text("BẢN ĐỒ", 15, Color(0.75, 0.88, 1.0), true)
-	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(cap)
 	_map_label = LobbyUi.text(map_name, 30, LobbyUi.GOLD, true)
 	_map_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(_map_label)

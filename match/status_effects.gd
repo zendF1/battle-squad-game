@@ -6,10 +6,13 @@ extends RefCounted
 ##
 ## What each effect does and says is the game data's (GET /gamedata statusEffects, in order:
 ## name, marker, banner, bad, skipsTurn, blocksMove): every active effect is drawn on the unit's
-## body (match/views/status_look.gd, status_fx.gd; no icons beside the HP bar), the markers as
-## text above the head, the banner while it skips the turn or blocks moving.
+## body (match/views/status_look.gd, status_fx.gd; no icons beside the HP bar), a status event as
+## its picture bursting over the unit (match/views/status_burst.gd), an armed shot item as its
+## icon on the use badge, only a marker with no picture as text above the head; a lost turn is a
+## countdown ring, a blocked move the effect's picture over the move buttons.
 
 const GameData := preload("res://autoload/game_data_model.gd")
+const Items := preload("res://match/items.gd")
 
 
 static func has(effects: Variant, effect_id: String) -> bool:
@@ -35,10 +38,14 @@ static func active(effects: Variant) -> Array:
 	return out
 
 
-## "Lưới · x1.5": the markers of the active effects, in list order, each once.
+## The text markers of the active effects, in list order, each once: only an effect with no
+## picture of its own; an armed shot item ("x1.5", "Khoan") is its icon on the use badge over the
+## head (match/views/use_badge.gd) and its aura on the body, never text.
 static func marker_text(effects: Variant) -> String:
 	var parts: Array[String] = []
 	for id in active(effects):
+		if Items.order().has(id):
+			continue
 		var text := GameData.status_marker(id)
 		if text != "" and not parts.has(text):
 			parts.append(text)
@@ -102,6 +109,15 @@ static func move_block_text(effects: Variant) -> String:
 			var t := GameData.status_banner(id)
 			if t != "":
 				return t
+	return ""
+
+
+## The effect blocking moving without skipping the turn (root), "" for none: its picture shows
+## over the move controls.
+static func move_block_effect(effects: Variant) -> String:
+	for id in active(effects):
+		if GameData.status_blocks_move(id) and not GameData.status_skips_turn(id):
+			return id
 	return ""
 
 

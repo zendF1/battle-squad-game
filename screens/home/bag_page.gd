@@ -3,13 +3,15 @@ extends Control
 ## - "Trang bị": the owned pieces (PlayerState.equipment + the catalog) as a grid of cards showing
 ##   only the icon and the name in the level colour inside the border aura, the card tinted in
 ##   that colour (worn pieces: green edge and a check badge), worn ones first then by required
-##   level; slot filter chips on top. A tap opens the piece popup with everything else
+##   level; slot filter chips on top, the lobby character's face at their right (who a tap
+##   dresses). A tap opens the piece popup with everything else
 ##   (equipment_ui.gd) for the character chosen in the lobby: worn → Chuyển cho <nhân vật> /
 ##   Nâng cấp / Tháo, not worn → Mặc cho <nhân vật> / Bán / Vứt, closed by its X.
-## - "Vật phẩm": the equipment chests owned (ChestModel.by_tab), then the battle items (game data order) with
-##   their GET /player/inventory counts.
+## - "Vật phẩm": the equipment chests owned (ChestModel.by_tab), then the battle items (game data
+##   order): icon and GET /player/inventory count, the name only as the tooltip.
 ## - "Nguyên liệu": the stone chests owned, then the upgrade stones owned (PlayerState.stones):
-##   icon, level, count, power (an upgrade arrow by the number); "Mua đá" (Shop → Đá nâng cấp)
+##   icon (its look tells the level; the name the tooltip), count, power (an upgrade arrow by the
+##   number); "Mua đá" (Shop → Đá nâng cấp)
 ##   and "Ghép đá" (the Nâng cấp page's Ghép đá).
 ## A chest card (PlayerState.chests, GET /chests; its tab by the game data's kind), all pictures:
 ## icon (its name the tooltip), count, the odds (ChestModel.odds_parts: each stone's icon over its
@@ -39,7 +41,6 @@ const ChestModel := preload("res://screens/home/chest_model.gd")
 const ChestIcon := preload("res://ui/chest_icon.gd")
 const RewardReveal := preload("res://ui/reward_reveal.gd")
 const RewardModel := preload("res://ui/reward_model.gd")
-const ElementBadge := preload("res://ui/element_badge.gd")
 
 const SUB_TABS := ["Trang bị", "Vật phẩm", "Nguyên liệu"]
 const EQUIPMENT := 0
@@ -67,7 +68,7 @@ var _pages: Array[Control] = []
 var _chips: Array[Button]
 var _gear_status: LoadStatus
 var _gear_flow: HFlowContainer
-var _gear_hint: Label
+var _gear_who: TextureRect # the lobby character's face: who a tap dresses
 var _inv_status: LoadStatus
 var _inv_flow: HFlowContainer
 var _stone_status: LoadStatus
@@ -169,11 +170,14 @@ func _build_gear_page() -> Control:
 	_chips = EquipmentUi.slot_chips(_on_slot)
 	for c in _chips:
 		chips.add_child(c)
-	_gear_hint = LobbyUi.text("", 20, Ui.TEXT_DIM)
-	_gear_hint.size_flags_horizontal = SIZE_EXPAND_FILL
-	_gear_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_gear_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	chips.add_child(_gear_hint)
+	var gap := Control.new()
+	gap.size_flags_horizontal = SIZE_EXPAND_FILL
+	chips.add_child(gap)
+	_gear_who = LobbyUi.icon(Art.portrait(LoadoutModel.default_character()), 52)
+	_gear_who.name = "Who"
+	_gear_who.mouse_filter = MOUSE_FILTER_PASS
+	_gear_who.size_flags_vertical = SIZE_SHRINK_CENTER
+	chips.add_child(_gear_who)
 	_gear_status = LoadStatus.new()
 	col.add_child(_gear_status)
 	_gear_flow = HFlowContainer.new()
@@ -201,7 +205,8 @@ func _render_gear() -> void:
 		_gear_status.clear()
 	EquipmentUi.select_chip(_chips, _slot)
 	var who := _who()
-	_gear_hint.text = "Chạm để mặc cho %s" % EquipmentModel.character_name(who)
+	_gear_who.texture = Art.portrait(who)
+	_gear_who.tooltip_text = "Chạm để mặc cho %s" % EquipmentModel.character_name(who)
 	Ui.clear(_gear_flow)
 	if PlayerState.equipment == null:
 		return
@@ -311,10 +316,8 @@ func _render_inventory() -> void:
 		var box := Ui.vbox(4)
 		box.alignment = BoxContainer.ALIGNMENT_CENTER
 		row.add_child(box)
-		var label := LobbyUi.text(Items.label(id), 24, Color.WHITE, true)
-		ElementBadge.shrink_to_fit(label, 270 - 16 * 2 - 72 - 12, 18) # the card keeps the grid's width
-		box.add_child(label)
-		box.add_child(LobbyUi.text(ChestModel.count_text(n) if n >= 0 else "×—", 26, Ui.TONES["draw"], true))
+		card.tooltip_text = Items.label(id) # the icon says it: no name on the card
+		box.add_child(LobbyUi.text(ChestModel.count_text(n) if n >= 0 else "×—", 30, Ui.TONES["draw"], true))
 		if n == 0:
 			card.modulate = Color(1, 1, 1, 0.4)
 		_inv_flow.add_child(card)
@@ -376,8 +379,8 @@ func _render_stones() -> void:
 		var box := Ui.vbox(2)
 		box.alignment = BoxContainer.ALIGNMENT_CENTER
 		row.add_child(box)
-		box.add_child(LobbyUi.text(UpgradeModel.stone_name(int(lv)), 24, Color.WHITE, true))
-		box.add_child(LobbyUi.text(ChestModel.count_text(int(PlayerState.stones[lv])), 26, Ui.TONES["draw"], true))
+		card.tooltip_text = UpgradeModel.stone_name(int(lv)) # the stone's look shows its level
+		box.add_child(LobbyUi.text(ChestModel.count_text(int(PlayerState.stones[lv])), 30, Ui.TONES["draw"], true))
 		var power := Ui.hbox(4)
 		power.tooltip_text = "Sức mạnh"
 		power.add_child(LobbyUi.icon("upgrade", 22))

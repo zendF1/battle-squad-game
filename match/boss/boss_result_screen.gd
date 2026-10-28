@@ -14,7 +14,7 @@ extends Control
 ## coins, stones, chests, items as icon + count, no names, scrolling sideways when they overflow,
 ## popping in one by one, the coins counting up); a level up opens the "LÊN CẤP!" popup after the EXP. Bottom right "Chơi
 ## tiếp" (the same boss's queue again; not for the party's member), "Về sảnh" (the party kept) and
-## "Tự động về sảnh sau N giây".
+## the clock glyph with the seconds left.
 ##
 ## setup(info) before it enters the tree: BossResultModel.info() plus exp ({level, exp} before the
 ## match, {} unknown), char_name, character_id, again ("" none).
@@ -24,6 +24,7 @@ signal again_pressed
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
+const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const Art := preload("res://ui/art.gd")
 const Backdrop := preload("res://ui/backdrop.gd")
 const CharacterView := preload("res://ui/character_view.gd")
@@ -58,6 +59,7 @@ var _right: VBoxContainer
 var _again: Button
 var _home: Button
 var _countdown: Label
+var _clock: Control # ui/glyph_icon.gd "clock" before the countdown
 var _exp_value: Label
 var _exp_bar: ProgressBar
 var _coin_value: Label # the coin tile's count (null: no coins)
@@ -342,14 +344,22 @@ func _finish_bottom(bar: Control) -> Control:
 		_counting = false
 		home_pressed.emit())
 	_right.add_child(_home)
-	_countdown = LobbyUi.text(ResultModel.countdown_text(ResultModel.AUTO_EXIT_SEC), 20, Ui.TEXT_DIM, true)
+	var cd_row := Ui.hbox(6) # the clock with the seconds left before going home
+	cd_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	cd_row.tooltip_text = "Tự động về sảnh"
+	cd_row.mouse_filter = MOUSE_FILTER_PASS
+	_clock = GlyphIcon.make("clock", 28)
+	cd_row.add_child(_clock)
+	_countdown = LobbyUi.text(ResultModel.countdown_text(ResultModel.AUTO_EXIT_SEC), 22, Ui.TEXT_DIM, true)
 	_countdown.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_right.add_child(_countdown)
+	cd_row.add_child(_countdown)
+	_right.add_child(cd_row)
 	return bar
 
 
 ## A status under the buttons ("Đang tạo trận...", an error); busy locks the buttons.
 func set_status(text: String, busy: bool) -> void:
+	_clock.visible = false # a message, not the countdown
 	_countdown.text = text
 	_countdown.add_theme_color_override("font_color", Color.WHITE if busy else Ui.TONES["error"])
 	if _again != null:
@@ -451,6 +461,7 @@ func _process(delta: float) -> void:
 		_left_sec -= delta
 		if ceili(_left_sec) != before:
 			_countdown.text = ResultModel.countdown_text(ceili(_left_sec))
+			_clock.visible = true
 		if _left_sec <= 0.0:
 			_counting = false
 			home_pressed.emit()

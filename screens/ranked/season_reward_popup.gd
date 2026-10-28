@@ -1,6 +1,7 @@
 extends "res://ui/modal.gd"
 ## The reward of an ended season (one GET /rank/season-rewards row, SeasonRewardModel.parse_one),
-## shown on Home under "Mùa giải đã kết thúc": "Phần thưởng Mùa 1: Trung sĩ 2" over the final grade's insignia (dead centre),
+## shown on Home under "Mùa 1 đã kết thúc": the final grade's insignia (dead centre; it shows the
+## grade, the name only as its tooltip),
 ## "Hạng #3 · 4.230 điểm", the rewards as glowing tiles (ui/reward_strip.gd: coin, locked gem with
 ## its padlock, chests, stones, items; icon + ×N) and "Nhận": POST /rank/season-rewards/claim
 ## (PlayerState.claim_season_reward: the wallet, chests and stones refresh); claimed plays the
@@ -26,14 +27,11 @@ var claim_button: Button
 ## Opens over `host` for `r` (SeasonRewardModel.parse_one()).
 func open_for(host: Node, r: Dictionary) -> void:
 	reward = r
-	open(host, "Mùa giải đã kết thúc", 680)
+	open(host, SeasonRewardModel.ended_title(r), 680)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var head := LobbyUi.text(SeasonRewardModel.heading(r), 30, GradeBadge.text_color(str(r["grade"])), true)
-	head.name = "Heading"
-	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.add_child(head)
 	var badge := GradeBadge.make(str(r["grade"]), int(r["division"]), BADGE)
+	badge.tooltip_text = SeasonRewardModel.heading(r) # the insignia shows the grade: no line saying it
+	badge.mouse_filter = MOUSE_FILTER_PASS
 	badge.size_flags_horizontal = SIZE_SHRINK_CENTER
 	body.add_child(badge)
 	var standing := LobbyUi.text(SeasonRewardModel.standing_text(r), 22, Ui.TEXT_DIM)

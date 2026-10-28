@@ -62,7 +62,7 @@ func test_info_owned_and_not_owned() -> void:
 	var data := {"characters": [entry], "baseStats": {"tanko": BASE_TANKO}}
 	var info := LobbyModel.character_info("rookie", data)
 	eq(info["owned"], true, "owned")
-	eq(LobbyModel.level_text(info), "Lv.3", "level")
+	eq(LobbyModel.level_text(info), "3", "level (beside the level glyph)")
 	eq(info["stats"], [["Máu", "1.540"], ["Sát thương", "510"], ["Phòng thủ", "56"]], "battle stats, damage = weapon + bonus")
 	var tanko := LobbyModel.character_info("tanko", data)
 	eq(tanko["owned"], false, "not owned")
@@ -73,7 +73,7 @@ func test_info_owned_and_not_owned() -> void:
 	eq(LobbyModel.stat_pairs(geared), [["Máu", "8.068"], ["Sát thương", "2.370"], ["Phòng thủ", "56"]], "thousands separator")
 	var old := LobbyModel.character_info("rookie", {"characters": [{"characterId": "rookie", "level": 2}]})
 	eq(old["stats"], [], "an older server without stats")
-	eq(LobbyModel.level_text(old), "Lv.2", "level still shown")
+	eq(LobbyModel.level_text(old), "2", "level still shown")
 	eq(LobbyModel.character_info("spark", {"characters": "bad"})["owned"], null, "malformed is unknown")
 
 

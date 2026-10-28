@@ -658,6 +658,18 @@ func _show_chest(c: Dictionary) -> Modal:
 	m.body.add_child(tiles)
 	tiles.size = Vector2(464, RewardStrip.TILE.y)
 	tiles.set_tiles(RewardModel.from_lines(DailyModel.reward_lines(c["rewards"])))
-	var hint := m.add_text(DailyModel.chest_hint(c, value), 22)
-	hint.add_theme_color_override("font_color", GREEN if c["state"] == DailyModel.CLAIMED else DIM)
+	# why: a check once taken, else the activity star with "40/60" (the sentence as its tooltip)
+	var hint := Ui.hbox(8)
+	hint.name = "Hint"
+	hint.alignment = BoxContainer.ALIGNMENT_CENTER
+	hint.tooltip_text = DailyModel.chest_hint(c, value)
+	hint.mouse_filter = MOUSE_FILTER_PASS
+	m.body.add_child(hint)
+	if c["state"] == DailyModel.CLAIMED:
+		hint.add_child(LobbyUi.icon("check", 40))
+	else:
+		hint.add_child(MissionArt.make(MissionArt.Kind.STAR, Vector2(36, 36)))
+		var l := LobbyUi.text("%d/%d" % [value, int(c.get("threshold", 0))], 26, GOLD if value >= int(c.get("threshold", 0)) else DIM, true)
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		hint.add_child(l)
 	return m

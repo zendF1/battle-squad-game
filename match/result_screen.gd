@@ -6,7 +6,7 @@ extends Control
 ## side: the winner with the most damage stands higher, ResultModel.podium_top()), the other team
 ## on the right, dimmed, on the ground (a draw: my team left, no podium); each player in full pose
 ## (ui/character_view.gd, bots too) on their own step under their title plate, their badge
-## (rankBadge, grade_badge.gd) with the name (mine gold) and "Lv.N" / the damage dealt, "MVP" on the best one, "ĐỘI CỦA BẠN" /
+## (rankBadge, grade_badge.gd) with the name (mine gold), the level and the damage dealt as glyph + number, "MVP" on the best one, "ĐỘI CỦA BẠN" /
 ## "ĐỐI THỦ" under each team. Bottom left my rewards card (its size never changes: what grew it
 ## is in the popups): "+N EXP" counting with its bar filling, the coin with "+N" (a ranked match:
 ## the insignia with "+150", its bonus inside the coins; then the stones and chests won as glowing
@@ -17,7 +17,7 @@ extends Control
 ## character levelled up, the coins, then the rank popup (match/rank_popup.gd) when the division
 ## or grade changed (the insignia and the name then flip to the new rank), else the points
 ## counting. Bottom right, always in place: "Chơi tiếp" (ranked) /
-## "Chơi lại" (Quick Play), "Về sảnh" and "Tự động về sảnh sau N giây" (AUTO_EXIT_SEC, then
+## "Chơi lại" (Quick Play), "Về sảnh" and the clock glyph with the seconds left (AUTO_EXIT_SEC, then
 ## home_pressed; paused while a popup is open). The players rise onto their places one by one
 ## after the title.
 ##
@@ -72,6 +72,7 @@ var _bottom: Control
 var _again: Button
 var _home: Button
 var _countdown: Label
+var _clock: Control # ui/glyph_icon.gd "clock" before the countdown
 var _left_sec := float(ResultModel.AUTO_EXIT_SEC)
 var _counting := true
 var _particles: Array = []
@@ -236,12 +237,13 @@ func _add_slot(e: Dictionary, left: bool) -> void:
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	name_label.mouse_filter = MOUSE_FILTER_IGNORE
 	row.add_child(name_label)
-	for t in [[ResultModel.level_text(e), 21, LobbyUi.GOLD], [ResultModel.damage_text(int(e["damage"])), 18, Color(0.82, 0.88, 1.0)]]:
-		var sub := LobbyUi.text(t[0], t[1], t[2], true)
-		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		sub.mouse_filter = MOUSE_FILTER_IGNORE
-		sub.visible = t[0] != ""
-		head.add_child(sub)
+	# the level and the damage dealt as glyph + number (a bot's name says it is one)
+	var level := int(e.get("level", 0))
+	if level > 0:
+		head.add_child(_glyph_line("level", str(level), 21, LobbyUi.GOLD, ResultModel.level_text(e)))
+	var damage := int(e["damage"])
+	if damage >= 0:
+		head.add_child(_glyph_line("sword", Fmt.thousands(damage), 19, Color(0.82, 0.88, 1.0), ResultModel.damage_text(damage)))
 	var art := CharacterView.new()
 	art.character_id = str(e["characterId"])
 	art.idle = true
@@ -262,6 +264,20 @@ func _add_slot(e: Dictionary, left: bool) -> void:
 		head.modulate = Color(0.85, 0.87, 0.95)
 	add_child(slot)
 	_slots.append({"node": slot, "entry": e, "left": left})
+
+
+## A centred glyph (ui/glyph_icon.gd) with its value ("24", "1.240"), `tip` its tooltip.
+static func _glyph_line(kind: String, value: String, font: int, color: Color, tip: String) -> HBoxContainer:
+	var row := Ui.hbox(4)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.tooltip_text = tip
+	row.mouse_filter = MOUSE_FILTER_PASS
+	row.add_child(GlyphIcon.make(kind, font + 6))
+	var l := LobbyUi.text(value, font, color, true)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.mouse_filter = MOUSE_FILTER_IGNORE
+	row.add_child(l)
+	return row
 
 
 ## The rewards card (left) and the buttons with the countdown (right), each placed by _layout():
@@ -399,14 +415,22 @@ func _build_bottom() -> Control:
 		_counting = false
 		home_pressed.emit())
 	right.add_child(_home)
-	_countdown = LobbyUi.text(ResultModel.countdown_text(ResultModel.AUTO_EXIT_SEC), 20, Ui.TEXT_DIM, true)
+	var cd_row := Ui.hbox(6) # the clock with the seconds left before going home
+	cd_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	cd_row.tooltip_text = "Tự động về sảnh"
+	cd_row.mouse_filter = MOUSE_FILTER_PASS
+	_clock = GlyphIcon.make("clock", 28)
+	cd_row.add_child(_clock)
+	_countdown = LobbyUi.text(ResultModel.countdown_text(ResultModel.AUTO_EXIT_SEC), 22, Ui.TEXT_DIM, true)
 	_countdown.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	right.add_child(_countdown)
+	cd_row.add_child(_countdown)
+	right.add_child(cd_row)
 	return bar
 
 
 ## A status under the buttons ("Đang tạo trận...", an error); busy locks the buttons.
 func set_status(text: String, busy: bool) -> void:
+	_clock.visible = false # a message, not the countdown
 	_countdown.text = text
 	_countdown.add_theme_color_override("font_color", Color.WHITE if busy else Ui.TONES["error"])
 	if _again != null:
@@ -529,6 +553,7 @@ func _process(delta: float) -> void:
 		_left_sec -= delta
 		if ceili(_left_sec) != before:
 			_countdown.text = ResultModel.countdown_text(ceili(_left_sec))
+			_clock.visible = true
 		if _left_sec <= 0.0:
 			_counting = false
 			home_pressed.emit()

@@ -305,7 +305,7 @@ func _hud() -> Control:
 	h._ready()
 	h.set_actions({"name": "Mưa tên lửa"}, 100, true, "weapon", [{"id": "drill_bomb", "count": 1, "enabled": true},
 		{"id": "medkit", "count": 2, "enabled": true}, {"id": "teleport", "count": 1, "enabled": true}])
-	h.set_move_notice("Bị cầm chân")
+	h.set_move_notice("root")
 	return h
 
 
@@ -363,7 +363,7 @@ func test_move_buttons_on_the_screen_edges() -> void:
 		check(energy.position.y - left.end.y <= 12.0, tag + " energy right under ◀")
 		near(energy.get_center().x, left.get_center().x, 0.5, tag + " energy centred under ◀")
 		check(notice.end.y <= left.position.y and left.position.y - notice.end.y <= 12.0, tag + " notice right over ◀")
-		near(notice.position.x, Hud.MARGIN, 0.5, tag + " notice from the left margin")
+		near(notice.get_center().x, left.get_center().x, 0.5, tag + " notice (a picture) centred over ◀")
 		var others := {}
 		for part in ["TopLeft", "TopCentre", "BottomCentre", "Skill", "Portrait"]:
 			others[part] = _anchored(h.get_node(part), screen)

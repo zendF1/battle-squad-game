@@ -60,6 +60,12 @@ static func heading(r: Dictionary) -> String:
 	return "Phần thưởng %s: %s" % [season, g]
 
 
+## The popup's title: "Mùa 1 đã kết thúc" ("Mùa giải đã kết thúc" without a season name).
+static func ended_title(r: Dictionary) -> String:
+	var season := str(r.get("seasonName", ""))
+	return "%s đã kết thúc" % season if season != "" else "Mùa giải đã kết thúc"
+
+
 ## "Hạng #3 · 4.230 điểm" (the final position and points); the points alone without a position.
 static func standing_text(r: Dictionary) -> String:
 	var pts := RankModel.points_text(int(r["rankPoints"]))

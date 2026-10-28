@@ -13,13 +13,13 @@ func test_has_needs_turns_left() -> void:
 
 func test_marker_text() -> void:
 	eq(Status.marker_text([{"effectId": "net", "durationTurn": 1}]), "", "net is an icon now")
-	eq(Status.marker_text([{"effectId": "freeze", "durationTurn": 1}, {"effectId": "power_shot", "durationTurn": 1}]), "x1.5", "only the shot modifier")
+	eq(Status.marker_text([{"effectId": "freeze", "durationTurn": 1}, {"effectId": "power_shot", "durationTurn": 1}]), "", "a shot modifier is its icon on the use badge")
 	eq(Status.marker_text([{"effectId": "heal", "durationTurn": 1}]), "", "heal shows nothing")
 	eq(Status.marker_text([{"effectId": "power_shot", "durationTurn": 0}]), "", "expired")
-	eq(Status.marker_text([{"effectId": "drill_bomb", "durationTurn": 1}, {"effectId": "drill_bomb", "durationTurn": 2}]), "Khoan", "once")
+	eq(Status.marker_text([{"effectId": "drill_bomb", "durationTurn": 1}, {"effectId": "drill_bomb", "durationTurn": 2}]), "", "an armed item: no text")
 	eq(Status.marker_text(null), "", "null")
 	for id in ["spider_net", "freeze_bomb", "air_strike"]:
-		check(Status.marker_text([{"effectId": id, "durationTurn": 1}]) != "", "armed marker " + id)
+		eq(Status.marker_text([{"effectId": id, "durationTurn": 1}]), "", "armed item %s: its icon, no text" % id)
 
 
 func test_apply_overrides_or_adds() -> void:

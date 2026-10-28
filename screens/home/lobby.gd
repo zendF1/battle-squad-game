@@ -482,7 +482,7 @@ func _add_stage() -> void:
 	head.add_child(_stage_name_row)
 	_stage_level = LobbyUi.text("", 24, LobbyUi.GOLD, true)
 	_stage_level.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	head.add_child(_stage_level)
+	head.add_child(GlyphIcon.level_row(_stage_level, 28))
 
 	_art = CharacterView.new()
 	_art.position = Vector2((STAGE.x - 375) / 2, 142) # 2.5 px per art unit; feet on the pedestal
@@ -613,7 +613,7 @@ func _render_character() -> void:
 	_render_gun()
 	_stage_name.text = info["name"]
 	ElementBadge.set_row_element(_stage_name_row, GameData.character_element(id))
-	_stage_level.text = level
+	GlyphIcon.show_level(_stage_level, level)
 	_info_chain.set_element(GameData.character_element(id))
 	_info_skill.skill_id = str(Skills.for_character(id).get("id", ""))
 	_info_skill.visible = info["skill"] != ""
