@@ -5,7 +5,8 @@ extends Control
 ##   piece's icon with its milestone aura and tinted frame (no "+N"), or the slot's silhouette.
 ##   A tap on a worn piece filters the right panel to its slot and opens its popup; on an empty
 ##   slot it filters (again: all slots). Under them, what the gear adds to the battle stats.
-## - Centre: the character on the pedestal with its name and level, ◀ ▶ / swipe cycle the four
+## - Centre: the character on the pedestal with its name, level and Lực chiến (the power glyph and the
+##   server's number, ui/power_tag.gd; none for a character not owned), ◀ ▶ / swipe cycle the four
 ##   characters and change the lobby's choice too (`selected`).
 ## - Right: tabs "Trang bị" (the owned pieces of the tapped slot, or all: worn ones first, each
 ##   with its change against the worn piece; pieces this character cannot wear dimmed with the
@@ -35,6 +36,7 @@ const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
 const ElementChain := preload("res://ui/element_chain.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
+const PowerTag := preload("res://ui/power_tag.gd")
 
 const SUB_TABS := ["Trang bị", "Chỉ số"]
 const GEAR := 0
@@ -76,6 +78,7 @@ var _stage_name: Label
 var _stage_name_row: HBoxContainer # the element badge before the name
 var _stage_element: ElementChain # beaten by → the element → beats, as badges
 var _stage_level: Label
+var _stage_power: PowerTag
 var _sub_tabs: Array[Button]
 var _pages: Array[Control] = []
 var _list_title: Label
@@ -284,9 +287,17 @@ func _build_stage() -> void:
 	_stage_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_stage_name_row = ElementBadge.name_row(_stage_name, "", 44, 10)
 	head.add_child(_stage_name_row)
+	var level_row := Ui.hbox(18)
+	level_row.name = "LevelRow"
+	level_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	level_row.mouse_filter = MOUSE_FILTER_IGNORE
+	head.add_child(level_row)
 	_stage_level = LobbyUi.text("", 24, LobbyUi.GOLD, true)
 	_stage_level.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	head.add_child(_stage_level)
+	_stage_level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	level_row.add_child(_stage_level)
+	_stage_power = PowerTag.make(30, 24)
+	level_row.add_child(_stage_power)
 	_stage_element = ElementChain.make("", 34)
 	_stage_element.name = "ElementChain"
 	head.add_child(_stage_element)
@@ -335,6 +346,7 @@ func _render_stage() -> void:
 	_stage_name.text = info["name"]
 	ElementBadge.set_row_element(_stage_name_row, GameData.character_element(_character))
 	_stage_level.text = LobbyModel.level_text(info)
+	_stage_power.set_power(int(info["power"]))
 	_stage_element.set_element(GameData.character_element(_character))
 	var g := EquipmentModel.worn_gun(PlayerState.equipment, PlayerState.catalog, _character)
 	_gun_stand.set_gun(g["kind"], g["tier"])

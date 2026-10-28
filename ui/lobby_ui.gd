@@ -18,6 +18,7 @@ const ICON_COLORS := {
 	"purple": Color(0.55, 0.36, 0.88),
 	"green": Color(0.25, 0.68, 0.42),
 	"red": Color(0.86, 0.3, 0.3),
+	"gold": Color(0.92, 0.66, 0.12),
 }
 
 static var _bold: FontVariation

@@ -85,6 +85,7 @@ signal gamedata_changed # a GET /gamedata answer brought a new game data version
 signal _gamedata_done # a load_gamedata() fetch ended
 signal chests_changed # owned chests, their loading / error or chest_busy changed
 signal season_rewards_changed # a GET /rank/season-rewards answer was applied, or a claim ended
+signal leaderboard_changed(type: String) # a GET /leaderboard answer (or its failure) was applied, or a load started
 
 const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
 const Coalescer := preload("res://core/coalescer.gd")
@@ -97,6 +98,7 @@ const DailyModel := preload("res://screens/home/daily_model.gd")
 const MapCatalog := preload("res://match/theme/map_catalog.gd")
 const ChestModel := preload("res://screens/home/chest_model.gd")
 const SeasonRewardModel := preload("res://screens/ranked/season_reward_model.gd")
+const LeaderboardModel := preload("res://screens/home/leaderboard_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
 ## What a payment refreshes once it succeeded.
@@ -219,6 +221,14 @@ var _season_rewards_player := ""
 var _season_gate := Coalescer.new()
 var season_busy := "" # the season being claimed
 
+# Leaderboards: type -> LeaderboardModel.parse() of this account's last answer / its error text
+var leaderboards := {}
+var leaderboard_errors := {}
+var leaderboard_loading := {} # type -> true while its request runs
+var _leaderboard_msec := {} # type -> Time.get_ticks_msec() of its last answer
+var _leaderboard_player := ""
+const LEADERBOARD_MAX_AGE_MSEC := 60000
+
 var _equipment_gate := Coalescer.new()
 var _profile_gate := Coalescer.new()
 var _characters_gate := Coalescer.new()
@@ -232,6 +242,13 @@ var _known_ids := {} # purchaseIds / transactionIds this client has seen (replay
 ## (load_season_rewards(), coalesced; season_rewards_changed), claim_season_reward(seasonId) runs
 ## POST /rank/season-rewards/claim {seasonId} one at a time: the wallet takes the answer's wallet
 ## at once, the chests / stones / profile reload, the list reloads whatever the answer.
+##
+## Leaderboards ("Xếp hạng"): GET /leaderboard?type=level|rank|power (LeaderboardModel.parse) per
+## board, loaded when its tab shows (load_leaderboard(type), one request per board at a time; an
+## answer younger than LEADERBOARD_MAX_AGE_MSEC is kept, the server caches the boards about as
+## long); leaderboard_changed(type). A failure keeps the last answer and sets leaderboard_errors.
+## Lực chiến: the profile's power + powerCharacterId (power(), power_character()), each owned
+## character's power in GET /player/characters (always the server's number).
 ##
 ## Gems: the profile's gem is the locked gem (kim cương khoá: daily activities, milestones, season
 ## rewards), gemUnlocked the unlocked gem (kim cương: top-ups); a gem price takes the locked first,
@@ -288,6 +305,18 @@ func rank_badge() -> String:
 		return b
 	b = my_rank().get("rankBadge")
 	return b if b is String else ""
+
+
+## My Lực chiến (the profile's power: my strongest character's), -1 unknown.
+func power() -> int:
+	var v = profile.get("power")
+	return int(v) if v is int or v is float else -1
+
+
+## The character my power is from (the profile's powerCharacterId), "" unknown.
+func power_character() -> String:
+	var v = profile.get("powerCharacterId")
+	return v if v is String else ""
 
 
 ## The worn title {id, name, rarity}, {} when none (the profile's equippedTitle).
@@ -375,6 +404,42 @@ func load_rank() -> void:
 			_rank_player = player
 			rank_changed.emit()
 		break
+
+
+## Loads GET /leaderboard of board `type` (LeaderboardModel.TABS) unless this account's last
+## answer is younger than LEADERBOARD_MAX_AGE_MSEC (force: always) or one is on its way.
+func load_leaderboard(type: String, force: bool = false) -> void:
+	if _leaderboard_player != Session.player_id:
+		leaderboards = {} # another account signed in on this device
+		leaderboard_errors = {}
+		_leaderboard_msec = {}
+		_leaderboard_player = Session.player_id
+	if leaderboard_loading.get(type, false):
+		return
+	if not force and leaderboards.has(type) and Time.get_ticks_msec() - int(_leaderboard_msec.get(type, -LEADERBOARD_MAX_AGE_MSEC)) < LEADERBOARD_MAX_AGE_MSEC:
+		return
+	leaderboard_loading[type] = true
+	leaderboard_changed.emit(type)
+	var player := Session.player_id
+	var res: Dictionary = await _api().get_json(LeaderboardModel.path(type))
+	leaderboard_loading.erase(type)
+	if player != Session.player_id:
+		return
+	var parsed := LeaderboardModel.parse(res.data) if res.ok else {}
+	if not parsed.is_empty():
+		leaderboards[type] = parsed
+		leaderboard_errors.erase(type)
+		_leaderboard_msec[type] = Time.get_ticks_msec()
+	else:
+		leaderboard_errors[type] = ErrorText.load_failed(res) if not res.ok else "Dữ liệu bảng xếp hạng không hợp lệ"
+	leaderboard_changed.emit(type)
+
+
+## This account's last answer of board `type` (LeaderboardModel.parse), {} none.
+func my_leaderboard(type: String) -> Dictionary:
+	if _leaderboard_player != Session.player_id:
+		return {}
+	return leaderboards.get(type, {})
 
 
 ## Loads GET /boss/runs (the big-reward runs left today per boss) unless the last answer for this

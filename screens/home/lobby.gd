@@ -3,9 +3,10 @@ extends Control
 ## bar, "Lv.N"; tap opens the Nhân vật page) top-left with the rank chip beside it (grade insignia,
 ## "Binh nhì 2", the division's points; tap: the rank popup, screens/ranked/rank_chip.gd), the wallet pills top-right, the connection
 ## state top-centre, one round shortcut per page down the right (Nhân vật, Kho đồ, Nâng cấp,
-## Hồ sơ, Shop), the selected character's icon card on the left (no sentences: its element chain,
+## Hồ sơ, Shop, Xếp hạng: the trophy, a code-drawn glyph), the selected character's icon card on the left (no sentences: its element chain,
 ## ui/element_chain.gd, beaten by → element → beats; its skill's picture, ui/skill_button.gd, a tap
-## opens the skill's popup; heart / sword / shield with Máu, Sát thương, Phòng thủ; its name and
+## opens the skill's popup; Lực chiến (the power glyph and the server's number, ui/power_tag.gd); heart / sword /
+## shield with Máu, Sát thương, Phòng thủ; its name and
 ## level are on the stage), the "Mốc thưởng" button (a red badge with the claimable count, hidden at 0; "Có mốc
 ## thưởng mới!" once when the count rose since the player last saw it) and "Nhiệm vụ" (the daily
 ## missions; a red dot while a mission, chest or weekly reward is claimable, reloaded each time
@@ -48,6 +49,7 @@ signal open_upgrade
 signal open_milestones
 signal open_daily
 signal open_modes
+signal open_leaderboard
 signal background_changed(key: String)
 
 const Ui := preload("res://ui/ui.gd")
@@ -79,6 +81,7 @@ const ElementBadge := preload("res://ui/element_badge.gd")
 const ElementChain := preload("res://ui/element_chain.gd")
 const SkillButton := preload("res://ui/skill_button.gd")
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
+const PowerTag := preload("res://ui/power_tag.gd")
 const ModeSelect := preload("res://screens/home/mode_select.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
@@ -116,6 +119,7 @@ var _info_chain: ElementChain
 var _info_skill: SkillButton
 var _info_stats: HBoxContainer
 var _info_values: Array[Label] = []
+var _info_power: PowerTag
 var _info_buy: Button
 var _drag_from := -1.0
 
@@ -314,16 +318,35 @@ func _render_conn() -> void:
 
 # ── Shortcuts and chat ──────────────────────────────────────────────────────
 
-const SHORTCUT := 70 # px, five round buttons fit above the mode card
+const SHORTCUT := 62 # px, six round buttons fit above the mode card
+const REWARD_BUTTON := 70 # px, Mốc thưởng / Nhiệm vụ above the chat
 
 
 func _build_shortcuts() -> Control:
-	var col := Ui.vbox(8)
+	var col := Ui.vbox(2)
 	col.add_child(LobbyUi.icon_button("characters", "Nhân vật", LobbyUi.ICON_COLORS["blue"], func(): open_character.emit(), SHORTCUT))
 	col.add_child(LobbyUi.icon_button("inventory", "Kho đồ", LobbyUi.ICON_COLORS["green"], func(): open_bag.emit(), SHORTCUT))
 	col.add_child(LobbyUi.icon_button("upgrade", "Nâng cấp", LobbyUi.ICON_COLORS["red"], func(): open_upgrade.emit(), SHORTCUT))
 	col.add_child(LobbyUi.icon_button("history", "Hồ sơ", LobbyUi.ICON_COLORS["purple"], func(): open_profile.emit(), SHORTCUT))
 	col.add_child(LobbyUi.icon_button("shop", "Shop", LobbyUi.ICON_COLORS["orange"], func(): open_shop.emit(ShopTab.ITEMS), SHORTCUT))
+	col.add_child(_glyph_shortcut("trophy", "Xếp hạng", LobbyUi.ICON_COLORS["gold"], func(): open_leaderboard.emit()))
+	return col
+
+
+## A shortcut like LobbyUi.icon_button() whose picture is a code-drawn glyph (ui/glyph_icon.gd).
+func _glyph_shortcut(kind: String, caption: String, bg: Color, on_press: Callable) -> Control:
+	var col := LobbyUi.icon_button("unknown", caption, bg, on_press, SHORTCUT)
+	col.name = "Shortcut_" + kind
+	var b: Button = col.get_child(0)
+	b.icon = null
+	var g = GlyphIcon.make(kind, 0)
+	g.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	var inset := roundf(SHORTCUT * 0.17)
+	g.offset_left = inset
+	g.offset_top = inset
+	g.offset_right = -inset
+	g.offset_bottom = -inset
+	b.add_child(g)
 	return col
 
 
@@ -332,10 +355,10 @@ const CHAT_H := 172
 
 ## "Mốc thưởng": a round gift button with its caption and the red claimable badge on its corner.
 func _build_milestone_button() -> Control:
-	var col := LobbyUi.icon_button("milestone", "Mốc thưởng", LobbyUi.ICON_COLORS["red"], func(): open_milestones.emit(), SHORTCUT)
+	var col := LobbyUi.icon_button("milestone", "Mốc thưởng", LobbyUi.ICON_COLORS["red"], func(): open_milestones.emit(), REWARD_BUTTON)
 	var b: Button = col.get_child(0)
 	_milestone_badge = MilestonePage.badge()
-	_milestone_badge.position = Vector2(SHORTCUT - 22, -6)
+	_milestone_badge.position = Vector2(REWARD_BUTTON - 22, -6)
 	b.add_child(_milestone_badge)
 	return col
 
@@ -352,14 +375,14 @@ func _render_milestones() -> void:
 
 ## "Nhiệm vụ": a round button with a clipboard and the red dot (anything claimable today).
 func _build_daily_button() -> Control:
-	var col := LobbyUi.icon_button("check", "Nhiệm vụ", LobbyUi.ICON_COLORS["green"], func(): open_daily.emit(), SHORTCUT)
+	var col := LobbyUi.icon_button("check", "Nhiệm vụ", LobbyUi.ICON_COLORS["green"], func(): open_daily.emit(), REWARD_BUTTON)
 	var b: Button = col.get_child(0)
 	b.icon = null # the clipboard is drawn (mission_art.gd)
-	var art := MissionArt.make(MissionArt.Kind.BOARD, Vector2(SHORTCUT, SHORTCUT) * 0.7)
-	art.position = Vector2(SHORTCUT, SHORTCUT) * 0.15
+	var art := MissionArt.make(MissionArt.Kind.BOARD, Vector2(REWARD_BUTTON, REWARD_BUTTON) * 0.7)
+	art.position = Vector2(REWARD_BUTTON, REWARD_BUTTON) * 0.15
 	b.add_child(art)
 	_daily_dot = MilestonePage.dot(20)
-	_daily_dot.position = Vector2(SHORTCUT - 18, -2)
+	_daily_dot.position = Vector2(REWARD_BUTTON - 18, -2)
 	b.add_child(_daily_dot)
 	return col
 
@@ -550,6 +573,9 @@ func _build_info_card() -> Control:
 	_info_skill.name = "InfoSkill"
 	_info_skill.pressed.connect(func() -> void: SkillButton.show_popup(_host(), _model.character_id))
 	top.add_child(_info_skill)
+	_info_power = PowerTag.make(40, 30)
+	_info_power.name = "InfoPower"
+	col.add_child(_info_power)
 	_info_stats = Ui.hbox(0)
 	_info_stats.name = "InfoStats"
 	col.add_child(_info_stats)
@@ -596,6 +622,7 @@ func _render_character() -> void:
 		_info_values[i].text = pair[1]
 		_info_values[i].get_parent().tooltip_text = pair[0]
 	_info_buy.visible = info["owned"] == false
+	_info_power.set_power(int(info["power"]))
 
 
 ## The stage character's gun under the pedestal (worn weapon or its basic gun).

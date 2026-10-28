@@ -141,12 +141,13 @@ static func cycle_character(id: String, delta: int) -> String:
 
 
 ## The info card of a character from GET /player/characters data (null: not loaded yet):
-## {name, role, skill, owned, level, stats}. owned is true / false, or null while unknown; level
-## is 0 unless owned; stats is [[label, value], ...] (Máu, Sát thương, Phòng thủ) from the
+## {name, role, skill, owned, level, stats, power}. owned is true / false, or null while unknown;
+## level is 0 unless owned; power is the server's Lực chiến of an owned character (-1 unknown or
+## not owned); stats is [[label, value], ...] (Máu, Sát thương, Phòng thủ) from the
 ## character's battle stats, or its base stats when not owned; [] when the server sent none.
 static func character_info(id: String, data: Variant) -> Dictionary:
 	var out := {"name": GameData.character_name(id), "role": GameData.character_role_name(id), "skill": "", "owned": null,
-		"level": 0, "stats": []}
+		"level": 0, "stats": [], "power": -1}
 	out["skill"] = str(Skills.for_character(id).get("name", ""))
 	if not data is Dictionary or not data.get("characters") is Array:
 		return out
@@ -157,6 +158,8 @@ static func character_info(id: String, data: Variant) -> Dictionary:
 	out["owned"] = entry != null
 	if entry != null:
 		out["level"] = Progress.character(entry)["level"]
+		var p = entry.get("power")
+		out["power"] = int(p) if p is int or p is float else -1
 		out["stats"] = stat_pairs(BattleStats.of(entry))
 	else:
 		out["stats"] = stat_pairs(BattleStats.base_of(data, id))

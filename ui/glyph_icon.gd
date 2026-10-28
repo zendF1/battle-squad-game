@@ -2,13 +2,15 @@ extends Control
 ## Small icons drawn in code (original art, in the style of the baked icons: bright flat shapes in
 ## a dark rounded outline) for the places that show a picture instead of a word: the stat icons
 ## (heart: Máu, sword: Sát thương, shield: Phòng thủ), the "i" disc of an info button, a clock
-## (a refresh time) and the arrows of the element chain (beats → / weak to ←). Drawn on a 96 × 96
+## (a refresh time), the arrows of the element chain (beats → / weak to ←), Lực chiến ("power": a
+## lightning bolt on an orange burst), the leaderboard's tabs ("level": up chevrons on a blue disc,
+## "insignia": a shoulder board with chevrons) and its lobby button ("trophy"). Drawn on a 96 × 96
 ## canvas scaled into the control's square and centred (a single-focus picture). make() for a
 ## layout, info_button() for the round "i" button that opens a card's popup.
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 
-const KINDS := ["heart", "sword", "shield", "info", "clock", "arrow"]
+const KINDS := ["heart", "sword", "shield", "info", "clock", "arrow", "power", "level", "insignia", "trophy"]
 const OUTLINE := Color(0.07, 0.07, 0.14)
 const W := 5.0
 const HEART := Color(1.0, 0.33, 0.4)
@@ -17,6 +19,12 @@ const STEEL_DARK := Color(0.55, 0.62, 0.74)
 const GOLD := Color(1.0, 0.8, 0.22)
 const SHIELD := Color(0.32, 0.62, 1.0)
 const INFO := Color(0.25, 0.52, 0.95)
+const GOLD_DARK := Color(0.86, 0.5, 0.1)
+const BURST := Color(1.0, 0.45, 0.12)
+const BURST_LIGHT := Color(1.0, 0.72, 0.22)
+const BOLT := Color(1.0, 0.97, 0.62)
+const LEVEL := Color(0.2, 0.52, 1.0)
+const BOARD := Color(0.22, 0.42, 0.2)
 
 @export var kind := "heart":
 	set(v):
@@ -87,6 +95,10 @@ func _draw() -> void:
 		"info": _info()
 		"clock": _clock()
 		"arrow": _arrow()
+		"power": _power()
+		"level": _level()
+		"insignia": _insignia()
+		"trophy": _trophy()
 
 
 func _poly(pts: PackedVector2Array, fill: Color, w: float = W) -> void:
@@ -167,3 +179,61 @@ func _clock() -> void:
 func _arrow() -> void:
 	_poly(PackedVector2Array([Vector2(14, 40), Vector2(52, 40), Vector2(52, 24), Vector2(84, 48), Vector2(52, 72),
 		Vector2(52, 56), Vector2(14, 56)]), tint)
+
+
+static func _star(c: Vector2, outer: float, inner: float, points: int, rot: float = -PI / 2) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for i in points * 2:
+		out.append(c + Vector2.from_angle(rot + PI * i / points) * (outer if i % 2 == 0 else inner))
+	return out
+
+
+func _power() -> void:
+	_poly(_star(Vector2(48, 50), 42, 29, 10), BURST)
+	draw_colored_polygon(_star(Vector2(48, 50), 32, 22, 10), BURST_LIGHT)
+	_poly(PackedVector2Array([Vector2(52, 8), Vector2(26, 54), Vector2(45, 54), Vector2(36, 90), Vector2(72, 38),
+		Vector2(53, 38), Vector2(66, 8)]), BOLT)
+	draw_colored_polygon(PackedVector2Array([Vector2(52, 8), Vector2(58, 8), Vector2(36, 50), Vector2(30, 50)]), Color(1, 1, 1, 0.6))
+
+
+func _level() -> void:
+	draw_circle(Vector2(48, 48), 42, OUTLINE, true, -1.0, true)
+	draw_circle(Vector2(48, 48), 37, LEVEL, true, -1.0, true)
+	draw_arc(Vector2(48, 48), 31, PI * 1.1, PI * 1.6, 16, Color(1, 1, 1, 0.35), 4.0, true)
+	_stroke(PackedVector2Array([Vector2(30, 52), Vector2(48, 34), Vector2(66, 52)]), GOLD, 10.0, 3.0)
+	_stroke(PackedVector2Array([Vector2(30, 70), Vector2(48, 52), Vector2(66, 70)]), Color.WHITE, 10.0, 3.0)
+
+
+func _insignia() -> void:
+	var board := PackedVector2Array([Vector2(48, 6), Vector2(74, 22)])
+	for i in 5:
+		var a := PI * 0.5 * i / 4.0
+		board.append(Vector2(68 + cos(a) * 6, 84 + sin(a) * 6))
+	for i in 5:
+		var a := PI * 0.5 + PI * 0.5 * i / 4.0
+		board.append(Vector2(28 + cos(a) * 6, 84 + sin(a) * 6))
+	board.append(Vector2(22, 22))
+	_poly(board, BOARD)
+	draw_colored_polygon(PackedVector2Array([Vector2(48, 12), Vector2(48, 86), Vector2(28, 86), Vector2(28, 26)]), Color(1, 1, 1, 0.1))
+	for y in [80.0, 64.0]:
+		_stroke(PackedVector2Array([Vector2(30, y), Vector2(48, y - 10), Vector2(66, y)]), GOLD, 8.0, 3.0)
+	_poly(_star(Vector2(48, 34), 10, 4.5, 5), GOLD, 3.0)
+
+
+func _trophy() -> void:
+	_poly(PackedVector2Array([Vector2(26, 78), Vector2(70, 78), Vector2(72, 90), Vector2(24, 90)]), GOLD_DARK) # the plinth
+	_poly(PackedVector2Array([Vector2(42, 56), Vector2(54, 56), Vector2(56, 70), Vector2(64, 72), Vector2(64, 80),
+		Vector2(32, 80), Vector2(32, 72), Vector2(40, 70)]), GOLD) # the stem and the base
+	for side in [-1.0, 1.0]: # the handles
+		var pts := PackedVector2Array()
+		for i in 9:
+			var a := PI * 0.5 + PI * i / 8.0
+			pts.append(Vector2(48 + side * 24, 34) + Vector2(cos(a) * -side, sin(a)) * 13.0)
+		_stroke(pts, GOLD, 6.0)
+	var bowl := PackedVector2Array([Vector2(22, 12), Vector2(74, 12)])
+	for i in 13:
+		var a := PI * i / 12.0
+		bowl.append(Vector2(48 + cos(a) * 26, 30 + sin(a) * 30))
+	_poly(bowl, GOLD)
+	draw_colored_polygon(PackedVector2Array([Vector2(28, 16), Vector2(38, 16), Vector2(40, 50), Vector2(30, 40)]), Color(1, 1, 1, 0.4))
+	draw_colored_polygon(_star(Vector2(50, 32), 10, 4.5, 5), Color(1.0, 0.98, 0.8))

@@ -247,6 +247,7 @@ static var _carry_poses := {} # carry scene path -> carry_pose()
 static var _placeholder: Texture2D
 static var _empty_frames: SpriteFrames
 static var _fulls := {} # character id -> lobby_full() data ({} = none)
+static var _lobby_heads := {} # character id -> lobby_head()
 static var _titles_data: Variant = null # parsed titles.json ({} when missing)
 
 
@@ -1027,6 +1028,42 @@ static func side_head(id: String) -> Dictionary:
 	var cx := sum / maxi(count, 1) + band * 0.06
 	out.merge({"texture": tex, "rect": Rect2(cx - size / 2.0, top + band * 0.04, size, size)})
 	return out
+
+
+## The head crop of a character's lobby picture (the full-body picture the lobby stage shows),
+## for avatars (the leaderboard, the profile): {texture, rect} with the square rect (picture px)
+## computed from its head bone (neck `at` → crown `tip`, full.json): LOBBY_HEAD_SIDE × the bone's
+## length, centred LOBBY_HEAD_CENTRE of the way up it, so the face sits in the middle with the
+## chin and the hair inside. {} without a lobby picture (side_head() then).
+const LOBBY_HEAD_SIDE := 1.25
+const LOBBY_HEAD_CENTRE := 0.5
+static func lobby_head(id: String) -> Dictionary:
+	id = known_character(id)
+	if _lobby_heads.has(id):
+		return _lobby_heads[id]
+	var out := lobby_head_of(lobby_full(id))
+	_lobby_heads[id] = out
+	return out
+
+
+## lobby_head() of a lobby_full() data.
+static func lobby_head_of(full: Dictionary) -> Dictionary:
+	if full.is_empty() or full.get("texture") == null:
+		return {}
+	for b in full.get("bones", []):
+		if b["name"] != "head":
+			continue
+		var at: Vector2 = b["at"]
+		var tip: Vector2 = b["tip"]
+		var side := at.distance_to(tip) * LOBBY_HEAD_SIDE
+		if side <= 0.0:
+			return {}
+		var c := at.lerp(tip, LOBBY_HEAD_CENTRE)
+		var r := Rect2(c - Vector2(side, side) / 2.0, Vector2(side, side))
+		var pic := Rect2(Vector2.ZERO, Vector2((full["texture"] as Texture2D).get_size()))
+		r.position = r.position.clamp(pic.position, pic.end - r.size) # never past the picture's edge
+		return {"texture": full["texture"], "rect": r}
+	return {}
 
 
 ## Every file of a character's side view (side.json, gun_anchors.json, the frames, hand.png, the

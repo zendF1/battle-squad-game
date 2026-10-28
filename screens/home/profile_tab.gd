@@ -4,7 +4,8 @@ extends Control
 ## "Tải thêm" until a short page, loaded the first time the tab is shown) and "Danh hiệu" (GET
 ## /player/titles via PlayerState: "Không đeo", then the owned titles as plates, tap to wear, the
 ## worn one marked "Đang đeo"; then the locked ones dimmed with how to win them, "Đạt: Thắng 100
-## trận"). Failures show inline with "Thử lại". A tap on the card's plate opens Danh hiệu. The
+## trận"). Under the level, Lực chiến: my strongest character's head and the power (the profile's
+## power + powerCharacterId, ui/power_tag.gd; hidden while unknown). Failures show inline with "Thử lại". A tap on the card's plate opens Danh hiệu. The
 ## characters (stats, points) are on the Nhân vật page, the items and gear in Kho đồ.
 
 const Ui := preload("res://ui/ui.gd")
@@ -16,6 +17,8 @@ const HistoryPager := preload("res://screens/home/history_pager.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
+const PowerTag := preload("res://ui/power_tag.gd")
+const HeadIcon := preload("res://screens/home/head_icon.gd")
 
 const SECTION_HISTORY := 0
 const SECTION_TITLES := 1
@@ -36,6 +39,9 @@ var _name: Label
 var _level: Label
 var _exp_bar: ProgressBar
 var _exp_text: Label
+var _power_row: HBoxContainer
+var _power_head: Control
+var _power: PowerTag
 
 var _card_title: TitlePlate
 
@@ -85,6 +91,9 @@ func _ready() -> void:
 	PlayerState.changed.connect(_render_player)
 	PlayerState.titles_changed.connect(_on_titles_changed)
 	visibility_changed.connect(_ensure_loaded)
+	visibility_changed.connect(func() -> void:
+		if _armed and is_visible_in_tree():
+			PlayerState.refresh()) # Lực chiến: gear or stats may have changed it since
 	_render_player()
 	show_section(SECTION_HISTORY)
 	_arm.call_deferred()
@@ -164,6 +173,16 @@ func _build_player_card() -> Control:
 	_exp_text = Ui.label("", 22)
 	_exp_text.add_theme_color_override("font_color", Ui.TEXT_DIM)
 	col.add_child(_exp_text)
+	_power_row = Ui.hbox(12)
+	_power_row.name = "PowerRow"
+	_power_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_child(_power_row)
+	_power_head = HeadIcon.make("", "", 56)
+	_power_head.lobby = true
+	_power_head.size_flags_vertical = SIZE_SHRINK_CENTER
+	_power_row.add_child(_power_head)
+	_power = PowerTag.make(40, 32)
+	_power_row.add_child(_power)
 	return card
 
 
@@ -177,6 +196,10 @@ func _render_player() -> void:
 	var display := PlayerState.display_name()
 	_name.text = display
 	_avatar_letter.text = display.substr(0, 1).to_upper() if display != "" else "?"
+	_power.set_power(PlayerState.power())
+	_power_head.character_id = PlayerState.power_character()
+	_power_head.visible = PlayerState.power_character() != ""
+	_power_row.visible = PlayerState.power() >= 0
 	if PlayerState.is_loaded():
 		var p := Progress.player(PlayerState.level(), PlayerState.player_exp())
 		_level.text = "Cấp %d" % PlayerState.level()

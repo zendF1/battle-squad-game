@@ -3,7 +3,7 @@ extends Control
 ## (gear slots, character, Trang bị / Chỉ số), "Kho đồ" (Trang bị / Vật phẩm / Nguyên liệu),
 ## "Nâng cấp" (Nâng cấp / Ghép đá; also from the piece popup's Nâng cấp), "Mốc thưởng" (one-time
 ## progress rewards, milestone_page.gd), "Hồ sơ" (player card,
-## Lịch sử), "Shop" (Vật phẩm / Trang bị / Đá nâng cấp / Nhân vật / Kim cương / Đổi xu) and "Chọn chế
+## Lịch sử), "Xếp hạng" (the leaderboards: Cấp độ / Rank / Lực chiến, leaderboard_page.gd), "Shop" (Vật phẩm / Trang bị / Đá nâng cấp / Nhân vật / Kim cương / Đổi xu) and "Chọn chế
 ## độ" (the mode card's swap button: one tab per game data category, mode_select.gd; a choice goes
 ## back to the lobby on that mode, lobby.gd choose_mode()). A page has a
 ## header with "← Sảnh", its title and the wallet pills; "← Sảnh", Esc (ui_cancel) and the
@@ -41,6 +41,7 @@ const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
 const InviteReceivedPopup := preload("res://screens/home/invite_received_popup.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const ModeSelect := preload("res://screens/home/mode_select.gd")
+const LeaderboardPage := preload("res://screens/home/leaderboard_page.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const SeasonRewardPopup := preload("res://screens/ranked/season_reward_popup.gd")
 
@@ -53,6 +54,7 @@ const UPGRADE := 5
 const MILESTONE := 6
 const DAILY := 7
 const MODES := 8
+const LEADERBOARD := 9
 
 var _lobby: Lobby
 var _profile: ProfileTab
@@ -63,6 +65,7 @@ var _upgrade: UpgradePage
 var _milestone: MilestonePage
 var _daily: DailyPage
 var _modes: ModeSelect
+var _leaderboard: LeaderboardPage
 var _pages := {} # PROFILE / SHOP / BAG / CHARACTER -> the page (header + content)
 var _shown := LOBBY
 var _invite_layer: Control # over every page: the invite to me
@@ -91,6 +94,7 @@ func _ready() -> void:
 	_lobby.open_milestones.connect(open_milestones)
 	_lobby.open_daily.connect(open_daily)
 	_lobby.open_modes.connect(open_modes)
+	_lobby.open_leaderboard.connect(open_leaderboard)
 	_connect_wallet(_lobby.wallet)
 	_lobby.rank_chip.host = self
 
@@ -128,6 +132,9 @@ func _ready() -> void:
 		_lobby.choose_mode(index))
 	_pages[MODES] = _build_page("Chọn chế độ", _modes)
 	_pages[PROFILE] = _build_page("Hồ sơ", _profile)
+	_leaderboard = LeaderboardPage.new()
+	_leaderboard.lobby_character = _lobby.character_id
+	_pages[LEADERBOARD] = _build_page("Xếp hạng", _leaderboard)
 	_pages[SHOP] = _build_page("Shop", _shop)
 	_show(LOBBY)
 	PlayerState.refresh()
@@ -246,6 +253,13 @@ func open_profile() -> void:
 	_show(PROFILE)
 
 
+## The Xếp hạng page (tab: LeaderboardModel.TABS index; -1 keeps the last one).
+func open_leaderboard(tab: int = -1) -> void:
+	if tab >= 0:
+		_leaderboard.show_tab(tab)
+	_show(LEADERBOARD)
+
+
 ## The Nhân vật page on the lobby's character (section: CharacterPage.GEAR or STATS).
 func open_character(section: int = CharacterPage.GEAR) -> void:
 	_character.show_character(_lobby.character_id())
@@ -297,7 +311,7 @@ func open_shop(section: int) -> void:
 	_show(SHOP)
 
 
-## Which screen shows: LOBBY or a page (PROFILE, SHOP, BAG, CHARACTER, UPGRADE, MILESTONE, DAILY, MODES). Android back quits only from the lobby.
+## Which screen shows: LOBBY or a page (PROFILE, SHOP, BAG, CHARACTER, UPGRADE, MILESTONE, DAILY, MODES, LEADERBOARD). Android back quits only from the lobby.
 func _show(which: int) -> void:
 	_shown = which
 	for key in _pages:
