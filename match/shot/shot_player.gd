@@ -30,7 +30,7 @@ const SPAWN_BLEND_MAX := 0.4 # s
 const SPAWN_MAX_DRAG := 0.35
 const SPAWN_FLIGHT_SHARE := 0.5
 const SPAWN_NEAR := 90.0 # px: a path starting farther from the muzzle (air strike) is not moved
-const ARROW_KINDS := ["", "flare", "bomb"] # high_shells(): the kinds flying a normal arc
+const ARROW_KINDS := ["", "flare", "bomb", "signal"] # high_shells(): the kinds flying a normal arc (signal: the nuke / laser flare)
 
 var layer: Node2D
 ## How this shot's projectiles look: ShotLook.style_for() {kind, tier, skill, item}; set before play().

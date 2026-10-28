@@ -79,6 +79,8 @@ func test_timelines() -> void:
 	near(n.launch_time(1), float(strike["t"]) + 0.5, 1e-9, "the nuke leaves delaySec after the signal lands")
 	near(n.projectile_end(1), float(n.events_of("explode")[0]["t"]), 1e-9, "it explodes where it lands")
 	check(n.sample(1, n.launch_time(1)).y < 0.0, "from above the map")
+	check(ShotPlayer.ARROW_KINDS.has("signal") and not ShotPlayer.ARROW_KINDS.has("nuke"),
+		"the signal gets the off-screen arrow like a shell, the falling nuke does not")
 
 
 func test_poison_cloud() -> void:
