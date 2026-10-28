@@ -2,6 +2,10 @@
 
 Godot 4.7 client of battle-squad (server: ../battle-squad).
 
+## UI
+
+Show things in game with pictures (icon, colour, shape, animation), not words or numbers. Add a number only when a picture cannot carry it (a quantity, a timer), and never repeat what the picture already says (a stone's look shows its level: no level badge on it).
+
 ## Builds
 
 An editor run proves nothing about an export. The first iOS build (2026-10) showed matches with no names, HP or boss art, and the lobby with side-view characters holding the default gun, while the editor looked right. Two causes:
