@@ -411,7 +411,7 @@ Gửi ảnh vào đúng thư mục ở bảng trên rồi nhờ người phụ t
   màn đầu.
 - Ảnh gốc giữ trong `art_source/` (thư mục export đã loại trừ `art_source/*`).
 
-## 6. Nối vào code (việc cho người viết client, chưa làm)
+## 6. Nối vào code (đã làm 2026-10, xem `assets/README.md` mục Branding)
 
 Hiện `screens/splash.gd` và `screens/login.gd` chỉ dựng một cột giữa (`Ui.center_column`) với nhãn chữ
 "BATTLE SQUAD" cỡ 64; không có nền, không có thanh tiến độ; `project.godot` dùng `icon.svg` mặc định,
