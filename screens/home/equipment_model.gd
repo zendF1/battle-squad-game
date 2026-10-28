@@ -1,5 +1,5 @@
 extends RefCounted
-## Equipment as the Shop, Túi đồ, Nhân vật and Prep screens show it, without UI: the catalog
+## Equipment as the Shop, Kho đồ, Nhân vật and Prep screens show it, without UI: the catalog
 ## (GET /equipment/catalog) and the owned pieces (GET /player/equipment) parsed, Vietnamese slot
 ## and item names, stat lines, the compare against the worn piece, the can-wear check and the
 ## orders the screens list them in.
@@ -481,7 +481,7 @@ static func filter_slot(pieces: Array, slot: String) -> Array:
 	return pieces.filter(func(p): return str(p.get("slot", "")) == slot)
 
 
-## The Túi đồ order: worn pieces first, then by required level (highest first), slot order,
+## The Kho đồ order: worn pieces first, then by required level (highest first), slot order,
 ## upgrade level (highest first), then the server's order (newest first).
 static func sort_bag(owned: Variant, catalog: Variant) -> Array:
 	if not owned is Array:

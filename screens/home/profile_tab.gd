@@ -5,7 +5,7 @@ extends Control
 ## /player/titles via PlayerState: "Không đeo", then the owned titles as plates, tap to wear, the
 ## worn one marked "Đang đeo"; then the locked ones dimmed with how to win them, "Đạt: Thắng 100
 ## trận"). Failures show inline with "Thử lại". A tap on the card's plate opens Danh hiệu. The
-## characters (stats, points) are on the Nhân vật page, the items and gear in Túi đồ.
+## characters (stats, points) are on the Nhân vật page, the items and gear in Kho đồ.
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")

@@ -1,5 +1,5 @@
 extends RefCounted
-## Equipment widgets shared by the Shop (Trang bị), Túi đồ, the Nhân vật page and Prep: an item
+## Equipment widgets shared by the Shop (Trang bị), Kho đồ, the Nhân vật page and Prep: an item
 ## icon with, from +1, its level's border aura (upgrade_aura.gd), the hexagon frame, the slot filter
 ## chips, stat lines, and the piece popup (its upgraded stats compared with what the character
 ## wears in that slot, who wears it, a close X in the top-right corner (a tap outside closes it

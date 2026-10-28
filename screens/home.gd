@@ -1,6 +1,6 @@
 extends Control
 ## Home: the lobby (screens/home/lobby.gd) and the full-screen pages opened from it: "Nhân vật"
-## (gear slots, character, Trang bị / Chỉ số), "Túi đồ" (Trang bị / Vật phẩm / Nguyên liệu),
+## (gear slots, character, Trang bị / Chỉ số), "Kho đồ" (Trang bị / Vật phẩm / Nguyên liệu),
 ## "Nâng cấp" (Nâng cấp / Ghép đá; also from the piece popup's Nâng cấp), "Mốc thưởng" (one-time
 ## progress rewards, milestone_page.gd), "Hồ sơ" (player card,
 ## Lịch sử), "Shop" (Vật phẩm / Trang bị / Đá nâng cấp / Nhân vật / Kim cương / Đổi xu) and "Chọn chế
@@ -14,7 +14,7 @@ extends Control
 ## the background; the last known values show meanwhile. The cached characters and the owned
 ## equipment are marked stale too (a match changes their EXP), so whatever shows them reloads
 ## them once. A message left in Router.home_notice (a ranked queue that ended with an error)
-## shows once as a toast. The Nhân vật page, Túi đồ and the Shop's Trang bị (its weapons) act on the lobby's
+## shows once as a toast. The Nhân vật page, Kho đồ and the Shop's Trang bị (its weapons) act on the lobby's
 ## character; ◀ ▶ on the Nhân vật page change it in the lobby too.
 ## A party invite to me (Router.party) shows on its own layer over every page
 ## (invite_received_popup.gd, "… mời bạn chơi <the mode of the invite's queue>"): Đồng ý answers it
@@ -119,7 +119,7 @@ func _ready() -> void:
 	_daily.go.connect(_on_daily_go)
 	_pages[CHARACTER] = _build_page("Nhân vật", _character)
 	_pages[UPGRADE] = _build_page("Nâng cấp", _upgrade)
-	_pages[BAG] = _build_page("Túi đồ", _bag)
+	_pages[BAG] = _build_page("Kho đồ", _bag)
 	_pages[MILESTONE] = _build_page("Mốc thưởng", _milestone)
 	_pages[DAILY] = _build_page("Nhiệm Vụ Ngày", _daily, _daily.header_extra())
 	_modes = ModeSelect.new()

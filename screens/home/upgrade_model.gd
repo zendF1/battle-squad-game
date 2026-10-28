@@ -1,6 +1,6 @@
 extends RefCounted
 ## Equipment upgrade (+N), upgrade stones and stone merging as the Nâng cấp page, the Shop's
-## "Đá nâng cấp" and Túi đồ show them, without UI. Mirrors the server (internal/api/equipment,
+## "Đá nâng cấp" and Kho đồ show them, without UI. Mirrors the server (internal/api/equipment,
 ## internal/game/battlestats):
 ## - success chance: stone percent = min(Σ power × quantity × 100 / (upgradeCost × m), maxPercent)
 ##   from the catalog's upgradeRates row of the current level (and its stones' powers), m =

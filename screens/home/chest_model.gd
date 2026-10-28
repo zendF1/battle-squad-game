@@ -63,6 +63,46 @@ static func odds_text(chest_id: String) -> String:
 	return ""
 
 
+## The Kho đồ tab a chest is listed in: a stone chest (kind "stone", or rolls of stones) under
+## "Nguyên liệu" with the stones (TAB_MATERIALS), an equipment chest (and any other) under "Vật
+## phẩm" (TAB_ITEMS).
+const TAB_MATERIALS := "materials"
+const TAB_ITEMS := "items"
+
+
+static func tab_of(chest_id: String) -> String:
+	var kind := GameData.chest_kind(chest_id)
+	if kind == "stone" or (kind == "" and not GameData.chest_stones(chest_id).is_empty()):
+		return TAB_MATERIALS
+	return TAB_ITEMS
+
+
+## The owned chests (parse_owned()) split by tab: {materials: [...], items: [...]}, each in the
+## owned list's order; empty lists for null.
+static func by_tab(owned: Variant) -> Dictionary:
+	var out := {TAB_MATERIALS: [], TAB_ITEMS: []}
+	if owned is Array:
+		for c in owned:
+			if c is Dictionary:
+				out[tab_of(str(c.get("chestId", "")))].append(c)
+	return out
+
+
+## A chest's odds as pictures: a stone chest's [{level, pct}] (each weight's share, rounded: the
+## stone icon over "60%"), an equipment chest's [{upgrade: 14}] (a piece over "+14"); [] unknown.
+static func odds_parts(chest_id: String) -> Array:
+	var stones := GameData.chest_stones(chest_id)
+	if not stones.is_empty():
+		var total := 0.0
+		for s in stones:
+			total += float(s.get("weight", 0))
+		return stones.map(func(s): return {"level": int(s["level"]), "pct": roundi(100.0 * float(s["weight"]) / total)})
+	var up := GameData.chest_upgrade_level(chest_id)
+	if GameData.chest_kind(chest_id) == "equipment" or up > 0:
+		return [{"upgrade": up}]
+	return []
+
+
 ## The open buttons for `owned` chests: [{text, count}]: "Mở" (1) with at least one, then "Mở 10"
 ## (min(owned, MAX_OPEN), its count in the text when fewer) with at least two.
 static func open_buttons(owned: int) -> Array:

@@ -11,7 +11,7 @@ const Modal := preload("res://ui/modal.gd")
 const CharacterView := preload("res://ui/character_view.gd")
 const Model := preload("res://screens/home/character_shop_model.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
-const ElementText := preload("res://ui/element_text.gd")
+const ElementChain := preload("res://ui/element_chain.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
 const CARD_BG := Color(0.06, 0.08, 0.19, 0.88)
@@ -176,14 +176,12 @@ static func open_info(overlay: Control, id: String, data: Variant, c: Dictionary
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(right)
 	var role_row := Ui.hbox(10)
-	role_row.add_child(ElementBadge.make(GameData.character_element(id), 34))
-	role_row.add_child(LobbyUi.text(info["role"], 24, tint.lightened(0.45), true))
-	var element_line := ElementText.detail_line(GameData.character_element(id))
-	if element_line != "":
-		var el := LobbyUi.text(element_line, 21, Color(0.88, 0.94, 1.0), true)
-		el.name = "ElementLine"
-		role_row.add_child(LobbyUi.text("·", 24, Ui.TEXT_DIM))
-		role_row.add_child(el)
+	var chain = ElementChain.make(GameData.character_element(id), 40)
+	chain.name = "ElementChain"
+	role_row.add_child(chain)
+	var role := LobbyUi.text(info["role"], 24, tint.lightened(0.45), true)
+	role.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	role_row.add_child(role)
 	right.add_child(role_row)
 
 	var cols := Ui.hbox(28)

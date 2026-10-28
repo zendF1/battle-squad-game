@@ -33,7 +33,7 @@ const StatsPanel := preload("res://screens/home/stats_panel.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
-const ElementText := preload("res://ui/element_text.gd")
+const ElementChain := preload("res://ui/element_chain.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
 const SUB_TABS := ["Trang bị", "Chỉ số"]
@@ -74,7 +74,7 @@ var _art: CharacterView
 var _gun_stand: PedestalGun
 var _stage_name: Label
 var _stage_name_row: HBoxContainer # the element badge before the name
-var _stage_element: Label # "Hệ: Thủy — khắc Hỏa, bị Thổ khắc"
+var _stage_element: ElementChain # beaten by → the element → beats, as badges
 var _stage_level: Label
 var _sub_tabs: Array[Button]
 var _pages: Array[Control] = []
@@ -287,9 +287,8 @@ func _build_stage() -> void:
 	_stage_level = LobbyUi.text("", 24, LobbyUi.GOLD, true)
 	_stage_level.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	head.add_child(_stage_level)
-	_stage_element = LobbyUi.text("", 19, Color(0.85, 0.92, 1.0), false)
-	_stage_element.name = "ElementLine"
-	_stage_element.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_stage_element = ElementChain.make("", 34)
+	_stage_element.name = "ElementChain"
 	head.add_child(_stage_element)
 	_art = CharacterView.new()
 	_art.position = Vector2((STAGE.x - 375) / 2, 142)
@@ -336,7 +335,7 @@ func _render_stage() -> void:
 	_stage_name.text = info["name"]
 	ElementBadge.set_row_element(_stage_name_row, GameData.character_element(_character))
 	_stage_level.text = LobbyModel.level_text(info)
-	_stage_element.text = ElementText.detail_line(GameData.character_element(_character))
+	_stage_element.set_element(GameData.character_element(_character))
 	var g := EquipmentModel.worn_gun(PlayerState.equipment, PlayerState.catalog, _character)
 	_gun_stand.set_gun(g["kind"], g["tier"])
 	_gun_stand.modulate = _art.modulate

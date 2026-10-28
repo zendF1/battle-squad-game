@@ -21,8 +21,8 @@ func test_one_card_per_boss_mode_in_order() -> void:
 	var cards := BossCardModel.cards(-1, RUNS, 420)
 	eq(cards.map(func(c): return c["boss_id"]), ["steel_robot", "lava_crab", "ice_witch", "rock_giant", "tree_spirit"], "the game data's order")
 	eq(cards.map(func(c): return c["name"]), ["Rô-bốt Thép", "Cua Dung Nham", "Phù Thuỷ Băng", "Khổng Lồ Đá", "Mộc Tinh"], "names from bosses")
-	eq(cards.map(func(c): return c["level_text"]), ["Lv đề xuất 10", "Lv đề xuất 25", "Lv đề xuất 40", "Lv đề xuất 55", "Lv đề xuất 70"],
-		"recommended levels")
+	check(cards.all(func(c): return not c.has("level") and not c.has("level_text")), "no recommended level anywhere")
+	eq(cards.map(func(c): return c["party_size"]), [4, 4, 4, 4, 4], "the party size (the info popup)")
 	eq(cards.map(func(c): return c["element"]), ["metal", "fire", "water", "earth", "wood"], "their elements (the badges, the backdrops)")
 	check(str(cards[0]["description"]).begins_with("Người khổng lồ cơ khí"), "the boss's description")
 	eq(cards[0]["index"], LobbyModel.index_of_queue("boss:steel_robot"), "the mode a tap chooses")
@@ -31,10 +31,12 @@ func test_one_card_per_boss_mode_in_order() -> void:
 func test_runs_left_and_reset_time() -> void:
 	BossFixture.take()
 	var cards := BossCardModel.cards(-1, RUNS, 420)
-	eq(cards.map(func(c): return c["runs_text"]), ["Lượt thưởng lớn: 2/3", "Lượt thưởng lớn: 3/3", "Lượt thưởng lớn: 0/3",
-		"Lượt thưởng lớn: 1/3", "Lượt thưởng lớn: 3/3"], "x/N")
-	eq(cards[0]["reset_text"], "Làm mới lúc 00:00", "17:00 UTC in UTC+7")
-	eq(BossCardModel.reset_text(RUNS, 0), "Làm mới lúc 17:00", "in UTC")
+	eq(cards.map(func(c): return c["runs_text"]), ["×2", "×3", "×0", "×1", "×3"], "the runs left by the gift box")
+	eq(cards.map(func(c): return c["runs_left"]), [2, 3, 0, 1, 3], "left")
+	eq(BossCardModel.runs_text(-1, 0), "", "a boss without big runs: no gift box")
+	eq(BossCardModel.runs_text(-2, 3), BossCardModel.RUNS_LOADING, "unknown")
+	eq(cards[0]["reset_text"], "00:00", "17:00 UTC in UTC+7, by the clock")
+	eq(BossCardModel.reset_text(RUNS, 0), "17:00", "in UTC")
 	var loading := BossCardModel.cards(-1, {}, 420)
 	eq(loading[0]["runs_text"], BossCardModel.RUNS_LOADING, "not loaded yet")
 	eq(loading[0]["runs_left"], -1, "unknown")

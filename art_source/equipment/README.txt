@@ -15,7 +15,7 @@ Cách vẽ bằng AI (mỗi cấp một lần, cùng một prompt, chỉ đổi 
 
 Chạy (trong thư mục battle-squad-game, editor mở cũng được):
   /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_equipment.gd
-Ghi assets/icons/equipment/<món>_<cấp>.png (128x128, nền trong suốt, cùng tên file cũ: Túi đồ, Shop, ô trang
+Ghi assets/icons/equipment/<món>_<cấp>.png (128x128, nền trong suốt, cùng tên file cũ: Kho đồ, Shop, ô trang
 bị ở Nhân vật, Chuẩn bị tự đổi, không sửa code). Cấu hình: equipment.json
 - "items": thứ tự món trên ảnh (trái → phải)
 - "margin": lề trống quanh món (6 px như icon súng); mỗi món một tỉ lệ chung cho cả 8 cấp (cấp to nhất vừa

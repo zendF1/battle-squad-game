@@ -62,3 +62,34 @@ func test_match_chests() -> void:
 	eq(c, [{"chestId": "stone_chest", "qty": 2, "name": "Rương đá", "text": "2 × Rương đá"}], "a bonus run's chests")
 	eq(ChestModel.match_chests(null), [], "none")
 	eq(ChestModel.count_text(1200), "×1.200", "count")
+
+
+func test_kho_do_tabs_by_kind() -> void:
+	eq(ChestModel.tab_of("stone_chest"), ChestModel.TAB_MATERIALS, "a stone chest: Nguyên liệu, with the stones")
+	eq(ChestModel.tab_of("equip_chest_14"), ChestModel.TAB_ITEMS, "an equipment chest: Vật phẩm")
+	eq(ChestModel.tab_of("equip_chest_16"), ChestModel.TAB_ITEMS, "every equipment chest")
+	eq(ChestModel.tab_of("mystery"), ChestModel.TAB_ITEMS, "an unknown chest: Vật phẩm")
+	var owned = ChestModel.parse_owned({"chests": [{"chestId": "equip_chest_16", "quantity": 1}, {"chestId": "stone_chest", "quantity": 12},
+		{"chestId": "equip_chest_14", "quantity": 2}, {"chestId": "zzz", "quantity": 1}]})
+	var tabs := ChestModel.by_tab(owned)
+	eq(tabs[ChestModel.TAB_MATERIALS].map(func(c): return c["chestId"]), ["stone_chest"], "materials: the stone chest")
+	eq(tabs[ChestModel.TAB_ITEMS].map(func(c): return c["chestId"]), ["equip_chest_14", "equip_chest_16", "zzz"],
+		"items: the equipment chests in the game data's order, the unknown last")
+	eq(ChestModel.by_tab(null), {ChestModel.TAB_MATERIALS: [], ChestModel.TAB_ITEMS: []}, "not loaded: nothing in either")
+	eq(ChestModel.by_tab([]), {ChestModel.TAB_MATERIALS: [], ChestModel.TAB_ITEMS: []}, "none owned")
+
+
+func test_kho_do_tabs_follow_the_game_data_kind() -> void:
+	var d: Dictionary = GameData.data.duplicate(true)
+	d["chests"].append({"chestId": "gem_box", "name": "Hộp đá quý", "kind": "", "stones": [{"level": 9, "weight": 1}], "upgradeLevel": 0})
+	d["chests"][1]["kind"] = "stone" # an admin turned it into a stone chest
+	d["version"] = "chest-kinds"
+	GameData.take(d, "", false)
+	eq(ChestModel.tab_of("equip_chest_14"), ChestModel.TAB_MATERIALS, "the kind decides, not the id")
+	eq(ChestModel.tab_of("gem_box"), ChestModel.TAB_MATERIALS, "no kind but stone rolls: with the stones")
+
+
+func test_odds_as_pictures() -> void:
+	eq(ChestModel.odds_parts("stone_chest"), [{"level": 5, "pct": 60}, {"level": 6, "pct": 30}, {"level": 7, "pct": 10}], "stone icons over shares")
+	eq(ChestModel.odds_parts("equip_chest_14"), [{"upgrade": 14}], "a piece over +14")
+	eq(ChestModel.odds_parts("mystery"), [], "unknown")

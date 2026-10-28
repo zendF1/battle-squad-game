@@ -1,5 +1,5 @@
 extends Control
-## "Nâng cấp" (lobby shortcut, the piece popup's Nâng cấp, Túi đồ → Nguyên liệu → Ghép đá): two
+## "Nâng cấp" (lobby shortcut, the piece popup's Nâng cấp, Kho đồ → Nguyên liệu → Ghép đá): two
 ## tabs.
 ## - "Nâng cấp": left, the owned pieces (slot chips, worn first, "+N" and the name in the
 ##   level colour, the aura from +1); centre, the selected piece's name, then the piece now and

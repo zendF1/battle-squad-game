@@ -9,9 +9,9 @@ extends "res://tests/test_case.gd"
 const Art := preload("res://ui/art.gd")
 const PedestalGun := preload("res://screens/home/pedestal_gun.gd")
 
-## The biggest box an equipment icon is shown in (screens/home/bag_page.gd: the Túi đồ card).
+## The biggest box an equipment icon is shown in (screens/home/bag_page.gd: the Kho đồ card).
 const BIGGEST_ICON_PX := 112
-## The biggest box an icon (assets/icons/<name>.png) is shown in (the Túi đồ item rows, 64).
+## The biggest box an icon (assets/icons/<name>.png) is shown in (the Kho đồ item rows, 64).
 const BIGGEST_ITEM_ICON_PX := 64
 ## The biggest box a stone is shown in (screens/home/upgrade_page.gd: the Ghép đá result, 150).
 const BIGGEST_STONE_PX := 150

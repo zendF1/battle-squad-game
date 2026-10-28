@@ -1,7 +1,7 @@
 extends ColorRect
 ## The milestone aura of an upgraded piece: a glowing outline in its milestone colour hugging the
 ## frame its icon sits in (the hexagon of the Nhân vật slots, the piece popup, the Nâng cấp centre
-## and the Prep row; the rounded rectangle of the Túi đồ cards and of the list icons), with bright
+## and the Prep row; the rounded rectangle of the Kho đồ cards and of the list icons), with bright
 ## streaks running round the border, sparks drifting off it and a flickering, fire-like outer glow.
 ## Brighter, faster, with more streaks and sparks per tier (UpgradeModel: +1 green the subtlest, a
 ## thin outline and one slow streak; +6 sky blue, +10 orange, +14 purple, +16 red the strongest).

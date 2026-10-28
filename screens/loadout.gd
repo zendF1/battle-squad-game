@@ -20,7 +20,7 @@ const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Backdrop := preload("res://ui/backdrop.gd")
 const CharacterView := preload("res://ui/character_view.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
-const ElementText := preload("res://ui/element_text.gd")
+const ElementChain := preload("res://ui/element_chain.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const PedestalGun := preload("res://screens/home/pedestal_gun.gd")
 const Art := preload("res://ui/art.gd")
@@ -60,7 +60,7 @@ var _quick_play: QuickPlay
 # Character panel
 var _art: CharacterView
 var _char_name_row: HBoxContainer # the element badge before the name
-var _char_element: Label
+var _char_element: ElementChain # beaten by → the element → beats, as badges
 var _gun_stand: PedestalGun
 var _char_title: TitlePlate # the worn title at the top of the panel (hidden without one)
 var _char_top: Control # a little room above the art when there is no title
@@ -221,8 +221,9 @@ func _build_character_panel() -> Control:
 	col.add_child(_char_name_row)
 	_char_level = _centered(col, 24, LobbyUi.GOLD, true)
 	_char_role = _centered(col, 22, Ui.TEXT_DIM)
-	_char_element = _centered(col, 19, Color(0.85, 0.92, 1.0))
-	_char_element.name = "ElementLine"
+	_char_element = ElementChain.make("", 34)
+	_char_element.name = "ElementChain"
+	col.add_child(_char_element)
 	var skill_row := CenterContainer.new()
 	col.add_child(skill_row)
 	_char_skill = LobbyUi.icon_text(skill_row, "skill", "", 22, Color(0.75, 0.9, 1.0), false, 26)
@@ -590,8 +591,7 @@ func _render_character() -> void:
 	ElementBadge.set_row_element(_char_name_row, GameData.character_element(_model.character_id))
 	_char_level.text = LobbyModel.level_text(info)
 	_char_role.text = info["role"]
-	_char_element.text = ElementText.detail_line(GameData.character_element(_model.character_id))
-	_char_element.visible = _char_element.text != ""
+	_char_element.set_element(GameData.character_element(_model.character_id))
 	_char_skill.text = "Kỹ năng: %s" % info["skill"] if info["skill"] != "" else ""
 	_char_skill.get_parent().visible = info["skill"] != ""
 	Ui.clear(_char_stats)

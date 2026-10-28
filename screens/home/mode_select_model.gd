@@ -1,8 +1,8 @@
 extends RefCounted
 ## The Mode Select screen ("Chọn chế độ") without UI: its sections, one per game data category
 ## (modes.categories, in order: PvP, Boss, ...) with the lobby modes of that category in their
-## order (LobbyModel.modes()), a mode's card (icon, name, description, the "2 người" badge, ranked,
-## selected), the placeholder of a category without modes ("Sắp ra mắt"), and what choosing a mode
+## order (LobbyModel.modes()), a mode's card (icon, name; the description and the party size for
+## its "i" popup; ranked, selected), the placeholder of a category without modes ("Sắp ra mắt"), and what choosing a mode
 ## does to the party (switch_action()). Modes and categories are the game data's: a new one an admin
 ## adds shows by itself. The client keeps only the presentation per id: the icon key → icon table,
 ## the categories drawn as a grid of small cards (boss) and the placeholder line per category.
@@ -74,6 +74,19 @@ static func _section(id: String, title: String) -> Dictionary:
 	return {"categoryId": id, "name": title, "layout": GRID if GRID_CATEGORIES.has(id) else CARDS, "modes": []}
 
 
+## The mode at `index`'s place among its category's modes (0 for the first): the icon plate's
+## colour on Mode Select and the lobby's mode card.
+static func order_in_section(index: int) -> int:
+	var all := LobbyModel.modes()
+	if index < 0 or index >= all.size():
+		return 0
+	var n := 0
+	for i in index:
+		if all[i]["category"] == all[index]["category"]:
+			n += 1
+	return n
+
+
 ## The section index of the mode at `index` (the tab Mode Select opens on); 0 when none.
 static func section_of(index: int) -> int:
 	var all := sections(index)
@@ -84,8 +97,8 @@ static func section_of(index: int) -> int:
 	return 0
 
 
-## A mode's card: {index, id, name, description, icon, party_size, badge ("2 người"; "" solo),
-## ranked, selected}.
+## A mode's card: {index, id, name, description, icon, party_size, badge ("2 người"; "" solo: the
+## info popup's party line), ranked, selected}.
 static func card(index: int, current: int) -> Dictionary:
 	var m: Dictionary = LobbyModel.mode(index)
 	var size: int = m["party_size"]

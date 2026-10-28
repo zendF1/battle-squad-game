@@ -2,10 +2,11 @@ extends Control
 ## The Home lobby (a Gunny-style mobile lobby). Corners: the player (avatar letter, name, EXP
 ## bar, "Lv.N"; tap opens the Nhân vật page) top-left with the rank chip beside it (grade insignia,
 ## "Binh nhì 2", the division's points; tap: the rank popup, screens/ranked/rank_chip.gd), the wallet pills top-right, the connection
-## state top-centre, one round shortcut per page down the right (Nhân vật, Kho đồ → Túi đồ,
-## Nâng cấp, Lịch sử → Hồ sơ, Shop), the
-## selected character's info card (role, skill, stats; its name and level are on the stage) on
-## the left, the "Mốc thưởng" button (a red badge with the claimable count, hidden at 0; "Có mốc
+## state top-centre, one round shortcut per page down the right (Nhân vật, Kho đồ, Nâng cấp,
+## Hồ sơ, Shop), the selected character's icon card on the left (no sentences: its element chain,
+## ui/element_chain.gd, beaten by → element → beats; its skill's picture, ui/skill_button.gd, a tap
+## opens the skill's popup; heart / sword / shield with Máu, Sát thương, Phòng thủ; its name and
+## level are on the stage), the "Mốc thưởng" button (a red badge with the claimable count, hidden at 0; "Có mốc
 ## thưởng mới!" once when the count rose since the player last saw it) and "Nhiệm vụ" (the daily
 ## missions; a red dot while a mission, chest or weekly reward is claimable, reloaded each time
 ## the lobby shows) above a placeholder chat box bottom-left and the mode card with "BẮT ĐẦU"
@@ -16,11 +17,11 @@ extends Control
 ## (pedestal_gun.gd, no name under it), updated on equip / unequip. ◀ ▶ or a swipe cycles
 ## the four characters. The character is the Loadout's (saved
 ## in the same settings file, so the Loadout opens with it) and the mode is remembered there
-## too; the card shows the mode's name and description (a ranked mode: the grade insignia and "Binh nhì 2 ·
-## 45/100" instead), its swap button (or a tap on the card) opens the Mode Select page
+## too; the card shows the mode's icon plate and name (a boss mode: a gift box with the big-reward
+## runs left today, "×2"; the rank is the chip's, top-left), its swap button (or a tap on the card) opens the Mode Select page
 ## (open_modes, mode_select.gd), which calls choose_mode(). "BẮT ĐẦU" puts
 ## the mode's QuickPlay base in Router.quick_play_base and opens the Loadout. Character levels and stats come from the PlayerState characters cache, loaded when
-## the lobby is shown; until then the card shows name, role and skill only.
+## the lobby is shown; until then the card shows the element and the skill only.
 ## A party mode (party size 2 or more: Đấu thường, Đấu hạng) adds the party (Router.party,
 ## screens/home/party.gd), on the mode's queue (CreateLobby {queue}): the teammate slot right of
 ## the stage (party_slot.gd: "+" → the invite popup, invite_popup.gd; a teammate drawn there, a
@@ -66,8 +67,7 @@ const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
 const MissionArt := preload("res://screens/home/mission_art.gd")
 const RankChip := preload("res://screens/ranked/rank_chip.gd")
-const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
-const RankModel := preload("res://screens/ranked/rank_model.gd")
+const Skills := preload("res://match/skills.gd")
 const PartySlot := preload("res://screens/home/party_slot.gd")
 const GradeFrame := preload("res://screens/ranked/grade_frame.gd")
 const InvitePopup := preload("res://screens/home/invite_popup.gd")
@@ -76,7 +76,10 @@ const ModeSelectModel := preload("res://screens/home/mode_select_model.gd")
 const PartyLayout := preload("res://screens/home/party_layout.gd")
 const BossCardModel := preload("res://screens/home/boss_card_model.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
-const ElementText := preload("res://ui/element_text.gd")
+const ElementChain := preload("res://ui/element_chain.gd")
+const SkillButton := preload("res://ui/skill_button.gd")
+const GlyphIcon := preload("res://ui/glyph_icon.gd")
+const ModeSelect := preload("res://screens/home/mode_select.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
 const MARGIN := 18
@@ -108,11 +111,11 @@ var _stage_head: VBoxContainer
 var _stage_title: TitlePlate
 var _stage_name: Label
 var _stage_name_row: HBoxContainer # the element badge before the name
-var _info_element: Label
 var _stage_level: Label
-var _info_role: Label
-var _info_skill: Label
-var _info_stats: GridContainer
+var _info_chain: ElementChain
+var _info_skill: SkillButton
+var _info_stats: HBoxContainer
+var _info_values: Array[Label] = []
 var _info_buy: Button
 var _drag_from := -1.0
 
@@ -122,13 +125,11 @@ var _daily_dot: Control
 var rank_chip: RankChip
 
 # Mode card
+var _mode_plate: Control # the mode's icon on its round plate (Mode Select's look)
 var _mode_name: Label
-var _mode_text: Label
-var _mode_rank: Control # ranked: the grade insignia and "Binh nhì 2 · 45/100"
-var _mode_rank_badge: GradeBadge
-var _mode_rank_text: Label
 var _mode_lock: Label # the member's "Chủ phòng chọn chế độ"
-var _mode_runs: Label # a boss mode's "Lv đề xuất 10 · Lượt thưởng lớn: 2/3"
+var _mode_runs: HBoxContainer # a boss mode's gift box and the big-reward runs left, "×2"
+var _mode_runs_text: Label
 var _mode_swap: Button
 var _start: Button
 var _slots: Array[PartySlot] = [] # a party mode's teammate slots (PartyLayout: 1 for 2v2, 3 for a boss)
@@ -321,7 +322,7 @@ func _build_shortcuts() -> Control:
 	col.add_child(LobbyUi.icon_button("characters", "Nhân vật", LobbyUi.ICON_COLORS["blue"], func(): open_character.emit(), SHORTCUT))
 	col.add_child(LobbyUi.icon_button("inventory", "Kho đồ", LobbyUi.ICON_COLORS["green"], func(): open_bag.emit(), SHORTCUT))
 	col.add_child(LobbyUi.icon_button("upgrade", "Nâng cấp", LobbyUi.ICON_COLORS["red"], func(): open_upgrade.emit(), SHORTCUT))
-	col.add_child(LobbyUi.icon_button("history", "Lịch sử", LobbyUi.ICON_COLORS["purple"], func(): open_profile.emit(), SHORTCUT))
+	col.add_child(LobbyUi.icon_button("history", "Hồ sơ", LobbyUi.ICON_COLORS["purple"], func(): open_profile.emit(), SHORTCUT))
 	col.add_child(LobbyUi.icon_button("shop", "Shop", LobbyUi.ICON_COLORS["orange"], func(): open_shop.emit(ShopTab.ITEMS), SHORTCUT))
 	return col
 
@@ -529,22 +530,40 @@ func _send_character() -> void:
 
 # ── Info card ───────────────────────────────────────────────────────────────
 
+## Máu, Sát thương, Phòng thủ (LobbyModel.stat_pairs() order) as pictures.
+const STAT_ICONS := ["heart", "sword", "shield"]
+const INFO_W := 360
+
+
 func _build_info_card() -> Control:
-	var card := LobbyUi.panel(20, 20)
-	card.custom_minimum_size.x = 360
-	var col := Ui.vbox(8)
+	var card := LobbyUi.panel(18, 20)
+	card.name = "InfoCard"
+	card.custom_minimum_size.x = INFO_W
+	var col := Ui.vbox(14)
 	card.add_child(col)
-	_info_role = LobbyUi.text("", 28, Color.WHITE, true)
-	col.add_child(_info_role)
-	_info_element = LobbyUi.text("", 20, Color(0.85, 0.92, 1.0), false)
-	_info_element.name = "ElementLine"
-	col.add_child(_info_element)
-	_info_skill = LobbyUi.icon_text(col, "skill", "", 22, Color(0.75, 0.9, 1.0), false, 26)
-	_info_stats = GridContainer.new()
-	_info_stats.columns = 2
-	_info_stats.add_theme_constant_override("h_separation", 16)
-	_info_stats.add_theme_constant_override("v_separation", 4)
+	var top := Ui.hbox(10)
+	col.add_child(top)
+	_info_chain = ElementChain.make("", 58)
+	_info_chain.size_flags_horizontal = SIZE_EXPAND_FILL
+	top.add_child(_info_chain)
+	_info_skill = SkillButton.make(68)
+	_info_skill.name = "InfoSkill"
+	_info_skill.pressed.connect(func() -> void: SkillButton.show_popup(_host(), _model.character_id))
+	top.add_child(_info_skill)
+	_info_stats = Ui.hbox(0)
+	_info_stats.name = "InfoStats"
 	col.add_child(_info_stats)
+	for i in STAT_ICONS.size():
+		var chip := Ui.hbox(6)
+		chip.alignment = BoxContainer.ALIGNMENT_CENTER
+		chip.size_flags_horizontal = SIZE_EXPAND_FILL
+		chip.size_flags_stretch_ratio = 1.0
+		chip.add_child(GlyphIcon.make(STAT_ICONS[i], 32))
+		var value := LobbyUi.text("", 24, Color.WHITE, true)
+		value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		chip.add_child(value)
+		_info_values.append(value)
+		_info_stats.add_child(chip)
 	_info_buy = Ui.button("Mua ở Shop", 22)
 	LobbyUi.style_button(_info_buy, LobbyUi.ICON_COLORS["orange"], 14, 8)
 	_info_buy.add_theme_font_override("font", LobbyUi.bold())
@@ -567,20 +586,15 @@ func _render_character() -> void:
 	_stage_name.text = info["name"]
 	ElementBadge.set_row_element(_stage_name_row, GameData.character_element(id))
 	_stage_level.text = level
-	_info_role.text = info["role"]
-	_info_element.text = ElementText.detail_line(GameData.character_element(id))
-	_info_element.visible = _info_element.text != ""
-	_info_skill.text = "Kỹ năng: %s" % info["skill"] if info["skill"] != "" else ""
-	_info_skill.get_parent().visible = info["skill"] != ""
-	Ui.clear(_info_stats)
+	_info_chain.set_element(GameData.character_element(id))
+	_info_skill.skill_id = str(Skills.for_character(id).get("id", ""))
+	_info_skill.visible = info["skill"] != ""
+	_info_skill.tooltip_text = info["skill"]
 	_info_stats.visible = not info["stats"].is_empty()
-	for pair in info["stats"]:
-		var key := LobbyUi.text(pair[0], 22, Ui.TEXT_DIM)
-		key.size_flags_horizontal = SIZE_EXPAND_FILL
-		_info_stats.add_child(key)
-		var value := LobbyUi.text(pair[1], 22, Color.WHITE, true)
-		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		_info_stats.add_child(value)
+	for i in _info_values.size():
+		var pair: Array = info["stats"][i] if i < info["stats"].size() else ["", ""]
+		_info_values[i].text = pair[1]
+		_info_values[i].get_parent().tooltip_text = pair[0]
 	_info_buy.visible = info["owned"] == false
 
 
@@ -605,32 +619,35 @@ func _build_mode_card() -> Control:
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 			_open_modes())
 	col.add_child(card)
-	var row := Ui.hbox(12)
+	var row := Ui.hbox(14)
 	row.mouse_filter = MOUSE_FILTER_IGNORE
 	card.add_child(row)
+	_mode_plate = Control.new() # the plate is swapped per mode (_render_mode)
+	_mode_plate.custom_minimum_size = Vector2(MODE_PLATE, MODE_PLATE)
+	_mode_plate.size_flags_vertical = SIZE_SHRINK_CENTER
+	_mode_plate.mouse_filter = MOUSE_FILTER_IGNORE
+	row.add_child(_mode_plate)
 	var texts := Ui.vbox(2)
 	texts.mouse_filter = MOUSE_FILTER_IGNORE
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
 	texts.size_flags_horizontal = SIZE_EXPAND_FILL
 	row.add_child(texts)
 	_mode_name = LobbyUi.text("", 32, Color.WHITE, true)
+	_mode_name.name = "ModeName"
+	_mode_name.clip_text = true
+	_mode_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	texts.add_child(_mode_name)
-	_mode_text = LobbyUi.text("", 22, Color(0.75, 0.9, 1.0))
-	_mode_text.clip_text = true
-	_mode_text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	texts.add_child(_mode_text)
-	_mode_runs = LobbyUi.text("", 22, LobbyUi.GOLD, true)
+	_mode_runs = Ui.hbox(6)
 	_mode_runs.name = "ModeRuns"
+	_mode_runs.mouse_filter = MOUSE_FILTER_IGNORE
 	_mode_runs.visible = false
+	var gift := LobbyUi.icon("milestone", 34)
+	gift.mouse_filter = MOUSE_FILTER_IGNORE
+	_mode_runs.add_child(gift)
+	_mode_runs_text = LobbyUi.text("", 26, LobbyUi.GOLD, true)
+	_mode_runs_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_mode_runs.add_child(_mode_runs_text)
 	texts.add_child(_mode_runs)
-	var rank_row := Ui.hbox(8)
-	rank_row.mouse_filter = MOUSE_FILTER_IGNORE
-	_mode_rank_badge = GradeBadge.make("", 0, 34)
-	rank_row.add_child(_mode_rank_badge)
-	_mode_rank_text = LobbyUi.text("", 22, Color.WHITE, true)
-	_mode_rank_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	rank_row.add_child(_mode_rank_text)
-	texts.add_child(rank_row)
-	_mode_rank = rank_row
 	_mode_lock = LobbyUi.text(ModeSelectModel.LOCKED_TEXT, 20, Ui.TEXT_DIM)
 	_mode_lock.name = "ModeLock"
 	_mode_lock.visible = false
@@ -648,6 +665,10 @@ func _build_mode_card() -> Control:
 	pulse.tween_property(_start, "scale", Vector2(1.035, 1.035), 0.9).set_trans(Tween.TRANS_SINE)
 	pulse.tween_property(_start, "scale", Vector2.ONE, 0.9).set_trans(Tween.TRANS_SINE)
 	return col
+
+
+const MODE_PLATE := 68 # the mode card's icon plate
+const MODE_NAME_W := 430 - 18 * 2 - MODE_PLATE - 68 - 14 * 2 # the card less its padding, plate, swap and gaps
 
 
 ## The swap button or a tap on the card: the Mode Select page; the party's member cannot (the host
@@ -761,24 +782,19 @@ func _render_mode() -> void:
 	_mode_swap.disabled = member
 	var m: Dictionary = LobbyModel.mode(_mode)
 	_mode_name.text = m["name"]
-	_mode_text.text = m["description"]
-	var ranked := LobbyModel.is_ranked(m["base"])
-	_mode_rank.visible = ranked and not member
+	_mode_name.add_theme_font_size_override("font_size", 32)
+	ElementBadge.shrink_to_fit(_mode_name, MODE_NAME_W, 22) # a long boss name stays whole
+	Ui.clear(_mode_plate)
+	var plate := ModeSelect.plate(ModeSelectModel.icon_of(m["icon"]), MODE_PLATE, ModeSelect.plate_color(ModeSelectModel.order_in_section(_mode)))
+	_mode_plate.add_child(plate)
 	var boss: bool = m["category"] == BossCardModel.CATEGORY
-	# the rank line (the member: the lock line; a boss: its level and runs) takes the description's place
-	_mode_text.visible = not ranked and not member and not boss
-	_mode_runs.visible = boss
-	if boss: # the recommended level and the big-reward runs left today
-		if is_visible_in_tree():
-			PlayerState.load_boss_runs()
-		var c := BossCardModel.card(_mode, m, _mode, PlayerState.my_boss_runs(), 0)
-		_mode_runs.text = " · ".join(PackedStringArray([c["level_text"], c["runs_text"]].filter(func(t): return t != "")))
-	if ranked:
-		var data := PlayerState.my_rank()
-		var r := RankModel.from_me(data)
-		_mode_rank_badge.grade = r["grade"] if not data.is_empty() else ""
-		_mode_rank_text.text = RankModel.mode_line(r) if not data.is_empty() else "Đang tải hạng..."
-		_mode_rank_text.add_theme_color_override("font_color", GradeBadge.text_color(_mode_rank_badge.grade))
+	if boss and is_visible_in_tree():
+		PlayerState.load_boss_runs() # (an answer at once re-renders: read the runs after it)
+	var c := BossCardModel.card(_mode, m, _mode, PlayerState.my_boss_runs(), 0) if boss else {}
+	_mode_runs.visible = boss and not member and str(c.get("runs_text", "")) != ""
+	if boss: # the big-reward runs left today
+		_mode_runs_text.text = str(c["runs_text"])
+		_mode_runs.modulate = Color(1, 1, 1, 0.45) if int(c["runs_left"]) == 0 else Color.WHITE
 	_render_party()
 	_render_background()
 
