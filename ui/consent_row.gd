@@ -1,10 +1,13 @@
 extends Control
 ## The terms tick under the login buttons (screens/login.gd): a white check box and "Tôi đồng ý với
-## Điều khoản dịch vụ và Chính sách bảo mật", the two names links to `terms_url` / `privacy_url`
-## (Config). nudge() shakes the row and flashes the box red: a login tapped while it is not ticked.
+## Điều khoản dịch vụ và Chính sách bảo mật", the two names links: a tap emits link_pressed("terms" /
+## "privacy") and the login screen opens the document in game (ui/legal_popup.gd); `terms_url` /
+## `privacy_url` (Config) are the documents' web pages (url_for(), its browser button). nudge() shakes the row and flashes the box red: a login tapped while it is not ticked.
 ## The row is `width` wide (the buttons' width), the text wrapping beside the box.
 
 signal toggled(on: bool)
+## A document's link tapped: "terms" or "privacy".
+signal link_pressed(doc_id: String)
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 
@@ -120,9 +123,7 @@ func _on_toggled(on: bool) -> void:
 
 
 func _on_link(meta: Variant) -> void:
-	var url := url_for(str(meta))
-	if url != "":
-		OS.shell_open(url)
+	link_pressed.emit(str(meta))
 
 
 func _draw_box() -> void:

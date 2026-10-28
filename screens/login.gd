@@ -2,7 +2,8 @@ extends Control
 ## The login screen: the login picture (Art.BG_LOGIN: the squad on a hill, framed so all five stay on
 ## screen), the logo where the loading screen had it (ui/brand.gd), then, centred in the space under
 ## it, four same-size white login buttons (ui/login_button.gd: Apple, Google, Facebook, then the guest
-## "Chơi ngay") and the terms tick (ui/consent_row.gd, remembered by core/consent.gd). A login works
+## "Chơi ngay") and the terms tick (ui/consent_row.gd, remembered by core/consent.gd; its two links open
+## the documents in game: ui/legal_popup.gd). A login works
 ## only once the tick is on; tapped without it, the tick shakes. Apple / Google / Facebook have no
 ## server login yet: each has its own _login_<provider>() that only shows "Sắp ra mắt" for now, where
 ## the provider's SDK sign-in plugs in later.
@@ -16,6 +17,7 @@ const LoginButton := preload("res://ui/login_button.gd")
 const LoginMark := preload("res://ui/login_mark.gd")
 const ConsentRow := preload("res://ui/consent_row.gd")
 const Consent := preload("res://core/consent.gd")
+const LegalPopup := preload("res://ui/legal_popup.gd")
 
 ## The login picture's part kept on any screen: the five, head to feet (texture UV); the crop and the
 ## band a tall screen leaves go to the sky (align: the picture sits low).
@@ -76,7 +78,16 @@ func _ready() -> void:
 	col.add_child(spacer)
 	_consent_row = ConsentRow.new(LoginButton.SIZE.x, consent.accepted, Config.terms_url, Config.privacy_url)
 	_consent_row.toggled.connect(consent.set_accepted)
+	_consent_row.link_pressed.connect(_show_legal)
 	col.add_child(_consent_row)
+
+
+## The terms of service / privacy policy in game, its browser button on the configured URL.
+func _show_legal(doc_id: String) -> void:
+	var showing := get_node_or_null("LegalPopup")
+	if showing != null and not showing.is_queued_for_deletion():
+		return
+	LegalPopup.open(self, doc_id, _consent_row.url_for(doc_id))
 
 
 ## A login button tapped: the provider's login once the tick is on, else the tick shakes.

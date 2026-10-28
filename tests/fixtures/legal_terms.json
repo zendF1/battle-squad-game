@@ -1,0 +1,79 @@
+{
+  "success": true,
+  "data": {
+    "id": "terms",
+    "lang": "vi",
+    "title": "Điều khoản dịch vụ",
+    "version": "1.0",
+    "updatedAt": "2026-10-28",
+    "sections": [
+      {
+        "heading": "",
+        "paragraphs": [
+          "Các điều khoản này là thỏa thuận giữa bạn và [TÊN ĐƠN VỊ PHÁT HÀNH] về việc sử dụng trò chơi Battle Squad. Vui lòng đọc kỹ trước khi chơi."
+        ]
+      },
+      {
+        "heading": "1. Chấp nhận điều khoản",
+        "paragraphs": [
+          "Khi tải, cài đặt hoặc chơi Battle Squad, bạn đồng ý với các điều khoản này và Chính sách bảo mật. Nếu không đồng ý, vui lòng không sử dụng trò chơi.",
+          "• Nếu bạn chưa đủ 18 tuổi, cha mẹ hoặc người giám hộ cần đọc và đồng ý thay bạn.",
+          "• Bạn cần đủ độ tuổi tối thiểu [ĐỘ TUỔI TỐI THIỂU] để tự tạo tài khoản."
+        ]
+      },
+      {
+        "heading": "2. Tài khoản",
+        "paragraphs": [
+          "Bạn có thể chơi bằng tài khoản khách gắn với thiết bị. Tài khoản khách có thể mất nếu bạn gỡ trò chơi hoặc đổi thiết bị mà chưa liên kết với Apple, Google hoặc Facebook.",
+          "• Bạn chịu trách nhiệm giữ an toàn cho thiết bị và tài khoản liên kết của mình.",
+          "• Tên hiển thị không được mạo danh người khác, chứa nội dung xúc phạm, phản cảm hoặc vi phạm pháp luật.",
+          "• Bạn có thể yêu cầu xóa tài khoản ngay trong trò chơi. Tài khoản được giữ 7 ngày để bạn đổi ý, sau đó bị xóa vĩnh viễn."
+        ]
+      },
+      {
+        "heading": "3. Vật phẩm ảo và giao dịch",
+        "paragraphs": [
+          "Kim cương, vàng, nhân vật, trang bị và các vật phẩm khác trong trò chơi là vật phẩm ảo. Bạn được cấp quyền sử dụng chúng trong trò chơi, không phải quyền sở hữu.",
+          "• Vật phẩm ảo không có giá trị quy đổi thành tiền và không thể chuyển nhượng ra ngoài trò chơi.",
+          "• Giao dịch mua trong ứng dụng được xử lý bởi App Store hoặc Google Play. Việc hoàn tiền tuân theo chính sách của cửa hàng nơi bạn mua.",
+          "• Vật phẩm đã dùng hoặc đã nhận không được hoàn lại, trừ khi pháp luật yêu cầu khác."
+        ]
+      },
+      {
+        "heading": "4. Quy tắc ứng xử",
+        "paragraphs": [
+          "Để trận đấu công bằng cho mọi người, bạn không được:",
+          "• Dùng phần mềm gian lận, can thiệp vào dữ liệu trận đấu hoặc khai thác lỗi để trục lợi.",
+          "• Mua bán, chia sẻ hoặc chiếm đoạt tài khoản của người khác.",
+          "• Quấy rối, đe dọa hoặc xúc phạm người chơi khác.",
+          "Vi phạm có thể dẫn đến cảnh cáo, thu hồi vật phẩm, tạm khóa hoặc khóa vĩnh viễn tài khoản."
+        ]
+      },
+      {
+        "heading": "5. Sở hữu trí tuệ",
+        "paragraphs": [
+          "Trò chơi, hình ảnh, nhân vật, âm thanh và mã nguồn thuộc quyền sở hữu của [TÊN ĐƠN VỊ PHÁT HÀNH]. Bạn không được sao chép, chỉnh sửa hoặc phân phối lại khi chưa được cho phép."
+        ]
+      },
+      {
+        "heading": "6. Thay đổi và gián đoạn dịch vụ",
+        "paragraphs": [
+          "Chúng tôi có thể cập nhật, thay đổi nội dung trò chơi hoặc tạm ngừng dịch vụ để bảo trì. Khi ngừng phát hành trò chơi, chúng tôi sẽ thông báo trước ít nhất 30 ngày.",
+          "Trò chơi được cung cấp theo hiện trạng. Trong phạm vi pháp luật cho phép, chúng tôi không chịu trách nhiệm cho thiệt hại gián tiếp phát sinh từ việc sử dụng trò chơi."
+        ]
+      },
+      {
+        "heading": "7. Luật áp dụng",
+        "paragraphs": [
+          "Các điều khoản này được điều chỉnh bởi pháp luật Việt Nam. Tranh chấp được ưu tiên giải quyết bằng thương lượng; nếu không thành, sẽ do tòa án có thẩm quyền tại Việt Nam giải quyết."
+        ]
+      },
+      {
+        "heading": "8. Liên hệ",
+        "paragraphs": [
+          "Mọi thắc mắc về các điều khoản này, vui lòng liên hệ [EMAIL HỖ TRỢ]."
+        ]
+      }
+    ]
+  }
+}

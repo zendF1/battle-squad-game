@@ -8,14 +8,15 @@ extends Control
 ## stats ("boot": Năng lượng di chuyển, "magic": Sức mạnh kỹ năng, "terrain": Phá địa hình, "crit":
 ## Chí mạng), the match's wind ("wind": three gusts curling at their ends), a socketed gem ("gem", in
 ## `tint`: ShowcaseModel.GEM_COLORS) and the loading screen's failure ("offline": wi-fi arcs crossed
-## out in red; "retry": a white turning arrow on a blue disc, its button). Drawn on a 96 × 96
-## canvas scaled into the control's square and centred (a single-focus picture). make() for a
-## layout, info_button() for the round "i" button that opens a card's popup.
+## out in red; "retry": a white turning arrow on a blue disc, its button) and the legal popup's
+## "open in browser" ("browser": a page frame with an arrow leaving its top-right corner). Drawn on
+## a 96 × 96 canvas scaled into the control's square and centred (a single-focus picture). make()
+## for a layout, info_button() for the round "i" button that opens a card's popup.
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 
 const KINDS := ["heart", "sword", "shield", "info", "clock", "arrow", "power", "level", "insignia", "trophy",
-	"boot", "magic", "terrain", "crit", "gem", "wind", "offline", "retry"]
+	"boot", "magic", "terrain", "crit", "gem", "wind", "offline", "retry", "browser"]
 const OUTLINE := Color(0.07, 0.07, 0.14)
 const W := 5.0
 const HEART := Color(1.0, 0.33, 0.4)
@@ -144,6 +145,7 @@ func _draw() -> void:
 		"wind": _wind()
 		"offline": _offline()
 		"retry": _retry()
+		"browser": _browser()
 
 
 func _poly(pts: PackedVector2Array, fill: Color, w: float = W) -> void:
@@ -372,3 +374,24 @@ func _retry() -> void:
 	_stroke(pts, Color.WHITE, 8.0, 0.0)
 	var tip := Vector2(48, 50) + Vector2.from_angle(-PI * 0.35) * 20.0
 	draw_colored_polygon(PackedVector2Array([tip + Vector2(-13, -4), tip + Vector2(9, -13), tip + Vector2(6, 11)]), Color.WHITE)
+
+
+func _browser() -> void:
+	# The page: a rounded frame open at its top-right corner, where the arrow leaves.
+	var frame := PackedVector2Array([Vector2(44, 20), Vector2(24, 20)])
+	for i in 7:
+		frame.append(Vector2(24, 30) + Vector2.from_angle(lerpf(PI * 1.5, PI, i / 6.0)) * 10.0)
+	frame.append_array(PackedVector2Array([Vector2(14, 66)]))
+	for i in 7:
+		frame.append(Vector2(24, 66) + Vector2.from_angle(lerpf(PI, PI * 0.5, i / 6.0)) * 10.0)
+	frame.append(Vector2(66, 76))
+	for i in 7:
+		frame.append(Vector2(66, 66) + Vector2.from_angle(lerpf(PI * 0.5, 0.0, i / 6.0)) * 10.0)
+	frame.append(Vector2(76, 52))
+	var lines := [frame, PackedVector2Array([Vector2(44, 52), Vector2(76, 20)]),
+		PackedVector2Array([Vector2(56, 20), Vector2(76, 20), Vector2(76, 40)])]
+	for pts in lines: # every outline first, so no line's outline cuts into another
+		for o in Geometry2D.offset_polyline(pts, 4.0 + W, Geometry2D.JOIN_ROUND, Geometry2D.END_ROUND):
+			draw_colored_polygon(o, OUTLINE)
+	for pts in lines:
+		_stroke(pts, Color.WHITE, 8.0, 0.0)
