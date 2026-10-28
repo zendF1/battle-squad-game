@@ -52,7 +52,7 @@ func test_fits_centred() -> void:
 		check(labels.size() == 1 and labels[0].begins_with("×"), "%s: ×N" % c.name)
 	eq(sizes.keys(), [RewardStrip.TILE], "one tile size")
 	eq(ys.size(), 1, "one row, no wrapping")
-	check(row.get_node("Tile_stone_3").find_child("Level", true, false) != null, "a stone's level badge")
+	check(row.get_node("Tile_stone_3").find_child("Level", true, false) == null, "no level badge: the stone's picture tells it")
 	eq(s.qty_label("coin").text, "×1.200", "the coin count")
 	check(s.qty_label("gem") == null, "no such tile")
 	s.free()
@@ -115,13 +115,13 @@ func test_boss_result_card_uses_the_strip() -> void:
 	s.free()
 
 
-## A tile's labels, its stone level badge left out.
+## A tile's labels.
 static func _labels(n: Node) -> Array:
 	var out: Array = []
 	for c in n.get_children():
 		if c is Label:
 			out.append(c.text)
-		elif c.name != "Level":
+		else:
 			out.append_array(_labels(c))
 	return out
 

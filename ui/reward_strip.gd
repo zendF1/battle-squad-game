@@ -1,6 +1,6 @@
 extends Control
 ## A row of reward tiles (ResultModel.reward_tiles()): every tile the same TILE frame, its icon
-## (coin, stone with its level on a badge, chest, item) over its count ("×3", "×1.200"), no
+## (coin, stone (its picture tells the level), chest, item) over its count ("×3", "×1.200"), no
 ## names (a hover / long press shows the name as a tooltip). Centred while the row fits; wider
 ## than the strip it scrolls horizontally (mouse wheel, mouse or touch drag), never wraps or
 ## shrinks, the tiles fading as they slide past an edge and a chevron on the side with more. reveal() pops the tiles in one by one.
@@ -21,7 +21,6 @@ const WHEEL_STEP := 60.0
 const EDGE_ALPHA := 0.3
 const FRAME := Color(0.08, 0.12, 0.26, 0.92)
 const BORDER := Color(0.55, 0.7, 1.0, 0.35)
-const LEVEL_BADGE := Color(0.98, 0.72, 0.2)
 
 var tiles: Array = []
 var scroll := 0.0:
@@ -136,8 +135,6 @@ func _tile(t: Dictionary) -> Control:
 	icon.position = Vector2((TILE.x - ICON) / 2.0, 8)
 	icon.size = Vector2(ICON, ICON)
 	tile.add_child(icon)
-	if str(t["kind"]) == "stone":
-		tile.add_child(_level_badge(int(t["level"])))
 	var l := LobbyUi.text(ResultModel.tile_qty_text(int(t["qty"])), 24, Color.WHITE, true)
 	l.name = "Qty"
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -164,24 +161,6 @@ static func _icon(t: Dictionary) -> Control:
 			c = ItemIcon.make(str(t["id"]), ICON)
 	c.mouse_filter = MOUSE_FILTER_IGNORE
 	return c
-
-
-## A stone's level on a small gold disc at the icon's top left.
-static func _level_badge(level: int) -> Control:
-	var b := Panel.new()
-	b.name = "Level"
-	b.add_theme_stylebox_override("panel", LobbyUi.box(LEVEL_BADGE, 13, 0, Color(0.35, 0.15, 0.02), 2))
-	b.position = Vector2(8, 6)
-	b.size = Vector2(26, 26)
-	b.mouse_filter = MOUSE_FILTER_IGNORE
-	var l := LobbyUi.text(str(level), 17, LobbyUi.TEXT_DARK, true)
-	l.remove_theme_constant_override("outline_size")
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	l.mouse_filter = MOUSE_FILTER_IGNORE
-	b.add_child(l)
-	return b
 
 
 func _gui_input(event: InputEvent) -> void:
