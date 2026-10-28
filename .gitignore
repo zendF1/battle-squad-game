@@ -3,3 +3,6 @@
 /android/
 /build/
 /server.cfg
+
+# Agent worktrees (.claude/worktrees/agent-<branch>)
+.claude/worktrees/
