@@ -663,7 +663,7 @@
         "name": "Bom khoan",
         "type": "terrain_pierce",
         "targetType": "shoot",
-        "value": 50,
+        "value": 120,
         "maxUsePerMatch": 1,
         "cooldown": 0,
         "instant": false,
@@ -811,6 +811,7 @@
     ],
     "itemRules": {
       "maxLoadout": 3,
+      "maxItemStack": 99,
       "airStrike": {
         "angle": 270,
         "power": 80

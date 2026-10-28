@@ -273,6 +273,40 @@ func carve_bowl(cx: float, cy: float, radius: float) -> void:
 	_carved(cleared)
 
 
+## Terrain.CarveTunnel: the drill event's tunnel, one version step (like one explode) for the
+## whole path (carve_tunnel_points() over every point).
+func carve_tunnel(path: PackedVector2Array, radius: float) -> void:
+	version += 1
+	carve_tunnel_points(path, radius, 0, path.size())
+
+
+## Points [from, to) of a tunnel's path carved without a version step (the drill bores it bit by
+## bit: match/terrain/tunnel_dig.gd; the version step is taken once when it starts). For every
+## point p: the destructible solid pixels (x, y) with x in [p.x - ceil(r), p.x + ceil(r)], y in
+## [p.y - ceil(r), p.y + ceil(r)], inside the map, and float(dx·dx + dy·dy) <= r·r. Clearing is
+## a union, so any split into parts carves the same pixels as the whole.
+func carve_tunnel_points(path: PackedVector2Array, radius: float, from: int, to: int) -> void:
+	if radius <= 0.0:
+		return
+	var reach := ceili(radius)
+	var r2 := radius * radius
+	var cleared := PackedInt32Array()
+	for k in range(maxi(from, 0), mini(to, path.size())):
+		var px := int(path[k].x)
+		var py := int(path[k].y)
+		for y in range(maxi(py - reach, 0), mini(py + reach, height - 1) + 1):
+			var dy := y - py
+			var row := y * width
+			for x in range(maxi(px - reach, 0), mini(px + reach, width - 1) + 1):
+				var dx := x - px
+				if float(dx * dx + dy * dy) <= r2:
+					var i := row + x
+					if destructible[i] != 0 and solid[i] != 0:
+						solid[i] = 0
+						cleared.append(i)
+	_carved(cleared)
+
+
 ## Terrain.GetLandingY: first solid pixel at or below start_y in column x; height if none.
 func get_landing_y(x: float, start_y: float) -> float:
 	var ix := roundi(x)

@@ -194,7 +194,7 @@ func test_allies_are_never_hit() -> void:
 	eq(a.aid()["hits"], [], "an ally on the path: no Trúng")
 	m._armed = "drill_bomb"
 	m._set_aim_aid(m._players["me"])
-	eq(a.pierce, 50.0, "the drill bomb drills 50 px")
+	eq(a.pierce, 120.0, "the drill bomb drills 120 px (the game data's value)")
 	m.free()
 	a.free()
 

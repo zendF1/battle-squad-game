@@ -24,8 +24,11 @@ extends Node2D
 ## missing: the kind's projectile.png as before. Images via ui/art.gd (assets/fx/<kind>/, falling
 ## back to the round bomb, assets/fx/common/bomb.png). A skill shot is drawn larger and brighter;
 ## an item shot is tinted and marked by the item on top (ITEM_LOOKS; an air strike drops the round
-## bomb with its fuse spark instead). Set kind / tier / skill / item / heading before adding it.
-## Visuals only: the server path moves it.
+## bomb with its fuse spark instead). A drilling shell (`drill`: the server's projectiles[].drill,
+## a drill-armed shot whatever fired it) is a drill bit instead of the gun's shell: an orange shank,
+## a steel cone pointing along the flight, its spiral flutes running back along it as it spins
+## (draw_drill_bit()); the gun's trail and tier look stay. Set kind / tier / skill / item / drill /
+## heading before adding it. Visuals only: the server path moves it.
 
 const Art := preload("res://ui/art.gd")
 const ShotLook := preload("res://match/views/shot_look.gd")
@@ -50,6 +53,13 @@ const ITEM_LOOKS := {
 	"poison_bomb": {"tint": Color(0.55, 1.0, 0.35), "mark": "toxic"},
 }
 
+## The drill bit (draw_drill_bit()): its length (world px, before the shell's scale), colours and
+## spin (turns a second).
+const DRILL_BIT_LEN := 46.0
+const DRILL_SHANK := Color(0.96, 0.58, 0.16)
+const DRILL_STEEL := Color(0.7, 0.73, 0.8)
+const DRILL_SPIN := 4.0
+
 static var _contents := {} # Texture2D -> base_content()
 
 var kind := ShotLook.DEFAULT_KIND
@@ -58,6 +68,8 @@ var skill := false
 ## Extra size on top of the tier / skill scale (a skill's bigger shells: the bomb chain's bombs).
 var size_k := 1.0
 var item := ""
+## The shell drills (projectiles[].drill): drawn as a spinning drill bit.
+var drill := false
 ## The flight direction before the first move (shot_player.gd: the path's start velocity);
 ## zero: +x.
 var heading := Vector2.ZERO
@@ -254,7 +266,7 @@ func set_tangent(v: Vector2) -> void:
 ## The kind's spin (rad/s): none for a tier's own shell picture (the pointed seeds face their
 ## flight like the rocket; the round basic pod keeps spinning).
 func spin_rate() -> float:
-	return 0.0 if _tier_body else float(_k["spin"])
+	return 0.0 if _tier_body or drill else float(_k["spin"])
 
 
 ## The body's size pulse (scale factor) for the flickering kinds: none for a tier's own shell
@@ -353,6 +365,10 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, rot, Vector2(1.0, -1.0 if flipped() else 1.0) * scale_k * pulse)
 	var size := _body_size
 	var body := body_color()
+	if drill:
+		draw_drill_bit(self, _t, DRILL_BIT_LEN)
+		draw_set_transform(Vector2.ZERO)
+		return
 	if _exhaust: # behind the rocket: a flame stretched along the flight, flickering in length
 		var flicker := 0.8 + 0.12 * sin(_t * 47.0) + 0.08 * sin(_t * 113.0)
 		var flame := Vector2(20.0 * flicker, 11.0)
@@ -367,6 +383,49 @@ func _draw() -> void:
 		draw_texture_rect(_spark, Rect2(SPARK - spark / 2, spark), false)
 	_draw_mark(minf(size.x, size.y) * 0.3)
 	draw_set_transform(Vector2.ZERO)
+
+
+## The drill bit on ci, flying +x, centred on the origin, `length` world px long (before the
+## caller's scale): an orange shank with a dark band at the back, a steel collar, then a steel
+## cone to the tip with spiral flutes that run back along it (DRILL_SPIN turns a second: the
+## spin), outlined in dark.
+static func draw_drill_bit(ci: CanvasItem, t: float, length: float) -> void:
+	var half := length / 2.0
+	var h := length * 0.27 # the shank's half height
+	var back := -half
+	var collar := -half + length * 0.32
+	var cone := collar + length * 0.08
+	var tip := half
+	var outline := Color(0.12, 0.1, 0.12)
+	# The shank: orange with a darker band and a top highlight.
+	var shank := Rect2(Vector2(back, -h), Vector2(collar - back, 2.0 * h))
+	ci.draw_rect(shank.grow(1.5), outline, true)
+	ci.draw_rect(shank, DRILL_SHANK, true)
+	ci.draw_rect(Rect2(Vector2(back, -h), Vector2((collar - back) * 0.28, 2.0 * h)), DRILL_SHANK.darkened(0.35), true)
+	ci.draw_rect(Rect2(Vector2(back, -h), Vector2(collar - back, h * 0.45)), DRILL_SHANK.lightened(0.3), true)
+	# The collar.
+	var c := Rect2(Vector2(collar, -h * 0.82), Vector2(cone - collar, 1.64 * h))
+	ci.draw_rect(c.grow(1.5), outline, true)
+	ci.draw_rect(c, DRILL_STEEL.darkened(0.25), true)
+	# The cone: its outline, then the steel with a lit top half.
+	var ch := h * 0.78
+	var poly := PackedVector2Array([Vector2(cone, -ch), Vector2(tip, 0.0), Vector2(cone, ch)])
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(cone - 1.5, -ch - 2.0), Vector2(tip + 2.5, 0.0), Vector2(cone - 1.5, ch + 2.0)]), outline)
+	ci.draw_colored_polygon(poly, DRILL_STEEL)
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(cone, -ch), Vector2(tip, 0.0), Vector2(cone, -ch * 0.15)]), DRILL_STEEL.lightened(0.35))
+	# The flutes: slanted dark grooves, sliding from the tip back to the collar as it spins.
+	var span := tip - cone
+	var n := 4
+	for i in n:
+		var u := fposmod(float(i) / n - t * DRILL_SPIN, 1.0) # 0 = the collar, 1 = the tip
+		var x := cone + u * span
+		var w := ch * (1.0 - u) # the cone's half height there
+		if w < 1.0:
+			continue
+		var slant := span / n * 0.45
+		ci.draw_line(Vector2(x - slant, -w), Vector2(x + slant, w), Color(0.2, 0.2, 0.24, 0.9), maxf(1.5, length * 0.06), true)
+	# A glint near the tip.
+	ci.draw_circle(Vector2(tip - span * 0.25, -ch * 0.2), maxf(1.0, length * 0.035), Color(1, 1, 1, 0.85), true, -1.0, true)
 
 
 ## The overlay particles' colour: coins keep their own gold, the rest take the tier's colour.

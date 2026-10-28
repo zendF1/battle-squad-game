@@ -53,7 +53,7 @@ func test_shot_payload() -> void:
 
 
 func test_pierce_and_moves() -> void:
-	eq(Items.pierce("drill_bomb"), 50.0, "the drill's value")
+	eq(Items.pierce("drill_bomb"), 120.0, "the drill's value (game data)")
 	eq(Items.pierce("power_shot"), 0.0, "no drill")
 	check(Items.moves_user("teleport") and not Items.moves_user("medkit"), "the teleport moves its user")
 	eq(Items.max_loadout(), 3, "loadout max")

@@ -84,6 +84,12 @@ func kind(i: int) -> String:
 	return str(k) if k is String else ""
 
 
+## Whether projectile i drills (projectiles[].drill: a drill-armed shot; its tunnel is a "drill"
+## event).
+func is_drill(i: int) -> bool:
+	return i < projectiles.size() and projectiles[i] is Dictionary and projectiles[i].get("drill") == true
+
+
 ## The kind of the projectile with this projectileId ("" unknown or a normal shell).
 func kind_of(projectile_id: String) -> String:
 	if projectile_id == "":

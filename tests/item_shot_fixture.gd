@@ -153,3 +153,58 @@ static func laser() -> Dictionary:
 			"duration": 0.8},
 			{"t": t0 + 0.8, "type": "explode", "position": at, "radius": 5.4, "crater": "bowl", "terrainVersion": 1},
 			_damage(t0 + 0.8, "e2", "", 620, 630)], "duration": t0 + 0.8}
+
+
+## The drill bomb (docs/contracts/shop-quantity.md §3): the fan shell turned by `deg` flies into
+## the ground, bores on along its arc through `pierce` px of terrain (or out of the block), the
+## tunnel's points every radius / 2 px, then explodes at its end.
+static func drill(deg: float = -4.0, pierce: float = 120.0, radius: float = 12.0) -> Dictionary:
+	var mask := TerrainMask.new()
+	mask.load_snapshot(base()["terrain"])
+	var air := fan_path(deg)
+	air.pop_back() # the sample already in the ground: refined below
+	var last: Dictionary = air[-1]
+	var p := Vector2(float(last["position"]["x"]), float(last["position"]["y"]))
+	var v := Vector2(float(last["velocity"]["x"]), float(last["velocity"]["y"]))
+	var p0 := flight()
+	var acc := (Vector2(float(p0[1]["velocity"]["x"]), float(p0[1]["velocity"]["y"])) - Vector2(float(p0[0]["velocity"]["x"]),
+		float(p0[0]["velocity"]["y"]))) / (float(p0[1]["time"]) - float(p0[0]["time"]))
+	var t := float(last["time"])
+	var step := 0.002
+	while not mask.is_solid(p.x, p.y) and p.y < mask.height:
+		v += acc * step
+		p += v * step
+		t += step
+	var entry_t := t
+	var tunnel: Array = [{"x": roundi(p.x), "y": roundi(p.y)}]
+	var path := air.duplicate(true)
+	path.append({"position": {"x": p.x, "y": p.y}, "velocity": {"x": v.x, "y": v.y}, "time": t})
+	var bored := 0.0
+	var since_point := 0.0
+	var next_sample := t + DT
+	while bored < pierce and p.y < mask.height:
+		var q := p + (v + acc * step) * step
+		v += acc * step
+		var d := q.distance_to(p)
+		p = q
+		t += step
+		if mask.is_solid(p.x, p.y):
+			bored += d
+		elif bored > radius:
+			break # out of the far side of the block
+		since_point += d
+		if since_point >= radius / 2.0:
+			since_point = 0.0
+			tunnel.append({"x": roundi(p.x), "y": roundi(p.y)})
+		if t >= next_sample:
+			next_sample += DT
+			path.append({"position": {"x": p.x, "y": p.y}, "velocity": {"x": v.x, "y": v.y}, "time": t})
+	var end := {"x": roundi(p.x), "y": roundi(p.y)}
+	if tunnel[-1] != end:
+		tunnel.append(end)
+	path.append({"position": {"x": p.x, "y": p.y}, "velocity": {"x": v.x, "y": v.y}, "time": t})
+	var pr := _projectile("d1", path, {"drill": true})
+	return {"shooterId": "rookie", "actionMode": "item", "itemId": "drill_bomb", "projectiles": [pr],
+		"events": [{"t": entry_t, "type": "drill", "projectileId": "d1", "position": tunnel[0], "to": end, "path": tunnel,
+			"radius": radius, "crater": "tunnel", "duration": t - entry_t, "terrainVersion": 1},
+			_explode("d1", path, 2)], "duration": t + 0.1}

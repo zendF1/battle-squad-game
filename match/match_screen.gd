@@ -6,7 +6,10 @@ extends Node2D
 ## PlayerAiming (another player, the bots for now, aims before its shot) swings that player's gun
 ## onto the aim (PlayerView.aim_sweep); its ShotResolved fires it, a turn change puts it away.
 ## Items: instant ones (medkit, wind_stopper) go out as UseItem through the same commit path as
-## a shot but leave the turn open; shot items arm the next Shoot (actionMode "item").
+## a shot but leave the turn open; shot items arm the next Shoot (actionMode "item"). A drill-armed
+## shot's shells are drill bits (projectiles[].drill); its "drill" event opens the tunnel in the
+## terrain behind the bit as it bores (TunnelDig, one version step) with dirt and dust (DrillFx),
+## before the shell's explode.
 ## Skills: each character's skill has a SkillView (match/views/skills/): its aim mode (an arc, a
 ## straight line, or none: fired on tap) and, for a skill ShotResolved, the replay visuals on top
 ## of the default handling here. Status effects: stun and freeze lose the whole turn (controls off,
@@ -177,6 +180,8 @@ const PincerFx := preload("res://match/boss/pincer_fx.gd")
 const GroundCrackFx := preload("res://match/boss/ground_crack_fx.gd")
 const RollingBoulderView := preload("res://match/boss/rolling_boulder_view.gd")
 const RootDragFx := preload("res://match/boss/root_drag_fx.gd")
+const TunnelDig := preload("res://match/terrain/tunnel_dig.gd")
+const DrillFx := preload("res://match/views/drill_fx.gd")
 const QUAKE_SHAKE := 70.0 # the earthquake's shake (as an explosion of this radius), renewed every QUAKE_EVERY s
 const QUAKE_EVERY := 0.12
 const WATER_GUN := "water_gun" # a shot of this gun kind bursts into water (visual only)
@@ -209,6 +214,7 @@ const LOOK_LIFT := Vector2(0, -60) # the camera centres a player this far above 
 const REMOTE_LOOK := 520.0 # px along a remote player's aim the camera looks
 const START_HOLD := 0.5 # s on me at the match start before the pan to the current player
 const FALL_TAIL := 0.25 # s the camera stays on a fall's end
+const DRILL_SHAKE := 10.0 # the drill biting into the ground (as an explosion of this radius)
 ## The result screen shows this long after MatchEnded is applied (after the last shot's replay):
 ## the match's end stays on screen meanwhile, input locked. A "Trận bị huỷ" shows at once.
 const RESULT_DELAY_SEC := 2.0
@@ -238,6 +244,7 @@ var _commit_sent := false # a Shoot/EndTurn sent: no more Moves this turn
 var _cmd_sent := false # the pending commit (Shoot/EndTurn/UseItem) has actually been sent
 var _resync_in := 0.0 # seconds before asking for MatchStateSync again
 var _resync_after_shot := false # the terrain drifted during a replay: Reconnect once it is over
+var _digs: Array = [] # TunnelDig: drill tunnels opening behind the bit (_step_digs())
 var _turn_resolved := false # this turn's shot was answered: the server takes no more actions
 var _move_ack_at := -10_000_000 # Time.get_ticks_usec() when the last PlayerMoved for my Moves was handled
 var _disconnected := false
@@ -398,6 +405,7 @@ func _process(delta: float) -> void:
 	_refresh_blind(delta)
 	if _shot_player != null and _shot_player.is_playing():
 		_moves_fx.sync(_shot_player.time())
+	_step_digs()
 	if _clock < _quake_until and _clock >= _quake_next:
 		_quake_next = _clock + QUAKE_EVERY
 		_cam.shake(QUAKE_SHAKE)
@@ -466,6 +474,7 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 	var current := str(snap.get("currentPlayerId", ""))
 	var continuing := is_sync and current == _current
 	_shot_player.stop()
+	_digs.clear() # the snapshot's terrain has the tunnels
 	_moves_fx = BossMoves.new()
 	_quake_until = -1.0
 	_deferred.clear()
@@ -1099,6 +1108,7 @@ func _on_shot_event(e: Dictionary) -> void:
 	var id := str(e.get("playerId", ""))
 	match str(e.get("type", "")):
 		"explode":
+			_finish_digs() # the shell explodes at the end of its tunnel: all of it is open
 			if not BlastEvents.blast_of(e).is_empty():
 				_unit_blast(e)
 				return
@@ -1222,6 +1232,8 @@ func _on_shot_event(e: Dictionary) -> void:
 		"strike": # a nuke's / laser's signal landed: the camera stays on the target until the hit
 			if e.get("position") is Dictionary:
 				_hold_focus({"pos": _vec(e["position"]) + LOOK_LIFT}, float(e.get("duration", 0.0)) + CameraModel.HOLD_SEC)
+		"drill":
+			_drill(e)
 		"bounce": # the water orb bounces off the ground: a splash where it touched
 			if e.get("position") is Dictionary:
 				var splash := WaterSplash.new()
@@ -1285,6 +1297,48 @@ func _on_shot_event(e: Dictionary) -> void:
 		_skill_view.on_event(e)
 
 
+## A drill event: the bit bores into the ground. The mask takes its version step now and the
+## tunnel bit by bit as the bit goes (_step_digs()); dirt and dust at the hole, grit at the bit
+## (DrillFx).
+func _drill(e: Dictionary) -> void:
+	var dig = TunnelDig.from_event(e)
+	if dig == null:
+		return
+	dig.start(_mask)
+	_digs.append(dig)
+	_terrain_view.refresh()
+	_fx_layer.add_child(DrillFx.new(dig))
+	_cam.shake(DRILL_SHAKE)
+	_check_terrain_version(e)
+
+
+## Opens the drill tunnels as far as the bit has bored (the replay's time).
+func _step_digs() -> void:
+	if _digs.is_empty():
+		return
+	if not _shot_player.is_playing():
+		_finish_digs()
+		return
+	var now := _shot_player.time()
+	var changed := false
+	for dig in _digs:
+		if dig.advance(_mask, now - dig.t):
+			changed = true
+	_digs = _digs.filter(func(d): return not d.done())
+	if changed:
+		_terrain_view.refresh()
+
+
+## Opens the rest of every drill tunnel (the shell explodes, the replay ends).
+func _finish_digs() -> void:
+	if _digs.is_empty():
+		return
+	for dig in _digs:
+		dig.finish(_mask)
+	_digs.clear()
+	_terrain_view.refresh()
+
+
 ## "+120 khiên": a shield gain's floating number.
 static func shield_text(amount: int) -> String:
 	return DamagePopup.heal_text(amount) + " khiên"
@@ -1321,6 +1375,7 @@ func _check_terrain_version(e: Dictionary) -> void:
 
 
 func _on_shot_finished() -> void:
+	_finish_digs()
 	_moves_fx.finish() # every walk / drag / roll on its end
 	for n in _fx_layer.get_children():
 		if n is RollingBoulderView:
