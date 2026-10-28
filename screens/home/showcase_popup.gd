@@ -48,7 +48,8 @@ var _switcher: HBoxContainer
 var _request := 0 # the latest fetch: an older answer is dropped
 
 
-## Opens the showcase of `entry` (a LeaderboardModel row: player_id, name, character) over `host`.
+## Opens the showcase of `entry` (a LeaderboardModel row: player_id, name) over `host`: their
+## strongest character first (the server's default, which the board draws once their power is known).
 static func show_player(host: Node, entry: Dictionary):
 	var m = load("res://screens/home/showcase_popup.gd").new()
 	m.name = "Showcase"
@@ -56,7 +57,7 @@ static func show_player(host: Node, entry: Dictionary):
 	m.open(host, str(entry.get("name", "")), WIDTH)
 	m.add_close_x()
 	m._build()
-	m.load_character(str(entry.get("character", "")))
+	m.load_character("")
 	return m
 
 
