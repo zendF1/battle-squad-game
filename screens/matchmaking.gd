@@ -1,13 +1,15 @@
 extends Control
 ## Matchmaking (opened by the Loadout's "TÌM TRẬN" on a queue mode: Đấu hạng 2vs2, Đấu thường
 ## 2vs2, ...): the queue Router.queue (screens/ranked/ranked_flow.gd) with the Loadout's character
-## and items (Router.ranked_loadout) and the screen around it. Left, my team's two cards (mine filled:
-## character, name, Lv, the frame of their badge; my teammate a silhouette "Đang ghép..." with a light sweep),
-## right the two enemy silhouettes, in the middle the VS emblem under the mode's name in capitals
-## and its description (the game data's, "ĐẤU HẠNG 2VS2") and over
-## "Đang ghép... 0:31" with a spinner ("Đang vào hàng chờ..." until the server says the queue
-## started). Bottom: a tip changing every TIP_SEC and "Hủy ghép" (also Esc / Android back), which
-## cancels the queue and goes back to Home. MatchFound: "Hủy ghép" goes, the VS emblem flashes,
+## and items (Router.ranked_loadout) and the screen around it. The VS emblem sits at the exact
+## centre of the card area, the two sides mirrored round it (equal blocks, equal gaps): left, my
+## team's two cards (mine filled: character, name, Lv, the frame of their badge; my teammate a
+## silhouette "Đang ghép..." with a light sweep), right the two enemy silhouettes; the mode's name
+## in capitals (the game data's, "ĐẤU HẠNG 2VS2") centred at the top. Round the emblem the timer
+## ring (ring_timer.gd: fills clockwise with the wait, 30 s a lap, empty again after each), the
+## seconds waited small under it ("0:31"). Bottom: a tip changing every TIP_SEC and "Hủy ghép"
+## (also Esc / Android back), which cancels the queue and goes back to Home. MatchFound: "Hủy
+## ghép" goes, the ring runs to full and bursts (flash, sparks, scale pop),
 ## "Tìm thấy trận!" pops and the silhouettes flip one by one into the real players (bots too,
 ## MatchmakingModel order); the match opens once MatchStarted came and the reveal had
 ## MatchmakingModel.reveal_sec() (the socket is held from MatchStarted, so the first turn's events
@@ -18,12 +20,12 @@ extends Control
 ## error goes back Home still in the party. Opened for the party's member (Router.ranked_member:
 ## the host started the queue) it searches at once; the member's "Hủy ghép" leaves the lobby (the
 ## server cancels the queue for both). Every LeaveLobby goes through Router.party.leave().
-## A boss queue (boss:<bossId>): the title is the boss's name; left, the party's four compact
+## A boss queue (boss:<bossId>): no title (the boss card names it); left, the party's four compact
 ## cards in a 2x2 grid (my teammates from the start), right one big card of the same size with
 ## the boss's figure and name, which stays: only the party's cards flip at MatchFound (bot
 ## teammates included).
 ## The background is the queued mode's image (the one the lobby shows for it,
-## LobbyModel.background_of_queue()), blurred and dimmed under the cards.
+## LobbyModel.background_of_queue()), lightly blurred (Art.blurred_background()) and barely dimmed.
 ## offline_preview (the preview harness, set before it enters
 ## the tree): no socket; the harness feeds on_event().
 
@@ -43,33 +45,33 @@ const BossArt := preload("res://match/boss/boss_art.gd")
 const BossArtView := preload("res://match/boss/boss_art_view.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
 const ElementBackdrop := preload("res://ui/element_backdrop.gd")
+const RingTimer := preload("res://screens/ranked/ring_timer.gd")
 
 const BOSS_CARD_SCALE := 0.74 # the party's compact cards in a boss queue
 const BOSS_GAP := 16 # between the boss queue's cards
 
 const MARGIN := 18
-const DIM := Color(0.01, 0.03, 0.1, 0.42) # over the blurred background: the cards and texts lead
+const DIM := Color(0.01, 0.03, 0.1, 0.16) # over the lightly blurred background: kept bright
 const TIP_SEC := 6.0
-const CENTRE_W := 330
-const BLUE := Color(0.5, 0.74, 1.0)
-const RED := Color(1.0, 0.55, 0.55)
+const BAR_H := 112 # the bottom bar (tip, Hủy ghép) and its margins
+const VS_SIZE := 300.0 # the emblem's square (its ring and rays inside)
+const SIDE_GAP := 165.0 # from the screen's centre line to each side's block
+const CENTRE_W := SIDE_GAP * 2.0 # the labels under the emblem
+const TITLE_H := 64.0 # a PvP queue's title band at the top of the card area
 
 var offline_preview := false
 var flow := RankedFlow.new()
 
 var _cards: Array = [] # PlayerCard ×4, left to right
 var _vs: VsEmblem
-var _status_row: Control
-var _status: Label
-var _spinner: Control
+var _ring := RingTimer.new()
+var _timer: Label # the seconds waited under the emblem
 var _found_label: Label
 var _map_line: Label # "Bản đồ: …" once the match is found
 var _tip: Label
 var _cancel: Button
 var _me := ""
 var _searching := false
-var _elapsed := 0.0
-var _spin := 0.0
 var _tip_index := 0
 var _tip_left := TIP_SEC
 var _found_for := -1.0 # seconds since MatchFound, -1 before
@@ -149,7 +151,7 @@ func _on_rank_changed() -> void:
 # ── Layout ──────────────────────────────────────────────────────────────────
 
 func _build() -> void:
-	var bg := Backdrop.new() # the queued mode's image, blurred (LobbyModel.background_of_queue())
+	var bg := Backdrop.new() # the queued mode's image, lightly blurred (LobbyModel.background_of_queue())
 	bg.blurred = true
 	bg.top_shade = false # the dim covers it
 	bg.show_image(LobbyModel.background_of_queue(_queue), false)
@@ -161,17 +163,23 @@ func _build() -> void:
 	dim.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(dim)
 
-	var centre := CenterContainer.new()
-	centre.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	centre.offset_bottom = -112 # above the bottom bar
-	centre.mouse_filter = MOUSE_FILTER_IGNORE
-	add_child(centre)
-	var row := Ui.hbox(26)
-	row.mouse_filter = MOUSE_FILTER_IGNORE
-	centre.add_child(row)
-	row.add_child(_team("ĐỘI CỦA BẠN", BLUE, false))
-	row.add_child(_build_middle())
-	row.add_child(_boss_side() if _is_boss() else _team("ĐỐI THỦ", RED, true))
+	# The card area above the bottom bar: the emblem at its centre, the sides mirrored round it.
+	var area := Control.new()
+	area.name = "Stage"
+	area.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	area.offset_bottom = -BAR_H
+	area.mouse_filter = MOUSE_FILTER_IGNORE
+	add_child(area)
+	if not _is_boss(): # a PvP queue's name, centred at the top (a boss queue: the boss card names it)
+		area.offset_top = TITLE_H
+		add_child(_build_title())
+	var left := _team(false)
+	left.name = "LeftSide"
+	_pin_side(area, left, -1)
+	var right := _boss_side() if _is_boss() else _team(true)
+	right.name = "RightSide"
+	_pin_side(area, right, 1)
+	_build_middle(area)
 
 	var bar := Ui.hbox(18)
 	bar.anchor_left = 0
@@ -191,15 +199,26 @@ func _build() -> void:
 	bar.add_child(_cancel)
 
 
-## A team's label over its two cards; a boss queue's party: a 2x2 grid of compact cards.
-func _team(caption: String, color: Color, enemy: bool) -> Control:
-	var col := Ui.vbox(10)
-	col.mouse_filter = MOUSE_FILTER_IGNORE
+## Pins a side's block to the area's centre: its inner edge SIDE_GAP from the centre line (left:
+## side -1 grows left, right: 1 grows right), centred vertically on the emblem.
+static func _pin_side(area: Control, block: Control, side: int) -> void:
+	area.add_child(block)
+	block.anchor_left = 0.5
+	block.anchor_right = 0.5
+	block.anchor_top = 0.5
+	block.anchor_bottom = 0.5
+	block.offset_left = SIDE_GAP * side
+	block.offset_right = SIDE_GAP * side
+	block.offset_top = 0
+	block.offset_bottom = 0
+	block.grow_horizontal = GROW_DIRECTION_BEGIN if side < 0 else GROW_DIRECTION_END
+	block.grow_vertical = GROW_DIRECTION_BOTH
+
+
+## A side's cards: two in a row; a boss queue's party: a 2x2 grid of compact cards. No header:
+## the frames' colours tell the sides.
+func _team(enemy: bool) -> Control:
 	var boss := _is_boss() and not enemy
-	if not _is_boss(): # a boss queue: no headers, the frames' colours tell the sides
-		var label := LobbyUi.text(caption, 26, color, true)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		col.add_child(label)
 	var cards: Container
 	if boss:
 		var grid := GridContainer.new()
@@ -210,7 +229,6 @@ func _team(caption: String, color: Color, enemy: bool) -> Control:
 	else:
 		cards = Ui.hbox(18)
 	cards.mouse_filter = MOUSE_FILTER_IGNORE
-	col.add_child(cards)
 	for i in (_left_size() if boss else MatchmakingModel.team_size()):
 		var card := PlayerCard.new()
 		card.enemy = enemy
@@ -229,7 +247,7 @@ func _team(caption: String, color: Color, enemy: bool) -> Control:
 		else:
 			cards.add_child(card)
 		_cards.append(card)
-	return col
+	return cards
 
 
 ## One party card of a boss queue on screen.
@@ -243,16 +261,13 @@ func _boss_block() -> Vector2:
 	return Vector2(cell.x * 2 + BOSS_GAP, cell.y * 2 + BOSS_GAP)
 
 
-## The boss's side, the party grid's mirror: "BOSS" over one big card of the same size as the
-## grid, the boss's figure filling it over its name.
+## The boss's side, the party grid's mirror: one big card of the same size as the grid, the
+## boss's figure filling it over its name.
 func _boss_side() -> Control:
-	var col := Ui.vbox(10)
-	col.mouse_filter = MOUSE_FILTER_IGNORE
 	var card := _boss_card(BossArt.art_of(str(_boss.get("bossId", ""))), _boss_block(),
 		str(_boss.get("name", LobbyModel.queue_name(_queue))), str(_boss.get("bossId", "")))
 	card.name = "BossCard"
-	col.add_child(card)
-	return col
+	return card
 
 
 ## The boss card of size `at`, the enemy's red frame over its element's backdrop (ElementBackdrop:
@@ -290,62 +305,77 @@ func _boss_card(art: String, at: Vector2, name_text: String, boss_id: String = "
 	return card
 
 
-func _build_middle() -> Control:
-	var col := Ui.vbox(6)
-	col.custom_minimum_size.x = CENTRE_W
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.mouse_filter = MOUSE_FILTER_IGNORE
-	var mode: Dictionary = LobbyModel.mode(LobbyModel.index_of_queue(_queue)) if LobbyModel.index_of_queue(_queue) >= 0 else {}
+## A PvP queue's name in capitals, centred over the card area.
+func _build_title() -> Label:
 	var title_text := str(_boss.get("name", "")) if str(_boss.get("name", "")) != "" else LobbyModel.queue_name(_queue)
 	var title := LobbyUi.text(title_text.to_upper(), 40, LobbyUi.GOLD, true)
 	title.name = "ModeTitle"
+	LobbyUi.outline(title, 8)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	title.custom_minimum_size.x = CENTRE_W
-	title.visible = not _is_boss() # a boss queue: the medal, "Tìm thấy trận!" and the map only
-	col.add_child(title)
-	var sub := LobbyUi.text("" if _is_boss() else str(mode.get("description", "")), 21, Color(0.75, 0.9, 1.0))
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.visible = sub.text != ""
-	col.add_child(sub)
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.anchor_left = 0
+	title.anchor_right = 1
+	title.offset_top = 6
+	title.offset_bottom = TITLE_H + 6
+	title.mouse_filter = MOUSE_FILTER_IGNORE
+	return title
+
+
+## The emblem with its timer ring at the area's centre; under it the seconds waited, where
+## "Tìm thấy trận!" and the map line come at MatchFound.
+func _build_middle(area: Control) -> void:
 	_vs = VsEmblem.new()
-	_vs.custom_minimum_size = Vector2(CENTRE_W, 300)
-	col.add_child(_vs)
-	var stack := Control.new() # the status row and "Tìm thấy trận!" in the same place
-	stack.custom_minimum_size = Vector2(CENTRE_W, 64)
+	_vs.name = "VsEmblem"
+	_vs.anchor_left = 0.5
+	_vs.anchor_right = 0.5
+	_vs.anchor_top = 0.5
+	_vs.anchor_bottom = 0.5
+	_vs.offset_left = -VS_SIZE / 2.0
+	_vs.offset_right = VS_SIZE / 2.0
+	_vs.offset_top = -VS_SIZE / 2.0
+	_vs.offset_bottom = VS_SIZE / 2.0
+	area.add_child(_vs)
+	var under := Ui.vbox(0)
+	under.name = "UnderVs"
+	under.mouse_filter = MOUSE_FILTER_IGNORE
+	under.anchor_left = 0.5
+	under.anchor_right = 0.5
+	under.anchor_top = 0.5
+	under.anchor_bottom = 0.5
+	under.offset_left = -CENTRE_W / 2.0
+	under.offset_right = CENTRE_W / 2.0
+	under.offset_top = VS_SIZE / 2.0 - 4.0
+	under.offset_bottom = VS_SIZE / 2.0 - 4.0
+	under.grow_vertical = GROW_DIRECTION_END
+	area.add_child(under)
+	var stack := Control.new() # the seconds and "Tìm thấy trận!" in the same place
+	stack.custom_minimum_size = Vector2(CENTRE_W, 56)
 	stack.mouse_filter = MOUSE_FILTER_IGNORE
-	col.add_child(stack)
-	var status_row := Ui.hbox(12)
-	status_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	status_row.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	status_row.mouse_filter = MOUSE_FILTER_IGNORE
-	stack.add_child(status_row)
-	_status_row = status_row
-	_spinner = Control.new()
-	_spinner.custom_minimum_size = Vector2(34, 34)
-	_spinner.size_flags_vertical = SIZE_SHRINK_CENTER
-	_spinner.mouse_filter = MOUSE_FILTER_IGNORE
-	_spinner.draw.connect(_draw_spinner)
-	status_row.add_child(_spinner)
-	_status = LobbyUi.text("Đang vào hàng chờ...", 30, Color.WHITE, true)
-	_status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	status_row.add_child(_status)
-	_found_label = LobbyUi.text("Tìm thấy trận!", 44, LobbyUi.GOLD, true)
+	under.add_child(stack)
+	_timer = LobbyUi.text(RankModel.timer_text(0), 28, Color.WHITE, true)
+	_timer.name = "Timer"
+	LobbyUi.outline(_timer, 6)
+	_timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_timer.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_timer.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	stack.add_child(_timer)
+	_found_label = LobbyUi.text("Tìm thấy trận!", 40, LobbyUi.GOLD, true)
+	LobbyUi.outline(_found_label, 8)
 	_found_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_found_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_found_label.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_found_label.visible = false
 	_found_label.resized.connect(func() -> void: _found_label.pivot_offset = _found_label.size / 2.0)
 	stack.add_child(_found_label)
-	_map_line = LobbyUi.text("", 26, Color(0.85, 0.93, 1.0), true)
+	_map_line = LobbyUi.text("", 24, Color(0.92, 0.96, 1.0), true)
+	LobbyUi.outline(_map_line, 6)
 	_map_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_map_line.modulate.a = 0.0
-	col.add_child(_map_line)
+	under.add_child(_map_line)
 	var pulse := _vs.create_tween().set_loops()
-	pulse.tween_property(_vs, "scale", Vector2.ONE * 1.05, 0.8).set_trans(Tween.TRANS_SINE)
+	pulse.tween_property(_vs, "scale", Vector2.ONE * 1.03, 0.8).set_trans(Tween.TRANS_SINE)
 	pulse.tween_property(_vs, "scale", Vector2.ONE, 0.8).set_trans(Tween.TRANS_SINE)
 	_vs.set_meta("pulse", pulse)
-	return col
 
 
 func _build_tip() -> Control:
@@ -376,13 +406,6 @@ func _build_tip() -> Control:
 	return panel
 
 
-func _draw_spinner() -> void:
-	var c := _spinner.size / 2.0
-	var r := minf(c.x, c.y) - 4.0
-	_spinner.draw_arc(c, r, 0.0, TAU, 32, Color(1, 1, 1, 0.18), 5.0, true)
-	_spinner.draw_arc(c, r, _spin, _spin + PI * 1.25, 24, LobbyUi.GOLD, 5.0, true)
-
-
 # ── Flow ────────────────────────────────────────────────────────────────────
 
 func on_event(event: String, data: Variant) -> void:
@@ -400,7 +423,7 @@ func cancel() -> void:
 	if flow.found():
 		return
 	_cancel.disabled = true
-	_status.text = "Đang hủy ghép..."
+	_cancel.text = "Đang hủy..."
 	_run(flow.cancel())
 
 
@@ -416,7 +439,7 @@ func _run(actions: Array) -> void:
 					GameSocket.send(a[1], a[2])
 			"searching":
 				_searching = true
-				_elapsed = 0.0
+				_ring = RingTimer.new()
 				_render_status()
 			"found":
 				_on_found(a[1])
@@ -443,13 +466,12 @@ func _leave(notice: String) -> void:
 
 func _process(delta: float) -> void:
 	_run(flow.tick(delta))
-	_spin = fmod(_spin + delta * 6.0, TAU)
-	_spinner.queue_redraw()
-	if _searching and _found_for < 0.0:
-		var before := int(_elapsed)
-		_elapsed += delta
-		if int(_elapsed) != before:
-			_render_status()
+	var before := _ring.seconds()
+	_ring.tick(delta, _searching)
+	_vs.ring = _ring.fill()
+	_vs.burst = _ring.burst()
+	if _ring.seconds() != before:
+		_render_status()
 	_tip_left -= delta
 	if _tip_left <= 0.0:
 		_next_tip()
@@ -459,9 +481,7 @@ func _process(delta: float) -> void:
 
 
 func _render_status() -> void:
-	if flow.phase == RankedFlow.Phase.CANCELLING:
-		return
-	_status.text = "Đang ghép... %s" % RankModel.timer_text(int(_elapsed)) if _searching else "Đang vào hàng chờ..."
+	_timer.text = RankModel.timer_text(_ring.seconds())
 
 
 func _next_tip() -> void:
@@ -478,17 +498,21 @@ func _on_found(data: Variant) -> void:
 	_cancel.disabled = true
 	var fade := _cancel.create_tween()
 	fade.tween_property(_cancel, "modulate:a", 0.0, 0.25)
-	_status_row.visible = false
+	_ring.find() # the ring runs to full, then bursts
+	_timer.visible = false
 	_found_label.visible = true
 	_found_label.scale = Vector2.ONE * 0.4
 	var pop := _found_label.create_tween()
-	pop.tween_property(_found_label, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	pop.tween_property(_found_label, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT) \
+		.set_delay(RingTimer.FILL_SEC)
 	_vs.found = true
 	var pulse: Tween = _vs.get_meta("pulse")
 	pulse.kill()
 	var flash := _vs.create_tween()
+	flash.tween_property(_vs, "scale", Vector2.ONE, 0.1)
+	flash.tween_interval(maxf(RingTimer.FILL_SEC - 0.1, 0.0)) # the burst starts with the ring full
 	flash.tween_property(_vs, "flash", 1.0, 0.08)
-	flash.parallel().tween_property(_vs, "scale", Vector2.ONE * 1.18, 0.12).set_trans(Tween.TRANS_SINE)
+	flash.parallel().tween_property(_vs, "scale", Vector2.ONE * 1.2, 0.12).set_trans(Tween.TRANS_SINE)
 	flash.tween_property(_vs, "flash", 0.0, 0.5)
 	flash.parallel().tween_property(_vs, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK)
 	_map_line.text = MatchmakingModel.map_text(data)

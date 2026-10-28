@@ -123,7 +123,7 @@ const EQUIP_WEAPON_KINDS := ["bazooka", "cannon", "rifle", "launcher", "water"]
 const EQUIP_KIND_TIERS := ["iron", "steel", "mithril", "dragon"]
 ## The equipment icons (<slot>_<tier>.png: tools/import_equipment.gd; the guns' weapon_<tier>.png,
 ## weapon_<kind>_<tier>.png: tools/import_guns.gd, import_hug_guns.gd): twice the biggest box one is
-## shown in (the Túi đồ card, 112 design px), as a big window shows that box up to 2.4 × bigger.
+## shown in (the Kho đồ card, 112 design px), as a big window shows that box up to 2.4 × bigger.
 const EQUIP_ICON_SIZE := Vector2i(256, 256)
 const EQUIP_WEAPON_ICON_SIZE := EQUIP_ICON_SIZE
 ## The code-drawn equipment art's canvas (tools/art/equipment_painter.gd, baked by tools/bake_art.gd
@@ -703,13 +703,14 @@ static func cover_source(tex_size: Vector2, rect_size: Vector2) -> Rect2:
 
 static var _blurred := {} # background key → its blurred ImageTexture
 
-## A blurred copy of a screen background (the Matchmaking screen's): the image shrunk to
-## BLUR_WIDTH px wide (Lanczos), a Gaussian of BLUR_SIGMA px over it, then grown to BLUR_KEEP px
-## (cubic) for the GPU to stretch (smooth at any screen size), made once per key. The sharp one
-## when its pixels cannot be read.
-const BLUR_WIDTH := 128
-const BLUR_SIGMA := 1.8
-const BLUR_KEEP := 512
+## A lightly blurred copy of a screen background (the Matchmaking screen's: barely soft, the
+## picture still reads): the image shrunk to BLUR_WIDTH px wide (Lanczos; about a third of the
+## 1024 px backgrounds, so detail under ~3 px goes soft), a Gaussian of BLUR_SIGMA px over it when
+## above 0, then grown to BLUR_KEEP px (cubic) for the GPU to stretch, made once per key. The
+## sharp one when its pixels cannot be read.
+const BLUR_WIDTH := 340
+const BLUR_SIGMA := 0.0
+const BLUR_KEEP := 1024
 static func blurred_background(key: String) -> Texture2D:
 	key = background_key(key)
 	if _blurred.has(key):
@@ -724,7 +725,8 @@ static func blurred_background(key: String) -> Texture2D:
 	img.convert(Image.FORMAT_RGB8)
 	var aspect := float(img.get_height()) / img.get_width()
 	img.resize(BLUR_WIDTH, maxi(roundi(BLUR_WIDTH * aspect), 1), Image.INTERPOLATE_LANCZOS)
-	img = gaussian_blur(img, BLUR_SIGMA)
+	if BLUR_SIGMA > 0.0:
+		img = gaussian_blur(img, BLUR_SIGMA)
 	img.resize(BLUR_KEEP, maxi(roundi(BLUR_KEEP * aspect), 1), Image.INTERPOLATE_CUBIC)
 	var t := ImageTexture.create_from_image(img)
 	_blurred[key] = t

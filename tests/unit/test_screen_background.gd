@@ -92,7 +92,7 @@ func test_cover_source_keeps_the_aspect_and_centres() -> void:
 	eq(Art.cover_source(tex, Vector2.ZERO), Rect2(Vector2.ZERO, tex), "an empty rect: all of it")
 
 
-func test_blurred_copy_is_smooth_and_keeps_the_aspect() -> void:
+func test_blurred_copy_is_lightly_soft_and_keeps_the_aspect() -> void:
 	var sharp := Art.background(Art.BG_PVP)
 	var blur := Art.blurred_background(Art.BG_PVP)
 	check(blur != sharp, "a separate texture")
@@ -101,7 +101,10 @@ func test_blurred_copy_is_smooth_and_keeps_the_aspect() -> void:
 	check(Art.blurred_background(Art.BG_PVP) == blur, "made once")
 	var a := sharp.get_image()
 	a.resize(blur.get_width(), blur.get_height(), Image.INTERPOLATE_BILINEAR)
-	check(_roughness(blur.get_image()) < _roughness(a) * 0.5, "smoother than the sharp image")
+	var rough := _roughness(blur.get_image())
+	var sharp_rough := _roughness(a)
+	check(rough < sharp_rough * 0.9, "smoother than the sharp image (%f / %f)" % [rough, sharp_rough])
+	check(rough > sharp_rough * 0.3, "only lightly: the picture still reads (%f / %f)" % [rough, sharp_rough])
 	check(Art.blurred_background("matchmaking_boss_nobody") == Art.blurred_background(Art.BG_DEFAULT), "fallback blurred too")
 
 
