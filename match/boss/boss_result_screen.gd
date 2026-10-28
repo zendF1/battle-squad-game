@@ -10,8 +10,9 @@ extends Control
 ## their name (mine gold) and damage, "MVP" on the best one as in PvP; they rise onto their steps
 ## from #4 to #1, the damage counting up. Bottom left my rewards card:
 ## the gift box (the lobby's milestone icon: lit for a big-reward run, dimmed for a normal one) with
-## the big-reward runs left today ("×2"), +EXP with its bar, +xu, my damage to the boss, and the items and chests won
-## (icons and names from the game data; a bonus run's stone chests, MatchEnded chests); a level up opens the "LÊN CẤP!" popup after the EXP. Bottom right "Chơi
+## the big-reward runs left today ("×2") and +EXP with its bar, then the reward tiles (ui/reward_strip.gd:
+## coins, stones, chests, items as icon + count, no names, scrolling sideways when they overflow,
+## popping in one by one, the coins counting up); a level up opens the "LÊN CẤP!" popup after the EXP. Bottom right "Chơi
 ## tiếp" (the same boss's queue again; not for the party's member), "Về sảnh" (the party kept) and
 ## "Tự động về sảnh sau N giây".
 ##
@@ -31,7 +32,7 @@ const ResultModel := preload("res://match/result_model.gd")
 const BossResultModel := preload("res://match/boss/boss_result_model.gd")
 const LevelUpPopup := preload("res://match/level_up_popup.gd")
 const Fmt := preload("res://core/fmt.gd")
-const ChestIcon := preload("res://ui/chest_icon.gd")
+const RewardStrip := preload("res://ui/reward_strip.gd")
 
 const GOLD := Color(1.0, 0.8, 0.22)
 const LOSE_TITLE := Color(0.62, 0.72, 0.9)
@@ -42,6 +43,7 @@ const HEAD_H := 72.0 # the name and the damage over the figure
 const PODIUM_MARGIN := 40.0 # px the outer steps reach past their figures
 const BOTTOM_H := 200.0
 const RIGHT_W := 330.0
+const LEFT_W := 360.0 # the rewards card's PHẦN THƯỞNG / EXP column, the reward tiles after it
 const CONFETTI := [Color(1.0, 0.8, 0.22), Color(0.35, 0.75, 1.0), Color(1.0, 0.42, 0.6), Color(0.45, 0.9, 0.55), Color(0.75, 0.5, 1.0)]
 
 var info := {}
@@ -58,7 +60,8 @@ var _home: Button
 var _countdown: Label
 var _exp_value: Label
 var _exp_bar: ProgressBar
-var _coin_value: Label
+var _coin_value: Label # the coin tile's count (null: no coins)
+var _strip: Control # ui/reward_strip.gd
 var _fx: Control
 var _particles: Array = []
 var _left_sec := float(ResultModel.AUTO_EXIT_SEC)
@@ -253,8 +256,12 @@ func _build_bottom() -> Control:
 	for side in ["left", "right", "top", "bottom"]:
 		inner.add_theme_constant_override("margin_" + side, 14 if side in ["top", "bottom"] else 24)
 	card.add_child(inner)
-	var col := Ui.vbox(8)
-	inner.add_child(col)
+	var row := Ui.hbox(24)
+	inner.add_child(row)
+	var col := Ui.vbox(12)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.custom_minimum_size.x = LEFT_W
+	row.add_child(col)
 	var reward: Dictionary = info.get("reward", {})
 	var head := Ui.hbox(12)
 	col.add_child(head)
@@ -278,8 +285,6 @@ func _build_bottom() -> Control:
 	if not reward.get("ok", false):
 		col.add_child(LobbyUi.text("Chưa lấy được phần thưởng của trận này", 24, Color.WHITE, true))
 		return _finish_bottom(bar)
-	var row := Ui.hbox(26)
-	col.add_child(row)
 	var tag := PanelContainer.new()
 	tag.add_theme_stylebox_override("panel", LobbyUi.box(Color(0.22, 0.48, 0.92), 10, 0))
 	tag.size_flags_vertical = SIZE_SHRINK_CENTER
@@ -291,7 +296,7 @@ func _build_bottom() -> Control:
 	var exp_row := Ui.hbox(10)
 	exp_row.add_child(tag)
 	_exp_bar = Ui.bar(0.0, 16)
-	_exp_bar.custom_minimum_size = Vector2(180, 16)
+	_exp_bar.custom_minimum_size = Vector2(150, 16)
 	_exp_bar.size_flags_vertical = SIZE_SHRINK_CENTER
 	_exp_bar.add_theme_stylebox_override("fill", LobbyUi.box(LobbyUi.GOLD, 8, 0))
 	_exp_bar.add_theme_stylebox_override("background", LobbyUi.box(Color(0, 0, 0, 0.45), 8, 0, Color(1, 1, 1, 0.15), 1))
@@ -299,36 +304,18 @@ func _build_bottom() -> Control:
 	exp_row.add_child(_exp_bar)
 	_exp_value = LobbyUi.text("+0 EXP", 28, Color.WHITE, true)
 	exp_row.add_child(_exp_value)
-	row.add_child(exp_row)
-	var coin_row := Ui.hbox(8)
-	row.add_child(coin_row)
-	_coin_value = LobbyUi.icon_text(coin_row, "coin", "+0 xu", 28, Color.WHITE, true, 36)
-	var dmg := LobbyUi.text(str(reward.get("damage_text", "")), 24, Color(1.0, 0.7, 0.55), true)
-	dmg.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(dmg)
-	var items := Ui.hbox(18)
-	items.name = "Items"
-	col.add_child(items)
-	var list: Array = reward.get("items", [])
-	var chests: Array = reward.get("chests", [])
-	if list.is_empty() and chests.is_empty():
-		items.add_child(LobbyUi.text("Không rơi vật phẩm", 20, Ui.TEXT_DIM))
-	for c in chests:
-		var one := Ui.hbox(6)
-		one.name = "Chest_" + str(c["chestId"])
-		one.add_child(ChestIcon.make(str(c["chestId"]), 48))
-		var l := LobbyUi.text(str(c["text"]), 22, LobbyUi.GOLD, true)
-		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		one.add_child(l)
-		items.add_child(one)
-	for it in list:
-		var one := Ui.hbox(6)
-		var icon := LobbyUi.icon(Art.item_icon(str(it["itemId"])), 44)
-		one.add_child(icon)
-		var l := LobbyUi.text("%s ×%d" % [it["name"], int(it["qty"])], 22, Color.WHITE, true)
-		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		one.add_child(l)
-		items.add_child(one)
+	col.add_child(exp_row)
+	var sep := ColorRect.new()
+	sep.color = Color(1, 1, 1, 0.12)
+	sep.custom_minimum_size = Vector2(2, 0)
+	sep.mouse_filter = MOUSE_FILTER_IGNORE
+	row.add_child(sep)
+	_strip = RewardStrip.new()
+	_strip.name = "Items"
+	_strip.size_flags_horizontal = SIZE_EXPAND_FILL
+	_strip.set_tiles(ResultModel.reward_tiles(reward))
+	row.add_child(_strip)
+	_coin_value = _strip.qty_label("coin")
 	return _finish_bottom(bar)
 
 
@@ -410,7 +397,11 @@ func _animate() -> void:
 	reveal.tween_method(func(v: float) -> void: _exp_value.text = "+%s EXP" % Fmt.thousands(roundi(v)), 0.0, float(reward["exp"]), 0.7)
 	if not steps.is_empty():
 		reveal.parallel().tween_property(_exp_bar, "value", steps["to"] if steps["levels"] == 0 else 1.0, 0.7)
-	reveal.tween_method(func(v: float) -> void: _coin_value.text = "+%s xu" % Fmt.thousands(roundi(v)), 0.0, float(reward["coin"]), 0.5)
+	if _strip != null:
+		_strip.reveal(0.7)
+	if _coin_value != null:
+		_coin_value.text = ResultModel.tile_qty_text(0)
+		reveal.tween_method(func(v: float) -> void: _coin_value.text = ResultModel.tile_qty_text(roundi(v)), 0.0, float(reward["coin"]), 0.5)
 	reveal.tween_callback(_level_up)
 
 

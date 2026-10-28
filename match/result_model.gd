@@ -155,6 +155,31 @@ static func stones_of(v: Variant) -> Array:
 	return keys.map(func(lv): return {"level": lv, "qty": by[lv]})
 
 
+## A reward's tiles for ui/reward_strip.gd, in the order shown: the coins (when > 0), the stones
+## (lowest level first), the chests, the items: [{kind: "coin" | "stone" | "chest" | "item", id,
+## level (a stone's, else 0), qty, name (the tooltip: game data / "Đá cấp 3" / "Xu")}]. A reward
+## that was not granted has none.
+static func reward_tiles(reward: Dictionary) -> Array:
+	var out: Array = []
+	if not reward.get("ok", false):
+		return out
+	if int(reward.get("coin", 0)) > 0:
+		out.append({"kind": "coin", "id": "coin", "level": 0, "qty": int(reward["coin"]), "name": "Xu"})
+	for s in reward.get("stones", []):
+		out.append({"kind": "stone", "id": "stone_%d" % int(s["level"]), "level": int(s["level"]), "qty": int(s["qty"]),
+			"name": UpgradeModel.stone_name(int(s["level"]))})
+	for c in reward.get("chests", []):
+		out.append({"kind": "chest", "id": str(c["chestId"]), "level": 0, "qty": int(c["qty"]), "name": str(c.get("name", ""))})
+	for it in reward.get("items", []):
+		out.append({"kind": "item", "id": str(it["itemId"]), "level": 0, "qty": int(it["qty"]), "name": str(it.get("name", ""))})
+	return out
+
+
+## A tile's count under its icon: "×3", "×1.200".
+static func tile_qty_text(qty: int) -> String:
+	return "×%s" % Fmt.thousands(qty)
+
+
 ## "(+150 thưởng xếp hạng)" for a ranked bonus inside the coins; "" none.
 static func bonus_text(bonus: int) -> String:
 	return "(+%s thưởng xếp hạng)" % Fmt.thousands(bonus) if bonus > 0 else ""
