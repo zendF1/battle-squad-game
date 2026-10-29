@@ -2,6 +2,10 @@
 
 Godot 4.7 client of battle-squad (server: ../battle-squad).
 
+## Docs
+
+Everything agreed with the user goes into docs in the same change: specs and the decision log live in the server repo (`../battle-squad/docs/specs/`, `../battle-squad/docs/product-decisions.md`); client-only details (art prompts, screen behaviour) in this repo's docs / `art_source/*/PROMPTS.md`.
+
 ## UI
 
 Show things in game with pictures (icon, colour, shape, animation), not words or numbers. Add a number only when a picture cannot carry it (a quantity, a timer), and never repeat what the picture already says (a stone's look shows its level: no level badge on it).
