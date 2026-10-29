@@ -247,6 +247,18 @@ func test_bonus_lines() -> void:
 	eq(M.bonus_lines(null), [], "no stats")
 
 
+func test_bonus_chips() -> void:
+	var stats := {"fromEquipment": {"maxHp": 1232, "defense": 58, "damageBonus": 635, "moveEnergy": 20, "critChance": 17.1},
+		"equipmentPoints": {"hp": 616, "damage": 127, "defense": 58, "mobility": 20, "crit": 17.1}}
+	var chips := M.bonus_chips(stats)
+	eq(chips.map(func(c): return c["glyph"]), ["heart", "sword", "shield", "crit", "boot"], "a picture per stat, in order")
+	eq(chips.map(func(c): return c["value"]), ["+1.232", "+635", "+58", "+17.1%", "+20"], "the battle values")
+	eq(chips[0]["line"], "Máu +616 điểm (+1.232)", "the words for the tooltip")
+	eq(chips.map(func(c): return c["key"]), ["maxHp", "damageBonus", "defense", "critChance", "moveEnergy"], "the battle stat keys")
+	eq(M.bonus_chips({"fromEquipment": {"maxHp": 0}}), [], "nothing worn")
+	eq(M.bonus_chips(null), [], "no stats")
+
+
 func test_gun_of_weapon_items() -> void:
 	eq(M.gun("rookie_weapon_lv30"), {"kind": "bazooka", "tier": "mithril"}, "rookie lv30")
 	eq(M.gun("tanko_weapon_lv10"), {"kind": "cannon", "tier": "iron"}, "tanko lv10")

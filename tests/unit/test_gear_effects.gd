@@ -26,6 +26,8 @@ const SkyView := preload("res://match/views/sky_view.gd")
 const AimInput := preload("res://match/aim/aim_input.gd")
 const Hud := preload("res://match/hud.gd")
 const MatchScreen := preload("res://match/match_screen.gd")
+const CharacterPage := preload("res://screens/home/character_page.gd")
+const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 
 const PROFILE := {"critDamage": 60.4, "critTaken": 37.75, "procChance": 30, "procEffect": "burn", "resist": 0, "moveCost": 26.43,
 	"skillRankBonus": 1, "set": {"index": 4, "pieces": 6, "crafted": 2, "reached": [2, 4, 6]}, "setAura": 4,
@@ -256,6 +258,49 @@ func test_passive_chip_and_set_row() -> void:
 	var none := GearUi.set_row({})
 	eq(none.get_child_count(), 0, "no set: empty")
 	none.free()
+
+
+func test_stat_chip_and_grid() -> void:
+	var chip := GearUi.stat_chip("heart", "+1.232", "Máu +616 điểm (+1.232)", 26, 18)
+	eq(_labels(chip), ["+1.232"], "the value only")
+	eq(chip.tooltip_text, "Máu +616 điểm (+1.232)", "the words in the tooltip")
+	var chips: Array = [chip]
+	for i in 4:
+		chips.append(GearUi.passive_chip({"kind": "crit_damage", "value": 60.4, "glyph": "crit_damage"}, 26, 18))
+	var grid := GearUi.chip_grid(chips, 300, 3)
+	eq(grid.columns, 3, "3 columns")
+	for c in grid.get_children():
+		eq((c as Control).custom_minimum_size.x, 100.0, "equal cells")
+	grid.free()
+
+
+## The Nhân vật page's block under the hexagons (a full +16 set, every passive, every stat): the set
+## row, the passives grid, then the stats grid, below the hexagons, inside the column and above
+## the screen's bottom at the smallest height (no overlap at 16:9).
+func test_character_page_gear_block() -> void:
+	var page: Control = CharacterPage.new()
+	page._build_slots()
+	var gear := {"critDamage": 60.4, "critTaken": 12.5, "procChance": 12.5, "resist": 16.9, "moveCost": 8.8,
+		"set": {"index": 4, "pieces": 6, "crafted": 0, "reached": [2, 4, 6]}}
+	var stats := EquipmentModel.bonus_chips({"fromEquipment": {"maxHp": 1232, "defense": 58, "damageBonus": 635, "moveEnergy": 20, "critChance": 17.1},
+		"equipmentPoints": {"hp": 616, "damage": 127, "defense": 58, "mobility": 20, "crit": 17.1}})
+	page._render_gear_block(gear, stats)
+	var box: VBoxContainer = page._gear_box
+	var kids := box.get_children().filter(func(n): return not n.is_queued_for_deletion())
+	eq(kids.map(func(n): return str(n.name)), ["SetRow", "Passives", "Stats"], "set, passives, stats")
+	eq(kids[1].get_child_count(), 5, "five passives")
+	eq(kids[2].get_child_count(), 5, "five stats")
+	var hexes_bottom := -INF
+	for b in page._slot_buttons.values():
+		hexes_bottom = maxf(hexes_bottom, b.get_parent().offset_top + b.position.y + b.size.y)
+	check(box.offset_top >= hexes_bottom, "below the hexagons")
+	check(box.offset_bottom <= 450.0, "inside the 900-high screen")
+	var need := box.get_combined_minimum_size()
+	check(need.y <= box.offset_bottom - box.offset_top, "its rows fit (%s)" % need.y)
+	check(need.x <= CharacterPage.SLOTS_W, "inside the column (%s)" % need.x)
+	page._render_gear_block({}, [])
+	eq(box.get_children().filter(func(n): return not n.is_queued_for_deletion()).size(), 0, "nothing worn: empty")
+	page.free()
 
 
 func test_awaken_popup_text() -> void:

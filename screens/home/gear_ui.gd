@@ -4,13 +4,14 @@ extends RefCounted
 ## the picture big, when it works, once per match), the set as a row of pips (one per piece of a
 ## full set, filled by the pieces worn in the set's colour, a bar under each 2 / 4 / 6 group lit
 ## gold once reached) with the 6-piece effect's picture after it (dim until reached), and a
-## character's profile (its passives' pictures and values in one row). Used by the piece popup,
-## Kho đồ, the Nhân vật page and the showcase.
+## character's profile (its passives' pictures and values in one row, or in an aligned grid:
+## chip_grid()). Used by the piece popup, Kho đồ, the Nhân vật page and the showcase.
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Modal := preload("res://ui/modal.gd")
 const GearIcon := preload("res://ui/gear_icon.gd")
+const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const GearGlyphs := preload("res://ui/gear_glyphs.gd")
 const GearModel := preload("res://screens/home/gear_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
@@ -60,6 +61,39 @@ static func profile_row(gear: Dictionary, px: int = 36, font_size: int = 20) -> 
 	for l in GearModel.profile_lines(gear):
 		flow.add_child(passive_chip(l, px, font_size))
 	return flow
+
+
+## A stat's picture (ui/glyph_icon.gd `glyph`) and its value, like passive_chip(); `tip` is its
+## tooltip (the stat in words).
+static func stat_chip(glyph: String, value: String, tip: String = "", px: int = 40, font_size: int = 22,
+		color: Color = Color(0.75, 0.9, 1.0)) -> HBoxContainer:
+	var row := Ui.hbox(6)
+	row.name = "Stat"
+	row.mouse_filter = Control.MOUSE_FILTER_PASS if tip != "" else Control.MOUSE_FILTER_IGNORE
+	row.tooltip_text = tip
+	row.add_child(GlyphIcon.make(glyph, px))
+	var l := LobbyUi.text(value, font_size, color, true)
+	l.name = "Value"
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(l)
+	return row
+
+
+## Chips (passive_chip() / stat_chip()) in an aligned grid `width` wide: `columns` equal cells, each
+## chip at the start of its cell so the pictures line up in columns.
+static func chip_grid(chips: Array, width: float, columns: int = 3, v_gap: int = 8) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.name = "ChipGrid"
+	grid.columns = columns
+	grid.add_theme_constant_override("h_separation", 0)
+	grid.add_theme_constant_override("v_separation", v_gap)
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	for c in chips:
+		(c as Control).custom_minimum_size.x = floorf(width / columns)
+		grid.add_child(c)
+	return grid
 
 
 ## The awaken of `slot`'s piece (+16) as its glowing picture; a tap opens its short popup over

@@ -6,10 +6,12 @@ extends Control
 ##   slot name: the picture says it; the name is the tooltip).
 ##   A tap on a worn piece filters the right panel to its slot and opens its popup; on an empty
 ##   slot it filters (again: all slots). A +16 piece shows its awaken's glowing picture on its
-##   hexagon's corner. Under them, what the gear adds to the battle stats, then the gear effects
-##   (the server's gear profile, screens/home/gear_ui.gd): the main set's pips with its 6-piece
-##   picture, and the summed passives as pictures and values. The 6-piece set aura stands round
-##   the character on the stage (ui/character_view.gd).
+##   hexagon's corner. Under them one block, centred in the column and kept inside the screen's
+##   bottom at the smallest height (900): the gear effects (the server's gear profile,
+##   screens/home/gear_ui.gd): the main set's pips with its 6-piece picture, the summed passives
+##   as pictures and values in an aligned grid of 3 columns, then what the gear adds to the battle
+##   stats in the same grid (the stat's picture and its battle value; the words in its tooltip).
+##   The 6-piece set aura stands round the character on the stage (ui/character_view.gd).
 ## - Centre: the character on the pedestal with its name, level and Lực chiến (the power glyph and the
 ##   server's number, ui/power_tag.gd; none for a character not owned), ◀ ▶ / swipe cycle the four
 ##   characters and change the lobby's choice too (`selected`).
@@ -62,6 +64,13 @@ const CELLS := {
 	"pants": Vector2(0.5, 2), "weapon": Vector2(1.5, 2), "boots": Vector2(1, 3),
 }
 const SLOTS_W := 300
+## The block under the hexagons: its grids' columns, chip pictures and values, the gap from the
+## hexagons; it ends BLOCK_BOTTOM above the screen's centre-to-bottom at the smallest height.
+const GRID_COLUMNS := 3
+const CHIP_PX := 26
+const CHIP_FONT := 18
+const BLOCK_GAP := 14
+const BLOCK_BOTTOM := 450.0 - MARGIN
 const STAGE := Vector2(560, 590)
 const PEDESTAL_AT := 528.0
 const SWIPE := 70.0
@@ -80,8 +89,7 @@ var _slot_frames := {} # slot -> TextureRect
 var _slot_icons := {} # slot -> TextureRect
 var _slot_names := {} # slot -> Label
 var _slot_auras := {} # slot -> UpgradeAura on the hexagon of the worn piece
-var _bonus: Label
-var _gear_box: VBoxContainer # the set row and the passives, under _bonus
+var _gear_box: VBoxContainer # under the hexagons: the set row, the passives grid, the stats grid
 var _slot_awakens := {} # slot -> GearIcon on the hexagon's corner (+16)
 var _art: CharacterView
 var _gun_stand: PedestalGun
@@ -211,24 +219,15 @@ func _build_slots() -> void:
 		_slot_frames[slot] = frame
 		_slot_icons[slot] = icon
 		_slot_names[slot] = name_label
-	_bonus = LobbyUi.text("", 19, Color(0.75, 0.9, 1.0))
-	_bonus.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_bonus.anchor_top = 0.5
-	_bonus.anchor_bottom = 0.5
-	_bonus.offset_left = MARGIN + 12
-	_bonus.offset_right = MARGIN + 12 + SLOTS_W
-	_bonus.offset_top = box.offset_bottom + 18
-	_bonus.offset_bottom = _bonus.offset_top + 90
-	add_child(_bonus)
-	_gear_box = Ui.vbox(8)
+	_gear_box = Ui.vbox(14)
 	_gear_box.name = "GearEffects"
 	_gear_box.mouse_filter = MOUSE_FILTER_IGNORE
 	_gear_box.anchor_top = 0.5
 	_gear_box.anchor_bottom = 0.5
 	_gear_box.offset_left = MARGIN + 12
 	_gear_box.offset_right = MARGIN + 12 + SLOTS_W
-	_gear_box.offset_top = _bonus.offset_top + 62
-	_gear_box.offset_bottom = _gear_box.offset_top + 110
+	_gear_box.offset_top = box.offset_bottom + BLOCK_GAP
+	_gear_box.offset_bottom = BLOCK_BOTTOM
 	add_child(_gear_box)
 
 
@@ -274,17 +273,32 @@ func _render_slots() -> void:
 		_slot_names[slot].visible = false # the silhouette (empty) or the piece's icon says it
 		_slot_awakens[slot].visible = filled and GearModel.has_awaken(piece)
 	var entry = EquipmentModel.character_entry(PlayerState.characters, _character)
-	var lines := EquipmentModel.bonus_lines(BattleStats.of(entry)) if entry != null else []
-	_bonus.text = ("Trang bị: " + " · ".join(lines)) if not lines.is_empty() else ""
+	_render_gear_block(GearModel.profile_of(entry), EquipmentModel.bonus_chips(BattleStats.of(entry)) if entry != null else [])
+
+
+## The block under the hexagons: the set row, the passives grid, the stats grid (each left out
+## when empty).
+func _render_gear_block(gear: Dictionary, stats: Array) -> void:
 	Ui.clear(_gear_box)
-	var gear := GearModel.profile_of(entry)
 	var set := GearModel.set_state(gear)
 	if not set.is_empty():
-		_gear_box.add_child(GearUi.set_row(set, 18, 42))
-	var passives := GearUi.profile_row(gear, 30, 18)
-	passives.custom_minimum_size.x = SLOTS_W
-	if passives.get_child_count() > 0:
-		_gear_box.add_child(passives)
+		_gear_box.add_child(GearUi.set_row(set, 18, 40))
+	var passives: Array = GearModel.profile_lines(gear).map(func(l): return _tight(GearUi.passive_chip(l, CHIP_PX, CHIP_FONT)))
+	if not passives.is_empty():
+		var grid := GearUi.chip_grid(passives, SLOTS_W, GRID_COLUMNS)
+		grid.name = "Passives"
+		_gear_box.add_child(grid)
+	var chips: Array = stats.map(func(c): return _tight(GearUi.stat_chip(c["glyph"], c["value"], c["line"], CHIP_PX, CHIP_FONT)))
+	if not chips.is_empty():
+		var grid := GearUi.chip_grid(chips, SLOTS_W, GRID_COLUMNS)
+		grid.name = "Stats"
+		_gear_box.add_child(grid)
+
+
+## A grid chip: its picture close to its value, the room left between the columns.
+static func _tight(chip: HBoxContainer) -> HBoxContainer:
+	chip.add_theme_constant_override("separation", 3)
+	return chip
 
 
 # ── Stage ───────────────────────────────────────────────────────────────────

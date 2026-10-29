@@ -38,11 +38,11 @@ const GUN_OF_KIND := {"bazooka": "bazooka", "cannon": "cannon", "rifle": "shock_
 ## key: the catalog field; point: the statMultipliers / stats.equipmentPoints key ("" for crit);
 ## unit "%" for the crit chance; total: the stats.fromEquipment field.
 const STATS := [
-	{"key": "statHp", "label": "Máu", "unit": "", "point": "hp", "total": "maxHp"},
-	{"key": "statDamage", "label": "Sát thương", "unit": "", "point": "damage", "total": "damageBonus"},
-	{"key": "statDefense", "label": "Phòng thủ", "unit": "", "point": "defense", "total": "defense"},
-	{"key": "statCrit", "label": "Chí mạng", "unit": "%", "point": "", "total": "critChance"},
-	{"key": "statMoveEnergy", "label": "Di chuyển", "unit": "", "point": "mobility", "total": "moveEnergy"},
+	{"key": "statHp", "label": "Máu", "unit": "", "point": "hp", "total": "maxHp", "glyph": "heart"},
+	{"key": "statDamage", "label": "Sát thương", "unit": "", "point": "damage", "total": "damageBonus", "glyph": "sword"},
+	{"key": "statDefense", "label": "Phòng thủ", "unit": "", "point": "defense", "total": "defense", "glyph": "shield"},
+	{"key": "statCrit", "label": "Chí mạng", "unit": "%", "point": "", "total": "critChance", "glyph": "crit"},
+	{"key": "statMoveEnergy", "label": "Di chuyển", "unit": "", "point": "mobility", "total": "moveEnergy", "glyph": "boot"},
 ]
 const MINUS := "−"
 
@@ -565,6 +565,12 @@ static func worn_text(piece: Dictionary) -> String:
 ## (stats.fromEquipment), ["Máu +80 điểm (+160)", "Sát thương +10 điểm (+50)", "Chí mạng
 ## +2%"]; only the battle value ("Máu +160") from a server without equipmentPoints.
 static func bonus_lines(stats: Variant) -> Array:
+	return bonus_chips(stats).map(func(c): return c["line"])
+
+
+## The same as pictures: [{key (the battle stat), glyph, value (what it adds in battle: "+1.232",
+## "+17.1%"), line (bonus_lines()' line, the chip's tooltip)}], zeros left out.
+static func bonus_chips(stats: Variant) -> Array:
 	var fe = stats.get("fromEquipment") if stats is Dictionary else null
 	var out: Array = []
 	if not fe is Dictionary:
@@ -574,14 +580,21 @@ static func bonus_lines(stats: Variant) -> Array:
 		var v = fe.get(s["total"])
 		var battle := float(v) if v is int or v is float else 0.0
 		var p = ep.get(s["point"] if s["point"] != "" else "crit") if ep is Dictionary else null
+		var line := ""
+		var value := ""
 		if s["unit"] == "%":
 			if battle != 0.0:
-				out.append("%s %s" % [s["label"], _format(battle, "%", true)])
+				value = _format(battle, "%", true)
+				line = "%s %s" % [s["label"], value]
 		elif p is int or p is float:
 			if float(p) != 0.0:
-				out.append("%s %s điểm (%s)" % [s["label"], _signed(int(p)), _signed(int(battle))])
+				value = _signed(int(battle))
+				line = "%s %s điểm (%s)" % [s["label"], _signed(int(p)), value]
 		elif battle != 0.0:
-			out.append("%s %s" % [s["label"], _signed(int(battle))])
+			value = _signed(int(battle))
+			line = "%s %s" % [s["label"], value]
+		if line != "":
+			out.append({"key": s["total"], "glyph": s["glyph"], "value": value, "line": line})
 	return out
 
 
