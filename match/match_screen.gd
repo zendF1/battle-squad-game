@@ -110,8 +110,10 @@ extends Node2D
 ## give awaken buttons after the items (Hud.set_awakens(), GearModel.awaken_buttons(); Awaken
 ## {slot}, free), AwakenUsed shows the awaken's picture over its user for everyone (a timed
 ## badge and GearFx), marks it used, glows my energy bar for the boots (its moveEnergy goes into
-## MoveSync) and, for my weapon's, takes the wind out of my aim preview; AwakenRefused gives the
-## button back with a toast. ShotResolved awakened "weapon" fades the wind readout for the shot.
+## MoveSync) and, for the weapon's, takes the wind out of the turn: from AwakenUsed (or my
+## Awaken on its way) until the shot's replay ends, the wind readout, the sky and my aim preview
+## show no wind for everyone (_turn_wind(), GearModel.turn_wind(); ShotResolved awakened "weapon"
+## keeps it for the replay); AwakenRefused gives the button back with a toast.
 ## The new events: resist (a shield puff on the target), awaken (an automatic awaken: its
 ## picture), revive (a gold burst, the HP back), crit_immune (the cancelled crit: its picture,
 ## the shield event follows), status cause proc / set_fire (a small spark / flame with the
@@ -286,7 +288,7 @@ var _data_wait := false # the game data is being fetched again (gamedataVersion 
 var _mask := TerrainMask.new()
 var _moves := MoveSync.new()
 var _awaken_sent := {} # slot -> true: my Awaken sent, not answered yet (its button off)
-var _wind_ignored := false # the shot on screen ignores the wind (ShotResolved awakened weapon)
+var _wind_ignored := false # the shot on screen ignores the wind (ShotResolved awakened weapon): no wind shown
 var _sky: SkyView
 var _terrain_view: TerrainView
 var _bottom: BottomView # the map theme's water / lava / abyss, over the terrain's bottom
@@ -601,7 +603,6 @@ func _set_current(player_id: String, move_energy: int, continuing: bool = false)
 	var my_team := int(_players.get(_me, {}).get("teamId", -1))
 	_hud.set_turn(_is_my_turn(), str(turn_player.get("displayName", "")), turn_player,
 		my_team < 0 or int(turn_player.get("teamId", -2)) == my_team)
-	_hud.set_wind(int(_wind.get("direction", 0)), float(_wind.get("power", 0.0)))
 	_show_wind()
 	for id in _views:
 		_views[id].set_active(id == player_id and not _ended)
@@ -692,10 +693,9 @@ func _refresh_controls() -> void:
 	if can:
 		_aim.shooter_pos = _views[_me].position
 		_aim.terrain = _mask
-		_aim.wind_dir = int(_wind.get("direction", 0))
-		# my weapon's awaken armed (or on its way): the next shot ignores the wind
-		var no_wind := GearModel.armed(_my_gear(), "weapon") or _awaken_sent.has("weapon")
-		_aim.wind_power = 0.0 if no_wind else float(_wind.get("power", 0.0))
+		var wind := _turn_wind() # my weapon's awaken armed (or on its way): no wind
+		_aim.wind_dir = int(wind["direction"])
+		_aim.wind_power = float(wind["power"])
 		_set_aim_aid(me)
 	else:
 		_hold_dir = 0
@@ -1092,7 +1092,6 @@ func _on_item_used(d: Dictionary) -> void:
 				_views[id].set_dead()
 			_leaps.on_state(id, p, _turn_index, _current)
 			_views[id].set_leapt(_leaps.warning(id))
-	_hud.set_wind(int(_wind.get("direction", 0)), float(_wind.get("power", 0.0)))
 	_show_wind()
 	# An instant item shows its badge now; a shot item's comes with its shot (one badge, not two).
 	var used := str(d.get("itemId", ""))
@@ -1474,7 +1473,7 @@ func _on_shot_finished() -> void:
 	_show_energies(_energy_reveal.finish()) # what changed without a hit on screen
 	if _wind_ignored:
 		_wind_ignored = false
-		_hud.set_wind_ignored(false)
+		_show_wind()
 	var shooter := str(_shot_badge.get("shooter", ""))
 	var content: Dictionary = _shot_badge.get("content", {})
 	if not content.is_empty() and _views.has(shooter):
@@ -2747,11 +2746,13 @@ func _on_awaken_pressed(slot: String) -> void:
 		return
 	_awaken_sent[slot] = true
 	_send("Awaken", {"slot": slot})
+	_show_wind()
 	_refresh_controls()
 
 
 ## AwakenUsed {playerId, slot, moveEnergy?}: the awaken is spent (and, for the weapon / gloves,
-## armed for the turn's shot); its picture over the player for everyone; the boots' new energy.
+## armed for the turn's shot: the weapon's shows no wind for everyone); its picture over the
+## player for everyone; the boots' new energy.
 func _on_awaken_used(d: Variant) -> void:
 	if not d is Dictionary:
 		return
@@ -2770,6 +2771,7 @@ func _on_awaken_used(d: Variant) -> void:
 			_moves.set_server_energy(int(d["moveEnergy"]))
 			_hud.set_energy(_moves.energy, _max_energy())
 			_hud.set_energy_glow(true)
+	_show_wind()
 	_refresh_controls()
 
 
@@ -2778,23 +2780,24 @@ func _on_awaken_refused(d: Variant) -> void:
 	if not d is Dictionary:
 		return
 	_awaken_sent.erase(str(d.get("slot", "")))
+	_show_wind()
 	var why := str(AWAKEN_REFUSED.get(str(d.get("code", "")), ""))
 	if why != "":
 		Ui.toast(_hud, why)
 	_refresh_controls()
 
 
-## ShotResolved awakened: the armed awakens this shot used; the weapon's fades the wind readout
-## for the replay.
+## ShotResolved awakened: the armed awakens this shot used; the weapon's keeps the wind at 0 for
+## the replay.
 func _on_awakened(shooter: String, awakened: Variant) -> void:
 	if _players.has(shooter):
 		_players[shooter]["gear"] = GearModel.clear_armed(GearModel.profile_of(_players[shooter]))
 	if awakened is Array and awakened.has("weapon"):
 		_wind_ignored = true
-		_hud.set_wind_ignored(true)
+	_show_wind()
 
 
-## A turn passes: nobody has an armed awaken, the energy glow and the faded wind end.
+## A turn passes: nobody has an armed awaken, the energy glow ends and the wind shows again.
 func _end_awakens() -> void:
 	for id in _players:
 		if _players[id].get("gear") is Dictionary:
@@ -2802,7 +2805,7 @@ func _end_awakens() -> void:
 	_awaken_sent.clear()
 	_hud.set_energy_glow(false)
 	_wind_ignored = false
-	_hud.set_wind_ignored(false)
+	_show_wind()
 
 
 ## An awaken over player id: its timed badge and its picture's burst.
@@ -2824,9 +2827,20 @@ func _gear_fx(id: String, kind: String, offset: Vector2 = Vector2.ZERO) -> void:
 	_fx_layer.add_child(fx)
 
 
+## The turn's wind as shown: the readout (0, no arrow, when there is none) and the sky.
 func _show_wind() -> void:
-	_sky.wind_dir = int(_wind.get("direction", 0))
-	_sky.wind_power = float(_wind.get("power", 0.0))
+	var wind := _turn_wind()
+	_hud.set_wind(int(wind["direction"]), float(wind["power"]))
+	_sky.wind_dir = int(wind["direction"])
+	_sky.wind_power = float(wind["power"])
+
+
+## The wind the turn's shot flies with: none while the current player's weapon awaken is armed
+## (AwakenUsed; my Awaken on its way) or its shot replays (the server zeroes it for that shot).
+func _turn_wind() -> Dictionary:
+	var gear := GearModel.profile_of(_players.get(_current, {}))
+	var pending := _current == _me and _awaken_sent.has("weapon")
+	return GearModel.turn_wind(_wind, gear, _wind_ignored or pending)
 
 
 static func _vec(d: Dictionary) -> Vector2:

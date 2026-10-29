@@ -76,8 +76,6 @@ const ITEM_SIZE := 96
 const AWAKEN_SIZE := 84
 const AWAKEN_USED := Color(0.32, 0.32, 0.38, 0.6) # spent this match: greyed
 const AWAKEN_OFF := Color(1, 1, 1, 0.42) # not now (another turn, after the shot)
-## The faded wind readout while my shot ignores the wind (the weapon's awaken).
-const WIND_IGNORED_ALPHA := 0.3
 ## The move energy bar's fill while the boots' awaken doubles this turn's energy.
 const ENERGY_GLOW := Color(0.75, 1.0, 0.35)
 const MOVE_SIZE := 110
@@ -112,7 +110,6 @@ var _item_buttons: Array[Button] = [] # reused; one per item left in hand
 var _awakens: HBoxContainer # the awaken buttons, after the items
 var _awaken_buttons := {} # slot -> Button
 var _awaken_state := {} # slot -> {used, enabled}
-var _wind_panel: PanelContainer
 var _energy_glow := false
 var _portrait: Control
 var _portrait_art: CharacterView
@@ -257,7 +254,6 @@ func _build_top_centre() -> void:
 	var wind_panel: PanelContainer = _ignore(LobbyUi.panel(12, 18, NAVY))
 	wind_panel.name = "Wind"
 	wind_panel.size_flags_vertical = SIZE_SHRINK_CENTER
-	_wind_panel = wind_panel
 	row.add_child(wind_panel)
 	var wind_col := Ui.vbox(4)
 	wind_col.mouse_filter = MOUSE_FILTER_IGNORE
@@ -564,14 +560,9 @@ func energy_glow() -> bool:
 	return _energy_glow
 
 
-## The weapon's awaken: this shot ignores the wind, so the wind readout fades until set off (the
-## shot's replay over, the turn passing).
-func set_wind_ignored(on: bool) -> void:
-	_wind_panel.modulate = Color(1, 1, 1, WIND_IGNORED_ALPHA if on else 1.0)
-
-
-func wind_ignored() -> bool:
-	return _wind_panel.modulate.a < 1.0
+## The wind power the readout shows (0: none).
+func wind_shown() -> float:
+	return _wind_power
 
 
 ## The awaken buttons of my +16 pieces with a button (weapon, gloves, boots; the server's list):

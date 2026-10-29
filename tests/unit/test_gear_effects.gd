@@ -134,6 +134,15 @@ func test_milestone_unlocks() -> void:
 	eq(GearModel.milestone_unlocks(6, "weapon"), [], "+6: nothing more")
 
 
+func test_turn_wind() -> void:
+	var wind := {"direction": -1, "power": 3.4}
+	eq(GearModel.turn_wind(wind, {"armed": []}), {"direction": -1, "power": 3.4}, "the turn's wind")
+	eq(GearModel.turn_wind(wind, {"armed": ["gloves"]}), {"direction": -1, "power": 3.4}, "the gloves keep it")
+	eq(GearModel.turn_wind(wind, {"armed": ["weapon"]}), {"direction": -1, "power": 0.0}, "the weapon awaken armed: none")
+	eq(GearModel.turn_wind(wind, {}, true), {"direction": -1, "power": 0.0}, "sent / replaying: none")
+	eq(GearModel.turn_wind({}, {}), {"direction": 0, "power": 0.0}, "no wind data")
+
+
 func test_move_cost_factor() -> void:
 	near(GearModel.move_cost_factor({"moveCost": 26.43}), 0.7357, 1e-6, "1 − moveCost / 100")
 	eq(GearModel.move_cost_factor({}), 1.0, "none")
@@ -290,10 +299,12 @@ func test_hud_awakens() -> void:
 	eq(h.awakens(), {}, "[] hides the row")
 	h.set_energy_glow(true)
 	check(h.energy_glow(), "energy glow on")
-	h.set_wind_ignored(true)
-	check(h.wind_ignored(), "wind faded")
-	h.set_wind_ignored(false)
-	check(not h.wind_ignored(), "wind back")
+	h.set_wind(1, 3.2)
+	eq(h.wind_shown(), 3.2, "the wind")
+	h.set_wind(1, 0.0)
+	eq(h.wind_shown(), 0.0, "no wind")
+	eq(h._wind.text, "0", "reads 0")
+	check(not h._wind_arrow.visible, "no arrow")
 	h.free()
 
 
@@ -316,6 +327,7 @@ func _screen() -> Node2D:
 	var m: Node2D = MatchScreen.new()
 	m._me = "me"
 	m._current = "me"
+	m._wind = {"direction": 1, "power": 2.5}
 	m._players = {"me": _player("me", 1, "rookie", 100.0, {"awaken": ["weapon", "boots", "gloves"], "awakenUsed": [], "armed": [], "setAura": 4, "moveCost": 20}),
 		"e1": _player("e1", 2, "tanko", 600.0, {"resist": 20, "setAura": 0})}
 	m._players_layer = Node2D.new()
@@ -363,10 +375,13 @@ func test_match_set_aura_and_buttons() -> void:
 	eq(m.get_meta("sent", []), [["Awaken", {"slot": "weapon"}]], "Awaken {slot} sent")
 	check(not m._hud.awakens()["weapon"]["enabled"], "off until answered")
 	eq(m._aim.wind_power, 0.0, "the aim preview ignores the wind once sent")
+	eq(m._hud.wind_shown(), 0.0, "the readout shows no wind once sent")
 	m._on_awaken_pressed("weapon")
 	eq(m.get_meta("sent", []).size(), 1, "not twice")
 	m._apply("AwakenRefused", {"slot": "weapon", "code": "AWAKEN_BLOCKED"})
 	check(m._hud.awakens()["weapon"]["enabled"], "refused: the button is back")
+	near(m._hud.wind_shown(), 2.5, 1e-6, "refused: the wind is back")
+	near(m._aim.wind_power, 2.5, 1e-6, "and in the aim preview")
 	_free(m)
 
 
@@ -409,11 +424,33 @@ func test_match_gear_events() -> void:
 
 func test_match_wind_ignored_shot() -> void:
 	var m := _screen()
+	m._apply("AwakenUsed", {"playerId": "me", "slot": "weapon"})
+	eq(m._hud.wind_shown(), 0.0, "armed: the readout shows 0")
+	eq(m._sky.wind_power, 0.0, "and the sky is calm")
+	m._refresh_controls()
+	eq(m._aim.wind_power, 0.0, "and the aim preview has no wind")
 	m._apply("ShotResolved", {"shooterId": "me", "actionMode": "weapon", "duration": 0.5, "awakened": ["weapon"],
 		"projectiles": [{"projectileId": "p1", "path": [
 			{"time": 0.0, "position": {"x": 100.0, "y": 480.0}, "velocity": {"x": 500.0, "y": -300.0}},
 			{"time": 0.5, "position": {"x": 350.0, "y": 480.0}, "velocity": {"x": 500.0, "y": 300.0}}]}], "events": []})
-	check(m._hud.wind_ignored(), "the wind faded for the shot")
+	eq(m._hud.wind_shown(), 0.0, "0 for the shot's replay")
 	m._on_shot_finished()
-	check(not m._hud.wind_ignored(), "back after the replay")
+	near(m._hud.wind_shown(), 2.5, 1e-6, "back after the replay")
+	_free(m)
+
+
+## Watching another player's turn: their weapon awaken brings the wind to 0 for me too, until the
+## turn passes.
+func test_match_wind_other_awaken() -> void:
+	var m := _screen()
+	m._players["e1"]["gear"] = {"awaken": ["weapon"], "awakenUsed": [], "armed": []}
+	m._apply("TurnStarted", {"currentPlayerId": "e1", "turnIndex": 2, "moveEnergy": 100, "wind": {"direction": 1, "power": 4.0}})
+	near(m._hud.wind_shown(), 4.0, 1e-6, "their turn's wind")
+	m._apply("AwakenUsed", {"playerId": "e1", "slot": "weapon"})
+	eq(m._hud.wind_shown(), 0.0, "their weapon awaken: 0 for everyone")
+	eq(m._hud._wind.text, "0", "reads 0")
+	m._apply("AwakenUsed", {"playerId": "e1", "slot": "gloves"})
+	eq(m._hud.wind_shown(), 0.0, "still 0")
+	m._apply("TurnStarted", {"currentPlayerId": "me", "turnIndex": 3, "moveEnergy": 100, "wind": {"direction": -1, "power": 1.5}})
+	near(m._hud.wind_shown(), 1.5, 1e-6, "the next turn's wind")
 	_free(m)

@@ -176,6 +176,16 @@ static func mark_armed(gear: Dictionary, slot: String) -> Dictionary:
 	return out
 
 
+## The wind a turn's shot flies with ({direction, power}): power 0 while the turn player's
+## weapon awaken is armed (`gear`: their match gear) or `none` (my Awaken on its way, the awakened
+## shot replaying); the server zeroes the wind for that shot (contract gear-effects).
+static func turn_wind(wind: Dictionary, gear: Dictionary, none: bool = false) -> Dictionary:
+	var out := {"direction": int(_num(wind.get("direction"))), "power": _num(wind.get("power"))}
+	if none or armed(gear, "weapon"):
+		out["power"] = 0.0
+	return out
+
+
 ## A copy of a match player's gear with nothing armed (the shot used them, the turn passed).
 static func clear_armed(gear: Dictionary) -> Dictionary:
 	if not gear.get("armed") is Array or (gear["armed"] as Array).is_empty():
