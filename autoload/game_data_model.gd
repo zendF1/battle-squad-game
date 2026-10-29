@@ -726,6 +726,17 @@ static func default_character_id() -> String:
 	return str(v) if v is String else ""
 
 
+## The characters a new player may pick at onboarding (starterCharacterIds), in display order,
+## only ids that are characters; [] when the game data has none (an older server).
+static func starter_character_ids() -> Array:
+	_ensure_cache()
+	var out: Array = []
+	for id in _strings(data.get("starterCharacterIds")):
+		if is_character(id) and not out.has(id):
+			out.append(id)
+	return out
+
+
 ## The display name; the id itself when unknown.
 static func character_name(character_id: String) -> String:
 	var n := _s(character(character_id), "name")

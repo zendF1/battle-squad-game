@@ -1,7 +1,8 @@
 extends Control
 ## Startup, the loading screen (demo splash_screen.dart): the game data first (GET /gamedata,
 ## PlayerState.load_gamedata(): every rule and text the screens need; the cached copy when offline),
-## then restore the saved session, then Home or Login. With no game data at all (a first launch with
+## then restore the saved session, then Home (the first-login pick, screens/onboarding.gd, while the
+## profile is not onboarded) or Login. With no game data at all (a first launch with
 ## no network) it stays here on a retry screen.
 ## Pictures only: the loading picture (Art.BG_LOADING, framed so both forts stay on screen), the logo
 ## where the boot splash drew it (ui/brand.gd), the progress bar (ui/load_bar.gd); a failure shows the
@@ -117,7 +118,7 @@ func _check_auth() -> void:
 		PlayerState.apply(res.data) # also updates Session's playerId / displayName
 		GameSocket.open()
 		_bar.finish()
-		Router.go(Router.HOME)
+		Router.go_signed_in(res.data) # a new account picks its starter and name first
 	elif res.status == 401:
 		Session.clear_tokens()
 		_bar.finish()

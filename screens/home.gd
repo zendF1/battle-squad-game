@@ -45,6 +45,7 @@ const ModeSelect := preload("res://screens/home/mode_select.gd")
 const LeaderboardPage := preload("res://screens/home/leaderboard_page.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const SeasonRewardPopup := preload("res://screens/ranked/season_reward_popup.gd")
+const OnboardingModel := preload("res://screens/onboarding_model.gd")
 
 const LOBBY := 0
 const PROFILE := 1
@@ -139,6 +140,7 @@ func _ready() -> void:
 	_pages[LEADERBOARD] = _build_page("Xếp hạng", _leaderboard)
 	_pages[SHOP] = _build_page("Shop", _shop)
 	_show(LOBBY)
+	PlayerState.changed.connect(_check_onboarded)
 	PlayerState.refresh()
 	PlayerState.load_rank() # the rank chip, the ranked mode card; the match's aiming aid reads the tier
 	PlayerState.load_maps() # map names (history, matchmaking, the match toast) and themes from the server
@@ -159,7 +161,16 @@ func _ready() -> void:
 		Router.home_notice = ""
 
 
+## A profile still to onboard (signed in while the profile could not load): the starter pick.
+func _check_onboarded() -> void:
+	if OnboardingModel.needs_onboarding(PlayerState.profile) and is_inside_tree():
+		PlayerState.changed.disconnect(_check_onboarded)
+		Router.go(Router.ONBOARDING)
+
+
 func _exit_tree() -> void:
+	if PlayerState.changed.is_connected(_check_onboarded):
+		PlayerState.changed.disconnect(_check_onboarded)
 	get_tree().quit_on_go_back = true
 	for sig in [Router.party.invite_received, Router.party.notice]:
 		for c in sig.get_connections():

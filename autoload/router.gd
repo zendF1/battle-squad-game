@@ -1,9 +1,12 @@
 extends Node
 ## Scene navigation (the demo's GoRouter) and the payload handed to the next scene.
 
+const OnboardingModel := preload("res://screens/onboarding_model.gd")
+
 const SPLASH := "res://screens/splash.tscn"
 const LOGIN := "res://screens/login.tscn"
 const HOME := "res://screens/home.tscn"
+const ONBOARDING := "res://screens/onboarding.tscn"
 const LOADOUT := "res://screens/loadout.tscn"
 const MATCH := "res://match/match_screen.tscn"
 const MATCHMAKING := "res://screens/matchmaking.tscn"
@@ -38,6 +41,11 @@ var party: Node
 
 func go(scene: String) -> void:
 	get_tree().call_deferred("change_scene_to_file", scene)
+
+
+## Where a signed-in player goes: the starter pick while the profile is not onboarded, else Home.
+func go_signed_in(profile: Variant) -> void:
+	go(ONBOARDING if OnboardingModel.needs_onboarding(profile) else HOME)
 
 
 func _ready() -> void:

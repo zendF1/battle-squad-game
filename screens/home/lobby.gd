@@ -3,7 +3,7 @@ extends Control
 ## bar, "Lv.N"; tap opens the Nhân vật page) top-left with the rank chip beside it (grade insignia,
 ## "Binh nhì 2", the division's points; tap: the rank popup, screens/ranked/rank_chip.gd), the wallet pills top-right, the connection
 ## state top-centre, one round shortcut per page down the right (Nhân vật, Kho đồ, Nâng cấp,
-## Hồ sơ, Shop, Xếp hạng: the trophy, a code-drawn glyph), the selected character's icon card on the left (no sentences: its element chain,
+## Hồ sơ, Shop, Xếp hạng: the trophy, a code-drawn glyph), the selected character's icon card on the left (character_card.gd; no sentences: its element chain,
 ## ui/element_chain.gd, beaten by → element → beats; its skill's picture, ui/skill_button.gd, a tap
 ## opens the skill's popup; Lực chiến (the power glyph and the server's number, ui/power_tag.gd); heart / sword /
 ## shield with Máu, Sát thương, Phòng thủ; its name and
@@ -69,7 +69,6 @@ const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
 const MissionArt := preload("res://screens/home/mission_art.gd")
 const RankChip := preload("res://screens/ranked/rank_chip.gd")
-const Skills := preload("res://match/skills.gd")
 const PartySlot := preload("res://screens/home/party_slot.gd")
 const GradeFrame := preload("res://screens/ranked/grade_frame.gd")
 const InvitePopup := preload("res://screens/home/invite_popup.gd")
@@ -78,10 +77,8 @@ const ModeSelectModel := preload("res://screens/home/mode_select_model.gd")
 const PartyLayout := preload("res://screens/home/party_layout.gd")
 const BossCardModel := preload("res://screens/home/boss_card_model.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
-const ElementChain := preload("res://ui/element_chain.gd")
-const SkillButton := preload("res://ui/skill_button.gd")
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
-const PowerTag := preload("res://ui/power_tag.gd")
+const CharacterCard := preload("res://screens/home/character_card.gd")
 const ModeSelect := preload("res://screens/home/mode_select.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
@@ -115,12 +112,7 @@ var _stage_title: TitlePlate
 var _stage_name: Label
 var _stage_name_row: HBoxContainer # the element badge before the name
 var _stage_level: Label
-var _info_chain: ElementChain
-var _info_skill: SkillButton
-var _info_stats: HBoxContainer
-var _info_values: Array[Label] = []
-var _info_power: PowerTag
-var _info_buy: Button
+var _info: CharacterCard
 var _drag_from := -1.0
 
 var _milestone_badge: PanelContainer
@@ -142,6 +134,9 @@ var _slots: Array[PartySlot] = [] # a party mode's teammate slots (PartyLayout: 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_IGNORE
 	_model.restore(settings_path)
+	var start := LoadoutModel.start_character(settings_path, PlayerState.profile)
+	if start != "" and start != _model.character_id:
+		_model.select_character(start) # nothing saved on this device: the profile's main character
 	_mode = LobbyModel.restore_mode(settings_path)
 
 	_add_stage()
@@ -555,50 +550,12 @@ func _send_character() -> void:
 
 # ── Info card ───────────────────────────────────────────────────────────────
 
-## Máu, Sát thương, Phòng thủ (LobbyModel.stat_pairs() order) as pictures.
-const STAT_ICONS := ["heart", "sword", "shield"]
-const INFO_W := 360
-
-
+## The selected character's compact card (character_card.gd): element chain, skill, Lực chiến,
+## heart / sword / shield, "Mua ở Shop" when not owned.
 func _build_info_card() -> Control:
-	var card := LobbyUi.panel(18, 20)
-	card.name = "InfoCard"
-	card.custom_minimum_size.x = INFO_W
-	var col := Ui.vbox(14)
-	card.add_child(col)
-	var top := Ui.hbox(10)
-	col.add_child(top)
-	_info_chain = ElementChain.make("", 58)
-	_info_chain.size_flags_horizontal = SIZE_EXPAND_FILL
-	top.add_child(_info_chain)
-	_info_skill = SkillButton.make(68)
-	_info_skill.name = "InfoSkill"
-	_info_skill.pressed.connect(func() -> void: SkillButton.show_popup(_host(), _model.character_id))
-	top.add_child(_info_skill)
-	_info_power = PowerTag.make(40, 30)
-	_info_power.name = "InfoPower"
-	col.add_child(_info_power)
-	_info_stats = Ui.hbox(0)
-	_info_stats.name = "InfoStats"
-	col.add_child(_info_stats)
-	for i in STAT_ICONS.size():
-		var chip := Ui.hbox(6)
-		chip.alignment = BoxContainer.ALIGNMENT_CENTER
-		chip.size_flags_horizontal = SIZE_EXPAND_FILL
-		chip.size_flags_stretch_ratio = 1.0
-		chip.add_child(GlyphIcon.make(STAT_ICONS[i], 32))
-		var value := LobbyUi.text("", 24, Color.WHITE, true)
-		value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		chip.add_child(value)
-		_info_values.append(value)
-		_info_stats.add_child(chip)
-	_info_buy = Ui.button("Mua ở Shop", 22)
-	LobbyUi.style_button(_info_buy, LobbyUi.ICON_COLORS["orange"], 14, 8)
-	_info_buy.add_theme_font_override("font", LobbyUi.bold())
-	_info_buy.custom_minimum_size = Vector2(0, 56)
-	_info_buy.pressed.connect(func(): open_shop.emit(ShopTab.CHARACTERS))
-	col.add_child(_info_buy)
-	return card
+	_info = CharacterCard.make()
+	_info.buy_pressed.connect(func(): open_shop.emit(ShopTab.CHARACTERS))
+	return _info
 
 
 func _render_character() -> void:
@@ -614,17 +571,8 @@ func _render_character() -> void:
 	_stage_name.text = info["name"]
 	ElementBadge.set_row_element(_stage_name_row, GameData.character_element(id))
 	GlyphIcon.show_level(_stage_level, level)
-	_info_chain.set_element(GameData.character_element(id))
-	_info_skill.skill_id = str(Skills.for_character(id).get("id", ""))
-	_info_skill.visible = info["skill"] != ""
-	_info_skill.tooltip_text = info["skill"]
-	_info_stats.visible = not info["stats"].is_empty()
-	for i in _info_values.size():
-		var pair: Array = info["stats"][i] if i < info["stats"].size() else ["", ""]
-		_info_values[i].text = pair[1]
-		_info_values[i].get_parent().tooltip_text = pair[0]
-	_info_buy.visible = info["owned"] == false
-	_info_power.set_power(int(info["power"]))
+	_info.popup_host = _host()
+	_info.show_character(id, info)
 
 
 ## The stage character's gun under the pedestal (worn weapon or its basic gun).
