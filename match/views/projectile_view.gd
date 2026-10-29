@@ -73,6 +73,10 @@ var drill := false
 ## The flight direction before the first move (shot_player.gd: the path's start velocity);
 ## zero: +x.
 var heading := Vector2.ZERO
+## The shooter's weapon milestone glow (ShotLook.bullet_aura(): orange +10, purple +14, red +16),
+## null none: a soft halo in that colour round the shell and a glowing tail along its path, on top
+## of the tier's look.
+var aura: Variant = null
 ## The share of its trail the shell keeps (0..1: the line, the tier's tail and how long the
 ## kind's and the tier's trail particles live); set before adding it (the rain's missiles: a
 ## short one).
@@ -526,6 +530,8 @@ func _trail_smoke() -> Texture2D:
 ## the halo (tier glow, brighter for a skill shot) and the sparkle / ember trail.
 func _draw_glow() -> void:
 	var scale_k := _scale_k()
+	if aura is Color:
+		_draw_aura(aura, scale_k)
 	if not _ribbon_spec.is_empty():
 		_draw_ribbon(_glow_layer, scale_k)
 	if _tier_on and _tier_glows:
@@ -540,6 +546,22 @@ func _draw_glow() -> void:
 	if int(_tl["rank"]) >= 6 or skill: # a hot white core for the grandest guns
 		var h := g * 0.45
 		_glow_layer.draw_texture_rect(_glow, Rect2(-Vector2(h, h), Vector2(h, h) * 2), false, Color(1, 1, 1, 0.35 * pulse))
+
+
+## The weapon milestone glow (aura): a tapered tail along the last trail positions, widening to
+## the shell, and a pulsing halo round it, in the aura colour (a white-hot core line inside).
+func _draw_aura(c: Color, scale_k: float) -> void:
+	var n := _trail.size()
+	for i in range(1, n):
+		var k := float(i) / n
+		var a := _trail[i - 1] - global_position
+		var b := _trail[i] - global_position
+		_glow_layer.draw_line(a, b, Color(c, 0.5 * k), (5.0 + 20.0 * k) * scale_k, true)
+		_glow_layer.draw_line(a, b, Color(c.lightened(0.6), 0.5 * k), (1.5 + 4.0 * k) * scale_k, true)
+	var pulse := 0.85 + 0.15 * sin(_t * 14.0)
+	var g := 48.0 * scale_k * pulse
+	_glow_layer.draw_texture_rect(_glow, Rect2(-Vector2(g, g), Vector2(g, g) * 2), false, Color(c, 0.9))
+	_glow_layer.draw_arc(Vector2.ZERO, 16.0 * scale_k * pulse, 0.0, TAU, 24, Color(c.lightened(0.3), 0.7), 3.0 * scale_k, true)
 
 
 ## Draws trail particles (spec: life, size, alpha, drift, spin, optional hot / cool / cool_at)

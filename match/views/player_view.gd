@@ -64,6 +64,7 @@ const FlightModel := preload("res://match/boss/flight_model.gd")
 const JumpModel := preload("res://match/boss/jump_model.gd")
 const ShieldBall := preload("res://match/views/shield_ball.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
+const SetAura := preload("res://scenes/character/set_aura.gd")
 const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 
@@ -135,6 +136,7 @@ var _land_since := -1.0 # s since a jump landed (its squash), -1 none
 var _base_scale := Vector2.ONE # the figure's own scale (a jump squashes and stretches round it)
 var _bubble: ShieldBall # the shield's bubble round the body
 var _fx: StatusFx # the status effects on the body (its back twin under the figure)
+var _set_aura: SetAura # the 6-piece set aura at the feet (under the ring's energy aura)
 var _hops := 0 # cosmetic hops made (hop())
 
 
@@ -155,6 +157,8 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_ring.show_behind_parent = true
 	_ring.draw.connect(_draw_ring)
 	add_child(_ring)
+	_set_aura = SetAura.new() # a child of the ring: at the feet, under the energy aura and the body
+	_ring.add_child(_set_aura)
 	_aura = EnergyAura.new() # a child of the ring: over it, under the body (drawn before it)
 	_ring.add_child(_aura)
 	role = str(p.get("role", "")) if p.get("role") is String else ""
@@ -432,6 +436,19 @@ func set_skill_energy(value: int) -> void:
 	_aura.set_on(Skills.is_ready(value) and not _dead)
 
 
+## The 6-piece set aura's index (BattlePlayerState.gear setAura), 0 none: a ring of light in its
+## colour at the feet, a column up the figure (scenes/character/set_aura.gd).
+func set_set_aura(index: int) -> void:
+	_set_aura.index = index if role == "" else 0
+	_set_aura.width = BODY.x * 2.0 * maxf(body_size, 1.0)
+	_set_aura.height = _art_top
+
+
+## The set aura's index shown (0 none).
+func set_aura_index() -> int:
+	return _set_aura.index
+
+
 func aura_on() -> bool:
 	return _aura.is_on()
 
@@ -546,6 +563,7 @@ func set_dead() -> void:
 	_sweep = {}
 	_sprite.die()
 	_aura.set_on(false)
+	_set_aura.visible = false
 	_fx.clear()
 	_bubble.hide_ball()
 	_badge.show_use({})

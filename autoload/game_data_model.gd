@@ -297,6 +297,7 @@ static func _build_index() -> void:
 	_index["lobbyModes"] = _by(_list_in(section("modes"), "lobby"), "modeId")
 	_index["equipmentSlots"] = _by(_list_in(section("equipment"), "slots"), "id")
 	_index["typeWords"] = _by(_list_in(section("equipment"), "typeWords"), "word")
+	_index["gearSlots"] = _by(_list_in(section("gear"), "slots"), "slot")
 	_index["gunKinds"] = _by(list("gunKinds"), "id")
 	_index["bosses"] = _by(list("bosses"), "bossId")
 	_index["elements"] = _by(list("elements"), "elementId")
@@ -1170,6 +1171,89 @@ static func equipment_slot_ids() -> Array:
 static func equipment_slot_name(slot: String) -> String:
 	var n := _s(_entry("equipmentSlots", slot), "name")
 	return n if n != "" else slot
+
+
+# ── gear: passives, upgrade milestones, awakens, sets (GET /gamedata gear) ──
+
+## [{slot, passive, awaken, button}] in the server's order.
+static func gear_slots() -> Array:
+	return _list_in(section("gear"), "slots")
+
+
+## A slot's gear entry ({slot, passive, awaken, button}), {} for an unknown slot.
+static func gear_slot(slot: String) -> Dictionary:
+	return _entry("gearSlots", slot)
+
+
+## The passive kind of a slot ("crit_damage"...), "" unknown.
+static func gear_passive_kind(slot: String) -> String:
+	return _s(gear_slot(slot), "passive")
+
+
+## The awaken kind of a slot ("no_wind"...), "" unknown.
+static func gear_awaken_kind(slot: String) -> String:
+	return _s(gear_slot(slot), "awaken")
+
+
+## Whether a slot's awaken is a match button (weapon, gloves, boots), false for an unknown slot.
+static func gear_awaken_button(slot: String) -> bool:
+	return _b(gear_slot(slot), "button")
+
+
+## The slot whose awaken is `kind` ("revive" → "armor"), "" none.
+static func gear_slot_of_awaken(kind: String) -> String:
+	for e in gear_slots():
+		if _s(e, "awaken") == kind and kind != "":
+			return _s(e, "slot")
+	return ""
+
+
+## The +level milestones of the gear effects: glowLevel (the weapon's bullet glow),
+## skillRankLevel (the weapon's skill a rank higher), awakenLevel (the piece's awaken); 0 unknown.
+static func gear_glow_level() -> int:
+	return _i(section("gear"), "glowLevel")
+
+
+static func gear_skill_rank_level() -> int:
+	return _i(section("gear"), "skillRankLevel")
+
+
+static func gear_awaken_level() -> int:
+	return _i(section("gear"), "awakenLevel")
+
+
+## The set thresholds: [setStatPieces, setPassivePieces, setEffectPieces] (2, 4, 6), the ones the
+## server sends (0s left out).
+static func gear_set_thresholds() -> Array:
+	var g := section("gear")
+	return [_i(g, "setStatPieces"), _i(g, "setPassivePieces"), _i(g, "setEffectPieces")].filter(func(n): return n > 0)
+
+
+## The pieces a full set has (setEffectPieces, 6): the pips drawn.
+static func gear_set_size() -> int:
+	return _i(section("gear"), "setEffectPieces")
+
+
+## A number of the gear rules (reviveHpPct, critImmuneShieldPct, bootsEnergyFactor,
+## setPassiveFactor...), 0 when missing.
+static func gear_value(key: String) -> float:
+	return _f(section("gear"), key)
+
+
+## The 6-piece effect value of a tier index (setEffects[].value), 0 none.
+static func gear_set_effect_value(index: int) -> float:
+	for e in _list_in(section("gear"), "setEffects"):
+		if _i(e, "index") == index and index > 0:
+			return _f(e, "value")
+	return 0.0
+
+
+## The 6-piece effect id of a tier index ("shield", "lifesteal", "cleanse", "fire"), "" none.
+static func gear_set_effect(index: int) -> String:
+	for e in _list_in(section("gear"), "setEffects"):
+		if _i(e, "index") == index and index > 0:
+			return _s(e, "effect")
+	return ""
 
 
 ## The Vietnamese word of a catalog item name's type part (lower case, "shock rifle" → "Súng

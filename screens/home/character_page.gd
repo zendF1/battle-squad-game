@@ -5,7 +5,11 @@ extends Control
 ##   piece's icon with its milestone aura and tinted frame (no "+N"), or the slot's silhouette (no
 ##   slot name: the picture says it; the name is the tooltip).
 ##   A tap on a worn piece filters the right panel to its slot and opens its popup; on an empty
-##   slot it filters (again: all slots). Under them, what the gear adds to the battle stats.
+##   slot it filters (again: all slots). A +16 piece shows its awaken's glowing picture on its
+##   hexagon's corner. Under them, what the gear adds to the battle stats, then the gear effects
+##   (the server's gear profile, screens/home/gear_ui.gd): the main set's pips with its 6-piece
+##   picture, and the summed passives as pictures and values. The 6-piece set aura stands round
+##   the character on the stage (ui/character_view.gd).
 ## - Centre: the character on the pedestal with its name, level and Lực chiến (the power glyph and the
 ##   server's number, ui/power_tag.gd; none for a character not owned), ◀ ▶ / swipe cycle the four
 ##   characters and change the lobby's choice too (`selected`).
@@ -39,6 +43,9 @@ const ElementBadge := preload("res://ui/element_badge.gd")
 const ElementChain := preload("res://ui/element_chain.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const PowerTag := preload("res://ui/power_tag.gd")
+const GearModel := preload("res://screens/home/gear_model.gd")
+const GearUi := preload("res://screens/home/gear_ui.gd")
+const GearIcon := preload("res://ui/gear_icon.gd")
 
 const SUB_TABS := ["Trang bị", "Chỉ số"]
 const GEAR := 0
@@ -74,6 +81,8 @@ var _slot_icons := {} # slot -> TextureRect
 var _slot_names := {} # slot -> Label
 var _slot_auras := {} # slot -> UpgradeAura on the hexagon of the worn piece
 var _bonus: Label
+var _gear_box: VBoxContainer # the set row and the passives, under _bonus
+var _slot_awakens := {} # slot -> GearIcon on the hexagon's corner (+16)
 var _art: CharacterView
 var _gun_stand: PedestalGun
 var _stage_name: Label
@@ -193,6 +202,11 @@ func _build_slots() -> void:
 		name_label.size = Vector2(HEX.x, 24)
 		name_label.mouse_filter = MOUSE_FILTER_IGNORE
 		b.add_child(name_label)
+		var awaken = GearIcon.make(GearModel.awaken_kind(slot), 32)
+		awaken.position = Vector2(HEX.x - 46, HEX.y - 50) # inside the hexagon: its neighbours touch every side
+		awaken.visible = false
+		b.add_child(awaken)
+		_slot_awakens[slot] = awaken
 		_slot_buttons[slot] = b
 		_slot_frames[slot] = frame
 		_slot_icons[slot] = icon
@@ -206,6 +220,16 @@ func _build_slots() -> void:
 	_bonus.offset_top = box.offset_bottom + 18
 	_bonus.offset_bottom = _bonus.offset_top + 90
 	add_child(_bonus)
+	_gear_box = Ui.vbox(8)
+	_gear_box.name = "GearEffects"
+	_gear_box.mouse_filter = MOUSE_FILTER_IGNORE
+	_gear_box.anchor_top = 0.5
+	_gear_box.anchor_bottom = 0.5
+	_gear_box.offset_left = MARGIN + 12
+	_gear_box.offset_right = MARGIN + 12 + SLOTS_W
+	_gear_box.offset_top = _bonus.offset_top + 62
+	_gear_box.offset_bottom = _gear_box.offset_top + 110
+	add_child(_gear_box)
 
 
 ## A worn piece: the list shows its slot and its popup opens; an empty slot toggles the filter.
@@ -248,9 +272,19 @@ func _render_slots() -> void:
 			icon.position = (HEX - Vector2(64, 64)) / 2
 			icon.size = Vector2(64, 64)
 		_slot_names[slot].visible = false # the silhouette (empty) or the piece's icon says it
+		_slot_awakens[slot].visible = filled and GearModel.has_awaken(piece)
 	var entry = EquipmentModel.character_entry(PlayerState.characters, _character)
 	var lines := EquipmentModel.bonus_lines(BattleStats.of(entry)) if entry != null else []
 	_bonus.text = ("Trang bị: " + " · ".join(lines)) if not lines.is_empty() else ""
+	Ui.clear(_gear_box)
+	var gear := GearModel.profile_of(entry)
+	var set := GearModel.set_state(gear)
+	if not set.is_empty():
+		_gear_box.add_child(GearUi.set_row(set, 18, 42))
+	var passives := GearUi.profile_row(gear, 30, 18)
+	passives.custom_minimum_size.x = SLOTS_W
+	if passives.get_child_count() > 0:
+		_gear_box.add_child(passives)
 
 
 # ── Stage ───────────────────────────────────────────────────────────────────

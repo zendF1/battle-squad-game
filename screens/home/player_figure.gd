@@ -3,7 +3,7 @@ extends Control
 ## CharacterView (the full-body picture, idle, hands free) with the back aura of their weapon's
 ## upgrade level, their gun resting beside the feet (PedestalGun) and, with `pedestal`, the lobby's
 ## pedestal under them. Another player's look comes from the server (LeaderboardModel.look():
-## {character_id, gun: {kind, tier}, aura_level}), never from my own gear. The feet sit at the
+## {character_id, gun: {kind, tier}, aura_level, set_aura}), never from my own gear. The feet sit at the
 ## bottom centre of this control, `foot_margin` px above its bottom edge. Used by the leaderboard's
 ## podium (leaderboard_place.gd, no pedestal: the step is it) and the showcase (showcase_popup.gd).
 
@@ -70,6 +70,7 @@ func show_look(look: Dictionary) -> void:
 	var g: Dictionary = look.get("gun", {})
 	_art.gun = g
 	_art.aura_level = maxi(0, int(look.get("aura_level", 0)))
+	_art.set_index = maxi(0, int(look.get("set_aura", 0))) # their 6-piece set aura, never mine
 	_art.back_aura = true
 	_gun.set_gun(str(g.get("kind", "")), str(g.get("tier", "")))
 	_gun.visible = not _art.holds_gun()

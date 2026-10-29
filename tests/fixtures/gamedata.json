@@ -2133,6 +2133,43 @@
         "stones": [],
         "upgradeLevel": 16
       }
-    ]
+    ],
+    "gear": {
+      "tierIndex": {"lv10": 1, "lv20": 2, "lv30": 3, "lv40": 4, "silver": 1, "gold": 2, "titan": 3, "diamond": 4},
+      "slots": [
+        {"slot": "weapon", "passive": "crit_damage", "awaken": "no_wind", "button": true},
+        {"slot": "armor", "passive": "resist", "awaken": "revive", "button": false},
+        {"slot": "helmet", "passive": "crit_taken", "awaken": "crit_immune", "button": false},
+        {"slot": "pants", "passive": "proc_chance", "awaken": "sure_proc", "button": false},
+        {"slot": "boots", "passive": "move_cost", "awaken": "double_energy", "button": true},
+        {"slot": "gloves", "passive": "proc_chance", "awaken": "sure_crit", "button": true}
+      ],
+      "passiveBase": {
+        "weapon": [5, 8, 12, 16], "helmet": [4, 6, 8, 10], "gloves": [1, 2, 3, 4],
+        "pants": [1, 2, 3, 4], "armor": [3, 5, 7, 9], "boots": [2, 3, 5, 7]
+      },
+      "caps": {"crit_damage": 100, "crit_taken": 60, "proc_chance": 30, "resist": 50, "move_cost": 30},
+      "procEffects": {"fire": "burn", "water": "freeze", "wood": "poison", "earth": "root", "metal": "root"},
+      "procTurns": {"burn": 1, "freeze": 1, "poison": 2, "root": 1},
+      "resistEffects": ["burn", "freeze", "poison", "root"],
+      "glowLevel": 10,
+      "skillRankLevel": 14,
+      "skillRankBonus": 1,
+      "awakenLevel": 16,
+      "reviveHpPct": 20,
+      "critImmuneShieldPct": 10,
+      "bootsEnergyFactor": 2,
+      "setStatPieces": 2,
+      "setPassivePieces": 4,
+      "setPassiveFactor": 1.25,
+      "setEffectPieces": 6,
+      "setEffects": [
+        {"index": 1, "effect": "shield", "value": 10},
+        {"index": 2, "effect": "lifesteal", "value": 5},
+        {"index": 3, "effect": "cleanse", "value": 25},
+        {"index": 4, "effect": "fire", "value": 1}
+      ],
+      "cleanseEffects": ["freeze", "root", "burn", "poison", "net", "blind"]
+    }
   }
 }

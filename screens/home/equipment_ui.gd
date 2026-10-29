@@ -18,6 +18,9 @@ const BattleStats := preload("res://screens/home/battle_stats.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
+const GearModel := preload("res://screens/home/gear_model.gd")
+const GearUi := preload("res://screens/home/gear_ui.gd")
+const GearIcon := preload("res://ui/gear_icon.gd")
 
 const GOOD := Color(0.45, 0.9, 0.55)
 const LOSS := Color(1.0, 0.45, 0.45)
@@ -206,6 +209,7 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 	level_label.name = "LevelLine"
 	head.add_child(level_label)
 	head.add_child(level_bar(level))
+	head.add_child(gear_row(overlay, piece, item, character_id))
 
 	# Below: the stats | the milestones.
 	var cols := Ui.hbox(28)
@@ -253,7 +257,8 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 		info.add_child(cmp)
 	if who != character_id and not check["ok"]:
 		info.add_child(LobbyUi.text("%s: %s" % [char_name, check["reason"]], 21, LOSS, true))
-	cols.add_child(milestone_list(PlayerState.catalog, level, str(item.get("slot", piece.get("slot", ""))) == "weapon"))
+	var slot_id := str(item.get("slot", piece.get("slot", "")))
+	cols.add_child(milestone_list(PlayerState.catalog, level, slot_id == "weapon", slot_id))
 
 	var piece_id := str(piece.get("equipmentId", ""))
 	var piece_name := EquipmentModel.display_name(item)
@@ -357,11 +362,34 @@ static func sell_block(piece: Dictionary, item: Dictionary, catalog: Variant) ->
 	return "Đồ chế tạo không bán được" if str(item.get("category", "")) == "crafted" else "Trang bị này không bán được"
 
 
+## The piece popup's gear line: the piece's passive (its picture and value at its level), its
+## awaken's glowing picture from +16 (a tap: the awaken popup) and, when the piece belongs to the
+## set `character_id` wears (its gear profile's main set, the same tier index), that set's pips and
+## 6-piece picture. Empty for a piece with none of them (an older server).
+static func gear_row(overlay: Control, piece: Dictionary, item: Dictionary, character_id: String) -> HBoxContainer:
+	var row := Ui.hbox(18)
+	row.name = "GearRow"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var passive := GearModel.piece_passive(piece, item)
+	if not passive.is_empty():
+		row.add_child(GearUi.passive_chip(passive, 40, 22))
+	if GearModel.has_awaken(piece):
+		row.add_child(GearUi.awaken_button(str(item.get("slot", piece.get("slot", ""))), overlay, 46))
+	var gear := GearModel.profile_of(EquipmentModel.character_entry(PlayerState.characters, character_id))
+	var set := GearModel.set_state(gear)
+	if not set.is_empty() and int(set["index"]) == GearModel.tier_index(piece, item) and EquipmentModel.wearer(piece) == character_id:
+		row.add_child(GearUi.set_row(set, 14, 34))
+	row.visible = row.get_child_count() > 0
+	return row
+
+
 ## "Mốc nâng cấp": the +6 / +10 / +14 / +16 rows (UpgradeModel.milestone_rows) for a piece at
 ## `level`, each a small hexagon with its aura, "+6", "+10% chỉ số" in its colour (a weapon's +14 /
 ## +16 add "· hào quang tím / đỏ sau lưng", smaller); reached rows bright with a check, the others
-## dimmed (UNREACHED_ALPHA).
-static func milestone_list(catalog: Variant, level: int, weapon: bool = false) -> VBoxContainer:
+## dimmed (UNREACHED_ALPHA). A row whose level unlocks more on a piece of `slot` ends with its
+## pictures (GearModel.milestone_unlocks(): the weapon's +10 bullet glow, its +14 skill rank up, the
+## slot's +16 awaken).
+static func milestone_list(catalog: Variant, level: int, weapon: bool = false, slot: String = "") -> VBoxContainer:
 	var col := Ui.vbox(4)
 	col.name = "Milestones"
 	col.custom_minimum_size.x = 330
@@ -392,6 +420,10 @@ static func milestone_list(catalog: Variant, level: int, weapon: bool = false) -
 			extra.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			extra.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			row.add_child(extra)
+		for kind in GearModel.milestone_unlocks(int(r["level"]), slot if slot != "" else ("weapon" if weapon else "")):
+			var u = GearIcon.make(kind, 34)
+			u.name = "Unlock_" + kind
+			row.add_child(u)
 		row.add_child(check_mark(26, GOOD) if r["reached"] else Control.new())
 		col.add_child(row)
 	return col

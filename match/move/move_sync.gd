@@ -6,7 +6,8 @@ extends RefCounted
 ##   1. clamp the target to moveEnergy × pxPerEnergy px from the server's position;
 ##   2. walk with Terrain.WalkTo;
 ##   3. charge round(|dx| × energyPerPx) energy, capped at what is left
-## (pxPerEnergy / energyPerPx: the game data's movement, GET /gamedata).
+## (pxPerEnergy / energyPerPx: the game data's movement, GET /gamedata; with boots that walk
+## further, `cost_factor` = 1 − the player's gear moveCost / 100: energyPerPx × it, pxPerEnergy ÷ it).
 ##
 ## The walk is cut into segments that each go in one direction. Each segment becomes one
 ## Move{targetX, seq}; its target is the segment's end, so the server walks exactly that far.
@@ -34,6 +35,8 @@ const MAX_RETRIES := 2
 var terrain
 var position := Vector2.ZERO # displayed (predicted) position
 var energy := 0 # displayed (predicted) move energy
+## The share of the normal walk cost the player pays (1 − BattlePlayerState.gear.moveCost / 100).
+var cost_factor := 1.0
 
 var _server_pos := Vector2.ZERO
 var _server_energy := 0
@@ -115,7 +118,7 @@ func walk_px(dir: int, px: int) -> void:
 	if _seg_dir != 0 and dir != _seg_dir:
 		_close_segment()
 	_seg_dir = dir
-	_seg_px = mini(_seg_px + px, int(_base_energy * GameData.px_per_energy()))
+	_seg_px = mini(_seg_px + px, int(_base_energy * px_per_energy()))
 	_update_display()
 
 
@@ -199,14 +202,31 @@ func on_server_moved(pos: Vector2, move_energy: int, seq: int) -> void:
 	_rebase()
 
 
+## Px walked per energy, with the boots' passive (cost_factor).
+func px_per_energy() -> float:
+	return GameData.px_per_energy() / cost_factor if cost_factor > 0.0 else GameData.px_per_energy()
+
+
+## Energy per px walked, with the boots' passive (cost_factor).
+func energy_per_px() -> float:
+	return GameData.energy_per_px() * cost_factor if cost_factor > 0.0 else GameData.energy_per_px()
+
+
+## The server's energy changed without a walk (the boots' awaken: AwakenUsed moveEnergy): the
+## unanswered commands are replayed from it.
+func set_server_energy(move_energy: int) -> void:
+	_server_energy = move_energy
+	_rebase()
+
+
 ## processMove for one Move{targetX} from (pos, move_energy). Returns [end_pos, energy_left].
 func simulate(pos: Vector2, move_energy: int, target_x: float) -> Array:
-	var max_dist := move_energy * GameData.px_per_energy()
+	var max_dist := move_energy * px_per_energy()
 	var target := target_x
 	if absf(target - pos.x) > max_dist:
 		target = pos.x + max_dist if target > pos.x else pos.x - max_dist
 	var end: Vector2 = terrain.walk_to(pos.x, pos.y, target)
-	var cost := mini(roundi(absf(end.x - pos.x) * GameData.energy_per_px()), move_energy)
+	var cost := mini(roundi(absf(end.x - pos.x) * energy_per_px()), move_energy)
 	return [end, move_energy - cost]
 
 
@@ -247,7 +267,7 @@ func _rebase() -> void:
 		e = r[1]
 	_base_pos = pos
 	_base_energy = e
-	_seg_px = mini(_seg_px, int(_base_energy * GameData.px_per_energy()))
+	_seg_px = mini(_seg_px, int(_base_energy * px_per_energy()))
 	_update_display()
 
 

@@ -16,7 +16,10 @@ extends Control
 ##   wide as the button) and over it the picture of the effect blocking moves (root's rocks,
 ##   match/views/status_glyph.gd, set_move_notice());
 ##   between the chat (top left) and the skill slot (bottom right), clear of both;
-## - bottom centre: the aim readout over the items in hand, a row of slots (icon + count);
+## - bottom centre: the aim readout over the items in hand, a row of slots (icon + count), and
+##   after them the awaken buttons (Thức tỉnh) of my +16 weapon / gloves / boots (set_awakens():
+##   the slot's awaken picture on a gold glowing disc, greyed once used; the row, items and
+##   awakens together, stays centred);
 ## - bottom right: the character's skill as a round slot (its icon, the energy as a ring, off
 ##   until charged; its name only as the tooltip).
 ## There is no end-turn button (a turn ends with a shot or the clock) and no weapon button (the
@@ -35,6 +38,7 @@ signal move_pressed(dir: int)
 signal move_released
 signal skill_pressed
 signal item_pressed(item_id: String)
+signal awaken_pressed(slot: String)
 signal leave_pressed
 
 const Ui := preload("res://ui/ui.gd")
@@ -51,6 +55,8 @@ const BossArtView := preload("res://match/boss/boss_art_view.gd")
 const CountdownRing := preload("res://match/views/countdown_ring.gd")
 const StatusGlyph := preload("res://match/views/status_glyph.gd")
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
+const GearGlyphs := preload("res://ui/gear_glyphs.gd")
+const GearModel := preload("res://screens/home/gear_model.gd")
 
 const NAVY := Color(0.06, 0.09, 0.22, 0.78)
 const MODE_BG := Color(0.13, 0.2, 0.42, 0.9)
@@ -67,6 +73,13 @@ const CHAT_MIN_ALPHA := 0.35
 const PORTRAIT_ART := Vector2(190, 200) # the turn portrait's figure box
 const SKILL_SIZE := 132
 const ITEM_SIZE := 96
+const AWAKEN_SIZE := 84
+const AWAKEN_USED := Color(0.32, 0.32, 0.38, 0.6) # spent this match: greyed
+const AWAKEN_OFF := Color(1, 1, 1, 0.42) # not now (another turn, after the shot)
+## The faded wind readout while my shot ignores the wind (the weapon's awaken).
+const WIND_IGNORED_ALPHA := 0.3
+## The move energy bar's fill while the boots' awaken doubles this turn's energy.
+const ENERGY_GLOW := Color(0.75, 1.0, 0.35)
 const MOVE_SIZE := 110
 const ENERGY_GAP := 10 # between the left move button and the energy under it
 const NOTICE_GAP := 8 # between the notice and the left move button over which it sits
@@ -96,6 +109,11 @@ var _skill_name: Label
 var _skill_box: VBoxContainer
 var _items: HBoxContainer
 var _item_buttons: Array[Button] = [] # reused; one per item left in hand
+var _awakens: HBoxContainer # the awaken buttons, after the items
+var _awaken_buttons := {} # slot -> Button
+var _awaken_state := {} # slot -> {used, enabled}
+var _wind_panel: PanelContainer
+var _energy_glow := false
 var _portrait: Control
 var _portrait_art: CharacterView
 var _portrait_tween: Tween
@@ -237,7 +255,9 @@ func _build_top_centre() -> void:
 	_timer.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_timer_panel.add_child(_timer)
 	var wind_panel: PanelContainer = _ignore(LobbyUi.panel(12, 18, NAVY))
+	wind_panel.name = "Wind"
 	wind_panel.size_flags_vertical = SIZE_SHRINK_CENTER
+	_wind_panel = wind_panel
 	row.add_child(wind_panel)
 	var wind_col := Ui.vbox(4)
 	wind_col.mouse_filter = MOUSE_FILTER_IGNORE
@@ -332,7 +352,7 @@ func move_layout() -> Dictionary:
 ## buttons and the energy, the skill slot, the item row and the turn portrait (those shown).
 func marker_avoid() -> Array:
 	var out: Array = [_left.get_global_rect(), _right.get_global_rect(), _energy.get_parent().get_parent().get_global_rect()]
-	for c in [_skill_box, _items, _portrait]:
+	for c in [_skill_box, _items, _awakens, _portrait]:
 		if c.is_visible_in_tree() and c.size.x > 0.0:
 			out.append(c.get_global_rect())
 	return out
@@ -349,11 +369,22 @@ func _build_bottom_centre() -> void:
 	_aim = LobbyUi.text("", 26, Color.WHITE, true)
 	_aim.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_aim_panel.add_child(_aim)
+	var row: HBoxContainer = _ignore(Ui.hbox(26))
+	row.name = "ActionRow"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.size_flags_horizontal = SIZE_SHRINK_CENTER
+	col.add_child(row)
 	_items = _ignore(Ui.hbox(14))
 	_items.name = "Items"
 	_items.alignment = BoxContainer.ALIGNMENT_CENTER
 	_items.size_flags_horizontal = SIZE_SHRINK_CENTER
-	col.add_child(_items)
+	row.add_child(_items)
+	_awakens = _ignore(Ui.hbox(12))
+	_awakens.name = "Awakens"
+	_awakens.alignment = BoxContainer.ALIGNMENT_CENTER
+	_awakens.size_flags_vertical = SIZE_SHRINK_CENTER
+	_awakens.visible = false
+	row.add_child(_awakens)
 
 
 ## Bottom right: the round skill slot with its energy ring, its name under it.
@@ -425,6 +456,7 @@ func _set_portrait(player: Dictionary, player_name: String) -> void:
 	else:
 		_portrait_art.character_id = id
 		_portrait_art.aura_level = portrait_level(player)
+		_portrait_art.set_index = GearModel.set_aura(GearModel.profile_of(player)) # theirs, never mine
 	_portrait.visible = true
 	if key == _portrait_key:
 		return
@@ -509,6 +541,90 @@ func set_energy(value: int, max_value: int = 0) -> void:
 	if max_value > 0:
 		_energy.max_value = max_value
 	_energy.value = value
+
+
+## The boots' awaken doubled this turn's move energy: the bar glows (a bright fill, a glowing rim)
+## until set off (the turn passing).
+func set_energy_glow(on: bool) -> void:
+	if on == _energy_glow:
+		return
+	_energy_glow = on
+	if on:
+		var fill := LobbyUi.box(ENERGY_GLOW, 8, 0)
+		fill.shadow_color = Color(ENERGY_GLOW, 0.8)
+		fill.shadow_size = 8
+		_energy.add_theme_stylebox_override("fill", fill)
+		_energy.add_theme_stylebox_override("background", LobbyUi.box(Color(0.02, 0.03, 0.1, 0.85), 8, 0, ENERGY_GLOW, 2))
+	else:
+		_energy.add_theme_stylebox_override("fill", LobbyUi.box(Color(0.35, 0.85, 0.45), 8, 0))
+		_energy.add_theme_stylebox_override("background", LobbyUi.box(Color(0.02, 0.03, 0.1, 0.85), 8, 0, Color(1, 1, 1, 0.15), 2))
+
+
+func energy_glow() -> bool:
+	return _energy_glow
+
+
+## The weapon's awaken: this shot ignores the wind, so the wind readout fades until set off (the
+## shot's replay over, the turn passing).
+func set_wind_ignored(on: bool) -> void:
+	_wind_panel.modulate = Color(1, 1, 1, WIND_IGNORED_ALPHA if on else 1.0)
+
+
+func wind_ignored() -> bool:
+	return _wind_panel.modulate.a < 1.0
+
+
+## The awaken buttons of my +16 pieces with a button (weapon, gloves, boots; the server's list):
+## [{slot, used, enabled}] in that order; [] hides the row. A used one stays, greyed; enabled: it
+## can be pressed now (my turn, before my shot for the weapon / gloves).
+func set_awakens(list: Array) -> void:
+	var keep := {}
+	for a in list:
+		keep[str(a.get("slot", ""))] = true
+	for slot in _awaken_buttons.keys():
+		if not keep.has(slot):
+			_awaken_buttons[slot].queue_free()
+			_awaken_buttons.erase(slot)
+	_awaken_state.clear()
+	var i := 0
+	for a in list:
+		var slot := str(a.get("slot", ""))
+		var b: Button = _awaken_buttons.get(slot)
+		if b == null:
+			b = _awaken_slot(slot)
+			_awaken_buttons[slot] = b
+		_awakens.move_child(b, i)
+		i += 1
+		var used := bool(a.get("used", false))
+		b.disabled = used or not bool(a.get("enabled", false))
+		b.set_meta("used", used)
+		b.get_node("Glyph").modulate = AWAKEN_USED if used else (AWAKEN_OFF if b.disabled else Color.WHITE)
+		_awaken_state[slot] = {"used": used, "enabled": not b.disabled}
+	_awakens.visible = not list.is_empty()
+
+
+## The awaken buttons shown: slot -> {used, enabled}.
+func awakens() -> Dictionary:
+	return _awaken_state.duplicate(true) if _awakens.visible else {}
+
+
+func _awaken_slot(slot: String) -> Button:
+	var b := Button.new()
+	b.name = "Awaken_" + slot
+	b.custom_minimum_size = Vector2(AWAKEN_SIZE, AWAKEN_SIZE)
+	b.focus_mode = Control.FOCUS_NONE
+	var flat := StyleBoxEmpty.new()
+	for st in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
+		b.add_theme_stylebox_override(st, flat)
+	var g := Control.new()
+	g.name = "Glyph"
+	g.mouse_filter = MOUSE_FILTER_IGNORE
+	g.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	g.draw.connect(func() -> void: GearGlyphs.draw(g, GameData.gear_awaken_kind(slot), g.size / 2.0, minf(g.size.x, g.size.y)))
+	b.add_child(g)
+	b.pressed.connect(func() -> void: awaken_pressed.emit(slot))
+	_awakens.add_child(b)
+	return b
 
 
 func set_aim(angle: float, power: float) -> void:

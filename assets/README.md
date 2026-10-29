@@ -69,6 +69,14 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   the starting gun, `terrainAfter` dropped), replayed by the match's own views. Re-record it from the
   server's match tests when a skill's look or numbers change; a skill without a scene shows its
   picture, name and description only.
+- **Gear effects** (no file yet, all drawn in code: `ui/gear_glyphs.gd`): the passive per slot
+  (keyed by the GET /gamedata `gear` passive kind: crit_damage, crit_taken, proc_chance (the pants
+  draw `proc_chance_pants`), resist, move_cost), the awaken per slot on its gold disc (revive,
+  crit_immune, sure_proc, no_wind, sure_crit, double_energy), the 6-piece set effects
+  (`set_shield`, `set_lifesteal`, `set_cleanse`, `set_fire`) and the milestone unlocks
+  (`bullet_glow`, `rank_up`); the set aura (`scenes/character/set_aura.gd`) and the weapon's
+  bullet glow (`match/views/projectile_view.gd` aura) are drawn too. Art can replace a glyph
+  later by id; the prompts are not written yet.
 - **Status icons** (`ui/status/<id>.png`, ids burn / root / stun / freeze / net / shield: the
   picture inside the small round badge beside a player's HP bar in a match,
   `match/views/status_icons.gd`): none shipped yet, the badges are code-drawn; drop a square PNG

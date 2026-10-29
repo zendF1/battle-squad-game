@@ -4,7 +4,8 @@ extends "res://ui/modal.gd"
 ## centre: the gear (six hexagons in the game data's slot order: the piece's icon in its upgrade
 ## level's tint and aura, the "+N" pill, the socketed gems as coloured gems with their level), the
 ## character standing on the lobby pedestal (player_figure.gd: their look, weapon, back aura) with
-## its Lực chiến under it, and the stats (ShowcaseModel.stat_cells: the final stat as a picture and
+## its Lực chiến under it (and their main set's pips with its 6-piece picture under that; the set
+## aura round the figure from a 6-piece set: look.setAura / gear.setAura), and the stats (ShowcaseModel.stat_cells: the final stat as a picture and
 ## a number, the allocated points under it with the level chevrons); the crit chance centred under
 ## them when there is one. Under all, the characters they own as heads (the shown one ringed in
 ## gold): a tap shows that one. GET /players/{id}/showcase through PlayerState.fetch_showcase().
@@ -24,6 +25,8 @@ const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
+const GearModel := preload("res://screens/home/gear_model.gd")
+const GearUi := preload("res://screens/home/gear_ui.gd")
 
 const WIDTH := 1240
 const SIDE_W := 330 # the gear and the stats columns (equal: the stage stays centred)
@@ -43,6 +46,7 @@ var _content: VBoxContainer
 var _gear: GridContainer
 var _figure: Control
 var _power: Control
+var _set_box: CenterContainer # the main set's row under the power
 var _stats: VBoxContainer
 var _switcher: HBoxContainer
 var _request := 0 # the latest fetch: an older answer is dropped
@@ -93,6 +97,10 @@ func _build() -> void:
 	_power = PowerTag.make(40, 32)
 	_power.name = "Power"
 	stage.add_child(_power)
+	_set_box = CenterContainer.new()
+	_set_box.name = "Set"
+	_set_box.mouse_filter = MOUSE_FILTER_IGNORE
+	stage.add_child(_set_box)
 	_stats = Ui.vbox(18)
 	_stats.name = "Stats"
 	_stats.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -138,6 +146,8 @@ func show_showcase(s: Dictionary) -> void:
 	var c: Dictionary = s["character"]
 	_figure.show_look(ShowcaseModel.look(c, PlayerState.catalog))
 	_power.set_power(int(c["power"]))
+	Ui.clear(_set_box)
+	_set_box.add_child(GearUi.set_row(GearModel.set_state(c.get("gear", {})), 16, 38))
 	_render_gear(c)
 	_render_stats(c)
 	_render_switcher(s)

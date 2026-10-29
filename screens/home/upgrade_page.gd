@@ -5,7 +5,9 @@ extends Control
 ##   level colour, the aura from +1); centre, the selected piece's name, then the piece now and
 ##   after one more level side by side (UpgradeModel.preview: each on its hexagon with that
 ##   level's aura and tint, "+N" in its colour, its stats as points over the battle value, the
-##   gains in green on the right; at +16 only the piece, centred, and "Đã đạt cấp tối đa") and
+##   gains in green on the right; at +16 only the piece, centred, and "Đã đạt cấp tối đa"), what the
+##   next level unlocks as pictures (GearModel.milestone_unlocks(): +10 bullet glow, +14 skill rank
+##   up for a weapon, +16 the slot's awaken) and
 ##   what a failure does ("Thất bại: về +6" / "giữ nguyên +3"), all centred in the panel; right, the player's stones by level (icon, power, owned, − n +),
 ##   "Tự chọn" (the least power reaching the cap, UpgradeModel.auto_pick; a weapon needs ×3 power) /
 ##   "Bỏ chọn", the success chance bar "Tỉ lệ thành công 64% (tối đa 64%)", the "Nâng cấp cẩn
@@ -44,6 +46,8 @@ const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const Fmt := preload("res://core/fmt.gd")
 const RewardReveal := preload("res://ui/reward_reveal.gd")
 const RewardModel := preload("res://ui/reward_model.gd")
+const GearModel := preload("res://screens/home/gear_model.gd")
+const GearIcon := preload("res://ui/gear_icon.gd")
 
 const SUB_TABS := ["Nâng cấp", "Ghép đá"]
 const UPGRADE := 0
@@ -631,6 +635,18 @@ func _render_center() -> void:
 		var note := LobbyUi.text(view["note"], 24, LobbyUi.GOLD, true)
 		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_center.add_child(note)
+	# What the next level unlocks besides stats, as pictures (the weapon's +10 bullet glow and +14
+	# skill rank up, the slot's +16 awaken), centred.
+	if not view["maxed"]:
+		var unlocks := GearModel.milestone_unlocks(int(cols[1]["level"]), str(item.get("slot", piece.get("slot", ""))))
+		if not unlocks.is_empty():
+			var row := Ui.hbox(14)
+			row.name = "Unlocks"
+			row.alignment = BoxContainer.ALIGNMENT_CENTER
+			row.mouse_filter = MOUSE_FILTER_IGNORE
+			for k in unlocks:
+				row.add_child(GearIcon.make(k, 56))
+			_center.add_child(row)
 	var fail: String = view["fail"]
 	if fail != "":
 		var reset := not fail.contains("giữ nguyên")
