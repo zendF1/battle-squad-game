@@ -226,7 +226,7 @@ func simulate(pos: Vector2, move_energy: int, target_x: float) -> Array:
 	if absf(target - pos.x) > max_dist:
 		target = pos.x + max_dist if target > pos.x else pos.x - max_dist
 	var end: Vector2 = terrain.walk_to(pos.x, pos.y, target)
-	var cost := mini(roundi(absf(end.x - pos.x) * energy_per_px()), move_energy)
+	var cost := mini(roundi(absf(end.x - pos.x) * GameData.energy_per_px() * cost_factor), move_energy) # the server's order
 	return [end, move_energy - cost]
 
 

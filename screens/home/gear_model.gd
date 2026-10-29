@@ -186,9 +186,10 @@ static func clear_armed(gear: Dictionary) -> Dictionary:
 
 
 ## The boots' passive on the walk: the share of the normal energy per px paid, 1 − moveCost / 100
-## (1 without it; never below a tenth).
+## (1 without it; the server's profile is capped by its gear caps, so it stays above 0).
 static func move_cost_factor(gear: Dictionary) -> float:
-	return clampf(1.0 - _num(gear.get("moveCost")) / 100.0, 0.1, 1.0)
+	var cost := _num(gear.get("moveCost"))
+	return 1.0 if cost <= 0.0 else maxf(1.0 - cost / 100.0, 0.01)
 
 
 ## My awaken buttons: [{slot, used, enabled}] for my +16 pieces whose awaken is a button (the game
