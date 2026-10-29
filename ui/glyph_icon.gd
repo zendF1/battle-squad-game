@@ -9,14 +9,16 @@ extends Control
 ## Chí mạng), the match's wind ("wind": three gusts curling at their ends), a socketed gem ("gem", in
 ## `tint`: ShowcaseModel.GEM_COLORS) and the loading screen's failure ("offline": wi-fi arcs crossed
 ## out in red; "retry": a white turning arrow on a blue disc, its button) and the legal popup's
-## "open in browser" ("browser": a page frame with an arrow leaving its top-right corner). Drawn on
+## "open in browser" ("browser": a page frame with an arrow leaving its top-right corner) and the
+## onboarding name field's random name button ("dice": a white die showing five) and a shell's
+## blast reach ("blast": an orange burst inside a dashed ring, Bán kính nổ). Drawn on
 ## a 96 × 96 canvas scaled into the control's square and centred (a single-focus picture). make()
 ## for a layout, info_button() for the round "i" button that opens a card's popup.
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 
 const KINDS := ["heart", "sword", "shield", "info", "clock", "arrow", "power", "level", "insignia", "trophy",
-	"boot", "magic", "terrain", "crit", "gem", "wind", "offline", "retry", "browser"]
+	"boot", "magic", "terrain", "crit", "gem", "wind", "offline", "retry", "browser", "dice", "blast"]
 const OUTLINE := Color(0.07, 0.07, 0.14)
 const W := 5.0
 const HEART := Color(1.0, 0.33, 0.4)
@@ -40,6 +42,9 @@ const ROCK := Color(0.62, 0.48, 0.34)
 const ROCK_DARK := Color(0.4, 0.3, 0.2)
 const GRASS := Color(0.42, 0.78, 0.3)
 const CRIT := Color(1.0, 0.3, 0.28)
+const DICE := Color(0.97, 0.97, 1.0)
+const DICE_SIDE := Color(0.7, 0.74, 0.86)
+const DICE_PIP := Color(0.12, 0.13, 0.24)
 
 @export var kind := "heart":
 	set(v):
@@ -146,6 +151,8 @@ func _draw() -> void:
 		"offline": _offline()
 		"retry": _retry()
 		"browser": _browser()
+		"dice": _dice()
+		"blast": _blast()
 
 
 func _poly(pts: PackedVector2Array, fill: Color, w: float = W) -> void:
@@ -395,3 +402,34 @@ func _browser() -> void:
 			draw_colored_polygon(o, OUTLINE)
 	for pts in lines:
 		_stroke(pts, Color.WHITE, 8.0, 0.0)
+
+
+## A rounded rectangle's outline points (corner radius r), for the die.
+static func _rounded(rect: Rect2, r: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	var corners := [[rect.end - Vector2(r, r), 0.0], [Vector2(rect.position.x + r, rect.end.y - r), PI * 0.5],
+		[rect.position + Vector2(r, r), PI], [Vector2(rect.end.x - r, rect.position.y + r), PI * 1.5]]
+	for c in corners:
+		for i in 7:
+			pts.append(c[0] + Vector2.from_angle(c[1] + PI * 0.5 * i / 6.0) * r)
+	return pts
+
+
+## A white die showing five: a darker lip under its face (depth), the face, five pips.
+func _dice() -> void:
+	_poly(_rounded(Rect2(14, 16, 68, 70), 16), DICE_SIDE)
+	draw_colored_polygon(_rounded(Rect2(14, 12, 68, 64), 16), DICE)
+	draw_colored_polygon(_rounded(Rect2(20, 16, 34, 18), 8), Color(1, 1, 1, 0.8))
+	for p in [Vector2(32, 30), Vector2(64, 30), Vector2(48, 44), Vector2(32, 58), Vector2(64, 58)]:
+		draw_circle(p, 6.5, DICE_PIP if p != Vector2(48, 44) else CRIT, true, -1.0, true)
+
+
+## An orange burst with a hot core inside a dashed white ring (how far a blast reaches).
+func _blast() -> void:
+	for i in 12:
+		var a := TAU * i / 12.0
+		draw_arc(Vector2(48, 48), 40, a, a + TAU / 24.0, 6, OUTLINE, 10.0, true)
+		draw_arc(Vector2(48, 48), 40, a + 0.02, a + TAU / 24.0 - 0.02, 6, WING, 5.0, true)
+	_poly(_star(Vector2(48, 48), 30, 16, 8, -PI / 8), BURST)
+	draw_colored_polygon(_star(Vector2(48, 48), 20, 11, 8, -PI / 8), BURST_LIGHT)
+	draw_circle(Vector2(48, 48), 7.0, BOLT, true, -1.0, true)

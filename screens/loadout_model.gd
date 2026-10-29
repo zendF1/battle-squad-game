@@ -178,6 +178,25 @@ func remember(path: String) -> void:
 	cfg.save(path)
 
 
+## The character saved on this device ("" none yet).
+static func saved_character(path: String) -> String:
+	var cfg := ConfigFile.new()
+	if cfg.load(path) != OK:
+		return ""
+	var id = cfg.get_value("loadout", "character_id", "")
+	return id if id is String else ""
+
+
+## The character to start with: the one saved on this device, else the profile's main character
+## (GET /player/profile currentCharacterId: the onboarding pick, the last lobby choice), else "".
+static func start_character(path: String, profile: Variant) -> String:
+	var saved := saved_character(path)
+	if is_character(saved):
+		return saved
+	var current = profile.get("currentCharacterId") if profile is Dictionary else null
+	return current if current is String and is_character(current) else ""
+
+
 ## Restores a saved choice, dropping anything this client does not know.
 func restore(path: String) -> void:
 	var cfg := ConfigFile.new()

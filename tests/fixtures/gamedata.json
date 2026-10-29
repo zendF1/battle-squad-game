@@ -618,6 +618,7 @@
       }
     ],
     "defaultCharacterId": "rookie",
+    "starterCharacterIds": ["rookie", "tanko", "spark", "flora", "tide"],
     "items": [
       {
         "itemId": "medkit",

@@ -6,7 +6,8 @@ extends Control
 ## the documents in game: ui/legal_popup.gd). A login works
 ## only once the tick is on; tapped without it, the tick shakes. Apple / Google / Facebook have no
 ## server login yet: each has its own _login_<provider>() that only shows "Sắp ra mắt" for now, where
-## the provider's SDK sign-in plugs in later.
+## the provider's SDK sign-in plugs in later. Signed in, a new account (profile onboarded false)
+## picks its starter and name first (screens/onboarding.gd), others go to Home.
 
 const Art := preload("res://ui/art.gd")
 const Backdrop := preload("res://ui/backdrop.gd")
@@ -120,10 +121,21 @@ func _login_guest() -> void:
 	if d is Dictionary and str(d.get("accessToken", "")) != "" and str(d.get("playerId", "")) != "":
 		Session.set_tokens(str(d["accessToken"]), str(d.get("refreshToken", "")), str(d["playerId"]), str(d.get("displayName", "")))
 		GameSocket.open()
-		Router.go(Router.HOME)
+		_enter()
 		return
 	_toast("guest", res.message if not res.ok else "Phản hồi không hợp lệ từ server", ERROR)
 	_set_busy(false)
+
+
+## Signed in: the profile decides between the first-login pick (screens/onboarding.gd) and Home;
+## without it Home, which sends a profile still to onboard there once it loads.
+func _enter() -> void:
+	var res: Dictionary = await Api.get_json("/player/profile")
+	if res.ok and res.data is Dictionary:
+		PlayerState.apply(res.data)
+		Router.go_signed_in(res.data)
+	else:
+		Router.go(Router.HOME)
 
 
 func _set_busy(on: bool) -> void:
