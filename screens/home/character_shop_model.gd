@@ -4,8 +4,8 @@ extends RefCounted
 ## short playstyle.
 ##
 ## Sources:
-## - ownership: GET /player/characters (LoadoutModel.parse_characters); the default character
-##   (the game data's defaultCharacterId) is always owned;
+## - ownership: GET /player/characters (LoadoutModel.parse_characters) only; no character is free
+##   (the game data's defaultCharacterId, Rookie, is sold like the others once not owned);
 ## - prices: the character_unlock offers of GET /shop/offers, minus the ones whose per-player
 ##   limit is used up (GET /shop/purchases);
 ## - base stats (máu, phòng thủ, sát thương vũ khí, năng lượng di chuyển): `baseStats` of GET
@@ -75,7 +75,7 @@ static func tint(id: String) -> Color:
 ## for this player (server order), only for BUY. offers / purchases / owned are null while not
 ## loaded (purchases unknown: no limit is counted).
 static func card(id: String, offers: Variant, purchases: Variant, owned: Variant) -> Dictionary:
-	if id == LoadoutModel.default_character() or (owned is Array and owned.has(id)):
+	if owned is Array and owned.has(id):
 		return {"state": OWNED, "offers": []}
 	if not offers is Array or not owned is Array:
 		return {"state": UNKNOWN, "offers": []}

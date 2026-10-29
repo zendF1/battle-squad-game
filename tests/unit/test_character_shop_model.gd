@@ -24,7 +24,7 @@ const DATA := {"characters": [], "baseStats": {
 
 func test_card_states() -> void:
 	var owned := ["rookie", "spark"]
-	eq(Model.card("rookie", null, null, null)["state"], Model.OWNED, "rookie owned by default, even unloaded")
+	eq(Model.card("rookie", null, null, null)["state"], Model.UNKNOWN, "rookie not owned by default: unknown while unloaded")
 	eq(Model.card("spark", OFFERS, [], owned)["state"], Model.OWNED, "owned beats an offer")
 	var t := Model.card("tanko", OFFERS, [], owned)
 	eq(t["state"], Model.BUY, "tanko on sale")

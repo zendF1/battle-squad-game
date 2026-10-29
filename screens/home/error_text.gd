@@ -127,6 +127,7 @@ const ROOM := {
 	"LOADOUT_INVALID": "Nhân vật hoặc vật phẩm không hợp lệ",
 	"MATCH_START_FAILED": "Không tạo được trận, hãy thử lại",
 	"INTERNAL_SERVER_ERROR": "Server gặp lỗi, hãy thử lại",
+	"ONBOARDING_REQUIRED": "Hãy chọn nhân vật khởi đầu trước",
 }
 
 
@@ -362,6 +363,7 @@ const LOBBY := {
 	"MEMBER_NOT_READY": "Đồng đội chưa sẵn sàng",
 	"INVALID_QUEUE": "Chế độ này chưa mở, hãy chọn chế độ khác",
 	"PARTY_TOO_LARGE": "Đội đông hơn số người của chế độ này",
+	"ONBOARDING_REQUIRED": "Hãy chọn nhân vật khởi đầu trước",
 	"character_not_owned": "Bạn chưa sở hữu nhân vật này",
 	"too_many_items": "Chỉ mang tối đa 3 vật phẩm",
 	"item_not_owned": "Vật phẩm đã hết hoặc chưa sở hữu",

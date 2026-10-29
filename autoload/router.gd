@@ -50,6 +50,7 @@ func go_signed_in(profile: Variant) -> void:
 
 func _ready() -> void:
 	GameSocket.session_lost.connect(_on_session_lost)
+	GameSocket.event_received.connect(_on_socket_event)
 	party = load("res://screens/home/party.gd").new()
 	party.name = "Party"
 	add_child(party)
@@ -57,3 +58,16 @@ func _ready() -> void:
 
 func _on_session_lost() -> void:
 	go(LOGIN)
+
+
+## The server refused a lobby / room / QuickPlay because the player owns no character yet
+## (ONBOARDING_REQUIRED, OnboardingModel.is_required_error()): the starter pick. A screen that
+## answers the same error by going Home ends there too (Home sends a not-onboarded profile on).
+func _on_socket_event(event: String, data: Variant) -> void:
+	if not OnboardingModel.is_required_error(event, data):
+		return
+	var current := get_tree().current_scene
+	if current != null and current.scene_file_path == ONBOARDING:
+		return
+	PlayerState.characters_stale = true
+	go(ONBOARDING)

@@ -14,6 +14,9 @@ const SHOW_HINT := 0 # the hint under the name field
 const SHAKE_NAME := 1 # the hint, the field outlined red and shaken
 const GO_LOBBY := 2 # already onboarded (another device, a second tap): refresh and go on
 
+## The game server's refusal while the player owns no character (has not finished onboarding).
+const REQUIRED := "ONBOARDING_REQUIRED"
+
 ## The dice's scrambled letters (a look only, never sent).
 const SCRAMBLE := "ABCDEFGHIKLMNOPQRSTUVXYĐÂÊÔƠƯabcdeghiklmnopqrstuvxyđăâêôơư0123456789"
 
@@ -22,6 +25,13 @@ const SCRAMBLE := "ABCDEFGHIKLMNOPQRSTUVXYĐÂÊÔƠƯabcdeghiklmnopqrstuvxyđă
 ## without the field never sends anyone through it).
 static func needs_onboarding(profile: Variant) -> bool:
 	return profile is Dictionary and profile.get("onboarded") is bool and profile["onboarded"] == false
+
+
+## A WS refusal meaning the player still has to pick a starter: RoomError / LobbyError (or the
+## lobby's own Error) {"error": {"code": "ONBOARDING_REQUIRED"}}, answering CreateLobby, JoinLobby,
+## an accepted invite, StartQueue, CreateRoom, JoinRoom or QuickPlay. The Router opens the pick.
+static func is_required_error(event: String, data: Variant) -> bool:
+	return event in ["RoomError", "LobbyError", "Error"] and ErrorText.lobby_code(data) == REQUIRED
 
 
 ## The starter characters in display order (starterCharacterIds; without them every character).

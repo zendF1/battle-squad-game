@@ -98,6 +98,8 @@ func _ready() -> void:
 	_member = LobbyModel.is_queue(_base) and Router.party != null and Router.party.model.is_member()
 	_model.set_max_items(LobbyModel.max_items(_base)) # the mode's item slots (6 in a boss fight)
 	_model.restore(SETTINGS_PATH)
+	if LoadoutModel.saved_character(SETTINGS_PATH) == "": # the lobby saves its pick; else an owned one
+		_model.select_character(LoadoutModel.start_character(SETTINGS_PATH, PlayerState.profile, PlayerState.characters))
 	_quick_play = QuickPlay.new()
 	add_child(_quick_play)
 	_quick_play.changed.connect(_refresh) # also on connect / disconnect

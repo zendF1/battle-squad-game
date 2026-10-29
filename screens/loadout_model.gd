@@ -10,8 +10,10 @@ extends RefCounted
 ## (the request failed) nothing is marked or refused: the server decides. The last choice is
 ## remembered in a ConfigFile (a convenience only), shared with the lobby (its mode).
 
-## The characters (order, names, roles) and the default one (always owned) are the game data's
-## (GET /gamedata characters, defaultCharacterId).
+## The characters (order, names, roles) and the default one are the game data's (GET /gamedata
+## characters, defaultCharacterId). No character is owned for free (a player owns the starter picked
+## at onboarding and what they bought), so the default id is only a placeholder until the lobby
+## picks an owned one (start_character()).
 
 const Items := preload("res://match/items.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
@@ -54,7 +56,7 @@ func _split(all: Array) -> void:
 			hidden_items.append(item)
 
 
-## The character every player owns and plays when none is picked.
+## The game data's default character: a placeholder before anything is known (not always owned).
 static func default_character() -> String:
 	return GameData.default_character_id()
 
@@ -187,14 +189,28 @@ static func saved_character(path: String) -> String:
 	return id if id is String else ""
 
 
-## The character to start with: the one saved on this device, else the profile's main character
-## (GET /player/profile currentCharacterId: the onboarding pick, the last lobby choice), else "".
-static func start_character(path: String, profile: Variant) -> String:
+## The character to start with (the lobby on opening, the Loadout with nothing saved), never one
+## known not to be owned: the one saved on this device, else the profile's main character
+## (GET /player/profile currentCharacterId: the onboarding pick, the last lobby choice), else the
+## first owned one in the game data's order, else "". characters: GET /player/characters data
+## (null while not loaded: ownership unknown, nothing is ruled out).
+static func start_character(path: String, profile: Variant, characters: Variant = null) -> String:
+	var owned = parse_characters(characters)
 	var saved := saved_character(path)
-	if is_character(saved):
+	if _startable(saved, owned):
 		return saved
 	var current = profile.get("currentCharacterId") if profile is Dictionary else null
-	return current if current is String and is_character(current) else ""
+	if current is String and _startable(current, owned):
+		return current
+	if owned is Array:
+		for id in character_ids():
+			if owned.has(id):
+				return str(id)
+	return ""
+
+
+static func _startable(id: String, owned: Variant) -> bool:
+	return is_character(id) and (not owned is Array or owned.has(id))
 
 
 ## Restores a saved choice, dropping anything this client does not know.

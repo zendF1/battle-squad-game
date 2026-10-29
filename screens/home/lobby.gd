@@ -17,7 +17,8 @@ extends Control
 ## its hands free; the gun it wears (its basic gun when none) rests on the pedestal at its left
 ## (pedestal_gun.gd, no name under it), updated on equip / unequip. ◀ ▶ or a swipe cycles
 ## the four characters. The character is the Loadout's (saved
-## in the same settings file, so the Loadout opens with it) and the mode is remembered there
+## in the same settings file, so the Loadout opens with it; until the player picks one, an owned
+## one: _auto_pick()) and the mode is remembered there
 ## too; the card shows the mode's icon plate and name (a boss mode: a gift box with the big-reward
 ## runs left today, "×2"; the rank is the chip's, top-left), its swap button (or a tap on the card) opens the Mode Select page
 ## (open_modes, mode_select.gd), which calls choose_mode(). "BẮT ĐẦU" puts
@@ -91,6 +92,7 @@ var wallet: WalletPills
 var settings_path := LoadoutModel.SETTINGS_PATH
 
 var _model := LoadoutModel.new() # the character choice (items kept as the Loadout left them)
+var _picked := false # the player picked a character here (◀ ▶, the Nhân vật page): no automatic pick after
 var _mode := 0
 var _background := "" # the stage's background key (background())
 
@@ -134,9 +136,8 @@ var _slots: Array[PartySlot] = [] # a party mode's teammate slots (PartyLayout: 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_IGNORE
 	_model.restore(settings_path)
-	var start := LoadoutModel.start_character(settings_path, PlayerState.profile)
-	if start != "" and start != _model.character_id:
-		_model.select_character(start) # nothing saved on this device: the profile's main character
+	PlayerState.need_characters() # drops another account's cached characters before the pick
+	_auto_pick()
 	_mode = LobbyModel.restore_mode(settings_path)
 
 	_add_stage()
@@ -165,6 +166,8 @@ func _ready() -> void:
 	_pin(_build_mode_card(), 1, 1, -MARGIN, -MARGIN)
 
 	PlayerState.changed.connect(_render_player)
+	PlayerState.changed.connect(_auto_pick) # the profile's currentCharacterId
+	PlayerState.characters_changed.connect(_auto_pick)
 	PlayerState.characters_changed.connect(_render_character)
 	PlayerState.equipment_changed.connect(_render_gun)
 	PlayerState.milestones_changed.connect(_render_milestones)
@@ -523,6 +526,7 @@ func _on_stage_input(event: InputEvent) -> void:
 
 
 func _cycle(delta: int) -> void:
+	_picked = true
 	_model.select_character(LobbyModel.cycle_character(_model.character_id, delta))
 	_model.remember(settings_path)
 	_render_character()
@@ -536,10 +540,30 @@ func character_id() -> String:
 
 ## Puts `id` on the stage and remembers it (the Nhân vật page's ◀ ▶).
 func select_character(id: String) -> void:
+	_picked = true
 	_model.select_character(id)
 	_model.remember(settings_path)
 	_render_character()
 	_send_character()
+
+
+## Until the player picks one here, the stage shows LoadoutModel.start_character(): the device's
+## choice, else the profile's currentCharacterId, else the first owned one, never one the
+## characters cache says is not owned (no character is free: a Spark-only player never lands on
+## Rookie). Saved, so the Loadout opens with it. Run again when the profile or the characters load.
+func _auto_pick() -> void:
+	if _picked:
+		return
+	var start := LoadoutModel.start_character(settings_path, PlayerState.profile, PlayerState.characters)
+	if start == "":
+		return
+	var changed := start != _model.character_id
+	_model.select_character(start)
+	if LoadoutModel.saved_character(settings_path) != start:
+		_model.remember(settings_path)
+	if changed and _art != null:
+		_render_character()
+		_send_character()
 
 
 ## With a teammate in the lobby: the stage character (one I own) goes to it, their slot shows it.
