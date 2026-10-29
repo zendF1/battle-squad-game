@@ -10,6 +10,9 @@ const CharacterCard := preload("res://screens/home/character_card.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
+const PlayerFigure := preload("res://screens/home/player_figure.gd")
+const SkillDemo := preload("res://screens/skill_demo.gd")
+const ShotTimeline := preload("res://match/shot/shot_timeline.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
 const TEST_SETTINGS := "user://test_onboarding_loadout.cfg"
@@ -91,8 +94,33 @@ func test_refusals() -> void:
 	eq(offline["text"], Model.ErrorText.OFFLINE, "the offline text")
 
 
-func test_dice_glyph() -> void:
+func test_glyphs() -> void:
 	check(GlyphIcon.KINDS.has("dice"), "the dice is a glyph")
+	check(GlyphIcon.KINDS.has("blast"), "the blast reach is a glyph")
+	for key in Onboarding.STAT_GLYPHS:
+		check(GlyphIcon.KINDS.has(Onboarding.STAT_GLYPHS[key]), "%s has a glyph" % key)
+	for r in Onboarding.CharacterShopModel.STAT_ROWS:
+		check(Onboarding.STAT_GLYPHS.has(r["key"]), "every stat row has a glyph: %s" % r["key"])
+
+
+## Every starter's skill has a recorded server scene, fired by that character with that skill.
+func test_skill_demos() -> void:
+	for id in Model.starters():
+		var skill := GameData.character_skill_id(id)
+		check(SkillDemo.has_demo(skill), "%s's %s has a scene" % [id, skill])
+		var scene: Dictionary = SkillDemo.demos().get(skill, {})
+		var shooter := str(scene.get("shooter", ""))
+		eq(str(scene.get("players", {}).get(shooter, {}).get("characterId", "")), id, "%s: fired by that character" % skill)
+		var tl := ShotTimeline.new(scene.get("shot", {}))
+		eq(tl.skill_id, skill, "%s: the skill's shot" % skill)
+		eq(tl.action_mode, "skill", "%s: a skill shot" % skill)
+		check(not tl.events.is_empty(), "%s: it does something" % skill)
+		var r := SkillDemo.frame_rect(scene)
+		for pid in scene["players"]:
+			var pos: Dictionary = scene["players"][pid]["position"]
+			check(r.has_point(Vector2(float(pos["x"]), float(pos["y"]) - 1.0)), "%s: %s framed" % [skill, pid])
+		check(r.size.x >= SkillDemo.FRAME_MIN.x and r.size.y >= SkillDemo.FRAME_MIN.y, "%s: at least the smallest frame" % skill)
+	check(not SkillDemo.has_demo("nope"), "an unknown skill: none")
 
 
 func test_card_shows_info() -> void:
@@ -126,20 +154,43 @@ func _screen() -> Control:
 
 func test_screen_layout() -> void:
 	var s := _screen()
-	var stage: HBoxContainer = s.get_node("Column").find_child("Stage", true, false)
-	eq(stage.get_child_count(), 3, "◀, the figure, ▶")
-	var left: Button = stage.get_child(0)
-	var right: Button = stage.get_child(2)
-	eq(left.name, "ArrowLeft", "◀ first")
-	eq(right.name, "ArrowRight", "▶ last")
-	eq(left.custom_minimum_size, right.custom_minimum_size, "mirrored arrows")
-	eq(stage.alignment, BoxContainer.ALIGNMENT_CENTER, "the figure dead centre")
+	var row: HBoxContainer = s.find_child("Row", true, false)
+	eq(row.get_children().map(func(c: Node) -> String: return str(c.name)), ["InfoPanel", "Stage", "SkillPanel"],
+		"info left, the figure centre, the skill right")
+	var stage: HBoxContainer = row.get_child(1)
+	eq(stage.get_children().map(func(c: Node) -> String: return str(c.name)), ["ArrowLeft", "FigureBox", "ArrowRight"], "◀ figure ▶")
+	eq((stage.get_child(0) as Button).custom_minimum_size, (stage.get_child(2) as Button).custom_minimum_size, "mirrored arrows")
+	eq((row.get_child(0) as Control).custom_minimum_size, (row.get_child(2) as Control).custom_minimum_size, "panels the same size")
 	eq(s.character_id(), "rookie", "the first starter")
 	var name_label: Label = s.find_child("CharacterName", true, false)
 	eq(name_label.text, GameData.character_name("rookie"), "its name from the game data")
+	var skill_name: Label = s.find_child("SkillName", true, false)
+	eq(skill_name.text, GameData.skill_name(GameData.character_skill_id("rookie")), "its skill's name from the game data")
 	var dots: Control = s.find_child("Dots", true, false)
 	eq(dots.custom_minimum_size.x, 5.0 * Onboarding.DOT * 2, "a dot per starter")
-	check(s.find_child("InfoCard", true, false) != null, "the lobby's character card")
+	var demo = s.find_child("SkillDemo", true, false)
+	eq(demo.skill_id(), GameData.character_skill_id("rookie"), "the skill's replay")
+	s.free()
+
+
+## 16:9, 4:3, 19.5:9 and 21:9 (the viewport in design px: 1600 wide at least, 900 tall at least):
+## the panels never reach the arrows, the column fits the height.
+func test_screen_fits_every_aspect() -> void:
+	var s := _screen()
+	for v in [Vector2(1600, 900), Vector2(1600, 1200), Vector2(1950, 900), Vector2(2100, 900), Vector2(1600, 1000)]:
+		s.size = v
+		s._fit()
+		var stage_w: float = 2.0 * Onboarding.ARROW + 2.0 * Onboarding.ARROW_GAP + PlayerFigure.ART.x * s.figure_scale()
+		var row_w: float = 2.0 * s.panel_width() + 2.0 * Onboarding.ROW_GAP + stage_w
+		check(row_w <= v.x - 2.0 * Onboarding.MARGIN_X + 0.5, "%s: the row fits the width (%.0f)" % [v, row_w])
+		check(s.panel_width() >= Onboarding.PANEL_MIN_W and s.panel_width() <= Onboarding.PANEL_MAX_W, "%s: panel width in range" % v)
+		check(s.figure_scale() >= Onboarding.FIGURE_MIN and s.figure_scale() <= Onboarding.FIGURE_MAX, "%s: figure scale in range" % v)
+	s.size = Vector2(1600, 1200)
+	s._fit()
+	var tall: float = s.figure_scale()
+	s.size = Vector2(1600, 900)
+	s._fit()
+	check(tall >= s.figure_scale(), "a taller screen: the figure no smaller")
 	s.free()
 
 
@@ -149,6 +200,7 @@ func test_screen_cycles_and_wraps() -> void:
 	eq(s.character_id(), "tanko", "▶")
 	var name_label: Label = s.find_child("CharacterName", true, false)
 	eq(name_label.text, GameData.character_name("tanko"), "the name follows")
+	eq(s.find_child("SkillDemo", true, false).skill_id(), GameData.character_skill_id("tanko"), "the replay restarts on its skill")
 	s.cycle(-1)
 	s.cycle(-1)
 	eq(s.character_id(), "tide", "◀ from the first wraps to the last")

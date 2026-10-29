@@ -10,14 +10,15 @@ extends Control
 ## `tint`: ShowcaseModel.GEM_COLORS) and the loading screen's failure ("offline": wi-fi arcs crossed
 ## out in red; "retry": a white turning arrow on a blue disc, its button) and the legal popup's
 ## "open in browser" ("browser": a page frame with an arrow leaving its top-right corner) and the
-## onboarding name field's random name button ("dice": a white die showing five). Drawn on
+## onboarding name field's random name button ("dice": a white die showing five) and a shell's
+## blast reach ("blast": an orange burst inside a dashed ring, Bán kính nổ). Drawn on
 ## a 96 × 96 canvas scaled into the control's square and centred (a single-focus picture). make()
 ## for a layout, info_button() for the round "i" button that opens a card's popup.
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 
 const KINDS := ["heart", "sword", "shield", "info", "clock", "arrow", "power", "level", "insignia", "trophy",
-	"boot", "magic", "terrain", "crit", "gem", "wind", "offline", "retry", "browser", "dice"]
+	"boot", "magic", "terrain", "crit", "gem", "wind", "offline", "retry", "browser", "dice", "blast"]
 const OUTLINE := Color(0.07, 0.07, 0.14)
 const W := 5.0
 const HEART := Color(1.0, 0.33, 0.4)
@@ -151,6 +152,7 @@ func _draw() -> void:
 		"retry": _retry()
 		"browser": _browser()
 		"dice": _dice()
+		"blast": _blast()
 
 
 func _poly(pts: PackedVector2Array, fill: Color, w: float = W) -> void:
@@ -420,3 +422,14 @@ func _dice() -> void:
 	draw_colored_polygon(_rounded(Rect2(20, 16, 34, 18), 8), Color(1, 1, 1, 0.8))
 	for p in [Vector2(32, 30), Vector2(64, 30), Vector2(48, 44), Vector2(32, 58), Vector2(64, 58)]:
 		draw_circle(p, 6.5, DICE_PIP if p != Vector2(48, 44) else CRIT, true, -1.0, true)
+
+
+## An orange burst with a hot core inside a dashed white ring (how far a blast reaches).
+func _blast() -> void:
+	for i in 12:
+		var a := TAU * i / 12.0
+		draw_arc(Vector2(48, 48), 40, a, a + TAU / 24.0, 6, OUTLINE, 10.0, true)
+		draw_arc(Vector2(48, 48), 40, a + 0.02, a + TAU / 24.0 - 0.02, 6, WING, 5.0, true)
+	_poly(_star(Vector2(48, 48), 30, 16, 8, -PI / 8), BURST)
+	draw_colored_polygon(_star(Vector2(48, 48), 20, 11, 8, -PI / 8), BURST_LIGHT)
+	draw_circle(Vector2(48, 48), 7.0, BOLT, true, -1.0, true)

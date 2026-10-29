@@ -63,6 +63,12 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   `<material>_hang.png` (128 wide, transparent, hanging under undersides). Materials and their
   cap / band / hang rows: `match/theme/material_painter.gd` SPECS; which theme uses which:
   `match/theme/map_themes.gd` LOOKS.
+- **Skill previews** (`skill_demos/skill_demos.json`, not a picture: the looping skill replay on the
+  first-login character pick, `screens/skill_demo.gd`): one recorded server scene per skill id (the
+  players and terrain before the shot and the ShotResolved the server sent, on grassland_valley with
+  the starting gun, `terrainAfter` dropped), replayed by the match's own views. Re-record it from the
+  server's match tests when a skill's look or numbers change; a skill without a scene shows its
+  picture, name and description only.
 - **Status icons** (`ui/status/<id>.png`, ids burn / root / stun / freeze / net / shield: the
   picture inside the small round badge beside a player's HP bar in a match,
   `match/views/status_icons.gd`): none shipped yet, the badges are code-drawn; drop a square PNG
