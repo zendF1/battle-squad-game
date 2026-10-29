@@ -4,6 +4,8 @@ Godot 4.7 client of battle-squad (server: ../battle-squad).
 
 ## Docs
 
+How work is split and run (agents, branches from `feat/dev`, worktrees, merge back): `../battle-squad/docs/agents.md`; read it before starting a feature.
+
 Everything agreed with the user goes into docs in the same change: specs and the decision log live in the server repo (`../battle-squad/docs/specs/`, `../battle-squad/docs/product-decisions.md`); client-only details (art prompts, screen behaviour) in this repo's docs / `art_source/*/PROMPTS.md`.
 
 ## UI
