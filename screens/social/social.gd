@@ -162,6 +162,7 @@ func poll(channel: String, target: String = "", now: bool = false) -> void:
 
 ## Adds messages to a conversation (a poll's, my sent one's).
 func take(feed_key: String, list: Array) -> void:
+	_check_player()
 	var f := _feed(feed_key)
 	var before: int = ChatModel.last_id(f["messages"])
 	f["messages"] = ChatModel.merge(f["messages"], list)
