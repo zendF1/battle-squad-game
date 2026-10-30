@@ -86,6 +86,7 @@ signal _gamedata_done # a load_gamedata() fetch ended
 signal chests_changed # owned chests, their loading / error or chest_busy changed
 signal season_rewards_changed # a GET /rank/season-rewards answer was applied, or a claim ended
 signal leaderboard_changed(type: String) # a GET /leaderboard answer (or its failure) was applied, or a load started
+signal reward_landed # a match reward that was on its way reached the profile (watch_pending_reward())
 
 const IdempotencyKeys := preload("res://core/idempotency_keys.gd")
 const Coalescer := preload("res://core/coalescer.gd")
@@ -101,6 +102,7 @@ const SeasonRewardModel := preload("res://screens/ranked/season_reward_model.gd"
 const LeaderboardModel := preload("res://screens/home/leaderboard_model.gd")
 const ShowcaseModel := preload("res://screens/home/showcase_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
+const RewardWatch := preload("res://autoload/reward_watch_model.gd")
 
 ## What a payment refreshes once it succeeded.
 const AFTER_WALLET := 0 # the wallet only (a top-up)
@@ -541,6 +543,67 @@ func load_match_gamedata(v: String) -> bool:
 			GameData.use_match(GameData.lobby_version)
 		return false
 	return GameData.version == v
+
+
+## A match ended with its reward still on its way (MatchEnded rewardSettlementStatus "pending"):
+## the server grants it later and says nothing, so the profile is fetched again a few times
+## (autoload/reward_watch_model.gd) until its coin / exp / level move; then (or when the checks
+## run out) whatever a reward changes is reloaded (_reload_after_reward()) and, when it moved,
+## reward_landed tells the result screen. The watch outlives the result screen, so Home shows the
+## reward once it lands; a new match or another account ends it.
+var _reward_watch := RewardWatch.new()
+var _reward_timer: Timer
+var pending_reward_landed := false # the watched reward landed (the result screen may open after)
+
+
+func watch_pending_reward() -> void:
+	pending_reward_landed = false
+	_reward_watch.start(profile, Session.player_id)
+	if _reward_timer == null:
+		_reward_timer = Timer.new()
+		_reward_timer.one_shot = true
+		_reward_timer.timeout.connect(check_pending_reward)
+		add_child(_reward_timer)
+	_reward_timer.start(_reward_watch.next_delay())
+
+
+func stop_reward_watch() -> void:
+	_reward_watch.stop()
+	if _reward_timer != null:
+		_reward_timer.stop()
+
+
+func reward_watching() -> bool:
+	return _reward_watch.active
+
+
+## One check of the watch: the profile again, then wait, or reload what the reward changed.
+func check_pending_reward() -> void:
+	if not _reward_watch.active:
+		return
+	await refresh()
+	match _reward_watch.on_profile(profile, Session.player_id):
+		RewardWatch.WAIT:
+			if _reward_timer != null:
+				_reward_timer.start(_reward_watch.next_delay())
+		RewardWatch.LANDED:
+			pending_reward_landed = true
+			_reload_after_reward()
+			reward_landed.emit()
+		RewardWatch.GAVE_UP:
+			_reload_after_reward()
+
+
+## A match reward reached the server's profile / bag: the characters (their exp), the inventory
+## (assets_dirty: the tabs reload), the stones, the chests, the rank and the counts it moves.
+func _reload_after_reward() -> void:
+	characters_stale = true
+	assets_dirty.emit()
+	stones_dirty()
+	chests_dirty()
+	load_rank()
+	load_milestone_summary()
+	load_daily()
 
 
 ## Back in the foreground: check the game data again when the last good answer is old.

@@ -95,9 +95,10 @@ static func mvp_of(d: Dictionary, players: Dictionary, me: String) -> String:
 ## My rewards: ResultModel.reward() (ok, exp, coin, the level ups, chests: a bonus run's stone
 ## chests [{chestId, qty, name, text}]) plus boss_damage, minion_damage,
 ## bonus_run, bonus_left (-1 unknown), items [{itemId, qty, name}], gift_text (the big runs left by
-## the gift box: "×2"; "" unknown), damage_text ("Sát thương boss 9.000").
-static func reward(r: Variant, mode: String) -> Dictionary:
-	var out := ResultModel.reward(r, mode)
+## the gift box: "×2"; "" unknown), damage_text ("Sát thương boss 9.000"). `status` is MatchEnded's
+## rewardSettlementStatus (ResultModel.settlement_of()): null rewards still pending are on their way.
+static func reward(r: Variant, mode: String, status: String = ResultModel.COMPLETED) -> Dictionary:
+	var out := ResultModel.reward(r, mode, status)
 	out["rank"] = {}
 	var d: Dictionary = r if r is Dictionary else {}
 	out["boss_damage"] = maxi(int(_num(d.get("bossDamage"))), 0)
@@ -180,7 +181,7 @@ static func subtitle(i: Dictionary) -> String:
 
 ## Everything the screen shows: {outcome (ResultModel WIN / LOSE), result, title, round_text,
 ## boss: {boss_id, name, art, hp, max_hp, ratio, hp_text}, ranking, podium, mvp, reward}. boss_id: the
-## match's (the boss block's wins).
+## match's (the boss block's wins); the reward's settlement is MatchEnded's (ResultModel.settlement_of()).
 static func info(d: Dictionary, players: Dictionary, me: String, boss_id: String, my_reward: Variant) -> Dictionary:
 	var my_team := int(_num(players.get(me, {}).get("teamId"), 1))
 	var res := result_of(d, my_team)
@@ -195,4 +196,4 @@ static func info(d: Dictionary, players: Dictionary, me: String, boss_id: String
 		"round_text": round_text(d),
 		"boss": {"boss_id": bid, "name": GameData.boss_name(bid), "art": BossArt.art_of(bid), "hp": hp, "max_hp": max_hp,
 			"ratio": float(hp) / float(max_hp), "hp_text": "%s / %s" % [Fmt.thousands(hp), Fmt.thousands(max_hp)]},
-		"ranking": rows, "podium": podium(rows), "mvp": mvp, "reward": reward(my_reward, "")}
+		"ranking": rows, "podium": podium(rows), "mvp": mvp, "reward": reward(my_reward, "", ResultModel.settlement_of(d))}

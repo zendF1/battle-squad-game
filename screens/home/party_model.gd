@@ -21,7 +21,11 @@ extends RefCounted
 ## Before the first invite without a lobby, CreateLobby goes first and the invite follows its
 ## LobbyUpdated; a CreateLobby refused because the server still has me in a lobby / a room leaves
 ## it (LeaveLobby / Leave) and asks again, once; an InviteToLobby answered LOBBY_REQUIRED /
-## LOBBY_NOT_FOUND (my lobby is gone on the server) creates a new one and invites again. The lobby
+## LOBBY_NOT_FOUND (my lobby is gone on the server) creates a new one and invites again (a CreateLobby
+## answered LOBBY_NOT_FOUND, my old lobby closing, is asked again once); any other
+## LOBBY_NOT_FOUND about my lobby (it closed under me: a SetReady, an UpdateLoadout, a
+## SetLobbyQueue...) forgets it like LobbyDisbanded, with a toast (one answering my accepted
+## invite is about the inviter's lobby: only the toast). The lobby
 ## filling up cancels my other invites on the server (it tells only their invitees): the
 ## "Đã mời" rows clear with the LobbyUpdated that fills it. Lobby errors are shown only within ERROR_WINDOW of
 ## a request of mine (other screens handle their own: the ranked queue, a match's leave).
@@ -56,6 +60,7 @@ var players: Array = [] # parse_player() of the last OnlinePlayers
 var _invite_after_create := "" # a playerId to invite once CreateLobby answers
 var _inviting := "" # the playerId of the InviteToLobby waiting for its answer
 var _create_retried := false
+var _accepting := false # an accepted invite waits for its LobbyUpdated (a LOBBY_NOT_FOUND is about that lobby)
 var _expect_until := -1.0 # a lobby error before this answers a request of mine
 
 
@@ -294,6 +299,7 @@ func respond(accept: bool, now: float) -> Array:
 		return []
 	var id: String = incoming["inviteId"]
 	incoming = {}
+	_accepting = accept
 	_expect(now)
 	return [["send", "RespondInvite", {"inviteId": id, "accept": accept}], ["invite_closed"]]
 
@@ -460,6 +466,7 @@ func _on_lobby(data: Variant) -> Array:
 			mine = true
 	if not mine:
 		return [] # not about my lobby
+	_accepting = false
 	lobby = next
 	var out: Array = [["changed"]]
 	if is_full():
@@ -476,18 +483,29 @@ func _on_lobby(data: Variant) -> Array:
 
 func _on_error(data: Variant, now: float) -> Array:
 	var code := ErrorText.lobby_code(data)
+	var accepting := _accepting # this error answers my accepted invite
+	_accepting = false
 	if code == "PARTY_TOO_LARGE":
 		# SetLobbyQueue to a mode smaller than the party: the lobby keeps its queue.
 		_expect_until = -1.0
 		return [["toast", ErrorText.lobby_error(data)], ["queue_refused"], ["changed"]]
 	if _invite_after_create != "":
 		# The CreateLobby before an invite was refused.
-		if not _create_retried and code in ["ALREADY_IN_LOBBY", "IN_ROOM"]:
+		if not _create_retried and code in ["ALREADY_IN_LOBBY", "IN_ROOM", "LOBBY_NOT_FOUND"]:
 			_create_retried = true
 			_expect(now)
+			if code == "LOBBY_NOT_FOUND": # my old lobby was closing: the server forgot it, ask again
+				lobby = {}
+				return [_create_lobby()]
 			return [["send", "LeaveLobby" if code == "ALREADY_IN_LOBBY" else "Leave", {}], _create_lobby()]
 		_invite_after_create = ""
 		return [["toast", ErrorText.lobby_error(data)]]
+	if code == "LOBBY_NOT_FOUND" and _inviting == "":
+		if not accepting and in_lobby():
+			# My lobby closed under me (the server already dropped me from it).
+			forget()
+			_expect_until = -1.0
+			return [["toast", ErrorText.lobby_error(data)], ["changed"]]
 	if _inviting != "" and now <= _expect_until:
 		var id := _inviting
 		_inviting = ""

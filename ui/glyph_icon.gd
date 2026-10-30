@@ -11,14 +11,16 @@ extends Control
 ## out in red; "retry": a white turning arrow on a blue disc, its button) and the legal popup's
 ## "open in browser" ("browser": a page frame with an arrow leaving its top-right corner) and the
 ## onboarding name field's random name button ("dice": a white die showing five) and a shell's
-## blast reach ("blast": an orange burst inside a dashed ring, Bán kính nổ). Drawn on
+## blast reach ("blast": an orange burst inside a dashed ring, Bán kính nổ) and a match reward still on
+## its way ("hourglass": gold sand running down a glass between two wooden caps; "check": a white
+## tick on a green disc once it landed). Drawn on
 ## a 96 × 96 canvas scaled into the control's square and centred (a single-focus picture). make()
 ## for a layout, info_button() for the round "i" button that opens a card's popup.
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 
 const KINDS := ["heart", "sword", "shield", "info", "clock", "arrow", "power", "level", "insignia", "trophy",
-	"boot", "magic", "terrain", "crit", "gem", "wind", "offline", "retry", "browser", "dice", "blast"]
+	"boot", "magic", "terrain", "crit", "gem", "wind", "offline", "retry", "browser", "dice", "blast", "hourglass", "check"]
 const OUTLINE := Color(0.07, 0.07, 0.14)
 const W := 5.0
 const HEART := Color(1.0, 0.33, 0.4)
@@ -153,6 +155,8 @@ func _draw() -> void:
 		"browser": _browser()
 		"dice": _dice()
 		"blast": _blast()
+		"hourglass": _hourglass()
+		"check": _check()
 
 
 func _poly(pts: PackedVector2Array, fill: Color, w: float = W) -> void:
@@ -433,3 +437,25 @@ func _blast() -> void:
 	_poly(_star(Vector2(48, 48), 30, 16, 8, -PI / 8), BURST)
 	draw_colored_polygon(_star(Vector2(48, 48), 20, 11, 8, -PI / 8), BURST_LIGHT)
 	draw_circle(Vector2(48, 48), 7.0, BOLT, true, -1.0, true)
+
+
+## An hourglass: a light glass narrowing to its waist between two wooden caps, gold sand left in
+## the top bulb, a thin stream and a heap in the bottom one.
+func _hourglass() -> void:
+	_poly(PackedVector2Array([Vector2(26, 16), Vector2(70, 16), Vector2(52, 48), Vector2(70, 80), Vector2(26, 80),
+		Vector2(44, 48)]), Color(0.86, 0.94, 1.0))
+	draw_colored_polygon(PackedVector2Array([Vector2(33, 30), Vector2(63, 30), Vector2(50, 46), Vector2(46, 46)]), GOLD)
+	_stroke(PackedVector2Array([Vector2(48, 46), Vector2(48, 72)]), GOLD, 3.0, 0.0)
+	draw_colored_polygon(PackedVector2Array([Vector2(31, 78), Vector2(65, 78), Vector2(48, 63)]), GOLD)
+	draw_colored_polygon(PackedVector2Array([Vector2(31, 20), Vector2(38, 20), Vector2(46, 38), Vector2(43, 40)]), Color(1, 1, 1, 0.6))
+	for y in [8.0, 78.0]:
+		_poly(_rounded(Rect2(14, y, 68, 12), 5), LEATHER)
+		draw_colored_polygon(_rounded(Rect2(18, y + 2, 60, 4), 2), Color(1, 1, 1, 0.25))
+
+
+## A white tick on a green disc.
+func _check() -> void:
+	draw_circle(Vector2(48, 48), 42, OUTLINE, true, -1.0, true)
+	draw_circle(Vector2(48, 48), 37, GRASS, true, -1.0, true)
+	draw_arc(Vector2(48, 48), 31, PI * 1.1, PI * 1.6, 16, Color(1, 1, 1, 0.35), 4.0, true)
+	_stroke(PackedVector2Array([Vector2(29, 50), Vector2(43, 64), Vector2(68, 35)]), Color.WHITE, 11.0, 0.0)
