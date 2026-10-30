@@ -13,6 +13,9 @@ extends Control
 ## icons with "×N", ui/reward_strip.gd mini_tile), a small gold chip by "PHẦN THƯỞNG" with the new
 ## levels after a level up, and for ranked the grade's insignia with its name and "+30 điểm hạng"
 ## (or −). A match that gives nothing (QuickPlay vs AI, practice: all 0) shows no rewards card.
+## Rewards still on their way (pending settlement, no rewards sent) show the turning hourglass
+## with a short line (match/reward_pending.gd; a tick once PlayerState sees them land), rewards not
+## granted ResultModel.FAILED_TEXT.
 ## One after another: the EXP, then "LÊN CẤP!" (match/level_up_popup.gd) when the player or the
 ## character levelled up, the coins, then the rank popup (match/rank_popup.gd) when the division
 ## or grade changed (the insignia and the name then flip to the new rank), else the points
@@ -43,6 +46,7 @@ const Fmt := preload("res://core/fmt.gd")
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const RewardModel := preload("res://ui/reward_model.gd")
 const RewardStrip := preload("res://ui/reward_strip.gd")
+const RewardPending := preload("res://match/reward_pending.gd")
 
 const SLOT_W := 250.0
 const SLOT_GAP := 24.0
@@ -325,8 +329,10 @@ func _build_bottom() -> Control:
 	_level_chip_text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	chip_row.add_child(_level_chip_text)
 	head.add_child(_level_chip)
-	if not reward.get("ok", false):
-		col.add_child(LobbyUi.text("Chưa lấy được phần thưởng của trận này", 24, Color.WHITE, true))
+	if reward.get("pending", false): # on its way: the hourglass (PlayerState watches the profile)
+		col.add_child(RewardPending.make())
+	elif not reward.get("ok", false):
+		col.add_child(LobbyUi.text(ResultModel.FAILED_TEXT, 24, Color.WHITE, true))
 	else:
 		var exp_row := Ui.hbox(12)
 		col.add_child(exp_row)

@@ -338,6 +338,7 @@ var _action_at := -10_000_000 # Time.get_ticks_usec() when my last Move/Shoot/En
 
 func _ready() -> void:
 	_me = Session.player_id
+	PlayerState.stop_reward_watch() # a last match's reward still on its way: Home reloads it, this match has its own
 	var far := CanvasLayer.new() # the sky: a far layer behind the world, in parallax with the camera
 	far.layer = -1
 	add_child(far)
@@ -1505,6 +1506,8 @@ func _on_match_ended(d: Dictionary) -> void:
 		PlayerState.boss_runs_stale() # the Boss tab reloads the runs left
 		PlayerState.chests_dirty() # a bonus run's chests
 	var info := result_info(d)
+	if info["reward"].get("pending", false):
+		PlayerState.watch_pending_reward() # it lands in the profile later, with no event: poll it
 	# A Timer child: leaving the screen during the wait frees it with the screen, nothing fires.
 	var delay := Timer.new()
 	delay.name = "ResultDelay"
@@ -1518,8 +1521,8 @@ func _on_match_ended(d: Dictionary) -> void:
 
 
 ## The result screen's data (ResultScreen.setup()) for a MatchEnded {winningTeam, rewards,
-## stats?, mvpPlayerId?}. The server sends "rewards": null when granting them failed: shown as
-## such, never as +0.
+## rewardSettlementStatus?, stats?, mvpPlayerId?}. "rewards": null is never shown as +0: on its way
+## while the settlement is pending (ResultModel.settlement_of()), else not granted.
 func result_info(d: Dictionary) -> Dictionary:
 	var my_team := int(_players.get(_me, {}).get("teamId", -1))
 	var winning_team := int(d.get("winningTeam", 0)) # 0: no team left alive
@@ -1539,7 +1542,7 @@ func result_info(d: Dictionary) -> Dictionary:
 		return boss_result_info(d, reward, char_id)
 	return {"outcome": ResultModel.outcome(my_team, winning_team), "left": entries["left"], "right": entries["right"],
 		"mvp": ResultModel.mvp(_players, order, stats, d.get("mvpPlayerId"), _damage_by),
-		"reward": ResultModel.reward(reward, _mode),
+		"reward": ResultModel.reward(reward, _mode, ResultModel.settlement_of(d)),
 		"exp": {"level": PlayerState.level(), "exp": PlayerState.player_exp()} if PlayerState.is_loaded() else {},
 		"char_name": LobbyModel.character_info(char_id, null)["name"],
 		"again": "" if _party_member() else ResultModel.again_text(_mode, not Router.last_quick_play.is_empty())}
@@ -1589,7 +1592,7 @@ func _on_again(screen: Control) -> void:
 		add_child(_replay)
 		_replay.changed.connect(func() -> void: screen.set_status(_replay.status, _replay.pending))
 	if not _replay.request(Router.last_quick_play):
-		screen.set_status("Mất kết nối, hãy thử lại khi online", false)
+		screen.set_status(_replay.status if _replay.status != "" else "Mất kết nối, hãy thử lại khi online", false)
 
 
 # ── Local actions ────────────────────────────────────────────────────────────
