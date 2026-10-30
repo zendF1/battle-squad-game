@@ -92,9 +92,6 @@ func _ready() -> void:
 	GuildState.activity_changed.connect(_on_state)
 	GuildState.invites_changed.connect(_on_state)
 	GuildState.rankings_changed.connect(_render_ranking)
-	PlayerState.changed.connect(func() -> void:
-		if is_visible_in_tree() and not GuildState.in_guild():
-			_render_guild()) # the wallet under the cost
 	visibility_changed.connect(_ensure_loaded)
 	show_tab(_tab)
 	_arm.call_deferred()
@@ -152,7 +149,7 @@ func _dress_tab(b: Button, t: Dictionary) -> void:
 func _on_state() -> void:
 	if is_inside_tree():
 		_render_guild.call_deferred()
-		if GuildState.in_guild() and GuildState.activity.is_empty() and is_visible_in_tree():
+		if GuildState.in_guild() and GuildState.activity.is_empty() and GuildState.activity_error == "" and is_visible_in_tree():
 			GuildState.load_activity()
 
 
@@ -163,6 +160,7 @@ func _render_guild() -> void:
 	if _guild_view == null:
 		return
 	var typed := _name_input.text if is_instance_valid(_name_input) else ""
+	var typing := is_instance_valid(_name_input) and _name_input.has_focus()
 	Ui.clear(_guild_view)
 	_name_input = null
 	var body: Control
@@ -180,6 +178,9 @@ func _render_guild() -> void:
 		body = _build_join_view(typed)
 	body.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_guild_view.add_child(body)
+	if typing and _name_input != null:
+		_name_input.grab_focus.call_deferred() # a reload while typing keeps the field
+		_name_input.caret_column = typed.length()
 
 
 ## Not in a guild: Lập bang hội | Lời mời, two equal panels.
@@ -324,6 +325,22 @@ func _invite_row(inv: Dictionary) -> Control:
 	n.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	n.size_flags_horizontal = SIZE_EXPAND_FILL
 	h.add_child(n)
+	var info: Dictionary = GuildState.invite_guilds.get(str(inv["guild_id"]), {})
+	if not info.is_empty(): # the inviting guild's level and members (GET /guilds/{id})
+		var members := Ui.hbox(6)
+		members.name = "Members"
+		members.add_child(LobbyUi.icon("characters", 30))
+		var mc := LobbyUi.text(GuildModel.members_text(info, int(GameData.guild_rules()["max_members"])), 22, Color.WHITE, true)
+		mc.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		members.add_child(mc)
+		h.add_child(members)
+		var lv := Ui.hbox(4)
+		lv.name = "Level"
+		lv.add_child(GlyphIcon.make("level", 30))
+		var lt := LobbyUi.text(str(int(info["level"])), 24, LobbyUi.GOLD, true)
+		lt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lv.add_child(lt)
+		h.add_child(lv)
 	var yes := LobbyUi.round_button("check", 58, LobbyUi.ICON_COLORS["green"])
 	yes.name = "Accept"
 	yes.tooltip_text = "Vào bang"

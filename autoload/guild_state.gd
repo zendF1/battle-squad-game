@@ -16,7 +16,10 @@ extends Node
 ##
 ## Hooks for the other features (chat's Bang hội tab, the friends list's "Mời vào bang hội"):
 ## guild_id() / in_guild() / my_role() / can_invite(), the `changed` signal, and
-## invite_player(host, player_id): the invite with its toast.
+## invite_player(host, player_id): the invite with its toast. When the chat / friends state is
+## there (Router.social, feat/social-chat) it is plugged in at start: its "Mời vào guild" action
+## sends invite_player() (allowed while I may invite and the player is not in my guild), and each
+## answer about my guild tells it my guild id (set_guild()).
 
 signal changed # guild, known or loading changed (my membership, the roster, level / EXP)
 signal activity_changed
@@ -39,6 +42,10 @@ var rankings_loaded := false
 var rankings_error := ""
 var invites: Array = [] # GuildModel.parse_invites()
 var invites_loaded := false
+## The inviting guilds' summaries (GET /guilds/{id}: level, members), guild id → parse_guild();
+## fetched after the invites, at most INVITE_DETAILS of them, each once a session.
+var invite_guilds := {}
+const INVITE_DETAILS := 10
 var busy := "" # the action running ("" none)
 
 var _player := "" # whose guild this is
@@ -53,6 +60,36 @@ var api: Object = null
 
 func _api() -> Object:
 	return api if api != null else Api
+
+
+func _ready() -> void:
+	changed.connect(_sync_social)
+	_hook_social.call_deferred() # after the Router (an autoload after this one) made its parts
+
+
+## The chat / friends state (Router.social) when the build has it; null otherwise.
+func _social() -> Object:
+	var router := get_node_or_null("/root/Router")
+	var s = router.get("social") if router != null else null
+	return s if s is Object else null
+
+
+func _hook_social() -> void:
+	var s := _social()
+	if s == null or not s.has_method("set_guild_invite"):
+		return
+	s.set_guild_invite(func(player_id: String, _display_name: String) -> void:
+		var host = get_tree().current_scene
+		invite_player(host if host is Control else null, player_id),
+		func(player_id: String) -> bool: return can_invite() and GuildModel.role_of(guild, player_id) == "")
+	_sync_social()
+
+
+## Tells the chat my guild (the Bang hội conversation) once this account's guild is known.
+func _sync_social() -> void:
+	var s := _social()
+	if s != null and known and s.has_method("set_guild"):
+		s.set_guild(guild_id())
 
 
 # ── For other features ──────────────────────────────────────────────────────
@@ -80,7 +117,7 @@ func can_invite() -> bool:
 ## Invites `player_id` to my guild and says how it went as a toast on `host`.
 func invite_player(host: Control, player_id: String) -> Dictionary:
 	var res := await invite(player_id)
-	if is_instance_valid(host):
+	if host != null and is_instance_valid(host):
 		load("res://ui/ui.gd").toast(host, "Đã gửi lời mời vào bang hội" if res.ok else GuildModel.error_text(res, "invite"))
 	return res
 
@@ -94,6 +131,7 @@ func _check_account() -> void:
 		activity = {}
 		invites = []
 		invites_loaded = false
+		invite_guilds = {}
 
 
 # ── Loads ───────────────────────────────────────────────────────────────────
@@ -185,6 +223,23 @@ func load_invites() -> void:
 			invites_loaded = true
 		break
 	invites_changed.emit()
+	_load_invite_guilds()
+
+
+## The invites' guild summaries not fetched yet (the first INVITE_DETAILS invites only).
+func _load_invite_guilds() -> void:
+	var asked := false
+	for inv in invites.slice(0, INVITE_DETAILS):
+		var id: String = inv["guild_id"]
+		if invite_guilds.has(id):
+			continue
+		invite_guilds[id] = {} # asked
+		var res: Dictionary = await _api().get_json("/guilds/%s" % id)
+		if res.ok:
+			invite_guilds[id] = GuildModel.parse_guild(res.data)
+			asked = true
+	if asked:
+		invites_changed.emit()
 
 
 ## Mine and the guild's state after a change: the guild, its activity, the invites.

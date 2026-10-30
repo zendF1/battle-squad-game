@@ -231,6 +231,13 @@ func test_page_views() -> void:
 	page._render_guild()
 	check(page.find_child("CreatePanel", true, false) != null, "create panel")
 	check(page.find_child("Invite_g1", true, false) != null, "invite row")
+	check(page.find_child("Invite_g1", true, false).find_child("Members", true, false) == null, "no summary yet")
+	var saved_details: Dictionary = GuildState.invite_guilds
+	GuildState.invite_guilds = {"g1": GuildModel.parse_guild({"id": "g1", "name": "Rồng Lửa", "level": 7, "memberCount": 12, "maxMembers": 50})}
+	page._render_guild()
+	var members: Node = page.find_child("Invite_g1", true, false).find_child("Members", true, false)
+	check(members != null and members.find_children("*", "Label", true, false)[0].text == "12/50", "the inviting guild's members")
+	GuildState.invite_guilds = saved_details
 	var cost: Node = page.find_child("Cost", true, false)
 	var cost_texts: Array = cost.find_children("*", "Label", true, false).map(func(l): return l.text)
 	eq(cost_texts, ["1.000"], "the cost from the game data")
