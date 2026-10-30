@@ -12,6 +12,7 @@ const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
 const Fmt := preload("res://core/fmt.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
+const GuildModel := preload("res://screens/guild/guild_model.gd")
 
 const WIN := "win"
 const LOSE := "lose"
@@ -124,21 +125,23 @@ static func damage_text(damage: int) -> String:
 ## My rewards from MatchEnded.rewards[me] (null: granting failed) for a match in `mode`:
 ## {ok, exp, coin (bonus included), bonus_coin (a ranked match's bonus, inside coin), stones
 ## [{level, qty}], chests [ChestModel.match_chests()], level_up, new_level, char_level_up,
-## char_level, char_gained (levels), rank (RankModel.result_of), empty (granted but nothing: no
-## reward rows)}.
+## char_level, char_gained (levels), rank (RankModel.result_of), guild (GuildModel.parse_progress()
+## of rewards[me].guild: the guild EXP and the dungeon cleared; {} none), empty (granted but
+## nothing: no reward rows)}.
 static func reward(r: Variant, mode: String) -> Dictionary:
 	if not r is Dictionary:
 		return {"ok": false, "exp": 0, "coin": 0, "bonus_coin": 0, "stones": [], "chests": [], "level_up": false, "new_level": 0,
-			"char_level_up": false, "char_level": 0, "char_gained": 0, "rank": {}, "empty": false}
+			"char_level_up": false, "char_level": 0, "char_gained": 0, "rank": {}, "guild": {}, "empty": false}
 	var out := {"ok": true, "exp": int(_num(r.get("expGained"))) if _num(r.get("expGained")) > 0 else 0,
 		"coin": int(_num(r.get("coinGained"))) if _num(r.get("coinGained")) > 0 else 0,
 		"bonus_coin": int(_num(r.get("bonusCoin"))) if _num(r.get("bonusCoin")) > 0 else 0,
 		"stones": stones_of(r.get("stones")), "chests": ChestModel.match_chests(r.get("chests")),
 		"level_up": r.get("levelUp") is bool and r["levelUp"], "new_level": maxi(0, int(_num(r.get("newLevel")))),
 		"char_level_up": r.get("charLevelUp") is bool and r["charLevelUp"], "char_level": maxi(0, int(_num(r.get("charNewLevel")))),
-		"char_gained": maxi(0, int(_num(r.get("charLevelsGained")))), "rank": RankModel.result_of(mode, r)}
+		"char_gained": maxi(0, int(_num(r.get("charLevelsGained")))), "rank": RankModel.result_of(mode, r),
+		"guild": GuildModel.parse_progress(r.get("guild"))}
 	out["empty"] = out["exp"] == 0 and out["coin"] == 0 and out["stones"].is_empty() and out["chests"].is_empty() \
-		and out["rank"].is_empty() and not out["level_up"] and not out["char_level_up"]
+		and out["rank"].is_empty() and not out["level_up"] and not out["char_level_up"] and guild_tile(out).is_empty()
 	return out
 
 
@@ -156,7 +159,7 @@ static func stones_of(v: Variant) -> Array:
 
 
 ## A reward's tiles for ui/reward_strip.gd, in the order shown: the coins (when > 0), the stones
-## (lowest level first), the chests, the items: [{kind: "coin" | "stone" | "chest" | "item", id,
+## (lowest level first), the chests, the items, the guild EXP (guild_tile()): [{kind: "coin" | "stone" | "chest" | "item" | "guild", id,
 ## level (a stone's, else 0), qty, name (the tooltip: game data / "Đá cấp 3" / "Xu")}]. A reward
 ## that was not granted has none.
 static func reward_tiles(reward: Dictionary) -> Array:
@@ -172,7 +175,20 @@ static func reward_tiles(reward: Dictionary) -> Array:
 		out.append({"kind": "chest", "id": str(c["chestId"]), "level": 0, "qty": int(c["qty"]), "name": str(c.get("name", ""))})
 	for it in reward.get("items", []):
 		out.append({"kind": "item", "id": str(it["itemId"]), "level": 0, "qty": int(it["qty"]), "name": str(it.get("name", ""))})
+	var guild := guild_tile(reward)
+	if not guild.is_empty():
+		out.append(guild)
 	return out
+
+
+## The guild EXP tile of a reward (kind "guild", id the guild's id: its crest; qty the EXP;
+## done: today's dungeon cleared, the gate's check on it); {} when the match moved no guild goal.
+static func guild_tile(reward: Dictionary) -> Dictionary:
+	var g: Dictionary = reward.get("guild", {})
+	if g.is_empty() or (int(g.get("exp", 0)) <= 0 and not g.get("dungeon_done", false)):
+		return {}
+	return {"kind": "guild", "id": str(g["guild_id"]), "level": 0, "qty": int(g.get("exp", 0)), "done": g.get("dungeon_done", false),
+		"name": "EXP bang hội"}
 
 
 ## A tile's count under its icon: "×3", "×1.200".

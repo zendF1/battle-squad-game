@@ -40,6 +40,8 @@ signal skill_pressed
 signal item_pressed(item_id: String)
 signal awaken_pressed(slot: String)
 signal leave_pressed
+## A tap on the turn portrait: that player's info popup (match/views/player_info_popup.gd).
+signal portrait_pressed(player_id: String)
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -115,6 +117,7 @@ var _portrait: Control
 var _portrait_art: CharacterView
 var _portrait_tween: Tween
 var _portrait_key := ""
+var _portrait_player := "" # the playerId the portrait shows ("" none)
 var _chat: VBoxContainer
 var _result: Control
 var _result_title: Label
@@ -294,6 +297,12 @@ func _build_portrait() -> void:
 	_portrait_boss.visible = false
 	_portrait.add_child(_portrait_boss)
 	_portrait.visible = false
+	_portrait.mouse_filter = MOUSE_FILTER_STOP # a tap opens the player's info (no aiming starts here)
+	_portrait.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+	_portrait.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed \
+				and _portrait_player != "":
+			portrait_pressed.emit(_portrait_player))
 
 
 ## The move buttons on the left and right edges, vertically centred; the energy under the left
@@ -438,6 +447,7 @@ static func portrait_level(player: Dictionary) -> int:
 
 
 func _set_portrait(player: Dictionary, player_name: String) -> void:
+	_portrait_player = str(player.get("playerId", ""))
 	if player.is_empty():
 		_portrait.visible = false
 		_portrait_key = ""
