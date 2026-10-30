@@ -122,6 +122,7 @@ extends Node2D
 ## passive walks further: MoveSync.cost_factor from my gear moveCost.
 ## See docs/superpowers/specs/2026-10-15-godot-client-roadmap-design.md.
 
+const MatchChat := preload("res://match/match_chat.gd")
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
 const TerrainView := preload("res://match/terrain/terrain_view.gd")
 const PlayerView := preload("res://match/views/player_view.gd")
@@ -416,6 +417,10 @@ func _ready() -> void:
 		_hud.announce_map(map_name)
 	GameSocket.event_received.connect(_on_event)
 	GameSocket.disconnected.connect(_on_disconnected)
+	var chat := MatchChat.new() # the match chat: ChatSend / ChatMessage / ChatHistory / ChatError
+	chat.hud = _hud
+	chat.names = func() -> Dictionary: return MatchChat.names_of(_players)
+	add_child(chat)
 	GameSocket.release()
 
 

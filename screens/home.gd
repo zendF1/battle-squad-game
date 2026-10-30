@@ -3,7 +3,7 @@ extends Control
 ## (gear slots, character, Trang bị / Chỉ số), "Kho đồ" (Trang bị / Vật phẩm / Nguyên liệu),
 ## "Nâng cấp" (Nâng cấp / Ghép đá; also from the piece popup's Nâng cấp), "Mốc thưởng" (one-time
 ## progress rewards, milestone_page.gd), "Hồ sơ" (player card,
-## Lịch sử), "Xếp hạng" (the leaderboards: Cấp độ / Rank / Lực chiến, leaderboard_page.gd), "Shop" (Vật phẩm / Trang bị / Đá nâng cấp / Nhân vật / Kim cương / Đổi xu) and "Chọn chế
+## Lịch sử), "Bạn bè" (friends and requests, screens/social/friends_page.gd), "Xếp hạng" (the leaderboards: Cấp độ / Rank / Lực chiến, leaderboard_page.gd), "Shop" (Vật phẩm / Trang bị / Đá nâng cấp / Nhân vật / Kim cương / Đổi xu) and "Chọn chế
 ## độ" (the mode card's swap button: one tab per game data category, mode_select.gd; a choice goes
 ## back to the lobby on that mode, lobby.gd choose_mode()). A page has a
 ## header with "← Sảnh", its title and the wallet pills; "← Sảnh", Esc (ui_cancel) and the
@@ -46,6 +46,7 @@ const LeaderboardPage := preload("res://screens/home/leaderboard_page.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const SeasonRewardPopup := preload("res://screens/ranked/season_reward_popup.gd")
 const OnboardingModel := preload("res://screens/onboarding_model.gd")
+const FriendsPage := preload("res://screens/social/friends_page.gd")
 
 const LOBBY := 0
 const PROFILE := 1
@@ -57,6 +58,7 @@ const MILESTONE := 6
 const DAILY := 7
 const MODES := 8
 const LEADERBOARD := 9
+const FRIENDS := 20 # (the social pages count from 20: other pages keep their numbers)
 
 var _lobby: Lobby
 var _profile: ProfileTab
@@ -97,6 +99,7 @@ func _ready() -> void:
 	_lobby.open_daily.connect(open_daily)
 	_lobby.open_modes.connect(open_modes)
 	_lobby.open_leaderboard.connect(open_leaderboard)
+	_lobby.open_friends.connect(open_friends)
 	_connect_wallet(_lobby.wallet)
 	_lobby.rank_chip.host = self
 
@@ -139,6 +142,9 @@ func _ready() -> void:
 	_leaderboard.overlay = self
 	_pages[LEADERBOARD] = _build_page("Xếp hạng", _leaderboard)
 	_pages[SHOP] = _build_page("Shop", _shop)
+	var friends := FriendsPage.new()
+	friends.overlay = self
+	_pages[FRIENDS] = _build_page("Bạn bè", friends)
 	_show(LOBBY)
 	PlayerState.changed.connect(_check_onboarded)
 	PlayerState.refresh()
@@ -260,6 +266,11 @@ func show_invite(invite: Dictionary) -> InviteReceivedPopup:
 func open_modes() -> void:
 	_modes.show_for(_lobby.current_mode())
 	_show(MODES)
+
+
+## The Bạn bè page (screens/social/friends_page.gd).
+func open_friends() -> void:
+	_show(FRIENDS)
 
 
 func open_profile() -> void:

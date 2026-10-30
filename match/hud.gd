@@ -2,9 +2,11 @@ extends Control
 ## Match HUD, in the lobby look (ui/lobby_ui.gd: translucent navy panels, rounded buttons, gold
 ## for the armed slot and for my turn), each part pinned to its own corner so it adapts to wide
 ## phones (stretch aspect "expand"; the viewport is at least 1600 × 900):
-## - top left: a small round Thoát (X) in the corner and the chat beside it: only its lines, plain
-##   text with an outline and a shadow over the sky (no box, no input: match chat is not there
-##   yet), the newest last, the older ones fading (add_chat_line());
+## - top left: a small round Thoát (X) in the corner, the chat button (a speech bubble) under it and
+##   the chat beside them: its lines, plain text with an outline and a shadow over the sky (no box),
+##   "Tên: tin nhắn" (mine in gold), the newest last, the older ones fading (add_chat_line(),
+##   match/match_chat.gd); the chat button opens an input over the lines (the game data's length
+##   limit) with a send button: Enter or send emits chat_send and closes it;
 ## - top centre: the turn timer badge and the wind (its gusts glyph, arrow, strength, a bar from
 ##   the middle) side by side;
 ## - top right: whose turn it is: only that player's lobby full-body figure (ui/character_view.gd,
@@ -40,12 +42,14 @@ signal skill_pressed
 signal item_pressed(item_id: String)
 signal awaken_pressed(slot: String)
 signal leave_pressed
+signal chat_send(text: String)
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Art := preload("res://ui/art.gd")
 const CharacterView := preload("res://ui/character_view.gd")
-const FakeChat := preload("res://screens/home/fake_chat.gd")
+const ChatModel := preload("res://screens/social/chat_model.gd")
+const SocialGlyphs := preload("res://screens/social/social_glyphs.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const SkillGlyphs := preload("res://match/views/skill_glyphs.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
@@ -85,7 +89,7 @@ const NOTICE_PX := 64.0 # the notice's picture
 const PORTRAIT_SLIDE := 70.0 # px the portrait slides in from the right
 const COUNTDOWN_RADIUS := 64.0
 const COUNTDOWN_Y := 0.62 # of the screen's height: the ring's centre (under the turn banner, centred across)
-## The chat's line until match chat exists.
+## The chat's first line, the match start.
 const CHAT_LINE := {"channel": "Hệ thống", "name": "", "text": "Trận đấu bắt đầu!"}
 
 var _timer: Label
@@ -116,6 +120,9 @@ var _portrait_art: CharacterView
 var _portrait_tween: Tween
 var _portrait_key := ""
 var _chat: VBoxContainer
+var chat_button: Button
+var chat_input: LineEdit
+var _chat_input_row: HBoxContainer
 var _result: Control
 var _result_title: Label
 var _result_detail: Label
@@ -195,16 +202,69 @@ func _build_top_left() -> void:
 	leave.tooltip_text = "Thoát"
 	leave.size_flags_vertical = SIZE_SHRINK_BEGIN
 	leave.pressed.connect(leave_pressed.emit)
-	row.add_child(leave)
+	var buttons: VBoxContainer = _ignore(Ui.vbox(12))
+	buttons.size_flags_vertical = SIZE_SHRINK_BEGIN
+	buttons.add_child(leave)
+	chat_button = SocialGlyphs.round_button("chat", LEAVE_SIZE, NAVY, "Chat")
+	chat_button.name = "ChatButton"
+	chat_button.focus_mode = FOCUS_NONE
+	chat_button.pressed.connect(toggle_chat_input)
+	buttons.add_child(chat_button)
+	row.add_child(buttons)
+	var col: VBoxContainer = _ignore(Ui.vbox(8))
+	col.size_flags_vertical = SIZE_SHRINK_BEGIN
+	row.add_child(col)
+	_chat_input_row = Ui.hbox(8)
+	_chat_input_row.name = "ChatInput"
+	_chat_input_row.visible = false
+	col.add_child(_chat_input_row)
+	chat_input = LineEdit.new()
+	chat_input.name = "Input"
+	chat_input.placeholder_text = ChatModel.INPUT_HINT
+	chat_input.max_length = GameData.chat_max_length() # 0: no limit known
+	chat_input.custom_minimum_size = Vector2(CHAT_WIDTH - LEAVE_SIZE - 8, LEAVE_SIZE)
+	chat_input.add_theme_font_size_override("font_size", 24)
+	chat_input.text_submitted.connect(func(_t: String) -> void: _submit_chat())
+	_chat_input_row.add_child(chat_input)
+	var send := LobbyUi.round_button("send", LEAVE_SIZE, LobbyUi.ICON_COLORS["blue"], 0.5)
+	send.name = "Send"
+	send.focus_mode = FOCUS_NONE
+	send.pressed.connect(_submit_chat)
+	_chat_input_row.add_child(send)
 	_chat = _ignore(Ui.vbox(2))
 	_chat.name = "ChatLines"
 	_chat.custom_minimum_size.x = CHAT_WIDTH
-	_chat.size_flags_vertical = SIZE_SHRINK_BEGIN
-	row.add_child(_chat)
+	col.add_child(_chat)
 	add_chat_line(CHAT_LINE)
 
 
-## Adds a chat line (FakeChat line: {channel, name, text}) under the others: plain text, outlined
+## The chat button: shows the input (focused) or hides it.
+func toggle_chat_input() -> void:
+	_chat_input_row.visible = not _chat_input_row.visible
+	if not chat_input.is_inside_tree():
+		return
+	if _chat_input_row.visible:
+		chat_input.grab_focus()
+	else:
+		chat_input.release_focus()
+
+
+func chat_input_open() -> bool:
+	return _chat_input_row.visible
+
+
+## Enter or send: chat_send with the text (match_chat.gd checks and sends it), the input closed.
+func _submit_chat() -> void:
+	var text := chat_input.text
+	if ChatModel.clean(text) == "":
+		toggle_chat_input()
+		return
+	chat_input.clear()
+	toggle_chat_input()
+	chat_send.emit(text)
+
+
+## Adds a chat line (ChatModel.bbcode() line: {channel, name, text, mine}) under the others: plain text, outlined
 ## and shadowed over the sky; past CHAT_LINES the oldest goes, the older ones fade.
 func add_chat_line(line: Dictionary) -> void:
 	var l: RichTextLabel = _ignore(RichTextLabel.new())
@@ -221,7 +281,7 @@ func add_chat_line(line: Dictionary) -> void:
 	l.add_theme_constant_override("shadow_offset_x", 2)
 	l.add_theme_constant_override("shadow_offset_y", 2)
 	l.add_theme_constant_override("shadow_outline_size", 7)
-	l.text = FakeChat.bbcode(line)
+	l.text = ChatModel.bbcode(line)
 	_chat.add_child(l)
 	while _chat.get_child_count() > CHAT_LINES:
 		var old := _chat.get_child(0)

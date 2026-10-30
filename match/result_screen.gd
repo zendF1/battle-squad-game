@@ -6,7 +6,8 @@ extends Control
 ## side: the winner with the most damage stands higher, ResultModel.podium_top()), the other team
 ## on the right, dimmed, on the ground (a draw: my team left, no podium); each player in full pose
 ## (ui/character_view.gd, bots too) on their own step under their title plate, their badge
-## (rankBadge, grade_badge.gd) with the name (mine gold), the level and the damage dealt as glyph + number, "MVP" on the best one, "ĐỘI CỦA BẠN" /
+## (rankBadge, grade_badge.gd) with the name (mine gold; another real player's Kết bạn after it,
+## screens/social/friend_button.gd), the level and the damage dealt as glyph + number, "MVP" on the best one, "ĐỘI CỦA BẠN" /
 ## "ĐỐI THỦ" under each team. Bottom left my rewards card (its size never changes: what grew it
 ## is in the popups): "+N EXP" counting with its bar filling, the coin with "+N" (a ranked match:
 ## the insignia with "+150", its bonus inside the coins; then the stones and chests won as glowing
@@ -43,6 +44,8 @@ const Fmt := preload("res://core/fmt.gd")
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const RewardModel := preload("res://ui/reward_model.gd")
 const RewardStrip := preload("res://ui/reward_strip.gd")
+const FriendButton := preload("res://screens/social/friend_button.gd")
+const FriendsModel := preload("res://screens/social/friends_model.gd")
 
 const SLOT_W := 250.0
 const SLOT_GAP := 24.0
@@ -237,6 +240,8 @@ func _add_slot(e: Dictionary, left: bool) -> void:
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	name_label.mouse_filter = MOUSE_FILTER_IGNORE
 	row.add_child(name_label)
+	if FriendsModel.can_befriend(str(e["playerId"]), bool(e.get("isBot", false)), Session.player_id):
+		FriendButton.add_mirrored(row, e, 40, str(e.get("badge", "")) == "") # Kết bạn (hidden for a friend)
 	# the level and the damage dealt as glyph + number (a bot's name says it is one)
 	var level := int(e.get("level", 0))
 	if level > 0:
