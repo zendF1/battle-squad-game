@@ -8,13 +8,13 @@ extends Node
 ## QuickPlay). Retrying earlier could create a second room, and leaving the screen while it is
 ## pending would lose the answer, so the owner keeps the player here while `pending`.
 ##
-## The server takes QuickPlay only from a connection in no room and no lobby (RoomError
-## ROOM_CREATE_FAILED "leave current room or lobby first", docs/contracts/security-settlement.md).
+## The server takes QuickPlay only from a player in no room and no lobby (RoomError
+## ALREADY_IN_ROOM / ALREADY_IN_LOBBY, server docs/contracts/security-settlement.md).
 ## before_request(): a lobby of mine with nobody else in it (Router.party: an invite nobody took)
 ## is left first (LeaveLobby, then QuickPlay); with a teammate the request is refused here
 ## (PARTY_TEXT: the party plays together, the player leaves it on Home to play alone). A refusal
-## because the server still has me somewhere (on_refusal(): a Leave / LeaveLobby still in flight,
-## or a room / lobby this client never knew of) sends Leave and LeaveLobby and asks once more
+## because the server still has me somewhere (on_refusal(): ALREADY_IN_ROOM / ALREADY_IN_LOBBY, a
+## room or lobby this client never knew of) sends Leave and LeaveLobby and asks once more
 ## RETRY_SEC later; the ROOM_REQUIRED answering that Leave is not the answer to the request.
 
 signal changed # pending, status or the connection changed
@@ -96,19 +96,17 @@ static func before_request(in_lobby: bool, in_party: bool) -> String:
 ## A RoomError while my request is pending: RETRY (the server still has me in a room or lobby,
 ## the first time), IGNORE (ROOM_REQUIRED after the retry's Leave: its answer, not the request's)
 ## or FAIL (the request ends with the error).
-static func on_refusal(code: String, message: String, retried: bool) -> String:
+static func on_refusal(code: String, retried: bool) -> String:
 	if retried and code == "ROOM_REQUIRED":
 		return IGNORE
-	if not retried and still_somewhere(code, message):
+	if not retried and still_somewhere(code):
 		return RETRY
 	return FAIL
 
 
-## The refusal says I am still in a room or a lobby (the server's admission messages).
-static func still_somewhere(code: String, message: String) -> bool:
-	if not code in ["ROOM_CREATE_FAILED", "ROOM_JOIN_FAILED"]:
-		return false
-	return message == "leave current room or lobby first" or message.contains("already belongs to")
+## The refusal says the server still has me in a room or a lobby.
+static func still_somewhere(code: String) -> bool:
+	return code in ["ALREADY_IN_ROOM", "ALREADY_IN_LOBBY"]
 
 
 func _in_lobby() -> bool:
@@ -147,7 +145,7 @@ func _on_event(event: String, data: Variant) -> void:
 			# RoomUpdated from the join), a server error.
 			if not pending:
 				return
-			match on_refusal(error_code(data), error_message(data), _retried):
+			match on_refusal(error_code(data), _retried):
 				IGNORE:
 					return
 				RETRY:
@@ -185,14 +183,6 @@ func _resolve(message: String) -> void:
 	_retry_timer.stop()
 	status = message
 	changed.emit()
-
-
-static func error_message(data: Variant) -> String:
-	if data is Dictionary:
-		if data.get("error") is Dictionary:
-			return str(data["error"].get("message", ""))
-		return str(data.get("message", ""))
-	return ""
 
 
 static func error_code(data: Variant) -> String:

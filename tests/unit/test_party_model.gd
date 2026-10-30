@@ -92,7 +92,11 @@ func test_create_refused_leaves_and_asks_again_once() -> void:
 	eq(out, [["toast", ErrorText.lobby_error(_err("ALREADY_IN_LOBBY"))]], "a second refusal is shown")
 	var q := _party()
 	q.invite("p2", 0.0)
-	eq(q.on_event("LobbyError", _err("IN_ROOM"), 0.1), [["send", "Leave", {}], ["send", "CreateLobby", {}]], "IN_ROOM: Leave the room")
+	eq(q.on_event("LobbyError", _err("ALREADY_IN_ROOM"), 0.1), [["send", "Leave", {}], ["send", "CreateLobby", {}]], "ALREADY_IN_ROOM: Leave the room")
+	eq(q.on_event("LobbyError", _err("ALREADY_IN_ROOM"), 0.2), [["toast", "Bạn vẫn đang ở trong một trận khác"]], "a second refusal is shown")
+	var r := _party()
+	r.invite("p2", 0.0)
+	eq(r.on_event("LobbyError", _err("IN_ROOM"), 0.1), [["send", "Leave", {}], ["send", "CreateLobby", {}]], "an older server's IN_ROOM")
 
 
 func test_invite_sent_counts_down_on_the_row() -> void:

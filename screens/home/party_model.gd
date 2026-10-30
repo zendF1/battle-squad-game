@@ -19,8 +19,9 @@ extends RefCounted
 ## `queue` is the queue of the mode chosen on Home: every CreateLobby asks for it ({queue}), and
 ## select_queue() moves my lobby to another one (SetLobbyQueue, the host while preparing).
 ## Before the first invite without a lobby, CreateLobby goes first and the invite follows its
-## LobbyUpdated; a CreateLobby refused because the server still has me in a lobby / a room leaves
-## it (LeaveLobby / Leave) and asks again, once; an InviteToLobby answered LOBBY_REQUIRED /
+## LobbyUpdated; a CreateLobby refused because the server still has me in a lobby / a room
+## (ALREADY_IN_LOBBY / ALREADY_IN_ROOM; IN_ROOM from an older server) leaves it (LeaveLobby /
+## Leave) and asks again, once; an InviteToLobby answered LOBBY_REQUIRED /
 ## LOBBY_NOT_FOUND (my lobby is gone on the server) creates a new one and invites again (a CreateLobby
 ## answered LOBBY_NOT_FOUND, my old lobby closing, is asked again once); any other
 ## LOBBY_NOT_FOUND about my lobby (it closed under me: a SetReady, an UpdateLoadout, a
@@ -491,7 +492,7 @@ func _on_error(data: Variant, now: float) -> Array:
 		return [["toast", ErrorText.lobby_error(data)], ["queue_refused"], ["changed"]]
 	if _invite_after_create != "":
 		# The CreateLobby before an invite was refused.
-		if not _create_retried and code in ["ALREADY_IN_LOBBY", "IN_ROOM", "LOBBY_NOT_FOUND"]:
+		if not _create_retried and code in ["ALREADY_IN_LOBBY", "ALREADY_IN_ROOM", "IN_ROOM", "LOBBY_NOT_FOUND"]:
 			_create_retried = true
 			_expect(now)
 			if code == "LOBBY_NOT_FOUND": # my old lobby was closing: the server forgot it, ask again

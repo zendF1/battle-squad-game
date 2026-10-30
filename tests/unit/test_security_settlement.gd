@@ -2,7 +2,8 @@ extends "res://tests/test_case.gd"
 ## The client side of the server's security / settlement fixes (server
 ## docs/contracts/security-settlement.md): MatchEnded rewardSettlementStatus on both result
 ## models, the pending reward watch, QuickPlay from a lobby, the new room / lobby refusals in
-## Vietnamese and LOBBY_NOT_FOUND as a closed lobby.
+## Vietnamese (ALREADY_IN_ROOM / ALREADY_IN_LOBBY, PLAYER_BUSY only the invitee) and LOBBY_NOT_FOUND
+## as a closed lobby.
 
 const ResultModel := preload("res://match/result_model.gd")
 const BossResultModel := preload("res://match/boss/boss_result_model.gd")
@@ -142,40 +143,44 @@ func test_quick_play_from_a_lobby() -> void:
 	eq(QuickPlay.before_request(true, false), QuickPlay.LEAVE_FIRST, "my lobby alone: leave it first")
 	eq(QuickPlay.before_request(true, true), QuickPlay.IN_PARTY, "with a teammate: not alone")
 	check(QuickPlay.PARTY_TEXT.contains("tổ đội"), "says why")
-	var busy := "leave current room or lobby first"
-	eq(QuickPlay.on_refusal("ROOM_CREATE_FAILED", busy, false), QuickPlay.RETRY, "still somewhere: leave and ask again")
-	eq(QuickPlay.on_refusal("ROOM_CREATE_FAILED", busy, true), QuickPlay.FAIL, "only once")
-	eq(QuickPlay.on_refusal("ROOM_JOIN_FAILED", "player already belongs to a room", false), QuickPlay.RETRY, "an old room still held")
-	eq(QuickPlay.on_refusal("ROOM_REQUIRED", "You must join a room first", true), QuickPlay.IGNORE, "the retry's Leave answer")
-	eq(QuickPlay.on_refusal("ROOM_REQUIRED", "You must join a room first", false), QuickPlay.FAIL, "not after a retry: an answer")
-	eq(QuickPlay.on_refusal("LOADOUT_INVALID", "You do not own item: medkit", false), QuickPlay.FAIL, "other refusals end it")
-	eq(QuickPlay.on_refusal("ROOM_CREATE_FAILED", "something else", false), QuickPlay.FAIL, "another create failure")
-	eq(QuickPlay.error_message(_err("ROOM_CREATE_FAILED", busy)), busy, "the message")
+	eq(QuickPlay.on_refusal("ALREADY_IN_LOBBY", false), QuickPlay.RETRY, "still in a lobby: leave and ask again")
+	eq(QuickPlay.on_refusal("ALREADY_IN_ROOM", false), QuickPlay.RETRY, "an old room still held")
+	eq(QuickPlay.on_refusal("ALREADY_IN_LOBBY", true), QuickPlay.FAIL, "only once")
+	eq(QuickPlay.on_refusal("ALREADY_IN_ROOM", true), QuickPlay.FAIL, "only once (room)")
+	eq(QuickPlay.on_refusal("ROOM_REQUIRED", true), QuickPlay.IGNORE, "the retry's Leave answer")
+	eq(QuickPlay.on_refusal("ROOM_REQUIRED", false), QuickPlay.FAIL, "not after a retry: an answer")
+	eq(QuickPlay.on_refusal("LOADOUT_INVALID", false), QuickPlay.FAIL, "other refusals end it")
+	eq(QuickPlay.on_refusal("ROOM_CREATE_FAILED", false), QuickPlay.FAIL, "a create failure is not about me")
+	eq(QuickPlay.on_refusal("PLAYER_BUSY", false), QuickPlay.FAIL, "PLAYER_BUSY is about someone else")
 
 
 func test_room_refusals_in_vietnamese() -> void:
-	var cases := {
-		"leave current room or lobby first": "ROOM_CREATE_FAILED",
-		"room is closed": "ROOM_JOIN_FAILED",
-		"player already belongs to a room": "ROOM_JOIN_FAILED",
-		"leave lobby before joining a custom room": "ROOM_JOIN_FAILED",
-		"client already belongs to a room": "ROOM_JOIN_FAILED",
+	eq(ErrorText.room_error(_err("ALREADY_IN_ROOM", "player already belongs to a room")), "Bạn vẫn đang ở trong một trận khác", "in a room")
+	eq(ErrorText.room_error(_err("ALREADY_IN_LOBBY", "player already belongs to a lobby")), "Bạn vẫn đang ở trong một tổ đội khác", "in a lobby")
+	eq(ErrorText.room_error(_err("ALREADY_IN_LOBBY", "")), "Bạn vẫn đang ở trong một tổ đội khác", "the code alone")
+	var reasons := {
+		"room is closed": "Phòng đã đóng",
+		"room is full": "Phòng đã đủ người",
+		"match already in progress": "Trận đã bắt đầu",
+		"incorrect password": "Sai mật khẩu phòng",
 	}
-	for message in cases:
-		var text := ErrorText.room_error(_err(cases[message], message))
-		check(text != message and not text.is_empty(), "%s in Vietnamese: %s" % [message, text])
-	eq(ErrorText.room_error(_err("ROOM_CREATE_FAILED", "leave current room or lobby first")), "Bạn vẫn đang ở trong một trận hoặc tổ đội", "busy")
-	eq(ErrorText.room_error(_err("ROOM_CREATE_FAILED", "new reason")), "Không tạo được trận, hãy thử lại", "the code's text")
-	for code in ["ROOM_CREATE_FAILED", "ROOM_JOIN_FAILED", "ROOM_NOT_FOUND", "ROOM_REQUIRED"]:
+	for message in reasons:
+		eq(ErrorText.room_error(_err("ROOM_JOIN_FAILED", message)), reasons[message], message)
+	eq(ErrorText.room_error(_err("ROOM_CREATE_FAILED", "unsupported room mode")), "Không tạo được trận, hãy thử lại", "the code's text")
+	eq(ErrorText.room_error(_err("ROOM_CREATE_FAILED", "leave current room or lobby first")), "Không tạo được trận, hãy thử lại", "no English matching left")
+	eq(ErrorText.room_error(_err("LOADOUT_INVALID", "room is full")), "Nhân vật hoặc vật phẩm không hợp lệ", "a reason only for its codes")
+	for code in ["ALREADY_IN_ROOM", "ALREADY_IN_LOBBY", "ROOM_CREATE_FAILED", "ROOM_JOIN_FAILED", "ROOM_NOT_FOUND", "ROOM_REQUIRED"]:
 		check(ErrorText.ROOM.has(code), code)
 
 
 func test_lobby_refusals_in_vietnamese() -> void:
-	eq(ErrorText.lobby_error(_err("LOBBY_NOT_FOUND", "Lobby is closed")), "Tổ đội đã giải tán", "closed")
+	eq(ErrorText.lobby_error(_err("LOBBY_NOT_FOUND", "Lobby not found")), "Tổ đội đã giải tán", "closed")
 	eq(ErrorText.lobby_error(_err("PLAYER_BUSY", "The player is busy")), "Người chơi này đang bận", "the invitee is busy")
-	eq(ErrorText.lobby_error(_err("PLAYER_BUSY", "player already belongs to a room")), "Bạn vẫn đang ở trong một trận khác", "I am busy")
-	eq(ErrorText.lobby_error(_err("PLAYER_BUSY", "player already belongs to a lobby")), "Bạn vẫn đang ở trong một tổ đội khác", "in a lobby")
-	eq(ErrorText.lobby_error(_err("LOBBY_CREATE_FAILED", "player already belongs to another lobby")), "Bạn vẫn đang ở trong một tổ đội khác", "create refused")
+	eq(ErrorText.lobby_error(_err("PLAYER_BUSY", "player already belongs to a room")), "Người chơi này đang bận", "PLAYER_BUSY is never about me")
+	eq(ErrorText.lobby_error(_err("ALREADY_IN_ROOM", "player already belongs to a room")), "Bạn vẫn đang ở trong một trận khác", "I am in a room")
+	eq(ErrorText.lobby_error(_err("ALREADY_IN_LOBBY", "player already belongs to a lobby")), "Bạn vẫn đang ở trong một tổ đội khác", "in a lobby")
+	eq(ErrorText.lobby_error(_err("IN_ROOM", "x")), "Bạn vẫn đang ở trong một trận khác", "an older server's IN_ROOM")
+	eq(ErrorText.lobby_error(_err("LOBBY_CREATE_FAILED", "player already belongs to another lobby")), "Không tạo được tổ đội, hãy thử lại", "a create failure: its code's text")
 
 
 func test_party_lobby_not_found_is_a_closed_lobby() -> void:

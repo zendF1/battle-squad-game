@@ -95,7 +95,7 @@ func test_lobby_error_texts() -> void:
 	eq(ErrorText.lobby_error({"code": "too_many_items", "message": "m"}), "Chỉ mang tối đa 3 vật phẩm", "flat")
 	eq(ErrorText.lobby_error({"error": {"code": "X", "message": "boom"}}), "Lỗi ghép trận: boom", "unknown")
 	eq(ErrorText.lobby_error(null), "Lỗi ghép trận, hãy thử lại", "nothing")
-	eq(ErrorText.lobby_code({"error": {"code": "IN_ROOM"}}), "IN_ROOM", "code")
+	eq(ErrorText.lobby_code({"error": {"code": "ALREADY_IN_ROOM"}}), "ALREADY_IN_ROOM", "code")
 
 
 func _levels(raw: Dictionary) -> Dictionary:

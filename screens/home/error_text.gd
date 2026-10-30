@@ -122,8 +122,15 @@ const TITLE := {
 }
 
 
-## RoomError codes answering QuickPlay (LOADOUT_INVALID has its own texts, room_error()).
+## Where the server still has me (ALREADY_IN_ROOM / ALREADY_IN_LOBBY, on RoomError and LobbyError
+## alike: server docs/contracts/security-settlement.md, "Admission refusal codes").
+const IN_ROOM_TEXT := "Bạn vẫn đang ở trong một trận khác"
+const IN_LOBBY_TEXT := "Bạn vẫn đang ở trong một tổ đội khác"
+
+## RoomError codes answering QuickPlay / a custom room (LOADOUT_INVALID has its own texts, room_error()).
 const ROOM := {
+	"ALREADY_IN_ROOM": IN_ROOM_TEXT,
+	"ALREADY_IN_LOBBY": IN_LOBBY_TEXT,
 	"LOADOUT_INVALID": "Nhân vật hoặc vật phẩm không hợp lệ",
 	"MATCH_START_FAILED": "Không tạo được trận, hãy thử lại",
 	"INTERNAL_SERVER_ERROR": "Server gặp lỗi, hãy thử lại",
@@ -134,18 +141,9 @@ const ROOM := {
 	"ROOM_REQUIRED": "Bạn không còn ở trong phòng",
 }
 
-## The English reasons the game server puts in a RoomError / LobbyError message for a player who
-## is somewhere else already (room / lobby admission, docs/contracts/security-settlement.md) or a
-## room that cannot take them; they say more than the code (ROOM_CREATE_FAILED, ROOM_JOIN_FAILED,
-## PLAYER_BUSY, LOBBY_CREATE_FAILED all carry them).
-const BUSY_MESSAGES := {
-	"leave current room or lobby first": "Bạn vẫn đang ở trong một trận hoặc tổ đội",
-	"player already belongs to a room": "Bạn vẫn đang ở trong một trận khác",
-	"client already belongs to a room": "Bạn vẫn đang ở trong một trận khác",
-	"matchmade player already belongs to a room": "Bạn vẫn đang ở trong một trận khác",
-	"player already belongs to a lobby": "Bạn vẫn đang ở trong một tổ đội khác",
-	"player already belongs to another lobby": "Bạn vẫn đang ở trong một tổ đội khác",
-	"leave lobby before joining a custom room": "Hãy rời tổ đội trước khi vào phòng",
+## ROOM_CREATE_FAILED / ROOM_JOIN_FAILED carry their reason only as the server's English message
+## (internal/game/room room.go validateJoin): the room cannot take me.
+const ROOM_REASONS := {
 	"room is closed": "Phòng đã đóng",
 	"room is full": "Phòng đã đủ người",
 	"match already in progress": "Trận đã bắt đầu",
@@ -182,8 +180,8 @@ static func room_error(data: Variant) -> String:
 			return "Vật phẩm không hợp lệ"
 		if message.begins_with("Unknown character"):
 			return "Nhân vật không hợp lệ"
-	if BUSY_MESSAGES.has(message):
-		return BUSY_MESSAGES[message]
+	if code in ["ROOM_CREATE_FAILED", "ROOM_JOIN_FAILED"] and ROOM_REASONS.has(message):
+		return ROOM_REASONS[message]
 	if ROOM.has(code):
 		return ROOM[code]
 	return message if message != "" else "Lỗi phòng"
@@ -368,9 +366,12 @@ static func mission(res: Dictionary) -> String:
 
 ## Ranked lobby / queue errors: LobbyError {"error": {code, message}} (internal/game/lobby
 ## handler.go) and the lobby's own "Error" {code, message} (lobby.go, lower-case codes).
+## PLAYER_BUSY is only ever about the invited player (InviteToLobby). IN_ROOM: the lobby side's
+## ALREADY_IN_ROOM before the server's admission codes (2026-10-30).
 const LOBBY := {
-	"ALREADY_IN_LOBBY": "Bạn vẫn đang ở trong một tổ đội khác",
-	"IN_ROOM": "Bạn vẫn đang ở trong một phòng khác",
+	"ALREADY_IN_ROOM": IN_ROOM_TEXT,
+	"ALREADY_IN_LOBBY": IN_LOBBY_TEXT,
+	"IN_ROOM": IN_ROOM_TEXT,
 	"LOBBY_CREATE_FAILED": "Không tạo được tổ đội, hãy thử lại",
 	"LOBBY_NOT_FOUND": "Tổ đội đã giải tán",
 	"LOBBY_REQUIRED": "Tổ đội không còn tồn tại",
@@ -409,9 +410,6 @@ static func lobby_error(data: Variant) -> String:
 	var code := lobby_code(data)
 	if code == "LOADOUT_INVALID": # the QuickPlay rules and reasons
 		return room_error(data)
-	var reason = (data["error"] if data.get("error") is Dictionary else data).get("message") if data is Dictionary else null
-	if reason is String and BUSY_MESSAGES.has(reason): # I am the busy one (PLAYER_BUSY, LOBBY_CREATE_FAILED)
-		return BUSY_MESSAGES[reason]
 	if LOBBY.has(code):
 		return LOBBY[code]
 	var err: Dictionary = {}

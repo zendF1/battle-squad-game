@@ -113,8 +113,16 @@ func test_already_in_a_lobby_leaves_and_retries() -> void:
 func test_in_a_room_leaves_it() -> void:
 	var f := RankedFlow.new()
 	f.start(LOADOUT)
-	eq(_sent(f.on_event("LobbyError", _err("IN_ROOM"))), ["Leave"], "leave the room")
+	eq(_sent(f.on_event("LobbyError", _err("ALREADY_IN_ROOM"))), ["Leave"], "leave the room")
 	eq(_sent(f.tick(1.0)), ["CreateLobby"], "creates again")
+	eq(_sent(f.on_event("LobbyError", _err("ALREADY_IN_ROOM"))), ["Leave"], "still there: leave again")
+	eq(_sent(f.tick(1.0)), ["CreateLobby"], "and again")
+	var a := f.on_event("LobbyError", _err("ALREADY_IN_ROOM"))
+	eq(_kinds(a), ["failed"], "gives up after the retries")
+	eq(a[0][1], "Bạn vẫn đang ở trong một trận khác", "its message")
+	var old := RankedFlow.new()
+	old.start(LOADOUT)
+	eq(_sent(old.on_event("LobbyError", _err("IN_ROOM"))), ["Leave"], "an older server's IN_ROOM too")
 
 
 func test_stale_answers_are_ignored_while_creating() -> void:
@@ -207,5 +215,5 @@ func test_party_member_searches_at_once() -> void:
 func test_create_lobby_on_the_queue() -> void:
 	var f := RankedFlow.new()
 	eq(f.start(LOADOUT, "casual_2v2"), [["send", "CreateLobby", {"queue": "casual_2v2"}]], "CreateLobby {queue}")
-	f.on_event("LobbyError", {"error": {"code": "IN_ROOM", "message": "x"}})
+	f.on_event("LobbyError", {"error": {"code": "ALREADY_IN_ROOM", "message": "x"}})
 	eq(f.tick(RankedFlow.RETRY_SEC), [["send", "CreateLobby", {"queue": "casual_2v2"}]], "again on the same queue")
