@@ -16,8 +16,8 @@ extends Node
 ##
 ## Hooks for the other features (chat's Bang hội tab, the friends list's "Mời vào bang hội"):
 ## guild_id() / in_guild() / my_role() / can_invite(), the `changed` signal, and
-## invite_player(host, player_id): the invite with its toast. When the chat / friends state is
-## there (Router.social, feat/social-chat) it is plugged in at start: its "Mời vào guild" action
+## invite_player(host, player_id): the invite with its toast. The chat / friends state
+## (Router.social) is plugged in at start: its "Mời vào guild" action
 ## sends invite_player() (allowed while I may invite and the player is not in my guild), and each
 ## answer about my guild tells it my guild id (set_guild()).
 
@@ -67,11 +67,10 @@ func _ready() -> void:
 	_hook_social.call_deferred() # after the Router (an autoload after this one) made its parts
 
 
-## The chat / friends state (Router.social) when the build has it; null otherwise.
+## The chat / friends state (Router.social, screens/social/social.gd); null before the Router made it.
 func _social() -> Object:
-	var router := get_node_or_null("/root/Router")
-	var s = router.get("social") if router != null else null
-	return s if s is Object else null
+	var s = Router.get("social") if is_instance_valid(Router) else null
+	return s if s is Object and is_instance_valid(s) else null
 
 
 func _hook_social() -> void:

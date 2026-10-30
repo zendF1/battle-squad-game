@@ -278,3 +278,41 @@ func test_gift_popup_builds() -> void:
 	eq(popup.input.max_length, GuildModel.GIFT_MAX, "capped field")
 	eq(popup.redeem.text, "Nhận", "button")
 	host.free()
+
+
+## The chat / friends hook (Router.social): "Mời vào guild" only while I may invite and the player
+## is not in my guild; my guild id follows GuildState; the online players popup's guild button.
+func test_social_hook() -> void:
+	var made: Node = null
+	if Router.social == null: # the test runner's Router has not made its parts
+		made = load("res://screens/social/social.gd").new()
+		Router.social = made
+	var saved := [GuildState.guild, GuildState.known, GuildState._player, Router.social.guild_invite, Router.social.guild_invite_allowed,
+		Router.social.guild_id, Router.social.guild_known]
+	GuildState._hook_social()
+	check(Router.social.guild_invite.is_valid(), "the action is set")
+	GuildState._player = Session.player_id
+	GuildState.known = true
+	var raw := _guild()
+	raw["members"][0]["playerId"] = Session.player_id
+	GuildState.guild = GuildModel.parse_guild(raw)
+	GuildState._sync_social()
+	eq(Router.social.guild_id, GuildState.guild_id(), "chat follows my guild")
+	check(Router.social.can_invite_to_guild("outsider"), "leader invites an outsider")
+	check(not Router.social.can_invite_to_guild("c3"), "not a member")
+	raw["members"][0]["role"] = "member"
+	raw["members"][1]["role"] = "leader"
+	GuildState.guild = GuildModel.parse_guild(raw)
+	check(not Router.social.can_invite_to_guild("outsider"), "a member does not invite")
+	var b := load("res://screens/home/invite_popup.gd").guild_button({"playerId": "x", "displayName": "X"}, 60) as Button
+	eq(b.name, "GuildInvite_x", "popup guild button")
+	b.free()
+	GuildState.guild = saved[0]
+	GuildState.known = saved[1]
+	GuildState._player = saved[2]
+	Router.social.set_guild_invite(saved[3], saved[4])
+	Router.social.guild_id = saved[5]
+	Router.social.guild_known = saved[6]
+	if made != null:
+		Router.social = null
+		made.free()

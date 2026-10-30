@@ -10,7 +10,7 @@ extends Control
 ## - "dungeon_done": the same gate cleared (a green check disc on its corner);
 ## - "quest": the daily shared quest (crossed swords over a gold laurel: member victories);
 ## - "lock": a padlock (a guild skill not reached yet);
-## - "invite": a person with a green plus (Mời vào bang hội);
+## - "invite": the crest with a green plus (Mời vào bang hội; the friends' picture is a person);
 ## - "leave": a door with an arrow leaving it (Rời bang hội).
 ## make() for a layout. Colours by id are visual mappings; the rules are the server's.
 
@@ -28,8 +28,6 @@ const PORTAL := Color(0.62, 0.3, 1.0)
 const PORTAL_LIGHT := Color(0.9, 0.75, 1.0)
 const CHECK := Color(0.3, 0.85, 0.4)
 const LAUREL := Color(0.45, 0.8, 0.35)
-const SKIN := Color(0.98, 0.8, 0.62)
-const SHIRT := Color(0.3, 0.55, 0.95)
 const WOOD := Color(0.62, 0.4, 0.22)
 const WOOD_DARK := Color(0.42, 0.26, 0.14)
 const WHITE := Color(0.97, 0.98, 1.0)
@@ -225,16 +223,14 @@ func _lock() -> void:
 
 
 func _invite() -> void:
-	_disc(Vector2(40, 30), 15.0, SKIN)
-	var body := PackedVector2Array([Vector2(14, 88)])
-	for i in 13:
-		var a := PI + PI * i / 12.0
-		body.append(Vector2(40, 82) + Vector2(cos(a) * 26.0, sin(a) * 30.0))
-	body.append(Vector2(66, 88))
-	_poly(body, SHIRT)
-	_disc(Vector2(72, 66), 16.0, CHECK)
-	_stroke(PackedVector2Array([Vector2(72, 57), Vector2(72, 75)]), WHITE, 6.0, 0.0)
-	_stroke(PackedVector2Array([Vector2(63, 66), Vector2(81, 66)]), WHITE, 6.0, 0.0)
+	# the guild's crest (smaller, top-left) with a green plus disc: an invitation to the guild,
+	# unlike the friends' person-with-a-plus
+	_poly(_shield_pts(6, 8, 66, 80), GOLD)
+	draw_colored_polygon(_shield_pts(12, 14, 60, 72), tint)
+	_poly(_star(Vector2(37, 38), 15, 6.5, 5), WHITE, 3.0)
+	_disc(Vector2(72, 70), 17.0, CHECK)
+	_stroke(PackedVector2Array([Vector2(72, 60), Vector2(72, 80)]), WHITE, 6.0, 0.0)
+	_stroke(PackedVector2Array([Vector2(62, 70), Vector2(82, 70)]), WHITE, 6.0, 0.0)
 
 
 func _leave() -> void:
