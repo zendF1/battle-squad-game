@@ -13,14 +13,14 @@ extends Control
 ## onboarding name field's random name button ("dice": a white die showing five) and a shell's
 ## blast reach ("blast": an orange burst inside a dashed ring, Bán kính nổ) and a match reward still on
 ## its way ("hourglass": gold sand running down a glass between two wooden caps; "check": a white
-## tick on a green disc once it landed). Drawn on
+## tick on a green disc once it landed) and the lobby's settings button ("gear": a steel cog). Drawn on
 ## a 96 × 96 canvas scaled into the control's square and centred (a single-focus picture). make()
 ## for a layout, info_button() for the round "i" button that opens a card's popup.
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 
 const KINDS := ["heart", "sword", "shield", "info", "clock", "arrow", "power", "level", "insignia", "trophy",
-	"boot", "magic", "terrain", "crit", "gem", "wind", "offline", "retry", "browser", "dice", "blast", "hourglass", "check"]
+	"boot", "magic", "terrain", "crit", "gem", "wind", "offline", "retry", "browser", "dice", "blast", "hourglass", "check", "gear"]
 const OUTLINE := Color(0.07, 0.07, 0.14)
 const W := 5.0
 const HEART := Color(1.0, 0.33, 0.4)
@@ -157,6 +157,7 @@ func _draw() -> void:
 		"blast": _blast()
 		"hourglass": _hourglass()
 		"check": _check()
+		"gear": _gear()
 
 
 func _poly(pts: PackedVector2Array, fill: Color, w: float = W) -> void:
@@ -459,3 +460,21 @@ func _check() -> void:
 	draw_circle(Vector2(48, 48), 37, GRASS, true, -1.0, true)
 	draw_arc(Vector2(48, 48), 31, PI * 1.1, PI * 1.6, 16, Color(1, 1, 1, 0.35), 4.0, true)
 	_stroke(PackedVector2Array([Vector2(29, 50), Vector2(43, 64), Vector2(68, 35)]), Color.WHITE, 11.0, 0.0)
+
+
+## A steel cog: eight square-cut teeth round a wheel, a light rim on its upper left, the dark hub hole.
+func _gear() -> void:
+	var c := Vector2(48, 48)
+	var pts := PackedVector2Array()
+	var teeth := 8
+	for i in teeth:
+		var a := TAU * i / teeth - PI / 2.0
+		var half := TAU / teeth / 2.0
+		for k in [[-0.62, 30.0], [-0.36, 41.0], [0.36, 41.0], [0.62, 30.0]]:
+			pts.append(c + Vector2.from_angle(a + half * k[0]) * k[1])
+		for j in 4: # the wheel's rim between two teeth
+			pts.append(c + Vector2.from_angle(a + half * lerpf(0.62, 1.38, (j + 1) / 5.0)) * 30.0)
+	_poly(pts, STEEL)
+	draw_arc(c, 24.0, PI * 1.05, PI * 1.6, 16, Color(1, 1, 1, 0.55), 4.0, true)
+	draw_circle(c, 13.0, OUTLINE, true, -1.0, true)
+	draw_circle(c, 8.0, STEEL_DARK, true, -1.0, true)

@@ -27,3 +27,11 @@ How to build and check:
 - Production server: `https://battlesquad.chuongnguyen.online` (contabo, `deploy/docker-compose.prod.yml` in the server repo).
 - Any other export: run `tools/check_export.sh <pck>` before handing it over.
 - Device log (Developer Mode on): `Documents/logs/godot.log`. Fetch it with `xcrun devicectl device copy from --domain-type appDataContainer --domain-identifier com.inspius.battlesquad --source Documents/logs/godot.log --destination <file> --device <id>`.
+
+## Native plugin (Google sign-in sheet)
+
+`addons/web_auth` is a GDExtension (Objective-C++ on godot-cpp) that shows `ASWebAuthenticationSession` for the Google sign-in (`core/google_sign_in.gd`; spec `../battle-squad/docs/specs/2026-10-30-settings-account-link.md`). Its source and build live in `native/web_auth` (hidden from Godot by `native/.gdignore`); the built binaries are committed: `addons/web_auth/bin/libweb_auth.macos.dylib` (universal: editor, editor runs, macOS export) and `web_auth.ios.xcframework` (iOS device + simulator, the extension and its godot-cpp in one static library, linked by Godot's iOS export). Other platforms have no library: `Engine.has_singleton("WebAuth")` is false and the Google buttons say "Sắp ra mắt", as in headless tests.
+
+- Rebuild after changing `native/web_auth/src`: `native/web_auth/build.sh [macos|ios|all]` (needs Xcode at /Applications/Xcode.app and `pip3 install --user scons`; it fetches godot-cpp `godot-4.5-stable` into `native/web_auth/godot-cpp`, ignored). Restart the editor to load a new dylib.
+- No export preset change: the macOS ad-hoc export adds the "Disable Library Validation" entitlement itself; iOS needs no URL scheme (the session catches `<reversed client id>:/oauth2redirect`) and the library pulls in AuthenticationServices.
+- Client IDs: project settings `battle_squad/google_client_id_ios` / `_macos` (iOS-type OAuth clients, no secret).

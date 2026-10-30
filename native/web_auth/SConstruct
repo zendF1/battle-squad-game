@@ -1,0 +1,22 @@
+#!/usr/bin/env python
+# The WebAuth GDExtension (src/): macOS universal dylib or an iOS static library, godot-cpp trimmed to the
+# classes in build_profile.json. Run through build.sh, which fetches godot-cpp and places the outputs.
+import os
+
+env = SConscript("godot-cpp/SConstruct")
+env.Append(CPPPATH=["src/"])
+env.Append(CCFLAGS=["-fobjc-arc", "-fmodules"])
+sources = Glob("src/*.cpp") + Glob("src/*.mm")
+
+out = ARGUMENTS.get("out", "build")
+if env["platform"] == "macos":
+    env.Append(LINKFLAGS=["-framework", "AuthenticationServices", "-framework", "AppKit", "-framework", "Foundation"])
+    library = env.SharedLibrary("{}/libweb_auth.macos.dylib".format(out), source=sources)
+elif env["platform"] == "ios":
+    suffix = "simulator" if env["ios_simulator"] else "device"
+    library = env.StaticLibrary("{}/libweb_auth.ios.{}.a".format(out, suffix), source=sources)
+else:
+    raise ValueError("WebAuth builds for macos and ios only")
+
+env.NoCache(library)
+Default(library)

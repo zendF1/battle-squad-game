@@ -2,7 +2,7 @@ extends Control
 ## The Home lobby (a Gunny-style mobile lobby). Corners: the player (avatar letter, name, EXP
 ## bar, "Lv.N"; tap opens the Nhân vật page) top-left with the rank chip beside it (grade insignia,
 ## "Binh nhì 2", the division's points; tap: the rank popup, screens/ranked/rank_chip.gd), the wallet pills top-right, the connection
-## state top-centre, one round shortcut per page down the right (Nhân vật, Kho đồ, Nâng cấp,
+## state top-centre, the gear right of the wallet (the settings popup, settings_popup.gd), one round shortcut per page down the right (Nhân vật, Kho đồ, Nâng cấp,
 ## Hồ sơ, Shop, Xếp hạng: the trophy, a code-drawn glyph), the selected character's icon card on the left (character_card.gd; no sentences: its element chain,
 ## ui/element_chain.gd, beaten by → element → beats; its skill's picture, ui/skill_button.gd, a tap
 ## opens the skill's popup; Lực chiến (the power glyph and the server's number, ui/power_tag.gd); heart / sword /
@@ -90,6 +90,7 @@ const CharacterCard := preload("res://screens/home/character_card.gd")
 const ModeSelect := preload("res://screens/home/mode_select.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const GuildButton := preload("res://screens/guild/guild_button.gd")
+const SettingsPopup := preload("res://screens/home/settings_popup.gd")
 
 const MARGIN := 18
 const STAGE := Vector2(560, 590)
@@ -163,8 +164,11 @@ func _ready() -> void:
 	_pin(rank_chip, 0, 0, MARGIN + PLAYER_W + 14, MARGIN + 14)
 	_conn = LobbyUi.text("", 22, Color.WHITE, true)
 	_pin(_conn, 0.5, 0, 0, MARGIN + 6)
+	var gear := _build_settings_button()
+	_pin(gear, 1, 0, -MARGIN, MARGIN)
 	wallet = WalletPills.new()
-	_pin(wallet, 1, 0, -MARGIN, MARGIN)
+	_pin(wallet, 1, 0, -MARGIN - SETTINGS - SETTINGS_GAP, MARGIN)
+	wallet.resized.connect(func() -> void: gear.position.y = wallet.position.y + (wallet.size.y - gear.size.y) / 2.0)
 	_pin(_build_shortcuts(), 1, 0, -MARGIN - 6, 112)
 	_pin(_build_info_card(), 0, 0, MARGIN, 150)
 	_pin(_build_chat(), 0, 1, MARGIN, -MARGIN)
@@ -326,6 +330,41 @@ func _render_conn() -> void:
 	else:
 		_conn.text = "○ Đang kết nối..."
 		_conn.add_theme_color_override("font_color", Ui.TONES["draw"])
+
+
+# ── Settings ────────────────────────────────────────────────────────────────
+
+const SETTINGS := 56 # px, the gear in the top-right corner
+const SETTINGS_GAP := 12 # between the gear and the wallet
+
+
+## The gear (a code-drawn cog on a dark disc, like the wallet pills) in the top-right corner, right
+## of the wallet and level with its middle: the settings popup (settings_popup.gd).
+func _build_settings_button() -> Button:
+	var b := Button.new()
+	b.name = "SettingsButton"
+	b.tooltip_text = "Cài đặt"
+	b.custom_minimum_size = Vector2(SETTINGS, SETTINGS)
+	LobbyUi.style_button(b, Color(0.05, 0.08, 0.2, 0.82), SETTINGS / 2, 0, Color(1, 1, 1, 0.85), 3)
+	b.add_theme_stylebox_override("hover", LobbyUi.box(Color(0.12, 0.16, 0.32, 0.9), SETTINGS / 2, 0, Color(1, 1, 1, 0.85), 3))
+	b.add_theme_stylebox_override("pressed", LobbyUi.box(Color(0.02, 0.04, 0.12, 0.9), SETTINGS / 2, 0, Color(1, 1, 1, 0.85), 3))
+	var g = GlyphIcon.make("gear", 0)
+	g.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	var inset := roundf(SETTINGS * 0.14)
+	g.offset_left = inset
+	g.offset_top = inset
+	g.offset_right = -inset
+	g.offset_bottom = -inset
+	b.add_child(g)
+	b.pressed.connect(open_settings)
+	return b
+
+
+func open_settings():
+	var showing := _host().get_node_or_null("SettingsPopup")
+	if showing != null and not showing.is_queued_for_deletion():
+		return showing
+	return SettingsPopup.open_on(_host())
 
 
 # ── Shortcuts and chat ──────────────────────────────────────────────────────
