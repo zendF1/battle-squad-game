@@ -1490,6 +1490,7 @@
         }
       ]
     },
+    "chat": {"maxLength": 500, "pollSec": 3},
     "economy": {
       "coinsPerGem": 100
     },

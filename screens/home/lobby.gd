@@ -10,9 +10,10 @@ extends Control
 ## level are on the stage), the "Mốc thưởng" button (a red badge with the claimable count, hidden at 0; "Có mốc
 ## thưởng mới!" once when the count rose since the player last saw it), "Nhiệm vụ" (the daily
 ## missions; a red dot while a mission, chest or weekly reward is claimable, reloaded each time
-## the lobby shows) and "Bang hội" (the guild's crest, screens/guild/guild_button.gd; a red dot for
-## invitations while not in a guild) above a placeholder chat box bottom-left and the mode card with "BẮT ĐẦU"
-## bottom-right.
+## the lobby shows), "Bạn bè" (the friends page; a red count of the requests waiting for me) and
+## "Bang hội" (the guild's crest, screens/guild/guild_button.gd; a red dot for invitations while not
+## in a guild) above the chat box bottom-left (screens/social/chat_box.gd: the newest Thế giới /
+## Bang hội lines; a tap opens the chat popup) and the mode card with "BẮT ĐẦU" bottom-right.
 ## Centre stage: the worn title's plate (ui/title_plate.gd; nothing without one) over the selected
 ## character's name and level, the character drawn big on a pedestal with
 ## its hands free; the gun it wears (its basic gun when none) rests on the pedestal at its left
@@ -53,6 +54,7 @@ signal open_daily
 signal open_modes
 signal open_leaderboard
 signal open_guild
+signal open_friends
 signal background_changed(key: String)
 
 const Ui := preload("res://ui/ui.gd")
@@ -66,7 +68,10 @@ const LoadoutModel := preload("res://screens/loadout_model.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const Progress := preload("res://screens/home/progress.gd")
 const ShopTab := preload("res://screens/home/shop_tab.gd")
-const FakeChat := preload("res://screens/home/fake_chat.gd")
+const ChatBox := preload("res://screens/social/chat_box.gd")
+const ChatPopup := preload("res://screens/social/chat_popup.gd")
+const SocialGlyphs := preload("res://screens/social/social_glyphs.gd")
+const FriendsModel := preload("res://screens/social/friends_model.gd")
 const MilestonePage := preload("res://screens/home/milestone_page.gd")
 const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
@@ -122,6 +127,7 @@ var _drag_from := -1.0
 
 var _milestone_badge: PanelContainer
 var _daily_dot: Control
+var _friends_badge: PanelContainer
 
 var rank_chip: RankChip
 
@@ -165,6 +171,7 @@ func _ready() -> void:
 	var rewards := Ui.hbox(20)
 	rewards.add_child(_build_milestone_button())
 	rewards.add_child(_build_daily_button())
+	rewards.add_child(_build_friends_button())
 	rewards.add_child(GuildButton.make(REWARD_BUTTON, func(): open_guild.emit()))
 	_pin(rewards, 0, 1, MARGIN + 6, -MARGIN - CHAT_H - 12)
 	_pin(_build_mode_card(), 1, 1, -MARGIN, -MARGIN)
@@ -221,6 +228,7 @@ func _on_visibility_changed() -> void:
 		PlayerState.load_daily() # the daily missions' red dot (a match or a purchase moves them)
 		GuildState.load_me() # my guild (the guild button, chat's Bang hội tab)
 		GuildState.load_invites() # the guild button's red dot
+		Router.social.load_friends() # the friends button's count of requests waiting
 		_render_character() # back from a page: whatever it loaded or bought
 		_render_milestones()
 		_render_daily()
@@ -398,59 +406,41 @@ func _render_daily() -> void:
 		_daily_dot.visible = PlayerState.daily_claimable() > 0
 
 
-## The chat placeholder: the fake recent lines and an input-looking row; a tap says chat is
-## coming later.
+## The chat box (screens/social/chat_box.gd): the newest Thế giới / Bang hội lines, polled while
+## the lobby shows; a tap opens the chat popup.
 func _build_chat() -> Control:
-	var b := Button.new()
-	LobbyUi.texture_button(b, "panel", 0, true)
-	b.custom_minimum_size = Vector2(490, CHAT_H)
-	b.pressed.connect(func(): Ui.toast(self, FakeChat.COMING_SOON))
-	var col := Ui.vbox(2)
-	col.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	col.offset_left = 14
-	col.offset_top = 10
-	col.offset_right = -14
-	col.offset_bottom = -10
-	b.add_child(col)
-	var lines := RichTextLabel.new()
-	lines.bbcode_enabled = true
-	lines.scroll_active = false
-	lines.autowrap_mode = TextServer.AUTOWRAP_OFF
-	lines.clip_contents = true
-	lines.size_flags_vertical = SIZE_EXPAND_FILL
-	lines.add_theme_font_size_override("normal_font_size", 18)
-	lines.add_theme_constant_override("line_separation", 0)
-	lines.add_theme_constant_override("outline_size", 4)
-	lines.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.08, 0.85))
-	lines.text = "\n".join(FakeChat.LINES.map(FakeChat.bbcode))
-	col.add_child(lines)
-	var input := LobbyUi.panel(0, 14, Color(0, 0, 0, 0.35))
-	input.custom_minimum_size.y = 40
-	col.add_child(input)
-	var row := Ui.hbox(8)
-	input.add_child(row)
-	var hint := LobbyUi.text(FakeChat.PLACEHOLDER, 19, Ui.TEXT_DIM)
-	hint.size_flags_horizontal = SIZE_EXPAND_FILL
-	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(_indent(hint, 12))
-	var send := LobbyUi.panel(0, 14, LobbyUi.ICON_COLORS["blue"])
-	send.custom_minimum_size = Vector2(56, 40)
-	var arrow := LobbyUi.icon("send", 28)
-	arrow.size_flags_horizontal = SIZE_SHRINK_CENTER
-	send.add_child(arrow)
-	row.add_child(send)
-	for c in [col, lines, input, row, hint, send, arrow]:
-		c.mouse_filter = MOUSE_FILTER_IGNORE
+	var b := ChatBox.make(490, CHAT_H)
+	b.pressed.connect(open_chat)
 	return b
 
 
-static func _indent(c: Control, left: int) -> MarginContainer:
-	var m := MarginContainer.new()
-	m.add_theme_constant_override("margin_left", left)
-	m.size_flags_horizontal = SIZE_EXPAND_FILL
-	m.mouse_filter = MOUSE_FILTER_IGNORE
-	m.add_child(c)
-	return m
+## The chat popup (screens/social/chat_popup.gd) over Home.
+func open_chat():
+	return ChatPopup.open_on(_host())
+
+
+## "Bạn bè": a round button with two people (the friends page) and the red count of the friend
+## requests waiting for me.
+func _build_friends_button() -> Control:
+	var col := LobbyUi.icon_button("unknown", "Bạn bè", LobbyUi.ICON_COLORS["blue"], func(): open_friends.emit(), REWARD_BUTTON)
+	col.name = "FriendsButton"
+	var b: Button = col.get_child(0)
+	b.icon = null # the two people are drawn (social_glyphs.gd)
+	var art := SocialGlyphs.glyph("friends", int(REWARD_BUTTON * 0.66))
+	art.position = Vector2(REWARD_BUTTON, REWARD_BUTTON) * 0.17
+	b.add_child(art)
+	_friends_badge = MilestonePage.badge()
+	_friends_badge.position = Vector2(REWARD_BUTTON - 22, -6)
+	b.add_child(_friends_badge)
+	Router.social.friends_changed.connect(_render_friends)
+	_render_friends()
+	return col
+
+
+func _render_friends() -> void:
+	var n := FriendsModel.pending_count(Router.social.friends)
+	_friends_badge.visible = n > 0
+	(_friends_badge.get_child(0) as Label).text = str(n)
 
 
 # ── Stage ───────────────────────────────────────────────────────────────────

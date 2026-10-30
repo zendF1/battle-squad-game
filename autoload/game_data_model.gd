@@ -1054,6 +1054,20 @@ static func chest_upgrade_level(chest_id: String) -> int:
 	return _i(chest(chest_id), "upgradeLevel")
 
 
+# ── chat: the message length limit and the poll cadence (GET /gamedata chat) ──
+
+## The longest chat message in characters (Unicode code points, as the server counts); 0 unknown
+## (an older server: the client does not limit, the server refuses).
+static func chat_max_length() -> int:
+	return _i(section("chat"), "maxLength")
+
+
+## Seconds between two polls of a chat conversation while it is on screen; 0 unknown (no timed
+## polling: only on opening and after sending).
+static func chat_poll_sec() -> float:
+	return _f(section("chat"), "pollSec")
+
+
 # ── levels ──────────────────────────────────────────────────────────────────
 
 ## [{level, expRequired}] in level order (the total EXP to reach each level).

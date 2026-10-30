@@ -9,7 +9,8 @@ extends "res://ui/modal.gd"
 ## a number, the allocated points under it with the level chevrons); the crit chance centred under
 ## them when there is one. Under all, the characters they own as heads (the shown one ringed in
 ## gold): a tap shows that one. GET /players/{id}/showcase through PlayerState.fetch_showcase().
-## No sentences: the X (or a tap outside) closes it.
+## No sentences: the X (or a tap outside) closes it; Kết bạn (screens/social/friend_button.gd) in the
+## mirrored top-left corner for another player.
 
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const PowerTag := preload("res://ui/power_tag.gd")
@@ -27,6 +28,7 @@ const RankModel := preload("res://screens/ranked/rank_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const GearModel := preload("res://screens/home/gear_model.gd")
 const GearUi := preload("res://screens/home/gear_ui.gd")
+const FriendButton := preload("res://screens/social/friend_button.gd")
 
 const WIDTH := 1240
 const SIDE_W := 330 # the gear and the stats columns (equal: the stage stays centred)
@@ -60,6 +62,7 @@ static func show_player(host: Node, entry: Dictionary):
 	m.player_id = str(entry.get("player_id", ""))
 	m.open(host, str(entry.get("name", "")), WIDTH)
 	m.add_close_x()
+	FriendButton.corner(m, {"playerId": m.player_id, "displayName": str(entry.get("name", ""))})
 	m._build()
 	m.load_character("")
 	return m

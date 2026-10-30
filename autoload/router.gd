@@ -37,6 +37,9 @@ var ranked_member := false
 var mode_chosen := false
 ## The 2v2 party (screens/home/party.gd), kept here so it outlives the scenes.
 var party: Node
+## Chat and friends (screens/social/social.gd: the conversations, the friends list, my guild's id,
+## the guild page's set_guild_invite() hook), kept here so it outlives the scenes.
+var social: Node
 
 
 func go(scene: String) -> void:
@@ -54,6 +57,9 @@ func _ready() -> void:
 	party = load("res://screens/home/party.gd").new()
 	party.name = "Party"
 	add_child(party)
+	social = load("res://screens/social/social.gd").new()
+	social.name = "Social"
+	add_child(social)
 
 
 func _on_session_lost() -> void:
