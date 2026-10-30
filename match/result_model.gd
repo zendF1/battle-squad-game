@@ -5,6 +5,14 @@ extends RefCounted
 ## coins with a ranked match's bonus, stones, chests, the level-up popup's stages, the rank points
 ## line) and the buttons' texts. A match that gives nothing (QuickPlay vs AI, practice: the server
 ## sends 0) shows no reward rows.
+##
+## MatchEnded.rewardSettlementStatus (docs/contracts/security-settlement.md): "completed" (the
+## rewards were granted), "pending" (saved, the server keeps granting them: they land in the
+## profile / bag later, with no new event; rewards may be null), "failed" (an operator has to fix
+## it; rewards may be null). A missing or unknown status is "completed" (an older server). Rewards
+## that are present are shown whatever the status; null rewards are "on their way" when pending
+## (the hourglass, PENDING_TEXT; PlayerState.watch_pending_reward() polls the profile), else
+## not granted (FAILED_TEXT).
 
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const ChestModel := preload("res://screens/home/chest_model.gd")
@@ -18,6 +26,14 @@ const WIN := "win"
 const LOSE := "lose"
 const DRAW := "draw"
 const AUTO_EXIT_SEC := 20
+
+const COMPLETED := "completed"
+const PENDING := "pending"
+const FAILED := "failed"
+## The rewards card without rewards: on their way (pending) / not granted (failed, or none sent).
+const PENDING_TEXT := "Phần thưởng đang về"
+const LANDED_TEXT := "Phần thưởng đã về"
+const FAILED_TEXT := "Chưa lấy được phần thưởng của trận này"
 
 
 static func outcome(my_team: int, winning_team: int) -> String:
@@ -122,17 +138,25 @@ static func damage_text(damage: int) -> String:
 	return "Sát thương %s" % Fmt.thousands(damage) if damage >= 0 else ""
 
 
-## My rewards from MatchEnded.rewards[me] (null: granting failed) for a match in `mode`:
-## {ok, exp, coin (bonus included), bonus_coin (a ranked match's bonus, inside coin), stones
-## [{level, qty}], chests [ChestModel.match_chests()], level_up, new_level, char_level_up,
-## char_level, char_gained (levels), rank (RankModel.result_of), guild (GuildModel.parse_progress()
-## of rewards[me].guild: the guild EXP and the dungeon cleared; {} none), empty (granted but
-## nothing: no reward rows)}.
-static func reward(r: Variant, mode: String) -> Dictionary:
+## MatchEnded's rewardSettlementStatus: COMPLETED, PENDING or FAILED; missing or unknown (an older
+## server) is COMPLETED.
+static func settlement_of(d: Variant) -> String:
+	var s = d.get("rewardSettlementStatus") if d is Dictionary else null
+	return s if s is String and s in [PENDING, FAILED] else COMPLETED
+
+
+## My rewards from MatchEnded.rewards[me] for a match in `mode`, its settlement `status`
+## (settlement_of()): {ok, pending (no rewards yet, the server is still granting them), exp, coin
+## (bonus included), bonus_coin (a ranked match's bonus, inside coin), stones [{level, qty}], chests
+## [ChestModel.match_chests()], level_up, new_level, char_level_up, char_level, char_gained
+## (levels), rank (RankModel.result_of), guild (GuildModel.parse_progress() of rewards[me].guild:
+## the guild EXP and the dungeon cleared; {} none), empty (granted but nothing: no reward rows)}.
+## Null rewards are not ok: pending when the status says so, else not granted.
+static func reward(r: Variant, mode: String, status: String = COMPLETED) -> Dictionary:
 	if not r is Dictionary:
-		return {"ok": false, "exp": 0, "coin": 0, "bonus_coin": 0, "stones": [], "chests": [], "level_up": false, "new_level": 0,
-			"char_level_up": false, "char_level": 0, "char_gained": 0, "rank": {}, "guild": {}, "empty": false}
-	var out := {"ok": true, "exp": int(_num(r.get("expGained"))) if _num(r.get("expGained")) > 0 else 0,
+		return {"ok": false, "pending": status == PENDING, "exp": 0, "coin": 0, "bonus_coin": 0, "stones": [], "chests": [],
+			"level_up": false, "new_level": 0, "char_level_up": false, "char_level": 0, "char_gained": 0, "rank": {}, "guild": {}, "empty": false}
+	var out := {"ok": true, "pending": false, "exp": int(_num(r.get("expGained"))) if _num(r.get("expGained")) > 0 else 0,
 		"coin": int(_num(r.get("coinGained"))) if _num(r.get("coinGained")) > 0 else 0,
 		"bonus_coin": int(_num(r.get("bonusCoin"))) if _num(r.get("bonusCoin")) > 0 else 0,
 		"stones": stones_of(r.get("stones")), "chests": ChestModel.match_chests(r.get("chests")),

@@ -14,7 +14,9 @@ extends Control
 ## coins, stones, chests, items as icon + count, no names, scrolling sideways when they overflow,
 ## popping in one by one, the coins counting up); a level up opens the "LÊN CẤP!" popup after the EXP. Bottom right "Chơi
 ## tiếp" (the same boss's queue again; not for the party's member), "Về sảnh" (the party kept) and
-## the clock glyph with the seconds left.
+## the clock glyph with the seconds left. Rewards still on their way (pending settlement, none
+## sent) show the turning hourglass with a short line (match/reward_pending.gd), rewards not granted
+## ResultModel.FAILED_TEXT.
 ##
 ## setup(info) before it enters the tree: BossResultModel.info() plus exp ({level, exp} before the
 ## match, {} unknown), char_name, character_id, again ("" none).
@@ -34,6 +36,7 @@ const BossResultModel := preload("res://match/boss/boss_result_model.gd")
 const LevelUpPopup := preload("res://match/level_up_popup.gd")
 const Fmt := preload("res://core/fmt.gd")
 const RewardStrip := preload("res://ui/reward_strip.gd")
+const RewardPending := preload("res://match/reward_pending.gd")
 
 const GOLD := Color(1.0, 0.8, 0.22)
 const LOSE_TITLE := Color(0.62, 0.72, 0.9)
@@ -284,8 +287,12 @@ func _build_bottom() -> Control:
 			gift.add_child(count)
 		gift.modulate = Color.WHITE if bonus else Color(1, 1, 1, 0.55)
 		head.add_child(gift)
-	if not reward.get("ok", false):
-		col.add_child(LobbyUi.text("Chưa lấy được phần thưởng của trận này", 24, Color.WHITE, true))
+	if not reward.get("ok", false): # on its way (the hourglass: PlayerState watches the profile) or not granted
+		if reward.get("pending", false):
+			col.size_flags_horizontal = SIZE_EXPAND_FILL # the whole card: the hourglass in its centre
+			col.add_child(RewardPending.make())
+		else:
+			col.add_child(LobbyUi.text(ResultModel.FAILED_TEXT, 24, Color.WHITE, true))
 		return _finish_bottom(bar)
 	var tag := PanelContainer.new()
 	tag.add_theme_stylebox_override("panel", LobbyUi.box(Color(0.22, 0.48, 0.92), 10, 0))
