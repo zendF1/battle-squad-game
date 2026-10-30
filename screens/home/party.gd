@@ -79,6 +79,14 @@ func leave() -> void:
 	_run(model.leave())
 
 
+## Signed out (core/logout.gd): leaves the lobby (LeaveLobby while the socket is still up) and
+## forgets the party, my invites, the invite shown to me and the online players.
+func reset_account() -> void:
+	if model.in_lobby():
+		GameSocket.send("LeaveLobby", {})
+	model = PartyModel.new()
+
+
 func _run(actions: Array) -> void:
 	for a in actions:
 		match a[0]:

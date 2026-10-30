@@ -62,6 +62,25 @@ func _check_player() -> void:
 	_feeds.clear()
 
 
+## Signed out (core/logout.gd): drops the conversations, the friends list, my guild's id and the
+## polls' state, so the next sign-in starts empty (the guild page's hook stays: it is not the
+## account's). No signal: the scene goes to Login.
+func reset_account() -> void:
+	_player = ""
+	friends = {}
+	friends_loading = false
+	friends_loaded = false
+	friends_error = ""
+	guild_id = ""
+	guild_known = false
+	_feeds.clear()
+	_in_flight.clear()
+	_next_ok.clear()
+	_backoff.clear()
+	_friends_asked = false
+	_guild_asking = false
+
+
 # ── Guild hook ──────────────────────────────────────────────────────────────
 
 ## The guild page's "Mời vào guild" (see the file's header); Callable() clears it.

@@ -259,6 +259,8 @@ var _known_ids := {} # purchaseIds / transactionIds this client has seen (replay
 
 ## The REST client: the Api autoload, or a stand-in set by the tests.
 var api: Object = null
+## Bumped by reset_account() (Đăng xuất): an answer asked before it is the last account's and is dropped.
+var account_gen := 0
 
 
 func _api() -> Object:
@@ -346,9 +348,12 @@ func refresh() -> void:
 	changed.emit()
 	while true:
 		var t := _profile_gate.ticket()
+		var gen := account_gen
 		var res: Dictionary = await _api().get_json("/player/profile")
 		if not _profile_gate.finish(t):
 			continue # a newer refresh was asked meanwhile: this answer may be stale
+		if gen != account_gen:
+			break # signed out meanwhile: the answer is the last account's
 		if res.ok and res.data is Dictionary:
 			apply(res.data)
 		else:
@@ -379,6 +384,8 @@ func load_characters() -> void:
 		var res: Dictionary = await _api().get_json("/player/characters")
 		if not _characters_gate.finish(t):
 			continue
+		if player != Session.player_id:
+			break # signed out (or another account) meanwhile
 		var data = res.data if res.ok else null
 		if data is Dictionary and data.get("characters") is Array:
 			characters = data
@@ -402,6 +409,8 @@ func load_rank() -> void:
 		var res: Dictionary = await _api().get_json("/rank/me")
 		if not _rank_gate.finish(t):
 			continue
+		if player != Session.player_id:
+			break # signed out (or another account) meanwhile
 		if res.ok and res.data is Dictionary:
 			rank = res.data
 			_rank_player = player
@@ -470,6 +479,8 @@ func load_boss_runs(force: bool = false) -> void:
 		var res: Dictionary = await _api().get_json("/boss/runs")
 		if not _boss_runs_gate.finish(t):
 			continue
+		if player != Session.player_id:
+			break # signed out (or another account) meanwhile
 		if res.ok and res.data is Dictionary:
 			boss_runs = res.data
 			_boss_runs_player = player
@@ -758,6 +769,80 @@ func key_target(id: String) -> String:
 	return "%s/%s" % [Session.player_id, id]
 
 
+# ── Đăng xuất ───────────────────────────────────────────────────────────────
+
+## Signed out (core/logout.gd): forgets everything of the account (profile, characters, equipment,
+## stones, milestones, titles, daily missions, rank, boss runs, chests, season rewards, leaderboards,
+## the reward watch, the actions running) so the next sign-in starts empty. Answers still on their way
+## are dropped (account_gen, and the loaders' player check). No signal: the scene goes to Login.
+## Game data and the map list (not the account's) and the idempotency keys (per player) stay.
+func reset_account() -> void:
+	account_gen += 1
+	stop_reward_watch()
+	pending_reward_landed = false
+	_reward_watch = RewardWatch.new()
+	profile = {}
+	loading = false
+	error = ""
+	characters = null
+	characters_loading = false
+	characters_error = ""
+	characters_stale = true
+	_characters_player = ""
+	busy_id = ""
+	equipment = null
+	equipment_loading = false
+	equipment_error = ""
+	equipment_stale = true
+	_equipment_player = ""
+	equip_busy = ""
+	stones = null
+	stones_loading = false
+	stones_error = ""
+	stones_stale = true
+	_stones_player = ""
+	stone_busy = ""
+	milestones = null
+	milestones_loading = false
+	milestones_error = ""
+	milestones_stale = true
+	_milestones_player = ""
+	milestone_count = -1
+	milestone_seen = -1
+	milestone_busy = ""
+	titles = null
+	titles_loading = false
+	titles_error = ""
+	titles_stale = true
+	_titles_player = ""
+	title_busy = false
+	daily = null
+	daily_loading = false
+	daily_error = ""
+	_daily_player = ""
+	daily_busy = ""
+	rank = {}
+	_rank_player = ""
+	boss_runs = {}
+	_boss_runs_player = ""
+	_boss_runs_msec = -1
+	chests = null
+	chests_loading = false
+	chests_error = ""
+	chests_stale = true
+	_chests_player = ""
+	chest_busy = ""
+	season_rewards = []
+	_season_rewards_player = ""
+	season_busy = ""
+	leaderboards = {}
+	leaderboard_errors = {}
+	leaderboard_loading = {}
+	_leaderboard_msec = {}
+	_leaderboard_player = ""
+	_known_ids = {}
+
+
 # ── Equipment ───────────────────────────────────────────────────────────────
 
 ## Loads the catalog unless it is loaded or loading, and the owned pieces unless a fresh copy is
@@ -799,6 +884,8 @@ func load_equipment() -> void:
 		var res: Dictionary = await _api().get_json("/player/equipment")
 		if not _equipment_gate.finish(t):
 			continue
+		if player != Session.player_id:
+			break # signed out (or another account) meanwhile
 		var parsed = EquipmentModel.parse_owned(res.data) if res.ok else null
 		if parsed is Array:
 			equipment = parsed
@@ -898,6 +985,8 @@ func load_stones() -> void:
 		var res: Dictionary = await _api().get_json("/player/stones")
 		if not _stones_gate.finish(t):
 			continue
+		if player != Session.player_id:
+			break # signed out (or another account) meanwhile
 		var parsed = UpgradeModel.parse_stones(res.data) if res.ok else null
 		if parsed is Dictionary:
 			stones = parsed
@@ -1037,6 +1126,8 @@ func load_milestones() -> void:
 		var res: Dictionary = await _api().get_json("/milestones")
 		if not _milestones_gate.finish(t):
 			continue
+		if player != Session.player_id:
+			break # signed out (or another account) meanwhile
 		var parsed = MilestoneModel.parse(res.data) if res.ok else null
 		if parsed != null:
 			milestones = parsed
@@ -1057,9 +1148,12 @@ func load_milestone_summary() -> void:
 		return
 	while true:
 		var t := _summary_gate.ticket()
+		var gen := account_gen
 		var res: Dictionary = await _api().get_json("/milestones/summary")
 		if not _summary_gate.finish(t):
 			continue
+		if gen != account_gen:
+			break
 		var data = res.data if res.ok else null
 		if data is Dictionary and (data.get("claimableCount") is int or data.get("claimableCount") is float):
 			var n := int(data["claimableCount"])
@@ -1158,6 +1252,8 @@ func load_titles() -> void:
 		var res: Dictionary = await _api().get_json("/player/titles")
 		if not _titles_gate.finish(t):
 			continue
+		if player != Session.player_id:
+			break # signed out (or another account) meanwhile
 		var parsed = TitleModel.parse(res.data) if res.ok else null
 		if parsed != null:
 			titles = parsed
@@ -1222,6 +1318,8 @@ func load_daily() -> void:
 		var res: Dictionary = await _api().get_json("/missions/daily")
 		if not _daily_gate.finish(t):
 			continue
+		if player != Session.player_id:
+			break # signed out (or another account) meanwhile
 		var parsed = DailyModel.parse(res.data) if res.ok else null
 		if parsed != null:
 			_take_daily(parsed, player)
@@ -1306,6 +1404,8 @@ func load_chests() -> void:
 		var res: Dictionary = await _api().get_json("/chests")
 		if not _chests_gate.finish(t):
 			continue
+		if player != Session.player_id:
+			break # signed out (or another account) meanwhile
 		var parsed = ChestModel.parse_owned(res.data) if res.ok else null
 		if parsed is Array:
 			chests = parsed
@@ -1362,6 +1462,8 @@ func load_season_rewards() -> void:
 		var res: Dictionary = await _api().get_json("/rank/season-rewards")
 		if not _season_gate.finish(t):
 			continue
+		if player != Session.player_id:
+			break # signed out (or another account) meanwhile
 		if res.ok and res.data is Dictionary:
 			season_rewards = SeasonRewardModel.parse(res.data)
 			_season_rewards_player = player

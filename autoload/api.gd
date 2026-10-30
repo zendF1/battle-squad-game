@@ -49,13 +49,17 @@ func request(method: int, path: String, body: Variant = null, auth: bool = true,
 
 
 ## Exchanges the refresh token for new tokens. Returns an ApiResponse.REFRESH_* outcome; only
-## REFRESH_REJECTED clears the session.
+## REFRESH_REJECTED clears the session. A sign-out (or another sign-in) while it runs leaves the
+## session alone: REFRESH_FAILED, so the old account's tokens never come back.
 func refresh_tokens() -> int:
 	if _refreshing:
 		return await _refresh_done
 	_refreshing = true
-	var res := await _send(HTTPClient.METHOD_POST, "/auth/refresh", {"refreshToken": Session.refresh_token}, false)
+	var sent := Session.refresh_token
+	var res := await _send(HTTPClient.METHOD_POST, "/auth/refresh", {"refreshToken": sent}, false)
 	var outcome := ApiResponse.refresh_outcome(res)
+	if Session.refresh_token != sent:
+		outcome = ApiResponse.REFRESH_FAILED # signed out (or another sign-in) meanwhile: the session is left as it is now
 	match outcome:
 		ApiResponse.REFRESH_OK:
 			Session.set_tokens(str(res.data["accessToken"]), str(res.data.get("refreshToken", Session.refresh_token)))

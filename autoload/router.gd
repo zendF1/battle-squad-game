@@ -42,6 +42,24 @@ var party: Node
 var social: Node
 
 
+## Signed out (core/logout.gd): the match / queue payloads, the mode picked this session, the
+## party and the chat / friends state are the last account's: all forgotten.
+func reset_account() -> void:
+	quick_play_base = {}
+	match_snapshot = {}
+	ranked_loadout = {}
+	queue = ""
+	last_quick_play = {}
+	match_roster = {}
+	home_notice = ""
+	ranked_member = false
+	mode_chosen = false
+	if party != null and party.has_method("reset_account"):
+		party.reset_account()
+	if social != null and social.has_method("reset_account"):
+		social.reset_account()
+
+
 func go(scene: String) -> void:
 	get_tree().call_deferred("change_scene_to_file", scene)
 

@@ -236,20 +236,19 @@ func test_headless_has_no_sheet() -> void:
 func test_settings_popup_guest_then_linked() -> void:
 	var host := Control.new()
 	var p = SettingsPopup.new()
+	p.sign_in_ready = func(provider: String) -> bool: return provider == "google"
 	p.open_for(host)
 	p.render({"linkedProviders": []})
-	var google = p.section.get_node_or_null("Link_google")
-	var apple = p.section.get_node_or_null("Link_apple")
-	check(google is LoginButton and apple is LoginButton, "a guest gets the Google and Apple buttons")
+	var google = p.section.get_node_or_null("Providers/Row_google")
+	var apple = p.section.get_node_or_null("Providers/Row_apple")
+	check(google != null and apple != null, "a row for Google and for Apple")
 	if google != null:
-		eq(google.provider, "google", "the four-colour G")
-	check(p.section.get_node_or_null("Hint") != null, "the short line")
+		check(google.find_child("Link", true, false) is Button, "a guest gets the Google link button")
+		eq(google.find_child("Mark", true, false).kind, "google", "the four-colour G")
 	p.render({"linkedProviders": ["google"]})
-	var linked = p.section.get_node_or_null("Linked")
-	check(linked != null and linked.get_node_or_null("Linked_google") != null, "linked: the Google mark")
-	check(linked != null and linked.get_node_or_null("Linked_google/Tick") != null, "with the tick")
-	check(p.section.find_children("*", "Button", true, false).is_empty(), "linked: no button")
-	check(p.section.get_node_or_null("Hint") == null, "linked: no line")
+	google = p.section.get_node_or_null("Providers/Row_google")
+	check(google != null and google.find_child("Tick", true, false) != null, "linked: the Google mark with the tick")
+	check(google != null and google.find_child("Link", true, false) == null, "linked: no link button")
 	host.free()
 
 

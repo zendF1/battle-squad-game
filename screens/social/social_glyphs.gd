@@ -5,9 +5,10 @@ extends "res://ui/glyph_icon.gd"
 ## (a person with a red minus: Xoá bạn), "chat" (a white speech bubble with three dots: the match
 ## chat button, Nhắn tin), "lock" (a padlock: the Bang hội tab without a guild), "pen" (a pencil:
 ## Đổi biệt danh), "inbox" / "outbox" (a person with an arrow coming in / going out: the requests
-## received / sent), "banner" (a purple pennant on a pole: Mời vào guild).
+## received / sent), "banner" (a purple pennant on a pole: Mời vào guild), "person" (one person: the
+## settings popup's Tài khoản section).
 
-const SOCIAL_KINDS := ["friends", "add_friend", "remove_friend", "chat", "lock", "pen", "inbox", "outbox", "banner"]
+const SOCIAL_KINDS := ["friends", "add_friend", "remove_friend", "chat", "lock", "pen", "inbox", "outbox", "banner", "person"]
 const PERSON := Color(0.42, 0.72, 1.0)
 const PERSON_BACK := Color(0.3, 0.5, 0.86)
 const PLUS := Color(0.36, 0.86, 0.4)
@@ -99,6 +100,8 @@ func _draw() -> void:
 		return
 	draw_set_transform((size - Vector2(96, 96) * s) / 2.0, 0.0, Vector2(s, s))
 	match kind:
+		"person":
+			_person(Vector2.ZERO, 1.0, PERSON)
 		"friends":
 			_person(Vector2(16, -4), 0.78, PERSON_BACK)
 			_person(Vector2(-12, 8), 0.86, PERSON)

@@ -42,6 +42,30 @@ static func linked_providers(profile: Variant) -> Array[String]:
 	return out
 
 
+## A provider row's state in the settings popup's Tài khoản section: LINKED (its mark with the green
+## tick), LINK (its link button) or SOON ("Sắp ra mắt": no sign-in here yet).
+const LINKED := "linked"
+const LINK := "link"
+const SOON := "soon"
+
+
+static func row_state(provider: String, profile: Variant, sign_in_ready: bool) -> String:
+	if linked_providers(profile).has(provider):
+		return LINKED
+	return LINK if sign_in_ready else SOON
+
+
+## Whether this build can sign in with `provider`: Google where the system sheet is (iOS, macOS);
+## Apple not yet.
+static func can_sign_in(provider: String) -> bool:
+	return provider == "google" and GoogleSignIn.available()
+
+
+## The provider's brand name ("Google", "Apple").
+static func provider_name(provider: String) -> String:
+	return provider.capitalize()
+
+
 ## A guest: no provider linked (also a profile from before the field existed).
 static func is_guest(profile: Variant) -> bool:
 	return linked_providers(profile).is_empty()

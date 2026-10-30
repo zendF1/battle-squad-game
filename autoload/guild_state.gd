@@ -133,6 +133,25 @@ func _check_account() -> void:
 		invite_guilds = {}
 
 
+## Signed out (core/logout.gd): forgets the guild, its activity, the rankings, the invites and the
+## action running, so the next sign-in starts empty. No signal: the scene goes to Login.
+func reset_account() -> void:
+	_player = ""
+	guild = {}
+	known = false
+	loading = false
+	error = ""
+	activity = {}
+	activity_error = ""
+	rankings = []
+	rankings_loaded = false
+	rankings_error = ""
+	invites = []
+	invites_loaded = false
+	invite_guilds = {}
+	busy = ""
+
+
 # ── Loads ───────────────────────────────────────────────────────────────────
 
 func load_me() -> void:

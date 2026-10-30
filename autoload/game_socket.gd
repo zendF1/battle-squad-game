@@ -48,12 +48,15 @@ func open() -> void:
 		_dial()
 
 
+## Closes the link for good (Đăng xuất): no redial, the outbox and any held events dropped.
 func close() -> void:
 	_want_open = false
 	_gen += 1
 	_dialing = false
 	_retry_in = -1.0
 	_outbox.clear()
+	_held = false
+	_held_events.clear()
 	_ws.close()
 
 
