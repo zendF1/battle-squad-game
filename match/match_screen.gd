@@ -205,6 +205,7 @@ const DrillFx := preload("res://match/views/drill_fx.gd")
 const GearModel := preload("res://screens/home/gear_model.gd")
 const Ui := preload("res://ui/ui.gd")
 const GearFx := preload("res://match/views/gear_fx.gd")
+const PlayerInfoPopup := preload("res://match/views/player_info_popup.gd")
 const QUAKE_SHAKE := 70.0 # the earthquake's shake (as an explosion of this radius), renewed every QUAKE_EVERY s
 const QUAKE_EVERY := 0.12
 const WATER_GUN := "water_gun" # a shot of this gun kind bursts into water (visual only)
@@ -404,6 +405,7 @@ func _ready() -> void:
 	_hud.awaken_pressed.connect(_on_awaken_pressed)
 	_aim.fire_column.connect(_on_fire_column)
 	_hud.leave_pressed.connect(_on_leave)
+	_hud.portrait_pressed.connect(_open_player_info)
 
 	var snap: Dictionary = Router.match_snapshot
 	Router.match_snapshot = {} # consumed: a later Match scene must not start from it
@@ -2727,6 +2729,15 @@ func _view_lift(view) -> Vector2:
 ## The unit direction of an aim angle (degrees, 0 right, 90 up).
 static func _aim_dir(angle: float) -> Vector2:
 	return Vector2(cos(deg_to_rad(angle)), -sin(deg_to_rad(angle)))
+
+
+## A tap on the turn portrait: that player's info popup (head, name, guild skills) over the HUD.
+func _open_player_info(id: String) -> Control:
+	if not _players.has(id):
+		return null
+	var popup = PlayerInfoPopup.new()
+	popup.open_for(_hud, _players[id])
+	return popup
 
 
 ## A tap on a player's off-screen marker: the camera pans there and stays.

@@ -8,11 +8,12 @@ extends Control
 ## opens the skill's popup; Lực chiến (the power glyph and the server's number, ui/power_tag.gd); heart / sword /
 ## shield with Máu, Sát thương, Phòng thủ; its name and
 ## level are on the stage), the "Mốc thưởng" button (a red badge with the claimable count, hidden at 0; "Có mốc
-## thưởng mới!" once when the count rose since the player last saw it) and "Nhiệm vụ" (the daily
+## thưởng mới!" once when the count rose since the player last saw it), "Nhiệm vụ" (the daily
 ## missions; a red dot while a mission, chest or weekly reward is claimable, reloaded each time
-## the lobby shows) and "Bạn bè" (the friends page; a red count of the requests waiting for me)
-## above the chat box bottom-left (screens/social/chat_box.gd: the newest Thế giới / Bang hội lines;
-## a tap opens the chat popup) and the mode card with "BẮT ĐẦU" bottom-right.
+## the lobby shows), "Bạn bè" (the friends page; a red count of the requests waiting for me) and
+## "Bang hội" (the guild's crest, screens/guild/guild_button.gd; a red dot for invitations while not
+## in a guild) above the chat box bottom-left (screens/social/chat_box.gd: the newest Thế giới /
+## Bang hội lines; a tap opens the chat popup) and the mode card with "BẮT ĐẦU" bottom-right.
 ## Centre stage: the worn title's plate (ui/title_plate.gd; nothing without one) over the selected
 ## character's name and level, the character drawn big on a pedestal with
 ## its hands free; the gun it wears (its basic gun when none) rests on the pedestal at its left
@@ -52,6 +53,7 @@ signal open_milestones
 signal open_daily
 signal open_modes
 signal open_leaderboard
+signal open_guild
 signal open_friends
 signal background_changed(key: String)
 
@@ -87,6 +89,7 @@ const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const CharacterCard := preload("res://screens/home/character_card.gd")
 const ModeSelect := preload("res://screens/home/mode_select.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
+const GuildButton := preload("res://screens/guild/guild_button.gd")
 
 const MARGIN := 18
 const STAGE := Vector2(560, 590)
@@ -169,6 +172,7 @@ func _ready() -> void:
 	rewards.add_child(_build_milestone_button())
 	rewards.add_child(_build_daily_button())
 	rewards.add_child(_build_friends_button())
+	rewards.add_child(GuildButton.make(REWARD_BUTTON, func(): open_guild.emit()))
 	_pin(rewards, 0, 1, MARGIN + 6, -MARGIN - CHAT_H - 12)
 	_pin(_build_mode_card(), 1, 1, -MARGIN, -MARGIN)
 
@@ -222,6 +226,8 @@ func _on_visibility_changed() -> void:
 		PlayerState.need_equipment() # the stage character holds the weapon it wears
 		PlayerState.load_milestone_summary() # back from a match or a page: the badge count
 		PlayerState.load_daily() # the daily missions' red dot (a match or a purchase moves them)
+		GuildState.load_me() # my guild (the guild button, chat's Bang hội tab)
+		GuildState.load_invites() # the guild button's red dot
 		Router.social.load_friends() # the friends button's count of requests waiting
 		_render_character() # back from a page: whatever it loaded or bought
 		_render_milestones()

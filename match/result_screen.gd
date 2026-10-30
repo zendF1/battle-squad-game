@@ -11,7 +11,8 @@ extends Control
 ## "ĐỐI THỦ" under each team. Bottom left my rewards card (its size never changes: what grew it
 ## is in the popups): "+N EXP" counting with its bar filling, the coin with "+N" (a ranked match:
 ## the insignia with "+150", its bonus inside the coins; then the stones and chests won as glowing
-## icons with "×N", ui/reward_strip.gd mini_tile), a small gold chip by "PHẦN THƯỞNG" with the new
+## icons with "×N", ui/reward_strip.gd mini_tile, and the guild's crest with "+N" guild EXP, the dungeon gate's check on
+## it when the match cleared today's guild dungeon), a small gold chip by "PHẦN THƯỞNG" with the new
 ## levels after a level up, and for ranked the grade's insignia with its name and "+30 điểm hạng"
 ## (or −). A match that gives nothing (QuickPlay vs AI, practice: all 0) shows no rewards card.
 ## Rewards still on their way (pending settlement, no rewards sent) show the turning hourglass
@@ -376,7 +377,11 @@ func _build_bottom() -> Control:
 			bl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			b.add_child(bl)
 			coin_row.add_child(b)
-		for t in RewardModel.from_match(reward):
+		var tiles := RewardModel.from_match(reward)
+		var guild := ResultModel.guild_tile(reward)
+		if not guild.is_empty(): # the guild EXP (and today's dungeon cleared)
+			tiles.append(guild)
+		for t in tiles:
 			if str(t["kind"]) == "coin":
 				continue
 			var gap := Control.new()

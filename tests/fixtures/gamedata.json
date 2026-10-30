@@ -2171,6 +2171,20 @@
         {"index": 4, "effect": "fire", "value": 1}
       ],
       "cleanseEffects": ["freeze", "root", "burn", "poison", "net", "blind"]
+    },
+    "guild": {
+      "createCost": {"currency": "gem", "amount": 1000},
+      "maxMembers": 50,
+      "maxDeputies": 2,
+      "expPerLevel": 1000,
+      "skills": [
+        {"level": 1, "hpPercent": 5, "defensePercent": 0},
+        {"level": 5, "hpPercent": 0, "defensePercent": 5}
+      ],
+      "quest": {"target": 5, "rewardExp": 100},
+      "dungeonRewardExp": 200,
+      "nameMin": 3,
+      "nameMax": 40
     }
   }
 }

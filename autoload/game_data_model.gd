@@ -1619,3 +1619,23 @@ static func unit_element(p: Dictionary) -> String:
 		return boss_element(_s(p, "bossId"))
 	return character_element(_s(p, "characterId"))
 
+
+
+# ── guild (GET /gamedata guild, the guild_rules row) ────────────────────────
+
+## The guild rules: {create_currency ("gem" | "coin", "" unknown), create_amount, max_members,
+## max_deputies, exp_per_level, skills: [{level, hp_percent, defense_percent}] (level order; each
+## adds its bonus from that guild level), quest_target, quest_exp, dungeon_exp, name_min,
+## name_max}; zeros / [] from a server without the block.
+static func guild_rules() -> Dictionary:
+	var g := section("guild")
+	var cost := _sub(g, "createCost")
+	var skills: Array = []
+	for s in _list_in(g, "skills"):
+		skills.append({"level": _i(s, "level"), "hp_percent": _i(s, "hpPercent"), "defense_percent": _i(s, "defensePercent")})
+	skills.sort_custom(func(a, b): return int(a["level"]) < int(b["level"]))
+	var quest := _sub(g, "quest")
+	return {"create_currency": _s(cost, "currency"), "create_amount": _i(cost, "amount"),
+		"max_members": _i(g, "maxMembers"), "max_deputies": _i(g, "maxDeputies"), "exp_per_level": _i(g, "expPerLevel"),
+		"skills": skills, "quest_target": _i(quest, "target"), "quest_exp": _i(quest, "rewardExp"),
+		"dungeon_exp": _i(g, "dungeonRewardExp"), "name_min": _i(g, "nameMin"), "name_max": _i(g, "nameMax")}

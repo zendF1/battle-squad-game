@@ -20,6 +20,7 @@ const ItemIcon := preload("res://ui/item_icon.gd")
 const RewardModel := preload("res://ui/reward_model.gd")
 const RewardGlow := preload("res://ui/reward_glow.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
+const Fmt := preload("res://core/fmt.gd")
 
 const TILE := Vector2(104, 112)
 const GAP := 12.0
@@ -249,6 +250,8 @@ static func count_text(t: Dictionary) -> String:
 			return ("%s %s" % [plus, RewardModel.qty_text(int(t["qty"]))]).strip_edges()
 		"character":
 			return ""
+		"guild": # the guild EXP: "+120"
+			return "+%s" % Fmt.thousands(int(t.get("qty", 0))) if int(t.get("qty", 0)) > 0 else ""
 	return RewardModel.qty_text(int(t.get("qty", 0)))
 
 
@@ -276,6 +279,14 @@ static func tile_icon(t: Dictionary, px: int) -> Control:
 			c = equipment_ui.item_icon(equipment_model.item_of(PlayerState.catalog, str(t["id"])), {"upgradeLevel": int(t.get("upgrade", 0))}, px)
 		"character":
 			c = LobbyUi.icon(Art.portrait(str(t["id"])), px)
+		"guild": # the guild's crest; today's dungeon cleared: the gate with its check on the corner
+			var guild_glyphs = load("res://ui/guild_glyphs.gd")
+			c = guild_glyphs.crest(str(t["id"]), px)
+			if t.get("done", false):
+				var gate: Control = guild_glyphs.make("dungeon_done", int(px * 0.55))
+				gate.name = "DungeonDone"
+				gate.position = Vector2(px * 0.5, px * 0.5)
+				c.add_child(gate)
 		_:
 			c = ItemIcon.make(str(t["id"]), px)
 	c.mouse_filter = MOUSE_FILTER_IGNORE

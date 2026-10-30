@@ -64,6 +64,7 @@ static func name_of(t: Dictionary) -> String:
 		"chest": return GameData.chest_name(str(t.get("id", "")))
 		"item": return Items.label(str(t.get("id", "")))
 		"character": return GameData.character_name(str(t.get("id", "")))
+		"guild": return "EXP bang hội"
 		"equipment":
 			var up := int(t.get("upgrade", 0))
 			return "%s +%d" % [str(t.get("id", "")), up] if up > 0 else str(t.get("id", ""))
@@ -140,6 +141,8 @@ static func glow(t: Dictionary) -> Dictionary:
 			return equipment_glow(int(t.get("upgrade", 0)))
 		"character":
 			return _rung(GOLD, 0.9)
+		"guild":
+			return _rung(PURPLE, 0.5)
 	return _rung(PLAIN)
 
 

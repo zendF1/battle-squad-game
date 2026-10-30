@@ -2,7 +2,8 @@ extends "res://ui/modal.gd"
 ## "Mời đồng đội" (the "+" of the Home teammate slot): a name search (ListOnlinePlayers {query},
 ## DEBOUNCE after the last key) over a scrolling list of the online players (OnlinePlayers through
 ## Router.party): head, name, "Lv.N", their badge (rankBadge, when they have one), Kết bạn (the
-## add-friend picture, screens/social/friend_button.gd; hidden for a friend) and a "Mời" button, off with "Bận" / "Đang trận"
+## add-friend picture, screens/social/friend_button.gd; hidden for a friend), Mời vào bang (the
+## guild's invite picture, while Router.social.can_invite_to_guild() accepts them) and a "Mời" button, off with "Bận" / "Đang trận"
 ## for a busy player and "Đã mời (12s)" counting down once invited (PartyModel.row_button()). It
 ## asks for the list on opening and every REFRESH_SEC while open, and closes itself once a
 ## teammate joined.
@@ -12,6 +13,7 @@ const HeadIcon := preload("res://screens/home/head_icon.gd")
 const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const FriendButton := preload("res://screens/social/friend_button.gd")
+const GuildGlyphs := preload("res://ui/guild_glyphs.gd")
 
 const DEBOUNCE := 0.4
 const REFRESH_SEC := 5.0
@@ -123,6 +125,8 @@ func _row(p: Dictionary) -> Control:
 		rank.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		line.add_child(rank)
 	row.add_child(FriendButton.make(p, 60))
+	if Router.social.can_invite_to_guild(str(p["playerId"])): # Mời vào bang (the guild's hook)
+		row.add_child(guild_button(p, 60))
 	var b := Ui.button("Mời", 24)
 	b.name = "Invite_" + str(p["playerId"])
 	b.custom_minimum_size = Vector2(190, 64)
@@ -144,3 +148,28 @@ func _render_buttons() -> void:
 		var state: Dictionary = party.model.row_button(p, now)
 		b.text = state["text"]
 		b.disabled = state["disabled"]
+
+
+## "Mời vào bang": a round button with the guild invite picture; sends Router.social's guild invite
+## (autoload/guild_state.gd) and turns off once sent.
+static func guild_button(p: Dictionary, px: int) -> Button:
+	var b := Button.new()
+	b.name = "GuildInvite_" + str(p["playerId"])
+	b.tooltip_text = "Mời vào bang"
+	b.focus_mode = FOCUS_NONE
+	b.custom_minimum_size = Vector2(px, px)
+	b.size_flags_vertical = SIZE_SHRINK_CENTER
+	LobbyUi.style_button(b, LobbyUi.ICON_COLORS["purple"], px / 2, 0, Color(1, 1, 1, 0.85), 3)
+	var g := GuildGlyphs.make("invite", int(px * 0.62))
+	g.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	var inset := roundf(px * 0.19)
+	g.offset_left = inset
+	g.offset_top = inset
+	g.offset_right = -inset
+	g.offset_bottom = -inset
+	b.add_child(g)
+	b.pressed.connect(func() -> void:
+		b.disabled = true
+		b.modulate = Color(1, 1, 1, 0.45)
+		Router.social.invite_to_guild(str(p["playerId"]), str(p.get("displayName", ""))))
+	return b
