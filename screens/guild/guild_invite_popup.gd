@@ -3,10 +3,12 @@ extends "res://ui/modal.gd"
 ## (the party's ListOnlinePlayers / OnlinePlayers through Router.party, like the teammate invite
 ## popup screens/home/invite_popup.gd), my guild's members left out; each row has head, name,
 ## "Lv.N" and "Mời", which sends POST /guilds/{id}/invite (GuildState.invite()) and turns into
-## "Đã mời" once sent. Refreshed every REFRESH_SEC while open.
+## "Đã mời" once sent. A page at a time, ◀ page ▶ under the list (screens/home/online_pager.gd),
+## a new search back to page 1; the page shown is refreshed every REFRESH_SEC while open.
 
 const GuildModel := preload("res://screens/guild/guild_model.gd")
 const HeadIcon := preload("res://screens/home/head_icon.gd")
+const OnlinePager := preload("res://screens/home/online_pager.gd")
 
 const DEBOUNCE := 0.4
 const REFRESH_SEC := 5.0
@@ -17,6 +19,9 @@ const NOT_FOUND := "Không tìm thấy người chơi"
 var party # Router.party (screens/home/party.gd)
 var search: LineEdit
 var _list: VBoxContainer
+var _scroll: ScrollContainer
+var pager: OnlinePager
+var _shown_page := 0 # the page the rows show (a new one scrolls back to the top)
 var _empty: Label
 var _sent := {} # playerId -> true once invited
 var _debounce := -1.0
@@ -40,6 +45,7 @@ func open_for(host: Node, p) -> void:
 	scroll.custom_minimum_size = Vector2(0, LIST_H)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	body.add_child(scroll)
+	_scroll = scroll
 	_list = Ui.vbox(10)
 	_list.size_flags_horizontal = SIZE_EXPAND_FILL
 	scroll.add_child(_list)
@@ -47,9 +53,14 @@ func open_for(host: Node, p) -> void:
 	_empty.add_theme_color_override("font_color", Ui.TEXT_DIM)
 	_empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.add_child(_empty)
+	pager = OnlinePager.new()
+	pager.step.connect(func(dir: int) -> void:
+		_refresh = REFRESH_SEC
+		party.list_page(dir))
+	body.add_child(pager)
 	party.players_changed.connect(_render)
 	_render()
-	party.list("")
+	party.list("", 1)
 
 
 func _process(delta: float) -> void:
@@ -59,7 +70,7 @@ func _process(delta: float) -> void:
 		_debounce -= delta
 		if _debounce < 0.0:
 			_refresh = REFRESH_SEC
-			party.list(search.text)
+			party.list(search.text, 1) # a new search starts at page 1
 	_refresh -= delta
 	if _refresh <= 0.0:
 		_refresh = REFRESH_SEC
@@ -81,8 +92,12 @@ func _render() -> void:
 	var shown := rows(party.model.players, GuildState.guild)
 	for p in shown:
 		_list.add_child(_row(p))
-	_empty.visible = shown.is_empty()
+	_empty.visible = shown.is_empty() and not party.model.has_more # all on this page are in my guild: ▶ shows more
 	_empty.text = NOT_FOUND if search.text.strip_edges() != "" else EMPTY
+	pager.show_state(party.model.pager(), party.model.page)
+	if party.model.page != _shown_page:
+		_shown_page = party.model.page
+		_scroll.scroll_vertical = 0
 
 
 func _row(p: Dictionary) -> Control:

@@ -4,12 +4,15 @@ extends "res://ui/modal.gd"
 ## Router.party): head, name, "Lv.N", their badge (rankBadge, when they have one), Kết bạn (the
 ## add-friend picture, screens/social/friend_button.gd; hidden for a friend), Mời vào bang (the
 ## guild's invite picture, while Router.social.can_invite_to_guild() accepts them) and a "Mời" button, off with "Bận" / "Đang trận"
-## for a busy player and "Đã mời (12s)" counting down once invited (PartyModel.row_button()). It
-## asks for the list on opening and every REFRESH_SEC while open, and closes itself once a
-## teammate joined.
+## for a busy player and "Đã mời (12s)" counting down once invited (PartyModel.row_button()). The
+## server sends the list a page at a time (closest rating first): ◀ page ▶ under it
+## (screens/home/online_pager.gd) steps through them, a new search goes back to page 1. It
+## asks for page 1 on opening and again for the page shown every REFRESH_SEC while open, and
+## closes itself once the party is full.
 
 const PartyModel := preload("res://screens/home/party_model.gd")
 const HeadIcon := preload("res://screens/home/head_icon.gd")
+const OnlinePager := preload("res://screens/home/online_pager.gd")
 const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const FriendButton := preload("res://screens/social/friend_button.gd")
@@ -24,6 +27,9 @@ const NOT_FOUND := "Không tìm thấy người chơi"
 var party # Router.party (screens/home/party.gd)
 var search: LineEdit
 var _list: VBoxContainer
+var _scroll: ScrollContainer
+var pager: OnlinePager
+var _shown_page := 0 # the page the rows show (a new one scrolls back to the top)
 var _empty: Label
 var _invite_buttons := {} # playerId -> its "Mời" Button
 var _debounce := -1.0
@@ -48,6 +54,7 @@ func open_for(host: Node, p) -> void:
 	scroll.custom_minimum_size = Vector2(0, LIST_H)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	body.add_child(scroll)
+	_scroll = scroll
 	_list = Ui.vbox(10)
 	_list.size_flags_horizontal = SIZE_EXPAND_FILL
 	scroll.add_child(_list)
@@ -55,10 +62,15 @@ func open_for(host: Node, p) -> void:
 	_empty.add_theme_color_override("font_color", Ui.TEXT_DIM)
 	_empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.add_child(_empty)
+	pager = OnlinePager.new()
+	pager.step.connect(func(dir: int) -> void:
+		_refresh = REFRESH_SEC
+		party.list_page(dir))
+	body.add_child(pager)
 	party.players_changed.connect(_render)
 	party.changed.connect(_on_party_changed)
 	_render()
-	party.list("")
+	party.list("", 1)
 
 
 func _process(delta: float) -> void:
@@ -68,7 +80,7 @@ func _process(delta: float) -> void:
 		_debounce -= delta
 		if _debounce < 0.0:
 			_refresh = REFRESH_SEC
-			party.list(search.text)
+			party.list(search.text, 1) # a new search starts at page 1
 	_refresh -= delta
 	if _refresh <= 0.0:
 		_refresh = REFRESH_SEC
@@ -97,6 +109,10 @@ func _render() -> void:
 	var none: bool = party.model.players.is_empty()
 	_empty.visible = none
 	_empty.text = NOT_FOUND if search.text.strip_edges() != "" else EMPTY
+	pager.show_state(party.model.pager(), party.model.page)
+	if party.model.page != _shown_page:
+		_shown_page = party.model.page
+		_scroll.scroll_vertical = 0
 	_render_buttons()
 
 

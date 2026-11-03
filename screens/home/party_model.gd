@@ -3,9 +3,11 @@ extends RefCounted
 ## teammate slots and the invite popups), without UI or socket: the lobby from LobbyUpdated (its
 ## queue: the mode the host chose; its size: that mode's partySize, capacity()), my role in it
 ## (host / member), the teammates, the invites I sent with
-## their expiry, the invite shown to me, and the rows of the invite popup (OnlinePlayers).
+## their expiry, the invite shown to me, and the rows of the invite popup (OnlinePlayers: one page
+## of them, its number and whether more follow; list() / list_page() ask for a page, a new query
+## goes back to page 1, an answer without `page` (an older server) is page 1 with no more).
 ## on_event(), tick() and the commands (invite(), respond(), kick(), set_ready(), confirm_ready(),
-## set_character(), select_queue(), leave(), list()) return the actions the owner (screens/home/party.gd) carries out, in order:
+## set_character(), select_queue(), leave(), list(), list_page()) return the actions the owner (screens/home/party.gd) carries out, in order:
 ##   ["send", event, data]  send it on the game socket
 ##   ["changed"]            the lobby (members, ready, status) changed: redraw the slot
 ##   ["players"]            the popup's rows changed (OnlinePlayers, an invite sent / answered)
@@ -28,7 +30,9 @@ extends RefCounted
 ## SetLobbyQueue...) forgets it like LobbyDisbanded, with a toast (one answering my accepted
 ## invite is about the inviter's lobby: only the toast). The lobby
 ## filling up cancels my other invites on the server (it tells only their invitees): the
-## "Đã mời" rows clear with the LobbyUpdated that fills it. Lobby errors are shown only within ERROR_WINDOW of
+## "Đã mời" rows clear with the LobbyUpdated that fills it, and an invited player showing up as a
+## member clears its own row (an always-online account joins at once, before the 4-player boss
+## lobby is full). Lobby errors are shown only within ERROR_WINDOW of
 ## a request of mine (other screens handle their own: the ranked queue, a match's leave).
 
 const ErrorText := preload("res://screens/home/error_text.gd")
@@ -50,6 +54,7 @@ const DECLINED := "%s đã từ chối lời mời"
 const START := "BẮT ĐẦU"
 const WAIT_MATE := "Chờ đồng đội sẵn sàng"
 const READY := "SẴN SÀNG"
+const IN_TEAM := "Trong đội" # an invite popup row of a player already in my lobby
 const UNREADY := "HUỶ SẴN SÀNG"
 
 var me := ""
@@ -58,6 +63,10 @@ var lobby := {} # parse_lobby() of the last LobbyUpdated; {} not in a lobby
 var sent := {} # playerId -> expiry (s) of my invites still waiting
 var incoming := {} # the invite shown to me: parse_invite() + expires_at; {} none
 var players: Array = [] # parse_player() of the last OnlinePlayers
+var page := 1 # the page of the last OnlinePlayers (1 the first)
+var has_more := false # more players after that page
+var query := "" # the query of the last ListOnlinePlayers
+var _want_page := 1 # the page the popup is on (sent again by a refresh)
 var _invite_after_create := "" # a playerId to invite once CreateLobby answers
 var _inviting := "" # the playerId of the InviteToLobby waiting for its answer
 var _create_retried := false
@@ -228,15 +237,19 @@ func sent_left(player_id: String, now: float) -> int:
 	return maxi(ceili(float(sent[player_id]) - now), 0)
 
 
-## The popup row's button for an OnlinePlayer: {text, disabled}. In a match: "Đang trận"; in a
-## lobby with someone: "Bận"; invited: "Đã mời (12s)"; my party full: "Mời" off; else "Mời".
+## The popup row's button for an OnlinePlayer: {text, disabled}. Already in my lobby: "Trong đội";
+## in a match: "Đang trận"; in a lobby with someone: "Bận"; invited: "Đã mời (12s)"; my party full:
+## "Mời" off; else "Mời".
 func row_button(p: Dictionary, now: float) -> Dictionary:
+	var id := str(p.get("playerId", ""))
+	if id != me and teammates().any(func(m): return m["playerId"] == id):
+		return {"text": IN_TEAM, "disabled": true}
 	match str(p.get("status", IDLE)):
 		IN_MATCH:
 			return {"text": "Đang trận", "disabled": true}
 		IN_LOBBY:
 			return {"text": "Bận", "disabled": true}
-	var left := sent_left(str(p.get("playerId", "")), now)
+	var left := sent_left(id, now)
 	if left > 0:
 		return {"text": "Đã mời (%ds)" % left, "disabled": true}
 	return {"text": "Mời", "disabled": is_full() or is_member()}
@@ -260,10 +273,31 @@ func _expect(now: float) -> void:
 	_expect_until = now + ERROR_WINDOW
 
 
-## ListOnlinePlayers {query?}: "" lists everyone.
-func list(query: String) -> Array:
-	var q := query.strip_edges()
-	return [["send", "ListOnlinePlayers", {"query": q} if q != "" else {}]]
+## ListOnlinePlayers {query?, page}: "" lists everyone. at_page ≥ 1 asks for that page; 0 asks
+## again for the page the popup is on, page 1 when the query changed.
+func list(q: String, at_page: int = 0) -> Array:
+	q = q.strip_edges()
+	if at_page >= 1:
+		_want_page = at_page
+	elif q != query:
+		_want_page = 1
+	query = q
+	var data := {"page": _want_page}
+	if q != "":
+		data["query"] = q
+	return [["send", "ListOnlinePlayers", data]]
+
+
+## The page before (step -1, while page > 1) or after (+1, while has_more) the one shown.
+func list_page(step: int) -> Array:
+	if (step < 0 and page <= 1) or (step > 0 and not has_more) or step == 0:
+		return []
+	return list(query, page + signi(step))
+
+
+## The pager's arrows: {prev, next} on, and whether there is more than one page to show.
+func pager() -> Dictionary:
+	return {"prev": page > 1, "next": has_more, "shown": page > 1 or has_more}
 
 
 ## Invites player_id; without a lobby CreateLobby goes first (the invite follows LobbyUpdated).
@@ -414,6 +448,14 @@ func on_event(event: String, data: Variant, now: float) -> Array:
 					var row := parse_player(p)
 					if not row.is_empty() and row["playerId"] != me:
 						players.append(row)
+			var paged: bool = data is Dictionary and data.has("page")
+			page = maxi(_num(data.get("page"), 1), 1) if paged else 1
+			has_more = paged and data.get("hasMore") is bool and data["hasMore"]
+			if not paged:
+				_want_page = 1 # an older server: one page
+			if paged and page > 1 and players.is_empty() and not has_more:
+				# Past the last page (players left since): the page before it.
+				return [["players"]] + list(query, page - 1)
 			return [["players"]]
 		"InviteSent":
 			if not data is Dictionary or _str(data.get("playerId")) == "":
@@ -470,8 +512,15 @@ func _on_lobby(data: Variant) -> Array:
 	_accepting = false
 	lobby = next
 	var out: Array = [["changed"]]
+	var joined := false
+	for m in next["members"]:
+		if sent.has(m["playerId"]):
+			sent.erase(m["playerId"]) # my invitee is in: no "Đã mời" on its row
+			joined = true
 	if is_full():
 		sent.clear() # the server cancelled the other invites
+		joined = true
+	if joined:
 		out.append(["players"])
 	if _invite_after_create != "":
 		var id := _invite_after_create
