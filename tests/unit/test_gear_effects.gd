@@ -314,11 +314,11 @@ func test_awaken_popup_text() -> void:
 
 
 func test_milestone_list_unlocks() -> void:
-	var col := EquipmentUi.milestone_list(null, 16, true, "weapon")
+	var col := EquipmentUi.milestone_list(null, 16, "weapon")
 	for k in ["bullet_glow", "rank_up", "no_wind"]:
 		check(col.find_child("Unlock_" + k, true, false) != null, "weapon row shows %s" % k)
 	col.free()
-	var armor := EquipmentUi.milestone_list(null, 3, false, "armor")
+	var armor := EquipmentUi.milestone_list(null, 3, "armor")
 	check(armor.find_child("Unlock_revive", true, false) != null, "armor +16 row: its awaken")
 	check(armor.find_child("Unlock_bullet_glow", true, false) == null, "no bullet glow on armour")
 	armor.free()

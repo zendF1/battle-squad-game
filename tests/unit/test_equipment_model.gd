@@ -164,6 +164,30 @@ func test_compare() -> void:
 	eq(M.compare(iron, iron, MULT).map(func(d): return [d["text"], d["tone"]]), [["0", ""]], "same piece")
 
 
+## The piece popup's one list: Sát thương, Chí mạng, Sát thương chí mạng (the piece's passive of
+## kind crit_damage, at its level, from GET /player/equipment), in that order; armour its own stats.
+func test_popup_stats() -> void:
+	var weapon := {"statDamage": 115.0, "statCrit": 9.06}
+	var crit := {"kind": "crit_damage", "value": 48.32}
+	var rows := M.popup_stats(weapon, crit, {}, {}, MULT)
+	eq(rows.map(func(r): return [r["label"], r["text"]]),
+		[["Sát thương", "+115 điểm (+575)"], ["Chí mạng", "+9.1%"], ["Sát thương chí mạng", "+48.3%"]], "weapon rows in order")
+	check(rows.all(func(r): return r["delta"].is_empty()), "no compare without a worn piece")
+	eq(M.popup_stats({"statDamage": 8.0}, {}).map(func(r): return r["label"]), ["Sát thương"], "no passive: no crit damage row")
+	eq(M.popup_stats({"statDamage": 8.0}, {"kind": "crit_damage", "value": 0}).map(func(r): return r["label"]), ["Sát thương"],
+		"a zero crit damage is left out")
+	var armour := M.popup_stats({"statHp": 150.0, "statDefense": 15.0}, {"kind": "resist", "value": 9.0}, {}, {}, MULT)
+	eq(armour.map(func(r): return [r["label"], r["text"]]), [["Máu", "+150 điểm (+300)"], ["Phòng thủ", "+15 điểm (+15)"]],
+		"armour: its stats, its passive stays a chip")
+	# Against the worn weapon: each row's change; a stat only the worn one has reads "—".
+	var cmp := M.popup_stats({"statDamage": 25.0}, {"kind": "crit_damage", "value": 12.0},
+		{"statDamage": 8.0, "statCrit": 2.0}, {"kind": "crit_damage", "value": 5.0}, MULT, true)
+	eq(cmp.map(func(r): return [r["label"], r["text"], r["delta"]["text"], r["delta"]["tone"]]), [
+		["Sát thương", "+25 điểm (+125)", "+85 (+17 điểm)", "good"],
+		["Chí mạng", "—", "−2%", "loss"],
+		["Sát thương chí mạng", "+12%", "+7%", "good"]], "deltas against the worn piece")
+
+
 func test_wearer_and_worn() -> void:
 	var owned := _owned()
 	eq(M.wearer(owned[1]), "tanko", "worn")

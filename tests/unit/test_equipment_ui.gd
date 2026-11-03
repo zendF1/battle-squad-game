@@ -84,6 +84,46 @@ func test_milestone_list_rows() -> void:
 		col.free()
 
 
+func test_piece_list() -> void:
+	var stats := [{"key": "statDamage", "label": "Sát thương", "text": "+115 điểm", "delta": {}},
+		{"key": "critDamage", "label": "Sát thương chí mạng", "text": "+48.3%", "delta": {}}]
+	var col := EquipmentUi.piece_list(stats, null, 16, "weapon")
+	var texts := labels(col).map(func(l): return l.text)
+	eq(texts.slice(0, 4), ["Sát thương", "+115 điểm", "Sát thương chí mạng", "+48.3%"], "stats first, top to bottom")
+	var ms: Node = col.find_child("Milestones", true, false)
+	check(ms != null and ms.get_index() > col.find_child("Stats", true, false).get_index(), "then the milestones")
+	for gone in ["Chỉ số", "Mốc nâng cấp"]:
+		check(not texts.has(gone), "no %s header" % gone)
+	check(not texts.any(func(t): return t.contains("từ nâng cấp") or t.contains("Cấp nâng cấp")), "no upgrade share or level line")
+	eq((col.find_child("Stats", true, false) as GridContainer).columns, 2, "no change column without a compare")
+	col.free()
+	stats[0]["delta"] = {"text": "+85 (+17 điểm)", "tone": "good"}
+	col = EquipmentUi.piece_list(stats, null, 3)
+	eq((col.find_child("Stats", true, false) as GridContainer).columns, 3, "the change column")
+	check(labels(col).map(func(l): return l.text).has("+85 (+17 điểm)"), "the change")
+	col.free()
+
+
+func test_span_buttons() -> void:
+	for n in [1, 2, 3]:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 20)
+		row.size = Vector2(600, 84)
+		var bs: Array = []
+		for i in n:
+			var b := Button.new()
+			b.text = "Chuyển cho Spark" if i == 0 else "Tháo"
+			b.custom_minimum_size.x = 250
+			row.add_child(b)
+			bs.append(b)
+		EquipmentUi.span_buttons(bs)
+		var w: float = bs[0].custom_minimum_size.x
+		check(w < 250.0, "the least width is the widest label's, not a floor (%d)" % n)
+		check(bs.all(func(b): return b.custom_minimum_size.x == w and b.size_flags_horizontal == Control.SIZE_EXPAND_FILL),
+			"equal and spanning (%d)" % n)
+		row.free()
+
+
 func test_piece_actions() -> void:
 	eq(EquipmentUi.piece_actions("rookie", "spark"), ["move", "upgrade", "unequip"], "worn by another: Chuyển cho, Nâng cấp, Tháo")
 	eq(EquipmentUi.piece_actions("spark", "spark"), ["upgrade", "unequip"], "worn by this one: Nâng cấp, Tháo")

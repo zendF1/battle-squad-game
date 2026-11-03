@@ -44,6 +44,15 @@ const STATS := [
 	{"key": "statCrit", "label": "Chí mạng", "unit": "%", "point": "", "total": "critChance", "glyph": "crit"},
 	{"key": "statMoveEnergy", "label": "Di chuyển", "unit": "", "point": "mobility", "total": "moveEnergy", "glyph": "boot"},
 ]
+## The piece popup's stat list: STATS with the crit damage after the crit chance. Crit damage is
+## not a catalog stat: it is a piece's passive of kind CRIT_DAMAGE_KIND ({kind, value}, its value at
+## the piece's upgrade level, GET /player/equipment; the catalog item's at +0), a percent.
+const CRIT_DAMAGE_KIND := "crit_damage"
+const POPUP_STATS := [
+	STATS[0], STATS[1], STATS[2], STATS[3],
+	{"key": "critDamage", "label": "Sát thương chí mạng", "unit": "%", "point": "", "total": "", "glyph": "crit_damage"},
+	STATS[4],
+]
 const MINUS := "−"
 
 
@@ -397,9 +406,9 @@ static func points_text(points: float, s: Dictionary, mult: Dictionary) -> Strin
 
 ## The item's non-zero stats: [{key, label, value (points), battle (points × multiplier, or
 ## null), text: "+20 điểm (+40)" / "+20 điểm" / "+2%"}]. `mult`: BattleStats.multipliers.
-static func stat_lines(item: Dictionary, mult: Dictionary = {}) -> Array:
+static func stat_lines(item: Dictionary, mult: Dictionary = {}, stats: Array = STATS) -> Array:
 	var out: Array = []
-	for s in STATS:
+	for s in stats:
 		var v := _num(item, s["key"])
 		if v != 0.0:
 			out.append({"key": s["key"], "label": s["label"], "value": v, "battle": converted(v, s["point"], mult),
@@ -416,9 +425,9 @@ static func stat_summary(item: Dictionary, mult: Dictionary = {}) -> String:
 ## stats either of them has: [{key, label, delta (points), text, tone: "good" | "loss" | ""}].
 ## text is the battle change with the points, "+85 (+17 điểm)" / "−6.040 (−3.020 điểm)"; "+17
 ## điểm" without the multiplier; "+2%" for crit; "0" when equal.
-static func compare(candidate: Dictionary, worn: Dictionary, mult: Dictionary = {}) -> Array:
+static func compare(candidate: Dictionary, worn: Dictionary, mult: Dictionary = {}, stats: Array = STATS) -> Array:
 	var out: Array = []
-	for s in STATS:
+	for s in stats:
 		var a := _num(candidate, s["key"])
 		var b := _num(worn, s["key"])
 		if a == 0.0 and b == 0.0:
@@ -435,6 +444,44 @@ static func compare(candidate: Dictionary, worn: Dictionary, mult: Dictionary = 
 				text = "%s (%s điểm)" % [_signed(c), _signed(int(d))]
 		out.append({"key": s["key"], "label": s["label"], "delta": d, "text": text,
 			"tone": "good" if d > 0.0 else ("loss" if d < 0.0 else "")})
+	return out
+
+
+## The piece popup's stat rows, POPUP_STATS order (Máu, Sát thương, Phòng thủ, Chí mạng, Sát thương
+## chí mạng, Di chuyển), the stats the piece has: [{key, label, text ("+121 điểm (+242)", "+48.3%";
+## "—" for a stat only the worn piece has), delta ({} without the compare, else compare()'s entry:
+## {text, tone})}]. `item` / `worn`: the pieces' upgraded stats (piece_item()); `passive` /
+## `worn_passive`: their passives ({kind, value}, {} none): a CRIT_DAMAGE_KIND one is the crit damage
+## row. `with_worn`: compare against `worn` (another piece in the slot), adding the rows only it has.
+static func popup_stats(item: Dictionary, passive: Dictionary, worn: Dictionary = {}, worn_passive: Dictionary = {},
+		mult: Dictionary = {}, with_worn: bool = false) -> Array:
+	var a := _with_crit_damage(item, passive)
+	var b := _with_crit_damage(worn, worn_passive) if with_worn else {}
+	var deltas := {}
+	if with_worn:
+		for d in compare(a, b, mult, POPUP_STATS):
+			deltas[d["key"]] = d
+	var lines := {}
+	for l in stat_lines(a, mult, POPUP_STATS):
+		lines[l["key"]] = l
+	var out: Array = []
+	for s in POPUP_STATS:
+		var key: String = s["key"]
+		if not lines.has(key) and not deltas.has(key):
+			continue
+		var d: Dictionary = deltas.get(key, {})
+		out.append({"key": key, "label": s["label"], "text": lines[key]["text"] if lines.has(key) else "—",
+			"delta": {"text": d["text"], "tone": d["tone"]} if not d.is_empty() else {}})
+	return out
+
+
+## `item` with its passive's crit damage as the "critDamage" stat (a copy; `item` itself when the
+## passive is not crit damage).
+static func _with_crit_damage(item: Dictionary, passive: Dictionary) -> Dictionary:
+	if str(passive.get("kind", "")) != CRIT_DAMAGE_KIND:
+		return item
+	var out := item.duplicate()
+	out["critDamage"] = _num(passive, "value")
 	return out
 
 

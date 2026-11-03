@@ -96,18 +96,6 @@ func test_milestone_rows() -> void:
 	check(U.UNREACHED_ALPHA > 0.3 and U.UNREACHED_ALPHA < 0.5, "unreached rows dimmed to ~0.4")
 
 
-func test_popup_level_texts() -> void:
-	eq(U.level_line(3), "Cấp nâng cấp +3 / 16", "+3")
-	eq(U.level_line(0), "Cấp nâng cấp +0 / 16", "new piece")
-	eq(U.level_line(16), "Cấp nâng cấp +16 / 16", "max")
-	eq(U.level_line(20), "Cấp nâng cấp +16 / 16", "clamped")
-	var c := catalog()
-	eq(U.upgrade_share_text(c, 0), "", "nothing from +0")
-	eq(U.upgrade_share_text(c, 3), "+6% từ nâng cấp", "+3: 3 × 2%")
-	eq(U.upgrade_share_text(c, 10), "+50% từ nâng cấp", "+10: 20% + milestones 10% + 20%")
-	eq(U.upgrade_share_text(c, 16), "+202% từ nâng cấp", "+16: 32% + 170%")
-
-
 func test_percent_and_cap() -> void:
 	# internal/api/equipment/logic_test.go TestCalculateUpgradePercent cases.
 	near(U.percent(1, 1, 80), 80.0, 1e-9, "1 power at cost 1 caps at 80")
@@ -424,7 +412,7 @@ func test_limits_from_the_game_data() -> void:
 	d["equipment"]["mergeMaxCount"] = 5
 	d["equipment"]["milestones"] = [{"level": 5, "bonus": 0.1}, {"level": 20, "bonus": 2.0}]
 	M.GameData.take(d, "", false)
-	eq(U.level_line(18), "Cấp nâng cấp +18 / 20", "the new top")
+	eq(U.max_level(), 20, "the new top")
 	eq(U.merge_blocked(3, 2, {}), "Bỏ vào 3–5 viên", "the new merge counts")
 	eq(U.merge_blocked(15, 3, {}), "Đá cấp 15 là cao nhất", "the new top stone")
 	eq(U.milestone_from(), [0, 5, 20], "the new milestones")

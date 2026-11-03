@@ -111,18 +111,16 @@ func test_pictures_are_keyed() -> void:
 			check(avg.b > avg.g and avg.r > avg.g, "purple: %s" % avg)
 
 
-func test_popup_rows_weapon_vs_armour() -> void:
-	var weapon := U.milestone_rows(null, 15, true)
-	eq(weapon.map(func(r): return r["back_aura"]), ["", "", "· hào quang tím sau lưng", "· hào quang đỏ sau lưng"], "weapon rows")
-	var armour := U.milestone_rows(null, 15)
-	eq(armour.map(func(r): return r["back_aura"]), ["", "", "", ""], "armour rows")
-	var col := EquipmentUi.milestone_list(null, 15, true)
-	var rows := col.get_children().filter(func(r): return r.has_meta("reached"))
-	var texts := labels(col).map(func(l): return l.text)
-	check(texts.has("+40% chỉ số") and texts.has("· hào quang tím sau lưng") and texts.has("· hào quang đỏ sau lưng"), "weapon: the bonus then the aura")
-	near(rows[3].modulate.a, U.UNREACHED_ALPHA, 0.001, "+16 not reached: the row (and its aura text) dimmed")
-	near(rows[2].modulate.a, 1.0, 0.001, "+14 reached: bright")
-	col.free()
-	col = EquipmentUi.milestone_list(null, 15)
-	check(not labels(col).any(func(l): return l.text.contains("sau lưng")), "armour: no aura text")
-	col.free()
+func test_popup_rows_no_aura_text() -> void:
+	# The back aura shows on the character; the piece popup's milestone rows do not name it.
+	for weapon in [true, false]:
+		var col := EquipmentUi.milestone_list(null, 15, "weapon" if weapon else "armor")
+		var rows := col.get_children().filter(func(r): return r.has_meta("reached"))
+		var texts := labels(col).map(func(l): return l.text)
+		check(texts.has("+40% chỉ số") and texts.has("+100% chỉ số"), "the bonuses (weapon %s)" % weapon)
+		check(not texts.any(func(t): return t.contains("hào quang") or t.contains("sau lưng")), "no aura text (weapon %s)" % weapon)
+		check(col.find_child("BackAura", true, false) == null, "no aura label (weapon %s)" % weapon)
+		near(rows[3].modulate.a, U.UNREACHED_ALPHA, 0.001, "+16 not reached: dimmed")
+		near(rows[2].modulate.a, 1.0, 0.001, "+14 reached: bright")
+		col.free()
+	check(not U.milestone_rows(null, 15)[2].has("back_aura"), "no back aura field")
