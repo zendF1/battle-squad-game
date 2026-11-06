@@ -409,6 +409,7 @@ func _render_stones() -> void:
 
 const ROW_H := 132 # every card row of the item / stone lists
 const CHEST_W := 270 * 2 + 12 # two item / stone cards and their gap: the rows line up
+const OPEN_W := 100 # a chest's open button
 
 
 ## A tab's chest list (its load status, then a flow of chest cards; empty when none are owned).
@@ -473,7 +474,7 @@ func _chest_card(c: Dictionary) -> Control:
 	odds.tooltip_text = ChestModel.odds_text(str(c["chestId"]))
 	box.add_child(odds)
 	var buttons := Ui.hbox(8)
-	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.custom_minimum_size.x = OPEN_W * 2 + 8 # one or two buttons: every card the same width
 	row.add_child(buttons)
 	for spec in ChestModel.open_buttons(int(c["quantity"])):
 		var b := open_button(str(c["chestId"]), str(spec["text"]))
@@ -487,7 +488,7 @@ func _chest_card(c: Dictionary) -> Control:
 ## An open button: the chest over its count ("×10"), gold.
 static func open_button(chest_id: String, count: String) -> Button:
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(100, 104)
+	b.custom_minimum_size = Vector2(OPEN_W, 104)
 	b.focus_mode = FOCUS_NONE
 	LobbyUi.style_button(b, LobbyUi.ICON_COLORS["orange"], 14, 4, Color(1, 0.9, 0.55, 0.9), 2)
 	var col := Ui.vbox(0)

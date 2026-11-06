@@ -1343,6 +1343,7 @@
       "mergeRatePerItem": 25,
       "sellRate": 0.25,
       "weaponUpgradeCostMultiplier": 3,
+      "probabilityFormulaVersion": 2,
       "tiers": [
         {
           "tier": "iron",
@@ -2133,6 +2134,66 @@
         "kind": "equipment",
         "stones": [],
         "upgradeLevel": 16
+      },
+      {
+        "chestId": "stone_chest_bronze",
+        "name": "Rương đá đồng",
+        "kind": "stone",
+        "stones": [
+          {
+            "level": 3,
+            "weight": 60
+          },
+          {
+            "level": 4,
+            "weight": 30
+          },
+          {
+            "level": 5,
+            "weight": 10
+          }
+        ],
+        "upgradeLevel": 0
+      },
+      {
+        "chestId": "stone_chest_silver",
+        "name": "Rương đá bạc",
+        "kind": "stone",
+        "stones": [
+          {
+            "level": 4,
+            "weight": 60
+          },
+          {
+            "level": 5,
+            "weight": 30
+          },
+          {
+            "level": 6,
+            "weight": 10
+          }
+        ],
+        "upgradeLevel": 0
+      },
+      {
+        "chestId": "stone_chest_gold",
+        "name": "Rương đá vàng",
+        "kind": "stone",
+        "stones": [
+          {
+            "level": 5,
+            "weight": 60
+          },
+          {
+            "level": 6,
+            "weight": 30
+          },
+          {
+            "level": 7,
+            "weight": 10
+          }
+        ],
+        "upgradeLevel": 0
       }
     ],
     "gear": {
