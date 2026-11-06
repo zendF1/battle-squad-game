@@ -117,7 +117,7 @@ func test_popup_rows_no_aura_text() -> void:
 		var col := EquipmentUi.milestone_list(null, 15, "weapon" if weapon else "armor")
 		var rows := col.get_children().filter(func(r): return r.has_meta("reached"))
 		var texts := labels(col).map(func(l): return l.text)
-		check(texts.has("+40% chỉ số") and texts.has("+100% chỉ số"), "the bonuses (weapon %s)" % weapon)
+		check(texts.has("×7 chỉ số") and texts.has("×10 chỉ số"), "the multipliers (weapon %s)" % weapon)
 		check(not texts.any(func(t): return t.contains("hào quang") or t.contains("sau lưng")), "no aura text (weapon %s)" % weapon)
 		check(col.find_child("BackAura", true, false) == null, "no aura label (weapon %s)" % weapon)
 		near(rows[3].modulate.a, U.UNREACHED_ALPHA, 0.001, "+16 not reached: dimmed")

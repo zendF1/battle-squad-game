@@ -20,17 +20,18 @@ extends RefCounted
 ##   missing) has no careful;
 ## - coin: every attempt pays the row's coinCost × the same multiplier m, rounded up, on success
 ##   and on failure (a catalog without coinCost: no coin);
-## - stats after an upgrade: each stat × (1 + upgradeStepPerLevel × level + every reached
-##   milestone bonus), rounded per item (crit stays a float) — EquipmentModel.upgraded();
+## - stats after an upgrade: each stat × upgradeMultipliers[level], rounded per item (crit stays a
+##   float), the passive to 2 decimals — EquipmentModel.upgraded() / passive_value();
 ## - merging: mergeMinCount–mergeMaxCount stones of one level (below maxStoneLevel) give one stone
 ##   of the next level with count × mergeRatePerItem % chance; every stone put in is consumed.
 ## The highest level, stone level, merge counts and rates are the game data's (GET /gamedata
 ## equipment) when the catalog does not send its own.
-## The level colours a piece's aura, frame and name: +1..+5 green (the subtlest, no stat bonus),
+## The level colours a piece's aura, frame and name: +1..+5 green (the subtlest),
 ## +6..+9 sky blue, +10..+13 orange, +14..+15 purple, +16 red (the highest); +0 the normal look.
-## The stat-bonus milestones are the game data's equipment.milestones (+6 / +10 / +14 / +16).
+## The milestone levels are the game data's equipment.milestones (+6 / +10 / +14 / +16).
 
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
+const GearModel := preload("res://screens/home/gear_model.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
 const Fmt := preload("res://core/fmt.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
@@ -73,7 +74,7 @@ static func merge_max() -> int:
 
 # ── Milestones ──────────────────────────────────────────────────────────────
 
-## The stat-bonus milestone levels (equipment.milestones: +6, +10, +14, +16), index 0 unused.
+## The milestone levels (equipment.milestones: +6, +10, +14, +16), index 0 unused.
 static func milestone_from() -> Array:
 	var out: Array = [0]
 	for m in GameData.upgrade_milestones():
@@ -112,7 +113,7 @@ static func name_color(piece: Dictionary) -> Color:
 	return milestone_color(int(piece.get("upgradeLevel", 0)))
 
 
-## Whether `level` is a stat-bonus milestone (+6, +10, +14, +16).
+## Whether `level` is a milestone (+6, +10, +14, +16).
 static func is_milestone(level: int) -> bool:
 	return level > 0 and milestone_from().has(level)
 
@@ -126,34 +127,34 @@ static func next_milestone(level: int) -> int:
 	return -1
 
 
-## The catalog's milestone bonuses as [[level, bonus]...] ascending (EquipmentModel.milestones()).
-static func milestone_bonus(catalog: Variant, level: int) -> float:
+## What a milestone level really gives a piece's stats: "×2 chỉ số" from the upgrade multipliers,
+## an older server's own bonus ("+10% chỉ số") when it sends no table.
+static func milestone_gain(catalog: Variant, level: int) -> String:
+	if not EquipmentModel.multipliers(catalog).is_empty():
+		return "%s chỉ số" % EquipmentModel.multiplier_text(EquipmentModel.upgrade_multiplier(level, catalog))
 	for m in EquipmentModel.milestones(catalog):
 		if int(m[0]) == level:
-			return float(m[1])
-	return 0.0
+			return "+%s chỉ số" % BattleStats.format_chance(float(m[1]) * 100.0)
+	return ""
 
 
-## "+6: +10% chỉ số, hào quang xanh da trời" (the milestone at `level`), "" when it is none.
+## "+6: ×2 chỉ số, hào quang xanh da trời" (the milestone at `level`), "" when it is none.
 static func milestone_text(catalog: Variant, level: int) -> String:
 	if not is_milestone(level):
 		return ""
-	return "+%d: +%s chỉ số, hào quang %s" % [level, BattleStats.format_chance(milestone_bonus(catalog, level) * 100.0),
-		TIER_WORDS[color_tier(level)]]
+	return "+%d: %s, hào quang %s" % [level, milestone_gain(catalog, level), TIER_WORDS[color_tier(level)]]
 
 
 ## The piece popup's milestone rows for a piece at `level`, +6 / +10 / +14 / +16:
-## [{level, tier, color, bonus (fraction), bonus_text "+10% chỉ số", aura "Hào quang xanh da
-## trời", reached}]; bonuses from the catalog's upgradeMilestones (defaults before it loads).
+## [{level, tier, color, bonus_text "×2 chỉ số" (milestone_gain()), aura "Hào quang xanh da
+## trời", reached}].
 static func milestone_rows(catalog: Variant, level: int) -> Array:
 	var out: Array = []
 	var from := milestone_from()
 	for t in range(1, from.size()):
 		var lv: int = from[t]
-		var bonus := milestone_bonus(catalog, lv)
 		var tier := color_tier(lv)
-		out.append({"level": lv, "tier": tier, "color": TIER_COLORS[tier], "bonus": bonus,
-			"bonus_text": "+%s chỉ số" % BattleStats.format_chance(bonus * 100.0),
+		out.append({"level": lv, "tier": tier, "color": TIER_COLORS[tier], "bonus_text": milestone_gain(catalog, lv),
 			"aura": "Hào quang " + TIER_WORDS[tier], "reached": level >= lv})
 	return out
 
@@ -518,8 +519,8 @@ static func blocked_reason(catalog: Variant, piece: Dictionary, picked: Dictiona
 static func stat_steps(catalog: Variant, piece: Dictionary, mult: Dictionary = {}) -> Array:
 	var item := EquipmentModel.item_of_piece(catalog, piece)
 	var level := int(piece.get("upgradeLevel", 0))
-	var now := EquipmentModel.upgraded(item, level, EquipmentModel.milestones(catalog))
-	var next := EquipmentModel.upgraded(item, mini(level + 1, max_level()), EquipmentModel.milestones(catalog))
+	var now := EquipmentModel.upgraded(item, level, catalog)
+	var next := EquipmentModel.upgraded(item, mini(level + 1, max_level()), catalog)
 	var out: Array = []
 	var after := {}
 	for l in EquipmentModel.stat_lines(next, mult):
@@ -539,17 +540,40 @@ static func stat_steps(catalog: Variant, piece: Dictionary, mult: Dictionary = {
 	return out
 
 
+## The piece's passive now and after one more level, as a stat_steps() row with its picture
+## instead of a label: {key: "passive", label: "", glyph, now_points / next_points ("+48.3%"),
+## now_battle / next_battle (""), delta, up}. The next value is the catalog item's +0 value at that
+## level; the piece's own, not a capped total. {} without a passive in the catalog.
+static func passive_step(catalog: Variant, piece: Dictionary) -> Dictionary:
+	var item := EquipmentModel.item_of_piece(catalog, piece)
+	var passive := GearModel.piece_passive(piece, item)
+	var base = item.get("passive")
+	if passive.is_empty() or not base is Dictionary:
+		return {}
+	var kind := str(passive["kind"])
+	var now := float(passive["value"])
+	var level := mini(int(piece.get("upgradeLevel", 0)) + 1, max_level())
+	var next := EquipmentModel.passive_value(float(base.get("value", 0.0)), level, catalog)
+	return {"key": "passive", "label": "", "glyph": passive["glyph"], "now_points": GearModel.value_text(kind, now),
+		"next_points": GearModel.value_text(kind, next), "now_battle": "", "next_battle": "",
+		"delta": GearModel.value_text(kind, next - now), "up": next - now > 1e-9}
+
+
 ## The Nâng cấp page's centre: the piece now and after one more level side by side.
-## {maxed, columns: [{level, color}] (now, then next unless at +16), rows: stat_steps(), fail:
-## fail_text() ("" at +16), note: "Đã đạt cấp tối đa" at +16 else ""}. No milestone text: the
-## next column's aura shows it.
+## {maxed, columns: [{level, color}] (now, then next unless at +16), rows: stat_steps() then
+## passive_step(), fail: fail_text() ("" at +16), note: "Đã đạt cấp tối đa" at +16 else ""}. No
+## milestone text: the next column's aura shows it.
 static func preview(catalog: Variant, piece: Dictionary, mult: Dictionary = {}) -> Dictionary:
 	var level := clampi(int(piece.get("upgradeLevel", 0)), 0, max_level())
 	var maxed := level >= max_level()
 	var columns: Array = [{"level": level, "color": milestone_color(level)}]
 	if not maxed:
 		columns.append({"level": level + 1, "color": milestone_color(level + 1)})
-	return {"maxed": maxed, "columns": columns, "rows": stat_steps(catalog, piece, mult),
+	var rows := stat_steps(catalog, piece, mult)
+	var passive := passive_step(catalog, piece)
+	if not passive.is_empty():
+		rows.append(passive)
+	return {"maxed": maxed, "columns": columns, "rows": rows,
 		"fail": "" if maxed else fail_text(catalog, level), "note": "Đã đạt cấp tối đa" if maxed else ""}
 
 

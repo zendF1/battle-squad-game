@@ -5,7 +5,7 @@ extends Control
 ##   level colour, the aura from +1); centre, the selected piece's name, then the piece now and
 ##   after one more level side by side (UpgradeModel.preview: each on its hexagon with that
 ##   level's aura and tint, "+N" in its colour, its stats as points over the battle value, the
-##   gains in green on the right; at +16 only the piece, centred, and "Đã đạt cấp tối đa"), what the
+##   passive as its picture and value, the gains in green on the right; at +16 only the piece, centred, and "Đã đạt cấp tối đa"), what the
 ##   next level unlocks as pictures (GearModel.milestone_unlocks(): +10 bullet glow, +14 skill rank
 ##   up for a weapon, +16 the slot's awaken) and
 ##   what a failure does ("Thất bại: về +6" / "giữ nguyên +3"), all centred in the panel; right, the player's stones by level (icon, power, owned, − n +)
@@ -641,7 +641,7 @@ func _render_center() -> void:
 		stats.size_flags_horizontal = SIZE_SHRINK_CENTER
 		_center.add_child(stats)
 		for r in view["rows"]:
-			stats.add_child(LobbyUi.text(r["label"], 21, DIM))
+			stats.add_child(_stat_label(r))
 			stats.add_child(_stat_cell(r["now_points"], r["now_battle"], "", false))
 	else:
 		# now | label (the arrow over it) | next: symmetric, so the pair sits in the panel's middle.
@@ -676,11 +676,7 @@ func _render_center() -> void:
 		# The stat rows: points with what they add in battle under them; the gains in green.
 		for r in view["rows"]:
 			grid.add_child(_stat_cell(r["now_points"], r["now_battle"]))
-			var label := LobbyUi.text(r["label"], 21, DIM)
-			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			label.size_flags_vertical = SIZE_FILL
-			grid.add_child(label)
+			grid.add_child(_stat_label(r))
 			grid.add_child(_stat_cell(r["next_points"], r["next_battle"], r["delta"] if r["up"] else ""))
 	if view["note"] != "":
 		var note := LobbyUi.text(view["note"], 24, LobbyUi.GOLD, true)
@@ -704,6 +700,21 @@ func _render_center() -> void:
 		var fl := LobbyUi.text(fail, 21, WARN if reset else DIM, reset)
 		fl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_center.add_child(fl)
+
+
+## A preview row's name, the passive's picture in its place (UpgradeModel.passive_step()).
+static func _stat_label(r: Dictionary) -> Control:
+	if r.has("glyph"):
+		var box := CenterContainer.new()
+		box.name = "PassiveGlyph"
+		box.mouse_filter = MOUSE_FILTER_IGNORE
+		box.add_child(GearIcon.make(str(r["glyph"]), 36))
+		return box
+	var label := LobbyUi.text(r["label"], 21, DIM)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.size_flags_vertical = SIZE_FILL
+	return label
 
 
 ## "+440 điểm" over a dim "+22.000" (the battle value, left out when unknown), centred in a

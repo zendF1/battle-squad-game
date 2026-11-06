@@ -21,6 +21,7 @@ const GameData := preload("res://autoload/game_data_model.gd")
 ## Máu, Sát thương, Phòng thủ (LobbyModel.stat_pairs() order) as pictures.
 const STAT_ICONS := ["heart", "sword", "shield"]
 const W := 360
+const STAT_GAP := 14
 
 ## The node the skill popup opens on (null: the current scene).
 var popup_host: Node
@@ -64,14 +65,12 @@ func _build() -> void:
 	power.name = "InfoPower"
 	col.add_child(power)
 	power.visible = false
-	stats = Ui.hbox(0)
+	stats = Ui.hbox(STAT_GAP)
 	stats.name = "InfoStats"
+	stats.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_child(stats)
 	for i in STAT_ICONS.size():
 		var chip := Ui.hbox(6)
-		chip.alignment = BoxContainer.ALIGNMENT_CENTER
-		chip.size_flags_horizontal = SIZE_EXPAND_FILL
-		chip.size_flags_stretch_ratio = 1.0
 		chip.add_child(GlyphIcon.make(STAT_ICONS[i], 32))
 		var value := LobbyUi.text("", 24, Color.WHITE, true)
 		value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

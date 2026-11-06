@@ -538,10 +538,8 @@ func _row(piece: Dictionary, worn: Dictionary) -> Control:
 	right.mouse_filter = MOUSE_FILTER_IGNORE
 	row.add_child(right)
 	if mine:
-		var stats := LobbyUi.text(EquipmentModel.stat_summary(EquipmentModel.piece_item(PlayerState.catalog, piece), EquipmentUi.multipliers()), 19, Color.WHITE)
-		stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		stats.mouse_filter = MOUSE_FILTER_IGNORE
+		var stats := EquipmentUi.stat_row(EquipmentModel.piece_item(PlayerState.catalog, piece))
+		stats.alignment = FlowContainer.ALIGNMENT_END
 		right.add_child(stats)
 	else:
 		var current: Dictionary = worn.get(str(piece.get("slot", "")), {})

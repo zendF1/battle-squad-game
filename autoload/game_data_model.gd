@@ -1094,15 +1094,34 @@ static func player_exp_per_level() -> int:
 
 # ── equipment ───────────────────────────────────────────────────────────────
 
+## Only an older server's formula uses it (EquipmentModel.upgrade_multiplier()).
 static func upgrade_step_per_level() -> float:
 	return _f(section("equipment"), "upgradeStepPerLevel")
+
+
+## The whole stat multiplier of each upgrade level (equipment.upgradeMultipliers, index = +level),
+## [] from an older server.
+static func upgrade_multipliers() -> Array:
+	return number_list(section("equipment").get("upgradeMultipliers"))
+
+
+## An array of numbers as floats, [] when `v` is anything else.
+static func number_list(v: Variant) -> Array:
+	var out: Array = []
+	if v is Array:
+		for n in v:
+			if not (n is int or n is float):
+				return []
+			out.append(float(n))
+	return out
 
 
 static func max_upgrade_level() -> int:
 	return _i(section("equipment"), "maxUpgradeLevel")
 
 
-## [[level, bonus], ...] ascending.
+## [[level, bonus], ...] ascending. The levels keep their meaning (colours, safe zones, unlocks);
+## only an older server's formula uses the bonus.
 static func upgrade_milestones() -> Array:
 	var out: Array = []
 	for m in _list_in(section("equipment"), "milestones"):

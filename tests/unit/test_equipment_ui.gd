@@ -79,9 +79,25 @@ func test_milestone_list_rows() -> void:
 			eq(rows[i].get_meta("reached"), reached, "+%d row %d reached" % [lv, i])
 			near(rows[i].modulate.a, 1.0 if reached else U.UNREACHED_ALPHA, 0.001, "+%d row %d alpha" % [lv, i])
 		var texts := labels(col).map(func(l): return l.text)
-		check(texts.has("+6") and texts.has("+10% chỉ số") and texts.has("+100% chỉ số"), "level and bonus")
+		check(texts.has("+6") and texts.has("×2 chỉ số") and texts.has("×10 chỉ số"), "level and what the table gives")
+		check(not texts.any(func(t): return t.contains("%")), "no milestone percent")
 		check(not texts.any(func(t): return t.begins_with("Hào quang")), "no aura names")
 		col.free()
+
+
+func test_list_rows_are_pictures() -> void:
+	var item := {"statHp": 1100.0, "statDefense": 120.0, "statMoveEnergy": 400.0}
+	var row := EquipmentUi.stat_row(item)
+	eq(row.get_child_count(), 3, "a chip per stat")
+	eq(labels(row).map(func(l): return l.text), ["+1.100", "+120", "+400"], "one number each, no words")
+	row.free()
+	row = EquipmentUi.delta_row({"statHp": 100.0}, {"statHp": 300.0, "statDefense": 30.0})
+	eq(labels(row).map(func(l): return l.text), ["−200", "−30"], "the changes")
+	eq(labels(row)[0].get_theme_color("font_color"), EquipmentUi.LOSS, "a loss in red")
+	row.free()
+	row = EquipmentUi.delta_row({"statHp": 100.0}, {"statHp": 100.0})
+	eq(row.get_child_count(), 0, "nothing changes")
+	row.free()
 
 
 func test_piece_list() -> void:

@@ -143,19 +143,32 @@ static func add_stat_lines(parent: Control, item: Dictionary, font_size: int = 2
 		parent.add_child(row)
 
 
-## Delta lines ("Sát thương +85 (+17 điểm)" green, "Máu −40 (−20 điểm)" red) of wearing
-## `item` instead of `worn`, in one wrapping row; returns the row (empty when nothing changes).
+## The stats of `item` as pictures in one wrapping row, the words in their tooltips: a narrow list
+## row stays one line at +16.
+static func stat_row(item: Dictionary, font_size: int = 19) -> HFlowContainer:
+	var flow := _chip_flow()
+	for c in EquipmentModel.stat_chips(item, multipliers()):
+		flow.add_child(GearUi.stat_chip(c["glyph"], c["value"], c["line"], 26, font_size))
+	return flow
+
+
+## The change of wearing `item` instead of `worn`, as pictures in one wrapping row: "+85" green,
+## "−40" red, the words in their tooltips; returns the row (empty when nothing changes).
 static func delta_row(item: Dictionary, worn: Dictionary, font_size: int = 19) -> HFlowContainer:
-	var flow := HFlowContainer.new()
-	flow.add_theme_constant_override("h_separation", 12)
-	flow.add_theme_constant_override("v_separation", 0)
-	flow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var flow := _chip_flow()
 	for d in EquipmentModel.compare(item, worn, multipliers()):
 		if d["tone"] == "":
 			continue
-		var l := LobbyUi.text("%s %s" % [d["label"], d["text"]], font_size, GOOD if d["tone"] == "good" else LOSS, true)
-		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		flow.add_child(l)
+		flow.add_child(GearUi.stat_chip(d["glyph"], d["short"], "%s %s" % [d["label"], d["text"]], 26, font_size,
+			GOOD if d["tone"] == "good" else LOSS))
+	return flow
+
+
+static func _chip_flow() -> HFlowContainer:
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 14)
+	flow.add_theme_constant_override("v_separation", 0)
+	flow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return flow
 
 
@@ -166,7 +179,7 @@ static func delta_row(item: Dictionary, worn: Dictionary, font_size: int = 19) -
 ## hexagon with the icon and its aura beside slot · category · required level, who wears it, the
 ## upgrade bar and the gear row (gear_row()); below, one narrow list (piece_list()): its upgraded
 ## stats (with the change against what the character wears in that slot), then the +6 / +10 / +14
-## / +16 milestones with their bonus (reached ones bright with a check, the others dimmed); an X
+## / +16 milestones with the multiplier each gives (reached ones bright with a check, the others dimmed); an X
 ## in the top-right corner (or a tap outside the card) closes it; one row of equal buttons spanning
 ## the content width (piece_actions): worn by another character Chuyển cho <nhân vật> / Nâng cấp /
 ## Tháo, worn by this one Nâng cấp / Tháo, not worn
@@ -385,7 +398,7 @@ static func piece_list(stats: Array, catalog: Variant, level: int, slot: String 
 
 
 ## The +6 / +10 / +14 / +16 rows (UpgradeModel.milestone_rows) for a piece at `level`, each a
-## small hexagon with its aura, "+6", "+10% chỉ số" in its colour; reached rows bright with a
+## small hexagon with its aura, "+6", "×2 chỉ số" in its colour; reached rows bright with a
 ## check, the others dimmed (UNREACHED_ALPHA). A row whose level unlocks more on a piece of `slot`
 ## ends with its pictures (GearModel.milestone_unlocks(): the weapon's +10 bullet glow, its +14
 ## skill rank up, the slot's +16 awaken).

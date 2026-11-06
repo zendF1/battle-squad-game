@@ -10,6 +10,7 @@ extends RefCounted
 const GameData := preload("res://autoload/game_data_model.gd")
 const GearGlyphs := preload("res://ui/gear_glyphs.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
+const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 
 const MINUS := "−"
 ## The profile's passive fields by passive kind, in the order the screens list them.
@@ -31,17 +32,20 @@ static func tier_index(piece: Dictionary, item: Dictionary = {}) -> int:
 	return int(v) if v is int or v is float else 0
 
 
-## A piece's passive at its level ({kind, value, slot, glyph}; the catalog item's at +0 when the
-## piece has none), {} without one (no tier index, an older server).
+## A piece's passive at its level ({kind, value, slot, glyph}): the server's, else the catalog
+## item's +0 value at the piece's level; {} without one (no tier index, an older server).
 static func piece_passive(piece: Dictionary, item: Dictionary = {}) -> Dictionary:
 	var p = piece.get("passive")
+	var value := _num(p.get("value")) if p is Dictionary else 0.0
 	if not p is Dictionary:
 		p = item.get("passive")
+		if p is Dictionary:
+			value = EquipmentModel.passive_value(_num(p.get("value")), int(_num(piece.get("upgradeLevel"))))
 	if not p is Dictionary or str(p.get("kind", "")) == "":
 		return {}
 	var slot := str(piece.get("slot", item.get("slot", "")))
 	var kind := str(p["kind"])
-	return {"kind": kind, "value": _num(p.get("value")), "slot": slot, "glyph": GearGlyphs.passive_kind(kind, slot)}
+	return {"kind": kind, "value": value, "slot": slot, "glyph": GearGlyphs.passive_kind(kind, slot)}
 
 
 ## Whether a piece has reached its awaken (+16, hasAwaken).

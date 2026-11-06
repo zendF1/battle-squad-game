@@ -16,6 +16,18 @@ const RATES := [
 const STONE_PRICES := [[100, 0], [250, 0], [700, 0], [2000, 0], [5500, 0], [15000, 0], [0, 50], [0, 140], [0, 400], [0, 1100], [0, 0], [0, 0]]
 
 
+## The contract's table, as tests/fixtures/gamedata.json sends it.
+const TABLE := [1, 1.1, 1.2, 1.3, 1.5, 1.75, 2, 2.4, 2.8, 3.3, 4, 4.6, 5.2, 6, 7, 8.5, 10]
+
+
+## The game data of a server that sends no upgradeMultipliers.
+static func older_server() -> void:
+	var d: Dictionary = M.GameData.data.duplicate(true)
+	d["version"] = "older"
+	d["equipment"].erase("upgradeMultipliers")
+	M.GameData.take(d, "", false)
+
+
 static func catalog(extra: Dictionary = {}) -> Dictionary:
 	var rates: Array = []
 	for r in RATES:
@@ -45,7 +57,7 @@ func test_milestone_colours() -> void:
 		eq(U.color_tier(lv), 1, "+%d the green tier" % lv)
 		eq(U.milestone_color(lv), green, "+%d green" % lv)
 		check(U.frame_tint(lv) != Color.WHITE, "tinted frame at +%d" % lv)
-		check(not U.is_milestone(lv), "+%d gives no bonus" % lv)
+		check(not U.is_milestone(lv), "+%d is no milestone" % lv)
 	near(green.r, 46.0 / 255.0, 0.01, "green #2EE66B r")
 	near(green.g, 230.0 / 255.0, 0.01, "green #2EE66B g")
 	near(green.b, 107.0 / 255.0, 0.01, "green #2EE66B b")
@@ -59,7 +71,7 @@ func test_milestone_colours() -> void:
 	for lv in [14, 15]:
 		eq(U.milestone_color(lv), purple, "+%d purple" % lv)
 	eq(U.color_tier(16), 5, "+16 the highest tier")
-	eq([6, 10, 14, 16].map(func(l): return U.is_milestone(l)), [true, true, true, true], "the bonus milestones")
+	eq([6, 10, 14, 16].map(func(l): return U.is_milestone(l)), [true, true, true, true], "the milestones")
 	check(not U.is_milestone(0) and not U.is_milestone(7), "not milestones")
 	check(sky.b > sky.r and sky.b > 0.9, "sky blue is blue")
 	check(orange.r > 0.9 and orange.g > orange.b, "orange")
@@ -72,11 +84,11 @@ func test_milestone_colours() -> void:
 
 func test_milestone_texts() -> void:
 	var c := catalog()
-	eq(U.milestone_text(c, 6), "+6: +10% chỉ số, hào quang xanh da trời", "the +6 milestone")
-	eq(U.milestone_text(c, 16), "+16: +100% chỉ số, hào quang đỏ", "the +16 milestone")
+	eq(U.milestone_text(c, 6), "+6: ×2 chỉ số, hào quang xanh da trời", "the +6 milestone")
+	eq(U.milestone_text(c, 16), "+16: ×10 chỉ số, hào quang đỏ", "the +16 milestone")
 	eq(U.milestone_text(c, 7), "", "not a milestone")
-	var custom := catalog({"upgradeMilestones": [{"level": 6, "bonus": 0.15}, {"level": 10, "bonus": 0.2}, {"level": 14, "bonus": 0.4}, {"level": 16, "bonus": 1.0}]})
-	eq(U.milestone_text(custom, 6), "+6: +15% chỉ số, hào quang xanh da trời", "configured bonus")
+	older_server()
+	eq(U.milestone_text(catalog(), 6), "+6: +10% chỉ số, hào quang xanh da trời", "an older server's own bonus")
 
 
 func test_milestone_rows() -> void:
@@ -84,16 +96,26 @@ func test_milestone_rows() -> void:
 	var rows := U.milestone_rows(c, 3)
 	eq(rows.map(func(r): return r["level"]), [6, 10, 14, 16], "the four milestones")
 	eq(rows.map(func(r): return r["reached"]), [false, false, false, false], "none reached at +3")
-	eq(rows.map(func(r): return r["bonus_text"]), ["+10% chỉ số", "+20% chỉ số", "+40% chỉ số", "+100% chỉ số"], "bonuses")
+	eq(rows.map(func(r): return r["bonus_text"]), ["×2 chỉ số", "×4 chỉ số", "×7 chỉ số", "×10 chỉ số"], "what the table gives, not the milestone bonus")
 	eq(rows.map(func(r): return r["aura"]), ["Hào quang xanh da trời", "Hào quang cam", "Hào quang tím", "Hào quang đỏ"], "aura names")
 	eq(rows.map(func(r): return r["color"]), [U.milestone_color(6), U.milestone_color(10), U.milestone_color(14), U.milestone_color(16)], "colours")
 	eq(U.milestone_rows(c, 10).map(func(r): return r["reached"]), [true, true, false, false], "+10 reaches +6 and +10")
 	eq(U.milestone_rows(c, 13).map(func(r): return r["reached"]), [true, true, false, false], "+13")
 	eq(U.milestone_rows(c, 16).map(func(r): return r["reached"]), [true, true, true, true], "+16 reaches all")
 	var custom := catalog({"upgradeMilestones": [{"level": 6, "bonus": 0.15}, {"level": 10, "bonus": 0.25}, {"level": 14, "bonus": 0.5}, {"level": 16, "bonus": 1.2}]})
+	eq(U.milestone_rows(custom, 0)[0]["bonus_text"], "×2 chỉ số", "the catalog's old bonus means nothing on the table")
+	eq(U.milestone_rows(catalog({"upgradeMultipliers": [1, 1, 1, 1, 1, 1, 1.25]}), 0)[0]["bonus_text"], "×1,25 chỉ số", "the catalog's table")
+	eq(U.milestone_rows(null, 6)[0]["bonus_text"], "×2 chỉ số", "the game data's table before the catalog loads")
+	check(U.UNREACHED_ALPHA > 0.3 and U.UNREACHED_ALPHA < 0.5, "unreached rows dimmed to ~0.4")
+
+
+func test_milestone_rows_of_an_older_server() -> void:
+	older_server()
+	var rows := U.milestone_rows(catalog(), 3)
+	eq(rows.map(func(r): return r["bonus_text"]), ["+10% chỉ số", "+20% chỉ số", "+40% chỉ số", "+100% chỉ số"], "bonuses")
+	var custom := catalog({"upgradeMilestones": [{"level": 6, "bonus": 0.15}, {"level": 10, "bonus": 0.25}, {"level": 14, "bonus": 0.5}, {"level": 16, "bonus": 1.2}]})
 	eq(U.milestone_rows(custom, 0).map(func(r): return r["bonus_text"]), ["+15% chỉ số", "+25% chỉ số", "+50% chỉ số", "+120% chỉ số"], "the catalog's bonuses")
 	eq(U.milestone_rows(null, 6)[0]["bonus_text"], "+10% chỉ số", "defaults before the catalog loads")
-	check(U.UNREACHED_ALPHA > 0.3 and U.UNREACHED_ALPHA < 0.5, "unreached rows dimmed to ~0.4")
 
 
 func test_percent_and_cap() -> void:
@@ -169,29 +191,91 @@ func test_fail_text_and_reasons() -> void:
 	eq(U.blocked_reason({"items": {}}, piece, {1: 1}, {1: 1}), "Chưa có bảng nâng cấp cho +3", "no rates")
 
 
-## Parity with internal/game/battlestats/stats_test.go TestSumEquipment (DefaultMilestones).
-func test_upgraded_stats_match_the_server() -> void:
+## The contract's section 3: base × m[L], rounded per piece and stat, crit left a decimal.
+func test_upgraded_stats_use_the_table() -> void:
+	eq(M.GameData.upgrade_multipliers(), TABLE.map(func(m): return float(m)), "the game data's table")
+	var c := catalog()
+	eq(c["upgradeMultipliers"], [], "this catalog sends none")
+	eq(M.multipliers(c), M.GameData.upgrade_multipliers(), "then the game data's")
+	for lv in TABLE.size():
+		eq(M.upgrade_multiplier(lv, c), float(TABLE[lv]), "+%d is the table's entry, nothing added" % lv)
+	eq(M.upgrade_multiplier(40, c), 10.0, "past the end: the last entry")
+	# The worked example: 8 damage, statMultipliers.damage 5.
+	var weapon := {"statDamage": 8.0}
+	var mult := {"damage": 5}
+	eq(M.upgraded(weapon, 6, c)["statDamage"], 16.0, "8 at +6 is 16 points")
+	eq(M.upgraded(weapon, 10, c)["statDamage"], 32.0, "8 at +10 is 32 points")
+	eq(M.stat_lines(M.upgraded(weapon, 6, c), mult)[0]["text"], "+16 điểm (+80)", "80 real damage at +6")
+	eq(M.stat_lines(M.upgraded(weapon, 10, c), mult)[0]["text"], "+32 điểm (+160)", "160 real damage at +10")
+	var item := {"statHp": 100.0, "statDamage": 10.0, "statDefense": 20.0, "statCrit": 2.0, "statMoveEnergy": 5.0}
+	var up := M.upgraded(item, 5, c) # ×1.75
+	eq([up["statHp"], up["statDamage"], up["statDefense"], up["statMoveEnergy"]], [175.0, 18.0, 35.0, 9.0], "+5 points, half away from zero")
+	near(up["statCrit"], 3.5, 1e-9, "+5 crit unrounded")
+	near(M.upgraded({"statCrit": 1.5}, 1, c)["statCrit"], 1.65, 1e-9, "crit stays a decimal")
+	eq(M.upgraded({"statHp": 300.0}, 16, c)["statHp"], 3000.0, "+16 is ×10")
+	eq(M.upgraded(item, 0, c), item, "+0 is the item")
+	var p := M.piece_item(c, {"equipmentId": "e1", "itemId": "normal_armor_lv10", "upgradeLevel": 10})
+	eq([p["statHp"], p["statDefense"]], [400.0, 40.0], "piece_item at +10")
+	near(p["statCrit"], 8.0, 1e-9, "crit × 4")
+
+
+func test_the_catalogs_table_wins() -> void:
+	var c := catalog({"upgradeMultipliers": [1, 3, 9]})
+	eq(c["upgradeMultipliers"], [1.0, 3.0, 9.0], "parsed")
+	eq(M.upgrade_multiplier(2, c), 9.0, "the catalog's entry")
+	eq(M.upgrade_multiplier(16, c), 9.0, "its last entry past its end")
+	eq(M.upgrade_multiplier(2), 1.2, "without a catalog: the game data's")
+	eq(M.upgrade_multiplier(2, null), 1.2, "before the catalog loads")
+	eq(catalog({"upgradeMultipliers": [1, "x"]})["upgradeMultipliers"], [], "malformed: none")
+	eq(catalog({"upgradeMultipliers": []})["upgradeMultipliers"], [], "empty: none")
+	var edited: Dictionary = M.GameData.data.duplicate(true)
+	edited["version"] = "edited"
+	edited["equipment"]["upgradeMultipliers"] = [1, 1.5]
+	M.GameData.take(edited, "", false)
+	eq(M.upgrade_multiplier(1), 1.5, "an admin edit is followed, nothing hardcoded")
+
+
+func test_multiplier_text() -> void:
+	eq([M.multiplier_text(2.0), M.multiplier_text(10.0), M.multiplier_text(8.5), M.multiplier_text(1.75)],
+		["×2", "×10", "×8,5", "×1,75"], "the table's values")
+
+
+func test_passive_value() -> void:
+	var c := catalog()
+	near(M.passive_value(4.83, 16, c), 48.3, 1e-9, "× the table")
+	near(M.passive_value(1.235, 5, c), 2.16, 1e-9, "2 decimals: 2.16125")
+	near(M.passive_value(4.83, 0, c), 4.83, 1e-9, "+0 is the catalog's value")
+
+
+## Parity with internal/game/battlestats/stats_test.go TestSumEquipment (DefaultMilestones), for a
+## server that sends no table.
+func test_older_server_keeps_the_old_formula() -> void:
+	older_server()
+	eq(M.GameData.upgrade_multipliers(), [], "no table")
+	var c := catalog()
 	var ms := M.default_milestones() # the game data's (equipment.milestones)
 	eq(ms, [[6, 0.1], [10, 0.2], [14, 0.4], [16, 1.0]], "the server's milestones")
 	var item := {"statHp": 100.0, "statDamage": 10.0, "statDefense": 20.0, "statCrit": 2.0, "statMoveEnergy": 5.0}
-	var up := M.upgraded(item, 5, ms) # ×1.10
+	var up := M.upgraded(item, 5, c) # ×1.10
 	eq([up["statHp"], up["statDamage"], up["statDefense"], up["statMoveEnergy"]], [110.0, 11.0, 22.0, 6.0], "+5 points")
 	near(up["statCrit"], 2.2, 1e-9, "+5 crit unrounded")
-	eq(M.upgraded({"statHp": 100.0}, 10, ms)["statHp"], 150.0, "+10: 1 + 0.20 + 0.10 + 0.20")
-	eq(M.upgraded({"statHp": 100.0}, 16, ms)["statHp"], 302.0, "+16: 1 + 0.32 + every milestone")
-	eq(M.upgraded({"statHp": 20.0}, 7, ms)["statHp"], 25.0, "20 × 1.24 = 24.8 → 25 (rounded per item)")
-	eq(M.upgraded({"statHp": 20.0, "statDamage": 8.0, "statMoveEnergy": 5.0}, 5, ms)["statHp"], 22.0, "hp 20 at +5 = 22 points")
-	eq(M.upgraded({"statDamage": 25.0}, 2, ms)["statDamage"], 26.0, "25 × 1.04 = 26")
-	eq(M.upgraded({"statDamage": 25.0}, 1, ms)["statDamage"], 26.0, "25 × 1.02 = 25.5 → 26 (half away from zero, like math.Round)")
-	eq(M.upgraded(item, 0, ms), item, "+0 is the item")
-	near(M.upgrade_multiplier(14, ms), 1.0 + 14 * 0.02 + 0.1 + 0.2 + 0.4, 1e-12, "+14 multiplier")
-	eq(M.upgraded({"statHp": 100.0}, 6, [[6, 0.15], [10, 0.2], [14, 0.4], [16, 1.0]])["statHp"], 127.0, "configured milestones")
+	eq(M.upgraded({"statHp": 100.0}, 10, c)["statHp"], 150.0, "+10: 1 + 0.20 + 0.10 + 0.20")
+	eq(M.upgraded({"statHp": 100.0}, 16, c)["statHp"], 302.0, "+16: 1 + 0.32 + every milestone")
+	eq(M.upgraded({"statHp": 20.0}, 7, c)["statHp"], 25.0, "20 × 1.24 = 24.8 → 25 (rounded per item)")
+	eq(M.upgraded({"statHp": 20.0, "statDamage": 8.0, "statMoveEnergy": 5.0}, 5, c)["statHp"], 22.0, "hp 20 at +5 = 22 points")
+	eq(M.upgraded({"statDamage": 25.0}, 2, c)["statDamage"], 26.0, "25 × 1.04 = 26")
+	eq(M.upgraded({"statDamage": 25.0}, 1, c)["statDamage"], 26.0, "25 × 1.02 = 25.5 → 26 (half away from zero, like math.Round)")
+	eq(M.upgraded(item, 0, c), item, "+0 is the item")
+	near(M.upgrade_multiplier(14, c), 1.0 + 14 * 0.02 + 0.1 + 0.2 + 0.4, 1e-12, "+14 multiplier")
+	eq(M.upgraded({"statDamage": 8.0}, 10, c)["statDamage"], 12.0, "the contract's old 12 points")
+	var custom := catalog({"upgradeMilestones": [{"level": 6, "bonus": 0.15}, {"level": 10, "bonus": 0.2}, {"level": 14, "bonus": 0.4}, {"level": 16, "bonus": 1.0}]})
+	eq(M.upgraded({"statHp": 100.0}, 6, custom)["statHp"], 127.0, "configured milestones")
 	# A piece: its catalog item at its level.
-	var c := catalog()
 	var piece := {"equipmentId": "e1", "itemId": "normal_armor_lv10", "upgradeLevel": 10}
 	var p := M.piece_item(c, piece)
 	eq([p["statHp"], p["statDefense"]], [150.0, 15.0], "piece_item at +10")
 	near(p["statCrit"], 3.0, 1e-9, "crit × 1.5")
+	eq(U.stat_steps(c, {"itemId": "normal_armor_lv10", "upgradeLevel": 5}, {"hp": 50})[0]["next"], "+122 điểm (+6.100)", "+6 hp: ×1.22")
 
 
 func test_stat_steps() -> void:
@@ -199,16 +283,42 @@ func test_stat_steps() -> void:
 	var steps := U.stat_steps(c, {"itemId": "normal_armor_lv10", "upgradeLevel": 5}, {"hp": 50, "defense": 5})
 	eq(steps.size(), 3, "hp, defense, crit")
 	eq(steps[0]["label"], "Máu", "first stat")
-	eq(steps[0]["now"], "+110 điểm (+5.500)", "+5 hp")
-	eq(steps[0]["next"], "+122 điểm (+6.100)", "+6 hp: ×1.22")
-	eq(steps[0]["delta"], "+12 điểm", "the change")
+	eq(steps[0]["now"], "+175 điểm (+8.750)", "+5 hp: ×1.75")
+	eq(steps[0]["next"], "+200 điểm (+10.000)", "+6 hp: ×2")
+	eq(steps[0]["delta"], "+25 điểm", "the change")
 	eq([steps[0]["now_points"], steps[0]["now_battle"], steps[0]["next_points"], steps[0]["next_battle"]],
-		["+110 điểm", "+5.500", "+122 điểm", "+6.100"], "points and battle values apart")
-	eq([steps[2]["now_points"], steps[2]["now_battle"]], ["+2.2%", ""], "crit has no battle value")
+		["+175 điểm", "+8.750", "+200 điểm", "+10.000"], "points and battle values apart")
+	eq([steps[2]["now_points"], steps[2]["now_battle"]], ["+3.5%", ""], "crit has no battle value")
 	check(steps[0]["up"], "goes up")
-	eq(steps[2]["delta"], "+0.2%", "crit 2.2 → 2.44, shown to 0.1")
+	eq(steps[2]["delta"], "+0.5%", "crit 3.5 → 4")
 	var maxed := U.stat_steps(c, {"itemId": "normal_armor_lv10", "upgradeLevel": 16})
 	check(not maxed[0]["up"], "nothing after +16")
+
+
+func test_contract_example_in_the_preview() -> void:
+	var c := catalog({"items": [{"itemId": "w", "name": "Súng", "slot": "weapon", "statDamage": 8.0}]})
+	var at6: Dictionary = U.preview(c, {"itemId": "w", "upgradeLevel": 6}, {"damage": 5})["rows"][0]
+	eq([at6["now_points"], at6["now_battle"]], ["+16 điểm", "+80"], "16 points, 80 damage at +6")
+	var at9: Dictionary = U.preview(c, {"itemId": "w", "upgradeLevel": 9}, {"damage": 5})["rows"][0]
+	eq([at9["next_points"], at9["next_battle"]], ["+32 điểm", "+160"], "32 points, 160 damage at +10")
+
+
+func test_passive_step() -> void:
+	var item := {"itemId": "w", "name": "Súng", "slot": "weapon", "statDamage": 8.0, "passive": {"kind": "crit_damage", "value": 4.0}}
+	var c := catalog({"items": [item]})
+	var s := U.passive_step(c, {"itemId": "w", "slot": "weapon", "upgradeLevel": 5})
+	eq([s["now_points"], s["next_points"], s["delta"]], ["+7%", "+8%", "+1%"], "the catalog's +0 value × the table")
+	eq(s["glyph"], "crit_damage", "its picture")
+	check(s["up"], "goes up")
+	var own := U.passive_step(c, {"itemId": "w", "slot": "weapon", "upgradeLevel": 5, "passive": {"kind": "crit_damage", "value": 6.5}})
+	eq(own["now_points"], "+6.5%", "now is the piece's own value, from the server")
+	var top := U.passive_step(c, {"itemId": "w", "slot": "weapon", "upgradeLevel": 16})
+	eq([top["now_points"], top["next_points"], top["delta"], top["up"]], ["+40%", "+40%", "", false], "nothing after +16")
+	eq(U.passive_step(catalog(), {"itemId": "normal_armor_lv10", "upgradeLevel": 3}), {}, "no passive")
+	var rows: Array = U.preview(c, {"itemId": "w", "slot": "weapon", "upgradeLevel": 5}, {"damage": 5})["rows"]
+	eq(rows.map(func(r): return r["key"]), ["statDamage", "passive"], "the passive after the stats")
+	var boots := catalog({"items": [{"itemId": "b", "slot": "boots", "statHp": 5.0, "passive": {"kind": "move_cost", "value": 2.0}}]})
+	eq(U.passive_step(boots, {"itemId": "b", "slot": "boots", "upgradeLevel": 6})["now_points"], "−4%", "a passive that lowers")
 
 
 func test_catalog_parse() -> void:
@@ -412,6 +522,7 @@ func test_limits_from_the_game_data() -> void:
 	d["equipment"]["mergeMinCount"] = 3
 	d["equipment"]["mergeMaxCount"] = 5
 	d["equipment"]["milestones"] = [{"level": 5, "bonus": 0.1}, {"level": 20, "bonus": 2.0}]
+	d["equipment"].erase("upgradeMultipliers")
 	M.GameData.take(d, "", false)
 	eq(U.max_level(), 20, "the new top")
 	eq(U.merge_blocked(3, 2, {}), "Bỏ vào 3–5 viên", "the new merge counts")
@@ -424,7 +535,7 @@ func test_limits_from_the_game_data() -> void:
 	eq(ErrorText.merge(fail.call(400, "MERGE_MIN_COUNT")), "Cần bỏ vào ít nhất 3 viên", "quotes the min")
 	eq(ErrorText.merge(fail.call(400, "MERGE_MAX_COUNT")), "Chỉ bỏ vào tối đa 5 viên", "quotes the max")
 	eq(ErrorText.merge(fail.call(400, "MERGE_MAX_LEVEL")), "Đá cấp 15 là cao nhất, không ghép tiếp được", "quotes the top stone")
-	near(M.upgrade_multiplier(5), 1.0 + 5 * 0.02 + 0.1, 1e-12, "the new milestone in the multiplier")
+	near(M.upgrade_multiplier(5), 1.0 + 5 * 0.02 + 0.1, 1e-12, "an older server: the new milestone in the multiplier")
 
 
 func test_coin_cost_uses_the_weapon_multiplier() -> void:

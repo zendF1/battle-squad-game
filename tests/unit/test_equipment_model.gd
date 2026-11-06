@@ -360,13 +360,24 @@ func test_sell_price() -> void:
 	eq(M.amount_text({"currency": "gem", "amount": 7}), "7 kim cương", "gem text")
 
 
+func test_stat_chips() -> void:
+	var chips := M.stat_chips({"statHp": 935.0, "statDefense": 102.0, "statCrit": 51.0, "statMoveEnergy": 340.0}, MULT)
+	eq(chips.map(func(c): return [c["glyph"], c["value"]]), [["heart", "+1.870"], ["shield", "+102"], ["crit", "+51%"], ["boot", "+340"]],
+		"the picture and the battle value")
+	eq(chips[0]["line"], "Máu +935 điểm (+1.870)", "the words for the tooltip")
+	eq(M.stat_chips({"statDamage": 646.0}).map(func(c): return c["value"]), ["+646"], "the points before the multipliers load")
+	var d := M.compare({"statHp": 100.0, "statCrit": 3.0}, {"statHp": 600.0, "statCrit": 1.0}, MULT)
+	eq(d.map(func(x): return [x["glyph"], x["short"]]), [["heart", "−1.000"], ["crit", "+2%"]], "the one number of a change")
+	eq(M.compare({"statDamage": 8.0}, {"statDamage": 3.0})[0]["short"], "+5", "points before the multipliers load")
+
+
 func test_labels_have_no_level() -> void:
 	var catalog := {"items": {"normal_armor_lv10": {"itemId": "normal_armor_lv10", "slot": "armor", "name": "Iron Vest", "statHp": 100.0}}}
 	var piece := {"equipmentId": "a", "itemId": "normal_armor_lv10", "slot": "armor", "upgradeLevel": 10}
 	var tip := M.piece_tooltip(catalog, piece)
 	eq(tip.get_slice("\n", 0), "Áo giáp Sắt", "Prep tooltip: the name, no +N")
 	check(not tip.contains("+10"), "no +N in the tooltip")
-	check(tip.get_slice("\n", 1).begins_with("Máu +150 điểm"), "upgraded stats under it")
+	check(tip.get_slice("\n", 1).begins_with("Máu +400 điểm"), "upgraded stats under it")
 	eq(M.category_name({"category": "crafted"}), "Chế tạo", "crafted")
 	eq(M.category_name({"category": "normal"}), "Thường", "normal")
 	eq(M.category_name({}), "Thường", "no category")

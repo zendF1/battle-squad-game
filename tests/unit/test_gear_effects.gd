@@ -77,6 +77,10 @@ func test_piece_passive() -> void:
 	var pants := GearModel.piece_passive({"slot": "pants"}, {"slot": "pants", "passive": {"kind": "proc_chance", "value": 4}})
 	eq(pants["glyph"], "proc_chance_pants", "the pants' own picture, from the catalog item at +0")
 	eq(GearModel.piece_passive({"slot": "armor"}), {}, "none (an older server)")
+	var lv := GearModel.piece_passive({"slot": "pants", "upgradeLevel": 10}, {"slot": "pants", "passive": {"kind": "proc_chance", "value": 1.26}})
+	near(lv["value"], 5.04, 1e-9, "no value of its own: the catalog's +0 value × the table at its level")
+	near(GearModel.piece_passive({"slot": "pants", "upgradeLevel": 10, "passive": {"kind": "proc_chance", "value": 3.0}},
+		{"passive": {"kind": "proc_chance", "value": 1.26}})["value"], 3.0, 1e-9, "its own value wins")
 	check(not GearModel.has_awaken({"upgradeLevel": 16}), "no hasAwaken: no awaken")
 
 

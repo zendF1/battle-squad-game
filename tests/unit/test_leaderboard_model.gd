@@ -107,9 +107,18 @@ func test_values_per_board() -> void:
 	eq(LeaderboardModel.not_ranked_text("power"), "Chưa có hạng", "not on a board")
 
 
+func test_power_fits_the_guild_roster_column() -> void:
+	var tag = PowerTag.make(30, 22) # screens/guild/guild_page.gd: 150 wide
+	tag.set_power(132180)
+	check(tag.get_combined_minimum_size().x <= 150.0, "six digits fit (%s)" % tag.get_combined_minimum_size().x)
+	tag.free()
+
+
 func test_power_text() -> void:
 	eq(LeaderboardModel.power_text(1050), "1.050", "thousands")
 	eq(LeaderboardModel.power_text(98765), "98.765", "a strong loadout")
+	eq(LeaderboardModel.power_text(29900), "29.900", "the displayed scale")
+	eq(LeaderboardModel.power_text(20000), "20.000", "a new character")
 	eq(LeaderboardModel.power_text(0), "0", "zero")
 	eq(LeaderboardModel.power_text(-1), "—", "unknown")
 	var tag = PowerTag.make(30, 24)

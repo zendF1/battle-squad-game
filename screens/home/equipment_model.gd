@@ -8,11 +8,11 @@ extends RefCounted
 ## characterId?, gemSlots, statHp, statDamage, statDefense, statCrit, statMoveEnergy, priceCoin,
 ## priceGem, isActive}. An owned piece: {equipmentId, itemId, slot, category, tier?,
 ## upgradeLevel, isEquipped, equippedOn? (characterId), ...}. A piece's stats are its item's
-## upgraded like the server does (upgraded(): ×(1 + upgradeStepPerLevel × level + reached
-## milestone bonuses), rounded per item; piece_item()); shop items are +0. The tiers (ids, names,
-## normal / crafted, the lvN id suffixes), the upgrade step, the milestones, the highest level and
-## the sell rate are the game data's (GET /gamedata equipment); the catalog's own milestones and
-## sell rate win when it sends them.
+## upgraded like the server does (upgraded(): × upgradeMultipliers[level], rounded per item;
+## piece_item()); shop items are +0. The tiers (ids, names, normal / crafted, the lvN id suffixes),
+## the upgrade multipliers, the milestones, the highest level and the sell rate are the game
+## data's (GET /gamedata equipment); the catalog's own table, milestones and sell rate win when it
+## sends them.
 ##
 ## Item stats are stat points, like the points a character allocates: each becomes battle stats
 ## through the GET /player/characters statMultipliers (hp → Máu, damage → Sát thương, defense →
@@ -85,7 +85,8 @@ static func character_name(id: String) -> String:
 # ── Parsing ─────────────────────────────────────────────────────────────────
 
 ## The GET /equipment/catalog data → {items: {itemId: item}, order: [itemId...], upgradeRates,
-## setBonuses, stones, sellRate}, or null when it has no items array. Inactive items are kept (an
+## setBonuses, stones, sellRate, upgradeMilestones, upgradeMultipliers ([] from an older server)},
+## or null when it has no items array. Inactive items are kept (an
 ## owned piece still needs its name and stats) and flagged by isActive. sellRate: the share of the
 ## buy price selling gives back (the game data's sellRate when missing or outside (0, 1]).
 static func parse_catalog(data: Variant) -> Variant:
@@ -104,6 +105,7 @@ static func parse_catalog(data: Variant) -> Variant:
 	if data.get("mergeRatePerItem") is int or data.get("mergeRatePerItem") is float:
 		out["mergeRatePerItem"] = float(data["mergeRatePerItem"])
 	out["upgradeMilestones"] = parse_milestones(data.get("upgradeMilestones"))
+	out["upgradeMultipliers"] = GameData.number_list(data.get("upgradeMultipliers"))
 	if data.get("weaponUpgradeCostMultiplier") is int or data.get("weaponUpgradeCostMultiplier") is float:
 		out["weaponUpgradeCostMultiplier"] = float(data["weaponUpgradeCostMultiplier"])
 	if data.get("probabilityFormulaVersion") is int or data.get("probabilityFormulaVersion") is float:
@@ -111,8 +113,8 @@ static func parse_catalog(data: Variant) -> Variant:
 	return out
 
 
-## The milestone bonuses of the server's battlestats (the game data's equipment.milestones: from
-## level 6, 10, 14, 16 on, item stats get a further +0.10, +0.20, +0.40, +1.00), [[level, bonus]].
+## The milestones of the game data (equipment.milestones), [[level, bonus]]. An older server adds
+## the bonus to the stat multiplier; on upgradeMultipliers only the levels mean anything.
 static func default_milestones() -> Array:
 	return GameData.upgrade_milestones()
 
@@ -136,6 +138,15 @@ static func milestones(catalog: Variant) -> Array:
 	if catalog is Dictionary and catalog.get("upgradeMilestones") is Array:
 		return catalog["upgradeMilestones"]
 	return default_milestones()
+
+
+## The upgrade multiplier table of a parsed catalog, else the game data's; [] from an older server,
+## which sends neither.
+static func multipliers(catalog: Variant) -> Array:
+	var table = catalog.get("upgradeMultipliers") if catalog is Dictionary else null
+	if table is Array and not table.is_empty():
+		return table
+	return GameData.upgrade_multipliers()
 
 
 ## A catalog sellRate, the game data's when it is not a number in (0, 1] (an older server).
@@ -338,24 +349,38 @@ static func piece_tooltip(catalog: Variant, piece: Dictionary, mult: Dictionary 
 
 # ── Stats ───────────────────────────────────────────────────────────────────
 
-## The stat multiplier of an upgrade level: 1 + upgradeStepPerLevel × level + each reached
-## milestone bonus (ms; null: the game data's), added in the server's order (battlestats
-## upgradeMultiplier), so the float is the same.
-static func upgrade_multiplier(level: int, ms: Variant = null) -> float:
+## The whole stat multiplier of an upgrade level: the table's entry (multipliers(), the last one
+## past its end). An older server sends no table: 1 + upgradeStepPerLevel × level + each reached
+## milestone bonus.
+static func upgrade_multiplier(level: int, catalog: Variant = null) -> float:
+	var table := multipliers(catalog)
+	if not table.is_empty():
+		return float(table[clampi(level, 0, table.size() - 1)])
 	var mul := 1.0 + float(level) * GameData.upgrade_step_per_level()
-	for m in (ms if ms is Array else default_milestones()):
+	for m in milestones(catalog):
 		if level >= int(m[0]):
 			mul += float(m[1])
 	return mul
 
 
+## "×2", "×8,5", "×1,75".
+static func multiplier_text(mul: float) -> String:
+	return "×" + ("%.2f" % mul).trim_suffix("0").trim_suffix("0").trim_suffix(".").replace(".", ",")
+
+
+## A passive's value at upgrade `level` from its +0 value (the catalog item's): × the multiplier,
+## 2 decimals, like the server. Never compute a character's total with it: the caps are the server's.
+static func passive_value(base: float, level: int, catalog: Variant = null) -> float:
+	return round(base * upgrade_multiplier(level, catalog) * 100.0) / 100.0
+
+
 ## A copy of `item` with its stats at upgrade `level` (battlestats SumEquipment per item): hp,
 ## damage, defense and move energy points × upgrade_multiplier(), rounded half away from zero;
 ## crit × the multiplier, unrounded.
-static func upgraded(item: Dictionary, level: int, ms: Variant = null) -> Dictionary:
+static func upgraded(item: Dictionary, level: int, catalog: Variant = null) -> Dictionary:
 	if level <= 0:
 		return item
-	var mul := upgrade_multiplier(level, ms)
+	var mul := upgrade_multiplier(level, catalog)
 	var out := item.duplicate()
 	for s in STATS:
 		var v := _num(item, s["key"])
@@ -367,7 +392,7 @@ static func upgraded(item: Dictionary, level: int, ms: Variant = null) -> Dictio
 
 ## The catalog item of an owned piece with its upgraded stats (what it adds in battle).
 static func piece_item(catalog: Variant, piece: Dictionary) -> Dictionary:
-	return upgraded(item_of_piece(catalog, piece), int(piece.get("upgradeLevel", 0)), milestones(catalog))
+	return upgraded(item_of_piece(catalog, piece), int(piece.get("upgradeLevel", 0)), catalog)
 
 
 static func _num(item: Dictionary, key: String) -> float:
@@ -413,9 +438,19 @@ static func stat_lines(item: Dictionary, mult: Dictionary = {}, stats: Array = S
 	for s in stats:
 		var v := _num(item, s["key"])
 		if v != 0.0:
-			out.append({"key": s["key"], "label": s["label"], "value": v, "battle": converted(v, s["point"], mult),
+			out.append({"key": s["key"], "label": s["label"], "glyph": s["glyph"], "value": v, "battle": converted(v, s["point"], mult),
 				"text": points_text(v, s, mult)})
 	return out
+
+
+## The item's non-zero stats as pictures, for a row too narrow for the words: [{key, glyph, value
+## (what it adds in battle, the points without the multiplier: "+1.870", "+51%"), line ("Máu +935
+## điểm (+1.870)", the chip's tooltip)}].
+static func stat_chips(item: Dictionary, mult: Dictionary = {}) -> Array:
+	return stat_lines(item, mult).map(func(l: Dictionary) -> Dictionary:
+		var percent: bool = l["key"] == "statCrit"
+		return {"key": l["key"], "glyph": l["glyph"], "line": "%s %s" % [l["label"], l["text"]],
+			"value": l["text"] if percent else _signed(int(l["battle"] if l["battle"] != null else l["value"]))})
 
 
 ## "Máu +30 điểm (+60) · Phòng thủ +3 điểm (+3)"
@@ -424,9 +459,10 @@ static func stat_summary(item: Dictionary, mult: Dictionary = {}) -> String:
 
 
 ## Per-stat change from wearing `candidate` instead of `worn` ({} = the slot is empty), the
-## stats either of them has: [{key, label, delta (points), text, tone: "good" | "loss" | ""}].
-## text is the battle change with the points, "+85 (+17 điểm)" / "−6.040 (−3.020 điểm)"; "+17
-## điểm" without the multiplier; "+2%" for crit; "0" when equal.
+## stats either of them has: [{key, label, glyph, delta (points), text, short, tone: "good" |
+## "loss" | ""}]. text is the battle change with the points, "+85 (+17 điểm)" / "−6.040 (−3.020
+## điểm)"; "+17 điểm" without the multiplier; "+2%" for crit; "0" when equal. short is the one
+## number of a chip: "+85", "−6.040", "+17", "+2%".
 static func compare(candidate: Dictionary, worn: Dictionary, mult: Dictionary = {}, stats: Array = STATS) -> Array:
 	var out: Array = []
 	for s in stats:
@@ -436,15 +472,19 @@ static func compare(candidate: Dictionary, worn: Dictionary, mult: Dictionary = 
 			continue
 		var d := a - b
 		var text := "0"
+		var short := "0"
 		if d != 0.0:
 			var c = converted(d, s["point"], mult)
 			if s["unit"] == "%":
 				text = _format(d, "%", true)
+				short = text
 			elif c == null:
 				text = "%s điểm" % _signed(int(d))
+				short = _signed(int(d))
 			else:
 				text = "%s (%s điểm)" % [_signed(c), _signed(int(d))]
-		out.append({"key": s["key"], "label": s["label"], "delta": d, "text": text,
+				short = _signed(c)
+		out.append({"key": s["key"], "label": s["label"], "glyph": s["glyph"], "delta": d, "text": text, "short": short,
 			"tone": "good" if d > 0.0 else ("loss" if d < 0.0 else "")})
 	return out
 

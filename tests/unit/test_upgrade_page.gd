@@ -6,6 +6,15 @@ const UpgradePage := preload("res://screens/home/upgrade_page.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 
 
+static func labels(n: Node) -> Array:
+	var out: Array = []
+	for c in n.get_children():
+		if c is Label:
+			out.append(c)
+		out.append_array(labels(c))
+	return out
+
+
 ## The contract's rates at the two steps the page is tried on.
 static func _catalog(version: int = 2) -> Variant:
 	var rows := [{"fromLevel": 9, "toLevel": 10, "upgradeCost": 3000, "maxPercent": 40, "failResetTo": 6, "carefulGemCost": 20,
@@ -50,6 +59,19 @@ func _close(page: Control) -> void:
 	PlayerState.equipment_stale = true
 	PlayerState.stones_stale = true
 	PlayerState.profile = {}
+
+
+## The contract's weapon on the page: 16 points at +6, 32 at +10, and its passive's picture.
+func test_preview_shows_the_table() -> void:
+	var data := {"items": [{"itemId": "w", "name": "Súng", "slot": "weapon", "isActive": true, "statDamage": 8.0,
+		"passive": {"kind": "crit_damage", "value": 4.0}}], "upgradeRates": [{"fromLevel": 9, "toLevel": 10, "upgradeCost": 3000,
+		"maxPercent": 40, "failResetTo": 6}], "stones": [{"stoneLevel": 1, "power": 1}]}
+	var page := _open(9, {}, false, EquipmentModel.parse_catalog(data))
+	var texts := labels(page._center).map(func(l): return l.text)
+	check(texts.has("+26 điểm") and texts.has("+32 điểm"), "8 points × 3.3 and × 4 (%s)" % [texts])
+	check(texts.has("+13.2%") and texts.has("+16%"), "the passive × the table")
+	check(page._center.find_child("PassiveGlyph", true, false) != null, "the passive's picture for a name")
+	_close(page)
 
 
 func test_fill_and_chance_shown_apart() -> void:

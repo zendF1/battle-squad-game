@@ -1317,6 +1317,25 @@
       }
     },
     "equipment": {
+      "upgradeMultipliers": [
+        1,
+        1.1,
+        1.2,
+        1.3,
+        1.5,
+        1.75,
+        2,
+        2.4,
+        2.8,
+        3.3,
+        4,
+        4.6,
+        5.2,
+        6,
+        7,
+        8.5,
+        10
+      ],
       "upgradeStepPerLevel": 0.02,
       "maxUpgradeLevel": 16,
       "milestones": [
