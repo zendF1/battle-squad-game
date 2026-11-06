@@ -424,3 +424,31 @@ func test_limits_from_the_game_data() -> void:
 	eq(ErrorText.merge(fail.call(400, "MERGE_MAX_COUNT")), "Chỉ bỏ vào tối đa 5 viên", "quotes the max")
 	eq(ErrorText.merge(fail.call(400, "MERGE_MAX_LEVEL")), "Đá cấp 15 là cao nhất, không ghép tiếp được", "quotes the top stone")
 	near(M.upgrade_multiplier(5), 1.0 + 5 * 0.02 + 0.1, 1e-12, "the new milestone in the multiplier")
+
+
+func test_coin_cost_uses_the_weapon_multiplier() -> void:
+	var c := careful_catalog()
+	c["upgradeRates"] = c["upgradeRates"].duplicate(true)
+	for r in c["upgradeRates"]:
+		r["coinCost"] = 2500 if int(r["fromLevel"]) == 8 else 0
+	eq(U.coin_cost(c, 8, "armor"), 2500, "armor pays the row")
+	eq(U.coin_cost(c, 8, "weapon"), 7500, "a weapon pays the multiplier")
+	eq(U.coin_cost(c, 7, "weapon"), 0, "a free step")
+	eq(U.coin_cost(c, 16, "weapon"), 0, "no row at +16")
+	eq(U.coin_cost(careful_catalog(1.5), 8, "weapon"), 0, "an older catalog has no coin")
+	eq(U.chance(c, 8, {7: 1}, "weapon")["coin"], 7500, "chance carries it")
+
+
+func test_coin_blocked_reason() -> void:
+	var c := careful_catalog()
+	c["upgradeRates"] = c["upgradeRates"].duplicate(true)
+	for r in c["upgradeRates"]:
+		r["coinCost"] = 2500
+	var armor := {"upgradeLevel": 8, "slot": "armor"}
+	var weapon := {"upgradeLevel": 8, "slot": "weapon"}
+	eq(U.blocked_reason(c, armor, {7: 1}, {7: 1}, false, -1, 2500), "", "exactly enough")
+	eq(U.blocked_reason(c, armor, {7: 1}, {7: 1}, false, -1, 2499), "Thiếu xu (cần 2.500)", "short")
+	eq(U.blocked_reason(c, weapon, {7: 1}, {7: 1}, false, -1, 2500), "Thiếu xu (cần 7.500)", "a weapon costs more")
+	eq(U.blocked_reason(c, weapon, {7: 1}, {7: 1}, false, -1, -1), "", "unknown balance: the server checks")
+	eq(U.blocked_reason(c, weapon, {}, {7: 1}, false, -1, 0), "Chưa chọn đá", "stones first")
+	eq(ErrorText.upgrade({"status": 400, "code": "EQUIP_INSUFFICIENT_COIN", "message": ""}), "Không đủ xu để nâng cấp", "error text")

@@ -1012,9 +1012,10 @@ func stones_ready() -> bool:
 
 
 ## POST /player/equipment/upgrade {equipmentId, stones: [{stoneLevel, quantity}], careful?,
-## expectedLevel?} → {success, newLevel, percent, careful, gemSpent, gemBalance?}. Every stone sent
-## is consumed, whatever the roll; careful also spends the step's gems (the wallet takes
-## gemBalance at once, then refreshes). expected_level (>= 0): the level shown, so a retry of an
+## expectedLevel?} → {success, newLevel, percent, careful, gemSpent, gemBalance?, coinSpent,
+## coinBalance?}. Every stone sent is consumed, whatever the roll; the attempt also spends the
+## step's coin and careful its gems (the wallet takes coinBalance / gemBalance at once, then
+## refreshes, also after a refusal or no answer). expected_level (>= 0): the level shown, so a retry of an
 ## attempt that already rolled is refused (EQUIP_MODIFIED) instead of rolling the next step. One
 ## stone action at a time ({ok: false, code: "BUSY"}), and an equipment action (equip_busy): the
 ## pieces, the characters and the stones reload afterwards whatever the answer.
@@ -1033,8 +1034,13 @@ func upgrade(equipment_id: String, stone_list: Array, careful: bool = false, exp
 	var res := await _equip_steps(equipment_id, [["/player/equipment/upgrade", body, []]])
 	stone_busy = ""
 	stones_dirty()
+	var data: Dictionary = res.data if res.ok and res.data is Dictionary else {}
+	var coin_left = data.get("coinBalance")
+	var paid_coin: bool = coin_left is int or coin_left is float
+	if paid_coin and not profile.is_empty():
+		profile["coin"] = int(coin_left)
+		changed.emit()
 	if careful:
-		var data: Dictionary = res.data if res.ok and res.data is Dictionary else {}
 		var balance = data.get("gemBalance") # careful: the locked gem left, the unlocked next to it
 		if not profile.is_empty() and (balance is int or balance is float):
 			profile["gem"] = int(balance)
@@ -1042,6 +1048,7 @@ func upgrade(equipment_id: String, stone_list: Array, careful: bool = false, exp
 			if unlocked is int or unlocked is float:
 				profile["gemUnlocked"] = int(unlocked)
 			changed.emit()
+	if careful or paid_coin or not res.ok:
 		refresh() # the wallet's truth, also after a refusal or no answer
 	return res
 

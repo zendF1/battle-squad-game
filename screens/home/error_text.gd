@@ -79,6 +79,7 @@ const UPGRADE := {
 	"EQUIP_NOT_OWNED": "Trang bị không còn trong túi",
 	"NOT_FOUND": "Loại đá này không tồn tại",
 	"EQUIP_CAREFUL_UNAVAILABLE": "Cấp này không có Nâng cấp cẩn thận",
+	"EQUIP_INSUFFICIENT_COIN": "Không đủ xu để nâng cấp",
 	"SHOP_INSUFFICIENT_BALANCE": "Không đủ kim cương cho Nâng cấp cẩn thận",
 }
 ## POST /shop/stones/buy.

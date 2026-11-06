@@ -16,8 +16,9 @@ extends Control
 ##   bar shows the stone part in gold and the careful part in gem cyan, the button shows the gem
 ##   price and "Dùng 120 kim cương cho nâng cấp cẩn thận?" confirms; it stays on between rolls and
 ##   turns off when another piece is picked), "Mua đá" (Shop → Đá nâng cấp) and NÂNG CẤP (off with
-##   the reason under it: no stones, +16, not enough gems for careful, the equipment or stones
-##   reloading; nothing under it when it can be pressed). The result plays on the piece (success: flash, rings and
+##   the reason under it: no stones, +16, not enough coin, not enough gems for careful, the
+##   equipment or stones reloading; nothing under it when it can be pressed). NÂNG CẤP shows what
+##   the attempt costs: coin icon + price (a weapon's is higher), then the careful gems. The result plays on the piece (success: flash, rings and
 ##   sparkles, a bigger burst in the new colour when it reaches a milestone; failure: red flash,
 ##   shake, smoke) with a toast; the piece and the stones reload (PlayerState).
 ## - "Ghép đá": pick a level (the stones with their owned ×N, the name only as the tooltip), ×2 /
@@ -100,7 +101,10 @@ var _careful_btn: Button
 var _careful_check: TextureRect
 var _careful_title: Label
 var _careful_sub: Label
-var _go_text: HBoxContainer # NÂNG CẤP [gem] 120 when careful is on
+var _go_text: HBoxContainer # NÂNG CẤP [coin] 2.500 [gem] 120: the coin of a priced step, the gem when careful is on
+var _go_coin: TextureRect
+var _go_coin_price: Label
+var _go_gem: TextureRect
 var _go_price: Label
 var _chance: Label
 var _go: Button
@@ -339,19 +343,24 @@ func _build_upgrade_page() -> Control:
 	_go.pressed.connect(_on_upgrade)
 	rcol.add_child(_go)
 	_go_text = Ui.hbox(10)
-	_go_text.name = "GoCareful"
+	_go_text.name = "GoPriced"
 	_go_text.alignment = BoxContainer.ALIGNMENT_CENTER
 	_go_text.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_go_text.offset_bottom = -6 # over the lip, like the button's own text
 	_go_text.mouse_filter = MOUSE_FILTER_IGNORE
-	var go_word := Ui.text("NÂNG CẤP", 34, LobbyUi.TEXT_DARK)
+	var go_word := Ui.text("NÂNG CẤP", 28, LobbyUi.TEXT_DARK)
 	go_word.add_theme_font_override("font", LobbyUi.bold())
 	go_word.mouse_filter = MOUSE_FILTER_IGNORE
 	_go_text.add_child(go_word)
-	var go_gem := LobbyUi.icon("gem", 34)
-	go_gem.mouse_filter = MOUSE_FILTER_IGNORE
-	_go_text.add_child(go_gem)
-	_go_price = Ui.text("", 30, LobbyUi.TEXT_DARK)
+	_go_coin = LobbyUi.icon("coin", 28)
+	_go_text.add_child(_go_coin)
+	_go_coin_price = Ui.text("", 25, LobbyUi.TEXT_DARK)
+	_go_coin_price.add_theme_font_override("font", LobbyUi.bold())
+	_go_coin_price.mouse_filter = MOUSE_FILTER_IGNORE
+	_go_text.add_child(_go_coin_price)
+	_go_gem = LobbyUi.icon("gem", 28)
+	_go_text.add_child(_go_gem)
+	_go_price = Ui.text("", 25, LobbyUi.TEXT_DARK)
 	_go_price.add_theme_font_override("font", LobbyUi.bold())
 	_go_price.mouse_filter = MOUSE_FILTER_IGNORE
 	_go_text.add_child(_go_price)
@@ -412,6 +421,11 @@ func _on_careful() -> void:
 ## The player's gems, -1 before the profile loads (the server checks then).
 func _gems() -> int:
 	return PlayerState.gem() if not PlayerState.profile.is_empty() else -1
+
+
+## The player's coin, -1 before the profile loads (the server checks then).
+func _coins() -> int:
+	return PlayerState.coin() if not PlayerState.profile.is_empty() else -1
 
 
 func _on_slot(slot: String) -> void:
@@ -772,9 +786,16 @@ func _render_chance() -> void:
 	_render_careful(piece, c)
 	var reason := _upgrade_reason(piece)
 	_go.disabled = reason != ""
-	_go.text = "" if c["careful"] else "NÂNG CẤP"
-	_go_text.visible = c["careful"]
+	var coin := int(c["coin"]) if rated else 0
+	var priced: bool = c["careful"] or coin > 0
+	_go.text = "" if priced else "NÂNG CẤP"
+	_go_text.visible = priced
 	_go_text.modulate = Color(1, 1, 1, 0.5 if _go.disabled else 1.0)
+	_go_coin.visible = coin > 0
+	_go_coin_price.visible = coin > 0
+	_go_coin_price.text = Fmt.thousands(coin)
+	_go_gem.visible = c["careful"]
+	_go_price.visible = c["careful"]
 	_go_price.text = Fmt.thousands(int(c["gem"]))
 	_reason.text = reason
 	_reason.visible = reason != "" # only why the button is off; the stone list takes the room
@@ -816,7 +837,7 @@ func _upgrade_reason(piece: Dictionary) -> String:
 		return "Đang nâng cấp..."
 	if PlayerState.catalog == null or PlayerState.equipment == null:
 		return "Đang tải..."
-	var why := UpgradeModel.blocked_reason(PlayerState.catalog, piece, _picked, _owned(), _careful, _gems())
+	var why := UpgradeModel.blocked_reason(PlayerState.catalog, piece, _picked, _owned(), _careful, _gems(), _coins())
 	if why != "":
 		return why
 	if not PlayerState.equipment_ready():
@@ -871,8 +892,7 @@ func _run_upgrade(careful: bool) -> void:
 	var success := bool(data.get("success", false))
 	var new_level := int(data.get("newLevel", level + 1 if success else level))
 	var crossed := success and new_level > level and UpgradeModel.is_milestone(new_level)
-	var spent := int(data.get("gemSpent", 0)) if data.get("gemSpent") is int or data.get("gemSpent") is float else 0
-	var cost := " (−%s kim cương)" % Fmt.thousands(spent) if spent > 0 else ""
+	var cost := _spent_text(data)
 	if success:
 		_play_fx("milestone" if crossed else "success", UpgradeModel.milestone_color(new_level) if new_level >= 1 else LobbyUi.GOLD,
 			null, "ĐẠT MỐC +%d!" % new_level if crossed else "THÀNH CÔNG!")
@@ -890,6 +910,16 @@ func _run_upgrade(careful: bool) -> void:
 		return
 	_acting = false
 	_render()
+
+
+## " (−2.500 xu, −120 kim cương)" from the upgrade's answer; "" when it spent nothing.
+func _spent_text(data: Dictionary) -> String:
+	var parts := PackedStringArray()
+	for pair in [["coinSpent", "xu"], ["gemSpent", "kim cương"]]:
+		var v = data.get(pair[0])
+		if (v is int or v is float) and int(v) > 0:
+			parts.append("−%s %s" % [Fmt.thousands(int(v)), pair[1]])
+	return " (%s)" % ", ".join(parts) if not parts.is_empty() else ""
 
 
 # ── Effects ─────────────────────────────────────────────────────────────────

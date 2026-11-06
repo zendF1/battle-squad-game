@@ -11,6 +11,8 @@ extends RefCounted
 ##   failure) and the stone percent is multiplied by (1 + carefulBonusPercent / 100), rounded to 2
 ##   decimals, capped at 100 (+13→+14: 20% × 1.4 = 28%); a row with either value 0 (or missing)
 ##   has no careful;
+## - coin: every attempt pays the row's coinCost × the same multiplier m, rounded up, on success
+##   and on failure (a catalog without coinCost: no coin);
 ## - stats after an upgrade: each stat × (1 + upgradeStepPerLevel × level + every reached
 ##   milestone bonus), rounded per item (crit stays a float) — EquipmentModel.upgraded();
 ## - merging: mergeMinCount–mergeMaxCount stones of one level (below maxStoneLevel) give one stone
@@ -222,6 +224,15 @@ static func piece_slot(catalog: Variant, piece: Dictionary) -> String:
 	return slot
 
 
+## The coin one attempt from `level` costs a piece in `slot`: the row's coinCost × cost_multiplier(),
+## rounded up, like the server's UpgradeCoinCost; 0 without a row or a price.
+static func coin_cost(catalog: Variant, level: int, slot: String) -> int:
+	var v = rate(catalog, level).get("coinCost")
+	if not (v is int or v is float) or float(v) <= 0.0:
+		return 0
+	return ceili(float(v) * cost_multiplier(catalog, slot))
+
+
 ## The careful upgrade of the step from `level`: {gem, bonus (relative %), offered}; the row's
 ## carefulGemCost / carefulBonusPercent (0 when the row lacks them: no careful); offered: a rate
 ## row with both > 0.
@@ -244,7 +255,7 @@ static func careful_percent(stone_percent: float, bonus: float) -> float:
 
 ## The chance of picked stones for a piece in `slot` at `level`: {percent (what the server rolls),
 ## stone (the stones' part, capped), max, raw, power, cost (effective: upgradeCost × mult), mult,
-## wasted, careful (on and offered), bonus, gem}. wasted: the stones' chance is above the cap, the
+## wasted, careful (on and offered), bonus, gem, coin (what the attempt costs)}. wasted: the stones' chance is above the cap, the
 ## excess is lost. careful_on: the player turned careful on (ignored when the step has none).
 static func chance(catalog: Variant, level: int, picked: Dictionary, slot: String = "", careful_on: bool = false) -> Dictionary:
 	var r := rate(catalog, level)
@@ -258,7 +269,7 @@ static func chance(catalog: Variant, level: int, picked: Dictionary, slot: Strin
 	var on: bool = careful_on and cf["offered"]
 	return {"percent": careful_percent(stone_p, cf["bonus"]) if on else stone_p, "stone": stone_p, "max": maxp, "raw": raw,
 		"power": p, "cost": cost, "mult": mult, "wasted": raw > maxp + 1e-9 and maxp > 0.0,
-		"careful": on, "bonus": cf["bonus"], "gem": cf["gem"] if on else 0}
+		"careful": on, "bonus": cf["bonus"], "gem": cf["gem"] if on else 0, "coin": coin_cost(catalog, level, slot)}
 
 
 ## The least power reaching the cap: the smallest whole p with p × 100 / cost ≥ maxPercent.
@@ -280,6 +291,9 @@ static func chance_text(c: Dictionary) -> String:
 
 ## The careful upgrade confirmation: "Dùng 120 kim cương cho nâng cấp cẩn thận?" (the step's price).
 static func careful_confirm_text(c: Dictionary) -> String:
+	var coin := int(c.get("coin", 0))
+	if coin > 0:
+		return "Dùng %s kim cương và %s xu cho nâng cấp cẩn thận?" % [Fmt.thousands(int(c["gem"])), Fmt.thousands(coin)]
 	return "Dùng %s kim cương cho nâng cấp cẩn thận?" % Fmt.thousands(int(c["gem"]))
 
 
@@ -347,9 +361,10 @@ static func fail_text(catalog: Variant, level: int) -> String:
 
 ## Why the Nâng cấp button is off ("" when it can be pressed): no piece, max level, no rate, no
 ## stones picked, more picked than owned; with careful on (and offered for the step) fewer gems
-## than its price (`gem_balance`, -1 = unknown: not checked).
+## than its price (`gem_balance`, -1 = unknown: not checked); fewer coins than the attempt costs
+## (`coin_balance`, -1 = unknown: not checked).
 static func blocked_reason(catalog: Variant, piece: Dictionary, picked: Dictionary, owned: Dictionary,
-		careful_on: bool = false, gem_balance: int = -1) -> String:
+		careful_on: bool = false, gem_balance: int = -1, coin_balance: int = -1) -> String:
 	if piece.is_empty():
 		return "Chọn một trang bị"
 	var level := int(piece.get("upgradeLevel", 0))
@@ -362,6 +377,10 @@ static func blocked_reason(catalog: Variant, piece: Dictionary, picked: Dictiona
 	for lv in picked:
 		if int(picked[lv]) > int(owned.get(lv, 0)):
 			return "Không đủ đá cấp %d" % int(lv)
+	if coin_balance >= 0:
+		var coin := coin_cost(catalog, level, piece_slot(catalog, piece))
+		if coin_balance < coin:
+			return "Thiếu xu (cần %s)" % Fmt.thousands(coin)
 	if careful_on and gem_balance >= 0:
 		var cf := careful(catalog, level)
 		if cf["offered"] and gem_balance < int(cf["gem"]):
