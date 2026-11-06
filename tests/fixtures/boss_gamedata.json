@@ -224,6 +224,14 @@
     }
    ],
    "dailyBonusRuns": 3,
+   "bonusChests": {"chestId": "stone_chest", "win": 2, "loss": 1},
+   "chestsV2": {
+    "version": 2,
+    "winChests": [{"chestId": "stone_chest_silver", "quantity": 1}],
+    "lossChests": [{"chestId": "stone_chest_bronze", "quantity": 1}],
+    "perfect": {"requiredWins": 3, "firstBonusRunsOnly": true,
+     "chests": [{"chestId": "stone_chest_gold", "quantity": 1}]}
+   },
    "flying": false,
    "hover": null,
    "summon": {
@@ -322,6 +330,14 @@
     }
    ],
    "dailyBonusRuns": 3,
+   "bonusChests": {"chestId": "stone_chest", "win": 2, "loss": 1},
+   "chestsV2": {
+    "version": 2,
+    "winChests": [{"chestId": "stone_chest_silver", "quantity": 1}],
+    "lossChests": [{"chestId": "stone_chest_bronze", "quantity": 1}],
+    "perfect": {"requiredWins": 3, "firstBonusRunsOnly": true,
+     "chests": [{"chestId": "stone_chest_gold", "quantity": 1}]}
+   },
    "flying": false,
    "hover": null,
    "summon": {
@@ -430,6 +446,14 @@
     }
    ],
    "dailyBonusRuns": 3,
+   "bonusChests": {"chestId": "stone_chest", "win": 2, "loss": 1},
+   "chestsV2": {
+    "version": 2,
+    "winChests": [{"chestId": "stone_chest_silver", "quantity": 1}],
+    "lossChests": [{"chestId": "stone_chest_bronze", "quantity": 1}],
+    "perfect": {"requiredWins": 3, "firstBonusRunsOnly": true,
+     "chests": [{"chestId": "stone_chest_gold", "quantity": 1}]}
+   },
    "flying": true,
    "hover": {
     "minX": 400,
@@ -544,6 +568,14 @@
     }
    ],
    "dailyBonusRuns": 3,
+   "bonusChests": {"chestId": "stone_chest", "win": 2, "loss": 1},
+   "chestsV2": {
+    "version": 2,
+    "winChests": [{"chestId": "stone_chest_silver", "quantity": 1}],
+    "lossChests": [{"chestId": "stone_chest_bronze", "quantity": 1}],
+    "perfect": {"requiredWins": 3, "firstBonusRunsOnly": true,
+     "chests": [{"chestId": "stone_chest_gold", "quantity": 1}]}
+   },
    "flying": false,
    "hover": null,
    "summon": {
@@ -657,6 +689,14 @@
     }
    ],
    "dailyBonusRuns": 3,
+   "bonusChests": {"chestId": "stone_chest", "win": 2, "loss": 1},
+   "chestsV2": {
+    "version": 2,
+    "winChests": [{"chestId": "stone_chest_silver", "quantity": 1}],
+    "lossChests": [{"chestId": "stone_chest_bronze", "quantity": 1}],
+    "perfect": {"requiredWins": 3, "firstBonusRunsOnly": true,
+     "chests": [{"chestId": "stone_chest_gold", "quantity": 1}]}
+   },
    "flying": false,
    "hover": null,
    "summon": {

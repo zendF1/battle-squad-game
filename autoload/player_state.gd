@@ -98,6 +98,7 @@ const TitleModel := preload("res://screens/home/title_model.gd")
 const DailyModel := preload("res://screens/home/daily_model.gd")
 const MapCatalog := preload("res://match/theme/map_catalog.gd")
 const ChestModel := preload("res://screens/home/chest_model.gd")
+const BossTrailModel := preload("res://ui/boss_trail_model.gd")
 const SeasonRewardModel := preload("res://screens/ranked/season_reward_model.gd")
 const LeaderboardModel := preload("res://screens/home/leaderboard_model.gd")
 const ShowcaseModel := preload("res://screens/home/showcase_model.gd")
@@ -205,6 +206,7 @@ var _maps_gate := Coalescer.new()
 var boss_runs: Dictionary = {}
 var _boss_runs_player := ""
 var _boss_runs_msec := -1 # Time.get_ticks_msec() of the last answer; -1 none (or stale)
+var _boss_runs_until_msec := -1 # Time.get_ticks_msec() of its resetAt; -1 unknown
 var _boss_runs_gate := Coalescer.new()
 const BOSS_RUNS_MAX_AGE_MSEC := 30 * 1000
 var _gamedata_gate := Coalescer.new()
@@ -466,7 +468,8 @@ func my_leaderboard(type: String) -> Dictionary:
 
 
 ## Loads GET /boss/runs (the big-reward runs left today per boss) unless the last answer for this
-## account is younger than BOSS_RUNS_MAX_AGE_MSEC; a failure keeps the last answer.
+## account is younger than BOSS_RUNS_MAX_AGE_MSEC (and from before its resetAt: my_boss_runs());
+## a failure keeps the last answer.
 func load_boss_runs(force: bool = false) -> void:
 	if not force and not my_boss_runs().is_empty() and _boss_runs_msec >= 0 \
 			and Time.get_ticks_msec() - _boss_runs_msec < BOSS_RUNS_MAX_AGE_MSEC:
@@ -485,6 +488,8 @@ func load_boss_runs(force: bool = false) -> void:
 			boss_runs = res.data
 			_boss_runs_player = player
 			_boss_runs_msec = Time.get_ticks_msec()
+			var left := BossTrailModel.reset_in_msec(res.data, int(Time.get_unix_time_from_system()))
+			_boss_runs_until_msec = _boss_runs_msec + left if left >= 0 else -1
 			boss_runs_changed.emit()
 		break
 
@@ -493,6 +498,8 @@ func load_boss_runs(force: bool = false) -> void:
 func my_boss_runs() -> Dictionary:
 	if boss_runs.is_empty() or _boss_runs_player != Session.player_id:
 		return {}
+	if _boss_runs_until_msec >= 0 and Time.get_ticks_msec() >= _boss_runs_until_msec:
+		return {} # yesterday's rules and progress: never kept past the reset
 	return boss_runs
 
 
@@ -826,6 +833,7 @@ func reset_account() -> void:
 	boss_runs = {}
 	_boss_runs_player = ""
 	_boss_runs_msec = -1
+	_boss_runs_until_msec = -1
 	chests = null
 	chests_loading = false
 	chests_error = ""

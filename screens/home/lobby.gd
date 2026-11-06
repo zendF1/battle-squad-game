@@ -84,6 +84,7 @@ const Modal := preload("res://ui/modal.gd")
 const ModeSelectModel := preload("res://screens/home/mode_select_model.gd")
 const PartyLayout := preload("res://screens/home/party_layout.gd")
 const BossCardModel := preload("res://screens/home/boss_card_model.gd")
+const BossTrail := preload("res://ui/boss_trail.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const CharacterCard := preload("res://screens/home/character_card.gd")
@@ -138,6 +139,7 @@ var _mode_name: Label
 var _mode_lock: Label # the member's "Chủ phòng chọn chế độ"
 var _mode_runs: HBoxContainer # a boss mode's gift box and the big-reward runs left, "×2"
 var _mode_runs_text: Label
+var _mode_trail: HBoxContainer # a boss mode's day under rules 2 (ui/boss_trail.gd)
 var _mode_swap: Button
 var _start: Button
 var _slots: Array[PartySlot] = [] # a party mode's teammate slots (PartyLayout: 1 for 2v2, 3 for a boss)
@@ -684,6 +686,11 @@ func _build_mode_card() -> Control:
 	_mode_runs_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_mode_runs.add_child(_mode_runs_text)
 	texts.add_child(_mode_runs)
+	_mode_trail = Ui.hbox(0) # rules 2: the day's bonus runs in place of the gift box
+	_mode_trail.name = "ModeTrail"
+	_mode_trail.mouse_filter = MOUSE_FILTER_IGNORE
+	_mode_trail.visible = false
+	texts.add_child(_mode_trail)
 	_mode_lock = LobbyUi.text(ModeSelectModel.LOCKED_TEXT, 20, Ui.TEXT_DIM)
 	_mode_lock.name = "ModeLock"
 	_mode_lock.visible = false
@@ -827,7 +834,12 @@ func _render_mode() -> void:
 	if boss and is_visible_in_tree():
 		PlayerState.load_boss_runs() # (an answer at once re-renders: read the runs after it)
 	var c := BossCardModel.card(_mode, m, _mode, PlayerState.my_boss_runs(), 0) if boss else {}
-	_mode_runs.visible = boss and not member and str(c.get("runs_text", "")) != ""
+	var trail: Dictionary = c.get("trail", {})
+	_mode_runs.visible = boss and not member and trail.is_empty() and str(c.get("runs_text", "")) != ""
+	Ui.clear(_mode_trail)
+	_mode_trail.visible = not member and not trail.is_empty()
+	if not trail.is_empty():
+		_mode_trail.add_child(BossTrail.make(trail, 26, 34))
 	if boss: # the big-reward runs left today
 		_mode_runs_text.text = str(c["runs_text"])
 		_mode_runs.modulate = Color(1, 1, 1, 0.45) if int(c["runs_left"]) == 0 else Color.WHITE

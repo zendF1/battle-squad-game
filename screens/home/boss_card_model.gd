@@ -3,12 +3,15 @@ extends RefCounted
 ## (LobbyModel.modes(), the game data's order) joined to its boss (GET /gamedata bosses, by
 ## modeId, else by the mode's queue boss:<bossId>): the boss's art id, name, its description (the
 ## card's "i" popup) and the big-reward runs left today from GET /boss/runs, shown as a gift box
-## with "×2", and the refill time "00:00" by a clock (its resetAt in the device's zone). Every
-## number and text is the server's; only the wording around them is the client's.
+## with "×2", or under rules 2 (rewardVersion 2) the day's trail: the three bonus runs and the gold
+## chest as pictures (ui/boss_trail_model.gd), and the refill time "00:00" by a clock (its resetAt
+## in the device's zone). Every number and text is the server's; only the wording around them is
+## the client's.
 
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const Fmt := preload("res://core/fmt.gd")
+const BossTrailModel := preload("res://ui/boss_trail_model.gd")
 
 const CATEGORY := LobbyModel.CATEGORY_BOSS
 const RUNS_LOADING := "×…"
@@ -20,7 +23,8 @@ static func _num(v: Variant, fallback: int = -1) -> int:
 
 ## The cards in order: [{index (LobbyModel mode index), id (modeId), boss_id, name, description,
 ## party_size, runs_left (-1 unknown), runs_max, runs_text ("×2" by the gift box), reset_text
-## ("00:00" by the clock), selected, element (the boss's elementId, "" none)}]. runs: GET /boss/runs data ({} / null: not loaded yet);
+## ("00:00" by the clock), selected, element (the boss's elementId, "" none), trail
+## (BossTrailModel.of(), {} under rules 1: the gift box shows)}]. runs: GET /boss/runs data ({} / null: not loaded yet);
 ## bias_minutes: the device's zone east of UTC (Time.get_time_zone_from_system().bias).
 static func cards(current: int, runs: Variant, bias_minutes: int) -> Array:
 	var out: Array = []
@@ -47,7 +51,7 @@ static func card(index: int, mode: Dictionary, current: int, runs: Variant, bias
 	return {"index": index, "id": mode["id"], "boss_id": boss_id, "name": name, "description": desc,
 		"party_size": int(mode.get("party_size", 0)), "runs_left": left, "runs_max": max_runs,
 		"runs_text": runs_text(left, max_runs), "reset_text": reset_text(runs, bias_minutes), "selected": index == current,
-		"element": GameData.boss_element(boss_id)}
+		"element": GameData.boss_element(boss_id), "trail": BossTrailModel.of(run, boss_id)}
 
 
 ## The GET /boss/runs entry of a boss ({} none / not loaded).

@@ -1392,6 +1392,13 @@ static func boss(boss_id: String) -> Dictionary:
 	return _entry("bosses", boss_id)
 
 
+## A boss's chests under rules 2 ({winChests, lossChests, perfect: {requiredWins, chests}}, each
+## chest {chestId, quantity}); {} from an older server. GET /boss/runs says which rules apply.
+static func boss_chests_v2(boss_id: String) -> Dictionary:
+	var v = boss(boss_id).get("chestsV2")
+	return v if v is Dictionary else {}
+
+
 ## The boss a queue (or a boss match's mode: the same id) fights: the bosses entry with that queue,
 ## else the id after "boss:"; {} for any other queue.
 static func boss_of_queue(queue: String) -> Dictionary:

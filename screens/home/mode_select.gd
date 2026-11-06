@@ -7,9 +7,12 @@ extends Control
 ## sentences on the face. A cards section (PvP) shows one card per mode in its order: the icon on a
 ## round plate (its colour by the card's order) and the name. The Boss section shows one card per
 ## boss mode (screens/home/boss_card_model.gd): the boss's figure (match/boss/boss_art_view.gd) on
-## its element's backdrop, its name with its element badge, and under it a gift box with the
-## big-reward runs left today ("×2", dimmed at 0) and a clock with the refill time, from GET
-## /boss/runs (loaded when the tab shows, kept BOSS_RUNS_MAX_AGE_MSEC by PlayerState). The chosen
+## its element's backdrop, its name with its element badge, and under it the day's bonus runs
+## (under rules 2 the trail, ui/boss_trail.gd: a pip per run, win or loss, leading to the gold
+## chest, grey once lost; under rules 1 a gift box with the big-reward runs left, "×2", dimmed at
+## 0) and a clock with the refill time, from GET /boss/runs (loaded when the tab shows, kept
+## BOSS_RUNS_MAX_AGE_MSEC by PlayerState). Under rules 2 its "i" popup shows the rule as pictures
+## too: a win gives silver, a loss bronze, all the wins the gold. The chosen
 ## mode's card has the selected frame. A section without modes shows one disabled card: "Sắp ra
 ## mắt" (its line in the "i" popup).
 ## A tap emits chosen(index); Home goes back to the lobby, which switches to it (choose_mode()).
@@ -27,6 +30,10 @@ const BossArt := preload("res://match/boss/boss_art.gd")
 const BossArtView := preload("res://match/boss/boss_art_view.gd")
 
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
+const BossTrail := preload("res://ui/boss_trail.gd")
+const BossTrailModel := preload("res://ui/boss_trail_model.gd")
+const ChestIcon := preload("res://ui/chest_icon.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 const Modal := preload("res://ui/modal.gd")
 
 ## Every card (PvP, Boss, the grid, the placeholder): one frame, one size, one layout.
@@ -38,6 +45,8 @@ const NAME_TOP := PICTURE_TOP + PICTURE_H + 14.0 # the name's row
 const NAME_H := 56.0
 const FOOT_TOP := NAME_TOP + NAME_H + 4.0 # the boss card's gift / clock row
 const ICON := 156
+const TRAIL_PIP := 30 # the boss card's trail
+const TRAIL_CHEST := 40
 const INFO := 46 # the "i" button
 const PLATES := ["blue", "orange", "purple", "green", "red"] # the icon plate's colour by card order
 
@@ -237,7 +246,8 @@ func _on_boss_tab() -> bool:
 
 ## A boss card: the figure on its element's backdrop (ElementBackdrop; its colour's glow without
 ## one) in the picture box, the name with its element badge in the name row, the gift box with the
-## big-reward runs left and the clock with the refill time under it; "i": its description and party.
+## day's bonus runs (the trail, the gift box with the runs left under rules 1) and the clock with
+## the refill time under it; "i": its description and party, under rules 2 the rule as pictures.
 func _boss_card(c: Dictionary) -> Button:
 	var b := _card_button(c["selected"])
 	b.name = "Boss_%s" % c["id"]
@@ -274,7 +284,12 @@ func _boss_card(c: Dictionary) -> Button:
 	var foot := Ui.hbox(22)
 	foot.name = "Foot"
 	foot.alignment = BoxContainer.ALIGNMENT_CENTER
-	if c["runs_text"] != "":
+	var trail: Dictionary = c.get("trail", {})
+	if not trail.is_empty():
+		var t := BossTrail.make(trail, TRAIL_PIP, TRAIL_CHEST)
+		t.name = "Runs"
+		foot.add_child(t)
+	elif c["runs_text"] != "":
 		var runs := _icon_count(LobbyUi.icon("milestone", 40), c["runs_text"], LobbyUi.GOLD)
 		runs.name = "Runs"
 		runs.modulate = Color(1, 1, 1, 0.45) if int(c["runs_left"]) == 0 else Color.WHITE
@@ -285,9 +300,48 @@ func _boss_card(c: Dictionary) -> Button:
 		foot.add_child(reset)
 	_place(b, foot, FOOT_TOP, CARD.y - FOOT_TOP - PAD)
 	_add_info(b, "Info_%s" % c["id"], func() -> void:
-		show_info(self, c["name"], c["description"], int(c["party_size"])))
+		var m := show_info(self, c["name"], c["description"], int(c["party_size"]))
+		if not trail.is_empty():
+			m.body.add_child(chest_rules(str(c["boss_id"]))))
 	b.pressed.connect(func() -> void: chosen.emit(int(c["index"])))
 	return b
+
+
+## The rule of rules 2 as pictures, three mirrored cells: a win pip → the silver chest, the wins →
+## the gold chest (the middle, the goal), a loss pip → the bronze chest. The chests are the game
+## data's; a quantity shows only above one.
+static func chest_rules(boss_id: String) -> Control:
+	var r := BossTrailModel.rules(boss_id)
+	var row := Ui.hbox(28)
+	row.name = "ChestRules"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	if r.is_empty():
+		return row
+	var wins: Array = []
+	wins.resize(int(r["required"]))
+	wins.fill(BossTrailModel.WIN)
+	for cell in [[[BossTrailModel.WIN], r["win"]], [wins, r["perfect"]], [[BossTrailModel.LOSS], r["loss"]]]:
+		var col := Ui.vbox(6)
+		col.alignment = BoxContainer.ALIGNMENT_CENTER
+		var pips := Ui.hbox(4)
+		pips.alignment = BoxContainer.ALIGNMENT_CENTER
+		for state in cell[0]:
+			pips.add_child(BossTrail._pip(str(state), 26))
+		col.add_child(pips)
+		var chests := Ui.hbox(4)
+		chests.alignment = BoxContainer.ALIGNMENT_CENTER
+		for ch in cell[1]:
+			var icon := ChestIcon.make(str(ch["chestId"]), 72)
+			icon.tooltip_text = GameData.chest_name(str(ch["chestId"]))
+			icon.mouse_filter = MOUSE_FILTER_PASS
+			chests.add_child(icon)
+			if int(ch["qty"]) > 1:
+				var n := LobbyUi.text("×%d" % int(ch["qty"]), 24, LobbyUi.GOLD, true)
+				n.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+				chests.add_child(n)
+		col.add_child(chests)
+		row.add_child(col)
+	return row
 
 
 ## A picture with a number beside it ("🎁 ×2", "🕒 00:00").

@@ -7,6 +7,8 @@ const BossFixture := preload("res://tests/boss_fixture.gd")
 const ResultModel := preload("res://match/result_model.gd")
 const BossResultModel := preload("res://match/boss/boss_result_model.gd")
 const BossResultScreen := preload("res://match/boss/boss_result_screen.gd")
+const ChestIcon := preload("res://ui/chest_icon.gd")
+const RewardModel := preload("res://ui/reward_model.gd")
 const RewardStrip := preload("res://ui/reward_strip.gd")
 
 
@@ -113,6 +115,47 @@ func test_boss_result_card_uses_the_strip() -> void:
 	check(not texts.any(func(t): return " xu" in t), "the coins as a tile, no \"xu\"")
 	bottom.free()
 	s.free()
+
+
+func test_boss_result_third_win_trail_and_two_chests() -> void:
+	BossFixture.take()
+	var info := BossResultModel.info({"winningTeam": 1, "result": "boss_defeated", "boss": {"bossId": "steel_robot",
+		"round": 5, "turnLimit": 20, "bossHp": 0, "bossMaxHp": 19000, "bossDamage": {"me": 9000}}},
+		{"me": {"playerId": "me", "teamId": 1, "characterId": "rookie", "displayName": "Tôi"}}, "me", "",
+		{"expGained": 10, "coinGained": 1200, "bonusRun": true, "bonusRunsLeft": 0, "rewardVersion": 2, "bossId": "steel_robot",
+		"bonusRunsCompleted": 3, "bonusWins": 3, "perfectRequiredWins": 3, "perfectRewardEligible": false, "perfectRewardGranted": true,
+		"chests": [{"chestId": "stone_chest_silver", "quantity": 1}, {"chestId": "stone_chest_gold", "quantity": 1}]})
+	var s: Control = BossResultScreen.new()
+	s.setup(info)
+	var bottom: Control = s._build_bottom()
+	check(bottom.find_child("RunTrail", true, false) != null, "the trail")
+	check(bottom.find_child("RunGift", true, false) == null, "in place of the gift box")
+	var strip = bottom.find_child("Items", true, false)
+	eq(strip.tiles.map(func(t): return t["id"]), ["coin", "stone_chest_silver", "stone_chest_gold"], "both chests as tiles")
+	bottom.free()
+	s.free()
+
+
+func test_boss_chest_glows_rank_by_metal() -> void:
+	var g := func(id: String) -> float: return float(RewardModel.glow({"kind": "chest", "id": id})["power"])
+	check(g.call("stone_chest_bronze") < g.call("stone_chest_silver") and g.call("stone_chest_silver") < g.call("stone_chest_gold"),
+		"bronze, silver, gold")
+	eq(RewardModel.merge([RewardModel.tile("chest", "stone_chest_gold", 1), RewardModel.tile("chest", "stone_chest_silver", 1),
+		RewardModel.tile("chest", "stone_chest_bronze", 2)]).map(func(t): return t["id"]),
+		["stone_chest_bronze", "stone_chest_silver", "stone_chest_gold"], "the reveal ends on the best")
+
+
+func test_chest_looks_by_id() -> void:
+	var bronze := ChestIcon.look_of("stone_chest_bronze")
+	var silver := ChestIcon.look_of("stone_chest_silver")
+	var gold := ChestIcon.look_of("stone_chest_gold")
+	check(bronze != silver and silver != gold and bronze != gold, "three looks")
+	eq(ChestIcon.look_of("stone_chest"), ChestIcon.LOOKS["stone"], "the old chest keeps its look")
+	eq(ChestIcon.look_of("no_such_chest"), ChestIcon.LOOKS["stone"], "an unknown id: the plain chest")
+	eq(ChestIcon.look_of("equip_chest_14"), ChestIcon.LOOKS["equipment"], "by kind")
+	check(not ChestIcon.has_star("stone_chest_bronze") and not ChestIcon.has_star("stone_chest_silver"), "no star")
+	check(ChestIcon.has_star("stone_chest_gold") and ChestIcon.has_star("equip_chest_16"), "gold and +16")
+	check(not bronze.get("trim", false) and silver.get("trim", false) and gold.get("trim", false), "the shapes differ too")
 
 
 ## A tile's labels.
