@@ -106,6 +106,8 @@ static func parse_catalog(data: Variant) -> Variant:
 	out["upgradeMilestones"] = parse_milestones(data.get("upgradeMilestones"))
 	if data.get("weaponUpgradeCostMultiplier") is int or data.get("weaponUpgradeCostMultiplier") is float:
 		out["weaponUpgradeCostMultiplier"] = float(data["weaponUpgradeCostMultiplier"])
+	if data.get("probabilityFormulaVersion") is int or data.get("probabilityFormulaVersion") is float:
+		out["probabilityFormulaVersion"] = int(data["probabilityFormulaVersion"])
 	return out
 
 

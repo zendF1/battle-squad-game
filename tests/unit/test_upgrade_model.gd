@@ -110,7 +110,8 @@ func test_percent_and_cap() -> void:
 	near(ch["percent"], 27.0, 1e-9, "324 × 100 / 1200")
 	eq(ch["max"], 45.0, "+8 max")
 	eq(ch["wasted"], false, "below the cap")
-	eq(U.chance_text(ch), "Tỉ lệ thành công 27% (tối đa 45%)", "chance line")
+	eq(U.bp_text(ch["bp"]), "27%", "the chance shown")
+	eq(U.bp_text(ch["max_bp"]), "45%", "its maximum")
 	ch = U.chance(c, 8, {7: 1})
 	eq(ch["percent"], 45.0, "729 × 100 / 1200 = 60.75 capped at 45")
 	check(ch["wasted"], "above the cap is waste")
@@ -355,11 +356,11 @@ func test_careful_chance() -> void:
 	# +13→+14 with 2 × level 9 (13122): 26.2% capped at 20%
 	var off := U.chance(c, 13, {9: 2}, "armor")
 	eq([off["percent"], off["stone"], off["careful"], off["gem"]], [20.0, 20.0, false, 0], "careful off")
-	eq(U.chance_text(off), "Tỉ lệ thành công 20% (tối đa 20%)", "off line")
+	eq([off["stone_bp"], off["careful_bp"], off["max_bp"], off["careful_max_bp"]], [2000, 2800, 2000, 2800], "both chances show, careful on or off")
 	var on := U.chance(c, 13, {9: 2}, "armor", true)
 	eq([on["percent"], on["stone"], on["careful"], on["gem"], on["bonus"]], [28.0, 20.0, true, 120, 40.0], "careful on")
 	check(on["wasted"], "the stones still go above the cap")
-	eq(U.chance_text(on), "Tỉ lệ thành công 28%", "on line: the final chance only")
+	eq(on["bp"], 2800, "on: the final chance rolls")
 	eq(U.careful_confirm_text(on), "Dùng 120 kim cương cho nâng cấp cẩn thận?", "confirmation: the price only")
 	eq(U.chance(c, 15, {11: 1}, "armor", true)["percent"], 15.0, "+15→+16: 10% → 15%")
 	eq(U.chance(c, 9, {9: 1}, "armor", true)["percent"], 52.0, "+9→+10: 40% → 52%")
@@ -452,3 +453,134 @@ func test_coin_blocked_reason() -> void:
 	eq(U.blocked_reason(c, weapon, {7: 1}, {7: 1}, false, -1, -1), "", "unknown balance: the server checks")
 	eq(U.blocked_reason(c, weapon, {}, {7: 1}, false, -1, 0), "Chưa chọn đá", "stones first")
 	eq(ErrorText.upgrade({"status": 400, "code": "EQUIP_INSUFFICIENT_COIN", "message": ""}), "Không đủ xu để nâng cấp", "error text")
+
+
+# ── Formula 2: filling the required power reaches the maximum ───────────────
+
+## A catalog of formula 2: the contract's row (+9→+10, C 3.000, weapon 9.000) and a row without the
+## careful, stones of power 1, 81, 729, 1000.
+static func v2_catalog(extra: Dictionary = {}) -> Dictionary:
+	var data := {"items": [], "probabilityFormulaVersion": 2, "weaponUpgradeCostMultiplier": 3,
+		"stones": [{"stoneLevel": 1, "power": 1}, {"stoneLevel": 5, "power": 81}, {"stoneLevel": 7, "power": 729}, {"stoneLevel": 8, "power": 1000}],
+		"upgradeRates": [
+			{"fromLevel": 9, "toLevel": 10, "upgradeCost": 3000, "maxPercent": 40, "failResetTo": 6, "carefulGemCost": 50,
+				"carefulBonusPercent": 30, "coinCost": 2000, "maxPercentBp": 4000, "carefulBonusBp": 3000,
+				"effectiveRequiredPower": {"weapon": 9000, "armor": 3000, "helmet": 3000, "pants": 3000, "boots": 3000, "gloves": 3000}},
+			{"fromLevel": 10, "toLevel": 11, "upgradeCost": 10000, "maxPercent": 40, "failResetTo": 10, "coinCost": 0, "maxPercentBp": 4000,
+				"carefulBonusBp": 0, "effectiveRequiredPower": {"weapon": 10000, "armor": 10000}},
+			{"fromLevel": 11, "toLevel": 12, "upgradeCost": 3000, "maxPercent": 90, "failResetTo": 10, "carefulGemCost": 50,
+				"carefulBonusPercent": 30, "maxPercentBp": 9000, "carefulBonusBp": 3000, "effectiveRequiredPower": {"armor": 3000}}]}
+	data.merge(extra, true)
+	return M.parse_catalog(data)
+
+
+func test_formula_version() -> void:
+	eq(U.formula_version(v2_catalog()), 2, "the catalog's version survives parsing")
+	eq(U.formula_version(catalog()), 1, "an older catalog")
+	eq(U.formula_version(null), 1, "not loaded")
+
+
+func test_bp_text_never_rounds_up() -> void:
+	eq(U.bp_text(1600), "16%", "whole")
+	eq(U.bp_text(2080), "20,8%", "one decimal")
+	eq(U.bp_text(3999), "39,99%", "two decimals")
+	eq(U.bp_text(5198), "51,98%", "careful")
+	eq(U.bp_text(5), "0,05%", "below one")
+	eq(U.bp_text(0), "0%", "nothing")
+	eq(U.bp_text(10000), "100%", "the top")
+
+
+func test_spec_example_c_10000() -> void:
+	var c := v2_catalog()
+	var cases := [[1, 400, "4%"], [4, 1600, "16%"], [5, 2000, "20%"], [10, 4000, "40%"], [12, 4000, "40%"]]
+	for k in cases:
+		var ch := U.chance(c, 10, {8: k[0]}, "armor")
+		eq(ch["bp"], k[1], "%d × 1.000 power" % k[0])
+		eq(U.bp_text(ch["stone_bp"]), k[2], "%d stones shown" % k[0])
+	near(U.chance(c, 10, {8: 4}, "armor")["percent"], 16.0, 1e-9, "percent: bp / 100, like the server's answer")
+	var almost := U.chance(c, 10, {8: 9, 5: 12, 1: 27}, "armor")
+	eq(almost["power"], 9999, "one short of C")
+	eq(U.bp_text(almost["bp"]), "39,99%", "never rounded up to the cap")
+	eq(almost["fill_bp"], 9999, "the fill stays under 100% too")
+	eq(U.fill_text(almost), "Đã nạp 99,99%", "the fill label")
+
+
+func test_contract_table_c_9000() -> void:
+	var c := v2_catalog()
+	# P, fill, normal, careful
+	for k in [[900, 1000, 400, 520], [3600, 4000, 1600, 2080], [8999, 9998, 3999, 5198], [9000, 10000, 4000, 5200], [12000, 10000, 4000, 5200]]:
+		var ch := U.chance(c, 9, {1: k[0]}, "weapon")
+		eq(ch["required"], 9000, "C: effectiveRequiredPower, the multiplier not applied again")
+		eq([ch["fill_bp"], ch["stone_bp"], ch["careful_bp"]], [k[1], k[2], k[3]], "P = %d" % k[0])
+		eq(U.chance(c, 9, {1: k[0]}, "weapon", true)["bp"], k[3], "careful rolls the careful chance, P = %d" % k[0])
+	eq(U.chance(c, 9, {1: 3600}, "armor")["required"], 3000, "the other slots are not multiplied")
+
+
+func test_fill_is_not_the_chance() -> void:
+	var ch := U.chance(v2_catalog(), 10, {8: 4}, "armor")
+	eq(U.power_text(ch), "4.000 / 10.000", "P / C")
+	eq(U.fill_text(ch), "Đã nạp 40%", "40% filled, in its own words")
+	eq(U.bp_text(ch["bp"]), "16%", "16% success")
+	near(ch["fill"], 0.4, 1e-9, "the gauge")
+	eq(ch["over"], 0, "nothing over")
+	eq(U.over_text(ch), "", "no warning")
+	check(not ch["wasted"], "no waste")
+
+
+func test_over_fill_warns() -> void:
+	var c := v2_catalog()
+	var ch := U.chance(c, 10, {8: 12}, "armor")
+	eq(ch["over"], 2000, "2.000 over C")
+	check(ch["wasted"] and ch["spare"], "two whole stones add nothing")
+	eq(U.over_text(ch), "Thừa 2.000 sức mạnh, đá thừa vẫn mất", "the warning")
+	eq(U.fill_text(ch), "Đã nạp 100%", "the fill stops at full")
+	var tight := U.chance(c, 9, {8: 3, 5: 1}, "armor")
+	eq(tight["over"], 81, "3.081 of 3.000")
+	check(tight["wasted"] and tight["spare"], "the level-5 stone is spare")
+	var chunky := U.chance(c, 9, {8: 2, 7: 2}, "armor")
+	eq(chunky["over"], 458, "3.458 of 3.000")
+	check(chunky["wasted"] and not chunky["spare"], "above C, but no stone can go")
+	check(not U.chance(c, 10, {8: 10}, "armor")["wasted"], "exactly full")
+
+
+func test_final_chance_capped_at_100() -> void:
+	var ch := U.chance(v2_catalog(), 11, {8: 3}, "armor", true)
+	eq([ch["stone_bp"], ch["bp"], ch["careful_max_bp"]], [9000, 10000, 10000], "90% × 1.3 caps at 100")
+
+
+func test_no_careful_on_the_step() -> void:
+	var ch := U.chance(v2_catalog(), 10, {8: 4}, "armor", true)
+	eq([ch["careful"], ch["offered"], ch["bp"], ch["careful_bp"], ch["careful_max_bp"]], [false, false, 1600, 1600, 4000], "the plain chance")
+
+
+func test_v2_rows_without_the_new_fields() -> void:
+	var c: Variant = M.parse_catalog({"items": [], "probabilityFormulaVersion": 2, "weaponUpgradeCostMultiplier": 3, "stones": [{"stoneLevel": 1, "power": 1}],
+		"upgradeRates": [{"fromLevel": 1, "toLevel": 2, "upgradeCost": 100, "maxPercent": 40, "carefulGemCost": 5, "carefulBonusPercent": 30}]})
+	var ch: Dictionary = U.chance(c, 1, {1: 150}, "weapon", true)
+	eq([ch["required"], ch["stone_bp"], ch["bp"]], [300, 2000, 2600], "upgradeCost × the slot, maxPercent × 100")
+
+
+func test_auto_pick_fills_c() -> void:
+	var c := v2_catalog()
+	eq(U.auto_pick(c, 10, {8: 12}, "armor"), {8: 10}, "ten of twelve fill 10.000, not four")
+	var pick := U.auto_pick(c, 9, {8: 12, 5: 50}, "weapon")
+	eq(pick, {8: 9}, "the weapon's own C")
+	eq(U.auto_pick(c, 9, {8: 2, 5: 200}, "armor"), {8: 3 - 1, 5: 13}, "smaller stones top it up")
+	eq(U.chance(c, 9, U.auto_pick(c, 9, {8: 2, 5: 200}, "armor"), "armor")["bp"], 4000, "reaches the maximum")
+	eq(U.auto_pick(c, 10, {8: 3}, "armor"), {8: 3}, "all of them when short")
+
+
+func test_zero_chance_is_blocked() -> void:
+	var c := v2_catalog()
+	var piece := {"upgradeLevel": 10, "slot": "armor"}
+	eq(U.chance(c, 10, {1: 2}, "armor")["bp"], 0, "2 × 4000 / 10000 floors to 0")
+	eq(U.blocked_reason(c, piece, {1: 2}, {1: 2}), "Đá quá yếu, hãy nạp thêm", "the server would refuse it")
+	eq(U.chance(c, 10, {1: 3}, "armor")["bp"], 1, "3 power: 0.01%")
+	eq(U.blocked_reason(c, piece, {1: 3}, {1: 3}), "", "0.01% can be tried")
+	eq(U.bp_text(1), "0,01%", "shown")
+
+
+func test_error_texts_of_formula_2() -> void:
+	var fail := func(code: String) -> Dictionary: return {"ok": false, "status": 400, "code": code, "message": "x"}
+	eq(ErrorText.upgrade(fail.call("EQUIP_UPGRADE_CHANCE_ZERO")), "Đá quá yếu, hãy nạp thêm", "chance zero")
+	check(not ErrorText.upgrade(fail.call("EQUIP_UPGRADE_CONFIG_INVALID")).contains("x"), "the generic text, not the server's")
