@@ -548,6 +548,10 @@ func test_coin_cost_uses_the_weapon_multiplier() -> void:
 	eq(U.coin_cost(c, 7, "weapon"), 0, "a free step")
 	eq(U.coin_cost(c, 16, "weapon"), 0, "no row at +16")
 	eq(U.coin_cost(careful_catalog(1.5), 8, "weapon"), 0, "an older catalog has no coin")
+	eq(U.mul_up(50, 1.1), 55, "no float rounding error")
+	eq(U.mul_up(100, 1.1), 110, "no float rounding error")
+	eq(U.mul_up(250, 1.1), 275, "exact")
+	eq(U.mul_up(333, 1.5), 500, "rounds up")
 	eq(U.chance(c, 8, {7: 1}, "weapon")["coin"], 7500, "chance carries it")
 
 

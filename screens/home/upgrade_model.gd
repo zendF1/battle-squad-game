@@ -232,13 +232,20 @@ static func piece_slot(catalog: Variant, piece: Dictionary) -> String:
 	return slot
 
 
+## value × mult rounded up in millionths, like the server's fixed-point rounding: 50 × 1.1 is 55,
+## where the float product 55.00000000000001 would round up to 56.
+@warning_ignore("integer_division")
+static func mul_up(value: int, mult: float) -> int:
+	return (value * roundi(mult * 1000000.0) + 999999) / 1000000
+
+
 ## The coin one attempt from `level` costs a piece in `slot`: the row's coinCost × cost_multiplier(),
 ## rounded up, like the server's UpgradeCoinCost; 0 without a row or a price.
 static func coin_cost(catalog: Variant, level: int, slot: String) -> int:
 	var v = rate(catalog, level).get("coinCost")
 	if not (v is int or v is float) or float(v) <= 0.0:
 		return 0
-	return ceili(float(v) * cost_multiplier(catalog, slot))
+	return mul_up(int(v), cost_multiplier(catalog, slot))
 
 
 ## The careful upgrade of the step from `level`: {gem, bonus (relative %), offered}; the row's
@@ -277,7 +284,7 @@ static func required_power(catalog: Variant, level: int, slot: String = "") -> i
 		return needed_power(cost, float(r.get("maxPercent", 0.0)))
 	var by = r.get("effectiveRequiredPower")
 	var c = by.get(slot) if by is Dictionary else null
-	return int(c) if (c is int or c is float) and int(c) > 0 else ceili(cost)
+	return int(c) if (c is int or c is float) and int(c) > 0 else mul_up(int(r.get("upgradeCost", 0)), cost_multiplier(catalog, slot))
 
 
 ## The row's maximum in basis points: maxPercentBp, else maxPercent × 100.
