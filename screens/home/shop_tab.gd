@@ -40,9 +40,11 @@ extends Control
 ## idempotencyKey}. The key (and the mock token) is reused until a definite answer
 ## (core/idempotency_keys.gd), so a retry after a network error or a 5xx can never charge twice;
 ## PlayerState settles it even when Home is freed mid-request. An answer replaying an earlier
-## request shows "Giao dịch trước đã hoàn tất" instead of a new success; a success plays the reward
-## reveal (ui/reward_reveal.gd) of what was bought (items ×N, stones, the piece, the character, the
-## coins of a pack, the gems of a top-up). Each sub-tab loads its
+## request shows "Giao dịch trước đã hoàn tất" instead of a new success. A purchase is not a reward
+## (no gift box, no "Nhận"): what was bought (items ×N, stones, the piece, the character, the coins
+## of a pack, the gems of a top-up) is the player's at once, the wallet takes the answer's balance,
+## and ui/reward_fly.gd pops its icon + "×N" where the buy was tapped and flies it to the bag button
+## or the wallet pill, never blocking the screen. Each sub-tab loads its
 ## data the first time it is shown; owned characters come from the PlayerState cache shared with
 ## "Hồ sơ". Requests never block the screen; one purchase runs at a time.
 
@@ -50,7 +52,7 @@ const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Art := preload("res://ui/art.gd")
 const Modal := preload("res://ui/modal.gd")
-const RewardReveal := preload("res://ui/reward_reveal.gd")
+const RewardFly := preload("res://ui/reward_fly.gd")
 const RewardModel := preload("res://ui/reward_model.gd")
 const LoadStatus := preload("res://ui/load_status.gd")
 const Items := preload("res://match/items.gd")
@@ -544,6 +546,7 @@ func _purchase_stones(row: Dictionary, quantity: int) -> void:
 	if PlayerState.busy_id != "":
 		return
 	var stone_name := UpgradeModel.stone_name(int(row["stoneLevel"]))
+	var from = _tap_point()
 	_action_status.show_loading("Đang mua %d × %s..." % [quantity, stone_name])
 	var res: Dictionary = await PlayerState.buy_stones(int(row["stoneLevel"]), quantity)
 	if not is_inside_tree():
@@ -556,7 +559,7 @@ func _purchase_stones(row: Dictionary, quantity: int) -> void:
 		if res.replay:
 			Ui.toast(overlay, REPLAYED)
 		else:
-			RewardReveal.open(overlay, [RewardModel.tile("stone", "stone_%d" % int(row["stoneLevel"]), quantity, int(row["stoneLevel"]))])
+			_bought([RewardModel.tile("stone", "stone_%d" % int(row["stoneLevel"]), quantity, int(row["stoneLevel"]))], from)
 		return
 	var retry := _purchase_stones.bind(row, quantity) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.stone_buy(res, str(row["currency"])), retry)
@@ -851,6 +854,7 @@ func _purchase(offer: Dictionary, quantity: int = 1) -> void:
 	if PlayerState.busy_id != "":
 		return
 	var swap := ShopModel.is_coin_pack(offer)
+	var from = _tap_point()
 	_action_status.show_loading(("Đang đổi lấy %s..." if swap else "Đang mua %s...") % ShopModel.offer_name(offer))
 	var res: Dictionary = await PlayerState.buy(str(offer.get("offerId", "")), quantity)
 	if not is_inside_tree():
@@ -862,8 +866,8 @@ func _purchase(offer: Dictionary, quantity: int = 1) -> void:
 		_action_status.clear()
 		if res.replay:
 			Ui.toast(overlay, REPLAYED)
-		else: # what was bought bursts out of a gift box
-			RewardReveal.open(overlay, RewardModel.from_offer(offer, quantity, res.data))
+		else: # what was bought is the player's at once: it pops where the buy was tapped and flies home
+			_bought(RewardModel.from_offer(offer, quantity, res.data), from)
 		return
 	var retry := _purchase.bind(offer, quantity) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.purchase(res, str(offer.get("priceCurrency", ""))), retry)
@@ -887,6 +891,7 @@ func _on_buy_equipment(item: Dictionary) -> void:
 func _purchase_equipment(item: Dictionary) -> void:
 	if PlayerState.busy_id != "":
 		return
+	var from = _tap_point()
 	_action_status.show_loading("Đang mua %s..." % EquipmentModel.display_name(item))
 	var res: Dictionary = await PlayerState.buy_equipment(str(item.get("itemId", "")))
 	if not is_inside_tree():
@@ -899,7 +904,7 @@ func _purchase_equipment(item: Dictionary) -> void:
 		if res.replay:
 			Ui.toast(overlay, REPLAYED)
 		else:
-			RewardReveal.open(overlay, [RewardModel.tile("equipment", str(item.get("itemId", "")), 1)])
+			_bought([RewardModel.tile("equipment", str(item.get("itemId", "")), 1)], from)
 		return
 	var retry := _purchase_equipment.bind(item) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.equipment_buy(res, EquipmentModel.price(item)["currency"]), retry)
@@ -908,6 +913,7 @@ func _purchase_equipment(item: Dictionary) -> void:
 func _on_top_up(product: Dictionary) -> void:
 	if PlayerState.busy_id != "":
 		return
+	var from = _tap_point()
 	_action_status.show_loading("Đang nạp %s..." % ShopModel.product_title(product))
 	var res: Dictionary = await PlayerState.top_up(str(product.get("productId", "")), ShopModel.iap_platform(OS.get_name()))
 	if not is_inside_tree():
@@ -921,12 +927,28 @@ func _on_top_up(product: Dictionary) -> void:
 		if res.replay:
 			Ui.toast(overlay, REPLAYED)
 		elif granted > 0:
-			RewardReveal.open(overlay, [RewardModel.tile("gem", "gem", granted)])
+			_bought([RewardModel.tile("gem", "gem", granted)], from)
 		else:
 			Ui.toast(overlay, "Nạp thành công!")
 		return
 	var retry := _on_top_up.bind(product) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.iap(res), retry)
+
+
+## What was bought is the player's at once (the wallet and the bag already reload): its icon + "×N"
+## pops at `from` (the tap, _tap_point(); the centre when null) and flies to the bag button or the
+## wallet pill (ui/reward_fly.gd). Never the gift-box reward reveal: a purchase is not a reward.
+func _bought(tiles: Array, from: Variant) -> Control:
+	return RewardFly.play(overlay, tiles, from)
+
+
+## Where the buy was tapped (canvas position; the last pointer position, a touch on a phone), the
+## overlay's centre when unknown: what was bought pops there (ui/reward_fly.gd).
+func _tap_point() -> Variant:
+	if not is_inside_tree():
+		return null
+	var at := get_viewport().get_mouse_position()
+	return at if at != Vector2.ZERO else null
 
 
 ## Deferred: the press that started a purchase must not free its own button mid-signal.
