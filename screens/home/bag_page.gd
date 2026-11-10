@@ -32,6 +32,9 @@ const GameData := preload("res://autoload/game_data_model.gd")
 const LoadoutModel := preload("res://screens/loadout_model.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const EquipmentUi := preload("res://screens/home/equipment_ui.gd")
+const GearModel := preload("res://screens/home/gear_model.gd")
+const GearUi := preload("res://screens/home/gear_ui.gd")
+const GearIcon := preload("res://ui/gear_icon.gd")
 const ShopTab := preload("res://screens/home/shop_tab.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
@@ -226,11 +229,13 @@ func _render_gear() -> void:
 		_gear_flow.add_child(_gear_card(p))
 
 
-## A piece card: only its icon and its name in the level colour, inside the border aura with the
-## card tinted a deep shade of that colour (worn pieces: a green edge and a check badge in the
-## top-left corner); everything else is in the popup a tap opens.
+## A piece card: only its icon, its name in the level colour and its passive (picture and value),
+## inside the border aura with the card tinted a deep shade of that colour (worn pieces: a green
+## edge and a check badge in the top-left corner; +16: the awaken's picture in the top-right
+## corner); everything else is in the popup a tap opens.
 func _gear_card(piece: Dictionary) -> Control:
 	var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
+	var passive := GearModel.piece_passive(piece, item)
 	var b := Button.new()
 	b.custom_minimum_size = CARD
 	b.focus_mode = FOCUS_NONE
@@ -243,13 +248,14 @@ func _gear_card(piece: Dictionary) -> Control:
 	var col := Ui.vbox(6)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	col.add_theme_constant_override("separation", 2 if not passive.is_empty() else 6)
 	col.offset_left = 16
 	col.offset_right = -16
 	col.offset_top = 14
 	col.offset_bottom = -16
 	col.mouse_filter = MOUSE_FILTER_IGNORE
 	b.add_child(col)
-	var icon := EquipmentUi.item_icon(item, {}, 112)
+	var icon := EquipmentUi.item_icon(item, {}, 112 if passive.is_empty() else 92)
 	icon.size_flags_horizontal = SIZE_SHRINK_CENTER
 	col.add_child(icon)
 	var title := LobbyUi.text(EquipmentModel.display_name(item), 23, UpgradeModel.name_color(piece), true)
@@ -259,6 +265,16 @@ func _gear_card(piece: Dictionary) -> Control:
 	title.mouse_filter = MOUSE_FILTER_IGNORE
 	LobbyUi.outline(title, 5) # readable over the aura's streaks
 	col.add_child(title)
+	# Its passive (picture and value at its level), centred under the name.
+	if not passive.is_empty():
+		var chip := GearUi.passive_chip(passive, 28, 18)
+		chip.alignment = BoxContainer.ALIGNMENT_CENTER
+		col.add_child(chip)
+	if GearModel.has_awaken(piece):
+		# +16: the awaken's glowing picture in the top-right corner (the popup tells it).
+		var awaken = GearIcon.make(GearModel.awaken_kind(str(piece.get("slot", item.get("slot", "")))), 38)
+		awaken.position = Vector2(CARD.x - 46, 8)
+		b.add_child(awaken)
 	if EquipmentModel.wearer(piece) != "":
 		# Worn: a check badge in the top-left corner (the green edge alone is lost on a tinted card).
 		var badge := EquipmentUi.worn_badge(30)
@@ -393,6 +409,7 @@ func _render_stones() -> void:
 
 const ROW_H := 132 # every card row of the item / stone lists
 const CHEST_W := 270 * 2 + 12 # two item / stone cards and their gap: the rows line up
+const OPEN_W := 100 # a chest's open button
 
 
 ## A tab's chest list (its load status, then a flow of chest cards; empty when none are owned).
@@ -457,7 +474,7 @@ func _chest_card(c: Dictionary) -> Control:
 	odds.tooltip_text = ChestModel.odds_text(str(c["chestId"]))
 	box.add_child(odds)
 	var buttons := Ui.hbox(8)
-	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.custom_minimum_size.x = OPEN_W * 2 + 8 # one or two buttons: every card the same width
 	row.add_child(buttons)
 	for spec in ChestModel.open_buttons(int(c["quantity"])):
 		var b := open_button(str(c["chestId"]), str(spec["text"]))
@@ -471,7 +488,7 @@ func _chest_card(c: Dictionary) -> Control:
 ## An open button: the chest over its count ("×10"), gold.
 static func open_button(chest_id: String, count: String) -> Button:
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(100, 104)
+	b.custom_minimum_size = Vector2(OPEN_W, 104)
 	b.focus_mode = FOCUS_NONE
 	LobbyUi.style_button(b, LobbyUi.ICON_COLORS["orange"], 14, 4, Color(1, 0.9, 0.55, 0.9), 2)
 	var col := Ui.vbox(0)

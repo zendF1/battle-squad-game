@@ -7,7 +7,8 @@ extends RefCounted
 ## milestone / daily reward lines, a season reward, a match's reward, a shop purchase), merged
 ## (same reward → one tile, the counts added) and ordered weakest first so the reveal ends on the
 ## best one. glow() is the light behind a tile: its colour (and a second one for the richest) and
-## power 0..1 (brightness, rays, sparkles), by stone level, upgrade tier or kind.
+## power 0..1 (brightness, rays, sparkles), by stone level, upgrade tier or kind; the boss chests
+## by their metal, gold the brightest.
 
 const GameData := preload("res://autoload/game_data_model.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
@@ -34,6 +35,12 @@ const RUNGS := [
 ## The rung of each stone level (index = level; past the end: the last): lv 5–6 gold, 7 and up
 ## red-gold.
 const STONE_RUNGS := [PLAIN, PLAIN, PLAIN, GREEN, BLUE, GOLD, GOLD, RED_GOLD]
+## The boss chests' light by id, weakest first (the old stone chest stays between silver and gold).
+const CHEST_GLOWS := {
+	"stone_chest_bronze": {"color": Color(0.95, 0.58, 0.28), "accent": Color(1.0, 0.82, 0.6), "power": 0.46, "rung": GREEN},
+	"stone_chest_silver": {"color": Color(0.78, 0.88, 1.0), "accent": Color(1.0, 1.0, 1.0), "power": 0.54, "rung": BLUE},
+	"stone_chest_gold": {"color": Color(1.0, 0.76, 0.2), "accent": Color(1.0, 0.95, 0.6), "power": 0.86, "rung": GOLD},
+}
 ## The power of an equipment piece by its colour tier (UpgradeModel.color_tier: +0, +1, +6, +10,
 ## +14, +16); its colour is the tier's (UpgradeModel.TIER_COLORS), +16 red with gold.
 const TIER_POWER := [0.3, 0.45, 0.55, 0.66, 0.8, 1.0]
@@ -64,6 +71,7 @@ static func name_of(t: Dictionary) -> String:
 		"chest": return GameData.chest_name(str(t.get("id", "")))
 		"item": return Items.label(str(t.get("id", "")))
 		"character": return GameData.character_name(str(t.get("id", "")))
+		"guild": return "EXP bang hội"
 		"equipment":
 			var up := int(t.get("upgrade", 0))
 			return "%s +%d" % [str(t.get("id", "")), up] if up > 0 else str(t.get("id", ""))
@@ -134,12 +142,16 @@ static func glow(t: Dictionary) -> Dictionary:
 		"stone":
 			return _rung(stone_rung(int(t.get("level", 1))))
 		"chest":
+			if CHEST_GLOWS.has(str(t.get("id", ""))):
+				return CHEST_GLOWS[str(t["id"])]
 			var up := GameData.chest_upgrade_level(str(t.get("id", "")))
 			return equipment_glow(up) if up > 0 else _rung(BLUE, 0.58)
 		"equipment":
 			return equipment_glow(int(t.get("upgrade", 0)))
 		"character":
 			return _rung(GOLD, 0.9)
+		"guild":
+			return _rung(PURPLE, 0.5)
 	return _rung(PLAIN)
 
 

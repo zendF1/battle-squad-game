@@ -92,7 +92,11 @@ func test_create_refused_leaves_and_asks_again_once() -> void:
 	eq(out, [["toast", ErrorText.lobby_error(_err("ALREADY_IN_LOBBY"))]], "a second refusal is shown")
 	var q := _party()
 	q.invite("p2", 0.0)
-	eq(q.on_event("LobbyError", _err("IN_ROOM"), 0.1), [["send", "Leave", {}], ["send", "CreateLobby", {}]], "IN_ROOM: Leave the room")
+	eq(q.on_event("LobbyError", _err("ALREADY_IN_ROOM"), 0.1), [["send", "Leave", {}], ["send", "CreateLobby", {}]], "ALREADY_IN_ROOM: Leave the room")
+	eq(q.on_event("LobbyError", _err("ALREADY_IN_ROOM"), 0.2), [["toast", "Bạn vẫn đang ở trong một trận khác"]], "a second refusal is shown")
+	var r := _party()
+	r.invite("p2", 0.0)
+	eq(r.on_event("LobbyError", _err("IN_ROOM"), 0.1), [["send", "Leave", {}], ["send", "CreateLobby", {}]], "an older server's IN_ROOM")
 
 
 func test_invite_sent_counts_down_on_the_row() -> void:
@@ -203,8 +207,94 @@ func test_errors_only_after_my_requests() -> void:
 
 func test_list_query() -> void:
 	var p := _party()
-	eq(p.list(""), [["send", "ListOnlinePlayers", {}]], "everyone")
-	eq(p.list("  Hiền "), [["send", "ListOnlinePlayers", {"query": "Hiền"}]], "a name")
+	eq(p.list(""), [["send", "ListOnlinePlayers", {"page": 1}]], "everyone")
+	eq(p.list("  Hiền "), [["send", "ListOnlinePlayers", {"query": "Hiền", "page": 1}]], "a name")
+
+
+static func _online(ids: Array) -> Array:
+	return ids.map(func(id): return {"playerId": id, "displayName": id, "level": 3, "tier": "silver",
+		"division": 2, "characterId": "spark", "status": "idle"})
+
+
+func test_online_pages() -> void:
+	var p := _party()
+	eq(p.list("", 1), [["send", "ListOnlinePlayers", {"page": 1}]], "page 1 on opening")
+	eq(p.on_event("OnlinePlayers", {"players": _online(["a", "b"]), "page": 1, "hasMore": true}, 0.0),
+		[["players"]], "page 1")
+	eq([p.page, p.has_more, p.players.size()], [1, true, 2], "page 1, more follow")
+	eq(p.pager(), {"prev": false, "next": true, "shown": true}, "▶ only")
+	eq(p.list_page(-1), [], "no page before 1")
+	eq(p.list_page(1), [["send", "ListOnlinePlayers", {"page": 2}]], "▶ asks for page 2")
+	eq(p.list(""), [["send", "ListOnlinePlayers", {"page": 2}]], "a refresh asks again for the page wanted")
+	p.on_event("OnlinePlayers", {"players": _online(["c"]), "page": 2, "hasMore": false}, 0.0)
+	eq([p.page, p.has_more, p.players[0]["playerId"]], [2, false, "c"], "page 2 replaces the rows")
+	eq(p.pager(), {"prev": true, "next": false, "shown": true}, "◀ only")
+	eq(p.list_page(1), [], "no page after the last")
+	eq(p.list(""), [["send", "ListOnlinePlayers", {"page": 2}]], "the refresh stays on page 2")
+	eq(p.list_page(-1), [["send", "ListOnlinePlayers", {"page": 1}]], "◀ asks for page 1")
+
+
+func test_online_pages_new_query_back_to_page_1() -> void:
+	var p := _party()
+	p.list("", 1)
+	p.on_event("OnlinePlayers", {"players": _online(["a"]), "page": 1, "hasMore": true}, 0.0)
+	p.list_page(1)
+	p.on_event("OnlinePlayers", {"players": _online(["b"]), "page": 2, "hasMore": true}, 0.0)
+	eq(p.list("an"), [["send", "ListOnlinePlayers", {"query": "an", "page": 1}]], "a new query: page 1")
+	p.on_event("OnlinePlayers", {"players": _online(["c"]), "page": 1, "hasMore": true}, 0.0)
+	eq(p.list_page(1), [["send", "ListOnlinePlayers", {"query": "an", "page": 2}]], "▶ keeps the query")
+	eq(p.list("an", 1), [["send", "ListOnlinePlayers", {"query": "an", "page": 1}]], "the search box asks page 1")
+
+
+func test_online_pages_past_the_last_steps_back() -> void:
+	var p := _party()
+	p.list("", 3)
+	eq(p.on_event("OnlinePlayers", {"players": [], "page": 3, "hasMore": false}, 0.0),
+		[["players"], ["send", "ListOnlinePlayers", {"page": 2}]], "an empty page 3: page 2")
+	eq(p.on_event("OnlinePlayers", {"players": [], "page": 1, "hasMore": false}, 0.0), [["players"]],
+		"an empty page 1 is just empty")
+
+
+func test_online_pages_older_server() -> void:
+	var p := _party()
+	p.list("", 1)
+	p.on_event("OnlinePlayers", {"players": _online(["a"]), "page": 1, "hasMore": true}, 0.0)
+	p.list_page(1)
+	# An older server: no page, no hasMore (the whole list at once).
+	eq(p.on_event("OnlinePlayers", {"players": _online(["a", "b", "c"])}, 0.0), [["players"]], "rows")
+	eq([p.page, p.has_more, p.players.size()], [1, false, 3], "page 1, no more")
+	eq(p.pager(), {"prev": false, "next": false, "shown": false}, "no pager")
+	eq(p.list_page(1), [], "▶ off")
+	eq(p.list(""), [["send", "ListOnlinePlayers", {"page": 1}]], "a refresh asks for page 1")
+	p.on_event("OnlinePlayers", {"players": _online(["a"]), "page": "x", "hasMore": "yes"}, 0.0)
+	eq([p.page, p.has_more], [1, false], "bad fields: page 1, no more")
+
+
+func test_invited_member_clears_its_mark() -> void:
+	# A 4-player boss lobby mode, as GET /gamedata sends it (modes.lobby partySize).
+	var d: Dictionary = GameData.data.duplicate(true)
+	d["version"] = "boss-party-4"
+	d["modes"]["lobby"].append({"modeId": "boss_x", "name": "Boss", "queue": "boss_x", "bot": "", "category": "boss",
+		"icon": "skull", "partySize": 4, "ranked": false})
+	GameData.take(d, "", false)
+	var p := _party()
+	p.queue = "boss_x"
+	var alone := _lobby([HOST])
+	alone["queue"] = "boss_x"
+	p.on_event("LobbyUpdated", alone, 0.0)
+	p.on_event("InviteSent", {"playerId": "p2", "expiresInSec": 30}, 0.0)
+	p.on_event("InviteSent", {"playerId": "p3", "expiresInSec": 30}, 0.0)
+	var lobby := _lobby([HOST, _with(MATE, "ready", true)])
+	lobby["queue"] = p.queue
+	check(p.capacity() > 2, "a boss lobby holds more than two")
+	eq(p.on_event("LobbyUpdated", lobby, 1.0), [["changed"], ["players"]], "p2 joined at once")
+	eq(p.sent_left("p2", 1.0), 0, "p2 no longer marked invited")
+	eq(p.row_button({"playerId": "p2", "status": "idle"}, 1.0), {"text": "Trong đội", "disabled": true},
+		"p2's row (the list from before it joined): in my team")
+	eq(p.row_button({"playerId": "p2", "status": "in_lobby"}, 1.0)["text"], "Trong đội", "after a refresh too")
+	eq(p.sent_left("p3", 1.0), 29, "p3 still invited")
+	eq(p.row_button({"playerId": "p3", "status": "idle"}, 1.0)["text"], "Đã mời (29s)", "p3's row counts down")
+	eq(p.on_event("LobbyUpdated", lobby, 2.0), [["changed"]], "nothing more to clear")
 
 
 func test_invite_into_a_gone_lobby_creates_a_new_one() -> void:

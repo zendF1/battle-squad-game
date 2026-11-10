@@ -5,7 +5,8 @@ extends Control
 ## /player/titles via PlayerState: "Không đeo", then the owned titles as plates, tap to wear, the
 ## worn one marked "Đang đeo"; then the locked ones dimmed with how to win them, "Đạt: Thắng 100
 ## trận"). Under the level, Lực chiến: my strongest character's head and the power (the profile's
-## power + powerCharacterId, ui/power_tag.gd; hidden while unknown). Failures show inline with "Thử lại". A tap on the card's plate opens Danh hiệu. The
+## power + powerCharacterId, ui/power_tag.gd; hidden while unknown); under it "Nhập mã quà" (the gift
+## code, screens/home/gift_code_popup.gd). Failures show inline with "Thử lại". A tap on the card's plate opens Danh hiệu. The
 ## characters (stats, points) are on the Nhân vật page, the items and gear in Kho đồ.
 
 const Ui := preload("res://ui/ui.gd")
@@ -20,6 +21,7 @@ const TitleModel := preload("res://screens/home/title_model.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
 const PowerTag := preload("res://ui/power_tag.gd")
 const HeadIcon := preload("res://screens/home/head_icon.gd")
+const GiftCodePopup := preload("res://screens/home/gift_code_popup.gd")
 
 const SECTION_HISTORY := 0
 const SECTION_TITLES := 1
@@ -186,6 +188,12 @@ func _build_player_card() -> Control:
 	_power_row.add_child(_power_head)
 	_power = PowerTag.make(40, 32)
 	_power_row.add_child(_power)
+	var gift := LobbyUi.pill_button("Nhập mã quà", 24, 60, "milestone")
+	gift.name = "GiftCodeButton"
+	LobbyUi.texture_button(gift, "button_navy", 18)
+	gift.size_flags_horizontal = SIZE_SHRINK_CENTER
+	gift.pressed.connect(func() -> void: GiftCodePopup.new().open_for(overlay))
+	col.add_child(gift)
 	return card
 
 

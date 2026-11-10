@@ -37,6 +37,27 @@ var ranked_member := false
 var mode_chosen := false
 ## The 2v2 party (screens/home/party.gd), kept here so it outlives the scenes.
 var party: Node
+## Chat and friends (screens/social/social.gd: the conversations, the friends list, my guild's id,
+## the guild page's set_guild_invite() hook), kept here so it outlives the scenes.
+var social: Node
+
+
+## Signed out (core/logout.gd): the match / queue payloads, the mode picked this session, the
+## party and the chat / friends state are the last account's: all forgotten.
+func reset_account() -> void:
+	quick_play_base = {}
+	match_snapshot = {}
+	ranked_loadout = {}
+	queue = ""
+	last_quick_play = {}
+	match_roster = {}
+	home_notice = ""
+	ranked_member = false
+	mode_chosen = false
+	if party != null and party.has_method("reset_account"):
+		party.reset_account()
+	if social != null and social.has_method("reset_account"):
+		social.reset_account()
 
 
 func go(scene: String) -> void:
@@ -54,6 +75,9 @@ func _ready() -> void:
 	party = load("res://screens/home/party.gd").new()
 	party.name = "Party"
 	add_child(party)
+	social = load("res://screens/social/social.gd").new()
+	social.name = "Social"
+	add_child(social)
 
 
 func _on_session_lost() -> void:

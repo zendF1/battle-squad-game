@@ -2,16 +2,20 @@ extends RefCounted
 ## The boss match's result without UI (match/boss/boss_result_screen.gd draws it), from its
 ## MatchEnded {winningTeam, result, boss {bossId, result, round, turnLimit, bossHp, bossMaxHp,
 ## bossDamage: {playerId: damage}}, rewards[me] {expGained, coinGained, ..., bossDamage,
-## minionDamage, bonusRun, bonusRunsLeft, items: [{itemId, quantity}]}, mvpPlayerId}: the title
+## minionDamage, bonusRun, bonusRunsLeft, items: [{itemId, quantity}], chests, and under rules 2
+## (rewardVersion 2) the day's bonus runs after this match, bonusRunsCompleted, bonusWins,
+## perfectRequiredWins, perfectRewardEligible, perfectRewardGranted}, mvpPlayerId}: the title
 ## of how it ended, the damage ranking of the party (bots too) on a podium (podium(): ranks 3, 1,
 ## 2, 4 left to right, #1 tallest), the MVP, the boss's HP left (in the subtitle of a loss), and my rewards with the
 ## big-reward runs left today as a gift box and "×2" (lit for a big-reward run, dimmed for a normal
-## one; no sentence). Item names come from the game data.
+## one; no sentence), under rules 2 as the day's trail (ui/boss_trail_model.gd). Item names come
+## from the game data.
 
 const ResultModel := preload("res://match/result_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const BossArt := preload("res://match/boss/boss_art.gd")
 const Fmt := preload("res://core/fmt.gd")
+const BossTrailModel := preload("res://ui/boss_trail_model.gd")
 
 const DEFEATED := "boss_defeated"
 const PARTY_DEFEATED := "party_defeated"
@@ -95,9 +99,13 @@ static func mvp_of(d: Dictionary, players: Dictionary, me: String) -> String:
 ## My rewards: ResultModel.reward() (ok, exp, coin, the level ups, chests: a bonus run's stone
 ## chests [{chestId, qty, name, text}]) plus boss_damage, minion_damage,
 ## bonus_run, bonus_left (-1 unknown), items [{itemId, qty, name}], gift_text (the big runs left by
-## the gift box: "×2"; "" unknown), damage_text ("Sát thương boss 9.000").
-static func reward(r: Variant, mode: String) -> Dictionary:
-	var out := ResultModel.reward(r, mode)
+## the gift box: "×2"; "" unknown), damage_text ("Sát thương boss 9.000"), trail (the day's bonus
+## runs after this match under rules 2, BossTrailModel.of(); {} under rules 1: the gift box shows),
+## perfect_now (this run gave the gold chest: the server granted it and it is in this run's chests).
+## `status` is MatchEnded's
+## rewardSettlementStatus (ResultModel.settlement_of()): null rewards still pending are on their way.
+static func reward(r: Variant, mode: String, status: String = ResultModel.COMPLETED) -> Dictionary:
+	var out := ResultModel.reward(r, mode, status)
 	out["rank"] = {}
 	var d: Dictionary = r if r is Dictionary else {}
 	out["boss_damage"] = maxi(int(_num(d.get("bossDamage"))), 0)
@@ -117,6 +125,10 @@ static func reward(r: Variant, mode: String) -> Dictionary:
 	out["items"] = items
 	out["gift_text"] = gift_text(int(out["bonus_left"]))
 	out["damage_text"] = "Sát thương boss %s" % Fmt.thousands(int(out["boss_damage"]))
+	out["trail"] = BossTrailModel.of(d, str(d.get("bossId", "")))
+	var gold := str(out["trail"].get("gold_chest", ""))
+	out["perfect_now"] = str(out["trail"].get("gold", "")) == BossTrailModel.WON \
+		and out.get("chests", []).any(func(c): return str(c.get("chestId", "")) == gold)
 	return out
 
 
@@ -180,7 +192,7 @@ static func subtitle(i: Dictionary) -> String:
 
 ## Everything the screen shows: {outcome (ResultModel WIN / LOSE), result, title, round_text,
 ## boss: {boss_id, name, art, hp, max_hp, ratio, hp_text}, ranking, podium, mvp, reward}. boss_id: the
-## match's (the boss block's wins).
+## match's (the boss block's wins); the reward's settlement is MatchEnded's (ResultModel.settlement_of()).
 static func info(d: Dictionary, players: Dictionary, me: String, boss_id: String, my_reward: Variant) -> Dictionary:
 	var my_team := int(_num(players.get(me, {}).get("teamId"), 1))
 	var res := result_of(d, my_team)
@@ -195,4 +207,4 @@ static func info(d: Dictionary, players: Dictionary, me: String, boss_id: String
 		"round_text": round_text(d),
 		"boss": {"boss_id": bid, "name": GameData.boss_name(bid), "art": BossArt.art_of(bid), "hp": hp, "max_hp": max_hp,
 			"ratio": float(hp) / float(max_hp), "hp_text": "%s / %s" % [Fmt.thousands(hp), Fmt.thousands(max_hp)]},
-		"ranking": rows, "podium": podium(rows), "mvp": mvp, "reward": reward(my_reward, "")}
+		"ranking": rows, "podium": podium(rows), "mvp": mvp, "reward": reward(my_reward, "", ResultModel.settlement_of(d))}

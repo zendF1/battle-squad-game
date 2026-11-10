@@ -89,6 +89,7 @@ func play(timeline, lead_in: float = 0.0) -> void:
 			view.tier = str(style.get("tier", ""))
 			view.skill = bool(style.get("skill", false))
 			view.item = str(style.get("item", ""))
+			view.aura = style.get("aura") # the weapon's +10 / +14 / +16 glow (null none)
 			view.drill = timeline.is_drill(i) # a drill bit, whatever fired it
 		view.heading = timeline.start_velocity(i)
 		if _skill_view != null:

@@ -13,12 +13,13 @@ const Art := preload("res://ui/art.gd")
 const Backdrop := preload("res://ui/backdrop.gd")
 const Brand := preload("res://ui/brand.gd")
 const Ui := preload("res://ui/ui.gd")
-const LobbyUi := preload("res://ui/lobby_ui.gd")
 const LoginButton := preload("res://ui/login_button.gd")
-const LoginMark := preload("res://ui/login_mark.gd")
 const ConsentRow := preload("res://ui/consent_row.gd")
 const Consent := preload("res://core/consent.gd")
 const LegalPopup := preload("res://ui/legal_popup.gd")
+const ProviderToast := preload("res://ui/provider_toast.gd")
+const GoogleSignIn := preload("res://core/google_sign_in.gd")
+const AccountLink := preload("res://core/account_link.gd")
 
 ## The login picture's part kept on any screen: the five, head to feet (texture UV); the crop and the
 ## band a tall screen leaves go to the sky (align: the picture sits low).
@@ -36,9 +37,8 @@ const BUTTON_GAP := 12
 const CONSENT_GAP := 18
 ## Space kept between the logo's bottom and the column.
 const LOGO_GAP := 16
-const TOAST_SEC := 1.8
 ## A failed login's message colour on the white toast.
-const ERROR := Color(0.8, 0.14, 0.12)
+const ERROR := ProviderToast.ERROR
 
 var consent := Consent.new()
 var _buttons: Array[Button] = []
@@ -105,8 +105,26 @@ func _login_apple() -> void:
 	_coming_soon("apple") # Sign in with Apple goes here, then its token to the server as _login_guest() does
 
 
+## Google: the system sign-in sheet (core/google_sign_in.gd), then POST /auth/provider-login with its
+## id_token (core/account_link.gd): a linked guest account comes back, an unknown Google account starts
+## a new one (onboarding). Cancelled: nothing; a failure: its short toast. "Sắp ra mắt" where this
+## platform has no sheet or client ID (Windows, Linux).
 func _login_google() -> void:
-	_coming_soon("google") # Google Sign-In goes here
+	if not GoogleSignIn.available():
+		_coming_soon("google")
+		return
+	_set_busy(true)
+	var r: Dictionary = await AccountLink.login_google(GoogleSignIn.for_platform(), Api)
+	if r.get("ok", false):
+		var d: Dictionary = r["data"]
+		Session.set_tokens(str(d["accessToken"]), str(d.get("refreshToken", "")), str(d["playerId"]), str(d.get("displayName", "")))
+		GameSocket.open()
+		_enter()
+		return
+	var message := AccountLink.error_text(r)
+	if message != "":
+		_toast("google", message, ERROR)
+	_set_busy(false)
 
 
 func _login_facebook() -> void:
@@ -148,40 +166,6 @@ func _coming_soon(provider: String) -> void:
 	_toast(provider, "Sắp ra mắt", LoginButton.TEXT)
 
 
-## A white card near the top: the provider's mark and a short message; it replaces the one showing.
+## The white sign-in toast near the top (ui/provider_toast.gd).
 func _toast(provider: String, message: String, color: Color) -> void:
-	var old := get_node_or_null("Toast")
-	if old != null:
-		old.name = "OldToast"
-		old.queue_free()
-	var card := PanelContainer.new()
-	card.name = "Toast"
-	card.mouse_filter = MOUSE_FILTER_IGNORE
-	var box := LobbyUi.box(Color.WHITE, 16, 14, LoginButton.EDGE, 2)
-	box.content_margin_left = 20
-	box.content_margin_right = 26
-	box.shadow_color = LoginButton.SHADOW
-	box.shadow_size = 8
-	box.shadow_offset = Vector2(0, 3)
-	card.add_theme_stylebox_override("panel", box)
-	var row := Ui.hbox(12)
-	row.mouse_filter = MOUSE_FILTER_IGNORE
-	var mark := LoginMark.new(provider)
-	mark.custom_minimum_size = Vector2(34, 34)
-	row.add_child(mark)
-	var l := Ui.label(message, 24)
-	l.add_theme_font_override("font", LobbyUi.bold())
-	l.add_theme_color_override("font_color", color)
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(l)
-	card.add_child(row)
-	card.set_anchors_preset(PRESET_CENTER_TOP)
-	card.grow_horizontal = GROW_DIRECTION_BOTH
-	card.position.y = 24
-	add_child(card)
-	card.modulate.a = 0.0
-	var t := card.create_tween()
-	t.tween_property(card, "modulate:a", 1.0, 0.15)
-	t.tween_interval(TOAST_SEC)
-	t.tween_property(card, "modulate:a", 0.0, 0.3)
-	t.tween_callback(card.queue_free)
+	ProviderToast.show(self, provider, message, color)

@@ -36,8 +36,14 @@ func _on_event(event: String, data: Variant) -> void:
 	_run(model.on_event(event, data, now()))
 
 
-func list(query: String) -> void:
-	_run(model.list(query))
+## ListOnlinePlayers: at_page ≥ 1 that page, 0 the page shown (page 1 for a new query).
+func list(query: String, at_page: int = 0) -> void:
+	_run(model.list(query, at_page))
+
+
+## The page before (-1) or after (+1) the one shown.
+func list_page(step: int) -> void:
+	_run(model.list_page(step))
 
 
 func invite(player_id: String) -> void:
@@ -77,6 +83,14 @@ func select_queue(queue: String) -> void:
 ## LeaveLobby (every LeaveLobby of the client goes through here, so the party knows it left).
 func leave() -> void:
 	_run(model.leave())
+
+
+## Signed out (core/logout.gd): leaves the lobby (LeaveLobby while the socket is still up) and
+## forgets the party, my invites, the invite shown to me and the online players.
+func reset_account() -> void:
+	if model.in_lobby():
+		GameSocket.send("LeaveLobby", {})
+	model = PartyModel.new()
 
 
 func _run(actions: Array) -> void:

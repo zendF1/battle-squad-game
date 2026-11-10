@@ -2,16 +2,18 @@ extends Control
 ## The Home lobby (a Gunny-style mobile lobby). Corners: the player (avatar letter, name, EXP
 ## bar, "Lv.N"; tap opens the Nhân vật page) top-left with the rank chip beside it (grade insignia,
 ## "Binh nhì 2", the division's points; tap: the rank popup, screens/ranked/rank_chip.gd), the wallet pills top-right, the connection
-## state top-centre, one round shortcut per page down the right (Nhân vật, Kho đồ, Nâng cấp,
+## state top-centre, the gear right of the wallet (the settings popup, settings_popup.gd), one round shortcut per page down the right (Nhân vật, Kho đồ, Nâng cấp,
 ## Hồ sơ, Shop, Xếp hạng: the trophy, a code-drawn glyph), the selected character's icon card on the left (character_card.gd; no sentences: its element chain,
 ## ui/element_chain.gd, beaten by → element → beats; its skill's picture, ui/skill_button.gd, a tap
 ## opens the skill's popup; Lực chiến (the power glyph and the server's number, ui/power_tag.gd); heart / sword /
 ## shield with Máu, Sát thương, Phòng thủ; its name and
 ## level are on the stage), the "Mốc thưởng" button (a red badge with the claimable count, hidden at 0; "Có mốc
-## thưởng mới!" once when the count rose since the player last saw it) and "Nhiệm vụ" (the daily
+## thưởng mới!" once when the count rose since the player last saw it), "Nhiệm vụ" (the daily
 ## missions; a red dot while a mission, chest or weekly reward is claimable, reloaded each time
-## the lobby shows) above a placeholder chat box bottom-left and the mode card with "BẮT ĐẦU"
-## bottom-right.
+## the lobby shows), "Bạn bè" (the friends page; a red count of the requests waiting for me) and
+## "Bang hội" (the guild's crest, screens/guild/guild_button.gd; a red dot for invitations while not
+## in a guild) above the chat box bottom-left (screens/social/chat_box.gd: the newest Thế giới /
+## Bang hội lines; a tap opens the chat popup) and the mode card with "BẮT ĐẦU" bottom-right.
 ## Centre stage: the worn title's plate (ui/title_plate.gd; nothing without one) over the selected
 ## character's name and level, the character drawn big on a pedestal with
 ## its hands free; the gun it wears (its basic gun when none) rests on the pedestal at its left
@@ -51,6 +53,8 @@ signal open_milestones
 signal open_daily
 signal open_modes
 signal open_leaderboard
+signal open_guild
+signal open_friends
 signal background_changed(key: String)
 
 const Ui := preload("res://ui/ui.gd")
@@ -64,7 +68,10 @@ const LoadoutModel := preload("res://screens/loadout_model.gd")
 const LobbyModel := preload("res://screens/home/lobby_model.gd")
 const Progress := preload("res://screens/home/progress.gd")
 const ShopTab := preload("res://screens/home/shop_tab.gd")
-const FakeChat := preload("res://screens/home/fake_chat.gd")
+const ChatBox := preload("res://screens/social/chat_box.gd")
+const ChatPopup := preload("res://screens/social/chat_popup.gd")
+const SocialGlyphs := preload("res://screens/social/social_glyphs.gd")
+const FriendsModel := preload("res://screens/social/friends_model.gd")
 const MilestonePage := preload("res://screens/home/milestone_page.gd")
 const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
@@ -77,11 +84,14 @@ const Modal := preload("res://ui/modal.gd")
 const ModeSelectModel := preload("res://screens/home/mode_select_model.gd")
 const PartyLayout := preload("res://screens/home/party_layout.gd")
 const BossCardModel := preload("res://screens/home/boss_card_model.gd")
+const BossTrail := preload("res://ui/boss_trail.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const CharacterCard := preload("res://screens/home/character_card.gd")
 const ModeSelect := preload("res://screens/home/mode_select.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
+const GuildButton := preload("res://screens/guild/guild_button.gd")
+const SettingsPopup := preload("res://screens/home/settings_popup.gd")
 
 const MARGIN := 18
 const STAGE := Vector2(560, 590)
@@ -119,6 +129,7 @@ var _drag_from := -1.0
 
 var _milestone_badge: PanelContainer
 var _daily_dot: Control
+var _friends_badge: PanelContainer
 
 var rank_chip: RankChip
 
@@ -128,6 +139,7 @@ var _mode_name: Label
 var _mode_lock: Label # the member's "Chủ phòng chọn chế độ"
 var _mode_runs: HBoxContainer # a boss mode's gift box and the big-reward runs left, "×2"
 var _mode_runs_text: Label
+var _mode_trail: HBoxContainer # a boss mode's day under rules 2 (ui/boss_trail.gd)
 var _mode_swap: Button
 var _start: Button
 var _slots: Array[PartySlot] = [] # a party mode's teammate slots (PartyLayout: 1 for 2v2, 3 for a boss)
@@ -154,14 +166,19 @@ func _ready() -> void:
 	_pin(rank_chip, 0, 0, MARGIN + PLAYER_W + 14, MARGIN + 14)
 	_conn = LobbyUi.text("", 22, Color.WHITE, true)
 	_pin(_conn, 0.5, 0, 0, MARGIN + 6)
+	var gear := _build_settings_button()
+	_pin(gear, 1, 0, -MARGIN, MARGIN)
 	wallet = WalletPills.new()
-	_pin(wallet, 1, 0, -MARGIN, MARGIN)
+	_pin(wallet, 1, 0, -MARGIN - SETTINGS - SETTINGS_GAP, MARGIN)
+	wallet.resized.connect(func() -> void: gear.position.y = wallet.position.y + (wallet.size.y - gear.size.y) / 2.0)
 	_pin(_build_shortcuts(), 1, 0, -MARGIN - 6, 112)
 	_pin(_build_info_card(), 0, 0, MARGIN, 150)
 	_pin(_build_chat(), 0, 1, MARGIN, -MARGIN)
 	var rewards := Ui.hbox(20)
 	rewards.add_child(_build_milestone_button())
 	rewards.add_child(_build_daily_button())
+	rewards.add_child(_build_friends_button())
+	rewards.add_child(GuildButton.make(REWARD_BUTTON, func(): open_guild.emit()))
 	_pin(rewards, 0, 1, MARGIN + 6, -MARGIN - CHAT_H - 12)
 	_pin(_build_mode_card(), 1, 1, -MARGIN, -MARGIN)
 
@@ -215,6 +232,9 @@ func _on_visibility_changed() -> void:
 		PlayerState.need_equipment() # the stage character holds the weapon it wears
 		PlayerState.load_milestone_summary() # back from a match or a page: the badge count
 		PlayerState.load_daily() # the daily missions' red dot (a match or a purchase moves them)
+		GuildState.load_me() # my guild (the guild button, chat's Bang hội tab)
+		GuildState.load_invites() # the guild button's red dot
+		Router.social.load_friends() # the friends button's count of requests waiting
 		_render_character() # back from a page: whatever it loaded or bought
 		_render_milestones()
 		_render_daily()
@@ -314,6 +334,41 @@ func _render_conn() -> void:
 		_conn.add_theme_color_override("font_color", Ui.TONES["draw"])
 
 
+# ── Settings ────────────────────────────────────────────────────────────────
+
+const SETTINGS := 56 # px, the gear in the top-right corner
+const SETTINGS_GAP := 12 # between the gear and the wallet
+
+
+## The gear (a code-drawn cog on a dark disc, like the wallet pills) in the top-right corner, right
+## of the wallet and level with its middle: the settings popup (settings_popup.gd).
+func _build_settings_button() -> Button:
+	var b := Button.new()
+	b.name = "SettingsButton"
+	b.tooltip_text = "Cài đặt"
+	b.custom_minimum_size = Vector2(SETTINGS, SETTINGS)
+	LobbyUi.style_button(b, Color(0.05, 0.08, 0.2, 0.82), SETTINGS / 2, 0, Color(1, 1, 1, 0.85), 3)
+	b.add_theme_stylebox_override("hover", LobbyUi.box(Color(0.12, 0.16, 0.32, 0.9), SETTINGS / 2, 0, Color(1, 1, 1, 0.85), 3))
+	b.add_theme_stylebox_override("pressed", LobbyUi.box(Color(0.02, 0.04, 0.12, 0.9), SETTINGS / 2, 0, Color(1, 1, 1, 0.85), 3))
+	var g = GlyphIcon.make("gear", 0)
+	g.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	var inset := roundf(SETTINGS * 0.14)
+	g.offset_left = inset
+	g.offset_top = inset
+	g.offset_right = -inset
+	g.offset_bottom = -inset
+	b.add_child(g)
+	b.pressed.connect(open_settings)
+	return b
+
+
+func open_settings():
+	var showing := _host().get_node_or_null("SettingsPopup")
+	if showing != null and not showing.is_queued_for_deletion():
+		return showing
+	return SettingsPopup.open_on(_host())
+
+
 # ── Shortcuts and chat ──────────────────────────────────────────────────────
 
 const SHORTCUT := 62 # px, six round buttons fit above the mode card
@@ -392,59 +447,41 @@ func _render_daily() -> void:
 		_daily_dot.visible = PlayerState.daily_claimable() > 0
 
 
-## The chat placeholder: the fake recent lines and an input-looking row; a tap says chat is
-## coming later.
+## The chat box (screens/social/chat_box.gd): the newest Thế giới / Bang hội lines, polled while
+## the lobby shows; a tap opens the chat popup.
 func _build_chat() -> Control:
-	var b := Button.new()
-	LobbyUi.texture_button(b, "panel", 0, true)
-	b.custom_minimum_size = Vector2(490, CHAT_H)
-	b.pressed.connect(func(): Ui.toast(self, FakeChat.COMING_SOON))
-	var col := Ui.vbox(2)
-	col.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	col.offset_left = 14
-	col.offset_top = 10
-	col.offset_right = -14
-	col.offset_bottom = -10
-	b.add_child(col)
-	var lines := RichTextLabel.new()
-	lines.bbcode_enabled = true
-	lines.scroll_active = false
-	lines.autowrap_mode = TextServer.AUTOWRAP_OFF
-	lines.clip_contents = true
-	lines.size_flags_vertical = SIZE_EXPAND_FILL
-	lines.add_theme_font_size_override("normal_font_size", 18)
-	lines.add_theme_constant_override("line_separation", 0)
-	lines.add_theme_constant_override("outline_size", 4)
-	lines.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.08, 0.85))
-	lines.text = "\n".join(FakeChat.LINES.map(FakeChat.bbcode))
-	col.add_child(lines)
-	var input := LobbyUi.panel(0, 14, Color(0, 0, 0, 0.35))
-	input.custom_minimum_size.y = 40
-	col.add_child(input)
-	var row := Ui.hbox(8)
-	input.add_child(row)
-	var hint := LobbyUi.text(FakeChat.PLACEHOLDER, 19, Ui.TEXT_DIM)
-	hint.size_flags_horizontal = SIZE_EXPAND_FILL
-	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(_indent(hint, 12))
-	var send := LobbyUi.panel(0, 14, LobbyUi.ICON_COLORS["blue"])
-	send.custom_minimum_size = Vector2(56, 40)
-	var arrow := LobbyUi.icon("send", 28)
-	arrow.size_flags_horizontal = SIZE_SHRINK_CENTER
-	send.add_child(arrow)
-	row.add_child(send)
-	for c in [col, lines, input, row, hint, send, arrow]:
-		c.mouse_filter = MOUSE_FILTER_IGNORE
+	var b := ChatBox.make(490, CHAT_H)
+	b.pressed.connect(open_chat)
 	return b
 
 
-static func _indent(c: Control, left: int) -> MarginContainer:
-	var m := MarginContainer.new()
-	m.add_theme_constant_override("margin_left", left)
-	m.size_flags_horizontal = SIZE_EXPAND_FILL
-	m.mouse_filter = MOUSE_FILTER_IGNORE
-	m.add_child(c)
-	return m
+## The chat popup (screens/social/chat_popup.gd) over Home.
+func open_chat():
+	return ChatPopup.open_on(_host())
+
+
+## "Bạn bè": a round button with two people (the friends page) and the red count of the friend
+## requests waiting for me.
+func _build_friends_button() -> Control:
+	var col := LobbyUi.icon_button("unknown", "Bạn bè", LobbyUi.ICON_COLORS["blue"], func(): open_friends.emit(), REWARD_BUTTON)
+	col.name = "FriendsButton"
+	var b: Button = col.get_child(0)
+	b.icon = null # the two people are drawn (social_glyphs.gd)
+	var art := SocialGlyphs.glyph("friends", int(REWARD_BUTTON * 0.66))
+	art.position = Vector2(REWARD_BUTTON, REWARD_BUTTON) * 0.17
+	b.add_child(art)
+	_friends_badge = MilestonePage.badge()
+	_friends_badge.position = Vector2(REWARD_BUTTON - 22, -6)
+	b.add_child(_friends_badge)
+	Router.social.friends_changed.connect(_render_friends)
+	_render_friends()
+	return col
+
+
+func _render_friends() -> void:
+	var n := FriendsModel.pending_count(Router.social.friends)
+	_friends_badge.visible = n > 0
+	(_friends_badge.get_child(0) as Label).text = str(n)
 
 
 # ── Stage ───────────────────────────────────────────────────────────────────
@@ -649,6 +686,11 @@ func _build_mode_card() -> Control:
 	_mode_runs_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_mode_runs.add_child(_mode_runs_text)
 	texts.add_child(_mode_runs)
+	_mode_trail = Ui.hbox(0) # rules 2: the day's bonus runs in place of the gift box
+	_mode_trail.name = "ModeTrail"
+	_mode_trail.mouse_filter = MOUSE_FILTER_IGNORE
+	_mode_trail.visible = false
+	texts.add_child(_mode_trail)
 	_mode_lock = LobbyUi.text(ModeSelectModel.LOCKED_TEXT, 20, Ui.TEXT_DIM)
 	_mode_lock.name = "ModeLock"
 	_mode_lock.visible = false
@@ -792,7 +834,12 @@ func _render_mode() -> void:
 	if boss and is_visible_in_tree():
 		PlayerState.load_boss_runs() # (an answer at once re-renders: read the runs after it)
 	var c := BossCardModel.card(_mode, m, _mode, PlayerState.my_boss_runs(), 0) if boss else {}
-	_mode_runs.visible = boss and not member and str(c.get("runs_text", "")) != ""
+	var trail: Dictionary = c.get("trail", {})
+	_mode_runs.visible = boss and not member and trail.is_empty() and str(c.get("runs_text", "")) != ""
+	Ui.clear(_mode_trail)
+	_mode_trail.visible = not member and not trail.is_empty()
+	if not trail.is_empty():
+		_mode_trail.add_child(BossTrail.make(trail, 26, 34))
 	if boss: # the big-reward runs left today
 		_mode_runs_text.text = str(c["runs_text"])
 		_mode_runs.modulate = Color(1, 1, 1, 0.45) if int(c["runs_left"]) == 0 else Color.WHITE

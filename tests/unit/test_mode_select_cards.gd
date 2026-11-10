@@ -101,3 +101,32 @@ func test_boss_cards_gift_box_and_no_recommended_level() -> void:
 		eq(_texts(runs), ["×…"], "unknown runs")
 	page.free()
 	PlayerState.api = null
+
+
+func test_boss_card_trail_under_rules_2() -> void:
+	BossFixture.take()
+	PlayerState.boss_runs = {"resetAt": "2099-01-01T17:00:00Z", "bosses": [
+		{"bossId": "steel_robot", "dailyBonusRuns": 3, "bonusRunsLeft": 1, "rewardVersion": 2, "bonusRunsCompleted": 2, "bonusWins": 1,
+			"perfectRequiredWins": 3, "perfectRewardEligible": false, "perfectRewardGranted": false},
+		{"bossId": "lava_crab", "dailyBonusRuns": 3, "bonusRunsLeft": 2}]}
+	PlayerState._boss_runs_player = Session.player_id
+	PlayerState._boss_runs_msec = Time.get_ticks_msec()
+	var page := _open(1)
+	var robot: Control = page.find_child("Boss_boss_steel_robot", true, false)
+	if robot == null:
+		robot = page.find_children("Boss_*", "Button", true, false)[0]
+	var foot: Control = robot.find_child("Foot", true, false)
+	var trail: Node = foot.get_child(0)
+	check(trail is HBoxContainer and "pips" in trail, "the trail in the card's foot")
+	eq(trail.pips.map(func(p): return p.get_meta("state")), ["win", "loss", "open"], "the day so far")
+	eq(trail.chest.get_meta("state"), "lost", "the gold greyed")
+	check(foot.get_combined_minimum_size().x <= ModeSelect.CARD.x - ModeSelect.PAD * 2, "the trail and the clock fit the card")
+	check(foot.get_combined_minimum_size().y <= ModeSelect.CARD.y - ModeSelect.FOOT_TOP - ModeSelect.PAD, "and its foot")
+	var rules: Control = ModeSelect.chest_rules("steel_robot")
+	eq(rules.get_child_count(), 3, "win, the gold, loss")
+	eq(rules.find_children("*", "Label", true, false).size(), 0, "no words")
+	rules.free()
+	page.free()
+	PlayerState.boss_runs = {}
+	PlayerState._boss_runs_msec = -1
+	PlayerState.api = null

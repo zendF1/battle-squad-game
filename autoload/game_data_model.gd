@@ -297,6 +297,7 @@ static func _build_index() -> void:
 	_index["lobbyModes"] = _by(_list_in(section("modes"), "lobby"), "modeId")
 	_index["equipmentSlots"] = _by(_list_in(section("equipment"), "slots"), "id")
 	_index["typeWords"] = _by(_list_in(section("equipment"), "typeWords"), "word")
+	_index["gearSlots"] = _by(_list_in(section("gear"), "slots"), "slot")
 	_index["gunKinds"] = _by(list("gunKinds"), "id")
 	_index["bosses"] = _by(list("bosses"), "bossId")
 	_index["elements"] = _by(list("elements"), "elementId")
@@ -1053,6 +1054,20 @@ static func chest_upgrade_level(chest_id: String) -> int:
 	return _i(chest(chest_id), "upgradeLevel")
 
 
+# ── chat: the message length limit and the poll cadence (GET /gamedata chat) ──
+
+## The longest chat message in characters (Unicode code points, as the server counts); 0 unknown
+## (an older server: the client does not limit, the server refuses).
+static func chat_max_length() -> int:
+	return _i(section("chat"), "maxLength")
+
+
+## Seconds between two polls of a chat conversation while it is on screen; 0 unknown (no timed
+## polling: only on opening and after sending).
+static func chat_poll_sec() -> float:
+	return _f(section("chat"), "pollSec")
+
+
 # ── levels ──────────────────────────────────────────────────────────────────
 
 ## [{level, expRequired}] in level order (the total EXP to reach each level).
@@ -1079,15 +1094,34 @@ static func player_exp_per_level() -> int:
 
 # ── equipment ───────────────────────────────────────────────────────────────
 
+## Only an older server's formula uses it (EquipmentModel.upgrade_multiplier()).
 static func upgrade_step_per_level() -> float:
 	return _f(section("equipment"), "upgradeStepPerLevel")
+
+
+## The whole stat multiplier of each upgrade level (equipment.upgradeMultipliers, index = +level),
+## [] from an older server.
+static func upgrade_multipliers() -> Array:
+	return number_list(section("equipment").get("upgradeMultipliers"))
+
+
+## An array of numbers as floats, [] when `v` is anything else.
+static func number_list(v: Variant) -> Array:
+	var out: Array = []
+	if v is Array:
+		for n in v:
+			if not (n is int or n is float):
+				return []
+			out.append(float(n))
+	return out
 
 
 static func max_upgrade_level() -> int:
 	return _i(section("equipment"), "maxUpgradeLevel")
 
 
-## [[level, bonus], ...] ascending.
+## [[level, bonus], ...] ascending. The levels keep their meaning (colours, safe zones, unlocks);
+## only an older server's formula uses the bonus.
 static func upgrade_milestones() -> Array:
 	var out: Array = []
 	for m in _list_in(section("equipment"), "milestones"):
@@ -1170,6 +1204,89 @@ static func equipment_slot_ids() -> Array:
 static func equipment_slot_name(slot: String) -> String:
 	var n := _s(_entry("equipmentSlots", slot), "name")
 	return n if n != "" else slot
+
+
+# ── gear: passives, upgrade milestones, awakens, sets (GET /gamedata gear) ──
+
+## [{slot, passive, awaken, button}] in the server's order.
+static func gear_slots() -> Array:
+	return _list_in(section("gear"), "slots")
+
+
+## A slot's gear entry ({slot, passive, awaken, button}), {} for an unknown slot.
+static func gear_slot(slot: String) -> Dictionary:
+	return _entry("gearSlots", slot)
+
+
+## The passive kind of a slot ("crit_damage"...), "" unknown.
+static func gear_passive_kind(slot: String) -> String:
+	return _s(gear_slot(slot), "passive")
+
+
+## The awaken kind of a slot ("no_wind"...), "" unknown.
+static func gear_awaken_kind(slot: String) -> String:
+	return _s(gear_slot(slot), "awaken")
+
+
+## Whether a slot's awaken is a match button (weapon, gloves, boots), false for an unknown slot.
+static func gear_awaken_button(slot: String) -> bool:
+	return _b(gear_slot(slot), "button")
+
+
+## The slot whose awaken is `kind` ("revive" → "armor"), "" none.
+static func gear_slot_of_awaken(kind: String) -> String:
+	for e in gear_slots():
+		if _s(e, "awaken") == kind and kind != "":
+			return _s(e, "slot")
+	return ""
+
+
+## The +level milestones of the gear effects: glowLevel (the weapon's bullet glow),
+## skillRankLevel (the weapon's skill a rank higher), awakenLevel (the piece's awaken); 0 unknown.
+static func gear_glow_level() -> int:
+	return _i(section("gear"), "glowLevel")
+
+
+static func gear_skill_rank_level() -> int:
+	return _i(section("gear"), "skillRankLevel")
+
+
+static func gear_awaken_level() -> int:
+	return _i(section("gear"), "awakenLevel")
+
+
+## The set thresholds: [setStatPieces, setPassivePieces, setEffectPieces] (2, 4, 6), the ones the
+## server sends (0s left out).
+static func gear_set_thresholds() -> Array:
+	var g := section("gear")
+	return [_i(g, "setStatPieces"), _i(g, "setPassivePieces"), _i(g, "setEffectPieces")].filter(func(n): return n > 0)
+
+
+## The pieces a full set has (setEffectPieces, 6): the pips drawn.
+static func gear_set_size() -> int:
+	return _i(section("gear"), "setEffectPieces")
+
+
+## A number of the gear rules (reviveHpPct, critImmuneShieldPct, bootsEnergyFactor,
+## setPassiveFactor...), 0 when missing.
+static func gear_value(key: String) -> float:
+	return _f(section("gear"), key)
+
+
+## The 6-piece effect value of a tier index (setEffects[].value), 0 none.
+static func gear_set_effect_value(index: int) -> float:
+	for e in _list_in(section("gear"), "setEffects"):
+		if _i(e, "index") == index and index > 0:
+			return _f(e, "value")
+	return 0.0
+
+
+## The 6-piece effect id of a tier index ("shield", "lifesteal", "cleanse", "fire"), "" none.
+static func gear_set_effect(index: int) -> String:
+	for e in _list_in(section("gear"), "setEffects"):
+		if _i(e, "index") == index and index > 0:
+			return _s(e, "effect")
+	return ""
 
 
 ## The Vietnamese word of a catalog item name's type part (lower case, "shock rifle" → "Súng
@@ -1292,6 +1409,13 @@ static func bosses() -> Array:
 ## A boss by id ({} unknown).
 static func boss(boss_id: String) -> Dictionary:
 	return _entry("bosses", boss_id)
+
+
+## A boss's chests under rules 2 ({winChests, lossChests, perfect: {requiredWins, chests}}, each
+## chest {chestId, quantity}); {} from an older server. GET /boss/runs says which rules apply.
+static func boss_chests_v2(boss_id: String) -> Dictionary:
+	var v = boss(boss_id).get("chestsV2")
+	return v if v is Dictionary else {}
 
 
 ## The boss a queue (or a boss match's mode: the same id) fights: the bosses entry with that queue,
@@ -1521,3 +1645,23 @@ static func unit_element(p: Dictionary) -> String:
 		return boss_element(_s(p, "bossId"))
 	return character_element(_s(p, "characterId"))
 
+
+
+# ── guild (GET /gamedata guild, the guild_rules row) ────────────────────────
+
+## The guild rules: {create_currency ("gem" | "coin", "" unknown), create_amount, max_members,
+## max_deputies, exp_per_level, skills: [{level, hp_percent, defense_percent}] (level order; each
+## adds its bonus from that guild level), quest_target, quest_exp, dungeon_exp, name_min,
+## name_max}; zeros / [] from a server without the block.
+static func guild_rules() -> Dictionary:
+	var g := section("guild")
+	var cost := _sub(g, "createCost")
+	var skills: Array = []
+	for s in _list_in(g, "skills"):
+		skills.append({"level": _i(s, "level"), "hp_percent": _i(s, "hpPercent"), "defense_percent": _i(s, "defensePercent")})
+	skills.sort_custom(func(a, b): return int(a["level"]) < int(b["level"]))
+	var quest := _sub(g, "quest")
+	return {"create_currency": _s(cost, "currency"), "create_amount": _i(cost, "amount"),
+		"max_members": _i(g, "maxMembers"), "max_deputies": _i(g, "maxDeputies"), "exp_per_level": _i(g, "expPerLevel"),
+		"skills": skills, "quest_target": _i(quest, "target"), "quest_exp": _i(quest, "rewardExp"),
+		"dungeon_exp": _i(g, "dungeonRewardExp"), "name_min": _i(g, "nameMin"), "name_max": _i(g, "nameMax")}

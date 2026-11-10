@@ -5,19 +5,27 @@ extends Control
 ##   level colour, the aura from +1); centre, the selected piece's name, then the piece now and
 ##   after one more level side by side (UpgradeModel.preview: each on its hexagon with that
 ##   level's aura and tint, "+N" in its colour, its stats as points over the battle value, the
-##   gains in green on the right; at +16 only the piece, centred, and "Đã đạt cấp tối đa") and
-##   what a failure does ("Thất bại: về +6" / "giữ nguyên +3"), all centred in the panel; right, the player's stones by level (icon, power, owned, − n +),
-##   "Tự chọn" (the least power reaching the cap, UpgradeModel.auto_pick; a weapon needs ×3 power) /
-##   "Bỏ chọn", the success chance bar "Tỉ lệ thành công 64% (tối đa 64%)", the "Nâng cấp cẩn
-##   thận" toggle (hidden when the step has none; off with "Thiếu kim cương" when the
-##   gems do not cover it; on: "Tỉ lệ thành công 28%" (the stones' chance × the step's bonus), the
-##   bar shows the stone part in gold and the careful part in gem cyan, the button shows the gem
-##   price and "Dùng 120 kim cương cho nâng cấp cẩn thận?" confirms; it stays on between rolls and
-##   turns off when another piece is picked), "Mua đá" (Shop → Đá nâng cấp) and NÂNG CẤP (off with
-##   the reason under it: no stones, +16, not enough gems for careful, the equipment or stones
-##   reloading; nothing under it when it can be pressed). The result plays on the piece (success: flash, rings and
-##   sparkles, a bigger burst in the new colour when it reaches a milestone; failure: red flash,
-##   shake, smoke) with a toast; the piece and the stones reload (PlayerState).
+##   passive as its picture and value, the gains in green on the right; at +16 only the piece, centred, and "Đã đạt cấp tối đa"), what the
+##   next level unlocks as pictures (GearModel.milestone_unlocks(): +10 bullet glow, +14 skill rank
+##   up for a weapon, +16 the slot's awaken) and
+##   what a failure does ("Thất bại: về +6" / "giữ nguyên +3"), all centred in the panel; right, the player's stones by level (icon, power, owned, − n +)
+##   under "Đá nâng cấp" with "Tự chọn" (fills to the required power with the least stones,
+##   UpgradeModel.auto_pick) / "Bỏ chọn" beside it, then the fill and the chance as separate things:
+##   the gauge is the power loaded towards the required power C ("3.600 / 9.000", "Đã nạp 40%",
+##   gold, green once full, orange with a whole stone to spare; the line under it warns of power
+##   above C, the stones are still consumed) and never reads as the chance. The chance is the two
+##   mirrored tiles under it: "Tỉ lệ thường" and "Tỉ lệ cẩn thận" with the maximum each reaches,
+##   the one that will roll selected; tapping a tile picks it (one centred tile when the step has
+##   no careful; "Thiếu kim cương" when the gems do not cover it; careful stays on between rolls
+##   and turns off when another piece is picked). NÂNG CẤP is off with the reason under it (no
+##   stones, stones too weak for even 0.01%, +16, not enough coin, not enough gems for careful, the
+##   equipment or stones reloading; nothing under it when it can be pressed) and shows what the
+##   attempt costs: coin icon + price (a weapon's is higher), then the careful gems. A careful
+##   attempt, or one with a whole stone to spare, confirms first with a popup. The numbers are
+##   UpgradeModel.chance(): the server's formula, also for an older catalog. The result plays on
+##   the piece (success: flash, rings and sparkles, a bigger burst in the new colour when it reaches
+##   a milestone; failure: red flash, shake, smoke) with a toast; the piece and the stones reload
+##   (PlayerState).
 ## - "Ghép đá": pick a level (the stones with their owned ×N, the name only as the tooltip), ×2 /
 ##   ×3 / ×4 stones (the game data's merge counts), the stones ×N → the next one as pictures with
 ##   the chance (count × mergeRatePerItem %), GHÉP; the rules behind the "i"; the result animates on the new stone,
@@ -44,6 +52,8 @@ const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const Fmt := preload("res://core/fmt.gd")
 const RewardReveal := preload("res://ui/reward_reveal.gd")
 const RewardModel := preload("res://ui/reward_model.gd")
+const GearModel := preload("res://screens/home/gear_model.gd")
+const GearIcon := preload("res://ui/gear_icon.gd")
 
 const SUB_TABS := ["Nâng cấp", "Ghép đá"]
 const UPGRADE := 0
@@ -62,12 +72,12 @@ const DIM := Color(0.8, 0.88, 1.0)
 const WARN := Color(1.0, 0.72, 0.3)
 const BAD := Color(1.0, 0.45, 0.45)
 const GOOD := Color(0.45, 0.9, 0.55)
-## The careful part of the chance bar and the toggle's accent (the gem's cyan).
+## The careful chance tile's accent (the gem's cyan).
 const GEM_CYAN := Color(0.3, 0.9, 1.0)
 const CAREFUL_TITLE := "Nâng cấp cẩn thận"
-## The careful toggle's height: the title alone, or over the red "Thiếu kim cương".
-const CAREFUL_H := 48
-const CAREFUL_H_SHORT := 58
+const TILE_H := 96 # a chance tile
+const TILE_BG := Color(0.08, 0.11, 0.26, 0.85)
+const TILE_DIM := 0.62 # how a tile that will not roll shows
 
 ## Where dialogs and toasts go (Home); defaults to this page.
 var overlay: Control
@@ -90,15 +100,19 @@ var _chips: Array[Button]
 var _list: VBoxContainer
 var _center: VBoxContainer
 var _stone_list: VBoxContainer
-var _chance_bar: ProgressBar # the stones' part (gold), over _careful_bar
-var _careful_bar: ProgressBar # the final chance with careful (cyan), under _chance_bar
-var _careful_btn: Button
-var _careful_check: TextureRect
-var _careful_title: Label
-var _careful_sub: Label
-var _go_text: HBoxContainer # NÂNG CẤP [gem] 120 when careful is on
+var _fill_box: VBoxContainer # the gauge: P / C, the fill, the over-fill warning
+var _fill_bar: ProgressBar
+var _power_label: Label # "3.600 / 9.000"
+var _fill_label: Label # "Đã nạp 40%": the fill, never the chance
+var _over_label: Label
+var _tiles: HBoxContainer # the two chance tiles, mirrored
+var _normal_tile: Dictionary # {button, box, check, title, value, sub}
+var _careful_tile: Dictionary
+var _go_text: HBoxContainer # NÂNG CẤP [coin] 2.500 [gem] 120: the coin of a priced step, the gem when careful is on
+var _go_coin: TextureRect
+var _go_coin_price: Label
+var _go_gem: TextureRect
 var _go_price: Label
-var _chance: Label
 var _go: Button
 var _reason: Label
 var _auto: Button
@@ -298,56 +312,46 @@ func _build_upgrade_page() -> Control:
 	row.add_child(right)
 	var rcol := Ui.vbox(10)
 	right.add_child(rcol)
-	rcol.add_child(LobbyUi.text("Đá nâng cấp", 26, Color.WHITE, true))
+	var head := Ui.hbox(8)
+	rcol.add_child(head)
+	var title := LobbyUi.text("Đá nâng cấp", 26, Color.WHITE, true)
+	title.size_flags_horizontal = SIZE_EXPAND_FILL
+	head.add_child(title)
+	_auto = _small_button("Tự chọn", _on_auto, 18)
+	_auto.custom_minimum_size = Vector2(112, 44)
+	head.add_child(_auto)
+	_clear = _small_button("Bỏ chọn", _on_clear, 18)
+	_clear.custom_minimum_size = Vector2(112, 44)
+	head.add_child(_clear)
 	_stone_list = Ui.vbox(6)
 	var scroll := Ui.scroll(_stone_list)
 	rcol.add_child(scroll)
-	var picks := Ui.hbox(10)
-	rcol.add_child(picks)
-	_auto = _small_button("Tự chọn", _on_auto)
-	_auto.size_flags_horizontal = SIZE_EXPAND_FILL
-	picks.add_child(_auto)
-	_clear = _small_button("Bỏ chọn", _on_clear)
-	_clear.size_flags_horizontal = SIZE_EXPAND_FILL
-	picks.add_child(_clear)
-	_chance = LobbyUi.text("", 22, Color.WHITE, true)
-	_chance.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	rcol.add_child(_chance)
-	# Two bars on one track: the final chance (cyan, careful) under the stones' part (gold).
-	var bars := Control.new()
-	bars.custom_minimum_size = Vector2(0, 18)
-	rcol.add_child(bars)
-	_careful_bar = Ui.bar(0.0, 18)
-	_careful_bar.name = "CarefulBar"
-	_careful_bar.add_theme_stylebox_override("fill", LobbyUi.box(GEM_CYAN, 9, 0))
-	_careful_bar.add_theme_stylebox_override("background", LobbyUi.box(Color(0, 0, 0, 0.45), 9, 0, Color(1, 1, 1, 0.15), 1))
-	_careful_bar.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	bars.add_child(_careful_bar)
-	_chance_bar = Ui.bar(0.0, 18)
-	_chance_bar.add_theme_stylebox_override("fill", LobbyUi.box(LobbyUi.GOLD, 9, 0))
-	_chance_bar.add_theme_stylebox_override("background", StyleBoxEmpty.new())
-	_chance_bar.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	bars.add_child(_chance_bar)
-	rcol.add_child(_build_careful())
+	rcol.add_child(_build_fill())
+	rcol.add_child(_build_tiles())
 	_go = LobbyUi.start_button("NÂNG CẤP")
 	_go.custom_minimum_size = Vector2(0, 84)
 	_go.add_theme_font_size_override("font_size", 34)
 	_go.pressed.connect(_on_upgrade)
 	rcol.add_child(_go)
 	_go_text = Ui.hbox(10)
-	_go_text.name = "GoCareful"
+	_go_text.name = "GoPriced"
 	_go_text.alignment = BoxContainer.ALIGNMENT_CENTER
 	_go_text.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	_go_text.offset_bottom = -6 # over the lip, like the button's own text
 	_go_text.mouse_filter = MOUSE_FILTER_IGNORE
-	var go_word := Ui.text("NÂNG CẤP", 34, LobbyUi.TEXT_DARK)
+	var go_word := Ui.text("NÂNG CẤP", 28, LobbyUi.TEXT_DARK)
 	go_word.add_theme_font_override("font", LobbyUi.bold())
 	go_word.mouse_filter = MOUSE_FILTER_IGNORE
 	_go_text.add_child(go_word)
-	var go_gem := LobbyUi.icon("gem", 34)
-	go_gem.mouse_filter = MOUSE_FILTER_IGNORE
-	_go_text.add_child(go_gem)
-	_go_price = Ui.text("", 30, LobbyUi.TEXT_DARK)
+	_go_coin = LobbyUi.icon("coin", 28)
+	_go_text.add_child(_go_coin)
+	_go_coin_price = Ui.text("", 25, LobbyUi.TEXT_DARK)
+	_go_coin_price.add_theme_font_override("font", LobbyUi.bold())
+	_go_coin_price.mouse_filter = MOUSE_FILTER_IGNORE
+	_go_text.add_child(_go_coin_price)
+	_go_gem = LobbyUi.icon("gem", 28)
+	_go_text.add_child(_go_gem)
+	_go_price = Ui.text("", 25, LobbyUi.TEXT_DARK)
 	_go_price.add_theme_font_override("font", LobbyUi.bold())
 	_go_price.mouse_filter = MOUSE_FILTER_IGNORE
 	_go_text.add_child(_go_price)
@@ -360,54 +364,105 @@ func _build_upgrade_page() -> Control:
 	return row
 
 
-## The "Nâng cấp cẩn thận" toggle: a check and the title (over a red "Thiếu kim cương" when the
-## gems do not cover it); the gem price shows on NÂNG CẤP. _render_chance() fills it.
-func _build_careful() -> Button:
-	_careful_btn = Button.new()
-	_careful_btn.name = "Careful"
-	_careful_btn.custom_minimum_size = Vector2(0, CAREFUL_H)
-	_careful_btn.focus_mode = FOCUS_NONE
-	_careful_btn.pressed.connect(_on_careful)
-	var row := Ui.hbox(10)
-	row.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	row.offset_left = 12
-	row.offset_right = -14
-	row.mouse_filter = MOUSE_FILTER_IGNORE
-	_careful_btn.add_child(row)
+## The gauge: the power line (P / C, the fill) over the bar, the over-fill warning under it.
+func _build_fill() -> VBoxContainer:
+	_fill_box = Ui.vbox(4)
+	_fill_box.name = "Fill"
+	var line := Ui.hbox(6)
+	_fill_box.add_child(line)
+	var icon := LobbyUi.icon("upgrade", 24)
+	icon.size_flags_vertical = SIZE_SHRINK_CENTER
+	line.add_child(icon)
+	_power_label = LobbyUi.text("", 22, Color.WHITE, true)
+	_power_label.name = "Power"
+	_power_label.size_flags_horizontal = SIZE_EXPAND_FILL
+	line.add_child(_power_label)
+	_fill_label = LobbyUi.text("", 19, DIM, true)
+	_fill_label.name = "FillText"
+	_fill_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	line.add_child(_fill_label)
+	_fill_bar = Ui.bar(0.0, 18)
+	_fill_bar.name = "FillBar"
+	_fill_bar.add_theme_stylebox_override("background", LobbyUi.box(Color(0, 0, 0, 0.45), 9, 0, Color(1, 1, 1, 0.15), 1))
+	_fill_box.add_child(_fill_bar)
+	_over_label = LobbyUi.text("", 17, WARN, true)
+	_over_label.name = "Over"
+	_over_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_over_label.visible = false
+	_fill_box.add_child(_over_label)
+	return _fill_box
+
+
+## The chance tiles: normal and careful, equal and mirrored around the centre; _render_tiles()
+## fills them, a tap picks the one that rolls.
+func _build_tiles() -> HBoxContainer:
+	_tiles = Ui.hbox(10)
+	_tiles.name = "Chances"
+	_normal_tile = _chance_tile("Normal", "Tỉ lệ thường", _on_careful.bind(false))
+	_tiles.add_child(_normal_tile["button"])
+	_careful_tile = _chance_tile("Careful", "Tỉ lệ cẩn thận", _on_careful.bind(true))
+	_tiles.add_child(_careful_tile["button"])
+	return _tiles
+
+
+## A chance tile: a radio box and its title over the chance, the maximum under it.
+func _chance_tile(node_name: String, title_text: String, on_press: Callable) -> Dictionary:
+	var b := Button.new()
+	b.name = node_name
+	b.custom_minimum_size = Vector2(0, TILE_H)
+	b.size_flags_horizontal = SIZE_EXPAND_FILL
+	b.focus_mode = FOCUS_NONE
+	b.pressed.connect(on_press)
+	var col := Ui.vbox(0)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	col.offset_bottom = -6
+	col.mouse_filter = MOUSE_FILTER_IGNORE
+	b.add_child(col)
+	var top := Ui.hbox(6)
+	top.alignment = BoxContainer.ALIGNMENT_CENTER
+	top.mouse_filter = MOUSE_FILTER_IGNORE
+	col.add_child(top)
 	var box := PanelContainer.new()
 	box.name = "Box"
-	box.custom_minimum_size = Vector2(32, 32)
+	box.custom_minimum_size = Vector2(22, 22)
 	box.size_flags_vertical = SIZE_SHRINK_CENTER
 	box.mouse_filter = MOUSE_FILTER_IGNORE
-	row.add_child(box)
-	_careful_check = LobbyUi.icon("check", 26)
-	_careful_check.mouse_filter = MOUSE_FILTER_IGNORE
-	box.add_child(_careful_check)
-	var texts := Ui.vbox(0)
-	texts.alignment = BoxContainer.ALIGNMENT_CENTER
-	texts.size_flags_horizontal = SIZE_EXPAND_FILL
-	texts.mouse_filter = MOUSE_FILTER_IGNORE
-	row.add_child(texts)
-	_careful_title = LobbyUi.text(CAREFUL_TITLE, 21, Color.WHITE, true)
-	_careful_title.mouse_filter = MOUSE_FILTER_IGNORE
-	texts.add_child(_careful_title)
-	_careful_sub = LobbyUi.text("", 15, BAD)
-	_careful_sub.visible = false
-	_careful_sub.mouse_filter = MOUSE_FILTER_IGNORE
-	texts.add_child(_careful_sub)
-	return _careful_btn
+	top.add_child(box)
+	var check := LobbyUi.icon("check", 18)
+	check.mouse_filter = MOUSE_FILTER_IGNORE
+	box.add_child(check)
+	var title := LobbyUi.text(title_text, 18, Color.WHITE, true)
+	title.mouse_filter = MOUSE_FILTER_IGNORE
+	top.add_child(title)
+	var value := LobbyUi.text("", 32, Color.WHITE, true)
+	value.name = "Value"
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	value.mouse_filter = MOUSE_FILTER_IGNORE
+	col.add_child(value)
+	var sub := LobbyUi.text("", 15, DIM)
+	sub.name = "Sub"
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.mouse_filter = MOUSE_FILTER_IGNORE
+	col.add_child(sub)
+	return {"button": b, "box": box, "check": check, "title": title, "value": value, "sub": sub}
 
 
-func _on_careful() -> void:
-	if _acting:
+func _on_careful(on: bool) -> void:
+	if _acting or _careful == on:
 		return
-	_careful = not _careful
+	_careful = on
 	_render_chance()
 
 
 ## The player's gems, -1 before the profile loads (the server checks then).
 func _gems() -> int:
 	return PlayerState.gem() if not PlayerState.profile.is_empty() else -1
+
+
+## The player's coin, -1 before the profile loads (the server checks then).
+func _coins() -> int:
+	return PlayerState.coin() if not PlayerState.profile.is_empty() else -1
 
 
 func _on_slot(slot: String) -> void:
@@ -586,7 +641,7 @@ func _render_center() -> void:
 		stats.size_flags_horizontal = SIZE_SHRINK_CENTER
 		_center.add_child(stats)
 		for r in view["rows"]:
-			stats.add_child(LobbyUi.text(r["label"], 21, DIM))
+			stats.add_child(_stat_label(r))
 			stats.add_child(_stat_cell(r["now_points"], r["now_battle"], "", false))
 	else:
 		# now | label (the arrow over it) | next: symmetric, so the pair sits in the panel's middle.
@@ -621,22 +676,45 @@ func _render_center() -> void:
 		# The stat rows: points with what they add in battle under them; the gains in green.
 		for r in view["rows"]:
 			grid.add_child(_stat_cell(r["now_points"], r["now_battle"]))
-			var label := LobbyUi.text(r["label"], 21, DIM)
-			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			label.size_flags_vertical = SIZE_FILL
-			grid.add_child(label)
+			grid.add_child(_stat_label(r))
 			grid.add_child(_stat_cell(r["next_points"], r["next_battle"], r["delta"] if r["up"] else ""))
 	if view["note"] != "":
 		var note := LobbyUi.text(view["note"], 24, LobbyUi.GOLD, true)
 		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_center.add_child(note)
+	# What the next level unlocks besides stats, as pictures (the weapon's +10 bullet glow and +14
+	# skill rank up, the slot's +16 awaken), centred.
+	if not view["maxed"]:
+		var unlocks := GearModel.milestone_unlocks(int(cols[1]["level"]), str(item.get("slot", piece.get("slot", ""))))
+		if not unlocks.is_empty():
+			var row := Ui.hbox(14)
+			row.name = "Unlocks"
+			row.alignment = BoxContainer.ALIGNMENT_CENTER
+			row.mouse_filter = MOUSE_FILTER_IGNORE
+			for k in unlocks:
+				row.add_child(GearIcon.make(k, 56))
+			_center.add_child(row)
 	var fail: String = view["fail"]
 	if fail != "":
 		var reset := not fail.contains("giữ nguyên")
 		var fl := LobbyUi.text(fail, 21, WARN if reset else DIM, reset)
 		fl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_center.add_child(fl)
+
+
+## A preview row's name, the passive's picture in its place (UpgradeModel.passive_step()).
+static func _stat_label(r: Dictionary) -> Control:
+	if r.has("glyph"):
+		var box := CenterContainer.new()
+		box.name = "PassiveGlyph"
+		box.mouse_filter = MOUSE_FILTER_IGNORE
+		box.add_child(GearIcon.make(str(r["glyph"]), 36))
+		return box
+	var label := LobbyUi.text(r["label"], 21, DIM)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.size_flags_vertical = SIZE_FILL
+	return label
 
 
 ## "+440 điểm" over a dim "+22.000" (the battle value, left out when unknown), centred in a
@@ -750,15 +828,23 @@ func _render_chance() -> void:
 	var level := int(piece.get("upgradeLevel", 0))
 	var c := _chance_of(piece)
 	var rated := not piece.is_empty() and not UpgradeModel.rate(PlayerState.catalog, level).is_empty()
-	_chance.text = UpgradeModel.chance_text(c) if rated else "Tỉ lệ thành công —"
-	_chance_bar.value = c["stone"] / 100.0 if rated else 0.0
-	_careful_bar.value = c["percent"] / 100.0 if rated and c["careful"] else 0.0
-	_render_careful(piece, c)
+	_fill_box.visible = rated
+	_tiles.visible = rated
+	if rated:
+		_render_fill(c)
+		_render_tiles(c)
 	var reason := _upgrade_reason(piece)
 	_go.disabled = reason != ""
-	_go.text = "" if c["careful"] else "NÂNG CẤP"
-	_go_text.visible = c["careful"]
+	var coin := int(c["coin"]) if rated else 0
+	var priced: bool = c["careful"] or coin > 0
+	_go.text = "" if priced else "NÂNG CẤP"
+	_go_text.visible = priced
 	_go_text.modulate = Color(1, 1, 1, 0.5 if _go.disabled else 1.0)
+	_go_coin.visible = coin > 0
+	_go_coin_price.visible = coin > 0
+	_go_coin_price.text = Fmt.thousands(coin)
+	_go_gem.visible = c["careful"]
+	_go_price.visible = c["careful"]
 	_go_price.text = Fmt.thousands(int(c["gem"]))
 	_reason.text = reason
 	_reason.visible = reason != "" # only why the button is off; the stone list takes the room
@@ -772,27 +858,54 @@ func _chance_of(piece: Dictionary) -> Dictionary:
 		UpgradeModel.piece_slot(PlayerState.catalog, piece), _careful)
 
 
-## The careful toggle: hidden when the step has none (or no piece / +16); off (greyed, "Thiếu kim
-## cương") when the gems do not cover it, unless it is on (a press turns it off).
-func _render_careful(piece: Dictionary, c: Dictionary) -> void:
-	var level := int(piece.get("upgradeLevel", 0))
-	var cf := UpgradeModel.careful(PlayerState.catalog, level)
-	_careful_btn.visible = not piece.is_empty() and cf["offered"]
-	if not _careful_btn.visible:
+## The gauge: P / C, the fill, the bar gold while filling, green when full, orange with a whole
+## stone to spare; the warning shows only above C.
+func _render_fill(c: Dictionary) -> void:
+	_power_label.text = UpgradeModel.power_text(c)
+	_fill_label.text = UpgradeModel.fill_text(c)
+	_fill_bar.value = float(c["fill"])
+	var full := int(c["fill_bp"]) >= 10000
+	var color: Color = WARN if c["spare"] else (GOOD if full else LobbyUi.GOLD)
+	_fill_bar.add_theme_stylebox_override("fill", LobbyUi.box(color, 9, 0))
+	_over_label.text = UpgradeModel.over_text(c)
+	_over_label.add_theme_color_override("font_color", WARN if c["spare"] else DIM)
+	_over_label.visible = c["wasted"]
+
+
+## The two chance tiles; only the normal one, alone in the centre, when the step has no careful.
+## Careful is greyed with "Thiếu kim cương" when the gems do not cover it, unless it is on (the
+## other tile turns it off).
+func _render_tiles(c: Dictionary) -> void:
+	var offered: bool = c["offered"]
+	var on: bool = c["careful"]
+	_careful_tile["button"].visible = offered
+	_normal_tile["box"].visible = offered
+	_render_tile(_normal_tile, UpgradeModel.bp_text(int(c["stone_bp"])), "Tối đa %s" % UpgradeModel.bp_text(int(c["max_bp"])), not on, LobbyUi.GOLD)
+	_normal_tile["button"].disabled = _acting
+	if not offered:
 		return
 	var gems := _gems()
-	var short := gems >= 0 and gems < int(cf["gem"])
-	var on := _careful
-	_careful_btn.disabled = _acting or (short and not on)
-	var accent := GEM_CYAN if on else Color(1, 1, 1, 0.12)
-	LobbyUi.style_button(_careful_btn, Color(0.08, 0.2, 0.32, 0.95) if on else Color(0.08, 0.11, 0.26, 0.85), 12, 6, accent, 2)
-	var box: PanelContainer = _careful_check.get_parent()
-	box.add_theme_stylebox_override("panel", LobbyUi.box(GEM_CYAN if on else Color(0, 0, 0, 0.35), 8, 3, Color(1, 1, 1, 0.5) if not on else GEM_CYAN, 2))
-	_careful_check.modulate = Color(0.04, 0.1, 0.2) if on else Color(1, 1, 1, 0)
-	_careful_title.add_theme_color_override("font_color", GEM_CYAN if on else (Ui.TEXT_DIM if short else Color.WHITE))
-	_careful_sub.text = ("Thiếu kim cương — chạm để tắt" if on else "Thiếu kim cương") if short else ""
-	_careful_sub.visible = short
-	_careful_btn.custom_minimum_size.y = CAREFUL_H_SHORT if short else CAREFUL_H
+	var short := gems >= 0 and gems < int(UpgradeModel.careful(PlayerState.catalog, int(_piece().get("upgradeLevel", 0)))["gem"])
+	_render_tile(_careful_tile, UpgradeModel.bp_text(int(c["careful_bp"])),
+		"Thiếu kim cương" if short else "Tối đa %s" % UpgradeModel.bp_text(int(c["careful_max_bp"])), on, GEM_CYAN)
+	_careful_tile["sub"].add_theme_color_override("font_color", BAD if short else DIM)
+	_careful_tile["button"].disabled = _acting or (short and not on)
+
+
+## One tile: selected = it is the chance that rolls (its accent on the border, the check in its
+## box), the other one dimmed.
+func _render_tile(t: Dictionary, value: String, sub: String, selected: bool, accent: Color) -> void:
+	var b: Button = t["button"]
+	LobbyUi.style_button(b, Color(accent.darkened(0.72), 0.95) if selected else TILE_BG, 12, 4, accent if selected else Color(1, 1, 1, 0.12), 2)
+	var box: PanelContainer = t["box"]
+	box.add_theme_stylebox_override("panel", LobbyUi.box(accent if selected else Color(0, 0, 0, 0.35), 6, 2, accent if selected else Color(1, 1, 1, 0.5), 2))
+	(t["check"] as Control).modulate = Color(0.04, 0.1, 0.2) if selected else Color(1, 1, 1, 0)
+	(t["value"] as Label).text = value
+	(t["value"] as Label).add_theme_color_override("font_color", accent)
+	(t["sub"] as Label).text = sub
+	(t["sub"] as Label).add_theme_color_override("font_color", DIM)
+	for key in ["title", "value", "sub"]:
+		(t[key] as Control).modulate.a = 1.0 if selected else TILE_DIM
 
 
 func _upgrade_reason(piece: Dictionary) -> String:
@@ -800,7 +913,7 @@ func _upgrade_reason(piece: Dictionary) -> String:
 		return "Đang nâng cấp..."
 	if PlayerState.catalog == null or PlayerState.equipment == null:
 		return "Đang tải..."
-	var why := UpgradeModel.blocked_reason(PlayerState.catalog, piece, _picked, _owned(), _careful, _gems())
+	var why := UpgradeModel.blocked_reason(PlayerState.catalog, piece, _picked, _owned(), _careful, _gems(), _coins())
 	if why != "":
 		return why
 	if not PlayerState.equipment_ready():
@@ -815,22 +928,27 @@ func _on_upgrade() -> void:
 	if _upgrade_reason(piece) != "":
 		return
 	var c := _chance_of(piece)
-	if c["careful"]:
-		_confirm_careful(c)
+	if c["careful"] or c["spare"]:
+		_confirm(c)
 		return
 	_run_upgrade(false)
 
 
-## Careful costs gems: a confirmation names the step's gem price first.
-func _confirm_careful(c: Dictionary) -> void:
+## Careful costs gems and a spare stone is lost for nothing: a popup says so before the stones go.
+func _confirm(c: Dictionary) -> void:
+	var careful: bool = c["careful"]
 	var m := Modal.new()
-	m.open(overlay, "Nâng cấp cẩn thận")
-	m.add_text(UpgradeModel.careful_confirm_text(c), 24)
+	m.open(overlay, CAREFUL_TITLE if careful else "Nâng cấp")
+	if careful:
+		m.add_text(UpgradeModel.careful_confirm_text(c), 24)
+	if c["spare"]:
+		var warn := m.add_text(UpgradeModel.over_text(c), 22)
+		warn.add_theme_color_override("font_color", WARN)
 	m.add_button("Huỷ", m.close)
 	m.add_button("Nâng cấp", func():
 		m.close()
 		if _upgrade_reason(_piece()) == "":
-			_run_upgrade(true))
+			_run_upgrade(careful))
 
 
 func _run_upgrade(careful: bool) -> void:
@@ -855,8 +973,7 @@ func _run_upgrade(careful: bool) -> void:
 	var success := bool(data.get("success", false))
 	var new_level := int(data.get("newLevel", level + 1 if success else level))
 	var crossed := success and new_level > level and UpgradeModel.is_milestone(new_level)
-	var spent := int(data.get("gemSpent", 0)) if data.get("gemSpent") is int or data.get("gemSpent") is float else 0
-	var cost := " (−%s kim cương)" % Fmt.thousands(spent) if spent > 0 else ""
+	var cost := _spent_text(data)
 	if success:
 		_play_fx("milestone" if crossed else "success", UpgradeModel.milestone_color(new_level) if new_level >= 1 else LobbyUi.GOLD,
 			null, "ĐẠT MỐC +%d!" % new_level if crossed else "THÀNH CÔNG!")
@@ -874,6 +991,16 @@ func _run_upgrade(careful: bool) -> void:
 		return
 	_acting = false
 	_render()
+
+
+## " (−2.500 xu, −120 kim cương)" from the upgrade's answer; "" when it spent nothing.
+func _spent_text(data: Dictionary) -> String:
+	var parts := PackedStringArray()
+	for pair in [["coinSpent", "xu"], ["gemSpent", "kim cương"]]:
+		var v = data.get(pair[0])
+		if (v is int or v is float) and int(v) > 0:
+			parts.append("−%s %s" % [Fmt.thousands(int(v)), pair[1]])
+	return " (%s)" % ", ".join(parts) if not parts.is_empty() else ""
 
 
 # ── Effects ─────────────────────────────────────────────────────────────────

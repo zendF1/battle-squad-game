@@ -2,7 +2,8 @@ extends Control
 ## The container a reward comes out of, drawn in code (original art) on a 160 × 160 canvas scaled
 ## into the control's square: a chest in its kind's colours (ui/chest_icon.gd LOOKS: the stone
 ## chest oak and iron with a blue gem, the equipment chest dark red and gold with a violet gem,
-## +16 richer: gold trim and a star on the lid), or a gift box (red with a gold ribbon and bow)
+## +16 richer: gold trim and a star on the lid; the boss chests their own CHEST_LOOKS: bronze,
+## silver with a trim, gold with a trim and a star), or a gift box (red with a gold ribbon and bow)
 ## for rewards that are not a chest's. Its lid is drawn apart so the reveal can lift it and throw
 ## it off (lid_offset, lid_turn, lid_alpha); leak (0..1) is the light escaping through the seam,
 ## the keyhole and short shafts, in `light` (the best reward's colour); open_glow (0..1) the
@@ -113,11 +114,12 @@ func _draw() -> void:
 # ── Chest ───────────────────────────────────────────────────────────────────
 
 func _look() -> Dictionary:
-	return ChestIcon.LOOKS.get(GameData.chest_kind(chest_id), ChestIcon.LOOKS["stone"])
+	return ChestIcon.look_of(chest_id)
 
 
+## Gold trim along the box and the lid (+16, the silver and gold boss chests).
 func _rich() -> bool:
-	return GameData.chest_upgrade_level(chest_id) >= 16
+	return bool(_look().get("trim", false)) or GameData.chest_upgrade_level(chest_id) >= 16
 
 
 func _chest_body() -> void:
@@ -188,7 +190,7 @@ func _chest_lid() -> void:
 	var g := PackedVector2Array([Vector2(80, SEAM_Y - 21), Vector2(87, SEAM_Y - 13), Vector2(80, SEAM_Y - 5), Vector2(73, SEAM_Y - 13)])
 	draw_colored_polygon(g, Color(gem[1], a))
 	draw_colored_polygon(PackedVector2Array([g[0], g[1], Vector2(80, SEAM_Y - 13), g[3]]), Color(gem[0], a))
-	if _rich():
+	if ChestIcon.has_star(chest_id):
 		var st := PackedVector2Array()
 		for i in 10:
 			st.append(Vector2(80, SEAM_Y - 34) + Vector2.from_angle(-PI / 2 + PI * i / 5.0) * (11.0 if i % 2 == 0 else 5.0))

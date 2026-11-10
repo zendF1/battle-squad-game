@@ -191,6 +191,30 @@ func test_careful_refusal_refreshes_the_wallet() -> void:
 	s.free()
 
 
+func test_upgrade_takes_the_coin_at_once() -> void:
+	var api := FakeApi.new()
+	api.answers["/player/equipment/upgrade"] = FakeApi._ok({"success": true, "newLevel": 4, "percent": 68.0, "equipmentId": "e1",
+		"careful": false, "gemSpent": 0, "coinSpent": 250, "coinBalance": 40})
+	var s = _state(api)
+	var seen := []
+	s.changed.connect(func(): seen.append(s.profile.get("coin")))
+	var res: Dictionary = await s.upgrade("e1", [{"stoneLevel": 4, "quantity": 1}], false, 3)
+	check(res.ok, "upgraded")
+	check(seen.has(40), "the wallet takes coinBalance at once")
+	check(api.gets().has("/player/profile"), "the wallet refreshes")
+	s.free()
+
+
+func test_upgrade_refused_for_coin_refreshes_the_wallet() -> void:
+	var api := FakeApi.new()
+	api.answers["/player/equipment/upgrade"] = FakeApi.fail(400, "EQUIP_INSUFFICIENT_COIN")
+	var s = _state(api)
+	var res: Dictionary = await s.upgrade("e1", [{"stoneLevel": 4, "quantity": 1}], false, 3)
+	check(not res.ok, "refused")
+	check(api.gets().has("/player/profile"), "the wallet refreshes")
+	s.free()
+
+
 func test_plain_upgrade_sends_the_level_without_careful() -> void:
 	var api := FakeApi.new()
 	api.answers["/player/equipment/upgrade"] = FakeApi._ok({"success": true, "newLevel": 4, "percent": 68.0, "equipmentId": "e1",

@@ -177,9 +177,12 @@ static func look(e: Dictionary, catalog: Variant = null) -> Dictionary:
 	return look_of(id, lk, catalog)
 
 
-## The figure of character `id` wearing look `lk` ({characterId, weaponItemId, weaponUpgradeLevel}).
+## The figure of character `id` wearing look `lk` ({characterId, weaponItemId, weaponUpgradeLevel,
+## setAura (the showcase's 6-piece set aura index; leaderboard rows never carry it)}).
 static func look_of(id: String, lk: Dictionary, catalog: Variant = null) -> Dictionary:
 	var player := lk.duplicate()
 	player["characterId"] = id
+	var set_aura = lk.get("setAura")
 	return {"character_id": id, "gun": EquipmentModel.player_gun(player, catalog),
-		"aura_level": EquipmentModel.player_weapon_level(player)}
+		"aura_level": EquipmentModel.player_weapon_level(player),
+		"set_aura": maxi(0, int(set_aura)) if set_aura is int or set_aura is float else 0}

@@ -17,6 +17,8 @@ extends RefCounted
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const Art := preload("res://ui/art.gd")
 const Items := preload("res://match/items.gd")
+const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const MAX_IMPACT_PARTICLES := 120
 const MAX_TRAIL_PARTICLES := 48
@@ -275,7 +277,21 @@ static func style_for(player: Dictionary, action_mode: String, item_id: String, 
 	if Items.needs_target_x(it): # dropped from the sky (the air strike), not fired from the gun
 		out["kind"] = DEFAULT_KIND
 		out["tier"] = DEFAULT_TIER
+	else:
+		var aura = bullet_aura(EquipmentModel.player_weapon_level(player))
+		if aura != null:
+			out["aura"] = aura
 	return out
+
+
+## The weapon's upgrade milestone glow on every shell it fires (everyone sees it): the aura colour of
+## its upgrade level from the game data's gear glowLevel (+10) on (UpgradeModel's colours: orange
+## +10..+13, purple +14..+15, red +16), null below it (or without the game data's level).
+static func bullet_aura(weapon_level: int) -> Variant:
+	var from := GameData.gear_glow_level()
+	if from <= 0 or weapon_level < from:
+		return null
+	return UpgradeModel.milestone_color(weapon_level)
 
 
 ## A tier's flight theme (THEMES), {} for basic, the crafted tiers and an unknown tier.

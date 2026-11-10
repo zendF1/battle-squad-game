@@ -2,26 +2,36 @@ extends RefCounted
 ## Equipment upgrade (+N), upgrade stones and stone merging as the Nâng cấp page, the Shop's
 ## "Đá nâng cấp" and Kho đồ show them, without UI. Mirrors the server (internal/api/equipment,
 ## internal/game/battlestats):
-## - success chance: stone percent = min(Σ power × quantity × 100 / (upgradeCost × m), maxPercent)
-##   from the catalog's upgradeRates row of the current level (and its stones' powers), m =
-##   weaponUpgradeCostMultiplier (the catalog's, else the game data's) for a weapon, 1 for the
-##   other slots; every stone put in is consumed; a failure puts the piece
-##   at failResetTo (the current level below +6, else the safe zone +6 / +10 / +14);
+## - success chance, formula 2 (probabilityFormulaVersion, the server's own rounding, integers in
+##   basis points, 1 bp = 0.01 percentage point): stone_bp = floor(min(P, C) × maxPercentBp / C),
+##   P = Σ power × quantity, C = the row's effectiveRequiredPower[slot] (the weapon multiplier
+##   already in). Filling C is what reaches the step's maximum, under-filling rolls at a lower
+##   chance, over-filling adds nothing and the stones are still consumed (fill_bp is the fill, not
+##   the chance: 4.000 of 10.000 at max 40% is 40% filled, 16% success, never 40% success);
+## - success chance, formula 1 (a catalog without the version): stone percent = min(Σ power ×
+##   quantity × 100 / (upgradeCost × m), maxPercent), m = weaponUpgradeCostMultiplier (the
+##   catalog's, else the game data's) for a weapon, 1 for the other slots;
+## - every stone put in is consumed; a failure puts the piece at failResetTo (the current level
+##   below +6, else the safe zone +6 / +10 / +14);
 ## - careful upgrade ("Nâng cấp cẩn thận"): pay the row's carefulGemCost gem (on success and on
-##   failure) and the stone percent is multiplied by (1 + carefulBonusPercent / 100), rounded to 2
-##   decimals, capped at 100 (+13→+14: 20% × 1.4 = 28%); a row with either value 0 (or missing)
-##   has no careful;
-## - stats after an upgrade: each stat × (1 + upgradeStepPerLevel × level + every reached
-##   milestone bonus), rounded per item (crit stays a float) — EquipmentModel.upgraded();
+##   failure) and the stones' chance is multiplied by (1 + carefulBonusPercent / 100), capped at
+##   100: formula 2 final_bp = min(10000, floor(stone_bp × (10000 + carefulBonusBp) / 10000)),
+##   formula 1 rounded to 2 decimals (+13→+14: 20% × 1.4 = 28%); a row with either value 0 (or
+##   missing) has no careful;
+## - coin: every attempt pays the row's coinCost × the same multiplier m, rounded up, on success
+##   and on failure (a catalog without coinCost: no coin);
+## - stats after an upgrade: each stat × upgradeMultipliers[level], rounded per item (crit stays a
+##   float), the passive to 2 decimals — EquipmentModel.upgraded() / passive_value();
 ## - merging: mergeMinCount–mergeMaxCount stones of one level (below maxStoneLevel) give one stone
 ##   of the next level with count × mergeRatePerItem % chance; every stone put in is consumed.
 ## The highest level, stone level, merge counts and rates are the game data's (GET /gamedata
 ## equipment) when the catalog does not send its own.
-## The level colours a piece's aura, frame and name: +1..+5 green (the subtlest, no stat bonus),
+## The level colours a piece's aura, frame and name: +1..+5 green (the subtlest),
 ## +6..+9 sky blue, +10..+13 orange, +14..+15 purple, +16 red (the highest); +0 the normal look.
-## The stat-bonus milestones are the game data's equipment.milestones (+6 / +10 / +14 / +16).
+## The milestone levels are the game data's equipment.milestones (+6 / +10 / +14 / +16).
 
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
+const GearModel := preload("res://screens/home/gear_model.gd")
 const BattleStats := preload("res://screens/home/battle_stats.gd")
 const Fmt := preload("res://core/fmt.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
@@ -64,7 +74,7 @@ static func merge_max() -> int:
 
 # ── Milestones ──────────────────────────────────────────────────────────────
 
-## The stat-bonus milestone levels (equipment.milestones: +6, +10, +14, +16), index 0 unused.
+## The milestone levels (equipment.milestones: +6, +10, +14, +16), index 0 unused.
 static func milestone_from() -> Array:
 	var out: Array = [0]
 	for m in GameData.upgrade_milestones():
@@ -103,7 +113,7 @@ static func name_color(piece: Dictionary) -> Color:
 	return milestone_color(int(piece.get("upgradeLevel", 0)))
 
 
-## Whether `level` is a stat-bonus milestone (+6, +10, +14, +16).
+## Whether `level` is a milestone (+6, +10, +14, +16).
 static func is_milestone(level: int) -> bool:
 	return level > 0 and milestone_from().has(level)
 
@@ -117,65 +127,36 @@ static func next_milestone(level: int) -> int:
 	return -1
 
 
-## The catalog's milestone bonuses as [[level, bonus]...] ascending (EquipmentModel.milestones()).
-static func milestone_bonus(catalog: Variant, level: int) -> float:
+## What a milestone level really gives a piece's stats: "×2 chỉ số" from the upgrade multipliers,
+## an older server's own bonus ("+10% chỉ số") when it sends no table.
+static func milestone_gain(catalog: Variant, level: int) -> String:
+	if not EquipmentModel.multipliers(catalog).is_empty():
+		return "%s chỉ số" % EquipmentModel.multiplier_text(EquipmentModel.upgrade_multiplier(level, catalog))
 	for m in EquipmentModel.milestones(catalog):
 		if int(m[0]) == level:
-			return float(m[1])
-	return 0.0
+			return "+%s chỉ số" % BattleStats.format_chance(float(m[1]) * 100.0)
+	return ""
 
 
-## "+6: +10% chỉ số, hào quang xanh da trời" (the milestone at `level`), "" when it is none.
+## "+6: ×2 chỉ số, hào quang xanh da trời" (the milestone at `level`), "" when it is none.
 static func milestone_text(catalog: Variant, level: int) -> String:
 	if not is_milestone(level):
 		return ""
-	return "+%d: +%s chỉ số, hào quang %s" % [level, BattleStats.format_chance(milestone_bonus(catalog, level) * 100.0),
-		TIER_WORDS[color_tier(level)]]
+	return "+%d: %s, hào quang %s" % [level, milestone_gain(catalog, level), TIER_WORDS[color_tier(level)]]
 
 
-## The piece popup's "Mốc nâng cấp" rows for a piece at `level`, +6 / +10 / +14 / +16:
-## [{level, tier, color, bonus (fraction), bonus_text "+10% chỉ số", aura "Hào quang xanh da
-## trời", back_aura, reached}]; bonuses from the catalog's upgradeMilestones (defaults before it
-## loads). back_aura: for a weapon, the ring its +14 / +16 adds behind the wearer's back
-## (scenes/character/back_aura.gd), "· hào quang tím sau lưng" / "· hào quang đỏ sau lưng"; ""
-## for the other rows and for armour.
-static func milestone_rows(catalog: Variant, level: int, weapon: bool = false) -> Array:
+## The piece popup's milestone rows for a piece at `level`, +6 / +10 / +14 / +16:
+## [{level, tier, color, bonus_text "×2 chỉ số" (milestone_gain()), aura "Hào quang xanh da
+## trời", reached}].
+static func milestone_rows(catalog: Variant, level: int) -> Array:
 	var out: Array = []
 	var from := milestone_from()
 	for t in range(1, from.size()):
 		var lv: int = from[t]
-		var bonus := milestone_bonus(catalog, lv)
 		var tier := color_tier(lv)
-		out.append({"level": lv, "tier": tier, "color": TIER_COLORS[tier], "bonus": bonus,
-			"bonus_text": "+%s chỉ số" % BattleStats.format_chance(bonus * 100.0),
-			"aura": "Hào quang " + TIER_WORDS[tier], "back_aura": back_aura_text(lv) if weapon else "",
-			"reached": level >= lv})
+		out.append({"level": lv, "tier": tier, "color": TIER_COLORS[tier], "bonus_text": milestone_gain(catalog, lv),
+			"aura": "Hào quang " + TIER_WORDS[tier], "reached": level >= lv})
 	return out
-
-
-## "· hào quang tím sau lưng" at +14, "· hào quang đỏ sau lưng" at +16 (a weapon's back aura), ""
-## for the other milestones.
-static func back_aura_text(milestone: int) -> String:
-	match milestone:
-		14:
-			return "· hào quang tím sau lưng"
-		16:
-			return "· hào quang đỏ sau lưng"
-	return ""
-
-
-## "Cấp nâng cấp +7 / 16"
-static func level_line(level: int) -> String:
-	return "Cấp nâng cấp +%d / %d" % [clampi(level, 0, max_level()), max_level()]
-
-
-## The share of a piece's stats the upgrade adds: "+24% từ nâng cấp" (upgrade multiplier − 1,
-## milestones included), "" at +0.
-static func upgrade_share_text(catalog: Variant, level: int) -> String:
-	if level <= 0:
-		return ""
-	var pct := (EquipmentModel.upgrade_multiplier(level, EquipmentModel.milestones(catalog)) - 1.0) * 100.0
-	return "+%s từ nâng cấp" % BattleStats.format_chance(pct)
 
 
 # ── Rates and chance ────────────────────────────────────────────────────────
@@ -251,6 +232,22 @@ static func piece_slot(catalog: Variant, piece: Dictionary) -> String:
 	return slot
 
 
+## value × mult rounded up in millionths, like the server's fixed-point rounding: 50 × 1.1 is 55,
+## where the float product 55.00000000000001 would round up to 56.
+@warning_ignore("integer_division")
+static func mul_up(value: int, mult: float) -> int:
+	return (value * roundi(mult * 1000000.0) + 999999) / 1000000
+
+
+## The coin one attempt from `level` costs a piece in `slot`: the row's coinCost × cost_multiplier(),
+## rounded up, like the server's UpgradeCoinCost; 0 without a row or a price.
+static func coin_cost(catalog: Variant, level: int, slot: String) -> int:
+	var v = rate(catalog, level).get("coinCost")
+	if not (v is int or v is float) or float(v) <= 0.0:
+		return 0
+	return mul_up(int(v), cost_multiplier(catalog, slot))
+
+
 ## The careful upgrade of the step from `level`: {gem, bonus (relative %), offered}; the row's
 ## carefulGemCost / carefulBonusPercent (0 when the row lacks them: no careful); offered: a rate
 ## row with both > 0.
@@ -271,10 +268,69 @@ static func careful_percent(stone_percent: float, bonus: float) -> float:
 	return minf(round(stone_percent * (1.0 + bonus / 100.0) * 100.0) / 100.0, 100.0)
 
 
-## The chance of picked stones for a piece in `slot` at `level`: {percent (what the server rolls),
-## stone (the stones' part, capped), max, raw, power, cost (effective: upgradeCost × mult), mult,
-## wasted, careful (on and offered), bonus, gem}. wasted: the stones' chance is above the cap, the
-## excess is lost. careful_on: the player turned careful on (ignored when the step has none).
+## The chance formula of the catalog: its probabilityFormulaVersion, 1 for an older catalog.
+static func formula_version(catalog: Variant) -> int:
+	var v = catalog.get("probabilityFormulaVersion") if catalog is Dictionary else null
+	return maxi(int(v), 1) if v is int or v is float else 1
+
+
+## C, the power that reaches the step's maximum for a piece in `slot`: the row's
+## effectiveRequiredPower[slot], else upgradeCost × the slot's multiplier rounded up; formula 1
+## the least power reaching the cap (needed_power()). 0 without a row.
+static func required_power(catalog: Variant, level: int, slot: String = "") -> int:
+	var r := rate(catalog, level)
+	var cost := float(r.get("upgradeCost", 0)) * cost_multiplier(catalog, slot)
+	if formula_version(catalog) < 2:
+		return needed_power(cost, float(r.get("maxPercent", 0.0)))
+	var by = r.get("effectiveRequiredPower")
+	var c = by.get(slot) if by is Dictionary else null
+	return int(c) if (c is int or c is float) and int(c) > 0 else mul_up(int(r.get("upgradeCost", 0)), cost_multiplier(catalog, slot))
+
+
+## The row's maximum in basis points: maxPercentBp, else maxPercent × 100.
+static func max_bp(r: Dictionary) -> int:
+	var v = r.get("maxPercentBp")
+	return int(v) if v is int or v is float else roundi(float(r.get("maxPercent", 0.0)) * 100.0)
+
+
+## The row's careful bonus in basis points: carefulBonusBp, else carefulBonusPercent × 100.
+static func careful_bonus_bp(r: Dictionary) -> int:
+	var v = r.get("carefulBonusBp")
+	if v is int or v is float:
+		return int(v)
+	var bonus = r.get("carefulBonusPercent")
+	return roundi(float(bonus) * 100.0) if bonus is int or bonus is float else 0
+
+
+## floor(min(P, C) × maxBp / C), the server's stone_bp; 0 without a C.
+static func stone_bp(power_sum: int, required: int, maximum_bp: int) -> int:
+	if required <= 0:
+		return 0
+	return mini(maxi(power_sum, 0), required) * maximum_bp / required
+
+
+## min(10000, floor(stone_bp × (10000 + bonusBp) / 10000)), the server's final_bp with careful.
+static func careful_final_bp(stones_bp: int, bonus_bp: int) -> int:
+	return mini(10000, stones_bp * (10000 + maxi(bonus_bp, 0)) / 10000)
+
+
+## Basis points as the page shows them, exact, never rounded up: "16%", "20,8%", "39,99%".
+static func bp_text(bp: int) -> String:
+	var part := bp % 100
+	if part == 0:
+		return "%d%%" % (bp / 100)
+	var digits := "%02d" % part
+	return "%d,%s%%" % [bp / 100, digits.trim_suffix("0")]
+
+
+## The chance of picked stones for a piece in `slot` at `level`. What the server rolls: bp and
+## percent (bp / 100; careful included when on and offered). The parts the page shows apart:
+## power (P), required (C), fill (0..1) and fill_bp (min(P, C) / C, never the chance), stone_bp /
+## max_bp (the normal chance and its maximum), careful_bp / careful_max_bp (the same with careful,
+## whether on or not; the normal ones when the step has none), offered (the step has careful).
+## over: P above C, wasted: over > 0, spare: a whole picked stone could go and still fill C.
+## Also: version, stone / max / raw (%), cost (upgradeCost × mult), mult, careful (on and
+## offered), bonus, gem, coin (what the attempt costs). careful_on: the player turned careful on.
 static func chance(catalog: Variant, level: int, picked: Dictionary, slot: String = "", careful_on: bool = false) -> Dictionary:
 	var r := rate(catalog, level)
 	var mult := cost_multiplier(catalog, slot)
@@ -282,12 +338,55 @@ static func chance(catalog: Variant, level: int, picked: Dictionary, slot: Strin
 	var maxp := float(r.get("maxPercent", 0.0))
 	var p := total_power(catalog, picked)
 	var raw := raw_percent(p, cost)
-	var stone_p := minf(raw, maxp)
+	var version := formula_version(catalog)
+	var need := required_power(catalog, level, slot)
 	var cf := careful(catalog, level)
-	var on: bool = careful_on and cf["offered"]
-	return {"percent": careful_percent(stone_p, cf["bonus"]) if on else stone_p, "stone": stone_p, "max": maxp, "raw": raw,
-		"power": p, "cost": cost, "mult": mult, "wasted": raw > maxp + 1e-9 and maxp > 0.0,
-		"careful": on, "bonus": cf["bonus"], "gem": cf["gem"] if on else 0}
+	var offered: bool = cf["offered"]
+	var on: bool = careful_on and offered
+	var parts := _parts_v2(p, need, r, offered) if version >= 2 else _parts_v1(raw, maxp, cf["bonus"], offered)
+	var final_bp: int = parts["careful_bp"] if on else parts["stone_bp"]
+	var over := maxi(p - need, 0) if need > 0 else 0
+	var out := {"version": version, "bp": final_bp, "percent": final_bp / 100.0 if version >= 2 else _percent_v1(raw, maxp, cf["bonus"], on),
+		"stone": parts["stone_bp"] / 100.0 if version >= 2 else minf(raw, maxp), "max": maxp, "raw": raw,
+		"power": p, "required": need, "cost": cost, "mult": mult, "over": over, "wasted": over > 0, "spare": _spare(catalog, picked, over),
+		"fill": float(mini(p, need)) / need if need > 0 else 0.0, "fill_bp": mini(p, need) * 10000 / need if need > 0 else 0,
+		"careful": on, "offered": offered, "bonus": cf["bonus"], "gem": cf["gem"] if on else 0, "coin": coin_cost(catalog, level, slot)}
+	out.merge(parts)
+	return out
+
+
+## The chances in basis points, formula 2.
+static func _parts_v2(p: int, need: int, r: Dictionary, offered: bool) -> Dictionary:
+	var top := max_bp(r)
+	var bonus := careful_bonus_bp(r) if offered else 0
+	var stones := stone_bp(p, need, top)
+	return {"stone_bp": stones, "max_bp": top, "careful_bp": careful_final_bp(stones, bonus), "careful_max_bp": careful_final_bp(top, bonus)}
+
+
+## The chances in basis points, formula 1 (the old server's floats, rounded down for the page).
+static func _parts_v1(raw: float, maxp: float, bonus: float, offered: bool) -> Dictionary:
+	var stones := minf(raw, maxp)
+	return {"stone_bp": _bp(stones), "max_bp": _bp(maxp), "careful_bp": _bp(careful_percent(stones, bonus)) if offered else _bp(stones),
+		"careful_max_bp": _bp(careful_percent(maxp, bonus)) if offered else _bp(maxp)}
+
+
+static func _percent_v1(raw: float, maxp: float, bonus: float, on: bool) -> float:
+	var stones := minf(raw, maxp)
+	return careful_percent(stones, bonus) if on else stones
+
+
+static func _bp(percent_value: float) -> int:
+	return floori(percent_value * 100.0 + 1e-6)
+
+
+## A whole picked stone is more than the excess: taking the weakest one out still fills C.
+static func _spare(catalog: Variant, picked: Dictionary, over: int) -> bool:
+	if over <= 0:
+		return false
+	for lv in picked:
+		if int(picked[lv]) > 0 and power(catalog, int(lv)) <= over:
+			return true
+	return false
 
 
 ## The least power reaching the cap: the smallest whole p with p × 100 / cost ≥ maxPercent.
@@ -300,24 +399,35 @@ static func needed_power(cost: float, max_percent: float) -> int:
 	return maxi(p, 1)
 
 
-## "Tỉ lệ thành công 64% (tối đa 64%)"; careful: "Tỉ lệ thành công 28%" (the final chance only).
-static func chance_text(c: Dictionary) -> String:
-	if c.get("careful", false):
-		return "Tỉ lệ thành công %s" % BattleStats.format_chance(c["percent"])
-	return "Tỉ lệ thành công %s (tối đa %s)" % [BattleStats.format_chance(c["percent"]), BattleStats.format_chance(c["max"])]
+## The power line of the gauge: "3.600 / 9.000" (P / C).
+static func power_text(c: Dictionary) -> String:
+	return "%s / %s" % [Fmt.thousands(int(c.get("power", 0))), Fmt.thousands(int(c.get("required", 0)))]
+
+
+## The fill's own label, so it never reads as the chance: "Đã nạp 40%".
+static func fill_text(c: Dictionary) -> String:
+	return "Đã nạp %s" % bp_text(int(c.get("fill_bp", 0)))
+
+
+## The warning of an over-fill: "Thừa 3.000 sức mạnh, đá thừa vẫn mất"; "" when nothing is over.
+static func over_text(c: Dictionary) -> String:
+	var over := int(c.get("over", 0))
+	return "Thừa %s sức mạnh, đá thừa vẫn mất" % Fmt.thousands(over) if over > 0 else ""
 
 
 ## The careful upgrade confirmation: "Dùng 120 kim cương cho nâng cấp cẩn thận?" (the step's price).
 static func careful_confirm_text(c: Dictionary) -> String:
+	var coin := int(c.get("coin", 0))
+	if coin > 0:
+		return "Dùng %s kim cương và %s xu cho nâng cấp cẩn thận?" % [Fmt.thousands(int(c["gem"])), Fmt.thousands(coin)]
 	return "Dùng %s kim cương cho nâng cấp cẩn thận?" % Fmt.thousands(int(c["gem"]))
 
 
 ## "Tự chọn": the stones (from owned {stoneLevel: quantity}) with the least total power that still
-## reaches the cap for a piece in `slot` at `level` (a weapon needs the multiplied power), as {stoneLevel: quantity}; every owned stone when even
-## all of them do not reach it; {} at the max level or without stones.
+## fills required_power() for a piece in `slot` at `level`, as {stoneLevel: quantity}; every owned
+## stone when even all of them do not reach it; {} at the max level or without stones.
 static func auto_pick(catalog: Variant, level: int, owned: Dictionary, slot: String = "") -> Dictionary:
-	var r := rate(catalog, level)
-	var need := needed_power(float(r.get("upgradeCost", 0)) * cost_multiplier(catalog, slot), float(r.get("maxPercent", 0.0)))
+	var need := required_power(catalog, level, slot)
 	var levels: Array = []
 	for lv in owned:
 		if int(owned[lv]) > 0 and power(catalog, int(lv)) > 0:
@@ -375,10 +485,12 @@ static func fail_text(catalog: Variant, level: int) -> String:
 
 
 ## Why the Nâng cấp button is off ("" when it can be pressed): no piece, max level, no rate, no
-## stones picked, more picked than owned; with careful on (and offered for the step) fewer gems
-## than its price (`gem_balance`, -1 = unknown: not checked).
+## stones picked, more picked than owned, formula 2 stones too weak for even 0.01% (the server
+## refuses them); with careful on (and offered for the step) fewer gems
+## than its price (`gem_balance`, -1 = unknown: not checked); fewer coins than the attempt costs
+## (`coin_balance`, -1 = unknown: not checked).
 static func blocked_reason(catalog: Variant, piece: Dictionary, picked: Dictionary, owned: Dictionary,
-		careful_on: bool = false, gem_balance: int = -1) -> String:
+		careful_on: bool = false, gem_balance: int = -1, coin_balance: int = -1) -> String:
 	if piece.is_empty():
 		return "Chọn một trang bị"
 	var level := int(piece.get("upgradeLevel", 0))
@@ -391,6 +503,13 @@ static func blocked_reason(catalog: Variant, piece: Dictionary, picked: Dictiona
 	for lv in picked:
 		if int(picked[lv]) > int(owned.get(lv, 0)):
 			return "Không đủ đá cấp %d" % int(lv)
+	var c := chance(catalog, level, picked, piece_slot(catalog, piece), careful_on)
+	if int(c["version"]) >= 2 and int(c["bp"]) <= 0:
+		return "Đá quá yếu, hãy nạp thêm"
+	if coin_balance >= 0:
+		var coin := coin_cost(catalog, level, piece_slot(catalog, piece))
+		if coin_balance < coin:
+			return "Thiếu xu (cần %s)" % Fmt.thousands(coin)
 	if careful_on and gem_balance >= 0:
 		var cf := careful(catalog, level)
 		if cf["offered"] and gem_balance < int(cf["gem"]):
@@ -407,8 +526,8 @@ static func blocked_reason(catalog: Variant, piece: Dictionary, picked: Dictiona
 static func stat_steps(catalog: Variant, piece: Dictionary, mult: Dictionary = {}) -> Array:
 	var item := EquipmentModel.item_of_piece(catalog, piece)
 	var level := int(piece.get("upgradeLevel", 0))
-	var now := EquipmentModel.upgraded(item, level, EquipmentModel.milestones(catalog))
-	var next := EquipmentModel.upgraded(item, mini(level + 1, max_level()), EquipmentModel.milestones(catalog))
+	var now := EquipmentModel.upgraded(item, level, catalog)
+	var next := EquipmentModel.upgraded(item, mini(level + 1, max_level()), catalog)
 	var out: Array = []
 	var after := {}
 	for l in EquipmentModel.stat_lines(next, mult):
@@ -428,17 +547,40 @@ static func stat_steps(catalog: Variant, piece: Dictionary, mult: Dictionary = {
 	return out
 
 
+## The piece's passive now and after one more level, as a stat_steps() row with its picture
+## instead of a label: {key: "passive", label: "", glyph, now_points / next_points ("+48.3%"),
+## now_battle / next_battle (""), delta, up}. The next value is the catalog item's +0 value at that
+## level; the piece's own, not a capped total. {} without a passive in the catalog.
+static func passive_step(catalog: Variant, piece: Dictionary) -> Dictionary:
+	var item := EquipmentModel.item_of_piece(catalog, piece)
+	var passive := GearModel.piece_passive(piece, item)
+	var base = item.get("passive")
+	if passive.is_empty() or not base is Dictionary:
+		return {}
+	var kind := str(passive["kind"])
+	var now := float(passive["value"])
+	var level := mini(int(piece.get("upgradeLevel", 0)) + 1, max_level())
+	var next := EquipmentModel.passive_value(float(base.get("value", 0.0)), level, catalog)
+	return {"key": "passive", "label": "", "glyph": passive["glyph"], "now_points": GearModel.value_text(kind, now),
+		"next_points": GearModel.value_text(kind, next), "now_battle": "", "next_battle": "",
+		"delta": GearModel.value_text(kind, next - now), "up": next - now > 1e-9}
+
+
 ## The Nâng cấp page's centre: the piece now and after one more level side by side.
-## {maxed, columns: [{level, color}] (now, then next unless at +16), rows: stat_steps(), fail:
-## fail_text() ("" at +16), note: "Đã đạt cấp tối đa" at +16 else ""}. No milestone text: the
-## next column's aura shows it.
+## {maxed, columns: [{level, color}] (now, then next unless at +16), rows: stat_steps() then
+## passive_step(), fail: fail_text() ("" at +16), note: "Đã đạt cấp tối đa" at +16 else ""}. No
+## milestone text: the next column's aura shows it.
 static func preview(catalog: Variant, piece: Dictionary, mult: Dictionary = {}) -> Dictionary:
 	var level := clampi(int(piece.get("upgradeLevel", 0)), 0, max_level())
 	var maxed := level >= max_level()
 	var columns: Array = [{"level": level, "color": milestone_color(level)}]
 	if not maxed:
 		columns.append({"level": level + 1, "color": milestone_color(level + 1)})
-	return {"maxed": maxed, "columns": columns, "rows": stat_steps(catalog, piece, mult),
+	var rows := stat_steps(catalog, piece, mult)
+	var passive := passive_step(catalog, piece)
+	if not passive.is_empty():
+		rows.append(passive)
+	return {"maxed": maxed, "columns": columns, "rows": rows,
 		"fail": "" if maxed else fail_text(catalog, level), "note": "Đã đạt cấp tối đa" if maxed else ""}
 
 

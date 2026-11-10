@@ -15,11 +15,17 @@ extends Control
 ## on the torso, sized to frame it, behind the body (and whatever the screen draws after this
 ## view, the pedestal gun), updated with the gun on every equipment change (equip, unequip,
 ## transfer, upgrade).
+## The 6-piece set aura (scenes/character/set_aura.gd: a ring of light at the feet in the set's
+## colour) shows with back_aura from the character's gear profile (GET /player/characters
+## characters[].gear setAura), or from `set_index` when the screen gives another player's
+## (the leaderboard showcase: its character.gear / look.setAura).
 
 const Art := preload("res://ui/art.gd")
 const CharacterScene := preload("res://scenes/character/character.tscn")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const BackAura := preload("res://scenes/character/back_aura.gd")
+const SetAura := preload("res://scenes/character/set_aura.gd")
+const GearModel := preload("res://screens/home/gear_model.gd")
 
 ## The art box in units the rect is fitted to (the art is about 150 units tall).
 const UNITS := Vector2(150, 160)
@@ -28,6 +34,9 @@ const HOP := 5.0 # units
 ## height (the ring's hole sits behind the chest, the ring frames the body).
 const AURA_CENTRE := 0.57
 const AURA_SIZE := 1.08
+## The set aura's ring width and light column height, as shares of the figure's height.
+const SET_AURA_WIDTH := 0.62
+const SET_AURA_HEIGHT := 0.9
 
 @export var character_id := Art.DEFAULT_CHARACTER:
 	set(value):
@@ -35,6 +44,7 @@ const AURA_SIZE := 1.08
 		if _character != null:
 			_character.character_id = value
 			_show_worn_gun()
+			_show_set_aura()
 
 ## No gun in hand (scenes/character hands_free).
 @export var hands_free := false:
@@ -56,6 +66,7 @@ const AURA_SIZE := 1.08
 		back_aura = value
 		if _character != null:
 			_show_worn_gun()
+			_show_set_aura()
 			_layout()
 
 ## back_aura from this weapon upgrade level instead of the worn weapon's (-1: the worn one); the
@@ -74,8 +85,17 @@ var gun := {}:
 		if _character != null:
 			_show_worn_gun()
 
+## The 6-piece set aura's index from another player's gear (-1: the character's own, PlayerState,
+## shown with back_aura; 0: none).
+var set_index := -1:
+	set(value):
+		set_index = value
+		if _character != null:
+			_show_set_aura()
+
 var _character: Node2D
 var _aura: BackAura
+var _set_aura: SetAura
 var _t := 0.0
 
 
@@ -87,11 +107,15 @@ func _ready() -> void:
 	_character.lobby_full = true
 	_aura = BackAura.new()
 	add_child(_aura) # before the character: drawn behind it
+	_set_aura = SetAura.new()
+	add_child(_set_aura) # behind the character too
 	add_child(_character)
 	set_process(idle)
 	resized.connect(_layout)
 	PlayerState.equipment_changed.connect(_show_worn_gun)
+	PlayerState.characters_changed.connect(_show_set_aura)
 	_show_worn_gun()
+	_show_set_aura()
 	_layout()
 
 
@@ -103,6 +127,26 @@ func _show_worn_gun() -> void:
 	var lv := aura_level if aura_level >= 0 else worn_weapon_level(PlayerState.equipment, character_id)
 	_aura.level = lv if back_aura else 0
 	_layout()
+
+
+## The set aura: set_index when given, else (back_aura on) the character's own gear profile's.
+func _show_set_aura() -> void:
+	_set_aura.index = set_aura_index()
+	_layout()
+
+
+## The set aura's index shown (0 none).
+func set_aura_index() -> int:
+	if set_index >= 0:
+		return set_index
+	if not back_aura:
+		return 0
+	return GearModel.set_aura(GearModel.profile_of(EquipmentModel.character_entry(PlayerState.characters, character_id)))
+
+
+## The set aura node.
+func set_aura() -> SetAura:
+	return _set_aura
 
 
 ## The upgrade level of the weapon the character wears, 0 when none (or not loaded).
@@ -154,6 +198,11 @@ func _layout() -> void:
 		_aura.position = _character.position - Vector2(0, h * AURA_CENTRE)
 		if not is_equal_approx(_aura.diameter, h * AURA_SIZE):
 			_aura.diameter = h * AURA_SIZE
+	if _set_aura.index > 0:
+		var fh := figure_height()
+		_set_aura.position = feet
+		_set_aura.width = fh * SET_AURA_WIDTH
+		_set_aura.height = fh * SET_AURA_HEIGHT
 	var shadow: Sprite2D = _character.shadow()
 	if shadow == null:
 		return # the character is not ready yet

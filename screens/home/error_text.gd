@@ -79,6 +79,9 @@ const UPGRADE := {
 	"EQUIP_NOT_OWNED": "Trang bị không còn trong túi",
 	"NOT_FOUND": "Loại đá này không tồn tại",
 	"EQUIP_CAREFUL_UNAVAILABLE": "Cấp này không có Nâng cấp cẩn thận",
+	"EQUIP_INSUFFICIENT_COIN": "Không đủ xu để nâng cấp",
+	"EQUIP_UPGRADE_CHANCE_ZERO": "Đá quá yếu, hãy nạp thêm",
+	"EQUIP_UPGRADE_CONFIG_INVALID": "Chưa nâng cấp được lúc này, hãy thử lại sau",
 	"SHOP_INSUFFICIENT_BALANCE": "Không đủ kim cương cho Nâng cấp cẩn thận",
 }
 ## POST /shop/stones/buy.
@@ -122,12 +125,32 @@ const TITLE := {
 }
 
 
-## RoomError codes answering QuickPlay (LOADOUT_INVALID has its own texts, room_error()).
+## Where the server still has me (ALREADY_IN_ROOM / ALREADY_IN_LOBBY, on RoomError and LobbyError
+## alike: server docs/contracts/security-settlement.md, "Admission refusal codes").
+const IN_ROOM_TEXT := "Bạn vẫn đang ở trong một trận khác"
+const IN_LOBBY_TEXT := "Bạn vẫn đang ở trong một tổ đội khác"
+
+## RoomError codes answering QuickPlay / a custom room (LOADOUT_INVALID has its own texts, room_error()).
 const ROOM := {
+	"ALREADY_IN_ROOM": IN_ROOM_TEXT,
+	"ALREADY_IN_LOBBY": IN_LOBBY_TEXT,
 	"LOADOUT_INVALID": "Nhân vật hoặc vật phẩm không hợp lệ",
 	"MATCH_START_FAILED": "Không tạo được trận, hãy thử lại",
 	"INTERNAL_SERVER_ERROR": "Server gặp lỗi, hãy thử lại",
 	"ONBOARDING_REQUIRED": "Hãy chọn nhân vật khởi đầu trước",
+	"ROOM_CREATE_FAILED": "Không tạo được trận, hãy thử lại",
+	"ROOM_JOIN_FAILED": "Không vào được phòng, hãy thử lại",
+	"ROOM_NOT_FOUND": "Phòng không còn tồn tại",
+	"ROOM_REQUIRED": "Bạn không còn ở trong phòng",
+}
+
+## ROOM_CREATE_FAILED / ROOM_JOIN_FAILED carry their reason only as the server's English message
+## (internal/game/room room.go validateJoin): the room cannot take me.
+const ROOM_REASONS := {
+	"room is closed": "Phòng đã đóng",
+	"room is full": "Phòng đã đủ người",
+	"match already in progress": "Trận đã bắt đầu",
+	"incorrect password": "Sai mật khẩu phòng",
 }
 
 
@@ -160,6 +183,8 @@ static func room_error(data: Variant) -> String:
 			return "Vật phẩm không hợp lệ"
 		if message.begins_with("Unknown character"):
 			return "Nhân vật không hợp lệ"
+	if code in ["ROOM_CREATE_FAILED", "ROOM_JOIN_FAILED"] and ROOM_REASONS.has(message):
+		return ROOM_REASONS[message]
 	if ROOM.has(code):
 		return ROOM[code]
 	return message if message != "" else "Lỗi phòng"
@@ -344,11 +369,14 @@ static func mission(res: Dictionary) -> String:
 
 ## Ranked lobby / queue errors: LobbyError {"error": {code, message}} (internal/game/lobby
 ## handler.go) and the lobby's own "Error" {code, message} (lobby.go, lower-case codes).
+## PLAYER_BUSY is only ever about the invited player (InviteToLobby). IN_ROOM: the lobby side's
+## ALREADY_IN_ROOM before the server's admission codes (2026-10-30).
 const LOBBY := {
-	"ALREADY_IN_LOBBY": "Bạn vẫn đang ở trong một tổ đội khác",
-	"IN_ROOM": "Bạn vẫn đang ở trong một phòng khác",
+	"ALREADY_IN_ROOM": IN_ROOM_TEXT,
+	"ALREADY_IN_LOBBY": IN_LOBBY_TEXT,
+	"IN_ROOM": IN_ROOM_TEXT,
 	"LOBBY_CREATE_FAILED": "Không tạo được tổ đội, hãy thử lại",
-	"LOBBY_NOT_FOUND": "Tổ đội không còn tồn tại",
+	"LOBBY_NOT_FOUND": "Tổ đội đã giải tán",
 	"LOBBY_REQUIRED": "Tổ đội không còn tồn tại",
 	"NOT_HOST": "Chỉ chủ tổ đội mới làm được việc này",
 	"INVALID_STATUS": "Tổ đội đang bận, hãy thử lại",

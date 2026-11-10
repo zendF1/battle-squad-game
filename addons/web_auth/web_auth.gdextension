@@ -1,0 +1,15 @@
+; WebAuth: ASWebAuthenticationSession (macOS, iOS) for the Google sign-in (core/google_sign_in.gd).
+; Source and build: native/web_auth (build.sh). One release build serves debug and release.
+; Other platforms have no library: Engine.has_singleton("WebAuth") is false there.
+
+[configuration]
+
+entry_symbol = "web_auth_library_init"
+compatibility_minimum = "4.5"
+
+[libraries]
+
+macos.debug = "res://addons/web_auth/bin/libweb_auth.macos.dylib"
+macos.release = "res://addons/web_auth/bin/libweb_auth.macos.dylib"
+ios.debug = "res://addons/web_auth/bin/web_auth.ios.xcframework"
+ios.release = "res://addons/web_auth/bin/web_auth.ios.xcframework"

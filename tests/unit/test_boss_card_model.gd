@@ -87,3 +87,39 @@ func test_game_data_bosses() -> void:
 	eq(GameData.body_size_of(GameData.boss("lava_crab")), 3.2, "body size")
 	eq(GameData.body_size_of({}), 1.0, "none: a player's")
 	eq(LobbyModel.mode(LobbyModel.index_of_queue("boss:steel_robot"))["party_size"], 4, "a party of four")
+
+
+# ── Rules 2: the day's bonus runs as pictures ───────────────────────────────
+
+const RUNS_V2 := {"day": "2026-11-20", "resetAt": "2026-11-20T17:00:00Z", "bosses": [
+	{"bossId": "steel_robot", "dailyBonusRuns": 3, "runsToday": 2, "bonusRunsLeft": 1, "gameDay": "2026-11-20", "rewardVersion": 2,
+		"bonusRunsCompleted": 2, "bonusWins": 2, "perfectRequiredWins": 3, "perfectRewardEligible": true, "perfectRewardGranted": false},
+	{"bossId": "lava_crab", "dailyBonusRuns": 3, "runsToday": 2, "bonusRunsLeft": 1, "gameDay": "2026-11-20", "rewardVersion": 2,
+		"bonusRunsCompleted": 2, "bonusWins": 1, "perfectRequiredWins": 3, "perfectRewardEligible": false, "perfectRewardGranted": false},
+	{"bossId": "ice_witch", "dailyBonusRuns": 3, "runsToday": 4, "bonusRunsLeft": 0, "gameDay": "2026-11-20", "rewardVersion": 2,
+		"bonusRunsCompleted": 3, "bonusWins": 3, "perfectRequiredWins": 3, "perfectRewardEligible": false, "perfectRewardGranted": true},
+	{"bossId": "rock_giant", "dailyBonusRuns": 3, "runsToday": 0, "bonusRunsLeft": 3, "gameDay": "2026-11-20", "rewardVersion": 1,
+		"bonusRunsCompleted": 0, "bonusWins": 0, "perfectRequiredWins": 0, "perfectRewardEligible": false, "perfectRewardGranted": false},
+	{"bossId": "tree_spirit", "dailyBonusRuns": 3, "runsToday": 0, "bonusRunsLeft": 3}]}
+
+
+func test_trail_under_rules_2() -> void:
+	BossFixture.take()
+	var cards := BossCardModel.cards(-1, RUNS_V2, 420)
+	eq(cards[0]["trail"]["pips"], ["win", "win", "open"], "two wins, one to go")
+	eq(cards[0]["trail"]["gold"], "goal", "gold still reachable")
+	eq(cards[0]["trail"]["gold_chest"], "stone_chest_gold", "the game data's gold chest")
+	eq(cards[1]["trail"]["pips"], ["win", "loss", "open"], "a win and a loss")
+	eq(cards[1]["trail"]["gold"], "lost", "the server says it is out of reach")
+	eq(cards[2]["trail"]["pips"], ["win", "win", "win"], "three wins")
+	eq(cards[2]["trail"]["gold"], "won", "granted")
+
+
+func test_rules_1_keeps_the_gift_box() -> void:
+	BossFixture.take()
+	var cards := BossCardModel.cards(-1, RUNS_V2, 420)
+	eq(cards[3]["trail"], {}, "rewardVersion 1 sent")
+	eq(cards[4]["trail"], {}, "an older server: no v2 fields")
+	eq([cards[3]["runs_text"], cards[4]["runs_text"]], ["×3", "×3"], "the gift box stays")
+	eq(BossCardModel.cards(-1, RUNS, 420)[0]["trail"], {}, "the old answer")
+	eq(BossCardModel.cards(-1, {}, 420)[0]["trail"], {}, "not loaded")

@@ -164,6 +164,30 @@ func test_compare() -> void:
 	eq(M.compare(iron, iron, MULT).map(func(d): return [d["text"], d["tone"]]), [["0", ""]], "same piece")
 
 
+## The piece popup's one list: Sát thương, Chí mạng, Sát thương chí mạng (the piece's passive of
+## kind crit_damage, at its level, from GET /player/equipment), in that order; armour its own stats.
+func test_popup_stats() -> void:
+	var weapon := {"statDamage": 115.0, "statCrit": 9.06}
+	var crit := {"kind": "crit_damage", "value": 48.32}
+	var rows := M.popup_stats(weapon, crit, {}, {}, MULT)
+	eq(rows.map(func(r): return [r["label"], r["text"]]),
+		[["Sát thương", "+115 điểm (+575)"], ["Chí mạng", "+9.1%"], ["Sát thương chí mạng", "+48.3%"]], "weapon rows in order")
+	check(rows.all(func(r): return r["delta"].is_empty()), "no compare without a worn piece")
+	eq(M.popup_stats({"statDamage": 8.0}, {}).map(func(r): return r["label"]), ["Sát thương"], "no passive: no crit damage row")
+	eq(M.popup_stats({"statDamage": 8.0}, {"kind": "crit_damage", "value": 0}).map(func(r): return r["label"]), ["Sát thương"],
+		"a zero crit damage is left out")
+	var armour := M.popup_stats({"statHp": 150.0, "statDefense": 15.0}, {"kind": "resist", "value": 9.0}, {}, {}, MULT)
+	eq(armour.map(func(r): return [r["label"], r["text"]]), [["Máu", "+150 điểm (+300)"], ["Phòng thủ", "+15 điểm (+15)"]],
+		"armour: its stats, its passive stays a chip")
+	# Against the worn weapon: each row's change; a stat only the worn one has reads "—".
+	var cmp := M.popup_stats({"statDamage": 25.0}, {"kind": "crit_damage", "value": 12.0},
+		{"statDamage": 8.0, "statCrit": 2.0}, {"kind": "crit_damage", "value": 5.0}, MULT, true)
+	eq(cmp.map(func(r): return [r["label"], r["text"], r["delta"]["text"], r["delta"]["tone"]]), [
+		["Sát thương", "+25 điểm (+125)", "+85 (+17 điểm)", "good"],
+		["Chí mạng", "—", "−2%", "loss"],
+		["Sát thương chí mạng", "+12%", "+7%", "good"]], "deltas against the worn piece")
+
+
 func test_wearer_and_worn() -> void:
 	var owned := _owned()
 	eq(M.wearer(owned[1]), "tanko", "worn")
@@ -247,6 +271,18 @@ func test_bonus_lines() -> void:
 	eq(M.bonus_lines(null), [], "no stats")
 
 
+func test_bonus_chips() -> void:
+	var stats := {"fromEquipment": {"maxHp": 1232, "defense": 58, "damageBonus": 635, "moveEnergy": 20, "critChance": 17.1},
+		"equipmentPoints": {"hp": 616, "damage": 127, "defense": 58, "mobility": 20, "crit": 17.1}}
+	var chips := M.bonus_chips(stats)
+	eq(chips.map(func(c): return c["glyph"]), ["heart", "sword", "shield", "crit", "boot"], "a picture per stat, in order")
+	eq(chips.map(func(c): return c["value"]), ["+1.232", "+635", "+58", "+17.1%", "+20"], "the battle values")
+	eq(chips[0]["line"], "Máu +616 điểm (+1.232)", "the words for the tooltip")
+	eq(chips.map(func(c): return c["key"]), ["maxHp", "damageBonus", "defense", "critChance", "moveEnergy"], "the battle stat keys")
+	eq(M.bonus_chips({"fromEquipment": {"maxHp": 0}}), [], "nothing worn")
+	eq(M.bonus_chips(null), [], "no stats")
+
+
 func test_gun_of_weapon_items() -> void:
 	eq(M.gun("rookie_weapon_lv30"), {"kind": "bazooka", "tier": "mithril"}, "rookie lv30")
 	eq(M.gun("tanko_weapon_lv10"), {"kind": "cannon", "tier": "iron"}, "tanko lv10")
@@ -324,13 +360,24 @@ func test_sell_price() -> void:
 	eq(M.amount_text({"currency": "gem", "amount": 7}), "7 kim cương", "gem text")
 
 
+func test_stat_chips() -> void:
+	var chips := M.stat_chips({"statHp": 935.0, "statDefense": 102.0, "statCrit": 51.0, "statMoveEnergy": 340.0}, MULT)
+	eq(chips.map(func(c): return [c["glyph"], c["value"]]), [["heart", "+1.870"], ["shield", "+102"], ["crit", "+51%"], ["boot", "+340"]],
+		"the picture and the battle value")
+	eq(chips[0]["line"], "Máu +935 điểm (+1.870)", "the words for the tooltip")
+	eq(M.stat_chips({"statDamage": 646.0}).map(func(c): return c["value"]), ["+646"], "the points before the multipliers load")
+	var d := M.compare({"statHp": 100.0, "statCrit": 3.0}, {"statHp": 600.0, "statCrit": 1.0}, MULT)
+	eq(d.map(func(x): return [x["glyph"], x["short"]]), [["heart", "−1.000"], ["crit", "+2%"]], "the one number of a change")
+	eq(M.compare({"statDamage": 8.0}, {"statDamage": 3.0})[0]["short"], "+5", "points before the multipliers load")
+
+
 func test_labels_have_no_level() -> void:
 	var catalog := {"items": {"normal_armor_lv10": {"itemId": "normal_armor_lv10", "slot": "armor", "name": "Iron Vest", "statHp": 100.0}}}
 	var piece := {"equipmentId": "a", "itemId": "normal_armor_lv10", "slot": "armor", "upgradeLevel": 10}
 	var tip := M.piece_tooltip(catalog, piece)
 	eq(tip.get_slice("\n", 0), "Áo giáp Sắt", "Prep tooltip: the name, no +N")
 	check(not tip.contains("+10"), "no +N in the tooltip")
-	check(tip.get_slice("\n", 1).begins_with("Máu +150 điểm"), "upgraded stats under it")
+	check(tip.get_slice("\n", 1).begins_with("Máu +400 điểm"), "upgraded stats under it")
 	eq(M.category_name({"category": "crafted"}), "Chế tạo", "crafted")
 	eq(M.category_name({"category": "normal"}), "Thường", "normal")
 	eq(M.category_name({}), "Thường", "no category")

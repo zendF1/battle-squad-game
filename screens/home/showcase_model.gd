@@ -73,8 +73,8 @@ static func parse(data: Variant) -> Dictionary:
 
 
 ## The shown character → {id, level, power (-1 unknown), look (the server's), equipment (pieces
-## by slot id), points (statPoints key -> int), stats (BattleStats.parse: {} without)}; {} without
-## a characterId.
+## by slot id), points (statPoints key -> int), stats (BattleStats.parse: {} without), gear (the
+## gear profile, screens/home/gear_model.gd; {} without)}; {} without a characterId.
 static func character(c: Variant) -> Dictionary:
 	if not c is Dictionary or _str(c.get("characterId")) == "":
 		return {}
@@ -89,7 +89,7 @@ static func character(c: Variant) -> Dictionary:
 		points[k] = maxi(_num(sp.get(k)), 0) if sp is Dictionary else 0
 	return {"id": str(c["characterId"]), "level": maxi(_num(c.get("level"), 1), 1), "power": _num(c.get("power"), -1),
 		"look": c.get("look") if c.get("look") is Dictionary else {}, "equipment": by_slot, "points": points,
-		"stats": BattleStats.parse(c.get("stats"))}
+		"stats": BattleStats.parse(c.get("stats")), "gear": c.get("gear") if c.get("gear") is Dictionary else {}}
 
 
 ## The stat cells of a character(): [{key, glyph, value (the final stat as shown), points (the
@@ -143,4 +143,9 @@ static func upgrade_text(piece: Dictionary) -> String:
 
 ## The figure (player_figure.gd) of the shown character.
 static func look(c: Dictionary, catalog: Variant = null) -> Dictionary:
-	return LeaderboardModel.look_of(str(c.get("id", "")), c.get("look", {}), catalog)
+	var lk: Dictionary = c.get("look", {})
+	var gear: Dictionary = c.get("gear", {})
+	if not lk.has("setAura") and gear.get("setAura") != null: # the gear profile's 6-piece aura
+		lk = lk.duplicate()
+		lk["setAura"] = gear["setAura"]
+	return LeaderboardModel.look_of(str(c.get("id", "")), lk, catalog)

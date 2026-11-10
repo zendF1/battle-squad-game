@@ -108,3 +108,54 @@ func test_subtitle() -> void:
 		"bossHp": 3400, "bossMaxHp": 12000, "bossDamage": {"me": 9000}}}
 	var lose := BossResultModel.info(d, PLAYERS, "me", "", null)
 	eq(BossResultModel.subtitle(lose), "Cua Dung Nham · Vòng 15/15 · Máu boss còn 3.400 / 12.000", "a loss: the HP left too")
+
+
+const THIRD_WIN := {"playerId": "p1", "expGained": 293, "coinGained": 1058, "bossDamage": 9000, "minionDamage": 1000, "bonusRun": true,
+	"bonusRunsLeft": 0, "items": [], "chests": [{"chestId": "stone_chest_silver", "quantity": 1}, {"chestId": "stone_chest_gold", "quantity": 1}],
+	"bossId": "steel_robot", "gameDay": "2026-11-20", "rewardVersion": 2, "bonusRunsCompleted": 3, "bonusWins": 3, "perfectRequiredWins": 3,
+	"perfectRewardEligible": false, "perfectRewardGranted": true}
+
+
+func test_third_win_shows_silver_and_gold() -> void:
+	BossFixture.take()
+	var r := BossResultModel.reward(THIRD_WIN, "")
+	eq(r["chests"].map(func(c): return c["chestId"]), ["stone_chest_silver", "stone_chest_gold"], "both chests of the run")
+	eq(r["trail"]["pips"], ["win", "win", "win"], "the day's pips")
+	eq(r["trail"]["gold"], "won", "the gold earned")
+	check(r["perfect_now"], "this run gave it")
+	eq(ResultModel.reward_tiles(r).filter(func(t): return t["kind"] == "chest").map(func(t): return t["id"]),
+		["stone_chest_silver", "stone_chest_gold"], "two tiles")
+
+
+func test_later_run_after_the_gold_is_not_a_new_gold() -> void:
+	BossFixture.take()
+	var d: Dictionary = THIRD_WIN.duplicate(true)
+	d.erase("chests")
+	d["bonusRun"] = false
+	var r := BossResultModel.reward(d, "")
+	eq(r["trail"]["gold"], "won", "the day's gold stays earned")
+	check(not r["perfect_now"], "but this run did not give it")
+
+
+func test_rules_1_result_has_no_trail() -> void:
+	BossFixture.take()
+	eq(BossResultModel.reward(WIN["rewards"]["me"], "")["trail"], {}, "no rewardVersion: rules 1")
+	var d: Dictionary = THIRD_WIN.duplicate(true)
+	d["rewardVersion"] = 1
+	var r := BossResultModel.reward(d, "")
+	eq(r["trail"], {}, "rules 1 sent")
+	check(not r["perfect_now"], "no gold")
+	eq(BossResultModel.reward(null, "", ResultModel.PENDING)["trail"], {}, "rewards on their way")
+
+
+func test_a_loss_gives_bronze() -> void:
+	BossFixture.take()
+	var d: Dictionary = THIRD_WIN.duplicate(true)
+	d["chests"] = [{"chestId": "stone_chest_bronze", "quantity": 1}]
+	d["bonusRunsCompleted"] = 2
+	d["bonusWins"] = 1
+	d["perfectRewardGranted"] = false
+	var r := BossResultModel.reward(d, "")
+	eq(r["trail"]["pips"], ["win", "loss", "open"], "after the loss")
+	eq(r["trail"]["gold"], "lost", "the gold out of reach")
+	check(not r["perfect_now"], "no gold")

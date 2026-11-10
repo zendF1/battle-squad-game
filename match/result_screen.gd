@@ -6,13 +6,18 @@ extends Control
 ## side: the winner with the most damage stands higher, ResultModel.podium_top()), the other team
 ## on the right, dimmed, on the ground (a draw: my team left, no podium); each player in full pose
 ## (ui/character_view.gd, bots too) on their own step under their title plate, their badge
-## (rankBadge, grade_badge.gd) with the name (mine gold), the level and the damage dealt as glyph + number, "MVP" on the best one, "ĐỘI CỦA BẠN" /
+## (rankBadge, grade_badge.gd) with the name (mine gold; another real player's Kết bạn after it,
+## screens/social/friend_button.gd), the level and the damage dealt as glyph + number, "MVP" on the best one, "ĐỘI CỦA BẠN" /
 ## "ĐỐI THỦ" under each team. Bottom left my rewards card (its size never changes: what grew it
 ## is in the popups): "+N EXP" counting with its bar filling, the coin with "+N" (a ranked match:
 ## the insignia with "+150", its bonus inside the coins; then the stones and chests won as glowing
-## icons with "×N", ui/reward_strip.gd mini_tile), a small gold chip by "PHẦN THƯỞNG" with the new
+## icons with "×N", ui/reward_strip.gd mini_tile, and the guild's crest with "+N" guild EXP, the dungeon gate's check on
+## it when the match cleared today's guild dungeon), a small gold chip by "PHẦN THƯỞNG" with the new
 ## levels after a level up, and for ranked the grade's insignia with its name and "+30 điểm hạng"
 ## (or −). A match that gives nothing (QuickPlay vs AI, practice: all 0) shows no rewards card.
+## Rewards still on their way (pending settlement, no rewards sent) show the turning hourglass
+## with a short line (match/reward_pending.gd; a tick once PlayerState sees them land), rewards not
+## granted ResultModel.FAILED_TEXT.
 ## One after another: the EXP, then "LÊN CẤP!" (match/level_up_popup.gd) when the player or the
 ## character levelled up, the coins, then the rank popup (match/rank_popup.gd) when the division
 ## or grade changed (the insignia and the name then flip to the new rank), else the points
@@ -43,6 +48,9 @@ const Fmt := preload("res://core/fmt.gd")
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const RewardModel := preload("res://ui/reward_model.gd")
 const RewardStrip := preload("res://ui/reward_strip.gd")
+const FriendButton := preload("res://screens/social/friend_button.gd")
+const FriendsModel := preload("res://screens/social/friends_model.gd")
+const RewardPending := preload("res://match/reward_pending.gd")
 
 const SLOT_W := 250.0
 const SLOT_GAP := 24.0
@@ -237,6 +245,8 @@ func _add_slot(e: Dictionary, left: bool) -> void:
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	name_label.mouse_filter = MOUSE_FILTER_IGNORE
 	row.add_child(name_label)
+	if FriendsModel.can_befriend(str(e["playerId"]), bool(e.get("isBot", false)), Session.player_id):
+		FriendButton.add_mirrored(row, e, 40, str(e.get("badge", "")) == "") # Kết bạn (hidden for a friend)
 	# the level and the damage dealt as glyph + number (a bot's name says it is one)
 	var level := int(e.get("level", 0))
 	if level > 0:
@@ -325,8 +335,10 @@ func _build_bottom() -> Control:
 	_level_chip_text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	chip_row.add_child(_level_chip_text)
 	head.add_child(_level_chip)
-	if not reward.get("ok", false):
-		col.add_child(LobbyUi.text("Chưa lấy được phần thưởng của trận này", 24, Color.WHITE, true))
+	if reward.get("pending", false): # on its way: the hourglass (PlayerState watches the profile)
+		col.add_child(RewardPending.make())
+	elif not reward.get("ok", false):
+		col.add_child(LobbyUi.text(ResultModel.FAILED_TEXT, 24, Color.WHITE, true))
 	else:
 		var exp_row := Ui.hbox(12)
 		col.add_child(exp_row)
@@ -365,7 +377,11 @@ func _build_bottom() -> Control:
 			bl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			b.add_child(bl)
 			coin_row.add_child(b)
-		for t in RewardModel.from_match(reward):
+		var tiles := RewardModel.from_match(reward)
+		var guild := ResultModel.guild_tile(reward)
+		if not guild.is_empty(): # the guild EXP (and today's dungeon cleared)
+			tiles.append(guild)
+		for t in tiles:
 			if str(t["kind"]) == "coin":
 				continue
 			var gap := Control.new()

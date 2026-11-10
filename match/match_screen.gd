@@ -104,8 +104,25 @@ extends Node2D
 ## GroundCrackFx; a shard / thorn bursts on the member it hits), roll (the thrown boulder is a
 ## RollingBoulderView via boss_roll, then rolls along the path from where it lands) and pull (the
 ## member dragged along the path, RootDragFx along the ground, its state `to`).
+## Gear effects (server contract docs/contracts/gear-effects.md, BattlePlayerState.gear): every
+## shell of a weapon from +10 glows in its aura colour (ShotLook.bullet_aura()); a player in a
+## 6-piece set stands in its set aura (PlayerView.set_set_aura()); my +16 weapon / gloves / boots
+## give awaken buttons after the items (Hud.set_awakens(), GearModel.awaken_buttons(); Awaken
+## {slot}, free), AwakenUsed shows the awaken's picture over its user for everyone (a timed
+## badge and GearFx), marks it used, glows my energy bar for the boots (its moveEnergy goes into
+## MoveSync) and, for the weapon's, takes the wind out of the turn: from AwakenUsed (or my
+## Awaken on its way) until the shot's replay ends, the wind readout, the sky and my aim preview
+## show no wind for everyone (_turn_wind(), GearModel.turn_wind(); ShotResolved awakened "weapon"
+## keeps it for the replay); AwakenRefused gives the button back with a toast.
+## The new events: resist (a shield puff on the target), awaken (an automatic awaken: its
+## picture), revive (a gold burst, the HP back), crit_immune (the cancelled crit: its picture,
+## the shield event follows), status cause proc / set_fire (a small spark / flame with the
+## effect), heal cause set_heal (a small heart), set_fire (a flame on the shooter); GearEffect
+## outside shots plays cleanse cause set_cleanse (a sparkle wash) and awaken + revive. The boots'
+## passive walks further: MoveSync.cost_factor from my gear moveCost.
 ## See docs/superpowers/specs/2026-10-15-godot-client-roadmap-design.md.
 
+const MatchChat := preload("res://match/match_chat.gd")
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
 const TerrainView := preload("res://match/terrain/terrain_view.gd")
 const PlayerView := preload("res://match/views/player_view.gd")
@@ -185,6 +202,10 @@ const RollingBoulderView := preload("res://match/boss/rolling_boulder_view.gd")
 const RootDragFx := preload("res://match/boss/root_drag_fx.gd")
 const TunnelDig := preload("res://match/terrain/tunnel_dig.gd")
 const DrillFx := preload("res://match/views/drill_fx.gd")
+const GearModel := preload("res://screens/home/gear_model.gd")
+const Ui := preload("res://ui/ui.gd")
+const GearFx := preload("res://match/views/gear_fx.gd")
+const PlayerInfoPopup := preload("res://match/views/player_info_popup.gd")
 const QUAKE_SHAKE := 70.0 # the earthquake's shake (as an explosion of this radius), renewed every QUAKE_EVERY s
 const QUAKE_EVERY := 0.12
 const WATER_GUN := "water_gun" # a shot of this gun kind bursts into water (visual only)
@@ -213,6 +234,14 @@ const DATA_NOTICE := "Đang cập nhật dữ liệu..."
 const UNIT_RING_RADIUS := 26.0 # a lost turn's countdown ring over the unit
 const MIN_AIM_SEC := 0.15 # a PlayerAiming with less left (held back by a replay) is not shown
 const ITEM_BADGE_SEC := 1.5 # an instant item's badge stays this long, then fades
+## AwakenRefused codes → the toast (Vietnamese).
+const AWAKEN_REFUSED := {
+	"AWAKEN_NOT_YOUR_TURN": "Chưa tới lượt",
+	"AWAKEN_NOT_AVAILABLE": "Chưa thức tỉnh",
+	"AWAKEN_ALREADY_USED": "Đã dùng trong trận",
+	"AWAKEN_ALREADY_SHOT": "Đã bắn rồi",
+	"AWAKEN_BLOCKED": "Không dùng được lúc này",
+}
 const LOOK_LIFT := Vector2(0, -60) # the camera centres a player this far above its feet
 const REMOTE_LOOK := 520.0 # px along a remote player's aim the camera looks
 const START_HOLD := 0.5 # s on me at the match start before the pan to the current player
@@ -260,6 +289,8 @@ var _data_wait := false # the game data is being fetched again (gamedataVersion 
 
 var _mask := TerrainMask.new()
 var _moves := MoveSync.new()
+var _awaken_sent := {} # slot -> true: my Awaken sent, not answered yet (its button off)
+var _wind_ignored := false # the shot on screen ignores the wind (ShotResolved awakened weapon): no wind shown
 var _sky: SkyView
 var _terrain_view: TerrainView
 var _bottom: BottomView # the map theme's water / lava / abyss, over the terrain's bottom
@@ -309,6 +340,7 @@ var _action_at := -10_000_000 # Time.get_ticks_usec() when my last Move/Shoot/En
 
 func _ready() -> void:
 	_me = Session.player_id
+	PlayerState.stop_reward_watch() # a last match's reward still on its way: Home reloads it, this match has its own
 	var far := CanvasLayer.new() # the sky: a far layer behind the world, in parallax with the camera
 	far.layer = -1
 	add_child(far)
@@ -370,8 +402,10 @@ func _ready() -> void:
 	_hud.move_released.connect(func() -> void: _hold_dir = 0)
 	_hud.skill_pressed.connect(_on_skill_pressed)
 	_hud.item_pressed.connect(_on_item_pressed)
+	_hud.awaken_pressed.connect(_on_awaken_pressed)
 	_aim.fire_column.connect(_on_fire_column)
 	_hud.leave_pressed.connect(_on_leave)
+	_hud.portrait_pressed.connect(_open_player_info)
 
 	var snap: Dictionary = Router.match_snapshot
 	Router.match_snapshot = {} # consumed: a later Match scene must not start from it
@@ -386,6 +420,10 @@ func _ready() -> void:
 		_hud.announce_map(map_name)
 	GameSocket.event_received.connect(_on_event)
 	GameSocket.disconnected.connect(_on_disconnected)
+	var chat := MatchChat.new() # the match chat: ChatSend / ChatMessage / ChatHistory / ChatError
+	chat.hud = _hud
+	chat.names = func() -> Dictionary: return MatchChat.names_of(_players)
+	add_child(chat)
 	GameSocket.release()
 
 
@@ -511,6 +549,9 @@ func _load_snapshot(snap: Dictionary, is_sync: bool) -> void:
 		view.set_shield_tint(_shields.colour_of(id))
 		_leaps.on_state(id, _players[id], int(snap.get("turnIndex", _turn_index)), current)
 		view.set_leapt(_leaps.warning(id))
+		view.set_set_aura(GearModel.set_aura(GearModel.profile_of(_players[id])))
+	_moves.cost_factor = _move_cost_factor()
+	_awaken_sent.clear()
 	_load_boss(snap)
 	_wind = snap.get("wind", _wind)
 	_turn_index = int(snap.get("turnIndex", _turn_index))
@@ -570,7 +611,6 @@ func _set_current(player_id: String, move_energy: int, continuing: bool = false)
 	var my_team := int(_players.get(_me, {}).get("teamId", -1))
 	_hud.set_turn(_is_my_turn(), str(turn_player.get("displayName", "")), turn_player,
 		my_team < 0 or int(turn_player.get("teamId", -2)) == my_team)
-	_hud.set_wind(int(_wind.get("direction", 0)), float(_wind.get("power", 0.0)))
 	_show_wind()
 	for id in _views:
 		_views[id].set_active(id == player_id and not _ended)
@@ -642,6 +682,13 @@ func _refresh_controls() -> void:
 			usable = false
 		buttons.append({"id": it["id"], "count": it["count"], "name": Items.label(it["id"]), "enabled": usable})
 	_hud.set_actions(skill, energy, skill_usable, _armed, buttons)
+	var gear := _my_gear()
+	var awakens := GearModel.awaken_buttons(gear, {"can_act": can and not frozen, "can_shoot": can_shoot and not _commit_sent,
+		"rooted": rooted})
+	for a in awakens:
+		if _awaken_sent.has(a["slot"]):
+			a["enabled"] = false
+	_hud.set_awakens(awakens)
 	_sync_selection()
 	var aim_mode := str(skill.get("aim", SkillView.AIM_ARC)) if _armed == SKILL else SkillView.AIM_ARC
 	var offsets: Array = skill["offsets"] if _armed == SKILL and aim_mode == SkillView.AIM_ARC else [0.0]
@@ -654,8 +701,9 @@ func _refresh_controls() -> void:
 	if can:
 		_aim.shooter_pos = _views[_me].position
 		_aim.terrain = _mask
-		_aim.wind_dir = int(_wind.get("direction", 0))
-		_aim.wind_power = float(_wind.get("power", 0.0))
+		var wind := _turn_wind() # my weapon's awaken armed (or on its way): no wind
+		_aim.wind_dir = int(wind["direction"])
+		_aim.wind_power = float(wind["power"])
 		_set_aim_aid(me)
 	else:
 		_hold_dir = 0
@@ -780,6 +828,7 @@ func _apply(event: String, data: Variant) -> void:
 			for view in _views.values():
 				view.clear_aim() # guns put away
 			var current := str(data.get("currentPlayerId", ""))
+			_end_awakens()
 			if _players.has(current) and data.has("maxMoveEnergy"):
 				_players[current]["maxMoveEnergy"] = data["maxMoveEnergy"]
 			# A lost turn (stun / freeze): the server sends skipped; an older one does not, then
@@ -824,6 +873,7 @@ func _apply(event: String, data: Variant) -> void:
 			# for their moment in the replay.
 			_energy_reveal.begin(timeline, _players)
 			_shot_badge = {"shooter": shooter, "content": UseBadge.content(timeline.action_mode, timeline.skill_id, timeline.item_id)}
+			_on_awakened(shooter, data.get("awakened"))
 			# The shot looks like the shooter's gun (visuals only): the kind and tier of the weapon
 			# it brought (weaponItemId), its character's basic gun when none (bots).
 			_shot_player.style = ShotLook.style_for(_players.get(shooter, {}), str(data.get("actionMode", "")),
@@ -892,6 +942,15 @@ func _apply(event: String, data: Variant) -> void:
 					_kill(id)
 		"ItemUsed":
 			_on_item_used(data)
+		"AwakenUsed":
+			_on_awaken_used(data)
+		"AwakenRefused":
+			_on_awaken_refused(data)
+		"GearEffect":
+			if data is Dictionary and data.get("events") is Array:
+				for e in data["events"]:
+					if e is Dictionary:
+						_on_shot_event(e)
 		"BossShieldChanged":
 			_on_boss_shield(data)
 		"UnitFlew":
@@ -1041,7 +1100,6 @@ func _on_item_used(d: Dictionary) -> void:
 				_views[id].set_dead()
 			_leaps.on_state(id, p, _turn_index, _current)
 			_views[id].set_leapt(_leaps.warning(id))
-	_hud.set_wind(int(_wind.get("direction", 0)), float(_wind.get("power", 0.0)))
 	_show_wind()
 	# An instant item shows its badge now; a shot item's comes with its shot (one badge, not two).
 	var used := str(d.get("itemId", ""))
@@ -1187,6 +1245,8 @@ func _on_shot_event(e: Dictionary) -> void:
 			var amount := int(e.get("amount", 0))
 			if amount > 0:
 				_popup(id, DamagePopup.heal_text(amount), DamagePopup.HEAL)
+			if str(e.get("cause", "")) == "set_heal":
+				_gear_fx(id, "set_heal")
 			if _views.has(id) and str(e.get("cause", "")) in [DRAIN, REGEN]: # the boss heals: its glow
 				_views[id].heal_glow()
 				if str(e.get("cause", "")) == REGEN:
@@ -1198,6 +1258,8 @@ func _on_shot_event(e: Dictionary) -> void:
 			if gained > 0:
 				_popup(id, shield_text(gained), Color(0.62, 0.9, 1.0), Vector2(0, -28))
 		"cleanse":
+			if str(e.get("cause", "")) == "set_cleanse":
+				_gear_fx(id, "set_cleanse")
 			if _players.has(id):
 				_players[id]["statusEffects"] = Status.remove(_players[id].get("statusEffects"), e.get("effectIds"))
 				_views[id].set_status(_players[id]["statusEffects"])
@@ -1286,7 +1348,24 @@ func _on_shot_event(e: Dictionary) -> void:
 			_roll(e)
 		"pull":
 			_pull(e)
+		"resist": # the armor ignored the effect: nothing applied, a shield puff
+			_gear_fx(id, "resist")
+		"awaken": # an automatic awaken fired (armor / helmet / pants): its picture over the wearer
+			_show_awaken(id, str(e.get("slot", "")))
+		"revive":
+			_set_hp(id, int(e.get("hp", 0)))
+			if _players.has(id):
+				_players[id]["isAlive"] = true
+			_gear_fx(id, "revive")
+			if _views.has(id):
+				_views[id].heal_glow()
+		"crit_immune": # the crit counted as a normal hit (the damage after it), a shield follows
+			_gear_fx(id, "crit_immune")
+		"set_fire": # the 6-piece fire set: the shooter's last shell was on fire
+			_gear_fx(id, "set_fire")
 		"status":
+			if str(e.get("cause", "")) in ["proc", "set_fire"]:
+				_gear_fx(id, "proc" if str(e.get("cause", "")) == "proc" else "set_fire", Vector2(0, -30))
 			if _players.has(id):
 				_players[id]["statusEffects"] = Status.apply(_players[id].get("statusEffects"), str(e.get("effectId", "")), int(e.get("turns", 1)))
 				_views[id].set_status(_players[id]["statusEffects"])
@@ -1400,6 +1479,9 @@ func _on_shot_finished() -> void:
 		_wave_fx.release()
 	_wave_fx = null
 	_show_energies(_energy_reveal.finish()) # what changed without a hit on screen
+	if _wind_ignored:
+		_wind_ignored = false
+		_show_wind()
 	var shooter := str(_shot_badge.get("shooter", ""))
 	var content: Dictionary = _shot_badge.get("content", {})
 	if not content.is_empty() and _views.has(shooter):
@@ -1431,6 +1513,8 @@ func _on_match_ended(d: Dictionary) -> void:
 		PlayerState.boss_runs_stale() # the Boss tab reloads the runs left
 		PlayerState.chests_dirty() # a bonus run's chests
 	var info := result_info(d)
+	if info["reward"].get("pending", false):
+		PlayerState.watch_pending_reward() # it lands in the profile later, with no event: poll it
 	# A Timer child: leaving the screen during the wait frees it with the screen, nothing fires.
 	var delay := Timer.new()
 	delay.name = "ResultDelay"
@@ -1444,8 +1528,8 @@ func _on_match_ended(d: Dictionary) -> void:
 
 
 ## The result screen's data (ResultScreen.setup()) for a MatchEnded {winningTeam, rewards,
-## stats?, mvpPlayerId?}. The server sends "rewards": null when granting them failed: shown as
-## such, never as +0.
+## rewardSettlementStatus?, stats?, mvpPlayerId?}. "rewards": null is never shown as +0: on its way
+## while the settlement is pending (ResultModel.settlement_of()), else not granted.
 func result_info(d: Dictionary) -> Dictionary:
 	var my_team := int(_players.get(_me, {}).get("teamId", -1))
 	var winning_team := int(d.get("winningTeam", 0)) # 0: no team left alive
@@ -1465,7 +1549,7 @@ func result_info(d: Dictionary) -> Dictionary:
 		return boss_result_info(d, reward, char_id)
 	return {"outcome": ResultModel.outcome(my_team, winning_team), "left": entries["left"], "right": entries["right"],
 		"mvp": ResultModel.mvp(_players, order, stats, d.get("mvpPlayerId"), _damage_by),
-		"reward": ResultModel.reward(reward, _mode),
+		"reward": ResultModel.reward(reward, _mode, ResultModel.settlement_of(d)),
 		"exp": {"level": PlayerState.level(), "exp": PlayerState.player_exp()} if PlayerState.is_loaded() else {},
 		"char_name": LobbyModel.character_info(char_id, null)["name"],
 		"again": "" if _party_member() else ResultModel.again_text(_mode, not Router.last_quick_play.is_empty())}
@@ -1515,7 +1599,7 @@ func _on_again(screen: Control) -> void:
 		add_child(_replay)
 		_replay.changed.connect(func() -> void: screen.set_status(_replay.status, _replay.pending))
 	if not _replay.request(Router.last_quick_play):
-		screen.set_status("Mất kết nối, hãy thử lại khi online", false)
+		screen.set_status(_replay.status if _replay.status != "" else "Mất kết nối, hãy thử lại khi online", false)
 
 
 # ── Local actions ────────────────────────────────────────────────────────────
@@ -2647,15 +2731,135 @@ static func _aim_dir(angle: float) -> Vector2:
 	return Vector2(cos(deg_to_rad(angle)), -sin(deg_to_rad(angle)))
 
 
+## A tap on the turn portrait: that player's info popup (head, name, guild skills) over the HUD.
+func _open_player_info(id: String) -> Control:
+	if not _players.has(id):
+		return null
+	var popup = PlayerInfoPopup.new()
+	popup.open_for(_hud, _players[id])
+	return popup
+
+
 ## A tap on a player's off-screen marker: the camera pans there and stays.
 func _on_marker_tapped(id: String) -> void:
 	if _views.has(id):
 		_cam.look_at(_views[id].position + _view_lift(_views[id]))
 
 
+# ── Gear effects ─────────────────────────────────────────────────────────────
+
+## My gear profile in the match (BattlePlayerState.gear), {} without one.
+func _my_gear() -> Dictionary:
+	return GearModel.profile_of(_players.get(_me, {}))
+
+
+## The boots' passive for my walk prediction: 1 − my gear moveCost / 100.
+func _move_cost_factor() -> float:
+	return GearModel.move_cost_factor(_my_gear())
+
+
+## An awaken button: Awaken {slot} goes out (free: no turn end); its button stays off until
+## AwakenUsed or AwakenRefused answers.
+func _on_awaken_pressed(slot: String) -> void:
+	if not _is_my_turn() or _turn_resolved or _awaken_sent.has(slot):
+		return
+	_awaken_sent[slot] = true
+	_send("Awaken", {"slot": slot})
+	_show_wind()
+	_refresh_controls()
+
+
+## AwakenUsed {playerId, slot, moveEnergy?}: the awaken is spent (and, for the weapon / gloves,
+## armed for the turn's shot: the weapon's shows no wind for everyone); its picture over the
+## player for everyone; the boots' new energy.
+func _on_awaken_used(d: Variant) -> void:
+	if not d is Dictionary:
+		return
+	var id := str(d.get("playerId", ""))
+	var slot := str(d.get("slot", ""))
+	if not _players.has(id) or slot == "":
+		return
+	var gear := GearModel.mark_used(GearModel.profile_of(_players[id]), slot)
+	if GearModel.awaken_is_button(slot) and slot != "boots":
+		gear = GearModel.mark_armed(gear, slot)
+	_players[id]["gear"] = gear
+	_show_awaken(id, slot)
+	if id == _me:
+		_awaken_sent.erase(slot)
+		if slot == "boots" and (d.get("moveEnergy") is int or d.get("moveEnergy") is float):
+			_moves.set_server_energy(int(d["moveEnergy"]))
+			_hud.set_energy(_moves.energy, _max_energy())
+			_hud.set_energy_glow(true)
+	_show_wind()
+	_refresh_controls()
+
+
+## AwakenRefused (mine): the button comes back, a toast says why.
+func _on_awaken_refused(d: Variant) -> void:
+	if not d is Dictionary:
+		return
+	_awaken_sent.erase(str(d.get("slot", "")))
+	_show_wind()
+	var why := str(AWAKEN_REFUSED.get(str(d.get("code", "")), ""))
+	if why != "":
+		Ui.toast(_hud, why)
+	_refresh_controls()
+
+
+## ShotResolved awakened: the armed awakens this shot used; the weapon's keeps the wind at 0 for
+## the replay.
+func _on_awakened(shooter: String, awakened: Variant) -> void:
+	if _players.has(shooter):
+		_players[shooter]["gear"] = GearModel.clear_armed(GearModel.profile_of(_players[shooter]))
+	if awakened is Array and awakened.has("weapon"):
+		_wind_ignored = true
+	_show_wind()
+
+
+## A turn passes: nobody has an armed awaken, the energy glow ends and the wind shows again.
+func _end_awakens() -> void:
+	for id in _players:
+		if _players[id].get("gear") is Dictionary:
+			_players[id]["gear"] = GearModel.clear_armed(_players[id]["gear"])
+	_awaken_sent.clear()
+	_hud.set_energy_glow(false)
+	_wind_ignored = false
+	_show_wind()
+
+
+## An awaken over player id: its timed badge and its picture's burst.
+func _show_awaken(id: String, slot: String) -> void:
+	var kind := GearModel.awaken_kind(slot)
+	if not _views.has(id) or kind == "":
+		return
+	_views[id].show_badge(UseBadge.content_awaken(slot), ITEM_BADGE_SEC)
+	if kind != "revive" and kind != "crit_immune": # those draw their own burst (revive / crit_immune events)
+		_gear_fx(id, kind)
+
+
+## A gear effect's picture burst (GearFx) over player id's body.
+func _gear_fx(id: String, kind: String, offset: Vector2 = Vector2.ZERO) -> void:
+	if not _views.has(id):
+		return
+	var fx = GearFx.make(kind, maxf(1.0, _views[id].body_size))
+	fx.position = _views[id].body_centre() + offset
+	_fx_layer.add_child(fx)
+
+
+## The turn's wind as shown: the readout (0, no arrow, when there is none) and the sky.
 func _show_wind() -> void:
-	_sky.wind_dir = int(_wind.get("direction", 0))
-	_sky.wind_power = float(_wind.get("power", 0.0))
+	var wind := _turn_wind()
+	_hud.set_wind(int(wind["direction"]), float(wind["power"]))
+	_sky.wind_dir = int(wind["direction"])
+	_sky.wind_power = float(wind["power"])
+
+
+## The wind the turn's shot flies with: none while the current player's weapon awaken is armed
+## (AwakenUsed; my Awaken on its way) or its shot replays (the server zeroes it for that shot).
+func _turn_wind() -> Dictionary:
+	var gear := GearModel.profile_of(_players.get(_current, {}))
+	var pending := _current == _me and _awaken_sent.has("weapon")
+	return GearModel.turn_wind(_wind, gear, _wind_ignored or pending)
 
 
 static func _vec(d: Dictionary) -> Vector2:

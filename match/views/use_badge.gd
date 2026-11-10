@@ -11,15 +11,21 @@ extends Node2D
 ## (no second pop): the badge of an armed skill / shot item (ActionSelected) simply continues
 ## into its shot. A timed badge (an instant item) over a held one shows for its time, then the
 ## held one comes back. The node's position is the badge's bottom centre.
+## A piece's awaken (Thức tỉnh, content_awaken()) shows its picture (ui/gear_glyphs.gd: the
+## awaken disc glowing gold) as a timed badge, for everyone.
 
 const Art := preload("res://ui/art.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Items := preload("res://match/items.gd")
 const Skills := preload("res://match/skills.gd")
 const SkillGlyphs := preload("res://match/views/skill_glyphs.gd")
+const GearGlyphs := preload("res://ui/gear_glyphs.gd")
+const GameData := preload("res://autoload/game_data_model.gd")
 
 const KIND_SKILL := "skill"
 const KIND_ITEM := "item"
+const KIND_AWAKEN := "awaken"
+const AWAKEN_RIM := Color(1.0, 0.8, 0.25)
 const HEIGHT := 36.0 # the round badge's diameter
 const ICON := 26.0 # the icon's square
 const POP_FROM := 0.55
@@ -55,6 +61,13 @@ static func content(action_mode: String, skill_id: String, item_id: String) -> D
 	return {}
 
 
+## A piece's awaken used (the slot of the +16 piece): {kind: KIND_AWAKEN, id: slot, name}.
+static func content_awaken(slot: String) -> Dictionary:
+	if slot == "":
+		return {}
+	return {"kind": KIND_AWAKEN, "id": slot, "name": "Thức tỉnh"}
+
+
 func _init() -> void:
 	visible = false
 	z_index = 2 # over the other players' names and bars
@@ -84,9 +97,10 @@ func show_use(c: Dictionary, hold: float = -1.0) -> void:
 		visible = false
 		return
 	var skill := str(c.get("kind", "")) == KIND_SKILL
+	var awaken := str(c.get("kind", "")) == KIND_AWAKEN
 	# a skill shows the generic lightning "skill" icon (its own picture is on the HUD's skill slot)
-	_tex = Art.icon("skill") if skill else Art.item_icon(str(c.get("id", "")))
-	_box.border_color = SkillGlyphs.color(str(c["id"])) if skill else ITEM_RIM
+	_tex = null if awaken else (Art.icon("skill") if skill else Art.item_icon(str(c.get("id", ""))))
+	_box.border_color = AWAKEN_RIM if awaken else (SkillGlyphs.color(str(c["id"])) if skill else ITEM_RIM)
 	visible = true
 	modulate.a = 1.0
 	scale = Vector2.ONE * POP_FROM
@@ -166,5 +180,7 @@ func _draw() -> void:
 		return
 	var r := rect()
 	draw_style_box(_box, r)
-	if _tex != null:
+	if str(_content.get("kind", "")) == KIND_AWAKEN:
+		GearGlyphs.draw(self, GameData.gear_awaken_kind(str(_content.get("id", ""))), r.get_center(), HEIGHT + 4.0)
+	elif _tex != null:
 		draw_texture_rect(_tex, Rect2(r.get_center() - Vector2(ICON, ICON) / 2.0, Vector2(ICON, ICON)), false)

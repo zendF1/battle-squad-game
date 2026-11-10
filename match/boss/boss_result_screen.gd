@@ -10,11 +10,15 @@ extends Control
 ## their name (mine gold) and damage, "MVP" on the best one as in PvP; they rise onto their steps
 ## from #4 to #1, the damage counting up. Bottom left my rewards card:
 ## the gift box (the lobby's milestone icon: lit for a big-reward run, dimmed for a normal one) with
-## the big-reward runs left today ("×2") and +EXP with its bar, then the reward tiles (ui/reward_strip.gd:
+## the big-reward runs left today ("×2"), or under rules 2 the day's trail after this match
+## (ui/boss_trail.gd: this run's pip pops in, the third win lights the gold chest), and +EXP with its
+## bar, then the reward tiles (ui/reward_strip.gd: both chests of a third win side by side,
 ## coins, stones, chests, items as icon + count, no names, scrolling sideways when they overflow,
 ## popping in one by one, the coins counting up); a level up opens the "LÊN CẤP!" popup after the EXP. Bottom right "Chơi
 ## tiếp" (the same boss's queue again; not for the party's member), "Về sảnh" (the party kept) and
-## the clock glyph with the seconds left.
+## the clock glyph with the seconds left. Rewards still on their way (pending settlement, none
+## sent) show the turning hourglass with a short line (match/reward_pending.gd), rewards not granted
+## ResultModel.FAILED_TEXT.
 ##
 ## setup(info) before it enters the tree: BossResultModel.info() plus exp ({level, exp} before the
 ## match, {} unknown), char_name, character_id, again ("" none).
@@ -34,6 +38,8 @@ const BossResultModel := preload("res://match/boss/boss_result_model.gd")
 const LevelUpPopup := preload("res://match/level_up_popup.gd")
 const Fmt := preload("res://core/fmt.gd")
 const RewardStrip := preload("res://ui/reward_strip.gd")
+const RewardPending := preload("res://match/reward_pending.gd")
+const BossTrail := preload("res://ui/boss_trail.gd")
 
 const GOLD := Color(1.0, 0.8, 0.22)
 const LOSE_TITLE := Color(0.62, 0.72, 0.9)
@@ -64,6 +70,7 @@ var _exp_value: Label
 var _exp_bar: ProgressBar
 var _coin_value: Label # the coin tile's count (null: no coins)
 var _strip: Control # ui/reward_strip.gd
+var _trail: BossTrail # rules 2: the day's bonus runs after this match
 var _fx: Control
 var _particles: Array = []
 var _left_sec := float(ResultModel.AUTO_EXIT_SEC)
@@ -268,7 +275,13 @@ func _build_bottom() -> Control:
 	var head := Ui.hbox(12)
 	col.add_child(head)
 	head.add_child(LobbyUi.text("PHẦN THƯỞNG", 20, Ui.TEXT_DIM, true))
-	if reward.get("ok", false):
+	var trail: Dictionary = reward.get("trail", {}) if reward.get("ok", false) else {}
+	if not trail.is_empty():
+		_trail = BossTrail.make(trail, 30, 42)
+		_trail.name = "RunTrail"
+		_trail.modulate = Color.WHITE if reward.get("bonus_run", false) else Color(1, 1, 1, 0.55)
+		head.add_child(_trail)
+	elif reward.get("ok", false):
 		var bonus: bool = reward.get("bonus_run", false)
 		var gift := Ui.hbox(6)
 		gift.name = "RunGift"
@@ -284,8 +297,12 @@ func _build_bottom() -> Control:
 			gift.add_child(count)
 		gift.modulate = Color.WHITE if bonus else Color(1, 1, 1, 0.55)
 		head.add_child(gift)
-	if not reward.get("ok", false):
-		col.add_child(LobbyUi.text("Chưa lấy được phần thưởng của trận này", 24, Color.WHITE, true))
+	if not reward.get("ok", false): # on its way (the hourglass: PlayerState watches the profile) or not granted
+		if reward.get("pending", false):
+			col.size_flags_horizontal = SIZE_EXPAND_FILL # the whole card: the hourglass in its centre
+			col.add_child(RewardPending.make())
+		else:
+			col.add_child(LobbyUi.text(ResultModel.FAILED_TEXT, 24, Color.WHITE, true))
 		return _finish_bottom(bar)
 	var tag := PanelContainer.new()
 	tag.add_theme_stylebox_override("panel", LobbyUi.box(Color(0.22, 0.48, 0.92), 10, 0))
@@ -409,6 +426,8 @@ func _animate() -> void:
 		reveal.parallel().tween_property(_exp_bar, "value", steps["to"] if steps["levels"] == 0 else 1.0, 0.7)
 	if _strip != null:
 		_strip.reveal(0.7)
+	if _trail != null and reward.get("bonus_run", false):
+		_trail.pop(int(reward["trail"]["done"]) - 1, reward.get("perfect_now", false), 0.8)
 	if _coin_value != null:
 		_coin_value.text = ResultModel.tile_qty_text(0)
 		reveal.tween_method(func(v: float) -> void: _coin_value.text = ResultModel.tile_qty_text(roundi(v)), 0.0, float(reward["coin"]), 0.5)

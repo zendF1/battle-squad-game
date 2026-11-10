@@ -2,9 +2,11 @@ extends Control
 ## Match HUD, in the lobby look (ui/lobby_ui.gd: translucent navy panels, rounded buttons, gold
 ## for the armed slot and for my turn), each part pinned to its own corner so it adapts to wide
 ## phones (stretch aspect "expand"; the viewport is at least 1600 × 900):
-## - top left: a small round Thoát (X) in the corner and the chat beside it: only its lines, plain
-##   text with an outline and a shadow over the sky (no box, no input: match chat is not there
-##   yet), the newest last, the older ones fading (add_chat_line());
+## - top left: a small round Thoát (X) in the corner, the chat button (a speech bubble) under it and
+##   the chat beside them: its lines, plain text with an outline and a shadow over the sky (no box),
+##   "Tên: tin nhắn" (mine in gold), the newest last, the older ones fading (add_chat_line(),
+##   match/match_chat.gd); the chat button opens an input over the lines (the game data's length
+##   limit) with a send button: Enter or send emits chat_send and closes it;
 ## - top centre: the turn timer badge and the wind (its gusts glyph, arrow, strength, a bar from
 ##   the middle) side by side;
 ## - top right: whose turn it is: only that player's lobby full-body figure (ui/character_view.gd,
@@ -16,7 +18,10 @@ extends Control
 ##   wide as the button) and over it the picture of the effect blocking moves (root's rocks,
 ##   match/views/status_glyph.gd, set_move_notice());
 ##   between the chat (top left) and the skill slot (bottom right), clear of both;
-## - bottom centre: the aim readout over the items in hand, a row of slots (icon + count);
+## - bottom centre: the aim readout over the items in hand, a row of slots (icon + count), and
+##   after them the awaken buttons (Thức tỉnh) of my +16 weapon / gloves / boots (set_awakens():
+##   the slot's awaken picture on a gold glowing disc, greyed once used; the row, items and
+##   awakens together, stays centred);
 ## - bottom right: the character's skill as a round slot (its icon, the energy as a ring, off
 ##   until charged; its name only as the tooltip).
 ## There is no end-turn button (a turn ends with a shot or the clock) and no weapon button (the
@@ -35,13 +40,18 @@ signal move_pressed(dir: int)
 signal move_released
 signal skill_pressed
 signal item_pressed(item_id: String)
+signal awaken_pressed(slot: String)
 signal leave_pressed
+## A tap on the turn portrait: that player's info popup (match/views/player_info_popup.gd).
+signal portrait_pressed(player_id: String)
+signal chat_send(text: String)
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Art := preload("res://ui/art.gd")
 const CharacterView := preload("res://ui/character_view.gd")
-const FakeChat := preload("res://screens/home/fake_chat.gd")
+const ChatModel := preload("res://screens/social/chat_model.gd")
+const SocialGlyphs := preload("res://screens/social/social_glyphs.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const SkillGlyphs := preload("res://match/views/skill_glyphs.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
@@ -51,6 +61,8 @@ const BossArtView := preload("res://match/boss/boss_art_view.gd")
 const CountdownRing := preload("res://match/views/countdown_ring.gd")
 const StatusGlyph := preload("res://match/views/status_glyph.gd")
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
+const GearGlyphs := preload("res://ui/gear_glyphs.gd")
+const GearModel := preload("res://screens/home/gear_model.gd")
 
 const NAVY := Color(0.06, 0.09, 0.22, 0.78)
 const MODE_BG := Color(0.13, 0.2, 0.42, 0.9)
@@ -67,6 +79,11 @@ const CHAT_MIN_ALPHA := 0.35
 const PORTRAIT_ART := Vector2(190, 200) # the turn portrait's figure box
 const SKILL_SIZE := 132
 const ITEM_SIZE := 96
+const AWAKEN_SIZE := 84
+const AWAKEN_USED := Color(0.32, 0.32, 0.38, 0.6) # spent this match: greyed
+const AWAKEN_OFF := Color(1, 1, 1, 0.42) # not now (another turn, after the shot)
+## The move energy bar's fill while the boots' awaken doubles this turn's energy.
+const ENERGY_GLOW := Color(0.75, 1.0, 0.35)
 const MOVE_SIZE := 110
 const ENERGY_GAP := 10 # between the left move button and the energy under it
 const NOTICE_GAP := 8 # between the notice and the left move button over which it sits
@@ -74,7 +91,7 @@ const NOTICE_PX := 64.0 # the notice's picture
 const PORTRAIT_SLIDE := 70.0 # px the portrait slides in from the right
 const COUNTDOWN_RADIUS := 64.0
 const COUNTDOWN_Y := 0.62 # of the screen's height: the ring's centre (under the turn banner, centred across)
-## The chat's line until match chat exists.
+## The chat's first line, the match start.
 const CHAT_LINE := {"channel": "Hệ thống", "name": "", "text": "Trận đấu bắt đầu!"}
 
 var _timer: Label
@@ -96,11 +113,19 @@ var _skill_name: Label
 var _skill_box: VBoxContainer
 var _items: HBoxContainer
 var _item_buttons: Array[Button] = [] # reused; one per item left in hand
+var _awakens: HBoxContainer # the awaken buttons, after the items
+var _awaken_buttons := {} # slot -> Button
+var _awaken_state := {} # slot -> {used, enabled}
+var _energy_glow := false
 var _portrait: Control
 var _portrait_art: CharacterView
 var _portrait_tween: Tween
 var _portrait_key := ""
+var _portrait_player := "" # the playerId the portrait shows ("" none)
 var _chat: VBoxContainer
+var chat_button: Button
+var chat_input: LineEdit
+var _chat_input_row: HBoxContainer
 var _result: Control
 var _result_title: Label
 var _result_detail: Label
@@ -180,16 +205,69 @@ func _build_top_left() -> void:
 	leave.tooltip_text = "Thoát"
 	leave.size_flags_vertical = SIZE_SHRINK_BEGIN
 	leave.pressed.connect(leave_pressed.emit)
-	row.add_child(leave)
+	var buttons: VBoxContainer = _ignore(Ui.vbox(12))
+	buttons.size_flags_vertical = SIZE_SHRINK_BEGIN
+	buttons.add_child(leave)
+	chat_button = SocialGlyphs.round_button("chat", LEAVE_SIZE, NAVY, "Chat")
+	chat_button.name = "ChatButton"
+	chat_button.focus_mode = FOCUS_NONE
+	chat_button.pressed.connect(toggle_chat_input)
+	buttons.add_child(chat_button)
+	row.add_child(buttons)
+	var col: VBoxContainer = _ignore(Ui.vbox(8))
+	col.size_flags_vertical = SIZE_SHRINK_BEGIN
+	row.add_child(col)
+	_chat_input_row = Ui.hbox(8)
+	_chat_input_row.name = "ChatInput"
+	_chat_input_row.visible = false
+	col.add_child(_chat_input_row)
+	chat_input = LineEdit.new()
+	chat_input.name = "Input"
+	chat_input.placeholder_text = ChatModel.INPUT_HINT
+	chat_input.max_length = GameData.chat_max_length() # 0: no limit known
+	chat_input.custom_minimum_size = Vector2(CHAT_WIDTH - LEAVE_SIZE - 8, LEAVE_SIZE)
+	chat_input.add_theme_font_size_override("font_size", 24)
+	chat_input.text_submitted.connect(func(_t: String) -> void: _submit_chat())
+	_chat_input_row.add_child(chat_input)
+	var send := LobbyUi.round_button("send", LEAVE_SIZE, LobbyUi.ICON_COLORS["blue"], 0.5)
+	send.name = "Send"
+	send.focus_mode = FOCUS_NONE
+	send.pressed.connect(_submit_chat)
+	_chat_input_row.add_child(send)
 	_chat = _ignore(Ui.vbox(2))
 	_chat.name = "ChatLines"
 	_chat.custom_minimum_size.x = CHAT_WIDTH
-	_chat.size_flags_vertical = SIZE_SHRINK_BEGIN
-	row.add_child(_chat)
+	col.add_child(_chat)
 	add_chat_line(CHAT_LINE)
 
 
-## Adds a chat line (FakeChat line: {channel, name, text}) under the others: plain text, outlined
+## The chat button: shows the input (focused) or hides it.
+func toggle_chat_input() -> void:
+	_chat_input_row.visible = not _chat_input_row.visible
+	if not chat_input.is_inside_tree():
+		return
+	if _chat_input_row.visible:
+		chat_input.grab_focus()
+	else:
+		chat_input.release_focus()
+
+
+func chat_input_open() -> bool:
+	return _chat_input_row.visible
+
+
+## Enter or send: chat_send with the text (match_chat.gd checks and sends it), the input closed.
+func _submit_chat() -> void:
+	var text := chat_input.text
+	if ChatModel.clean(text) == "":
+		toggle_chat_input()
+		return
+	chat_input.clear()
+	toggle_chat_input()
+	chat_send.emit(text)
+
+
+## Adds a chat line (ChatModel.bbcode() line: {channel, name, text, mine}) under the others: plain text, outlined
 ## and shadowed over the sky; past CHAT_LINES the oldest goes, the older ones fade.
 func add_chat_line(line: Dictionary) -> void:
 	var l: RichTextLabel = _ignore(RichTextLabel.new())
@@ -206,7 +284,7 @@ func add_chat_line(line: Dictionary) -> void:
 	l.add_theme_constant_override("shadow_offset_x", 2)
 	l.add_theme_constant_override("shadow_offset_y", 2)
 	l.add_theme_constant_override("shadow_outline_size", 7)
-	l.text = FakeChat.bbcode(line)
+	l.text = ChatModel.bbcode(line)
 	_chat.add_child(l)
 	while _chat.get_child_count() > CHAT_LINES:
 		var old := _chat.get_child(0)
@@ -237,6 +315,7 @@ func _build_top_centre() -> void:
 	_timer.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_timer_panel.add_child(_timer)
 	var wind_panel: PanelContainer = _ignore(LobbyUi.panel(12, 18, NAVY))
+	wind_panel.name = "Wind"
 	wind_panel.size_flags_vertical = SIZE_SHRINK_CENTER
 	row.add_child(wind_panel)
 	var wind_col := Ui.vbox(4)
@@ -278,6 +357,12 @@ func _build_portrait() -> void:
 	_portrait_boss.visible = false
 	_portrait.add_child(_portrait_boss)
 	_portrait.visible = false
+	_portrait.mouse_filter = MOUSE_FILTER_STOP # a tap opens the player's info (no aiming starts here)
+	_portrait.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+	_portrait.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed \
+				and _portrait_player != "":
+			portrait_pressed.emit(_portrait_player))
 
 
 ## The move buttons on the left and right edges, vertically centred; the energy under the left
@@ -332,7 +417,7 @@ func move_layout() -> Dictionary:
 ## buttons and the energy, the skill slot, the item row and the turn portrait (those shown).
 func marker_avoid() -> Array:
 	var out: Array = [_left.get_global_rect(), _right.get_global_rect(), _energy.get_parent().get_parent().get_global_rect()]
-	for c in [_skill_box, _items, _portrait]:
+	for c in [_skill_box, _items, _awakens, _portrait]:
 		if c.is_visible_in_tree() and c.size.x > 0.0:
 			out.append(c.get_global_rect())
 	return out
@@ -349,11 +434,22 @@ func _build_bottom_centre() -> void:
 	_aim = LobbyUi.text("", 26, Color.WHITE, true)
 	_aim.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_aim_panel.add_child(_aim)
+	var row: HBoxContainer = _ignore(Ui.hbox(26))
+	row.name = "ActionRow"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.size_flags_horizontal = SIZE_SHRINK_CENTER
+	col.add_child(row)
 	_items = _ignore(Ui.hbox(14))
 	_items.name = "Items"
 	_items.alignment = BoxContainer.ALIGNMENT_CENTER
 	_items.size_flags_horizontal = SIZE_SHRINK_CENTER
-	col.add_child(_items)
+	row.add_child(_items)
+	_awakens = _ignore(Ui.hbox(12))
+	_awakens.name = "Awakens"
+	_awakens.alignment = BoxContainer.ALIGNMENT_CENTER
+	_awakens.size_flags_vertical = SIZE_SHRINK_CENTER
+	_awakens.visible = false
+	row.add_child(_awakens)
 
 
 ## Bottom right: the round skill slot with its energy ring, its name under it.
@@ -411,6 +507,7 @@ static func portrait_level(player: Dictionary) -> int:
 
 
 func _set_portrait(player: Dictionary, player_name: String) -> void:
+	_portrait_player = str(player.get("playerId", ""))
 	if player.is_empty():
 		_portrait.visible = false
 		_portrait_key = ""
@@ -425,6 +522,7 @@ func _set_portrait(player: Dictionary, player_name: String) -> void:
 	else:
 		_portrait_art.character_id = id
 		_portrait_art.aura_level = portrait_level(player)
+		_portrait_art.set_index = GearModel.set_aura(GearModel.profile_of(player)) # theirs, never mine
 	_portrait.visible = true
 	if key == _portrait_key:
 		return
@@ -509,6 +607,85 @@ func set_energy(value: int, max_value: int = 0) -> void:
 	if max_value > 0:
 		_energy.max_value = max_value
 	_energy.value = value
+
+
+## The boots' awaken doubled this turn's move energy: the bar glows (a bright fill, a glowing rim)
+## until set off (the turn passing).
+func set_energy_glow(on: bool) -> void:
+	if on == _energy_glow:
+		return
+	_energy_glow = on
+	if on:
+		var fill := LobbyUi.box(ENERGY_GLOW, 8, 0)
+		fill.shadow_color = Color(ENERGY_GLOW, 0.8)
+		fill.shadow_size = 8
+		_energy.add_theme_stylebox_override("fill", fill)
+		_energy.add_theme_stylebox_override("background", LobbyUi.box(Color(0.02, 0.03, 0.1, 0.85), 8, 0, ENERGY_GLOW, 2))
+	else:
+		_energy.add_theme_stylebox_override("fill", LobbyUi.box(Color(0.35, 0.85, 0.45), 8, 0))
+		_energy.add_theme_stylebox_override("background", LobbyUi.box(Color(0.02, 0.03, 0.1, 0.85), 8, 0, Color(1, 1, 1, 0.15), 2))
+
+
+func energy_glow() -> bool:
+	return _energy_glow
+
+
+## The wind power the readout shows (0: none).
+func wind_shown() -> float:
+	return _wind_power
+
+
+## The awaken buttons of my +16 pieces with a button (weapon, gloves, boots; the server's list):
+## [{slot, used, enabled}] in that order; [] hides the row. A used one stays, greyed; enabled: it
+## can be pressed now (my turn, before my shot for the weapon / gloves).
+func set_awakens(list: Array) -> void:
+	var keep := {}
+	for a in list:
+		keep[str(a.get("slot", ""))] = true
+	for slot in _awaken_buttons.keys():
+		if not keep.has(slot):
+			_awaken_buttons[slot].queue_free()
+			_awaken_buttons.erase(slot)
+	_awaken_state.clear()
+	var i := 0
+	for a in list:
+		var slot := str(a.get("slot", ""))
+		var b: Button = _awaken_buttons.get(slot)
+		if b == null:
+			b = _awaken_slot(slot)
+			_awaken_buttons[slot] = b
+		_awakens.move_child(b, i)
+		i += 1
+		var used := bool(a.get("used", false))
+		b.disabled = used or not bool(a.get("enabled", false))
+		b.set_meta("used", used)
+		b.get_node("Glyph").modulate = AWAKEN_USED if used else (AWAKEN_OFF if b.disabled else Color.WHITE)
+		_awaken_state[slot] = {"used": used, "enabled": not b.disabled}
+	_awakens.visible = not list.is_empty()
+
+
+## The awaken buttons shown: slot -> {used, enabled}.
+func awakens() -> Dictionary:
+	return _awaken_state.duplicate(true) if _awakens.visible else {}
+
+
+func _awaken_slot(slot: String) -> Button:
+	var b := Button.new()
+	b.name = "Awaken_" + slot
+	b.custom_minimum_size = Vector2(AWAKEN_SIZE, AWAKEN_SIZE)
+	b.focus_mode = Control.FOCUS_NONE
+	var flat := StyleBoxEmpty.new()
+	for st in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
+		b.add_theme_stylebox_override(st, flat)
+	var g := Control.new()
+	g.name = "Glyph"
+	g.mouse_filter = MOUSE_FILTER_IGNORE
+	g.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	g.draw.connect(func() -> void: GearGlyphs.draw(g, GameData.gear_awaken_kind(slot), g.size / 2.0, minf(g.size.x, g.size.y)))
+	b.add_child(g)
+	b.pressed.connect(func() -> void: awaken_pressed.emit(slot))
+	_awakens.add_child(b)
+	return b
 
 
 func set_aim(angle: float, power: float) -> void:

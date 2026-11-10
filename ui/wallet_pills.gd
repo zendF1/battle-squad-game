@@ -1,8 +1,8 @@
 extends HBoxContainer
 ## The wallet from PlayerState as two dark pills: the gems [gem+lock] 300 · [gem] 50 [+] (kim
 ## cương khoá, then kim cương: top-ups) and the coins [coin] 1.250 [+] (icons from assets/icons/,
-## the lock drawn in code, the pill assets/ui/pill.png), and the "Thử lại" button of a failed
-## profile refresh (only while not loading). "—" until the profile is loaded; stale values stay on
+## the lock drawn in code, the pill assets/ui/pill.png), and the retry button (ui/glyph_icon.gd "retry": the
+## white turning arrow on a blue disc, tooltip "Thử lại") of a failed profile refresh (only while not loading). "—" until the profile is loaded; stale values stay on
 ## screen while a refresh runs. The "+" buttons emit gem_plus / coin_plus (Home opens the Shop on
 ## the matching section).
 
@@ -12,8 +12,10 @@ signal coin_plus
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Fmt := preload("res://core/fmt.gd")
 const Art := preload("res://ui/art.gd")
+const GlyphIcon := preload("res://ui/glyph_icon.gd")
 
 const ICON := 36
+const RETRY := 52 # the retry glyph's button
 const VALUE_W := 52.0 # a gem value's room (left-aligned next to its icon)
 
 var _gem_locked: Label
@@ -25,8 +27,19 @@ var _retry: Button
 func _ready() -> void:
 	add_theme_constant_override("separation", 14)
 	alignment = BoxContainer.ALIGNMENT_END
-	_retry = LobbyUi.pill_button("Thử lại", 22, 56)
-	LobbyUi.style_button(_retry, Color(0.75, 0.25, 0.25, 0.85), 28, 18)
+	_retry = Button.new()
+	_retry.name = "Retry"
+	_retry.tooltip_text = "Thử lại"
+	_retry.flat = true
+	_retry.focus_mode = FOCUS_NONE
+	_retry.custom_minimum_size = Vector2(RETRY, RETRY)
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		_retry.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	var arrow = GlyphIcon.make("retry", RETRY)
+	arrow.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	_retry.add_child(arrow)
+	_retry.button_down.connect(func() -> void: arrow.modulate = Color(0.8, 0.8, 0.8))
+	_retry.button_up.connect(func() -> void: arrow.modulate = Color.WHITE)
 	_retry.size_flags_vertical = SIZE_SHRINK_CENTER
 	_retry.pressed.connect(PlayerState.refresh)
 	add_child(_retry)

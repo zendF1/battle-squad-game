@@ -14,7 +14,10 @@ extends RefCounted
 ## MatchFound → MatchStarted (~3 s later; the server moves the socket into the battle room itself,
 ## nothing is sent to join). The lobby outlives a match, and CreateLobby from its host returns it,
 ## so "Chơi tiếp" runs the same steps. A server that refuses CreateLobby because the player is in
-## a lobby or a room: LeaveLobby / Leave, then CreateLobby again (RETRIES times, RETRY_SEC apart).
+## a lobby or a room (ALREADY_IN_LOBBY / ALREADY_IN_ROOM): LeaveLobby / Leave, then CreateLobby
+## again (RETRIES times, RETRY_SEC apart; LOBBY_CREATE_FAILED, a failure on the server's side, too);
+## LOBBY_NOT_FOUND (the host's old lobby closing as CreateLobby asked for it back) asks again too.
+## LOBBY_NOT_FOUND later (the lobby closed under the queue) fails without a LeaveLobby.
 ## Cancel: CancelQueue → QueueCancelled, then LeaveLobby (a solo host disbands it); a cancel that
 ## came too late gets no QueueCancelled but MatchFound, and the match goes on. Every error after
 ## the lobby exists leaves it too. A step without an answer for STEP_TIMEOUT fails; a cancel
@@ -179,13 +182,13 @@ func on_event(event: String, data: Variant) -> Array:
 				_wait = STEP_TIMEOUT
 				return [["send", "StartQueue", {}]]
 			if err:
-				return _fail(ErrorText.lobby_error(data), true)
+				return _fail(ErrorText.lobby_error(data), ErrorText.lobby_code(data) != "LOBBY_NOT_FOUND")
 		Phase.QUEUEING:
 			if event == "QueueStarted":
 				phase = Phase.SEARCHING
 				return [["searching"]]
 			if err:
-				return _fail(ErrorText.lobby_error(data), true)
+				return _fail(ErrorText.lobby_error(data), ErrorText.lobby_code(data) != "LOBBY_NOT_FOUND")
 			if event == "QueueCancelled":
 				return _fail(QUEUE_ENDED, true)
 		Phase.SEARCHING:
@@ -194,7 +197,7 @@ func on_event(event: String, data: Variant) -> Array:
 			if event == "LobbyDisbanded":
 				return _fail(QUEUE_ENDED, false)
 			if err:
-				return _fail(ErrorText.lobby_error(data), true)
+				return _fail(ErrorText.lobby_error(data), ErrorText.lobby_code(data) != "LOBBY_NOT_FOUND")
 		Phase.CANCELLING:
 			if event == "QueueCancelled" or err:
 				return _finish(_leave_then([["cancelled"]]))
@@ -216,9 +219,9 @@ func _on_create_error(data: Variant) -> Array:
 	match code:
 		"ALREADY_IN_LOBBY":
 			leave = [] if keep_lobby else [["send", "LeaveLobby", {}]] # a party: the lobby reopens, ask again
-		"IN_ROOM":
+		"ALREADY_IN_ROOM", "IN_ROOM": # IN_ROOM: an older server's code
 			leave = [["send", "Leave", {}]]
-		"LOBBY_CREATE_FAILED":
+		"LOBBY_CREATE_FAILED", "LOBBY_NOT_FOUND":
 			pass
 		"LOBBY_REQUIRED", "NOT_IN_QUEUE":
 			return [] # a late answer to the last match's LeaveLobby / CancelQueue, not to CreateLobby
