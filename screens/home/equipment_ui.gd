@@ -8,6 +8,12 @@ extends RefCounted
 ## Tháo; not worn → Mặc cho <nhân vật> / Bán (+N xu, never-worn pieces only) / Vứt, the last two
 ## confirmed first). Actions go through PlayerState (one at a time), which reloads the gear and the
 ## characters afterwards. Upgraded pieces' names take their level colour.
+## A piece with sockets (its catalog item's gemSlots) shows them under its stats, mirrored round the
+## centre (gem_row()): an empty socket a "+", a filled one its gem (ui/gem_icon.gd) with what it
+## gives (the stat picture and one number) under it and a red "−" (Tháo) on its corner. A tap on a socket opens the gem picker
+## (the free gems grouped by type + level with their count, the highest first; none: Mua ngọc, Shop
+## › Ngọc); picking one sockets it (a filled socket swaps). The pieces, the gems and the characters
+## reload, the popup rebuilds with them (the wearer's stats and Lực chiến follow).
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -21,6 +27,9 @@ const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
 const GearModel := preload("res://screens/home/gear_model.gd")
 const GearUi := preload("res://screens/home/gear_ui.gd")
 const GearIcon := preload("res://ui/gear_icon.gd")
+const GemModel := preload("res://screens/home/gem_model.gd")
+const GemIcon := preload("res://ui/gem_icon.gd")
+const GlyphIcon := preload("res://ui/glyph_icon.gd")
 
 const GOOD := Color(0.45, 0.9, 0.55)
 const LOSS := Color(1.0, 0.45, 0.45)
@@ -33,10 +42,21 @@ const HEX_BOX := Vector2(40, 42)
 const MILESTONE_LEVEL_W := 50
 ## Room on either side of the widest button label.
 const BUTTON_PAD := 40
+## A gem socket of the piece popup: its button, the gem in it, the cell's width.
+const SOCKET := 92
+const SOCKET_GEM := 70
+const SOCKET_CELL_W := 150
+const SOCKET_BG := Color(0.08, 0.11, 0.26, 0.9)
+const UNSOCKET := 36 # the round "−" on a filled socket's corner
+## The gem picker's cell and its gem.
+const PICK_CELL := Vector2(132, 156)
+const PICK_GEM := 72
 
 ## Opens the Nâng cấp page on a piece (its equipmentId); Home sets it. The popup's Nâng cấp
 ## button is left out while it is not set.
 static var open_upgrade: Callable
+## Opens Shop › Ngọc; Home sets it. The gem picker's Mua ngọc is left out while it is not set.
+static var open_gem_shop: Callable
 
 
 ## The icon of a catalog item at px; from +1 (`piece`'s upgradeLevel, {} = none) the level's
@@ -244,6 +264,10 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 		why.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		m.body.add_child(why)
+	var sockets := GemModel.slot_count(PlayerState.catalog, piece)
+	if sockets > 0:
+		PlayerState.need_gems()
+		m.body.add_child(gem_row(m, overlay, piece, sockets, character_id))
 
 	var piece_id := str(piece.get("equipmentId", ""))
 	var piece_name := EquipmentModel.display_name(item)
@@ -311,10 +335,231 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 	m.set_meta("rebuild", rebuild)
 	PlayerState.equipment_changed.connect(rebuild)
 	PlayerState.characters_changed.connect(rebuild)
+	PlayerState.gems_changed.connect(rebuild)
 	m.tree_exiting.connect(func() -> void:
 		PlayerState.equipment_changed.disconnect(rebuild)
-		PlayerState.characters_changed.disconnect(rebuild))
+		PlayerState.characters_changed.disconnect(rebuild)
+		PlayerState.gems_changed.disconnect(rebuild))
 	return m
+
+
+# ── Ngọc khảm ───────────────────────────────────────────────────────────────
+
+## The piece popup's sockets, 1..`sockets`, side by side round the centre (equal cells): each the
+## socket button (a "+" when empty, its gem when filled; a tap opens the picker), then what the gem
+## gives (its stat picture and one number; an empty cell keeps the room, so the row stays
+## mirrored); a filled socket has a round red "−" on its corner that takes the gem out (Tháo).
+## Locked while the pieces reload.
+static func gem_row(m: Modal, overlay: Control, piece: Dictionary, sockets: int, character_id: String) -> HBoxContainer:
+	var row := Ui.hbox(28)
+	row.name = "GemSlots"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var held := GemModel.piece_gems(piece, PlayerState.gems)
+	var ready := PlayerState.equipment_ready()
+	for i in range(1, sockets + 1):
+		row.add_child(_socket_cell(m, overlay, piece, i, held.get(i, {}), character_id, ready))
+	return row
+
+
+static func _socket_cell(m: Modal, overlay: Control, piece: Dictionary, slot: int, gem: Dictionary, character_id: String, ready: bool) -> VBoxContainer:
+	var cell := Ui.vbox(6)
+	cell.name = "Socket%d" % slot
+	cell.custom_minimum_size.x = SOCKET_CELL_W
+	cell.alignment = BoxContainer.ALIGNMENT_BEGIN
+	var filled := not gem.is_empty() and str(gem.get("gemType", "")) != ""
+	var b := Button.new()
+	b.name = "SocketButton"
+	b.custom_minimum_size = Vector2(SOCKET, SOCKET)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.focus_mode = Control.FOCUS_NONE
+	b.tooltip_text = "Đổi ngọc" if filled else "Khảm ngọc"
+	var edge: Color = GemModel.color(str(gem.get("gemType", ""))) if filled else Color(1, 1, 1, 0.22)
+	LobbyUi.style_button(b, SOCKET_BG, 16, 4, Color(edge, 0.85) if filled else edge, 3)
+	if filled:
+		var icon := GemIcon.make(str(gem["gemType"]), int(gem["gemLevel"]), SOCKET_GEM)
+		icon.position = Vector2(SOCKET - SOCKET_GEM, SOCKET - SOCKET_GEM) / 2.0
+		b.add_child(icon)
+	elif not gem.is_empty():
+		b.add_child(_plus_mark(SOCKET, Color(1, 1, 1, 0.3))) # a gem the bag has not told about yet
+	else:
+		b.add_child(_plus_mark(SOCKET, Color(1, 1, 1, 0.6)))
+	b.disabled = not ready
+	b.pressed.connect(_pick_gem.bind(m, overlay, piece, slot, character_id))
+	cell.add_child(b)
+	var stat := GemModel.stat(PlayerState.catalog, str(gem.get("gemType", "")), int(gem.get("gemLevel", 0)), multipliers()) if filled else {}
+	var line := Ui.hbox(4)
+	line.name = "GemStat"
+	line.alignment = BoxContainer.ALIGNMENT_CENTER
+	line.custom_minimum_size.y = 30
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not stat.is_empty():
+		line.add_child(GlyphIcon.make(str(stat["glyph"]), 26))
+		var v := LobbyUi.text(str(stat["value"]), 21, (stat["color"] as Color).lightened(0.25), true)
+		v.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		line.add_child(v)
+	cell.add_child(line)
+	if not gem.is_empty(): # Tháo: a red "−" on the socket's corner
+		var out := _unsocket_button(not ready)
+		out.position = Vector2(SOCKET - UNSOCKET * 0.62, -UNSOCKET * 0.38)
+		out.pressed.connect(_gem_act.bind(m, overlay, "unsocket", piece, slot, ""))
+		b.add_child(out)
+	return cell
+
+
+## The round red "−" that takes a gem out of its socket, drawn in code.
+static func _unsocket_button(off: bool) -> Button:
+	var out := Button.new()
+	out.name = "Unsocket"
+	out.tooltip_text = "Tháo ngọc"
+	out.custom_minimum_size = Vector2(UNSOCKET, UNSOCKET)
+	out.size = out.custom_minimum_size
+	out.focus_mode = Control.FOCUS_NONE
+	out.flat = true
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		out.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	out.disabled = off
+	out.draw.connect(func() -> void:
+		var r := UNSOCKET / 2.0
+		var mid := Vector2(r, r)
+		var a := 0.45 if out.disabled else 1.0
+		out.draw_circle(mid, r, Color(0.05, 0.03, 0.08, a), true, -1.0, true)
+		out.draw_circle(mid, r - 3.0, Color(0.88, 0.22, 0.24, a) if not out.is_pressed() else Color(0.7, 0.15, 0.18, a), true, -1.0, true)
+		out.draw_line(mid - Vector2(r * 0.45, 0), mid + Vector2(r * 0.45, 0), Color(1, 1, 1, a), 4.0, true))
+	return out
+
+
+## A "+" of `px` drawn in code (an empty socket).
+static func _plus_mark(px: int, color: Color) -> Control:
+	var c := Control.new()
+	c.name = "Plus"
+	c.custom_minimum_size = Vector2(px, px)
+	c.size = Vector2(px, px)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.draw.connect(func() -> void:
+		var mid := Vector2(px, px) / 2.0
+		var arm := px * 0.2
+		c.draw_line(mid - Vector2(arm, 0), mid + Vector2(arm, 0), color, maxf(4.0, px * 0.07), true)
+		c.draw_line(mid - Vector2(0, arm), mid + Vector2(0, arm), color, maxf(4.0, px * 0.07), true))
+	return c
+
+
+## The gem picker over the piece popup `m`: the free gems grouped by type + level (the highest
+## first), each its gem, "×N" and what it gives; a tap sockets one into `slot` (a filled socket
+## swaps). None: "Chưa có ngọc" and Mua ngọc (Shop › Ngọc). The popup holds its rebuild meanwhile.
+static func _pick_gem(m: Modal, overlay: Control, piece: Dictionary, slot: int, character_id: String) -> void:
+	if not PlayerState.equipment_ready():
+		m.set_message("Đang cập nhật trang bị, hãy đợi")
+		return
+	PlayerState.need_gems()
+	m.set_meta("acting", true)
+	var p := Modal.new()
+	p.name = "GemPicker"
+	p.open(overlay, "Chọn ngọc", 760)
+	var cancel := func() -> void:
+		p.close()
+		_release(m)
+	p.add_close_x(cancel)
+	p.close_on_backdrop(cancel)
+	var box := Ui.vbox(14)
+	box.name = "Choices"
+	p.body.add_child(box)
+	var fill := func() -> void:
+		if is_instance_valid(p) and not p.is_queued_for_deletion():
+			_fill_picker(p, box, m, overlay, piece, slot)
+	fill.call()
+	PlayerState.gems_changed.connect(fill)
+	p.tree_exiting.connect(func() -> void: PlayerState.gems_changed.disconnect(fill))
+
+
+static func _fill_picker(p: Modal, box: VBoxContainer, m: Modal, overlay: Control, piece: Dictionary, slot: int) -> void:
+	Ui.clear(box)
+	if PlayerState.gems == null:
+		var wait := LobbyUi.text(PlayerState.gems_error if PlayerState.gems_error != "" else "Đang tải ngọc...", 22, Ui.TEXT_DIM)
+		wait.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(wait)
+		return
+	var stacks := GemModel.free_stacks(PlayerState.gem_list(), PlayerState.catalog)
+	if stacks.is_empty():
+		var none := LobbyUi.text("Chưa có ngọc", 26, Ui.TEXT_DIM, true)
+		none.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(none)
+		if open_gem_shop.is_valid() and GemModel.has_catalog(PlayerState.catalog):
+			var buy := Ui.button("Mua ngọc", 24)
+			buy.name = "BuyGems"
+			buy.custom_minimum_size = Vector2(240, 72)
+			buy.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			buy.focus_mode = Control.FOCUS_NONE
+			buy.pressed.connect(func() -> void:
+				p.close()
+				if is_instance_valid(m):
+					m.close()
+				open_gem_shop.call())
+			box.add_child(buy)
+		return
+	var grid := GridContainer.new()
+	grid.name = "Stacks"
+	grid.columns = mini(stacks.size(), 5)
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(grid)
+	var mult := multipliers()
+	for st in stacks:
+		var b := Button.new()
+		b.name = "Pick_%s_%d" % [st["gemType"], int(st["gemLevel"])]
+		b.custom_minimum_size = PICK_CELL
+		b.focus_mode = Control.FOCUS_NONE
+		LobbyUi.style_button(b, SOCKET_BG, 14, 6, Color(GemModel.color(st["gemType"]), 0.5), 2)
+		var col := Ui.vbox(2)
+		col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		col.offset_top = 8
+		col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(col)
+		col.add_child(GemIcon.make(st["gemType"], int(st["gemLevel"]), PICK_GEM))
+		var n := LobbyUi.text("×%d" % int(st["count"]), 22, LobbyUi.GOLD, true)
+		n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(n)
+		var stat := GemModel.stat(PlayerState.catalog, st["gemType"], int(st["gemLevel"]), mult)
+		if not stat.is_empty():
+			var line := Ui.hbox(3)
+			line.alignment = BoxContainer.ALIGNMENT_CENTER
+			line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			line.add_child(GlyphIcon.make(str(stat["glyph"]), 20))
+			var v := LobbyUi.text(str(stat["value"]), 18, (stat["color"] as Color).lightened(0.25), true)
+			line.add_child(v)
+			col.add_child(line)
+		var gem_id: String = st["ids"][0]
+		b.pressed.connect(func() -> void:
+			p.close()
+			if is_instance_valid(m):
+				m.set_meta("acting", false)
+				_gem_act(m, overlay, "socket", piece, slot, gem_id))
+		grid.add_child(b)
+
+
+## Sockets `gem_id` into `slot` (action "socket") or takes the slot's gem out ("unsocket"); the
+## popup stays and rebuilds once the pieces, the gems and the characters reloaded.
+static func _gem_act(m: Modal, overlay: Control, action: String, piece: Dictionary, slot: int, gem_id: String) -> void:
+	if not PlayerState.equipment_ready():
+		m.set_message("Đang cập nhật trang bị, hãy đợi")
+		return
+	m.set_message("")
+	m.set_busy(true)
+	m.set_meta("acting", true)
+	var res: Dictionary
+	if action == "socket":
+		res = await PlayerState.socket_gem(piece, slot, gem_id)
+	else:
+		res = await PlayerState.unsocket_gem(str(piece.get("equipmentId", "")), slot)
+	var toast_ok := is_instance_valid(overlay) and overlay.is_inside_tree()
+	if res.ok and toast_ok:
+		Ui.toast(overlay, "Đã khảm ngọc" if action == "socket" else "Đã tháo ngọc")
+	if not is_instance_valid(m):
+		return
+	m.set_busy(false)
+	if not res.ok:
+		m.set_message(ErrorText.gem_socket(res) if res.code != "BUSY" else "Đang xử lý trang bị khác, hãy đợi")
+	_release(m)
 
 
 ## The piece popup's buttons, in order, for a piece worn by `who` ("" = nobody) opened for
@@ -502,10 +747,10 @@ static func check_mark(px: int = 24, color: Color = GOOD) -> Control:
 
 
 ## What the popup's buttons depend on: the owned pieces, the characters, the catalog, a running
-## action.
+## action, the owned gems (the sockets).
 static func _data_version() -> Array:
 	return [PlayerState.equipment_version, PlayerState.characters_version, PlayerState.catalog != null,
-		PlayerState.equipment_ready()]
+		PlayerState.equipment_ready(), PlayerState.gems_version]
 
 
 static func _delta_label(d: Dictionary) -> Label:
@@ -574,7 +819,7 @@ static func _confirm_remove(m: Modal, overlay: Control, piece: Dictionary, item:
 		c.add_text("Mất trang bị này", 28).add_theme_color_override("font_color", LOSS)
 	if who != "":
 		c.add_text("Đang mặc trên %s — sẽ tháo ra trước" % EquipmentModel.character_name(who), 24).add_theme_color_override("font_color", WORN)
-	if piece.get("gemSlot1") != null or piece.get("gemSlot2") != null:
+	if not GemModel.piece_gems(piece).is_empty():
 		c.add_text("Ngọc đã khảm được trả về túi", 24)
 	if int(piece.get("upgradeLevel", 0)) > 0:
 		c.add_text("Hoàn lại một phần đá cường hoá đã dùng", 24)

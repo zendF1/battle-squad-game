@@ -118,6 +118,7 @@ func _ready() -> void:
 	_bag.lobby_character = _lobby.character_id
 	_bag.open_shop.connect(open_shop)
 	_bag.open_upgrade.connect(open_upgrade)
+	_bag.open_gem_merge.connect(open_gem_merge)
 	_character = CharacterPage.new()
 	_character.overlay = self
 	_character.selected.connect(_lobby.select_character)
@@ -126,6 +127,7 @@ func _ready() -> void:
 	_upgrade.overlay = self
 	_upgrade.open_shop.connect(open_shop)
 	EquipmentUi.open_upgrade = open_upgrade
+	EquipmentUi.open_gem_shop = _open_gem_shop
 	_milestone = MilestonePage.new()
 	_milestone.overlay = self
 	_daily = DailyPage.new()
@@ -194,6 +196,8 @@ func _exit_tree() -> void:
 				sig.disconnect(c["callable"])
 	if EquipmentUi.open_upgrade == open_upgrade:
 		EquipmentUi.open_upgrade = Callable()
+	if EquipmentUi.open_gem_shop == _open_gem_shop:
+		EquipmentUi.open_gem_shop = Callable()
 
 
 ## A full-screen page: the night backdrop (Art.BG_HOME), the header row (`extra` after the title,
@@ -328,11 +332,21 @@ func open_bag(section: int = BagPage.EQUIPMENT) -> void:
 ## The Nâng cấp page, on the piece `equipment_id` ("" keeps its choice); section: UpgradePage.UPGRADE
 ## or MERGE (Ghép đá).
 func open_upgrade(equipment_id: String = "", section: int = UpgradePage.UPGRADE) -> void:
-	if section == UpgradePage.MERGE:
+	if section != UpgradePage.UPGRADE:
 		_upgrade.show_section(section)
 	else:
 		_upgrade.select_piece(equipment_id)
 	_show(UPGRADE)
+
+
+## Nâng cấp › Ghép ngọc on a gem type + level ("" keeps the page's choice).
+func open_gem_merge(gem_type: String = "", gem_level: int = 0) -> void:
+	_upgrade.select_gem(gem_type, gem_level)
+	_show(UPGRADE)
+
+
+func _open_gem_shop() -> void:
+	open_shop(ShopTab.SOCKET_GEMS)
 
 
 ## The Mốc thưởng page, on tab `tab` (MilestoneModel.TABS index; -1 keeps the last one).

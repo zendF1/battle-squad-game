@@ -1,0 +1,328 @@
+{
+ "success": true,
+ "data": {
+  "items": [
+   {
+    "itemId": "armor_lv10",
+    "name": "Iron Armor",
+    "slot": "armor",
+    "category": "normal",
+    "tier": "iron",
+    "requiredLevel": 10,
+    "gemSlots": 1,
+    "statHp": 40,
+    "statDamage": 0,
+    "statDefense": 4,
+    "statCrit": 0,
+    "statMoveEnergy": 0,
+    "priceCoin": 400,
+    "priceGem": 0,
+    "isActive": true
+   },
+   {
+    "itemId": "crafted_armor_silver",
+    "name": "Silver Armor",
+    "slot": "armor",
+    "category": "crafted",
+    "tier": "silver",
+    "requiredLevel": 10,
+    "gemSlots": 2,
+    "statHp": 120,
+    "statDamage": 0,
+    "statDefense": 12,
+    "statCrit": 0,
+    "statMoveEnergy": 0,
+    "priceCoin": 0,
+    "priceGem": 0,
+    "isActive": true
+   }
+  ],
+  "upgradeRates": [],
+  "setBonuses": [],
+  "stones": [],
+  "gems": [
+   {
+    "gemType": "hp",
+    "gemLevel": 1,
+    "statValue": 20,
+    "priceCoin": 200,
+    "priceGem": 0
+   },
+   {
+    "gemType": "hp",
+    "gemLevel": 2,
+    "statValue": 40,
+    "priceCoin": 400,
+    "priceGem": 0
+   },
+   {
+    "gemType": "hp",
+    "gemLevel": 3,
+    "statValue": 70,
+    "priceCoin": 600,
+    "priceGem": 0
+   },
+   {
+    "gemType": "hp",
+    "gemLevel": 4,
+    "statValue": 110,
+    "priceCoin": 0,
+    "priceGem": 30
+   },
+   {
+    "gemType": "hp",
+    "gemLevel": 5,
+    "statValue": 160,
+    "priceCoin": 0,
+    "priceGem": 60
+   },
+   {
+    "gemType": "hp",
+    "gemLevel": 6,
+    "statValue": 220,
+    "priceCoin": 0,
+    "priceGem": 90
+   },
+   {
+    "gemType": "hp",
+    "gemLevel": 7,
+    "statValue": 300,
+    "priceCoin": 0,
+    "priceGem": 0
+   },
+   {
+    "gemType": "hp",
+    "gemLevel": 8,
+    "statValue": 400,
+    "priceCoin": 0,
+    "priceGem": 0
+   },
+   {
+    "gemType": "hp",
+    "gemLevel": 9,
+    "statValue": 520,
+    "priceCoin": 0,
+    "priceGem": 0
+   },
+   {
+    "gemType": "hp",
+    "gemLevel": 10,
+    "statValue": 660,
+    "priceCoin": 0,
+    "priceGem": 0
+   },
+   {
+    "gemType": "damage",
+    "gemLevel": 1,
+    "statValue": 3,
+    "priceCoin": 200,
+    "priceGem": 0
+   },
+   {
+    "gemType": "damage",
+    "gemLevel": 2,
+    "statValue": 6,
+    "priceCoin": 400,
+    "priceGem": 0
+   },
+   {
+    "gemType": "damage",
+    "gemLevel": 3,
+    "statValue": 10,
+    "priceCoin": 600,
+    "priceGem": 0
+   },
+   {
+    "gemType": "damage",
+    "gemLevel": 4,
+    "statValue": 15,
+    "priceCoin": 0,
+    "priceGem": 30
+   },
+   {
+    "gemType": "damage",
+    "gemLevel": 5,
+    "statValue": 22,
+    "priceCoin": 0,
+    "priceGem": 60
+   },
+   {
+    "gemType": "damage",
+    "gemLevel": 6,
+    "statValue": 30,
+    "priceCoin": 0,
+    "priceGem": 90
+   },
+   {
+    "gemType": "damage",
+    "gemLevel": 7,
+    "statValue": 40,
+    "priceCoin": 0,
+    "priceGem": 0
+   },
+   {
+    "gemType": "damage",
+    "gemLevel": 8,
+    "statValue": 52,
+    "priceCoin": 0,
+    "priceGem": 0
+   },
+   {
+    "gemType": "damage",
+    "gemLevel": 9,
+    "statValue": 67,
+    "priceCoin": 0,
+    "priceGem": 0
+   },
+   {
+    "gemType": "damage",
+    "gemLevel": 10,
+    "statValue": 85,
+    "priceCoin": 0,
+    "priceGem": 0
+   },
+   {
+    "gemType": "defense",
+    "gemLevel": 1,
+    "statValue": 2,
+    "priceCoin": 200,
+    "priceGem": 0
+   },
+   {
+    "gemType": "defense",
+    "gemLevel": 2,
+    "statValue": 4,
+    "priceCoin": 400,
+    "priceGem": 0
+   },
+   {
+    "gemType": "defense",
+    "gemLevel": 3,
+    "statValue": 7,
+    "priceCoin": 600,
+    "priceGem": 0
+   },
+   {
+    "gemType": "defense",
+    "gemLevel": 4,
+    "statValue": 11,
+    "priceCoin": 0,
+    "priceGem": 30
+   },
+   {
+    "gemType": "defense",
+    "gemLevel": 5,
+    "statValue": 16,
+    "priceCoin": 0,
+    "priceGem": 60
+   },
+   {
+    "gemType": "defense",
+    "gemLevel": 6,
+    "statValue": 22,
+    "priceCoin": 0,
+    "priceGem": 90
+   },
+   {
+    "gemType": "defense",
+    "gemLevel": 7,
+    "statValue": 30,
+    "priceCoin": 0,
+    "priceGem": 0
+   },
+   {
+    "gemType": "defense",
+    "gemLevel": 8,
+    "statValue": 40,
+    "priceCoin": 0,
+    "priceGem": 0
+   },
+   {
+    "gemType": "defense",
+    "gemLevel": 9,
+    "statValue": 52,
+    "priceCoin": 0,
+    "priceGem": 0
+   },
+   {
+    "gemType": "defense",
+    "gemLevel": 10,
+    "statValue": 66,
+    "priceCoin": 0,
+    "priceGem": 0
+   },
+   {
+    "gemType": "critical",
+    "gemLevel": 1,
+    "statValue": 1,
+    "priceCoin": 200,
+    "priceGem": 0
+   },
+   {
+    "gemType": "critical",
+    "gemLevel": 2,
+    "statValue": 2,
+    "priceCoin": 400,
+    "priceGem": 0
+   },
+   {
+    "gemType": "critical",
+    "gemLevel": 3,
+    "statValue": 3,
+    "priceCoin": 600,
+    "priceGem": 0
+   },
+   {
+    "gemType": "critical",
+    "gemLevel": 4,
+    "statValue": 5,
+    "priceCoin": 0,
+    "priceGem": 30
+   },
+   {
+    "gemType": "critical",
+    "gemLevel": 5,
+    "statValue": 7,
+    "priceCoin": 0,
+    "priceGem": 60
+   },
+   {
+    "gemType": "critical",
+    "gemLevel": 6,
+    "statValue": 9,
+    "priceCoin": 0,
+    "priceGem": 90
+   },
+   {
+    "gemType": "critical",
+    "gemLevel": 7,
+    "statValue": 12,
+    "priceCoin": 0,
+    "priceGem": 0
+   },
+   {
+    "gemType": "critical",
+    "gemLevel": 8,
+    "statValue": 15,
+    "priceCoin": 0,
+    "priceGem": 0
+   },
+   {
+    "gemType": "critical",
+    "gemLevel": 9,
+    "statValue": 18,
+    "priceCoin": 0,
+    "priceGem": 0
+   },
+   {
+    "gemType": "critical",
+    "gemLevel": 10,
+    "statValue": 22,
+    "priceCoin": 0,
+    "priceGem": 0
+   }
+  ],
+  "sellRate": 0.3,
+  "mergeRatePerItem": 25
+ }
+}

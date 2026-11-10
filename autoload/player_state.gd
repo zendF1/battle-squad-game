@@ -28,6 +28,16 @@ extends Node
 ## equip_busy) and merge_stones() (POST /merge/stone) consume stones one at a time (stone_busy)
 ## and reload the stones whatever the answer.
 ##
+## Ngọc khảm (screens/home/gem_model.gd, docs/contracts/gem-socket.md): the owned gems (GET /player/gems
+## → GemModel.parse_owned, coalesced, stale after anything that uses or adds gems; gem_list() fills
+## an older server's socketedIn from the pieces). buy_gems() runs POST /shop/gems/buy {gemType,
+## gemLevel, quantity, idempotencyKey} like buy_stones(); socket_gem() / unsocket_gem() (POST
+## /player/equipment/socket | unsocket) are equipment actions (equip_busy: the pieces and the
+## characters reload, the wearer's stats and power follow) that also reload the gems; on an older
+## server (its pieces send no `gems`) a gem into a filled socket is taken out first, then put in.
+## merge_gems() (POST /merge/gem) runs one at a time (gem_busy) and reloads the gems whatever the
+## answer. Selling or throwing away a piece reloads them too (its gems go back to the bag).
+##
 ## Milestones ("Mốc thưởng"): GET /milestones (MilestoneModel.parse, coalesced, stale after an
 ## equipment action and after a claim) and the claimable count for the lobby badge
 ## (milestone_count: from the list, GET /milestones/summary or a claim's answer; -1 unknown).
@@ -75,6 +85,7 @@ signal characters_changed # characters, characters_loading or characters_error c
 signal busy_changed # a purchase or top-up started or ended
 signal equipment_changed # catalog, owned equipment, their loading / errors, or equip_busy changed
 signal stones_changed # owned stones, their loading / error, or stone_busy changed
+signal gems_changed # owned ngọc, their loading / error, or gem_busy changed
 signal milestones_changed # milestones, their loading / error, milestone_count or milestone_busy changed
 signal titles_changed # titles, their loading / error, title_busy or the worn title changed
 signal daily_changed # daily missions, their loading / error or daily_busy changed
@@ -93,6 +104,7 @@ const Coalescer := preload("res://core/coalescer.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
+const GemModel := preload("res://screens/home/gem_model.gd")
 const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const TitleModel := preload("res://screens/home/title_model.gd")
 const DailyModel := preload("res://screens/home/daily_model.gd")
@@ -110,6 +122,7 @@ const AFTER_WALLET := 0 # the wallet only (a top-up)
 const AFTER_ASSETS := 1 # wallet, characters, inventory (assets_changed)
 const AFTER_EQUIPMENT := 2 # wallet and the owned equipment
 const AFTER_STONES := 3 # wallet and the owned stones
+const AFTER_GEMS := 4 # wallet and the owned ngọc
 
 var profile: Dictionary = {} # last GET /player/profile data; {} until loaded
 var loading := false
@@ -122,6 +135,8 @@ var iap_tokens := IdempotencyKeys.new("mock_", "user://iap_tokens.cfg")
 var equipment_keys := IdempotencyKeys.new("", "user://equipment_keys.cfg")
 ## POST /shop/stones/buy idempotencyKey, per player+level+quantity.
 var stone_keys := IdempotencyKeys.new("", "user://stone_keys.cfg")
+## POST /shop/gems/buy idempotencyKey, per player+type+level+quantity.
+var gem_keys := IdempotencyKeys.new("", "user://gem_keys.cfg")
 
 ## Last GET /player/characters data ({characters, resetStatsCost}); null until loaded.
 var characters: Variant = null
@@ -158,6 +173,17 @@ var _stones_player := ""
 ## "upgrade" / "merge" while a request consuming stones runs, "" when none.
 var stone_busy := ""
 var _stones_gate := Coalescer.new()
+
+## The owned ngọc (GemModel.parse_owned); null until loaded.
+var gems: Variant = null
+var gems_loading := false
+var gems_error := "" # Vietnamese; "" after a success
+var gems_stale := true
+var gems_version := 0 # bumped each time a GET /player/gems answer is applied
+var _gems_player := ""
+## "merge" while POST /merge/gem runs, "" when none.
+var gem_busy := ""
+var _gems_gate := Coalescer.new()
 
 ## MilestoneModel.parse() of GET /milestones; null until loaded.
 var milestones: Variant = null
@@ -704,7 +730,7 @@ func buy_stones(stone_level: int, quantity: int) -> Dictionary:
 		func(key: String) -> Dictionary: return {"stoneLevel": stone_level, "quantity": quantity, "idempotencyKey": key})
 
 
-## after: AFTER_WALLET, AFTER_ASSETS, AFTER_EQUIPMENT or AFTER_STONES (what to refresh on success).
+## after: AFTER_WALLET, AFTER_ASSETS, AFTER_EQUIPMENT, AFTER_STONES or AFTER_GEMS (what to refresh on success).
 func _pay(path: String, keys: IdempotencyKeys, id: String, id_field: String, after: int, make_body: Callable) -> Dictionary:
 	if busy_id != "":
 		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null, "replay": false}
@@ -749,6 +775,9 @@ func _after_pay(after: int) -> void:
 		AFTER_STONES:
 			refresh()
 			stones_dirty()
+		AFTER_GEMS:
+			refresh()
+			gems_dirty()
 		_:
 			refresh()
 
@@ -809,6 +838,12 @@ func reset_account() -> void:
 	stones_stale = true
 	_stones_player = ""
 	stone_busy = ""
+	gems = null
+	gems_loading = false
+	gems_error = ""
+	gems_stale = true
+	_gems_player = ""
+	gem_busy = ""
 	milestones = null
 	milestones_loading = false
 	milestones_error = ""
@@ -949,6 +984,7 @@ func move_equipment(equipment_id: String, character_id: String) -> Dictionary:
 ## balance at once and refreshes.
 func sell_equipment(equipment_id: String) -> Dictionary:
 	var res := await _equip_steps(equipment_id, _remove_steps("/player/equipment/sell", equipment_id, false))
+	_gems_back()
 	if res.ok:
 		_take_balance(res.data if res.data is Dictionary else {})
 		refresh()
@@ -960,7 +996,15 @@ func sell_equipment(equipment_id: String) -> Dictionary:
 ## someone wears it, so it is taken off first (like move_equipment(): EQUIP_NOT_EQUIPPED counts as
 ## done; "unequipped": true when the dismantle then failed).
 func discard_equipment(equipment_id: String, worn: bool) -> Dictionary:
-	return await _equip_steps(equipment_id, _remove_steps("/player/equipment/dismantle", equipment_id, worn))
+	var res := await _equip_steps(equipment_id, _remove_steps("/player/equipment/dismantle", equipment_id, worn))
+	_gems_back()
+	return res
+
+
+## A removed piece's gems are back in the bag: the loaded gems reload.
+func _gems_back() -> void:
+	if gems != null:
+		gems_dirty()
 
 
 func _remove_steps(path: String, equipment_id: String, worn: bool) -> Array:
@@ -1114,6 +1158,105 @@ func _equip_steps(equipment_id: String, steps: Array) -> Dictionary:
 	characters_stale = true
 	load_characters()
 	equipment_changed.emit()
+	return res
+
+
+# ── Ngọc khảm ───────────────────────────────────────────────────────────────
+
+## Loads the owned gems unless a fresh copy is cached or already on its way.
+func need_gems() -> void:
+	if _gems_player != Session.player_id:
+		gems = null # another account signed in on this device
+	if not _gems_gate.running and (gems == null or gems_stale):
+		load_gems()
+
+
+func load_gems() -> void:
+	if not _gems_gate.ask():
+		return
+	gems_loading = true
+	gems_error = ""
+	gems_changed.emit()
+	while true:
+		var t := _gems_gate.ticket()
+		var player := Session.player_id
+		var res: Dictionary = await _api().get_json("/player/gems")
+		if not _gems_gate.finish(t):
+			continue
+		if player != Session.player_id:
+			break # signed out (or another account) meanwhile
+		var parsed = GemModel.parse_owned(res.data) if res.ok else null
+		if parsed is Array:
+			gems = parsed
+			gems_stale = false
+			gems_version += 1
+			_gems_player = player
+		else:
+			gems_error = ErrorText.load_failed(res) if not res.ok else "Dữ liệu ngọc không hợp lệ"
+		break
+	gems_loading = false
+	gems_changed.emit()
+
+
+## The owned gems changed on the server: reload them (again, when a load is in flight).
+func gems_dirty() -> void:
+	gems_stale = true
+	load_gems()
+
+
+## The gems are loaded and nothing that uses them is running.
+func gems_ready() -> bool:
+	return gems != null and not gems_stale and not _gems_gate.running and gem_busy == ""
+
+
+## The owned gems with where each sits (GemModel.with_pieces: an older server's from the pieces);
+## [] until loaded.
+func gem_list() -> Array:
+	return GemModel.with_pieces(gems, equipment) if gems is Array else []
+
+
+## POST /shop/gems/buy {gemType, gemLevel, quantity, idempotencyKey}, like buy_stones(): the key per
+## type + level + quantity; the wallet takes the answer's balance, the gems reload.
+func buy_gems(gem_type: String, gem_level: int, quantity: int) -> Dictionary:
+	return await _pay("/shop/gems/buy", gem_keys, "gem_%s_%d_x%d" % [gem_type, gem_level, quantity], "", AFTER_GEMS,
+		func(key: String) -> Dictionary: return {"gemType": gem_type, "gemLevel": gem_level, "quantity": quantity, "idempotencyKey": key})
+
+
+## POST /player/equipment/socket {equipmentId, slotIndex, gemId}: the gem goes into the socket; a
+## socket holding another gem swaps it (that one back to the bag). An older server refuses a filled
+## socket: when `piece` sends no `gems` and the socket holds one, it is taken out first
+## (EQUIP_GEM_SLOT_EMPTY counts as done). An equipment action; the gems reload afterwards.
+func socket_gem(piece: Dictionary, slot_index: int, gem_id: String) -> Dictionary:
+	var id := str(piece.get("equipmentId", ""))
+	var steps: Array = []
+	if not GemModel.swaps_in_one_call(piece) and GemModel.piece_gems(piece).has(slot_index):
+		steps.append(["/player/equipment/unsocket", {"equipmentId": id, "slotIndex": slot_index}, ["EQUIP_GEM_SLOT_EMPTY"]])
+	steps.append(["/player/equipment/socket", {"equipmentId": id, "slotIndex": slot_index, "gemId": gem_id}, []])
+	var res := await _equip_steps(id, steps)
+	if res.get("code", "") != "BUSY":
+		gems_dirty()
+	return res
+
+
+## POST /player/equipment/unsocket {equipmentId, slotIndex}: the gem goes back to the bag.
+func unsocket_gem(equipment_id: String, slot_index: int) -> Dictionary:
+	var res := await _equip_steps(equipment_id, [["/player/equipment/unsocket", {"equipmentId": equipment_id, "slotIndex": slot_index}, []]])
+	if res.get("code", "") != "BUSY":
+		gems_dirty()
+	return res
+
+
+## POST /merge/gem {gemType, gemLevel, count} → {success, percent, consumed, gem?}: count free gems
+## of the type + level are consumed, one of the next level is added on success. One at a time; the
+## gems reload afterwards whatever the answer.
+func merge_gems(gem_type: String, gem_level: int, count: int) -> Dictionary:
+	if gem_busy != "":
+		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null}
+	gem_busy = "merge"
+	gems_changed.emit()
+	var res: Dictionary = await _api().post_json("/merge/gem", {"gemType": gem_type, "gemLevel": gem_level, "count": count})
+	gem_busy = ""
+	gems_dirty()
 	return res
 
 

@@ -32,6 +32,11 @@ extends Control
 ##   a success then plays the reward reveal of the new stone (ui/reward_reveal.gd). The stone
 ##   list shows each stone's icon (its look tells the level), the owned count by the bag icon and
 ##   its power by the upgrade arrow.
+## - "Ghép ngọc" (shown when the catalog sends gems): the same layout for ngọc khảm: the four types
+##   as their gems on top of the left panel, that type's levels below it (the gem, the free count),
+##   the gem ×2 / ×3 / ×4 → the next level with the chance, GHÉP; a success plays the reward reveal
+##   of the new gem, a failure the stones' failure effect. The highest level is the catalog's
+##   (GemModel), the counts and the rate the game data's / catalog's.
 ## Loads the catalog, the pieces, the characters and the stones when shown; failures show inline
 ## with "Thử lại".
 
@@ -54,13 +59,17 @@ const RewardReveal := preload("res://ui/reward_reveal.gd")
 const RewardModel := preload("res://ui/reward_model.gd")
 const GearModel := preload("res://screens/home/gear_model.gd")
 const GearIcon := preload("res://ui/gear_icon.gd")
+const GemModel := preload("res://screens/home/gem_model.gd")
+const GemIcon := preload("res://ui/gem_icon.gd")
 
-const SUB_TABS := ["Nâng cấp", "Ghép đá"]
+const SUB_TABS := ["Nâng cấp", "Ghép đá", "Ghép ngọc"]
 const UPGRADE := 0
 const MERGE := 1
-## Shop section of "Đá nâng cấp" (shop_tab.gd STONES; not preloaded: the Shop preloads this page's
-## neighbours).
+const GEM_MERGE := 2
+## Shop sections of "Đá nâng cấp" and "Ngọc" (shop_tab.gd STONES / SOCKET_GEMS; not preloaded: the
+## Shop preloads this page's neighbours).
 const SHOP_STONES := 2
+const SHOP_SOCKET_GEMS := 3
 
 const LEFT_W := 430
 const RIGHT_W := 480
@@ -138,6 +147,23 @@ var _merge_count_tabs: Array[Button]
 var _merge_go: Button
 var _merge_reason: Label
 var _merge_fx: Control
+var _buy: Button # Mua đá / Mua ngọc
+# Ghép ngọc tab
+var _gem_type := ""
+var _gem_level := 1
+var _gem_count := UpgradeModel.merge_max()
+var _gem_types: HBoxContainer
+var _gem_levels: GridContainer
+var _gem_from # ui/gem_icon.gd
+var _gem_to # ui/gem_icon.gd
+var _gem_times: Label
+var _gem_to_holder: Control
+var _gem_chance: Label
+var _gem_count_tabs: Array[Button]
+var _gem_go: Button
+var _gem_reason: Label
+var _gem_fx: Control
+var _gem_acting := false
 
 
 func _ready() -> void:
@@ -160,17 +186,18 @@ func _ready() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = SIZE_EXPAND_FILL
 	tabs.add_child(spacer)
-	var buy := _small_button("Mua đá", func(): open_shop.emit(SHOP_STONES), 22)
+	var buy := _small_button("Mua đá", func(): open_shop.emit(SHOP_SOCKET_GEMS if _sub == GEM_MERGE else SHOP_STONES), 22)
 	LobbyUi.style_button(buy, LobbyUi.ICON_COLORS["orange"], 14, 8)
 	buy.add_theme_font_override("font", LobbyUi.bold())
 	buy.custom_minimum_size = Vector2(180, 56)
 	tabs.add_child(buy)
+	_buy = buy
 	_status = LoadStatus.new()
 	col.add_child(_status)
 	var pages := Control.new()
 	pages.size_flags_vertical = SIZE_EXPAND_FILL
 	col.add_child(pages)
-	for builder in [_build_upgrade_page, _build_merge_page]:
+	for builder in [_build_upgrade_page, _build_merge_page, _build_gem_merge_page]:
 		var page: Control = builder.call()
 		page.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		pages.add_child(page)
@@ -179,6 +206,7 @@ func _ready() -> void:
 	PlayerState.equipment_changed.connect(_on_data_changed)
 	PlayerState.characters_changed.connect(_on_data_changed)
 	PlayerState.stones_changed.connect(_on_data_changed)
+	PlayerState.gems_changed.connect(_on_data_changed)
 	PlayerState.changed.connect(_on_data_changed) # the gems the careful toggle needs
 	visibility_changed.connect(_ensure_loaded)
 	show_section(UPGRADE)
@@ -188,10 +216,21 @@ func _ready() -> void:
 
 func show_section(index: int) -> void:
 	_sub = index
+	if _buy != null:
+		_buy.text = "Mua ngọc" if index == GEM_MERGE else "Mua đá"
 	for i in _pages.size():
 		_pages[i].visible = i == index
 	Ui.select_tab(_sub_tabs, index)
 	_render()
+
+
+## Shows the Ghép ngọc tab on a gem type + level ("" keeps the current choice).
+func select_gem(gem_type: String, gem_level: int) -> void:
+	if gem_type != "":
+		_gem_type = gem_type
+		_gem_level = maxi(gem_level, 1)
+	show_section(GEM_MERGE)
+	_ensure_loaded()
 
 
 ## Shows the Nâng cấp tab on a piece ("" keeps the current choice).
@@ -216,6 +255,8 @@ func _ensure_loaded() -> void:
 	PlayerState.need_equipment()
 	PlayerState.need_characters() # the stat multipliers
 	PlayerState.need_stones()
+	if _sub == GEM_MERGE:
+		PlayerState.need_gems()
 	_render()
 
 
@@ -229,6 +270,8 @@ func _retry() -> void:
 	PlayerState.retry_equipment()
 	if PlayerState.stones_error != "":
 		PlayerState.load_stones()
+	if PlayerState.gems_error != "":
+		PlayerState.load_gems()
 
 
 func _owned() -> Dictionary:
@@ -245,6 +288,12 @@ func _render() -> void:
 	var error := PlayerState.catalog_error if PlayerState.catalog_error != "" else PlayerState.equipment_error
 	if error == "":
 		error = PlayerState.stones_error
+	if error == "" and _sub == GEM_MERGE:
+		error = PlayerState.gems_error
+	if _sub_tabs.size() > GEM_MERGE: # an older server's catalog has no gems: no Ghép ngọc
+		_sub_tabs[GEM_MERGE].visible = PlayerState.catalog == null or GemModel.has_catalog(PlayerState.catalog) or _sub == GEM_MERGE
+	if _buy != null: # no gem shop on an older server
+		_buy.visible = _sub != GEM_MERGE or PlayerState.catalog == null or GemModel.has_catalog(PlayerState.catalog)
 	if error != "":
 		_status.show_error(error, _retry)
 	elif PlayerState.catalog == null or PlayerState.equipment == null or PlayerState.stones == null:
@@ -256,8 +305,10 @@ func _render() -> void:
 		_render_list()
 		_render_center()
 		_render_stones()
-	else:
+	elif _sub == MERGE:
 		_render_merge()
+	else:
+		_render_gem_merge()
 
 
 ## Picked stones never exceed what is owned (after a reload).
@@ -1284,4 +1335,218 @@ func _on_merge() -> void:
 	if success: # the new stone bursts out of a gift box
 		RewardReveal.open(overlay, [RewardModel.tile("stone", "stone_%d" % (lv + 1), 1, lv + 1)])
 	_acting = false
+	_render()
+
+
+# ── Ghép ngọc ───────────────────────────────────────────────────────────────
+
+func _build_gem_merge_page() -> Control:
+	var row := Ui.hbox(16)
+	var left := LobbyUi.panel(14, 18)
+	left.custom_minimum_size.x = 640
+	row.add_child(left)
+	var lcol := Ui.vbox(12)
+	left.add_child(lcol)
+	_gem_types = Ui.hbox(10) # the same gap as the levels' grid
+	_gem_types.name = "GemTypes"
+	_gem_types.alignment = BoxContainer.ALIGNMENT_BEGIN # over the levels' four columns
+	lcol.add_child(_gem_types)
+	_gem_levels = GridContainer.new()
+	_gem_levels.name = "GemLevels"
+	_gem_levels.columns = 4
+	_gem_levels.add_theme_constant_override("h_separation", 10)
+	_gem_levels.add_theme_constant_override("v_separation", 10)
+	lcol.add_child(Ui.scroll(_gem_levels))
+
+	var right := LobbyUi.panel(24, 18)
+	right.size_flags_horizontal = SIZE_EXPAND_FILL
+	row.add_child(right)
+	var rcol := Ui.vbox(18)
+	rcol.alignment = BoxContainer.ALIGNMENT_CENTER
+	right.add_child(rcol)
+	var top := Ui.hbox(0)
+	top.alignment = BoxContainer.ALIGNMENT_END
+	rcol.add_child(top)
+	top.add_child(GlyphIcon.info_button(_show_gem_merge_rules, 48))
+	var formula := HBoxContainer.new()
+	formula.name = "GemFormula"
+	formula.alignment = BoxContainer.ALIGNMENT_CENTER
+	formula.add_theme_constant_override("separation", 26)
+	rcol.add_child(formula)
+	_gem_from = GemIcon.make("hp", 1, 120)
+	formula.add_child(_gem_from)
+	_gem_times = LobbyUi.text("×4", 40, LobbyUi.GOLD, true)
+	_gem_times.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	formula.add_child(_gem_times)
+	formula.add_child(LobbyUi.icon("arrow_right", 56))
+	_gem_to_holder = Control.new()
+	_gem_to_holder.custom_minimum_size = Vector2(150, 150)
+	_gem_to_holder.size_flags_vertical = SIZE_SHRINK_CENTER
+	formula.add_child(_gem_to_holder)
+	_gem_to = GemIcon.make("hp", 2, 150)
+	_gem_to.position = Vector2.ZERO
+	_gem_to_holder.add_child(_gem_to)
+	_gem_fx = Control.new()
+	_gem_fx.size = Vector2(150, 150)
+	_gem_fx.mouse_filter = MOUSE_FILTER_IGNORE
+	_gem_fx.draw.connect(_draw_fx.bind(_gem_fx))
+	_gem_to_holder.add_child(_gem_fx)
+	var counts := HBoxContainer.new()
+	counts.alignment = BoxContainer.ALIGNMENT_CENTER
+	counts.add_theme_constant_override("separation", 10)
+	rcol.add_child(counts)
+	var count_names: Array = []
+	for n in range(UpgradeModel.merge_min(), UpgradeModel.merge_max() + 1):
+		count_names.append("×%d" % n)
+	_gem_count_tabs = Ui.tab_row(count_names, 22, func(i: int):
+		_gem_count = UpgradeModel.merge_min() + i
+		_render_gem_merge(), 56)
+	for b in _gem_count_tabs:
+		b.size_flags_horizontal = SIZE_FILL
+		b.custom_minimum_size.x = 130
+		counts.add_child(b)
+	_gem_chance = LobbyUi.text("", 26, LobbyUi.GOLD, true)
+	_gem_chance.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rcol.add_child(_gem_chance)
+	_gem_go = LobbyUi.start_button("GHÉP")
+	_gem_go.name = "GemMergeGo"
+	_gem_go.custom_minimum_size = Vector2(360, 84)
+	_gem_go.add_theme_font_size_override("font_size", 34)
+	_gem_go.size_flags_horizontal = SIZE_SHRINK_CENTER
+	_gem_go.pressed.connect(_on_gem_merge)
+	rcol.add_child(_gem_go)
+	_gem_reason = LobbyUi.text("", 19, Ui.TEXT_DIM)
+	_gem_reason.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_gem_reason.custom_minimum_size.y = 26
+	rcol.add_child(_gem_reason)
+	return row
+
+
+## The rules behind the "i" (the counts are the game data's).
+func _show_gem_merge_rules() -> void:
+	var m := Modal.new()
+	m.open(overlay, "Ghép ngọc", 620)
+	m.add_close_x()
+	m.add_text("%d–%d viên cùng loại, cùng cấp → 1 viên cấp trên." % [UpgradeModel.merge_min(), UpgradeModel.merge_max()], 24)
+	m.add_text("Ngọc đang khảm không ghép được.", 22)
+	var warn := m.add_text("Thất bại: mất hết số ngọc đã bỏ vào.", 22)
+	warn.add_theme_color_override("font_color", WARN)
+
+
+func _render_gem_merge() -> void:
+	if _gem_levels == null:
+		return
+	var catalog = PlayerState.catalog
+	var types := GemModel.types(catalog)
+	if _gem_type == "" or not types.has(_gem_type):
+		_gem_type = str(types[0]) if not types.is_empty() else ""
+	var owned := PlayerState.gem_list()
+	var choices := GemModel.merge_choices(catalog, owned)
+	var mine: Array = choices.filter(func(c): return c["gemType"] == _gem_type)
+	if not mine.is_empty() and mine.filter(func(c): return int(c["gemLevel"]) == _gem_level).is_empty():
+		_gem_level = int(mine[0]["gemLevel"])
+	Ui.clear(_gem_types)
+	for t in types:
+		var b := Button.new()
+		b.name = "Type_" + str(t)
+		b.custom_minimum_size = Vector2(140, 96)
+		b.focus_mode = FOCUS_NONE
+		var picked: bool = t == _gem_type
+		LobbyUi.style_button(b, Color(0.16, 0.3, 0.56, 0.95) if picked else Color(0.08, 0.11, 0.26, 0.85), 14, 6,
+			GemModel.color(t) if picked else Color(1, 1, 1, 0.08), 3 if picked else 2)
+		var icon := GemIcon.make(str(t), 1, 72, false)
+		icon.position = (b.custom_minimum_size - icon.size) / 2.0
+		b.add_child(icon)
+		b.pressed.connect(func():
+			_gem_type = str(t)
+			_render_gem_merge.call_deferred())
+		_gem_types.add_child(b)
+	Ui.clear(_gem_levels)
+	for c in mine:
+		var lv := int(c["gemLevel"])
+		var have := int(c["count"])
+		var b := Button.new()
+		b.name = "Level_%d" % lv
+		b.custom_minimum_size = Vector2(140, 150)
+		b.focus_mode = FOCUS_NONE
+		if lv == _gem_level:
+			LobbyUi.style_button(b, Color(0.16, 0.3, 0.56, 0.95), 14, 6, LobbyUi.GOLD, 3)
+		else:
+			LobbyUi.style_button(b, Color(0.08, 0.11, 0.26, 0.85), 14, 6, Color(1, 1, 1, 0.08), 2)
+		b.pressed.connect(func():
+			_gem_level = lv
+			_render_gem_merge.call_deferred())
+		var col := Ui.vbox(0)
+		col.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		col.offset_top = 8
+		col.mouse_filter = MOUSE_FILTER_IGNORE
+		b.add_child(col)
+		col.add_child(GemIcon.make(_gem_type, lv, 80))
+		var count := LobbyUi.text("×%s" % Fmt.thousands(have), 24, LobbyUi.GOLD if have >= UpgradeModel.merge_min() else Ui.TEXT_DIM, true)
+		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		count.mouse_filter = MOUSE_FILTER_IGNORE
+		col.add_child(count)
+		if have < UpgradeModel.merge_min():
+			b.modulate = Color(1, 1, 1, 0.55)
+		_gem_levels.add_child(b)
+	Ui.select_tab(_gem_count_tabs, _gem_count - UpgradeModel.merge_min())
+	for g in [_gem_from, _gem_to]:
+		g.gem_type = _gem_type
+		var top := GemModel.max_level(catalog, _gem_type)
+		g.glow_top = top if top > 1 else 10
+	_gem_from.level = _gem_level
+	_gem_to.level = _gem_level + 1
+	_gem_times.text = "×%d" % _gem_count
+	_gem_chance.text = "Tỉ lệ thành công %s" % BattleStats.format_chance(UpgradeModel.merge_chance(catalog, _gem_count))
+	var reason := _gem_reason_text()
+	_gem_go.disabled = reason != ""
+	_gem_reason.text = reason
+
+
+func _gem_reason_text() -> String:
+	if _gem_acting:
+		return "Đang ghép..."
+	if PlayerState.catalog == null or PlayerState.gems == null:
+		return "Đang tải ngọc..."
+	var why := GemModel.merge_blocked(PlayerState.catalog, _gem_type, _gem_level, _gem_count, PlayerState.gem_list())
+	if why != "":
+		return why
+	if not PlayerState.gems_ready():
+		return "Đang cập nhật ngọc..."
+	return ""
+
+
+func _on_gem_merge() -> void:
+	if _gem_reason_text() != "":
+		return
+	var t := _gem_type
+	var lv := _gem_level
+	var count := _gem_count
+	_gem_acting = true
+	_render_gem_merge()
+	var res: Dictionary = await PlayerState.merge_gems(t, lv, count)
+	if not is_inside_tree():
+		return
+	if not res.ok:
+		_gem_acting = false
+		Ui.toast(overlay, ErrorText.gem_merge(res) if res.code != "BUSY" else "Đang xử lý việc khác, hãy đợi", 3.0)
+		_render()
+		return
+	var result := GemModel.parse_merge(res.data)
+	if result["success"]:
+		_play_fx("merge_ok", GemModel.color(t).lightened(0.3), _gem_fx, "THÀNH CÔNG!")
+	else:
+		_play_fx("merge_fail", BAD, _gem_fx, "THẤT BẠI")
+		_shake(_gem_to_holder)
+		var lost := int(result["consumed"]) if int(result["consumed"]) > 0 else count
+		Ui.toast(overlay, "Ghép thất bại — mất %d viên ngọc" % lost, 3.0)
+	await get_tree().create_timer(1.0).timeout
+	if not is_inside_tree():
+		return
+	if result["success"]: # the new gem bursts out of a gift box
+		var gem: Dictionary = result["gem"]
+		var gt := str(gem.get("gemType", t))
+		var gl := int(gem.get("gemLevel", lv + 1))
+		RewardReveal.open(overlay, [RewardModel.tile("socket_gem", gt, 1, gl)])
+	_gem_acting = false
 	_render()

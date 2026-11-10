@@ -98,6 +98,30 @@ const MERGE := {
 	"EQUIP_INSUFFICIENT_STONES": "Không đủ đá để ghép",
 }
 
+## POST /player/equipment/socket and /unsocket (ngọc khảm); other codes as EQUIP.
+const GEM_SOCKET := {
+	"EQUIP_GEM_SOCKETED": "Ngọc đang khảm ở món khác, hãy tháo ra trước",
+	"EQUIP_GEM_SLOT_EMPTY": "Ô ngọc đang trống",
+	"EQUIP_GEM_SLOT_INVALID": "Ô ngọc không hợp lệ",
+	"EQUIP_GEM_NOT_OWNED": "Viên ngọc không còn trong túi",
+	"EQUIP_SLOT_OCCUPIED": "Ô ngọc đã có ngọc, hãy thử lại",
+	"EQUIP_NOT_OWNED": "Trang bị không còn trong túi",
+}
+## POST /shop/gems/buy.
+const GEM_BUY := {
+	"SHOP_GEM_NOT_FOR_SALE": "Ngọc này không bán, chỉ ghép được",
+	"BAD_REQUEST": "Yêu cầu mua không hợp lệ",
+	"IDEMPOTENCY_KEY_REUSED": "Giao dịch bị trùng, hãy thử lại",
+}
+## POST /merge/gem.
+const GEM_MERGE := {
+	"MERGE_MIN_COUNT": "Cần bỏ vào ít nhất {mergeMinCount} viên",
+	"MERGE_MAX_COUNT": "Chỉ bỏ vào tối đa {mergeMaxCount} viên",
+	"MERGE_MAX_LEVEL": "Ngọc đã ở cấp cao nhất",
+	"MERGE_INSUFFICIENT_GEMS": "Không đủ ngọc để ghép",
+	"EQUIP_GEM_NOT_OWNED": "Không đủ ngọc để ghép",
+}
+
 ## POST /milestones/claim and /milestones/claim-all.
 const MILESTONE := {
 	"MILESTONE_ALREADY_CLAIMED": "Mốc này đã nhận rồi",
@@ -315,6 +339,33 @@ static func merge(res: Dictionary) -> String:
 	if int(res.get("status", 0)) == 0:
 		return OFFLINE
 	return limits(MERGE.get(str(res.get("code", "")), "Ghép đá thất bại: %s" % res.get("message", "")))
+
+
+## POST /player/equipment/socket or /unsocket failure (or the unsocket before an older server's swap).
+static func gem_socket(res: Dictionary) -> String:
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	var code := str(res.get("code", ""))
+	if GEM_SOCKET.has(code):
+		return GEM_SOCKET[code]
+	return EQUIP.get(code, "Khảm ngọc thất bại: %s" % res.get("message", ""))
+
+
+## POST /shop/gems/buy failure. currency is what the gem costs ("coin" | "gem").
+static func gem_buy(res: Dictionary, currency: String = "") -> String:
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	var code := str(res.get("code", ""))
+	if code == "SHOP_INSUFFICIENT_BALANCE":
+		return purchase(res, currency)
+	return GEM_BUY.get(code, "Mua ngọc thất bại: %s" % res.get("message", ""))
+
+
+## POST /merge/gem failure.
+static func gem_merge(res: Dictionary) -> String:
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	return limits(GEM_MERGE.get(str(res.get("code", "")), "Ghép ngọc thất bại: %s" % res.get("message", "")))
 
 
 ## POST /milestones/claim or /milestones/claim-all failure.

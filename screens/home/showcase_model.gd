@@ -14,6 +14,7 @@ const BattleStats := preload("res://screens/home/battle_stats.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const Fmt := preload("res://core/fmt.gd")
 const LeaderboardModel := preload("res://screens/home/leaderboard_model.gd")
+const GemModel := preload("res://screens/home/gem_model.gd")
 
 ## The stat cells in order: the stats key, the statPoints key and the picture (ui/glyph_icon.gd).
 ## Two columns of three, mirrored: Máu / Sát thương / Phòng thủ (the lobby card's three) left,
@@ -26,12 +27,9 @@ const STATS := [
 	{"key": "skillPowerBonus", "point": "skillPower", "glyph": "magic"},
 	{"key": "terrainDamageBonus", "point": "terrainDamage", "glyph": "terrain"},
 ]
-## A socketed gem's colour by gemType (a visual mapping by id).
-const GEM_COLORS := {
-	"hp": Color(1.0, 0.32, 0.38), "damage": Color(1.0, 0.6, 0.15), "defense": Color(0.3, 0.6, 1.0),
-	"critical": Color(0.78, 0.4, 1.0),
-}
-const GEM_UNKNOWN := Color(0.7, 0.75, 0.85)
+## A socketed gem's colour by gemType (a visual mapping by id: screens/home/gem_model.gd).
+const GEM_COLORS := GemModel.COLORS
+const GEM_UNKNOWN := GemModel.UNKNOWN
 
 
 ## The request path: "/players/<id>/showcase" (their power character), "?characterId=<c>" for another.

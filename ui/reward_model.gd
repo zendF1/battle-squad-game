@@ -2,8 +2,9 @@ extends RefCounted
 ## Rewards without UI, for the one reward effect (ui/reward_reveal.gd) and the reward tiles
 ## (ui/reward_strip.gd): every reward as a tile {kind, id, level, upgrade, locked, qty, name} —
 ## kind "coin", "gem" (locked: kim cương khoá), "stone" (level), "chest" (id), "item" (a battle
-## item id), "equipment" (an item id of the catalog, upgrade +N), "character" (id); name is only
-## the tooltip, never drawn. Built from every answer that grants something (POST /chests/open,
+## item id), "equipment" (an item id of the catalog, upgrade +N), "character" (id), "socket_gem"
+## (a ngọc khảm: id its gemType, level its gemLevel); name is only the tooltip, never drawn. Built
+## from every answer that grants something (POST /chests/open,
 ## milestone / daily reward lines, a season reward, a match's reward, a shop purchase), merged
 ## (same reward → one tile, the counts added) and ordered weakest first so the reveal ends on the
 ## best one. glow() is the light behind a tile: its colour (and a second one for the richest) and
@@ -12,10 +13,11 @@ extends RefCounted
 
 const GameData := preload("res://autoload/game_data_model.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
+const GemModel := preload("res://screens/home/gem_model.gd")
 const Items := preload("res://match/items.gd")
 const Fmt := preload("res://core/fmt.gd")
 
-const KINDS := ["coin", "gem", "item", "stone", "chest", "equipment", "character"]
+const KINDS := ["coin", "gem", "item", "stone", "socket_gem", "chest", "equipment", "character"]
 
 ## The glow rungs, weakest first: plain, green, blue, purple, gold, red-gold.
 const PLAIN := 0
@@ -68,6 +70,7 @@ static func name_of(t: Dictionary) -> String:
 		"coin": return "Xu"
 		"gem": return "Kim cương khoá" if t.get("locked", false) else "Kim cương"
 		"stone": return UpgradeModel.stone_name(int(t.get("level", 1)))
+		"socket_gem": return "Ngọc"
 		"chest": return GameData.chest_name(str(t.get("id", "")))
 		"item": return Items.label(str(t.get("id", "")))
 		"character": return GameData.character_name(str(t.get("id", "")))
@@ -141,6 +144,10 @@ static func glow(t: Dictionary) -> Dictionary:
 			return {"color": Color(0.36, 0.92, 0.82), "accent": Color(0.8, 1.0, 0.95), "power": 0.42, "rung": GREEN}
 		"stone":
 			return _rung(stone_rung(int(t.get("level", 1))))
+		"socket_gem": # its type's colour, brighter by level
+			var c: Color = GemModel.color(str(t.get("id", "")))
+			return {"color": c, "accent": c.lightened(0.5), "power": clampf(0.35 + 0.06 * int(t.get("level", 1)), 0.35, 1.0),
+				"rung": clampi(int(t.get("level", 1)) / 2, PLAIN, RED_GOLD)}
 		"chest":
 			if CHEST_GLOWS.has(str(t.get("id", ""))):
 				return CHEST_GLOWS[str(t["id"])]

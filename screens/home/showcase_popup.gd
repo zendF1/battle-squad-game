@@ -2,7 +2,7 @@ extends "res://ui/modal.gd"
 ## A player's showcase (a tap on a leaderboard podium place or row, mine too): the player's name as
 ## the title with their grade's insignia and level under it, then three columns mirrored round the
 ## centre: the gear (six hexagons in the game data's slot order: the piece's icon in its upgrade
-## level's tint and aura, the "+N" pill, the socketed gems as coloured gems with their level), the
+## level's tint and aura, the "+N" pill, the socketed gems in their type's cut and colour with their level), the
 ## character standing on the lobby pedestal (player_figure.gd: their look, weapon, back aura) with
 ## its Lực chiến under it (and their main set's pips with its 6-piece picture under that; the set
 ## aura round the figure from a 6-piece set: look.setAura / gear.setAura), and the stats (ShowcaseModel.stat_cells: the final stat as a picture and
@@ -14,6 +14,7 @@ extends "res://ui/modal.gd"
 
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const PowerTag := preload("res://ui/power_tag.gd")
+const GemIcon := preload("res://ui/gem_icon.gd")
 const Art := preload("res://ui/art.gd")
 const LoadStatus := preload("res://ui/load_status.gd")
 const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
@@ -224,19 +225,16 @@ func _slot(slot: String, piece: Dictionary) -> Control:
 	return cell
 
 
-## A gem: its colour's cut gem and its level under it.
+## A gem: its type's cut and colour (ui/gem_icon.gd), its level drawn small on it.
 func _gem(g: Dictionary) -> Control:
 	var box := Control.new()
 	box.custom_minimum_size = Vector2(GEM, GEM + 16)
 	box.size = box.custom_minimum_size
 	box.mouse_filter = MOUSE_FILTER_IGNORE
-	var icon = GlyphIcon.make("gem", GEM, g["color"])
+	var icon := GemIcon.make(str(g["type"]), int(g["level"]), GEM + 8)
+	icon.name = "Cut"
+	icon.position = Vector2(-4, 0)
 	box.add_child(icon)
-	var l := LobbyUi.text(str(g["level"]), 15, Color.WHITE, true)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.position = Vector2(-6, GEM - 6)
-	l.size = Vector2(GEM + 12, 20)
-	box.add_child(l)
 	return box
 
 
