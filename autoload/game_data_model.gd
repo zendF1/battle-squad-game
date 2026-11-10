@@ -1255,6 +1255,12 @@ static func gear_awaken_level() -> int:
 	return _i(section("gear"), "awakenLevel")
 
 
+## The upgrade cap of each tier index (gear.maxUpgradeByTier, index = tierIndex, entry 0 the pieces
+## without one: [16, 6, 10, 14, 16]); [] from an older server (no caps but the game's highest level).
+static func max_upgrade_by_tier() -> Array:
+	return number_list(section("gear").get("maxUpgradeByTier")).map(func(n): return int(n))
+
+
 ## The set thresholds: [setStatPieces, setPassivePieces, setEffectPieces] (2, 4, 6), the ones the
 ## server sends (0s left out).
 static func gear_set_thresholds() -> Array:

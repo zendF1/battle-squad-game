@@ -11,3 +11,6 @@
 .DS_Store
 /*_sc.png
 /*_sc.png.import
+
+# Local secrets (tools/gen_image.py)
+.env

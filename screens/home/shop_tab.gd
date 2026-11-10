@@ -1,5 +1,5 @@
 extends Control
-## "Shop": six sub-tabs.
+## "Shop": seven sub-tabs.
 ## - "Vật phẩm": item offers (GET /shop/offers) with "Còn N lượt" from GET /shop/purchases; one
 ##   card each (the same size, a real grid: ui/card_grid.gd): the big icon, the name small, the
 ##   price with the currency icon, Mua. A unit-priced item (ShopModel.sells_quantity()) buys through
@@ -7,7 +7,8 @@ extends Control
 ##   from GET /player/inventory and the offer's maxStack), then POST /shop/purchase with quantity;
 ## - "Trang bị": the equipment the catalog sells (PlayerState.catalog, active normal items with a
 ##   price): the gear shared by every character plus the weapons of the lobby's character only
-##   ("Vũ khí của Rookie"), filtered by slot: icon, name, "Lv N", stats, price, "Đã có N"; "Mua" asks "Mua
+##   ("Vũ khí của Rookie"), filtered by slot: icon, name, "Lv N", the upgrade cap (a padlock and
+##   "+6", from the item's maxUpgradeLevel; none from an older server), stats, price, "Đã có N"; "Mua" asks "Mua
 ##   <tên> với giá <giá>?", then PlayerState.buy_equipment() sends POST /shop/equipment/buy
 ##   {itemId, idempotencyKey} with the same key rules as the purchases below;
 ## - "Đá nâng cấp": the upgrade stones, levels 1–12 (catalog stones): icon (its look tells the
@@ -16,6 +17,15 @@ extends Control
 ##   with the total, "Mua" asks "Mua 5 × Đá cấp 3 với giá 3.500 xu?", then PlayerState.buy_stones()
 ##   sends POST /shop/stones/buy {stoneLevel, quantity, idempotencyKey} (the same key rules);
 ##   levels 11–12 are "Chỉ ghép được";
+## - "Ngọc": the ngọc khảm the catalog sells (GemModel.shop_rows: its gems with a price), one row of
+##   cards per type: the gem (its type's cut and colour, the level small on it), what it gives (the
+##   stat picture and one number), owned (the bag icon with the free count), the price with the
+##   currency icon, x1 / x5 / x10, the total (red when the wallet is short) and Mua (off while
+##   short); Mua confirms in pictures (the gem × N, the total), then PlayerState.buy_gems() sends POST
+##   /shop/gems/buy {gemType, gemLevel, quantity, idempotencyKey} (the same key rules). A purchase
+##   is not a reward: the gems arrive at once (ui/reward_fly.gd: the gem × N pops on the card and
+##   flies to the bag), the wallet takes the answer's balance. The tab is hidden when the catalog
+##   sends no gems (an older server);
 ## - "Nhân vật": one tall card per character (character_shop_model.gd / character_shop_ui.gd):
 ##   the animated lobby figure, name, role, "Thông tin" (a popup: base stats with bars, weapon,
 ##   skill, "Lối chơi") and the buy button: the price of its character_unlock offer ("hoặc ..."
@@ -30,9 +40,11 @@ extends Control
 ## idempotencyKey}. The key (and the mock token) is reused until a definite answer
 ## (core/idempotency_keys.gd), so a retry after a network error or a 5xx can never charge twice;
 ## PlayerState settles it even when Home is freed mid-request. An answer replaying an earlier
-## request shows "Giao dịch trước đã hoàn tất" instead of a new success; a success plays the reward
-## reveal (ui/reward_reveal.gd) of what was bought (items ×N, stones, the piece, the character, the
-## coins of a pack, the gems of a top-up). Each sub-tab loads its
+## request shows "Giao dịch trước đã hoàn tất" instead of a new success. A purchase is not a reward
+## (no gift box, no "Nhận"): what was bought (items ×N, stones, the piece, the character, the coins
+## of a pack, the gems of a top-up) is the player's at once, the wallet takes the answer's balance,
+## and ui/reward_fly.gd pops its icon + "×N" where the buy was tapped and flies it to the bag button
+## or the wallet pill, never blocking the screen. Each sub-tab loads its
 ## data the first time it is shown; owned characters come from the PlayerState cache shared with
 ## "Hồ sơ". Requests never block the screen; one purchase runs at a time.
 
@@ -40,7 +52,7 @@ const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Art := preload("res://ui/art.gd")
 const Modal := preload("res://ui/modal.gd")
-const RewardReveal := preload("res://ui/reward_reveal.gd")
+const RewardFly := preload("res://ui/reward_fly.gd")
 const RewardModel := preload("res://ui/reward_model.gd")
 const LoadStatus := preload("res://ui/load_status.gd")
 const Items := preload("res://match/items.gd")
@@ -57,15 +69,19 @@ const CharacterShopModel := preload("res://screens/home/character_shop_model.gd"
 const CharacterShopUi := preload("res://screens/home/character_shop_ui.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 const BuyQuantityDialog := preload("res://screens/home/buy_quantity_dialog.gd")
+const GemModel := preload("res://screens/home/gem_model.gd")
+const GemIcon := preload("res://ui/gem_icon.gd")
+const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const CardGrid := preload("res://ui/card_grid.gd")
 
-const SUB_TABS := ["Vật phẩm", "Trang bị", "Đá nâng cấp", "Nhân vật", "Kim cương", "Đổi xu"]
+const SUB_TABS := ["Vật phẩm", "Trang bị", "Đá nâng cấp", "Ngọc", "Nhân vật", "Kim cương", "Đổi xu"]
 const ITEMS := 0
 const EQUIPMENT := 1
 const STONES := 2
-const CHARACTERS := 3
-const GEMS := 4
-const EXCHANGE := 5
+const SOCKET_GEMS := 3 # ngọc khảm ("GEMS" is the kim cương top-up)
+const CHARACTERS := 4
+const GEMS := 5
+const EXCHANGE := 6
 const SOURCES := {
 	"offers": "/shop/offers",
 	"purchases": "/shop/purchases",
@@ -73,7 +89,8 @@ const SOURCES := {
 	"inventory": "/player/inventory",
 }
 ## The sources each sub-tab needs ("characters", "equipment": the PlayerState caches).
-const NEEDS := [["offers", "purchases", "inventory"], ["equipment"], ["equipment", "stones"], ["offers", "purchases", "characters"], ["products"], ["offers", "purchases"]]
+const NEEDS := [["offers", "purchases", "inventory"], ["equipment"], ["equipment", "stones"], ["equipment", "gems", "characters"],
+	["offers", "purchases", "characters"], ["products"], ["offers", "purchases"]]
 ## The quantities a stone card offers.
 const STONE_QUANTITIES := [1, 5, 10]
 const STONE_CARD_W := 246
@@ -107,6 +124,7 @@ var _weapons_label: Label # "Vũ khí của Rookie"
 var _equipment_character := "" # whose weapons the Trang bị cards show
 var _character_cards := {} # character id -> CharacterShopUi.card() parts
 var _stone_qty := {} # stone level -> the quantity chosen on its card
+var _gem_qty := {} # "<type>_<level>" -> the quantity chosen on its card
 
 
 func _ready() -> void:
@@ -139,7 +157,7 @@ func _ready() -> void:
 			_pages.append(row)
 			_flows.append(null)
 			continue
-		var flow := CardGrid.new()
+		var flow: Container = CardGrid.new() if i != SOCKET_GEMS else Ui.vbox(18) # Ngọc: a grid per type
 		flow.name = "Grid%d" % i
 		var page: Control = Ui.scroll(flow)
 		if i == EQUIPMENT:
@@ -167,8 +185,10 @@ func _ready() -> void:
 	PlayerState.busy_changed.connect(_on_busy_changed)
 	PlayerState.equipment_changed.connect(_on_equipment_changed)
 	PlayerState.stones_changed.connect(_on_stones_changed)
+	PlayerState.gems_changed.connect(_on_gems_changed)
 	PlayerState.changed.connect(_on_wallet_changed)
 	visibility_changed.connect(_on_visibility_changed)
+	_show_gem_tab()
 	_on_characters_changed() # whatever "Hồ sơ" or an earlier Home already loaded
 	show_section(ITEMS)
 	_arm.call_deferred()
@@ -176,6 +196,10 @@ func _ready() -> void:
 
 ## Only the Trang bị cards (and the load line) depend on the equipment; rendered when shown.
 func _on_equipment_changed() -> void:
+	_show_gem_tab()
+	if is_visible_in_tree() and _sub == SOCKET_GEMS:
+		_render_status.call_deferred()
+		_render_gem_shop.call_deferred() # the catalog's gems, where the owned ones sit
 	if is_visible_in_tree() and _sub == STONES:
 		_render_status.call_deferred()
 		_render_stones.call_deferred() # the catalog's stones
@@ -186,9 +210,16 @@ func _on_equipment_changed() -> void:
 		_equipment_dirty = true
 
 
-## The "Đổi xu" buttons depend on the gem balance.
+## The "Đổi xu" buttons depend on the gem balance, the Ngọc ones on both balances.
 func _on_wallet_changed() -> void:
 	_render_exchange.call_deferred()
+	_render_gem_shop.call_deferred()
+
+
+## Shop › Ngọc shows unless the catalog came without gems (an older server: none sold).
+func _show_gem_tab() -> void:
+	if _sub_tabs.size() > SOCKET_GEMS:
+		_sub_tabs[SOCKET_GEMS].visible = PlayerState.catalog == null or GemModel.has_catalog(PlayerState.catalog)
 
 
 func show_section(index: int) -> void:
@@ -223,6 +254,8 @@ func _load_shown() -> void:
 			PlayerState.need_equipment()
 		elif source == "stones":
 			PlayerState.need_stones()
+		elif source == "gems":
+			PlayerState.need_gems()
 		elif (not _data.has(source) or _stale.has(source)) and not _loading.has(source) and not _errors.has(source):
 			_load(source)
 
@@ -273,6 +306,9 @@ func _reload_failed() -> void:
 		elif source == "stones":
 			if PlayerState.stones_error != "":
 				PlayerState.load_stones()
+		elif source == "gems":
+			if PlayerState.gems_error != "":
+				PlayerState.load_gems()
 		elif _errors.has(source):
 			_load(source)
 
@@ -309,6 +345,8 @@ func _render_status() -> void:
 		var missing := PlayerState.catalog == null or PlayerState.equipment == null if source == "equipment" else not _data.has(source)
 		if source == "stones":
 			missing = PlayerState.stones == null
+		elif source == "gems":
+			missing = PlayerState.gems == null
 		if missing:
 			_load_status.show_loading()
 			return
@@ -323,6 +361,8 @@ func _source_error(source: String) -> String:
 			return PlayerState.catalog_error if PlayerState.catalog_error != "" else PlayerState.equipment_error
 		"stones":
 			return PlayerState.stones_error
+		"gems":
+			return PlayerState.gems_error
 	return _errors.get(source, "")
 
 
@@ -411,6 +451,10 @@ func _render_equipment() -> void:
 		head.add_child(names)
 		names.add_child(Ui.text(EquipmentModel.slot_name(str(it.get("slot", ""))), 20, Ui.TEXT_DIM))
 		names.add_child(Ui.text(EquipmentModel.required_text(it), 20, EquipmentUi.LEVEL))
+		if UpgradeModel.cap_known(PlayerState.catalog, it): # how far it upgrades: the padlock and "+6"
+			var cap := EquipmentUi.cap_mark(UpgradeModel.cap(PlayerState.catalog, it), true, 22)
+			cap.size_flags_vertical = SIZE_SHRINK_CENTER
+			head.add_child(cap)
 		# Two stat lines are reserved, so the cards line up.
 		var stats := Ui.vbox(0)
 		stats.custom_minimum_size.y = 56
@@ -502,6 +546,7 @@ func _purchase_stones(row: Dictionary, quantity: int) -> void:
 	if PlayerState.busy_id != "":
 		return
 	var stone_name := UpgradeModel.stone_name(int(row["stoneLevel"]))
+	var from = _tap_point()
 	_action_status.show_loading("Đang mua %d × %s..." % [quantity, stone_name])
 	var res: Dictionary = await PlayerState.buy_stones(int(row["stoneLevel"]), quantity)
 	if not is_inside_tree():
@@ -514,10 +559,135 @@ func _purchase_stones(row: Dictionary, quantity: int) -> void:
 		if res.replay:
 			Ui.toast(overlay, REPLAYED)
 		else:
-			RewardReveal.open(overlay, [RewardModel.tile("stone", "stone_%d" % int(row["stoneLevel"]), quantity, int(row["stoneLevel"]))])
+			_bought([RewardModel.tile("stone", "stone_%d" % int(row["stoneLevel"]), quantity, int(row["stoneLevel"]))], from)
 		return
 	var retry := _purchase_stones.bind(row, quantity) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.stone_buy(res, str(row["currency"])), retry)
+
+
+# ── Ngọc ────────────────────────────────────────────────────────────────────
+
+## The gem counts and the buy buttons depend on the owned gems.
+func _on_gems_changed() -> void:
+	if is_inside_tree():
+		_render_status.call_deferred()
+		_render_gem_shop.call_deferred()
+
+
+func _render_gem_shop() -> void:
+	var page := _flows[SOCKET_GEMS] if _flows.size() > SOCKET_GEMS else null
+	if page == null:
+		return
+	Ui.clear(page)
+	if PlayerState.catalog == null:
+		return
+	var groups := GemModel.shop_rows(PlayerState.catalog)
+	if groups.is_empty():
+		page.add_child(_empty("Chưa bán ngọc"))
+		return
+	var owned := PlayerState.gem_list()
+	var mult := EquipmentUi.multipliers()
+	var wallet_known := PlayerState.is_loaded()
+	for g in groups:
+		var grid := CardGrid.new()
+		grid.name = "Gems_" + str(g["gemType"])
+		page.add_child(grid)
+		for r in g["rows"]:
+			_gem_card(grid, r, owned, mult, wallet_known)
+
+
+func _gem_card(grid: Container, r: Dictionary, owned: Array, mult: Dictionary, wallet_known: bool) -> void:
+	var t: String = r["gemType"]
+	var lv := int(r["gemLevel"])
+	var key := "%s_%d" % [t, lv]
+	var box := _card(grid, Vector2(STONE_CARD_W, 0))
+	box.get_parent().name = "Gem_" + key
+	var head := Ui.hbox(10)
+	box.add_child(head)
+	head.add_child(GemIcon.make(t, lv, 72))
+	var names := Ui.vbox(2)
+	names.alignment = BoxContainer.ALIGNMENT_CENTER
+	head.add_child(names)
+	var stat := GemModel.stat(PlayerState.catalog, t, lv, mult)
+	if not stat.is_empty():
+		var line := Ui.hbox(4)
+		line.mouse_filter = MOUSE_FILTER_IGNORE
+		line.add_child(GlyphIcon.make(str(stat["glyph"]), 24))
+		var v := LobbyUi.text(str(stat["value"]), 21, (stat["color"] as Color).lightened(0.25), true)
+		v.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		line.add_child(v)
+		names.add_child(line)
+	var have := LobbyUi.icon_text(names, "inventory", Fmt.thousands(GemModel.free_count(owned, t, lv)) if PlayerState.gems is Array else "—",
+		20, Ui.TONES["good"], true, 22)
+	have.tooltip_text = "Đang có"
+	have.mouse_filter = MOUSE_FILTER_PASS
+	var p := GemModel.price(r)
+	LobbyUi.icon_text(box, ShopModel.currency_icon(p["currency"]), Fmt.thousands(int(p["amount"])), 22, Color.WHITE, false, 30)
+	var qty := int(_gem_qty.get(key, STONE_QUANTITIES[0]))
+	var chips := Ui.tab_row(STONE_QUANTITIES.map(func(q): return "x%d" % q), 20, func(i: int):
+		_gem_qty[key] = STONE_QUANTITIES[i]
+		_render_gem_shop.call_deferred(), 44)
+	var chip_row := Ui.hbox(6)
+	for c in chips:
+		chip_row.add_child(c)
+	Ui.select_tab(chips, maxi(STONE_QUANTITIES.find(qty), 0))
+	box.add_child(chip_row)
+	var afford := not wallet_known or GemModel.can_afford(r, qty, PlayerState.coin(), PlayerState.gem())
+	LobbyUi.icon_text(box, ShopModel.currency_icon(p["currency"]), "Tổng %s" % Fmt.thousands(int(p["amount"]) * qty), 22,
+		LobbyUi.GOLD if afford else Color(1.0, 0.42, 0.38), true, 30)
+	var buy := _action_button("Mua")
+	buy.name = "Buy"
+	buy.disabled = PlayerState.busy_id != "" or not afford
+	buy.pressed.connect(func() -> void: _on_buy_gems(r, qty, buy.get_global_transform_with_canvas() * (buy.size / 2.0)))
+	box.add_child(buy)
+
+
+## "Mua" on a gem card: the confirmation in pictures (the gem × N, the total with its currency).
+func _on_buy_gems(r: Dictionary, quantity: int, from: Vector2) -> void:
+	if PlayerState.busy_id != "":
+		return
+	var p := GemModel.price(r)
+	var m := Modal.new()
+	m.open(overlay, "Xác nhận mua", 560)
+	var row := Ui.hbox(18)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	m.body.add_child(row)
+	row.add_child(GemIcon.make(str(r["gemType"]), int(r["gemLevel"]), 120))
+	var n := LobbyUi.text("×%d" % quantity, 40, LobbyUi.GOLD, true)
+	n.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(n)
+	var cost := CenterContainer.new()
+	m.body.add_child(cost)
+	LobbyUi.icon_text(cost, ShopModel.currency_icon(p["currency"]), Fmt.thousands(int(p["amount"]) * quantity), 32, Color.WHITE, true, 40)
+	m.add_button("Huỷ", m.close)
+	m.add_button("Mua", func():
+		m.close()
+		_purchase_gems(r, quantity, from))
+	m.close_on_backdrop()
+
+
+func _purchase_gems(r: Dictionary, quantity: int, from: Vector2) -> void:
+	if PlayerState.busy_id != "":
+		return
+	var t := str(r["gemType"])
+	var lv := int(r["gemLevel"])
+	_action_status.show_loading("Đang mua ngọc...")
+	var res: Dictionary = await PlayerState.buy_gems(t, lv, quantity)
+	if not is_inside_tree():
+		return
+	if res.code == "BUSY":
+		_action_status.clear()
+		return
+	if res.ok:
+		_action_status.clear()
+		if res.replay:
+			Ui.toast(overlay, REPLAYED)
+		else:
+			# a purchase is not a reward: the gems pop on the card and fly to the bag, no gift box
+			preload("res://ui/reward_fly.gd").play(overlay, [RewardModel.tile("socket_gem", t, quantity, lv)], from)
+		return
+	var retry := _purchase_gems.bind(r, quantity, from) if not IdempotencyKeys.is_definite(res.status) else Callable()
+	_action_status.show_error(ErrorText.gem_buy(res, str(GemModel.price(r)["currency"])), retry)
 
 
 ## The four cards, built once (their figures keep idling); _render_characters() sets the buttons.
@@ -684,6 +854,7 @@ func _purchase(offer: Dictionary, quantity: int = 1) -> void:
 	if PlayerState.busy_id != "":
 		return
 	var swap := ShopModel.is_coin_pack(offer)
+	var from = _tap_point()
 	_action_status.show_loading(("Đang đổi lấy %s..." if swap else "Đang mua %s...") % ShopModel.offer_name(offer))
 	var res: Dictionary = await PlayerState.buy(str(offer.get("offerId", "")), quantity)
 	if not is_inside_tree():
@@ -695,8 +866,8 @@ func _purchase(offer: Dictionary, quantity: int = 1) -> void:
 		_action_status.clear()
 		if res.replay:
 			Ui.toast(overlay, REPLAYED)
-		else: # what was bought bursts out of a gift box
-			RewardReveal.open(overlay, RewardModel.from_offer(offer, quantity, res.data))
+		else: # what was bought is the player's at once: it pops where the buy was tapped and flies home
+			_bought(RewardModel.from_offer(offer, quantity, res.data), from)
 		return
 	var retry := _purchase.bind(offer, quantity) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.purchase(res, str(offer.get("priceCurrency", ""))), retry)
@@ -720,6 +891,7 @@ func _on_buy_equipment(item: Dictionary) -> void:
 func _purchase_equipment(item: Dictionary) -> void:
 	if PlayerState.busy_id != "":
 		return
+	var from = _tap_point()
 	_action_status.show_loading("Đang mua %s..." % EquipmentModel.display_name(item))
 	var res: Dictionary = await PlayerState.buy_equipment(str(item.get("itemId", "")))
 	if not is_inside_tree():
@@ -732,7 +904,7 @@ func _purchase_equipment(item: Dictionary) -> void:
 		if res.replay:
 			Ui.toast(overlay, REPLAYED)
 		else:
-			RewardReveal.open(overlay, [RewardModel.tile("equipment", str(item.get("itemId", "")), 1)])
+			_bought([RewardModel.tile("equipment", str(item.get("itemId", "")), 1)], from)
 		return
 	var retry := _purchase_equipment.bind(item) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.equipment_buy(res, EquipmentModel.price(item)["currency"]), retry)
@@ -741,6 +913,7 @@ func _purchase_equipment(item: Dictionary) -> void:
 func _on_top_up(product: Dictionary) -> void:
 	if PlayerState.busy_id != "":
 		return
+	var from = _tap_point()
 	_action_status.show_loading("Đang nạp %s..." % ShopModel.product_title(product))
 	var res: Dictionary = await PlayerState.top_up(str(product.get("productId", "")), ShopModel.iap_platform(OS.get_name()))
 	if not is_inside_tree():
@@ -754,12 +927,28 @@ func _on_top_up(product: Dictionary) -> void:
 		if res.replay:
 			Ui.toast(overlay, REPLAYED)
 		elif granted > 0:
-			RewardReveal.open(overlay, [RewardModel.tile("gem", "gem", granted)])
+			_bought([RewardModel.tile("gem", "gem", granted)], from)
 		else:
 			Ui.toast(overlay, "Nạp thành công!")
 		return
 	var retry := _on_top_up.bind(product) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.iap(res), retry)
+
+
+## What was bought is the player's at once (the wallet and the bag already reload): its icon + "×N"
+## pops at `from` (the tap, _tap_point(); the centre when null) and flies to the bag button or the
+## wallet pill (ui/reward_fly.gd). Never the gift-box reward reveal: a purchase is not a reward.
+func _bought(tiles: Array, from: Variant) -> Control:
+	return RewardFly.play(overlay, tiles, from)
+
+
+## Where the buy was tapped (canvas position; the last pointer position, a touch on a phone), the
+## overlay's centre when unknown: what was bought pops there (ui/reward_fly.gd).
+func _tap_point() -> Variant:
+	if not is_inside_tree():
+		return null
+	var at := get_viewport().get_mouse_position()
+	return at if at != Vector2.ZERO else null
 
 
 ## Deferred: the press that started a purchase must not free its own button mid-signal.
@@ -772,6 +961,7 @@ func _render_cards() -> void:
 	_render_items()
 	_render_equipment()
 	_render_stones()
+	_render_gem_shop()
 	_render_characters()
 	_render_gems()
 	_render_exchange()

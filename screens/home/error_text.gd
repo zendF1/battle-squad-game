@@ -84,6 +84,20 @@ const UPGRADE := {
 	"EQUIP_UPGRADE_CONFIG_INVALID": "Chưa nâng cấp được lúc này, hãy thử lại sau",
 	"SHOP_INSUFFICIENT_BALANCE": "Không đủ kim cương cho Nâng cấp cẩn thận",
 }
+## POST /player/equipment/transfer (Chuyển hoá); other codes as EQUIP. {maxUpgradeLevel} is the
+## target's cap from the answer's details.
+const TRANSFER := {
+	"BAD_REQUEST": "Yêu cầu chuyển hoá không hợp lệ",
+	"EQUIP_TRANSFER_SAME_PIECE": "Chọn hai món khác nhau",
+	"EQUIP_NOT_OWNED": "Trang bị không còn trong túi",
+	"EQUIP_TRANSFER_SLOT_MISMATCH": "Hai món phải cùng loại",
+	"EQUIP_MODIFIED": "Trang bị vừa thay đổi, hãy thử lại",
+	"EQUIP_TRANSFER_LEVEL_TOO_LOW": "Món nguồn phải cao hơn món nhận",
+	"EQUIP_TRANSFER_TARGET_CAP": "Món nhận chỉ lên được +{maxUpgradeLevel}",
+	"EQUIP_TRANSFER_UNAVAILABLE": "Cấp này chưa chuyển hoá được",
+	"EQUIP_TRANSFER_INSUFFICIENT_GEM": "Thiếu kim cương khoá",
+	"IDEMPOTENCY_KEY_REUSED": "Giao dịch bị trùng, hãy thử lại",
+}
 ## POST /shop/stones/buy.
 const STONE_BUY := {
 	"BAD_REQUEST": "Đá này không bán, chỉ ghép được",
@@ -96,6 +110,30 @@ const MERGE := {
 	"MERGE_MAX_COUNT": "Chỉ bỏ vào tối đa {mergeMaxCount} viên",
 	"MERGE_MAX_LEVEL": "Đá cấp {maxStoneLevel} là cao nhất, không ghép tiếp được",
 	"EQUIP_INSUFFICIENT_STONES": "Không đủ đá để ghép",
+}
+
+## POST /player/equipment/socket and /unsocket (ngọc khảm); other codes as EQUIP.
+const GEM_SOCKET := {
+	"EQUIP_GEM_SOCKETED": "Ngọc đang khảm ở món khác, hãy tháo ra trước",
+	"EQUIP_GEM_SLOT_EMPTY": "Ô ngọc đang trống",
+	"EQUIP_GEM_SLOT_INVALID": "Ô ngọc không hợp lệ",
+	"EQUIP_GEM_NOT_OWNED": "Viên ngọc không còn trong túi",
+	"EQUIP_SLOT_OCCUPIED": "Ô ngọc đã có ngọc, hãy thử lại",
+	"EQUIP_NOT_OWNED": "Trang bị không còn trong túi",
+}
+## POST /shop/gems/buy.
+const GEM_BUY := {
+	"SHOP_GEM_NOT_FOR_SALE": "Ngọc này không bán, chỉ ghép được",
+	"BAD_REQUEST": "Yêu cầu mua không hợp lệ",
+	"IDEMPOTENCY_KEY_REUSED": "Giao dịch bị trùng, hãy thử lại",
+}
+## POST /merge/gem.
+const GEM_MERGE := {
+	"MERGE_MIN_COUNT": "Cần bỏ vào ít nhất {mergeMinCount} viên",
+	"MERGE_MAX_COUNT": "Chỉ bỏ vào tối đa {mergeMaxCount} viên",
+	"MERGE_MAX_LEVEL": "Ngọc đã ở cấp cao nhất",
+	"MERGE_INSUFFICIENT_GEMS": "Không đủ ngọc để ghép",
+	"EQUIP_GEM_NOT_OWNED": "Không đủ ngọc để ghép",
 }
 
 ## POST /milestones/claim and /milestones/claim-all.
@@ -287,6 +325,9 @@ static func upgrade(res: Dictionary) -> String:
 	if int(res.get("status", 0)) == 0:
 		return OFFLINE
 	var code := str(res.get("code", ""))
+	if code == "EQUIP_TIER_MAX_UPGRADE": # the tier's cap, in the details
+		var cap := _detail(res, "maxUpgradeLevel")
+		return "Đã đạt trần +%d, hãy chuyển hoá sang món bậc cao hơn" % cap if cap > 0 else "Đã đạt trần của bậc này"
 	if UPGRADE.has(code):
 		return limits(UPGRADE[code])
 	return EQUIP.get(code, "Nâng cấp thất bại: %s" % res.get("message", ""))
@@ -310,11 +351,57 @@ static func stone_buy(res: Dictionary, currency: String = "") -> String:
 	return STONE_BUY.get(code, "Mua đá thất bại: %s" % res.get("message", ""))
 
 
+## POST /player/equipment/transfer failure.
+static func transfer(res: Dictionary) -> String:
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	var code := str(res.get("code", ""))
+	if code == "EQUIP_TRANSFER_TARGET_CAP" and _detail(res, "maxUpgradeLevel") <= 0:
+		return "Món nhận không lên được cấp này"
+	if TRANSFER.has(code):
+		return GameData.fill_template(TRANSFER[code], {"maxUpgradeLevel": _detail(res, "maxUpgradeLevel")})
+	return EQUIP.get(code, "Chuyển hoá thất bại: %s" % res.get("message", ""))
+
+
+## A number of an error's details, 0 when missing.
+static func _detail(res: Dictionary, key: String) -> int:
+	var d = res.get("details")
+	var v = d.get(key) if d is Dictionary else null
+	return int(v) if v is int or v is float else 0
+
+
 ## POST /merge/stone failure.
 static func merge(res: Dictionary) -> String:
 	if int(res.get("status", 0)) == 0:
 		return OFFLINE
 	return limits(MERGE.get(str(res.get("code", "")), "Ghép đá thất bại: %s" % res.get("message", "")))
+
+
+## POST /player/equipment/socket or /unsocket failure (or the unsocket before an older server's swap).
+static func gem_socket(res: Dictionary) -> String:
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	var code := str(res.get("code", ""))
+	if GEM_SOCKET.has(code):
+		return GEM_SOCKET[code]
+	return EQUIP.get(code, "Khảm ngọc thất bại: %s" % res.get("message", ""))
+
+
+## POST /shop/gems/buy failure. currency is what the gem costs ("coin" | "gem").
+static func gem_buy(res: Dictionary, currency: String = "") -> String:
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	var code := str(res.get("code", ""))
+	if code == "SHOP_INSUFFICIENT_BALANCE":
+		return purchase(res, currency)
+	return GEM_BUY.get(code, "Mua ngọc thất bại: %s" % res.get("message", ""))
+
+
+## POST /merge/gem failure.
+static func gem_merge(res: Dictionary) -> String:
+	if int(res.get("status", 0)) == 0:
+		return OFFLINE
+	return limits(GEM_MERGE.get(str(res.get("code", "")), "Ghép ngọc thất bại: %s" % res.get("message", "")))
 
 
 ## POST /milestones/claim or /milestones/claim-all failure.

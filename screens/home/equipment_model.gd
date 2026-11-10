@@ -85,7 +85,8 @@ static func character_name(id: String) -> String:
 # ── Parsing ─────────────────────────────────────────────────────────────────
 
 ## The GET /equipment/catalog data → {items: {itemId: item}, order: [itemId...], upgradeRates,
-## setBonuses, stones, sellRate, upgradeMilestones, upgradeMultipliers ([] from an older server)},
+## setBonuses, stones, sellRate, upgradeMilestones, upgradeMultipliers ([] from an older server),
+## gems (parse_gem_rows(); absent from an older server)},
 ## or null when it has no items array. Inactive items are kept (an
 ## owned piece still needs its name and stats) and flagged by isActive. sellRate: the share of the
 ## buy price selling gives back (the game data's sellRate when missing or outside (0, 1]).
@@ -110,6 +111,26 @@ static func parse_catalog(data: Variant) -> Variant:
 		out["weaponUpgradeCostMultiplier"] = float(data["weaponUpgradeCostMultiplier"])
 	if data.get("probabilityFormulaVersion") is int or data.get("probabilityFormulaVersion") is float:
 		out["probabilityFormulaVersion"] = int(data["probabilityFormulaVersion"])
+	var gems = parse_gem_rows(data.get("gems"))
+	if gems != null:
+		out["gems"] = gems
+	return out
+
+
+## A catalog's gems (ngọc khảm: [{gemType, gemLevel, statValue, priceCoin, priceGem}], the
+## server's order) → the well-formed rows, or null when the server sends none (an older server:
+## no gem shop, no gem merge; screens/home/gem_model.gd).
+static func parse_gem_rows(v: Variant) -> Variant:
+	if not v is Array:
+		return null
+	var out: Array = []
+	for g in v:
+		if not g is Dictionary or not g.get("gemType") is String or str(g["gemType"]) == "":
+			continue
+		if not (g.get("gemLevel") is int or g.get("gemLevel") is float) or int(g["gemLevel"]) < 1:
+			continue
+		out.append({"gemType": str(g["gemType"]), "gemLevel": int(g["gemLevel"]), "statValue": _num(g, "statValue"),
+			"priceCoin": maxi(int(_num(g, "priceCoin")), 0), "priceGem": maxi(int(_num(g, "priceGem")), 0)})
 	return out
 
 

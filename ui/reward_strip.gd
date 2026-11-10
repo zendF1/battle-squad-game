@@ -271,6 +271,8 @@ static func tile_icon(t: Dictionary, px: int) -> Control:
 			c = load("res://ui/wallet_pills.gd").locked_gem_icon(px) if t.get("locked", false) else LobbyUi.icon("gem", px)
 		"stone":
 			c = LobbyUi.icon(Art.stone_icon(int(t["level"])), px)
+		"socket_gem":
+			c = load("res://ui/gem_icon.gd").make(str(t["id"]), int(t["level"]), px)
 		"chest":
 			c = ChestIcon.make(str(t["id"]), px)
 		"equipment":

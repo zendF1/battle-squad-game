@@ -23,6 +23,7 @@ const RewardModel := preload("res://ui/reward_model.gd")
 const RewardBox := preload("res://ui/reward_box.gd")
 const RewardGlow := preload("res://ui/reward_glow.gd")
 const RewardStrip := preload("res://ui/reward_strip.gd")
+const RewardFly := preload("res://ui/reward_fly.gd")
 
 ## Phases, in order.
 const DROP := "drop"
@@ -453,27 +454,9 @@ func _finish() -> void:
 
 
 ## Where a collected tile flies (canvas position): the coin / gem pill on screen for coins and
-## gems, the bag button for the rest, else the top-right corner.
+## gems, the bag button for the rest, else the top-right corner (ui/reward_fly.gd target_for()).
 func target_of(t: Dictionary) -> Vector2:
-	var kind := str(t.get("kind", ""))
-	var names := ["CoinPill"] if kind == "coin" else (["GemPill"] if kind == "gem" else ["BagButton"])
-	var root := get_parent()
-	while root != null and root.get_parent() != null and root.get_parent() is Control:
-		root = root.get_parent()
-	for n in names:
-		var found := _visible_named(root, n)
-		if found != null:
-			return found.get_global_transform_with_canvas() * (found.size / 2.0)
-	return get_global_transform_with_canvas() * Vector2(size.x - 90.0, 60.0)
-
-
-static func _visible_named(root: Node, node_name: String) -> Control:
-	if root == null:
-		return null
-	for n in root.find_children(node_name, "Control", true, false):
-		if (n as Control).is_visible_in_tree():
-			return n
-	return null
+	return RewardFly.target_for(self, t)
 
 
 func _gui_input(event: InputEvent) -> void:

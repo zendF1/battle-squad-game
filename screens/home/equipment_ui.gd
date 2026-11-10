@@ -8,6 +8,12 @@ extends RefCounted
 ## Tháo; not worn → Mặc cho <nhân vật> / Bán (+N xu, never-worn pieces only) / Vứt, the last two
 ## confirmed first). Actions go through PlayerState (one at a time), which reloads the gear and the
 ## characters afterwards. Upgraded pieces' names take their level colour.
+## A piece with sockets (its catalog item's gemSlots) shows them under its stats, mirrored round the
+## centre (gem_row()): an empty socket a "+", a filled one its gem (ui/gem_icon.gd) with what it
+## gives (the stat picture and one number) under it and a red "−" (Tháo) on its corner. A tap on a socket opens the gem picker
+## (the free gems grouped by type + level with their count, the highest first; none: Mua ngọc, Shop
+## › Ngọc); picking one sockets it (a filled socket swaps). The pieces, the gems and the characters
+## reload, the popup rebuilds with them (the wearer's stats and Lực chiến follow).
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -21,6 +27,10 @@ const UpgradeAura := preload("res://screens/home/upgrade_aura.gd")
 const GearModel := preload("res://screens/home/gear_model.gd")
 const GearUi := preload("res://screens/home/gear_ui.gd")
 const GearIcon := preload("res://ui/gear_icon.gd")
+const GemModel := preload("res://screens/home/gem_model.gd")
+const GemIcon := preload("res://ui/gem_icon.gd")
+const GlyphIcon := preload("res://ui/glyph_icon.gd")
+const WalletPills := preload("res://ui/wallet_pills.gd")
 
 const GOOD := Color(0.45, 0.9, 0.55)
 const LOSS := Color(1.0, 0.45, 0.45)
@@ -33,10 +43,21 @@ const HEX_BOX := Vector2(40, 42)
 const MILESTONE_LEVEL_W := 50
 ## Room on either side of the widest button label.
 const BUTTON_PAD := 40
+## A gem socket of the piece popup: its button, the gem in it, the cell's width.
+const SOCKET := 92
+const SOCKET_GEM := 70
+const SOCKET_CELL_W := 150
+const SOCKET_BG := Color(0.08, 0.11, 0.26, 0.9)
+const UNSOCKET := 36 # the round "−" on a filled socket's corner
+## The gem picker's cell and its gem.
+const PICK_CELL := Vector2(132, 156)
+const PICK_GEM := 72
 
 ## Opens the Nâng cấp page on a piece (its equipmentId); Home sets it. The popup's Nâng cấp
 ## button is left out while it is not set.
 static var open_upgrade: Callable
+## Opens Shop › Ngọc; Home sets it. The gem picker's Mua ngọc is left out while it is not set.
+static var open_gem_shop: Callable
 
 
 ## The icon of a catalog item at px; from +1 (`piece`'s upgradeLevel, {} = none) the level's
@@ -86,6 +107,100 @@ static func lock_mark(px: int = 22, color: Color = Color(1, 1, 1, 0.6)) -> Contr
 		c.draw_arc(Vector2(w * 0.5, top), w * 0.24, PI, TAU, 12, color, maxf(2.0, w * 0.11), true)
 		c.draw_rect(Rect2(w * 0.14, top, w * 0.72, w * 0.52), color))
 	return c
+
+
+## A piece's upgrade cap as a picture: the padlock, then "+6" in that level's colour (the tooltip
+## says "Trần +6"; with_level false: the padlock alone). reached: the piece is at its cap (bright);
+## otherwise dimmed.
+static func cap_mark(cap: int, reached: bool = false, font_size: int = 18, with_level: bool = true) -> HBoxContainer:
+	var row := Ui.hbox(2)
+	row.name = "CapMark"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	row.tooltip_text = "Trần +%d" % cap
+	var px := int(font_size * 1.2)
+	var lock := Control.new()
+	lock.custom_minimum_size = Vector2(px, px)
+	lock.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lock.draw.connect(func() -> void: WalletPills.draw_lock(lock, Vector2(px * 0.5, px * 0.5), px * 0.8))
+	row.add_child(lock)
+	var lv := LobbyUi.text("+%d" % cap, font_size, UpgradeModel.milestone_color(cap), true)
+	lv.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lv.visible = with_level # beside a "+6" already shown: the padlock alone
+	row.add_child(lv)
+	row.modulate.a = 1.0 if reached else 0.7
+	return row
+
+
+## A list row of an owned piece (the Nâng cấp and Chuyển hoá lists): the icon with its aura, the
+## name in the level colour, slot · required level · wearer, then "+N" in its colour with the cap
+## mark under it (UpgradeModel.shown_cap(); bright at the cap). selected: the gold border; dim:
+## faded (a target that cannot take the level), the cap mark then red-bordered as the reason.
+static func piece_row(piece: Dictionary, selected: bool, on_press: Callable, dim: bool = false) -> Button:
+	var catalog = PlayerState.catalog
+	var item := EquipmentModel.item_of_piece(catalog, piece)
+	var level := int(piece.get("upgradeLevel", 0))
+	var b := Button.new()
+	b.name = "Piece_" + str(piece.get("equipmentId", ""))
+	b.custom_minimum_size = Vector2(0, 88)
+	b.focus_mode = Control.FOCUS_NONE
+	if selected:
+		LobbyUi.style_button(b, Color(0.16, 0.3, 0.56, 0.95), 14, 8, LobbyUi.GOLD, 3)
+	else:
+		LobbyUi.style_button(b, Color(0.08, 0.11, 0.26, 0.85), 14, 8, Color(1, 1, 1, 0.08), 2)
+	b.pressed.connect(on_press)
+	var row := Ui.hbox(14)
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 14
+	row.offset_right = -10
+	row.offset_top = 4
+	row.offset_bottom = -8
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(row)
+	var icon := item_icon(item, piece, 64)
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(icon)
+	var texts := Ui.vbox(0)
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(texts)
+	var title := LobbyUi.text(EquipmentModel.display_name(item), 22, UpgradeModel.name_color(piece), true)
+	title.clip_text = true
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.add_child(title)
+	var who := EquipmentModel.wearer(piece)
+	var sub := "%s · %s" % [EquipmentModel.slot_name(str(item.get("slot", ""))), EquipmentModel.required_text(item)]
+	if who != "":
+		sub += " · " + EquipmentModel.character_name(who)
+	var sub_label := LobbyUi.text(sub, 17, WORN_TEXT if who != "" else Color(0.8, 0.88, 1.0))
+	sub_label.clip_text = true
+	sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.add_child(sub_label)
+	var right := Ui.vbox(0)
+	right.alignment = BoxContainer.ALIGNMENT_CENTER
+	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(right)
+	var lv := LobbyUi.text(EquipmentModel.level_text(piece), 30, UpgradeModel.milestone_color(level), true)
+	lv.name = "Level"
+	lv.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	right.add_child(lv)
+	var cap := UpgradeModel.shown_cap(catalog, piece)
+	if cap >= 0:
+		right.add_child(cap_mark(cap, level >= cap or dim, 17))
+	if dim:
+		for c in [icon, texts, lv]:
+			(c as Control).modulate.a = 0.45
+	return b
+
+
+## The green of a worn piece's line in a list row.
+const WORN_TEXT := Color(0.45, 0.88, 0.55)
 
 
 ## A small coloured tag ("Đang mặc · Tanko", "Cần Lv 7").
@@ -177,7 +292,8 @@ static func _chip_flow() -> HFlowContainer:
 ## The popup of an owned piece for `character_id` (the character on the Nhân vật stage, or the
 ## lobby's), the one place that shows the "+N": the name "+N" in the milestone colour; the
 ## hexagon with the icon and its aura beside slot · category · required level, who wears it, the
-## upgrade bar and the gear row (gear_row()); below, one narrow list (piece_list()): its upgraded
+## upgrade bar (level_bar(): its tier cap as a padlock on the bar, the part past it dark) and the
+## gear row (gear_row()); below, one narrow list (piece_list()): its upgraded
 ## stats (with the change against what the character wears in that slot), then the +6 / +10 / +14
 ## / +16 milestones with the multiplier each gives (reached ones bright with a check, the others dimmed); an X
 ## in the top-right corner (or a tap outside the card) closes it; one row of equal buttons spanning
@@ -224,7 +340,7 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 	meta.add_child(LobbyUi.text("Lv yêu cầu %d" % maxi(int(item.get("requiredLevel", 1)), 1), 22, LEVEL, true))
 	head.add_child(LobbyUi.text("Đang mặc: %s" % EquipmentModel.character_name(who) if who != "" else "Chưa mặc", 22,
 		WORN if who != "" else Ui.TEXT_DIM, true))
-	head.add_child(level_bar(level))
+	head.add_child(level_bar(level, 0.0, UpgradeModel.shown_cap(PlayerState.catalog, piece)))
 	head.add_child(gear_row(overlay, piece, item, character_id))
 
 	# Below: one list, the stats then the milestones.
@@ -244,6 +360,10 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 		why.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		m.body.add_child(why)
+	var sockets := GemModel.slot_count(PlayerState.catalog, piece)
+	if sockets > 0:
+		PlayerState.need_gems()
+		m.body.add_child(gem_row(m, overlay, piece, sockets, character_id))
 
 	var piece_id := str(piece.get("equipmentId", ""))
 	var piece_name := EquipmentModel.display_name(item)
@@ -311,10 +431,231 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 	m.set_meta("rebuild", rebuild)
 	PlayerState.equipment_changed.connect(rebuild)
 	PlayerState.characters_changed.connect(rebuild)
+	PlayerState.gems_changed.connect(rebuild)
 	m.tree_exiting.connect(func() -> void:
 		PlayerState.equipment_changed.disconnect(rebuild)
-		PlayerState.characters_changed.disconnect(rebuild))
+		PlayerState.characters_changed.disconnect(rebuild)
+		PlayerState.gems_changed.disconnect(rebuild))
 	return m
+
+
+# ── Ngọc khảm ───────────────────────────────────────────────────────────────
+
+## The piece popup's sockets, 1..`sockets`, side by side round the centre (equal cells): each the
+## socket button (a "+" when empty, its gem when filled; a tap opens the picker), then what the gem
+## gives (its stat picture and one number; an empty cell keeps the room, so the row stays
+## mirrored); a filled socket has a round red "−" on its corner that takes the gem out (Tháo).
+## Locked while the pieces reload.
+static func gem_row(m: Modal, overlay: Control, piece: Dictionary, sockets: int, character_id: String) -> HBoxContainer:
+	var row := Ui.hbox(28)
+	row.name = "GemSlots"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var held := GemModel.piece_gems(piece, PlayerState.gems)
+	var ready := PlayerState.equipment_ready()
+	for i in range(1, sockets + 1):
+		row.add_child(_socket_cell(m, overlay, piece, i, held.get(i, {}), character_id, ready))
+	return row
+
+
+static func _socket_cell(m: Modal, overlay: Control, piece: Dictionary, slot: int, gem: Dictionary, character_id: String, ready: bool) -> VBoxContainer:
+	var cell := Ui.vbox(6)
+	cell.name = "Socket%d" % slot
+	cell.custom_minimum_size.x = SOCKET_CELL_W
+	cell.alignment = BoxContainer.ALIGNMENT_BEGIN
+	var filled := not gem.is_empty() and str(gem.get("gemType", "")) != ""
+	var b := Button.new()
+	b.name = "SocketButton"
+	b.custom_minimum_size = Vector2(SOCKET, SOCKET)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.focus_mode = Control.FOCUS_NONE
+	b.tooltip_text = "Đổi ngọc" if filled else "Khảm ngọc"
+	var edge: Color = GemModel.color(str(gem.get("gemType", ""))) if filled else Color(1, 1, 1, 0.22)
+	LobbyUi.style_button(b, SOCKET_BG, 16, 4, Color(edge, 0.85) if filled else edge, 3)
+	if filled:
+		var icon := GemIcon.make(str(gem["gemType"]), int(gem["gemLevel"]), SOCKET_GEM)
+		icon.position = Vector2(SOCKET - SOCKET_GEM, SOCKET - SOCKET_GEM) / 2.0
+		b.add_child(icon)
+	elif not gem.is_empty():
+		b.add_child(_plus_mark(SOCKET, Color(1, 1, 1, 0.3))) # a gem the bag has not told about yet
+	else:
+		b.add_child(_plus_mark(SOCKET, Color(1, 1, 1, 0.6)))
+	b.disabled = not ready
+	b.pressed.connect(_pick_gem.bind(m, overlay, piece, slot, character_id))
+	cell.add_child(b)
+	var stat := GemModel.stat(PlayerState.catalog, str(gem.get("gemType", "")), int(gem.get("gemLevel", 0)), multipliers()) if filled else {}
+	var line := Ui.hbox(4)
+	line.name = "GemStat"
+	line.alignment = BoxContainer.ALIGNMENT_CENTER
+	line.custom_minimum_size.y = 30
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not stat.is_empty():
+		line.add_child(GlyphIcon.make(str(stat["glyph"]), 26))
+		var v := LobbyUi.text(str(stat["value"]), 21, (stat["color"] as Color).lightened(0.25), true)
+		v.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		line.add_child(v)
+	cell.add_child(line)
+	if not gem.is_empty(): # Tháo: a red "−" on the socket's corner
+		var out := _unsocket_button(not ready)
+		out.position = Vector2(SOCKET - UNSOCKET * 0.62, -UNSOCKET * 0.38)
+		out.pressed.connect(_gem_act.bind(m, overlay, "unsocket", piece, slot, ""))
+		b.add_child(out)
+	return cell
+
+
+## The round red "−" that takes a gem out of its socket, drawn in code.
+static func _unsocket_button(off: bool) -> Button:
+	var out := Button.new()
+	out.name = "Unsocket"
+	out.tooltip_text = "Tháo ngọc"
+	out.custom_minimum_size = Vector2(UNSOCKET, UNSOCKET)
+	out.size = out.custom_minimum_size
+	out.focus_mode = Control.FOCUS_NONE
+	out.flat = true
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		out.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	out.disabled = off
+	out.draw.connect(func() -> void:
+		var r := UNSOCKET / 2.0
+		var mid := Vector2(r, r)
+		var a := 0.45 if out.disabled else 1.0
+		out.draw_circle(mid, r, Color(0.05, 0.03, 0.08, a), true, -1.0, true)
+		out.draw_circle(mid, r - 3.0, Color(0.88, 0.22, 0.24, a) if not out.is_pressed() else Color(0.7, 0.15, 0.18, a), true, -1.0, true)
+		out.draw_line(mid - Vector2(r * 0.45, 0), mid + Vector2(r * 0.45, 0), Color(1, 1, 1, a), 4.0, true))
+	return out
+
+
+## A "+" of `px` drawn in code (an empty socket).
+static func _plus_mark(px: int, color: Color) -> Control:
+	var c := Control.new()
+	c.name = "Plus"
+	c.custom_minimum_size = Vector2(px, px)
+	c.size = Vector2(px, px)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.draw.connect(func() -> void:
+		var mid := Vector2(px, px) / 2.0
+		var arm := px * 0.2
+		c.draw_line(mid - Vector2(arm, 0), mid + Vector2(arm, 0), color, maxf(4.0, px * 0.07), true)
+		c.draw_line(mid - Vector2(0, arm), mid + Vector2(0, arm), color, maxf(4.0, px * 0.07), true))
+	return c
+
+
+## The gem picker over the piece popup `m`: the free gems grouped by type + level (the highest
+## first), each its gem, "×N" and what it gives; a tap sockets one into `slot` (a filled socket
+## swaps). None: "Chưa có ngọc" and Mua ngọc (Shop › Ngọc). The popup holds its rebuild meanwhile.
+static func _pick_gem(m: Modal, overlay: Control, piece: Dictionary, slot: int, character_id: String) -> void:
+	if not PlayerState.equipment_ready():
+		m.set_message("Đang cập nhật trang bị, hãy đợi")
+		return
+	PlayerState.need_gems()
+	m.set_meta("acting", true)
+	var p := Modal.new()
+	p.name = "GemPicker"
+	p.open(overlay, "Chọn ngọc", 760)
+	var cancel := func() -> void:
+		p.close()
+		_release(m)
+	p.add_close_x(cancel)
+	p.close_on_backdrop(cancel)
+	var box := Ui.vbox(14)
+	box.name = "Choices"
+	p.body.add_child(box)
+	var fill := func() -> void:
+		if is_instance_valid(p) and not p.is_queued_for_deletion():
+			_fill_picker(p, box, m, overlay, piece, slot)
+	fill.call()
+	PlayerState.gems_changed.connect(fill)
+	p.tree_exiting.connect(func() -> void: PlayerState.gems_changed.disconnect(fill))
+
+
+static func _fill_picker(p: Modal, box: VBoxContainer, m: Modal, overlay: Control, piece: Dictionary, slot: int) -> void:
+	Ui.clear(box)
+	if PlayerState.gems == null:
+		var wait := LobbyUi.text(PlayerState.gems_error if PlayerState.gems_error != "" else "Đang tải ngọc...", 22, Ui.TEXT_DIM)
+		wait.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(wait)
+		return
+	var stacks := GemModel.free_stacks(PlayerState.gem_list(), PlayerState.catalog)
+	if stacks.is_empty():
+		var none := LobbyUi.text("Chưa có ngọc", 26, Ui.TEXT_DIM, true)
+		none.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(none)
+		if open_gem_shop.is_valid() and GemModel.has_catalog(PlayerState.catalog):
+			var buy := Ui.button("Mua ngọc", 24)
+			buy.name = "BuyGems"
+			buy.custom_minimum_size = Vector2(240, 72)
+			buy.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			buy.focus_mode = Control.FOCUS_NONE
+			buy.pressed.connect(func() -> void:
+				p.close()
+				if is_instance_valid(m):
+					m.close()
+				open_gem_shop.call())
+			box.add_child(buy)
+		return
+	var grid := GridContainer.new()
+	grid.name = "Stacks"
+	grid.columns = mini(stacks.size(), 5)
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(grid)
+	var mult := multipliers()
+	for st in stacks:
+		var b := Button.new()
+		b.name = "Pick_%s_%d" % [st["gemType"], int(st["gemLevel"])]
+		b.custom_minimum_size = PICK_CELL
+		b.focus_mode = Control.FOCUS_NONE
+		LobbyUi.style_button(b, SOCKET_BG, 14, 6, Color(GemModel.color(st["gemType"]), 0.5), 2)
+		var col := Ui.vbox(2)
+		col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		col.offset_top = 8
+		col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(col)
+		col.add_child(GemIcon.make(st["gemType"], int(st["gemLevel"]), PICK_GEM))
+		var n := LobbyUi.text("×%d" % int(st["count"]), 22, LobbyUi.GOLD, true)
+		n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(n)
+		var stat := GemModel.stat(PlayerState.catalog, st["gemType"], int(st["gemLevel"]), mult)
+		if not stat.is_empty():
+			var line := Ui.hbox(3)
+			line.alignment = BoxContainer.ALIGNMENT_CENTER
+			line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			line.add_child(GlyphIcon.make(str(stat["glyph"]), 20))
+			var v := LobbyUi.text(str(stat["value"]), 18, (stat["color"] as Color).lightened(0.25), true)
+			line.add_child(v)
+			col.add_child(line)
+		var gem_id: String = st["ids"][0]
+		b.pressed.connect(func() -> void:
+			p.close()
+			if is_instance_valid(m):
+				m.set_meta("acting", false)
+				_gem_act(m, overlay, "socket", piece, slot, gem_id))
+		grid.add_child(b)
+
+
+## Sockets `gem_id` into `slot` (action "socket") or takes the slot's gem out ("unsocket"); the
+## popup stays and rebuilds once the pieces, the gems and the characters reloaded.
+static func _gem_act(m: Modal, overlay: Control, action: String, piece: Dictionary, slot: int, gem_id: String) -> void:
+	if not PlayerState.equipment_ready():
+		m.set_message("Đang cập nhật trang bị, hãy đợi")
+		return
+	m.set_message("")
+	m.set_busy(true)
+	m.set_meta("acting", true)
+	var res: Dictionary
+	if action == "socket":
+		res = await PlayerState.socket_gem(piece, slot, gem_id)
+	else:
+		res = await PlayerState.unsocket_gem(str(piece.get("equipmentId", "")), slot)
+	var toast_ok := is_instance_valid(overlay) and overlay.is_inside_tree()
+	if res.ok and toast_ok:
+		Ui.toast(overlay, "Đã khảm ngọc" if action == "socket" else "Đã tháo ngọc")
+	if not is_instance_valid(m):
+		return
+	m.set_busy(false)
+	if not res.ok:
+		m.set_message(ErrorText.gem_socket(res) if res.code != "BUSY" else "Đang xử lý trang bị khác, hãy đợi")
+	_release(m)
 
 
 ## The piece popup's buttons, in order, for a piece worn by `who` ("" = nobody) opened for
@@ -452,21 +793,39 @@ static func span_buttons(buttons: Array) -> void:
 
 
 ## The upgrade level as a bar out of +16 with ticks at the milestones, filled in the level's
-## level colour (green +1..+5, then the milestone colours).
-static func level_bar(level: int, width: float = 0.0) -> Control:
+## level colour (green +1..+5, then the milestone colours). cap (>= 0, below +16): the piece's cap
+## by tier: the bar past it is dark, a padlock sits on it at the cap (bright once reached).
+static func level_bar(level: int, width: float = 0.0, cap: int = -1) -> Control:
 	var c := Control.new()
-	c.custom_minimum_size = Vector2(width, 14)
-	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.name = "LevelBar"
+	var capped := cap >= 0 and cap < UpgradeModel.max_level()
+	var bar_h := 14.0
+	var h := 26.0 if capped else bar_h
+	c.custom_minimum_size = Vector2(width, h)
+	c.mouse_filter = Control.MOUSE_FILTER_PASS if capped else Control.MOUSE_FILTER_IGNORE
+	if capped:
+		c.tooltip_text = "Trần +%d" % cap
+		c.set_meta("cap", cap)
 	var fill := UpgradeModel.milestone_color(level) if level >= 1 else LEVEL
-	var k := clampf(float(level) / UpgradeModel.max_level(), 0.0, 1.0)
+	var top := float(UpgradeModel.max_level())
+	var k := clampf(float(level) / top, 0.0, 1.0)
 	c.draw.connect(func() -> void:
-		var r := Rect2(Vector2.ZERO, c.size)
+		var r := Rect2(Vector2(0, (c.size.y - bar_h) / 2.0), Vector2(c.size.x, bar_h))
 		c.draw_style_box(LobbyUi.box(Color(1, 1, 1, 0.1), 7, 0), r)
+		if capped: # past the cap: the dark part no upgrade reaches
+			var cx := r.size.x * float(cap) / top
+			c.draw_style_box(LobbyUi.box(Color(0, 0, 0, 0.55), 7, 0), Rect2(r.position + Vector2(cx, 0), Vector2(r.size.x - cx, r.size.y)))
 		if k > 0.0:
 			c.draw_style_box(LobbyUi.box(fill, 7, 0), Rect2(r.position, Vector2(maxf(r.size.x * k, 14.0), r.size.y)))
 		for t in range(1, UpgradeModel.milestone_from().size() - 1):
-			var x := r.size.x * float(UpgradeModel.milestone_from()[t]) / UpgradeModel.max_level()
-			c.draw_line(Vector2(x, 1), Vector2(x, r.size.y - 1), Color(0, 0, 0, 0.45), 2.0))
+			var x := r.size.x * float(UpgradeModel.milestone_from()[t]) / top
+			c.draw_line(Vector2(x, r.position.y + 1), Vector2(x, r.end.y - 1), Color(0, 0, 0, 0.45), 2.0)
+		if capped:
+			var at := Vector2(clampf(r.size.x * float(cap) / top, h * 0.5, r.size.x - h * 0.5), c.size.y / 2.0)
+			var lock_h := h * 0.95
+			if level < cap:
+				c.draw_circle(at, lock_h * 0.55, Color(0, 0, 0, 0.35))
+			WalletPills.draw_lock(c, at + Vector2(0, -lock_h * 0.12), lock_h))
 	return c
 
 
@@ -502,10 +861,10 @@ static func check_mark(px: int = 24, color: Color = GOOD) -> Control:
 
 
 ## What the popup's buttons depend on: the owned pieces, the characters, the catalog, a running
-## action.
+## action, the owned gems (the sockets).
 static func _data_version() -> Array:
 	return [PlayerState.equipment_version, PlayerState.characters_version, PlayerState.catalog != null,
-		PlayerState.equipment_ready()]
+		PlayerState.equipment_ready(), PlayerState.gems_version]
 
 
 static func _delta_label(d: Dictionary) -> Label:
@@ -574,7 +933,7 @@ static func _confirm_remove(m: Modal, overlay: Control, piece: Dictionary, item:
 		c.add_text("Mất trang bị này", 28).add_theme_color_override("font_color", LOSS)
 	if who != "":
 		c.add_text("Đang mặc trên %s — sẽ tháo ra trước" % EquipmentModel.character_name(who), 24).add_theme_color_override("font_color", WORN)
-	if piece.get("gemSlot1") != null or piece.get("gemSlot2") != null:
+	if not GemModel.piece_gems(piece).is_empty():
 		c.add_text("Ngọc đã khảm được trả về túi", 24)
 	if int(piece.get("upgradeLevel", 0)) > 0:
 		c.add_text("Hoàn lại một phần đá cường hoá đã dùng", 24)

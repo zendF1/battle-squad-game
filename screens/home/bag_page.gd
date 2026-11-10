@@ -1,5 +1,5 @@
 extends Control
-## "Kho đồ": everything the player owns, in three tabs.
+## "Kho đồ": everything the player owns, in four tabs.
 ## - "Trang bị": the owned pieces (PlayerState.equipment + the catalog) as a grid of cards showing
 ##   only the icon and the name in the level colour inside the border aura, the card tinted in
 ##   that colour (worn pieces: green edge and a check badge), worn ones first then by required
@@ -13,6 +13,12 @@ extends Control
 ##   icon (its look tells the level; the name the tooltip), count, power (an upgrade arrow by the
 ##   number); "Mua đá" (Shop → Đá nâng cấp)
 ##   and "Ghép đá" (the Nâng cấp page's Ghép đá).
+## - "Ngọc": the free ngọc khảm grouped by type + level (the gem in its type's cut and colour with
+##   its level small on it, "×N", what it gives as the stat picture and one number), the highest
+##   first; then the socketed ones dimmed, each with the icon of the piece it sits in. A tap on a
+##   free stack opens its popup: the big gem, what it gives, Ghép (Nâng cấp › Ghép ngọc on that
+##   type + level) and Mua (Shop › Ngọc). "Ghép ngọc" / "Mua ngọc" on top; both hidden when the
+##   catalog sends no gems (an older server: no shop, no merge).
 ## A chest card (PlayerState.chests, GET /chests; its tab by the game data's kind), all pictures:
 ## icon (its name the tooltip), count, the odds (ChestModel.odds_parts: each stone's icon over its
 ## share, a piece over "+14") and the open buttons (the chest over "×1" / "×10": POST
@@ -22,6 +28,7 @@ extends Control
 
 signal open_shop(section: int)
 signal open_upgrade(equipment_id: String, section: int)
+signal open_gem_merge(gem_type: String, gem_level: int)
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -44,11 +51,16 @@ const ChestModel := preload("res://screens/home/chest_model.gd")
 const ChestIcon := preload("res://ui/chest_icon.gd")
 const RewardReveal := preload("res://ui/reward_reveal.gd")
 const RewardModel := preload("res://ui/reward_model.gd")
+const GemModel := preload("res://screens/home/gem_model.gd")
+const GemIcon := preload("res://ui/gem_icon.gd")
+const GlyphIcon := preload("res://ui/glyph_icon.gd")
+const Modal := preload("res://ui/modal.gd")
 
-const SUB_TABS := ["Trang bị", "Vật phẩm", "Nguyên liệu"]
+const SUB_TABS := ["Trang bị", "Vật phẩm", "Nguyên liệu", "Ngọc"]
 const EQUIPMENT := 0
 const ITEMS := 1
 const MATERIALS := 2
+const GEMS := 3
 ## The Nâng cấp page's Ghép đá tab (upgrade_page.gd MERGE).
 const UPGRADE_MERGE := 1
 const CARD := Vector2(208, 196)
@@ -76,6 +88,10 @@ var _inv_status: LoadStatus
 var _inv_flow: HFlowContainer
 var _stone_status: LoadStatus
 var _stone_flow: HFlowContainer
+var _gem_status: LoadStatus
+var _gem_flow: HFlowContainer # the free stacks
+var _gem_used_flow: HFlowContainer # the socketed gems
+var _gem_buttons: HBoxContainer # Ghép ngọc / Mua ngọc
 ## The chests of each tab: ChestModel.TAB_MATERIALS / TAB_ITEMS -> their status and flow.
 var _chest_status := {}
 var _chest_flow := {}
@@ -99,7 +115,7 @@ func _ready() -> void:
 	var pages := Control.new()
 	pages.size_flags_vertical = SIZE_EXPAND_FILL
 	col.add_child(pages)
-	for builder in [_build_gear_page, _build_items_page, _build_stones_page]:
+	for builder in [_build_gear_page, _build_items_page, _build_stones_page, _build_gems_page]:
 		var page: Control = builder.call()
 		page.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		pages.add_child(page)
@@ -110,12 +126,14 @@ func _ready() -> void:
 	PlayerState.assets_dirty.connect(_on_assets_dirty)
 	PlayerState.stones_changed.connect(_on_stones_changed)
 	PlayerState.chests_changed.connect(_on_chests_changed)
+	PlayerState.gems_changed.connect(_on_gems_changed)
 	visibility_changed.connect(_ensure_loaded)
 	show_section(EQUIPMENT)
 	_render_gear()
 	_render_inventory()
 	_render_stones()
 	_render_chests()
+	_render_gems()
 	_arm.call_deferred()
 
 
@@ -146,6 +164,10 @@ func _ensure_loaded() -> void:
 	elif _sub == MATERIALS:
 		PlayerState.need_stones()
 		PlayerState.need_chests()
+	elif _sub == GEMS:
+		PlayerState.need_equipment() # where the socketed ones sit, the catalog's stats
+		PlayerState.need_characters() # the stat multipliers
+		PlayerState.need_gems()
 	else:
 		PlayerState.need_chests()
 		if (_inventory == null or _inv_stale) and not _inv_loading:
@@ -162,6 +184,7 @@ func _on_assets_dirty() -> void:
 func _on_equipment_changed() -> void:
 	if is_inside_tree():
 		_render_gear.call_deferred()
+		_render_gems.call_deferred()
 
 
 # ── Trang bị ────────────────────────────────────────────────────────────────
@@ -403,6 +426,149 @@ func _render_stones() -> void:
 		power.add_child(Ui.text(Fmt.thousands(UpgradeModel.power(PlayerState.catalog, int(lv))), 20, Ui.TEXT_DIM))
 		box.add_child(power)
 		_stone_flow.add_child(card)
+
+
+# ── Ngọc ────────────────────────────────────────────────────────────────────
+
+func _build_gems_page() -> Control:
+	var col := Ui.vbox(14)
+	_gem_buttons = Ui.hbox(12)
+	_gem_buttons.alignment = BoxContainer.ALIGNMENT_END
+	col.add_child(_gem_buttons)
+	for spec in [["Ghép ngọc", func(): open_gem_merge.emit("", 0)], ["Mua ngọc", func(): open_shop.emit(ShopTab.SOCKET_GEMS)]]:
+		var b := Ui.button(spec[0], 22)
+		b.custom_minimum_size = Vector2(180, 56)
+		b.focus_mode = FOCUS_NONE
+		b.pressed.connect(spec[1])
+		_gem_buttons.add_child(b)
+	_gem_status = LoadStatus.new()
+	col.add_child(_gem_status)
+	_gem_flow = HFlowContainer.new()
+	_gem_flow.name = "FreeGems"
+	_gem_flow.add_theme_constant_override("h_separation", 12)
+	_gem_flow.add_theme_constant_override("v_separation", 12)
+	col.add_child(_gem_flow)
+	_gem_used_flow = HFlowContainer.new()
+	_gem_used_flow.name = "SocketedGems"
+	_gem_used_flow.add_theme_constant_override("h_separation", 12)
+	_gem_used_flow.add_theme_constant_override("v_separation", 12)
+	col.add_child(_gem_used_flow)
+	return Ui.scroll(col)
+
+
+func _on_gems_changed() -> void:
+	if is_inside_tree():
+		_render_gems.call_deferred()
+
+
+func _render_gems() -> void:
+	if _gem_flow == null:
+		return
+	_gem_buttons.visible = PlayerState.catalog == null or GemModel.has_catalog(PlayerState.catalog)
+	if PlayerState.gems_error != "":
+		_gem_status.show_error(PlayerState.gems_error, PlayerState.load_gems)
+	elif PlayerState.gems == null:
+		_gem_status.show_loading()
+	else:
+		_gem_status.clear()
+	Ui.clear(_gem_flow)
+	Ui.clear(_gem_used_flow)
+	if PlayerState.gems == null:
+		return
+	var gems := PlayerState.gem_list()
+	var stacks := GemModel.free_stacks(gems, PlayerState.catalog)
+	var used := GemModel.socketed(gems, PlayerState.catalog)
+	if stacks.is_empty() and used.is_empty():
+		_gem_flow.add_child(LobbyUi.text("Chưa có ngọc", 24, Ui.TEXT_DIM))
+		return
+	var mult := EquipmentUi.multipliers()
+	for st in stacks:
+		var card := _gem_card(st["gemType"], int(st["gemLevel"]), mult)
+		card.name = "Gem_%s_%d" % [st["gemType"], int(st["gemLevel"])]
+		var box: VBoxContainer = card.get_node("Row/Info")
+		box.add_child(LobbyUi.text(ChestModel.count_text(int(st["count"])), 30, Ui.TONES["draw"], true))
+		box.move_child(box.get_child(box.get_child_count() - 1), 0)
+		var b := Button.new()
+		b.flat = true
+		b.focus_mode = FOCUS_NONE
+		b.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		for state in ["normal", "hover", "pressed", "focus"]:
+			b.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+		b.pressed.connect(_open_gem.bind(st["gemType"], int(st["gemLevel"]), int(st["count"])))
+		card.add_child(b)
+		_gem_flow.add_child(card)
+	for g in used:
+		var card := _gem_card(g["gemType"], int(g["gemLevel"]), mult)
+		card.name = "Socketed_" + str(g["gemId"])
+		card.modulate = Color(1, 1, 1, 0.55)
+		var piece := EquipmentModel.find_piece(PlayerState.equipment, str(g["socketedIn"].get("equipmentId", "")))
+		if not piece.is_empty():
+			var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
+			var mark := EquipmentUi.item_icon(item, piece, 52)
+			mark.name = "Piece"
+			mark.tooltip_text = EquipmentModel.display_name(item)
+			mark.mouse_filter = MOUSE_FILTER_PASS
+			(card.get_node("Row/Info") as VBoxContainer).add_child(mark)
+			(card.get_node("Row/Info") as VBoxContainer).move_child(mark, 0)
+		_gem_used_flow.add_child(card)
+
+
+## A gem card: the gem, then (Row/Info) what it gives as its stat picture and one number.
+func _gem_card(gem_type: String, level: int, mult: Dictionary) -> PanelContainer:
+	var card := Ui.card(Ui.CARD_BG, 16)
+	card.custom_minimum_size = Vector2(270, ROW_H)
+	var row := Ui.hbox(12)
+	row.name = "Row"
+	card.add_child(row)
+	row.add_child(GemIcon.make(gem_type, level, 88))
+	var box := Ui.vbox(2)
+	box.name = "Info"
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(box)
+	var stat := GemModel.stat(PlayerState.catalog, gem_type, level, mult)
+	if not stat.is_empty():
+		box.add_child(_stat_line(stat, 24, 20))
+	return card
+
+
+static func _stat_line(stat: Dictionary, px: int, font_size: int) -> HBoxContainer:
+	var line := Ui.hbox(4)
+	line.name = "GemStat"
+	line.alignment = BoxContainer.ALIGNMENT_CENTER
+	line.mouse_filter = MOUSE_FILTER_IGNORE
+	line.add_child(GlyphIcon.make(str(stat["glyph"]), px))
+	var v := LobbyUi.text(str(stat["value"]), font_size, (stat["color"] as Color).lightened(0.25), true)
+	v.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	line.add_child(v)
+	return line
+
+
+## A free stack's popup: the big gem, "×N", what it gives; Ghép (when the catalog has a level above)
+## and Mua (when the catalog has gems), closed by its X.
+func _open_gem(gem_type: String, level: int, count: int) -> Modal:
+	var m := Modal.new()
+	m.name = "GemPopup"
+	m.open(overlay, "Ngọc", 520)
+	m.title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	m.add_close_x()
+	var big := GemIcon.make(gem_type, level, 140)
+	m.body.add_child(big)
+	var n := LobbyUi.text("×%s" % Fmt.thousands(count), 30, LobbyUi.GOLD, true)
+	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	m.body.add_child(n)
+	var stat := GemModel.stat(PlayerState.catalog, gem_type, level, EquipmentUi.multipliers())
+	if not stat.is_empty():
+		m.body.add_child(_stat_line(stat, 34, 28))
+	if GemModel.can_merge(PlayerState.catalog, gem_type, level):
+		m.add_button("Ghép", func() -> void:
+			m.close()
+			open_gem_merge.emit(gem_type, level))
+	if GemModel.has_catalog(PlayerState.catalog):
+		m.add_button("Mua", func() -> void:
+			m.close()
+			open_shop.emit(ShopTab.SOCKET_GEMS))
+	EquipmentUi.span_buttons(m.buttons())
+	return m
 
 
 # ── Rương (in Vật phẩm and Nguyên liệu) ───────────────────────────────────
