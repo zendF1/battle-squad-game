@@ -13,10 +13,10 @@ config_version=5
 config/name="battle-squad-game"
 run/main_scene="res://screens/splash.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
-config/icon="res://assets/branding/icon/app_icon_macos.png"
 boot_splash/bg_color=Color(0.604, 0.851, 0.945, 1)
-boot_splash/image="res://assets/branding/splash.png"
 boot_splash/stretch_mode=4
+boot_splash/image="res://assets/branding/splash.png"
+config/icon="res://assets/branding/icon/app_icon_macos.png"
 
 [autoload]
 
@@ -37,6 +37,10 @@ privacy_url="https://battlesquad.chuongnguyen.online/privacy"
 google_client_id_ios="766073933747-o6hvrdm7gm1pm0t45h9f8009fbid28ju.apps.googleusercontent.com"
 google_client_id_macos="766073933747-dsc8mca1ukqsqlk2v8faarr1md1jipj0.apps.googleusercontent.com"
 
+[debug]
+
+file_logging/enable_file_logging.ios=true
+
 [display]
 
 window/size/viewport_width=1600
@@ -56,7 +60,3 @@ window/handheld/orientation=4
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
-
-[debug]
-
-file_logging/enable_file_logging.ios=true

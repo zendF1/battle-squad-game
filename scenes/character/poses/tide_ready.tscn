@@ -1,36 +1,42 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://c7yv2n2uu3asb"]
 
+[ext_resource type="Texture2D" uid="uid://cdqeyfcfmhdwj" path="res://assets/characters/tide/side/ready_0.png" id="1_ipmrp"]
+[ext_resource type="Texture2D" uid="uid://bps3ci44nvy0s" path="res://assets/weapons/water_gun/hug_iron.png" id="3_7gd6m"]
+[ext_resource type="Texture2D" uid="uid://dpjmwisgbf43k" path="res://assets/characters/tide/side/ready_arm_front.png" id="5_pgd8h"]
+[ext_resource type="Script" uid="uid://dfc30bbpkyp5p" path="res://scenes/character/poses/pose_arm.gd" id="arm_script"]
 [ext_resource type="Script" uid="uid://gb65mylmx08w" path="res://scenes/character/poses/pose_body.gd" id="body_script"]
 [ext_resource type="Script" uid="uid://dnolkf6sro25w" path="res://scenes/character/poses/pose_gun.gd" id="gun_script"]
-[ext_resource type="Script" uid="uid://dfc30bbpkyp5p" path="res://scenes/character/poses/pose_arm.gd" id="arm_script"]
 
-[node name="TideReady" type="Node2D"]
+[node name="TideReady" type="Node2D" unique_id=481640428]
 metadata/_edit_lock_ = true
 
-[node name="Body" type="Sprite2D" parent="."]
+[node name="Body" type="Sprite2D" parent="." unique_id=1333516562]
 texture_filter = 2
-scale = Vector2(2.285714, 2.285714)
+scale = Vector2(2.2857144, 2.2857144)
+texture = ExtResource("1_ipmrp")
 centered = false
 offset = Vector2(-38.72, -135.33)
 script = ExtResource("body_script")
 character_id = "tide"
 metadata/_edit_lock_ = true
 
-[node name="GunSocket" type="Node2D" parent="."]
+[node name="GunSocket" type="Node2D" parent="." unique_id=1119944859]
 position = Vector2(65.03, -129.46)
 metadata/_edit_group_ = true
 
-[node name="Preview" type="Sprite2D" parent="GunSocket"]
+[node name="Preview" type="Sprite2D" parent="GunSocket" unique_id=1570785648]
 texture_filter = 2
 scale = Vector2(2.285714, 2.285714)
+texture = ExtResource("3_7gd6m")
 centered = false
-offset = Vector2(-48, -21.9)
+offset = Vector2(-48, -27.9)
 script = ExtResource("gun_script")
 kind = "water_gun"
 
-[node name="ArmFront" type="Sprite2D" parent="."]
+[node name="ArmFront" type="Sprite2D" parent="." unique_id=1264923474]
 texture_filter = 2
 scale = Vector2(2.285714, 2.285714)
+texture = ExtResource("5_pgd8h")
 centered = false
 offset = Vector2(-38.72, -135.33)
 script = ExtResource("arm_script")

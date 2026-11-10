@@ -8,13 +8,13 @@
 metadata/_edit_lock_ = true
 
 [node name="CarrySocket" type="Node2D" parent="." unique_id=986259384]
-position = Vector2(-8.022857, -91.29143)
+position = Vector2(-1.000001, -81)
 rotation = -2.1293018
 metadata/_edit_group_ = true
 
 [node name="Preview" type="Sprite2D" parent="CarrySocket" unique_id=180837010]
 texture_filter = 2
-rotation = 0.06981317
+rotation = 0.23561946
 scale = Vector2(2.285714, 2.285714)
 texture = ExtResource("gun")
 centered = false

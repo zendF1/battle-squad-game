@@ -1,34 +1,34 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://g5w0sx3lvjlx"]
 
 [ext_resource type="Texture2D" uid="uid://bhl4mfrbma1um" path="res://assets/characters/tide/side/idle_0.png" id="body"]
 [ext_resource type="Texture2D" uid="uid://bps3ci44nvy0s" path="res://assets/weapons/water_gun/hug_iron.png" id="gun"]
 [ext_resource type="Script" uid="uid://bw7lsgt5iegse" path="res://scenes/character/poses/carry_walk.gd" id="walk_script"]
 
-[node name="TideCarry" type="Node2D"]
+[node name="TideCarry" type="Node2D" unique_id=1977269436]
 metadata/_edit_lock_ = true
 
-[node name="CarrySocket" type="Node2D" parent="."]
+[node name="CarrySocket" type="Node2D" parent="." unique_id=1926640995]
 position = Vector2(-18.29, -105.14)
 rotation = -2.1293018
 metadata/_edit_group_ = true
 
-[node name="Preview" type="Sprite2D" parent="CarrySocket"]
+[node name="Preview" type="Sprite2D" parent="CarrySocket" unique_id=1092286394]
 texture_filter = 2
-rotation = 0.33161256
+rotation = 0.24783675
 scale = Vector2(2.285714, 2.285714)
 texture = ExtResource("gun")
 centered = false
 offset = Vector2(-17.3, -30.2)
 
-[node name="Body" type="Sprite2D" parent="."]
+[node name="Body" type="Sprite2D" parent="." unique_id=1710422013]
 texture_filter = 2
-texture = ExtResource("body")
 scale = Vector2(2.285714, 2.285714)
+texture = ExtResource("body")
 centered = false
 offset = Vector2(-38.72, -135.33)
 metadata/_edit_lock_ = true
 
-[node name="WalkPreview" type="Node2D" parent="."]
+[node name="WalkPreview" type="Node2D" parent="." unique_id=862581488]
 texture_filter = 2
 position = Vector2(200, 0)
 script = ExtResource("walk_script")

@@ -6,3 +6,8 @@
 
 # Agent worktrees (.claude/worktrees/agent-<branch>)
 .claude/worktrees/
+
+# macOS and local screenshots
+.DS_Store
+/*_sc.png
+/*_sc.png.import
