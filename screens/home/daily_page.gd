@@ -10,8 +10,10 @@ extends Control
 ## title, a bar "x/y" and the button: "Nhận" (gold) claims, "Đi ngay" (blue) emits `go` with the
 ## mission's goto (Home: play → the lobby's BẮT ĐẦU, shop → Shop, equipment → Nâng cấp), "Chưa
 ## xong" / "Đã nhận" are off. A claim flies "+N" to the shield while the number and the bars
-## count up. A tap on a chest / weekly tile claims it when claimable (the reward reveal,
-## ui/reward_reveal.gd) or shows what it gives (glowing reward tiles). Failures toast the server's reason (ErrorText.mission)
+## count up. A tap on a chest / weekly tile claims it when claimable or shows what it gives (glowing
+## reward tiles). A claim's rewards are fixed, not a chest's random draw, so no gift box and no
+## "Nhận": they arrive at once (ui/reward_fly.gd: each reward's icon + "×N" pops on the chest and
+## flies to the wallet pill or the bag, never blocking). Failures toast the server's reason (ErrorText.mission)
 ## and the list reloads. Loads each time it is shown and again when the day turns.
 
 signal go(target: String)
@@ -25,6 +27,7 @@ const RewardModel := preload("res://ui/reward_model.gd")
 const DailyModel := preload("res://screens/home/daily_model.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const MilestonePage := preload("res://screens/home/milestone_page.gd")
+const RewardFly := preload("res://ui/reward_fly.gd")
 const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const MissionArt := preload("res://screens/home/mission_art.gd")
 
@@ -228,7 +231,7 @@ func _week_tile(c: Dictionary) -> Control:
 	var state: String = c["state"]
 	var w := (LEFT_W - 32 - 12) / 2
 	var b := _flat_button(Vector2(w, 150))
-	b.pressed.connect(_on_chest.bind(c["id"]))
+	b.pressed.connect(_on_chest.bind(c["id"], b))
 	var box := PanelContainer.new()
 	box.add_theme_stylebox_override("panel", _tile_style(state))
 	box.position = Vector2(6, 4)
@@ -307,7 +310,7 @@ func _render_track(chests: Array) -> void:
 	for i in chests.size():
 		var c: Dictionary = chests[i]
 		var b := _flat_button(CHEST)
-		b.pressed.connect(_on_chest.bind(c["id"]))
+		b.pressed.connect(_on_chest.bind(c["id"], b))
 		if c["state"] == DailyModel.CLAIMABLE:
 			var rays := MissionArt.make(MissionArt.Kind.RAYS, Vector2(170, 170))
 			rays.position = (CHEST - rays.size) / 2 + Vector2(0, 4)
@@ -616,30 +619,41 @@ func _fly_points(points: int, from: Vector2) -> void:
 	t.tween_callback(l.queue_free)
 
 
-func _on_chest(id: String) -> void:
+## from: the tapped chest / tile (the rewards pop there).
+func _on_chest(id: String, from: Control = null) -> void:
 	var c := DailyModel.chest(PlayerState.daily, id)
 	if c.is_empty():
 		return
 	if c["state"] == DailyModel.CLAIMABLE:
-		_claim_chest(c)
+		_claim_chest(c, from)
 	else:
 		_show_chest(c)
 
 
-func _claim_chest(c: Dictionary) -> void:
+## Returns the RewardFly layer of the rewards (null on a failure or when nothing came).
+func _claim_chest(c: Dictionary, from: Control = null) -> Control:
 	if PlayerState.daily_busy != "":
-		return
+		return null
+	var at: Variant = from.get_global_transform_with_canvas() * (from.size / 2.0) if is_instance_valid(from) else null
 	var res: Dictionary = await PlayerState.claim_chest(c["id"])
 	if not is_inside_tree():
-		return
+		return null
 	if not res.ok:
 		Ui.toast(overlay, ErrorText.mission(res))
-		return
-	var data: Dictionary = res.data if res.data is Dictionary else {}
-	var lines := DailyModel.reward_lines(MilestoneModel.parse_rewards(data.get("rewards")))
+		return null
+	var tiles := claimed_tiles(res.data, c)
+	if tiles.is_empty():
+		return null
+	return RewardFly.play(overlay, tiles, at)
+
+
+## The reward tiles (RewardModel) a chest claim gave: the answer's rewards, else the chest's own.
+static func claimed_tiles(data: Variant, c: Dictionary) -> Array:
+	var d: Dictionary = data if data is Dictionary else {}
+	var lines := DailyModel.reward_lines(MilestoneModel.parse_rewards(d.get("rewards")))
 	if lines.is_empty():
-		lines = DailyModel.reward_lines(c["rewards"])
-	MilestonePage.show_rewards(overlay, DailyModel.chest_title(c), lines)
+		lines = DailyModel.reward_lines(c.get("rewards", {}))
+	return RewardModel.from_lines(lines)
 
 
 ## What a chest gives (not claimable now): its rewards and why ("Cần 60 năng động").
