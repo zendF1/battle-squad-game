@@ -69,7 +69,6 @@ const BuyQuantityDialog := preload("res://screens/home/buy_quantity_dialog.gd")
 const GemModel := preload("res://screens/home/gem_model.gd")
 const GemIcon := preload("res://ui/gem_icon.gd")
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
-const RewardFly := preload("res://ui/reward_fly.gd")
 const CardGrid := preload("res://ui/card_grid.gd")
 
 const SUB_TABS := ["Vật phẩm", "Trang bị", "Đá nâng cấp", "Ngọc", "Nhân vật", "Kim cương", "Đổi xu"]
@@ -676,7 +675,8 @@ func _purchase_gems(r: Dictionary, quantity: int, from: Vector2) -> void:
 		if res.replay:
 			Ui.toast(overlay, REPLAYED)
 		else:
-			RewardFly.play(overlay, [RewardModel.tile("socket_gem", t, quantity, lv)], from)
+			# a purchase is not a reward: the gems pop on the card and fly to the bag, no gift box
+			preload("res://ui/reward_fly.gd").play(overlay, [RewardModel.tile("socket_gem", t, quantity, lv)], from)
 		return
 	var retry := _purchase_gems.bind(r, quantity, from) if not IdempotencyKeys.is_definite(res.status) else Callable()
 	_action_status.show_error(ErrorText.gem_buy(res, str(GemModel.price(r)["currency"])), retry)
