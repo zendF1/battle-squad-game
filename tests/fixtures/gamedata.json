@@ -2237,6 +2237,7 @@
       "skillRankLevel": 14,
       "skillRankBonus": 1,
       "awakenLevel": 16,
+      "maxUpgradeByTier": [16, 6, 10, 14, 16],
       "reviveHpPct": 20,
       "critImmuneShieldPct": 10,
       "bootsEnergyFactor": 2,

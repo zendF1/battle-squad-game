@@ -37,6 +37,11 @@ extends Control
 ##   the gem ×2 / ×3 / ×4 → the next level with the chance, GHÉP; a success plays the reward reveal
 ##   of the new gem, a failure the stones' failure effect. The highest level is the catalog's
 ##   (GemModel), the counts and the rate the game data's / catalog's.
+## - "Chuyển hoá" (shown when the catalog prices transfers, TransferModel.offered()):
+##   screens/home/transfer_page.gd, carry a level to another piece of the slot for kim cương khoá.
+## Caps by tier (UpgradeModel.cap()): every list row shows the piece's cap mark (the padlock and
+## "+6"); a piece at its cap shows alone in the centre with "Đã đạt trần +6", NÂNG CẤP is off and a
+## Chuyển hoá button under the note opens that tab with the piece as the source.
 ## Loads the catalog, the pieces, the characters and the stones when shown; failures show inline
 ## with "Thử lại".
 
@@ -61,11 +66,14 @@ const GearModel := preload("res://screens/home/gear_model.gd")
 const GearIcon := preload("res://ui/gear_icon.gd")
 const GemModel := preload("res://screens/home/gem_model.gd")
 const GemIcon := preload("res://ui/gem_icon.gd")
+const TransferModel := preload("res://screens/home/transfer_model.gd")
+const TransferPage := preload("res://screens/home/transfer_page.gd")
 
-const SUB_TABS := ["Nâng cấp", "Ghép đá", "Ghép ngọc"]
+const SUB_TABS := ["Nâng cấp", "Ghép đá", "Ghép ngọc", "Chuyển hoá"]
 const UPGRADE := 0
 const MERGE := 1
 const GEM_MERGE := 2
+const TRANSFER := 3
 ## Shop sections of "Đá nâng cấp" and "Ngọc" (shop_tab.gd STONES / SOCKET_GEMS; not preloaded: the
 ## Shop preloads this page's neighbours).
 const SHOP_STONES := 2
@@ -164,6 +172,7 @@ var _gem_go: Button
 var _gem_reason: Label
 var _gem_fx: Control
 var _gem_acting := false
+var _transfer: TransferPage # the Chuyển hoá tab
 
 
 func _ready() -> void:
@@ -197,7 +206,7 @@ func _ready() -> void:
 	var pages := Control.new()
 	pages.size_flags_vertical = SIZE_EXPAND_FILL
 	col.add_child(pages)
-	for builder in [_build_upgrade_page, _build_merge_page, _build_gem_merge_page]:
+	for builder in [_build_upgrade_page, _build_merge_page, _build_gem_merge_page, _build_transfer_page]:
 		var page: Control = builder.call()
 		page.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 		pages.add_child(page)
@@ -231,6 +240,20 @@ func select_gem(gem_type: String, gem_level: int) -> void:
 		_gem_level = maxi(gem_level, 1)
 	show_section(GEM_MERGE)
 	_ensure_loaded()
+
+
+## Shows the Chuyển hoá tab with a piece as the source ("" keeps the current choice).
+func select_transfer(equipment_id: String) -> void:
+	if _transfer != null:
+		_transfer.select_source(equipment_id)
+	show_section(TRANSFER)
+	_ensure_loaded()
+
+
+func _build_transfer_page() -> Control:
+	_transfer = TransferPage.new()
+	_transfer.overlay = overlay
+	return _transfer
 
 
 ## Shows the Nâng cấp tab on a piece ("" keeps the current choice).
@@ -292,8 +315,10 @@ func _render() -> void:
 		error = PlayerState.gems_error
 	if _sub_tabs.size() > GEM_MERGE: # an older server's catalog has no gems: no Ghép ngọc
 		_sub_tabs[GEM_MERGE].visible = PlayerState.catalog == null or GemModel.has_catalog(PlayerState.catalog) or _sub == GEM_MERGE
-	if _buy != null: # no gem shop on an older server
-		_buy.visible = _sub != GEM_MERGE or PlayerState.catalog == null or GemModel.has_catalog(PlayerState.catalog)
+	if _sub_tabs.size() > TRANSFER: # an older server prices no transfer: no Chuyển hoá
+		_sub_tabs[TRANSFER].visible = PlayerState.catalog == null or TransferModel.offered(PlayerState.catalog) or _sub == TRANSFER
+	if _buy != null: # no gem shop on an older server; no stones to buy for a transfer
+		_buy.visible = _sub != TRANSFER and (_sub != GEM_MERGE or PlayerState.catalog == null or GemModel.has_catalog(PlayerState.catalog))
 	if error != "":
 		_status.show_error(error, _retry)
 	elif PlayerState.catalog == null or PlayerState.equipment == null or PlayerState.stones == null:
@@ -307,8 +332,11 @@ func _render() -> void:
 		_render_stones()
 	elif _sub == MERGE:
 		_render_merge()
-	else:
+	elif _sub == GEM_MERGE:
 		_render_gem_merge()
+	else:
+		_transfer.overlay = overlay
+		_transfer.render()
 
 
 ## Picked stones never exceed what is owned (after a reload).
@@ -558,53 +586,10 @@ func _ensure_visible(row: Variant) -> void:
 
 
 func _piece_row(piece: Dictionary) -> Control:
-	var item := EquipmentModel.item_of_piece(PlayerState.catalog, piece)
 	var id := str(piece.get("equipmentId", ""))
-	var level := int(piece.get("upgradeLevel", 0))
-	var b := Button.new()
-	b.custom_minimum_size = Vector2(0, 88)
-	b.focus_mode = FOCUS_NONE
-	if id == _piece_id:
-		LobbyUi.style_button(b, Color(0.16, 0.3, 0.56, 0.95), 14, 8, LobbyUi.GOLD, 3)
-	else:
-		LobbyUi.style_button(b, Color(0.08, 0.11, 0.26, 0.85), 14, 8, Color(1, 1, 1, 0.08), 2)
-	b.pressed.connect(_on_pick_piece.bind(id))
-	var row := Ui.hbox(14)
-	row.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	row.offset_left = 14
-	row.offset_right = -10
-	row.offset_top = 4
-	row.offset_bottom = -8
-	row.mouse_filter = MOUSE_FILTER_IGNORE
-	b.add_child(row)
-	var icon := EquipmentUi.item_icon(item, piece, 64)
-	icon.size_flags_vertical = SIZE_SHRINK_CENTER
-	row.add_child(icon)
-	var texts := Ui.vbox(0)
-	texts.alignment = BoxContainer.ALIGNMENT_CENTER
-	texts.size_flags_horizontal = SIZE_EXPAND_FILL
-	texts.mouse_filter = MOUSE_FILTER_IGNORE
-	row.add_child(texts)
-	var title := LobbyUi.text(EquipmentModel.display_name(item), 22, UpgradeModel.name_color(piece), true)
-	title.clip_text = true
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title.mouse_filter = MOUSE_FILTER_IGNORE
-	texts.add_child(title)
-	var who := EquipmentModel.wearer(piece)
-	var sub := "%s · %s" % [EquipmentModel.slot_name(str(item.get("slot", ""))), EquipmentModel.required_text(item)]
-	if who != "":
-		sub += " · " + EquipmentModel.character_name(who)
-	var sub_label := LobbyUi.text(sub, 17, WORN_COLOR if who != "" else DIM)
-	sub_label.mouse_filter = MOUSE_FILTER_IGNORE
-	texts.add_child(sub_label)
-	var lv := LobbyUi.text(EquipmentModel.level_text(piece), 30, UpgradeModel.milestone_color(level), true)
-	lv.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lv.mouse_filter = MOUSE_FILTER_IGNORE
-	row.add_child(lv)
-	return b
+	return EquipmentUi.piece_row(piece, id == _piece_id, _on_pick_piece.bind(id))
 
 
-const WORN_COLOR := Color(0.45, 0.88, 0.55)
 
 
 func _on_pick_piece(id: String) -> void:
@@ -681,9 +666,20 @@ func _render_center() -> void:
 		holder.name = "MaxPiece"
 		holder.add_child(_big_holder)
 		_center.add_child(holder)
+		var lv_row := Ui.hbox(14)
+		lv_row.name = "MaxLevel"
+		lv_row.alignment = BoxContainer.ALIGNMENT_CENTER
 		var lv_max := LobbyUi.text("+%d" % int(cols[0]["level"]), 40, cols[0]["color"], true)
 		lv_max.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_center.add_child(lv_max)
+		lv_row.add_child(lv_max)
+		if view.get("capped", false): # the padlock: this is the tier's cap; "+6" stays dead centre
+			var lock := EquipmentUi.cap_mark(UpgradeModel.cap(PlayerState.catalog, piece), true, 34, false)
+			var balance := Control.new()
+			balance.custom_minimum_size = lock.get_combined_minimum_size()
+			lv_row.add_child(balance)
+			lv_row.move_child(balance, 0)
+			lv_row.add_child(lock)
+		_center.add_child(lv_row)
 		var stats := GridContainer.new()
 		stats.name = "Preview"
 		stats.columns = 2
@@ -731,8 +727,18 @@ func _render_center() -> void:
 			grid.add_child(_stat_cell(r["next_points"], r["next_battle"], r["delta"] if r["up"] else ""))
 	if view["note"] != "":
 		var note := LobbyUi.text(view["note"], 24, LobbyUi.GOLD, true)
+		note.name = "Note"
 		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_center.add_child(note)
+	if view.get("capped", false) and TransferModel.offered(PlayerState.catalog):
+		# At the tier's cap: the way on is Chuyển hoá to a higher tier piece.
+		var go := _small_button("Chuyển hoá", select_transfer.bind(str(piece.get("equipmentId", ""))), 22)
+		go.name = "ToTransfer"
+		LobbyUi.style_button(go, LobbyUi.ICON_COLORS["orange"], 14, 8)
+		go.add_theme_font_override("font", LobbyUi.bold())
+		go.custom_minimum_size = Vector2(240, 56)
+		go.size_flags_horizontal = SIZE_SHRINK_CENTER
+		_center.add_child(go)
 	# What the next level unlocks besides stats, as pictures (the weapon's +10 bullet glow and +14
 	# skill rank up, the slot's +16 awaken), centred.
 	if not view["maxed"]:
@@ -805,7 +811,8 @@ func _render_stones() -> void:
 		empty.add_child(shop)
 		_stone_list.add_child(empty)
 	var piece := _piece()
-	var usable := not piece.is_empty() and not UpgradeModel.rate(PlayerState.catalog, int(piece.get("upgradeLevel", 0))).is_empty()
+	var usable := not piece.is_empty() and not UpgradeModel.rate(PlayerState.catalog, int(piece.get("upgradeLevel", 0))).is_empty() \
+		and not UpgradeModel.at_tier_cap(PlayerState.catalog, piece)
 	for lv in levels:
 		_stone_list.add_child(_stone_row(int(lv), int(owned[lv]), usable))
 	_render_chance()
@@ -878,7 +885,8 @@ func _render_chance() -> void:
 	var piece := _piece()
 	var level := int(piece.get("upgradeLevel", 0))
 	var c := _chance_of(piece)
-	var rated := not piece.is_empty() and not UpgradeModel.rate(PlayerState.catalog, level).is_empty()
+	var rated := not piece.is_empty() and not UpgradeModel.rate(PlayerState.catalog, level).is_empty() \
+		and not UpgradeModel.at_tier_cap(PlayerState.catalog, piece)
 	_fill_box.visible = rated
 	_tiles.visible = rated
 	if rated:
@@ -964,6 +972,8 @@ func _upgrade_reason(piece: Dictionary) -> String:
 		return "Đang nâng cấp..."
 	if PlayerState.catalog == null or PlayerState.equipment == null:
 		return "Đang tải..."
+	if UpgradeModel.at_tier_cap(PlayerState.catalog, piece) and TransferModel.offered(PlayerState.catalog):
+		return "Đã đạt trần, hãy Chuyển hoá"
 	var why := UpgradeModel.blocked_reason(PlayerState.catalog, piece, _picked, _owned(), _careful, _gems(), _coins())
 	if why != "":
 		return why

@@ -30,6 +30,7 @@ const GearIcon := preload("res://ui/gear_icon.gd")
 const GemModel := preload("res://screens/home/gem_model.gd")
 const GemIcon := preload("res://ui/gem_icon.gd")
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
+const WalletPills := preload("res://ui/wallet_pills.gd")
 
 const GOOD := Color(0.45, 0.9, 0.55)
 const LOSS := Color(1.0, 0.45, 0.45)
@@ -106,6 +107,100 @@ static func lock_mark(px: int = 22, color: Color = Color(1, 1, 1, 0.6)) -> Contr
 		c.draw_arc(Vector2(w * 0.5, top), w * 0.24, PI, TAU, 12, color, maxf(2.0, w * 0.11), true)
 		c.draw_rect(Rect2(w * 0.14, top, w * 0.72, w * 0.52), color))
 	return c
+
+
+## A piece's upgrade cap as a picture: the padlock, then "+6" in that level's colour (the tooltip
+## says "Trần +6"; with_level false: the padlock alone). reached: the piece is at its cap (bright);
+## otherwise dimmed.
+static func cap_mark(cap: int, reached: bool = false, font_size: int = 18, with_level: bool = true) -> HBoxContainer:
+	var row := Ui.hbox(2)
+	row.name = "CapMark"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	row.tooltip_text = "Trần +%d" % cap
+	var px := int(font_size * 1.2)
+	var lock := Control.new()
+	lock.custom_minimum_size = Vector2(px, px)
+	lock.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lock.draw.connect(func() -> void: WalletPills.draw_lock(lock, Vector2(px * 0.5, px * 0.5), px * 0.8))
+	row.add_child(lock)
+	var lv := LobbyUi.text("+%d" % cap, font_size, UpgradeModel.milestone_color(cap), true)
+	lv.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lv.visible = with_level # beside a "+6" already shown: the padlock alone
+	row.add_child(lv)
+	row.modulate.a = 1.0 if reached else 0.7
+	return row
+
+
+## A list row of an owned piece (the Nâng cấp and Chuyển hoá lists): the icon with its aura, the
+## name in the level colour, slot · required level · wearer, then "+N" in its colour with the cap
+## mark under it (UpgradeModel.shown_cap(); bright at the cap). selected: the gold border; dim:
+## faded (a target that cannot take the level), the cap mark then red-bordered as the reason.
+static func piece_row(piece: Dictionary, selected: bool, on_press: Callable, dim: bool = false) -> Button:
+	var catalog = PlayerState.catalog
+	var item := EquipmentModel.item_of_piece(catalog, piece)
+	var level := int(piece.get("upgradeLevel", 0))
+	var b := Button.new()
+	b.name = "Piece_" + str(piece.get("equipmentId", ""))
+	b.custom_minimum_size = Vector2(0, 88)
+	b.focus_mode = Control.FOCUS_NONE
+	if selected:
+		LobbyUi.style_button(b, Color(0.16, 0.3, 0.56, 0.95), 14, 8, LobbyUi.GOLD, 3)
+	else:
+		LobbyUi.style_button(b, Color(0.08, 0.11, 0.26, 0.85), 14, 8, Color(1, 1, 1, 0.08), 2)
+	b.pressed.connect(on_press)
+	var row := Ui.hbox(14)
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 14
+	row.offset_right = -10
+	row.offset_top = 4
+	row.offset_bottom = -8
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(row)
+	var icon := item_icon(item, piece, 64)
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(icon)
+	var texts := Ui.vbox(0)
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(texts)
+	var title := LobbyUi.text(EquipmentModel.display_name(item), 22, UpgradeModel.name_color(piece), true)
+	title.clip_text = true
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.add_child(title)
+	var who := EquipmentModel.wearer(piece)
+	var sub := "%s · %s" % [EquipmentModel.slot_name(str(item.get("slot", ""))), EquipmentModel.required_text(item)]
+	if who != "":
+		sub += " · " + EquipmentModel.character_name(who)
+	var sub_label := LobbyUi.text(sub, 17, WORN_TEXT if who != "" else Color(0.8, 0.88, 1.0))
+	sub_label.clip_text = true
+	sub_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	sub_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.add_child(sub_label)
+	var right := Ui.vbox(0)
+	right.alignment = BoxContainer.ALIGNMENT_CENTER
+	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(right)
+	var lv := LobbyUi.text(EquipmentModel.level_text(piece), 30, UpgradeModel.milestone_color(level), true)
+	lv.name = "Level"
+	lv.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	right.add_child(lv)
+	var cap := UpgradeModel.shown_cap(catalog, piece)
+	if cap >= 0:
+		right.add_child(cap_mark(cap, level >= cap or dim, 17))
+	if dim:
+		for c in [icon, texts, lv]:
+			(c as Control).modulate.a = 0.45
+	return b
+
+
+## The green of a worn piece's line in a list row.
+const WORN_TEXT := Color(0.45, 0.88, 0.55)
 
 
 ## A small coloured tag ("Đang mặc · Tanko", "Cần Lv 7").
@@ -197,7 +292,8 @@ static func _chip_flow() -> HFlowContainer:
 ## The popup of an owned piece for `character_id` (the character on the Nhân vật stage, or the
 ## lobby's), the one place that shows the "+N": the name "+N" in the milestone colour; the
 ## hexagon with the icon and its aura beside slot · category · required level, who wears it, the
-## upgrade bar and the gear row (gear_row()); below, one narrow list (piece_list()): its upgraded
+## upgrade bar (level_bar(): its tier cap as a padlock on the bar, the part past it dark) and the
+## gear row (gear_row()); below, one narrow list (piece_list()): its upgraded
 ## stats (with the change against what the character wears in that slot), then the +6 / +10 / +14
 ## / +16 milestones with the multiplier each gives (reached ones bright with a check, the others dimmed); an X
 ## in the top-right corner (or a tap outside the card) closes it; one row of equal buttons spanning
@@ -244,7 +340,7 @@ static func open_piece(overlay: Control, piece: Dictionary, character_id: String
 	meta.add_child(LobbyUi.text("Lv yêu cầu %d" % maxi(int(item.get("requiredLevel", 1)), 1), 22, LEVEL, true))
 	head.add_child(LobbyUi.text("Đang mặc: %s" % EquipmentModel.character_name(who) if who != "" else "Chưa mặc", 22,
 		WORN if who != "" else Ui.TEXT_DIM, true))
-	head.add_child(level_bar(level))
+	head.add_child(level_bar(level, 0.0, UpgradeModel.shown_cap(PlayerState.catalog, piece)))
 	head.add_child(gear_row(overlay, piece, item, character_id))
 
 	# Below: one list, the stats then the milestones.
@@ -697,21 +793,39 @@ static func span_buttons(buttons: Array) -> void:
 
 
 ## The upgrade level as a bar out of +16 with ticks at the milestones, filled in the level's
-## level colour (green +1..+5, then the milestone colours).
-static func level_bar(level: int, width: float = 0.0) -> Control:
+## level colour (green +1..+5, then the milestone colours). cap (>= 0, below +16): the piece's cap
+## by tier: the bar past it is dark, a padlock sits on it at the cap (bright once reached).
+static func level_bar(level: int, width: float = 0.0, cap: int = -1) -> Control:
 	var c := Control.new()
-	c.custom_minimum_size = Vector2(width, 14)
-	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.name = "LevelBar"
+	var capped := cap >= 0 and cap < UpgradeModel.max_level()
+	var bar_h := 14.0
+	var h := 26.0 if capped else bar_h
+	c.custom_minimum_size = Vector2(width, h)
+	c.mouse_filter = Control.MOUSE_FILTER_PASS if capped else Control.MOUSE_FILTER_IGNORE
+	if capped:
+		c.tooltip_text = "Trần +%d" % cap
+		c.set_meta("cap", cap)
 	var fill := UpgradeModel.milestone_color(level) if level >= 1 else LEVEL
-	var k := clampf(float(level) / UpgradeModel.max_level(), 0.0, 1.0)
+	var top := float(UpgradeModel.max_level())
+	var k := clampf(float(level) / top, 0.0, 1.0)
 	c.draw.connect(func() -> void:
-		var r := Rect2(Vector2.ZERO, c.size)
+		var r := Rect2(Vector2(0, (c.size.y - bar_h) / 2.0), Vector2(c.size.x, bar_h))
 		c.draw_style_box(LobbyUi.box(Color(1, 1, 1, 0.1), 7, 0), r)
+		if capped: # past the cap: the dark part no upgrade reaches
+			var cx := r.size.x * float(cap) / top
+			c.draw_style_box(LobbyUi.box(Color(0, 0, 0, 0.55), 7, 0), Rect2(r.position + Vector2(cx, 0), Vector2(r.size.x - cx, r.size.y)))
 		if k > 0.0:
 			c.draw_style_box(LobbyUi.box(fill, 7, 0), Rect2(r.position, Vector2(maxf(r.size.x * k, 14.0), r.size.y)))
 		for t in range(1, UpgradeModel.milestone_from().size() - 1):
-			var x := r.size.x * float(UpgradeModel.milestone_from()[t]) / UpgradeModel.max_level()
-			c.draw_line(Vector2(x, 1), Vector2(x, r.size.y - 1), Color(0, 0, 0, 0.45), 2.0))
+			var x := r.size.x * float(UpgradeModel.milestone_from()[t]) / top
+			c.draw_line(Vector2(x, r.position.y + 1), Vector2(x, r.end.y - 1), Color(0, 0, 0, 0.45), 2.0)
+		if capped:
+			var at := Vector2(clampf(r.size.x * float(cap) / top, h * 0.5, r.size.x - h * 0.5), c.size.y / 2.0)
+			var lock_h := h * 0.95
+			if level < cap:
+				c.draw_circle(at, lock_h * 0.55, Color(0, 0, 0, 0.35))
+			WalletPills.draw_lock(c, at + Vector2(0, -lock_h * 0.12), lock_h))
 	return c
 
 

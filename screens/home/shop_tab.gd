@@ -7,7 +7,8 @@ extends Control
 ##   from GET /player/inventory and the offer's maxStack), then POST /shop/purchase with quantity;
 ## - "Trang bị": the equipment the catalog sells (PlayerState.catalog, active normal items with a
 ##   price): the gear shared by every character plus the weapons of the lobby's character only
-##   ("Vũ khí của Rookie"), filtered by slot: icon, name, "Lv N", stats, price, "Đã có N"; "Mua" asks "Mua
+##   ("Vũ khí của Rookie"), filtered by slot: icon, name, "Lv N", the upgrade cap (a padlock and
+##   "+6", from the item's maxUpgradeLevel; none from an older server), stats, price, "Đã có N"; "Mua" asks "Mua
 ##   <tên> với giá <giá>?", then PlayerState.buy_equipment() sends POST /shop/equipment/buy
 ##   {itemId, idempotencyKey} with the same key rules as the purchases below;
 ## - "Đá nâng cấp": the upgrade stones, levels 1–12 (catalog stones): icon (its look tells the
@@ -448,6 +449,10 @@ func _render_equipment() -> void:
 		head.add_child(names)
 		names.add_child(Ui.text(EquipmentModel.slot_name(str(it.get("slot", ""))), 20, Ui.TEXT_DIM))
 		names.add_child(Ui.text(EquipmentModel.required_text(it), 20, EquipmentUi.LEVEL))
+		if UpgradeModel.cap_known(PlayerState.catalog, it): # how far it upgrades: the padlock and "+6"
+			var cap := EquipmentUi.cap_mark(UpgradeModel.cap(PlayerState.catalog, it), true, 22)
+			cap.size_flags_vertical = SIZE_SHRINK_CENTER
+			head.add_child(cap)
 		# Two stat lines are reserved, so the cards line up.
 		var stats := Ui.vbox(0)
 		stats.custom_minimum_size.y = 56

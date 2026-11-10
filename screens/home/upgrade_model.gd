@@ -26,6 +26,8 @@ extends RefCounted
 ##   of the next level with count × mergeRatePerItem % chance; every stone put in is consumed.
 ## The highest level, stone level, merge counts and rates are the game data's (GET /gamedata
 ## equipment) when the catalog does not send its own.
+## Each piece has a cap by its tier (cap(): the server's maxUpgradeLevel on the piece / item, else
+## gear.maxUpgradeByTier): no upgrade at or above it; an older server has none but the +16.
 ## The level colours a piece's aura, frame and name: +1..+5 green (the subtlest),
 ## +6..+9 sky blue, +10..+13 orange, +14..+15 purple, +16 red (the highest); +0 the normal look.
 ## The milestone levels are the game data's equipment.milestones (+6 / +10 / +14 / +16).
@@ -70,6 +72,57 @@ static func merge_min() -> int:
 
 static func merge_max() -> int:
 	return GameData.merge_max_count()
+
+
+# ── Caps by tier ────────────────────────────────────────────────────────────
+
+## The highest +level a piece (or a catalog item) can be upgraded to: its own maxUpgradeLevel
+## (the server's min(gear.maxUpgradeByTier[tierIndex], the game's highest)), else its item's, else
+## the game data's table at its tier index; never above max_level(). An older server sends none of
+## them: max_level().
+static func cap(catalog: Variant, piece: Dictionary) -> int:
+	var top := max_level()
+	var v = _cap_value(catalog, piece)
+	if v >= 0:
+		return mini(v, top) if top > 0 else v
+	return top
+
+
+## Whether the server tells the piece's cap (a piece / item maxUpgradeLevel, or the game data's
+## table): without it no cap is drawn.
+static func cap_known(catalog: Variant, piece: Dictionary) -> bool:
+	return _cap_value(catalog, piece) >= 0
+
+
+## A cap worth drawing: known and below the game's highest level (at +16 the bar's end says it);
+## -1 otherwise.
+static func shown_cap(catalog: Variant, piece: Dictionary) -> int:
+	if not cap_known(catalog, piece):
+		return -1
+	var c := cap(catalog, piece)
+	return c if c < max_level() else -1
+
+
+## The piece is at (or above: upgraded before the caps) its tier's cap, below the game's highest
+## level: no upgrade, Chuyển hoá carries its level to a higher tier.
+static func at_tier_cap(catalog: Variant, piece: Dictionary) -> bool:
+	var level := int(piece.get("upgradeLevel", 0))
+	return level < max_level() and level >= cap(catalog, piece)
+
+
+static func _cap_value(catalog: Variant, piece: Dictionary) -> int:
+	var v = piece.get("maxUpgradeLevel")
+	if v is int or v is float:
+		return int(v)
+	var item := EquipmentModel.item_of_piece(catalog, piece) if piece.has("equipmentId") else piece
+	v = item.get("maxUpgradeLevel")
+	if v is int or v is float:
+		return int(v)
+	var table := GameData.max_upgrade_by_tier()
+	var t := GearModel.tier_index(piece, item)
+	if t >= 0 and t < table.size():
+		return int(table[t])
+	return -1
 
 
 # ── Milestones ──────────────────────────────────────────────────────────────
@@ -496,6 +549,8 @@ static func blocked_reason(catalog: Variant, piece: Dictionary, picked: Dictiona
 	var level := int(piece.get("upgradeLevel", 0))
 	if level >= max_level():
 		return "Đã đạt tối đa +%d" % max_level()
+	if level >= cap(catalog, piece):
+		return "Đã đạt trần +%d" % cap(catalog, piece)
 	if rate(catalog, level).is_empty():
 		return "Chưa có bảng nâng cấp cho +%d" % level
 	if total_power(catalog, picked) <= 0:
@@ -567,12 +622,14 @@ static func passive_step(catalog: Variant, piece: Dictionary) -> Dictionary:
 
 
 ## The Nâng cấp page's centre: the piece now and after one more level side by side.
-## {maxed, columns: [{level, color}] (now, then next unless at +16), rows: stat_steps() then
-## passive_step(), fail: fail_text() ("" at +16), note: "Đã đạt cấp tối đa" at +16 else ""}. No
+## {maxed, capped, columns: [{level, color}] (now, then next unless maxed), rows: stat_steps() then
+## passive_step(), fail: fail_text() ("" when maxed), note: "Đã đạt cấp tối đa" at +16, "Đã đạt
+## trần +6" at the tier's cap (capped: at_tier_cap()), else ""}. maxed: at +16 or at the cap. No
 ## milestone text: the next column's aura shows it.
 static func preview(catalog: Variant, piece: Dictionary, mult: Dictionary = {}) -> Dictionary:
 	var level := clampi(int(piece.get("upgradeLevel", 0)), 0, max_level())
-	var maxed := level >= max_level()
+	var capped := at_tier_cap(catalog, piece)
+	var maxed := level >= max_level() or capped
 	var columns: Array = [{"level": level, "color": milestone_color(level)}]
 	if not maxed:
 		columns.append({"level": level + 1, "color": milestone_color(level + 1)})
@@ -580,8 +637,13 @@ static func preview(catalog: Variant, piece: Dictionary, mult: Dictionary = {}) 
 	var passive := passive_step(catalog, piece)
 	if not passive.is_empty():
 		rows.append(passive)
-	return {"maxed": maxed, "columns": columns, "rows": rows,
-		"fail": "" if maxed else fail_text(catalog, level), "note": "Đã đạt cấp tối đa" if maxed else ""}
+	var note := ""
+	if capped:
+		note = "Đã đạt trần +%d" % cap(catalog, piece)
+	elif maxed:
+		note = "Đã đạt cấp tối đa"
+	return {"maxed": maxed, "capped": capped, "columns": columns, "rows": rows,
+		"fail": "" if maxed else fail_text(catalog, level), "note": note}
 
 
 static func _points(v: float, unit: String) -> String:

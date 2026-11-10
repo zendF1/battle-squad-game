@@ -137,6 +137,8 @@ var equipment_keys := IdempotencyKeys.new("", "user://equipment_keys.cfg")
 var stone_keys := IdempotencyKeys.new("", "user://stone_keys.cfg")
 ## POST /shop/gems/buy idempotencyKey, per player+type+level+quantity.
 var gem_keys := IdempotencyKeys.new("", "user://gem_keys.cfg")
+## POST /player/equipment/transfer idempotencyKey, per player+source+target+their levels.
+var transfer_keys := IdempotencyKeys.new("", "user://transfer_keys.cfg")
 
 ## Last GET /player/characters data ({characters, resetStatsCost}); null until loaded.
 var characters: Variant = null
@@ -1102,6 +1104,32 @@ func upgrade(equipment_id: String, stone_list: Array, careful: bool = false, exp
 			changed.emit()
 	if careful or paid_coin or not res.ok:
 		refresh() # the wallet's truth, also after a refusal or no answer
+	return res
+
+
+## POST /player/equipment/transfer {sourceEquipmentId, targetEquipmentId, expectedSourceLevel,
+## expectedTargetLevel, idempotencyKey} → {source, target, gemSpent, gemBalance, gemUnlocked,
+## replay}: the two pieces swap their levels for kim cương khoá. The key is kept until a definite
+## answer (a retry after no answer cannot pay twice: the server replays it). The wallet takes
+## gemBalance (kim cương khoá) and gemUnlocked at once, then refreshes; an equipment action: the
+## pieces and the characters reload afterwards whatever the answer.
+func transfer_equipment(source_id: String, target_id: String, source_level: int, target_level: int) -> Dictionary:
+	if source_id == "" or target_id == "" or equip_busy != "":
+		return await _equip_steps(source_id if target_id != "" else "", []) # NO_EQUIPMENT / BUSY, nothing sent
+	var target := key_target("transfer_%s_%s_%d_%d" % [source_id, target_id, source_level, target_level])
+	var body := {"sourceEquipmentId": source_id, "targetEquipmentId": target_id, "expectedSourceLevel": source_level,
+		"expectedTargetLevel": target_level, "idempotencyKey": transfer_keys.key_for(target)}
+	var res := await _equip_steps(source_id, [["/player/equipment/transfer", body, []]])
+	transfer_keys.settle(target, int(res.get("status", 0)))
+	var data: Dictionary = res.data if res.ok and res.data is Dictionary else {}
+	var balance = data.get("gemBalance")
+	if not profile.is_empty() and (balance is int or balance is float):
+		profile["gem"] = int(balance)
+		var unlocked = data.get("gemUnlocked")
+		if unlocked is int or unlocked is float:
+			profile["gemUnlocked"] = int(unlocked)
+		changed.emit()
+	refresh() # the wallet's truth, also after a refusal or no answer
 	return res
 
 
