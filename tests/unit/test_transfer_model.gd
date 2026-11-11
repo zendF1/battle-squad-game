@@ -131,6 +131,32 @@ func test_blocked_reason_order() -> void:
 	eq(TransferModel.blocked_reason(free, s, t, 9999), "+10 chưa chuyển hoá được", "price 0")
 
 
+func test_blocked_by_gems() -> void:
+	var c = catalog()
+	var s := piece("s", "armor_lv20", 10, 10)
+	var t := piece("t", "armor_lv40", 0, 16)
+	var gem := [{"slotIndex": 1, "gemId": "g1", "gemType": "hp", "gemLevel": 4}]
+	s["gems"] = []
+	t["gems"] = []
+	check(not TransferModel.has_gems(s), "an empty gems list holds nothing")
+	eq(TransferModel.gem_holders(s, t), [], "both empty")
+	eq(TransferModel.blocked_reason(c, s, t, 250), "", "both empty: allowed")
+	var gs := s.merged({"gems": gem}, true)
+	var gt := t.merged({"gems": gem}, true)
+	check(TransferModel.has_gems(gs), "a socketed gem")
+	eq(TransferModel.gem_holders(gs, t), ["s"], "the source holds one")
+	eq(TransferModel.gem_holders(s, gt), ["t"], "the target holds one")
+	eq(TransferModel.gem_holders(gs, gt), ["s", "t"], "both, the source first")
+	eq(TransferModel.blocked_reason(c, gs, t, 250), TransferModel.HAS_GEMS, "the source's gem blocks")
+	eq(TransferModel.blocked_reason(c, s, gt, 250), TransferModel.HAS_GEMS, "the target's gem blocks")
+	eq(TransferModel.blocked_reason(c, gs, gt, 0), TransferModel.HAS_GEMS, "the gems before the balance (the server's order)")
+	eq(TransferModel.blocked_reason(c, gs, piece("h", "helmet_lv20", 0, 10)), "Hai món phải cùng loại", "the slot before the gems")
+	var legacy := piece("t", "armor_lv40", 0, 16)
+	legacy["gemSlot1"] = "g9"
+	eq(TransferModel.blocked_reason(c, s, legacy, 250), TransferModel.HAS_GEMS, "an older server's gemSlot1")
+	check(not TransferModel.has_gems({}), "no piece")
+
+
 func test_after_and_parse() -> void:
 	eq(TransferModel.after(piece("s", "armor_lv10", 8), piece("t", "armor_lv20", 2)), {"source": 2, "target": 8}, "the swap")
 	var r := TransferModel.parse_result({"source": {"equipmentId": "s", "upgradeLevel": 0}, "target": {"equipmentId": "t", "upgradeLevel": 10},
@@ -147,6 +173,8 @@ func test_error_texts() -> void:
 		"Món nhận chỉ lên được +6", "the cap from the details")
 	eq(ErrorText.transfer({"status": 400, "code": "EQUIP_TRANSFER_INSUFFICIENT_GEM", "details": {"gemCost": 250, "gemBalance": 120}}),
 		"Thiếu kim cương khoá", "short")
+	eq(ErrorText.transfer({"status": 400, "code": "EQUIP_TRANSFER_HAS_GEMS", "details": {"equipmentIds": ["s"]}}),
+		TransferModel.HAS_GEMS, "a piece still holds gems")
 	eq(ErrorText.transfer({"status": 409, "code": "EQUIP_MODIFIED"}), "Trang bị vừa thay đổi, hãy thử lại", "modified")
 	eq(ErrorText.transfer({"status": 0}), ErrorText.OFFLINE, "offline")
 	eq(ErrorText.transfer({"status": 403, "code": "EQUIP_LOCKED"}), "Trang bị đang bị khoá", "other codes as EQUIP")

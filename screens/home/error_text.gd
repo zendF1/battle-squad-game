@@ -91,6 +91,7 @@ const TRANSFER := {
 	"EQUIP_TRANSFER_SAME_PIECE": "Chọn hai món khác nhau",
 	"EQUIP_NOT_OWNED": "Trang bị không còn trong túi",
 	"EQUIP_TRANSFER_SLOT_MISMATCH": "Hai món phải cùng loại",
+	"EQUIP_TRANSFER_HAS_GEMS": "Tháo hết ngọc ra trước",
 	"EQUIP_MODIFIED": "Trang bị vừa thay đổi, hãy thử lại",
 	"EQUIP_TRANSFER_LEVEL_TOO_LOW": "Món nguồn phải cao hơn món nhận",
 	"EQUIP_TRANSFER_TARGET_CAP": "Món nhận chỉ lên được +{maxUpgradeLevel}",
