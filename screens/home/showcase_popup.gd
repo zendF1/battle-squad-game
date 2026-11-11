@@ -225,7 +225,7 @@ func _slot(slot: String, piece: Dictionary) -> Control:
 	return cell
 
 
-## A gem: its type's cut and colour (ui/gem_icon.gd), its level drawn small on it.
+## A gem: its type's cut and colour (ui/gem_icon.gd), its level the upgrade aura behind it.
 func _gem(g: Dictionary) -> Control:
 	var box := Control.new()
 	box.custom_minimum_size = Vector2(GEM, GEM + 16)

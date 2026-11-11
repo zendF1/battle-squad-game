@@ -45,43 +45,43 @@
     "gemType": "hp",
     "gemLevel": 1,
     "statValue": 20,
-    "priceCoin": 200,
+    "priceCoin": 2000,
     "priceGem": 0
    },
    {
     "gemType": "hp",
     "gemLevel": 2,
     "statValue": 40,
-    "priceCoin": 400,
+    "priceCoin": 8000,
     "priceGem": 0
    },
    {
     "gemType": "hp",
     "gemLevel": 3,
     "statValue": 70,
-    "priceCoin": 600,
+    "priceCoin": 32000,
     "priceGem": 0
    },
    {
     "gemType": "hp",
     "gemLevel": 4,
     "statValue": 110,
-    "priceCoin": 0,
-    "priceGem": 30
+    "priceCoin": 128000,
+    "priceGem": 0
    },
    {
     "gemType": "hp",
     "gemLevel": 5,
     "statValue": 160,
     "priceCoin": 0,
-    "priceGem": 60
+    "priceGem": 0
    },
    {
     "gemType": "hp",
     "gemLevel": 6,
     "statValue": 220,
     "priceCoin": 0,
-    "priceGem": 90
+    "priceGem": 0
    },
    {
     "gemType": "hp",
@@ -115,43 +115,43 @@
     "gemType": "damage",
     "gemLevel": 1,
     "statValue": 3,
-    "priceCoin": 200,
+    "priceCoin": 2000,
     "priceGem": 0
    },
    {
     "gemType": "damage",
     "gemLevel": 2,
     "statValue": 6,
-    "priceCoin": 400,
+    "priceCoin": 8000,
     "priceGem": 0
    },
    {
     "gemType": "damage",
     "gemLevel": 3,
     "statValue": 10,
-    "priceCoin": 600,
+    "priceCoin": 32000,
     "priceGem": 0
    },
    {
     "gemType": "damage",
     "gemLevel": 4,
     "statValue": 15,
-    "priceCoin": 0,
-    "priceGem": 30
+    "priceCoin": 128000,
+    "priceGem": 0
    },
    {
     "gemType": "damage",
     "gemLevel": 5,
     "statValue": 22,
     "priceCoin": 0,
-    "priceGem": 60
+    "priceGem": 0
    },
    {
     "gemType": "damage",
     "gemLevel": 6,
     "statValue": 30,
     "priceCoin": 0,
-    "priceGem": 90
+    "priceGem": 0
    },
    {
     "gemType": "damage",
@@ -185,43 +185,43 @@
     "gemType": "defense",
     "gemLevel": 1,
     "statValue": 2,
-    "priceCoin": 200,
+    "priceCoin": 2000,
     "priceGem": 0
    },
    {
     "gemType": "defense",
     "gemLevel": 2,
     "statValue": 4,
-    "priceCoin": 400,
+    "priceCoin": 8000,
     "priceGem": 0
    },
    {
     "gemType": "defense",
     "gemLevel": 3,
     "statValue": 7,
-    "priceCoin": 600,
+    "priceCoin": 32000,
     "priceGem": 0
    },
    {
     "gemType": "defense",
     "gemLevel": 4,
     "statValue": 11,
-    "priceCoin": 0,
-    "priceGem": 30
+    "priceCoin": 128000,
+    "priceGem": 0
    },
    {
     "gemType": "defense",
     "gemLevel": 5,
     "statValue": 16,
     "priceCoin": 0,
-    "priceGem": 60
+    "priceGem": 0
    },
    {
     "gemType": "defense",
     "gemLevel": 6,
     "statValue": 22,
     "priceCoin": 0,
-    "priceGem": 90
+    "priceGem": 0
    },
    {
     "gemType": "defense",
@@ -255,43 +255,43 @@
     "gemType": "critical",
     "gemLevel": 1,
     "statValue": 1,
-    "priceCoin": 200,
+    "priceCoin": 2000,
     "priceGem": 0
    },
    {
     "gemType": "critical",
     "gemLevel": 2,
     "statValue": 2,
-    "priceCoin": 400,
+    "priceCoin": 8000,
     "priceGem": 0
    },
    {
     "gemType": "critical",
     "gemLevel": 3,
     "statValue": 3,
-    "priceCoin": 600,
+    "priceCoin": 32000,
     "priceGem": 0
    },
    {
     "gemType": "critical",
     "gemLevel": 4,
     "statValue": 5,
-    "priceCoin": 0,
-    "priceGem": 30
+    "priceCoin": 128000,
+    "priceGem": 0
    },
    {
     "gemType": "critical",
     "gemLevel": 5,
     "statValue": 7,
     "priceCoin": 0,
-    "priceGem": 60
+    "priceGem": 0
    },
    {
     "gemType": "critical",
     "gemLevel": 6,
     "statValue": 9,
     "priceCoin": 0,
-    "priceGem": 90
+    "priceGem": 0
    },
    {
     "gemType": "critical",
