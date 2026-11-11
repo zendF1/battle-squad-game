@@ -24,12 +24,12 @@ func test_catalog_gems() -> void:
 	eq(GemModel.types(c), ["hp", "damage", "defense", "critical"], "the server's type order")
 	eq(GemModel.levels(c, "hp"), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "levels")
 	eq(GemModel.max_level(c, "critical"), 10, "the merge cap is the catalog's highest level")
-	eq(GemModel.price(GemModel.row(c, "hp", 2)), {"currency": "coin", "amount": 400}, "coin price")
-	eq(GemModel.price(GemModel.row(c, "damage", 5)), {"currency": "gem", "amount": 60}, "kim cương price")
-	check(not GemModel.buyable(GemModel.row(c, "hp", 7)), "level 7 is merge only")
+	eq(GemModel.price(GemModel.row(c, "hp", 2)), {"currency": "coin", "amount": 8000}, "coin price")
+	eq(GemModel.price({"gemType": "damage", "gemLevel": 5, "priceCoin": 0, "priceGem": 60}), {"currency": "gem", "amount": 60}, "kim cương price")
+	check(not GemModel.buyable(GemModel.row(c, "hp", 5)), "level 5 is merge only")
 	var shop := GemModel.shop_rows(c)
 	eq(shop.map(func(g): return g["gemType"]), ["hp", "damage", "defense", "critical"], "a row per type")
-	eq(shop[0]["rows"].map(func(r): return r["gemLevel"]), [1, 2, 3, 4, 5, 6], "the levels sold")
+	eq(shop[0]["rows"].map(func(r): return r["gemLevel"]), [1, 2, 3, 4], "the levels sold: those with a price")
 	var old = EquipmentModel.parse_catalog({"items": []})
 	check(not GemModel.has_catalog(old) and not old.has("gems"), "an older server: no gems, no shop, no merge")
 	eq(GemModel.types(old), GemModel.ORDER, "the gems still show by type")
@@ -39,10 +39,10 @@ func test_catalog_gems() -> void:
 
 func test_affordable() -> void:
 	var c = catalog()
-	var r := GemModel.row(c, "hp", 3) # 600 coin
-	check(GemModel.can_afford(r, 5, 3000, 0), "5 × 600 = 3.000 coin")
-	check(not GemModel.can_afford(r, 5, 2999, 999), "one short: off (kim cương does not pay a coin price)")
-	check(GemModel.can_afford(GemModel.row(c, "defense", 4), 10, 0, 300), "10 × 30 kim cương")
+	var r := GemModel.row(c, "hp", 3) # 32.000 coin
+	check(GemModel.can_afford(r, 5, 160000, 0), "5 × 32.000 = 160.000 coin")
+	check(not GemModel.can_afford(r, 5, 159999, 999999), "one short: off (kim cương does not pay a coin price)")
+	check(GemModel.can_afford({"priceCoin": 0, "priceGem": 30}, 10, 0, 300), "10 × 30 kim cương")
 	check(not GemModel.can_afford(GemModel.row(c, "hp", 8), 1, 9999999, 9999999), "not sold")
 
 
@@ -256,7 +256,7 @@ func test_piece_popup_sockets_mirrored() -> void:
 
 func test_shop_gem_cards() -> void:
 	_with_catalog([])
-	PlayerState.profile = {"coin": 500, "gem": 0}
+	PlayerState.profile = {"coin": 10000, "gem": 0}
 	var ShopTab = load("res://screens/home/shop_tab.gd")
 	eq(ShopTab.SUB_TABS[ShopTab.SOCKET_GEMS], "Ngọc", "Shop › Ngọc")
 	var shop: Control = ShopTab.new()
@@ -270,12 +270,67 @@ func test_shop_gem_cards() -> void:
 	var hp1: Node = page.find_child("Gem_hp_1", true, false)
 	var hp3: Node = page.find_child("Gem_hp_3", true, false)
 	check(hp1 != null and hp3 != null, "cards by type + level")
-	check(page.find_child("Gem_hp_7", true, false) == null, "merge-only levels are not sold")
-	check(not (hp1.find_child("Buy", true, false) as Button).disabled, "200 coin: affordable")
-	check((hp3.find_child("Buy", true, false) as Button).disabled, "600 coin with 500: off")
+	check(page.find_child("Gem_hp_4", true, false) != null, "every priced level")
+	check(page.find_child("Gem_hp_5", true, false) == null and page.find_child("Gem_hp_7", true, false) == null, "merge-only levels are not sold")
+	check(not (hp1.find_child("Buy", true, false) as Button).disabled, "2.000 coin: affordable")
+	check((hp3.find_child("Buy", true, false) as Button).disabled, "32.000 coin with 10.000: off")
 	check(shop._sub_tabs[ShopTab.SOCKET_GEMS].visible, "shown with catalog gems")
 	PlayerState.catalog = EquipmentModel.parse_catalog({"items": []})
 	shop._show_gem_tab()
 	check(not shop._sub_tabs[ShopTab.SOCKET_GEMS].visible, "an older server: hidden")
 	shop.free()
+	_reset()
+
+
+func test_level_as_upgrade_aura_step() -> void:
+	var steps: Array = []
+	for lv in range(1, 11):
+		steps.append(GemModel.aura_step(lv, 10))
+	eq(steps[0], {"tier": 1, "lite": true}, "level 1: the lighter green, near plain")
+	eq(steps[1], {"tier": 1, "lite": false}, "level 2: the full green")
+	eq(steps[9], {"tier": 5, "lite": false}, "level 10: the full red, the strongest")
+	eq(steps.map(func(st): return st["tier"]), [1, 1, 2, 2, 3, 3, 4, 4, 5, 5], "the aura's colour tiers in order")
+	for i in range(1, steps.size()):
+		check(steps[i] != steps[i - 1], "level %d differs from level %d" % [i + 1, i])
+	eq(GemModel.aura_step(0, 10)["tier"], 0, "no level: no aura")
+	eq(GemModel.aura_step(12, 10), {"tier": 5, "lite": false}, "above the top: the strongest")
+	eq(GemModel.aura_step(1, 1), {"tier": 1, "lite": true}, "a single level: the lightest")
+	var six: Array = []
+	for lv in range(1, 7):
+		six.append(GemModel.aura_step(lv, 6))
+	eq(six[0], {"tier": 1, "lite": true}, "fewer levels: still the lightest first")
+	eq(six[5], {"tier": 5, "lite": false}, "and the strongest last")
+	for i in range(1, six.size()):
+		check(six[i] != six[i - 1], "six levels: %d differs from %d" % [i + 1, i])
+
+
+func test_gem_icon_draws_level_with_upgrade_aura() -> void:
+	_with_catalog([])
+	var GemIcon = load("res://ui/gem_icon.gd")
+	var UpgradeAura = load("res://screens/home/upgrade_aura.gd")
+	var g1: Control = GemIcon.make("hp", 1, 80)
+	var g10: Control = GemIcon.make("damage", 10, 80)
+	var a1 = g1.aura_node()
+	var a10 = g10.aura_node()
+	check(a1 != null and a1.get_script() == UpgradeAura, "the piece's upgrade aura")
+	check(a1.show_behind_parent, "behind the gem")
+	eq(a1.size, Vector2(80, 80), "on the gem's square")
+	check(a1.visible and a10.visible, "shown from level 1")
+	eq([a1.shown_tier(), a1.step_lite], [1, true], "level 1: the lighter green")
+	eq([a10.shown_tier(), a10.step_lite], [5, false], "level 10: the full red")
+	check(a1.material != a10.material, "each step its own look")
+	eq(float(a1.material.get_shader_parameter("fill")), 0.0, "the lighter step: no fill")
+	check(float(a10.material.get_shader_parameter("fill")) > 0.5, "the full step: its tier's fill")
+	check(float(a1.material.get_shader_parameter("strength")) < float(UpgradeAura.LOOKS[1]["strength"]), "the lighter step: dimmer")
+	check(GemIcon.make("hp", 4, 80).aura_node().material == GemIcon.make("defense", 4, 64).aura_node().material, "one shared material per step")
+	g1.level = 2
+	eq([a1.shown_tier(), a1.step_lite], [1, false], "follows the level")
+	g1.size = Vector2(120, 120)
+	g1.resized.emit() # the test tree does not lay out
+	eq(a1.size, Vector2(120, 120), "follows the size")
+	var picker: Control = GemIcon.make("hp", 1, 72, false)
+	check(picker.aura_node() == null, "a type picker: the plain gem")
+	check(g1.find_children("*", "Label", true, false).is_empty(), "no level number")
+	for n in [g1, g10, picker]:
+		n.free()
 	_reset()

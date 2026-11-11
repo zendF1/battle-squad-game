@@ -17,7 +17,8 @@ extends RefCounted
 ## gemType, gemLevel}]), else gemSlot1 / gemSlot2 looked up in the owned gems.
 ##
 ## The look by type id (a visual mapping): each type its colour and its own cut (ui/gem_icon.gd),
-## and the stat picture of what it gives (ui/glyph_icon.gd).
+## and the stat picture of what it gives (ui/glyph_icon.gd). The level shows as the upgrade aura of
+## a piece (aura_step(): no number on the gem).
 
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
@@ -51,6 +52,21 @@ static func color(gem_type: String) -> Color:
 
 static func glyph(gem_type: String) -> String:
 	return GLYPHS.get(gem_type, "gem")
+
+
+## The upgrade aura step a gem's level shows (screens/home/upgrade_aura.gd): the aura's colour
+## tiers (green, sky blue, orange, purple, red) each split into a lighter step then the full one,
+## spread over levels 1..`top` (the catalog's highest level of the type): with ten levels, level 1
+## the lighter green (near plain), level 2 the full green ... level 10 the full red, each level its
+## own step. {tier: 1.., lite}; {tier: 0} for a level below 1.
+static func aura_step(level: int, top: int) -> Dictionary:
+	if level < 1:
+		return {"tier": 0, "lite": false}
+	var steps := (UpgradeModel.TIER_COLORS.size() - 1) * 2
+	var i := 0
+	if top > 1:
+		i = clampi(roundi(float(mini(level, top) - 1) * (steps - 1) / float(top - 1)), 0, steps - 1)
+	return {"tier": i / 2 + 1, "lite": i % 2 == 0}
 
 
 # ── Catalog ─────────────────────────────────────────────────────────────────
