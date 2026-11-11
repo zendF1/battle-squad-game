@@ -7,13 +7,17 @@ extends RefCounted
 ##   maxUpgradeLevel) at least the source's level: a transfer never loses a level.
 ## - The price is the catalog's upgradeRates[toLevel = source level].transferGemCost, paid in kim
 ##   cương khoá only (the unlocked kim cương never counts); 0 = that level cannot be transferred.
+## - Both pieces must hold no gems (their `gems` from GET /player/equipment): the player takes the
+##   gems out, transfers, then sockets them again (else 400 EQUIP_TRANSFER_HAS_GEMS).
 ## - An older server's catalog sends no transferGemCost: offered() is false and the tab is hidden.
 
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
+const GemModel := preload("res://screens/home/gem_model.gd")
 const Fmt := preload("res://core/fmt.gd")
 
 const SHORT := "Thiếu kim cương khoá"
+const HAS_GEMS := "Tháo hết ngọc ra trước"
 
 
 ## The catalog prices transfers (its upgradeRates rows carry transferGemCost).
@@ -64,6 +68,20 @@ static func targets(owned: Variant, catalog: Variant, source: Dictionary) -> Arr
 	return ok + dim
 
 
+## The piece holds a gem in a socket (its `gems`, or an older server's gemSlot1 / gemSlot2).
+static func has_gems(piece: Dictionary) -> bool:
+	return not piece.is_empty() and not GemModel.piece_gems(piece).is_empty()
+
+
+## The ids of the pair's pieces that still hold gems (source first): what keeps CHUYỂN HOÁ off.
+static func gem_holders(source: Dictionary, target: Dictionary) -> Array:
+	var out: Array = []
+	for p in [source, target]:
+		if has_gems(p):
+			out.append(str(p.get("equipmentId", "")))
+	return out
+
+
 ## The levels after the swap: {source, target}.
 static func after(source: Dictionary, target: Dictionary) -> Dictionary:
 	return {"source": int(target.get("upgradeLevel", 0)), "target": int(source.get("upgradeLevel", 0))}
@@ -80,6 +98,8 @@ static func blocked_reason(catalog: Variant, source: Dictionary, target: Diction
 		return "Chọn hai món khác nhau"
 	if UpgradeModel.piece_slot(catalog, source) != UpgradeModel.piece_slot(catalog, target):
 		return "Hai món phải cùng loại"
+	if not gem_holders(source, target).is_empty():
+		return HAS_GEMS
 	var level := int(source.get("upgradeLevel", 0))
 	if level <= int(target.get("upgradeLevel", 0)):
 		return "Món nguồn phải cao hơn món nhận"
