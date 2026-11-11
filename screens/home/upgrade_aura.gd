@@ -20,6 +20,11 @@ extends ColorRect
 ##   frame's edge, the glow spilling around it (hexagon frames on open ground);
 ## - inside(): the aura rect is the frame itself, the line inset so the glow stays within it
 ##   (cards and icons in a scroll area, which would clip a glow sticking out).
+##
+## Gems (ui/gem_icon.gd) show their level with the same auras on a step instead of an upgrade
+## level (at_step(), GemModel.aura_step()): a colour tier (1..5) and `step_lite`, the tier's
+## lighter step (LITE: no fill, dimmer, fewer streaks and sparks), so the five tiers give ten steps
+## told apart by eye.
 
 const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 
@@ -213,6 +218,9 @@ const FILL := 0.94
 ## deep violet, orange → dark amber, sky blue → deep blue, green → dark emerald).
 const FILL_DEEP := 0.84
 const FILL_EDGE := 0.64
+## A tier's lighter step (gems): its look's values × these (the streak and spark counts rounded up,
+## at least one), and no fill.
+const LITE := {"strength": 0.6, "streak_gain": 0.7, "flame": 0.4, "cover": 0.75, "streaks": 0.5, "sparks": 0.5}
 
 
 ## [deep, edge] fill colours of a colour tier (1..5).
@@ -225,13 +233,23 @@ static func fill_colors(tier: int) -> Array:
 
 
 static var _shader: Shader
-static var _materials := {} # "tier|shape|pad|radius" -> ShaderMaterial
+static var _materials := {} # "tier|shape|pad|radius|lite" -> ShaderMaterial
 
 var level := 0:
 	set = set_level
 var shape := Shape.HEX
 var pad := PAD
 var radius := 0.08
+## The colour tier shown instead of the level's (gems; -1: the level's) and whether it is the
+## tier's lighter step.
+var step_tier := -1:
+	set(v):
+		step_tier = v
+		_apply()
+var step_lite := false:
+	set(v):
+		step_lite = v
+		_apply()
 
 
 func _init() -> void:
@@ -263,6 +281,14 @@ static func inside(rect_size: Vector2, at_level: int, inset_px: float = 8.0, cor
 	return a
 
 
+## inside() on a step instead of a level: colour `tier` (1..5; 0 hides it), `lite` its lighter step.
+static func at_step(rect_size: Vector2, tier: int, lite: bool, inset_px: float = 8.0, corner_px: float = 12.0, frame_shape: Shape = Shape.RECT) -> Control:
+	var a = inside(rect_size, 0, inset_px, corner_px, frame_shape)
+	a.step_lite = lite
+	a.step_tier = tier
+	return a
+
+
 ## Places the aura around a frame rect (in the aura's parent): the rect grown by the glow's room,
 ## so the line lies on the frame's edge.
 func fit_frame(frame: Rect2, frame_shape: Shape = Shape.HEX, corner: float = 0.08) -> void:
@@ -282,16 +308,21 @@ func set_level(v: int) -> void:
 
 
 func _apply() -> void:
-	var tier := UpgradeModel.color_tier(level)
-	visible = tier > 0
-	if tier > 0:
-		material = material_for(tier, shape, pad, radius)
+	var t := step_tier if step_tier >= 0 else UpgradeModel.color_tier(level)
+	visible = t > 0
+	if t > 0:
+		material = material_for(t, shape, pad, radius, step_lite and step_tier >= 0)
 
 
-## The shared material of a colour tier (1..5), a shape and a fit.
-static func material_for(tier: int, frame_shape: Shape = Shape.HEX, at_pad: float = PAD, corner: float = 0.08) -> ShaderMaterial:
+## The colour tier shown (0 hidden).
+func shown_tier() -> int:
+	return step_tier if step_tier >= 0 else UpgradeModel.color_tier(level)
+
+
+## The shared material of a colour tier (1..5), a shape, a fit and (gems) the lighter step.
+static func material_for(tier: int, frame_shape: Shape = Shape.HEX, at_pad: float = PAD, corner: float = 0.08, lite: bool = false) -> ShaderMaterial:
 	tier = clampi(tier, 1, LOOKS.size() - 1)
-	var key := "%d|%d|%.3f|%.3f" % [tier, frame_shape, at_pad, corner]
+	var key := "%d|%d|%.3f|%.3f|%d" % [tier, frame_shape, at_pad, corner, int(lite)]
 	var m: ShaderMaterial = _materials.get(key)
 	if m != null:
 		return m
@@ -308,8 +339,12 @@ static func material_for(tier: int, frame_shape: Shape = Shape.HEX, at_pad: floa
 	var look: Dictionary = LOOKS[tier]
 	for k in look:
 		m.set_shader_parameter(k, look[k])
+	if lite:
+		for k in LITE:
+			var v := float(look.get(k, 0.0)) * float(LITE[k])
+			m.set_shader_parameter(k, maxf(1.0, ceilf(v)) if k in ["streaks", "sparks"] else v)
 	var fill := fill_colors(tier)
-	m.set_shader_parameter("fill", FILL)
+	m.set_shader_parameter("fill", 0.0 if lite else FILL)
 	m.set_shader_parameter("fill_deep", fill[0])
 	m.set_shader_parameter("fill_edge", fill[1])
 	_materials[key] = m

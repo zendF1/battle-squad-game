@@ -336,7 +336,7 @@ func _held_gems(piece: Dictionary) -> Button:
 		cell.custom_minimum_size = Vector2(HELD_GEM, HELD_GEM)
 		cell.mouse_filter = MOUSE_FILTER_IGNORE
 		cell.size_flags_vertical = SIZE_SHRINK_CENTER
-		cell.add_child(GemIcon.make(str(g.get("gemType", "")), int(g.get("gemLevel", 1)), HELD_GEM, false))
+		cell.add_child(GemIcon.make(str(g.get("gemType", "")), int(g.get("gemLevel", 1)), HELD_GEM))
 		var minus := _minus_mark(MINUS)
 		minus.position = Vector2(HELD_GEM - MINUS * 0.6, -MINUS * 0.35)
 		cell.add_child(minus)
