@@ -98,6 +98,8 @@ const TILE_DIM := 0.62 # how a tile that will not roll shows
 
 ## Where dialogs and toasts go (Home); defaults to this page.
 var overlay: Control
+## The lobby's character (the Chuyển hoá tab's piece popup); Home sets it.
+var lobby_character: Callable
 
 var _sub := UPGRADE
 var _armed := false
@@ -253,6 +255,7 @@ func select_transfer(equipment_id: String) -> void:
 func _build_transfer_page() -> Control:
 	_transfer = TransferPage.new()
 	_transfer.overlay = overlay
+	_transfer.lobby_character = lobby_character
 	return _transfer
 
 

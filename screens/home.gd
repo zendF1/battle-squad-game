@@ -125,6 +125,7 @@ func _ready() -> void:
 	_character.open_shop.connect(open_shop)
 	_upgrade = UpgradePage.new()
 	_upgrade.overlay = self
+	_upgrade.lobby_character = _lobby.character_id
 	_upgrade.open_shop.connect(open_shop)
 	EquipmentUi.open_upgrade = open_upgrade
 	EquipmentUi.open_gem_shop = _open_gem_shop

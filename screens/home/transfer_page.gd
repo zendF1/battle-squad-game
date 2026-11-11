@@ -11,6 +11,11 @@ extends Control
 ##   levels in their colours), each piece's cap mark under those; then CHUYỂN HOÁ with the locked kim cương
 ##   (the gem with its padlock) and the price, off with the reason under it ("Thiếu kim cương khoá"
 ##   in red when the locked balance is short: the unlocked kim cương never pays).
+## - Both pieces must hold no gems (TransferModel.HAS_GEMS): each piece of the pair holding gems shows
+##   them under its column, each with a red "−" (take it out), CHUYỂN HOÁ is off with "Tháo hết ngọc
+##   ra trước" in red; a tap on those gems (or the piece's hexagon) opens the piece popup
+##   (EquipmentUi.open_piece(), its sockets' "−" take the gems out) and the tab redraws once the
+##   pieces reload.
 ## CHUYỂN HOÁ confirms once (the two pieces, the price), then PlayerState.transfer_equipment(). The
 ## result is not a reward (no gift box): the source's aura flows as sparks along an arc into the
 ## target, the target bursts in its new colour and the new levels show; the toast says what was
@@ -27,6 +32,9 @@ const UpgradeModel := preload("res://screens/home/upgrade_model.gd")
 const TransferModel := preload("res://screens/home/transfer_model.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
 const WalletPills := preload("res://ui/wallet_pills.gd")
+const GemModel := preload("res://screens/home/gem_model.gd")
+const GemIcon := preload("res://ui/gem_icon.gd")
+const LoadoutModel := preload("res://screens/loadout_model.gd")
 
 const SIDE_W := 430 # both side panels: the layout is mirrored
 const FRAME := Vector2(136, 157)
@@ -35,9 +43,13 @@ const COL_W := 230
 const DIM := Color(0.8, 0.88, 1.0)
 const BAD := Color(1.0, 0.45, 0.45)
 const FX_SEC := 1.6
+const HELD_GEM := 46 # a gem still in a piece of the pair
+const MINUS := 24 # its red "−"
 
 ## Where dialogs and toasts go (Home); the Nâng cấp page sets it.
 var overlay: Control
+## The lobby's character (the piece popup's "Mặc cho" for a piece nobody wears); the Nâng cấp page sets it.
+var lobby_character: Callable
 
 var _source_id := ""
 var _target_id := ""
@@ -250,6 +262,10 @@ func _render_pair() -> void:
 		else:
 			var item := EquipmentModel.item_of_piece(catalog, p)
 			holder.add_child(EquipmentUi.hex_frame(FRAME, int(p.get("upgradeLevel", 0)), EquipmentUi.item_icon(item, {}, BIG_ICON), 4))
+			if TransferModel.has_gems(p) and not _acting: # a tap opens the piece to take its gems out
+				holder.mouse_filter = MOUSE_FILTER_STOP
+				holder.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+				holder.gui_input.connect(_on_hex_input.bind(p))
 	# "+10 → +0" | "+0 → +10"
 	for i in 2:
 		if i == 1:
@@ -280,6 +296,91 @@ func _render_pair() -> void:
 		if cap >= 0:
 			var after: int = int(levels["source" if i == 0 else "target"]) if not levels.is_empty() else int(p.get("upgradeLevel", 0))
 			holder.add_child(EquipmentUi.cap_mark(cap, after >= cap, 19))
+	# The gems still in the pieces (a transfer needs both empty), each with its red "−".
+	if _acting or TransferModel.gem_holders(source, target).is_empty():
+		return
+	for i in 2:
+		if i == 1:
+			_grid.add_child(Control.new())
+		var holder := CenterContainer.new()
+		holder.name = "SourceGems" if i == 0 else "TargetGems"
+		holder.custom_minimum_size = Vector2(COL_W, HELD_GEM + 20)
+		_grid.add_child(holder)
+		var p: Dictionary = cols[i]
+		if TransferModel.has_gems(p):
+			holder.add_child(_held_gems(p))
+
+
+## The gems `piece` still holds as one button (they read as "take these out"): each gem with a red
+## "−" on its corner; a tap opens the piece popup.
+func _held_gems(piece: Dictionary) -> Button:
+	var b := Button.new()
+	b.name = "HeldGems"
+	b.focus_mode = FOCUS_NONE
+	b.tooltip_text = "Tháo ngọc"
+	b.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+	LobbyUi.style_button(b, Color(0.08, 0.11, 0.26, 0.9), 14, 6, Color(BAD, 0.8), 2)
+	var row := Ui.hbox(10)
+	row.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	row.offset_left = 10
+	row.offset_right = -10
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.mouse_filter = MOUSE_FILTER_IGNORE
+	b.add_child(row)
+	var held := GemModel.piece_gems(piece, PlayerState.gems)
+	var slots := held.keys()
+	slots.sort()
+	for slot in slots:
+		var g: Dictionary = held[slot]
+		var cell := Control.new()
+		cell.custom_minimum_size = Vector2(HELD_GEM, HELD_GEM)
+		cell.mouse_filter = MOUSE_FILTER_IGNORE
+		cell.size_flags_vertical = SIZE_SHRINK_CENTER
+		cell.add_child(GemIcon.make(str(g.get("gemType", "")), int(g.get("gemLevel", 1)), HELD_GEM, false))
+		var minus := _minus_mark(MINUS)
+		minus.position = Vector2(HELD_GEM - MINUS * 0.6, -MINUS * 0.35)
+		cell.add_child(minus)
+		row.add_child(cell)
+	b.custom_minimum_size = Vector2(slots.size() * (HELD_GEM + 10) + 20, HELD_GEM + 16)
+	b.pressed.connect(_open_piece.bind(piece))
+	return b
+
+
+## A round red "−" of `px` drawn in code (the piece popup's Tháo mark, smaller).
+static func _minus_mark(px: int) -> Control:
+	var c := Control.new()
+	c.name = "Minus"
+	c.custom_minimum_size = Vector2(px, px)
+	c.size = c.custom_minimum_size
+	c.mouse_filter = MOUSE_FILTER_IGNORE
+	c.draw.connect(func() -> void:
+		var r := px / 2.0
+		var mid := Vector2(r, r)
+		c.draw_circle(mid, r, Color(0.05, 0.03, 0.08), true, -1.0, true)
+		c.draw_circle(mid, r - 2.5, Color(0.88, 0.22, 0.24), true, -1.0, true)
+		c.draw_line(mid - Vector2(r * 0.45, 0), mid + Vector2(r * 0.45, 0), Color.WHITE, 3.0, true))
+	return c
+
+
+func _on_hex_input(event: InputEvent, piece: Dictionary) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		_open_piece(piece)
+	elif event is InputEventScreenTouch and not event.pressed:
+		_open_piece(piece)
+
+
+## The piece popup (its sockets' "−" take the gems out), opened for its wearer (else the lobby's
+## character); the Nâng cấp page redraws this tab when the pieces reload.
+func _open_piece(piece: Dictionary) -> void:
+	if _acting:
+		return
+	var fresh := EquipmentModel.find_piece(PlayerState.equipment, str(piece.get("equipmentId", "")))
+	if fresh.is_empty():
+		return
+	var who := EquipmentModel.wearer(fresh)
+	if who == "":
+		who = str(lobby_character.call()) if lobby_character.is_valid() else LoadoutModel.default_character()
+	EquipmentUi.open_piece(overlay if overlay != null else self, fresh, who)
 
 
 static func _level_label(level: int, font_size: int) -> Label:
@@ -310,9 +411,10 @@ func _render_go() -> void:
 	_go_text.get_node("LockedGem").visible = price > 0
 	_go_text.modulate = Color(1, 1, 1, 0.5 if _go.disabled else 1.0)
 	var short := reason == TransferModel.SHORT
+	var bad := short or reason == TransferModel.HAS_GEMS
 	_go_price.add_theme_color_override("font_color", Color(0.7, 0.08, 0.08) if short else LobbyUi.TEXT_DARK)
 	_reason.text = reason
-	_reason.add_theme_color_override("font_color", BAD if short else Ui.TEXT_DIM)
+	_reason.add_theme_color_override("font_color", BAD if bad else Ui.TEXT_DIM)
 
 
 func _on_source(id: String) -> void:
