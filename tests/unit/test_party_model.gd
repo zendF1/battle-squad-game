@@ -109,8 +109,8 @@ func test_invite_sent_counts_down_on_the_row() -> void:
 		{"playerId": "me", "displayName": "Tôi", "status": "idle"}]}, 0.0)
 	eq(p.players.size(), 3, "rows, never me")
 	eq(p.row_button(p.players[0], 0.0), {"text": "Mời", "disabled": false}, "idle: Mời")
-	eq(p.row_button(p.players[1], 0.0), {"text": "Bận", "disabled": true}, "in a lobby: Bận")
-	eq(p.row_button(p.players[2], 0.0), {"text": "Đang trận", "disabled": true}, "in a match: Đang trận")
+	eq(p.row_button(p.players[1], 0.0), {"text": "Mời", "disabled": true}, "in a lobby: Mời off (its status picture says why)")
+	eq(p.row_button(p.players[2], 0.0), {"text": "Mời", "disabled": true}, "in a match: Mời off")
 	eq(p.on_event("InviteSent", {"playerId": "p2", "expiresInSec": 30}, 1.0), [["players"]], "sent")
 	eq(p.row_button(p.players[0], 1.0), {"text": "Đã mời (30s)", "disabled": true}, "Đã mời (30s)")
 	eq(p.row_button(p.players[0], 13.5), {"text": "Đã mời (18s)", "disabled": true}, "counting down")
@@ -365,3 +365,68 @@ func test_member_and_player_badges() -> void:
 	check(not m.has("tier"), "the old tier is not carried")
 	eq(PartyModel.parse_member({"playerId": "p2"})["rankBadge"], "", "none (omitempty)")
 	eq(PartyModel.parse_player({"playerId": "p3", "rankBadge": "dai_uy"})["rankBadge"], "dai_uy", "an online player's")
+
+
+# ── The invite popup's Friends tab (ListFriends → Friends) ──────────────────
+
+func test_friends_tab_lists_friends() -> void:
+	var p := _party()
+	eq(p.tab, PartyModel.TAB_SUGGEST, "the suggestions first")
+	eq(p.set_tab(PartyModel.TAB_SUGGEST), [], "the same tab: nothing")
+	p.on_event("OnlinePlayers", {"players": _online(["a"]), "page": 1, "hasMore": true}, 0.0)
+	p.list_page(1)
+	p.on_event("OnlinePlayers", {"players": _online(["b"]), "page": 2, "hasMore": true}, 0.0)
+	check(p.loaded, "the suggestions came")
+	eq(p.set_tab(PartyModel.TAB_FRIENDS), [["players"]], "a new tab redraws")
+	eq(p.players, [], "its rows dropped")
+	check(not p.loaded, "loading the friends")
+	eq(p.page, 1, "back to page 1")
+	eq(p.pager(), {"prev": false, "next": false, "shown": false}, "no pager yet")
+	eq(p.list(""), [["send", "ListFriends", {"page": 1}]], "ListFriends from page 1")
+	eq(p.list("hi", 1), [["send", "ListFriends", {"query": "hi", "page": 1}]], "the search box filters the friends")
+	eq(p.on_event("Friends", {"players": _online(["f1", "f2"]), "page": 1, "hasMore": true}, 0.0), [["players"]], "rows")
+	eq(p.players.size(), 2, "two friends")
+	check(p.loaded, "the friends came")
+	eq(p.list_page(1), [["send", "ListFriends", {"query": "hi", "page": 2}]], "▶ on the friends")
+	eq(p.set_tab(PartyModel.TAB_SUGGEST), [["players"]], "back to the suggestions")
+	eq(p.list(""), [["send", "ListOnlinePlayers", {"page": 1}]], "suggestions from page 1")
+	eq(p.set_tab("nonsense"), [], "an unknown tab is the suggestions")
+
+
+func test_answers_for_the_other_tab_are_dropped() -> void:
+	var p := _party()
+	p.set_tab(PartyModel.TAB_FRIENDS)
+	eq(p.on_event("OnlinePlayers", {"players": _online(["a"]), "page": 1, "hasMore": false}, 0.0), [], "a late OnlinePlayers")
+	eq(p.players, [], "no rows from it")
+	p.on_event("Friends", {"players": _online(["f1"]), "page": 1, "hasMore": false}, 0.0)
+	p.set_tab(PartyModel.TAB_SUGGEST)
+	eq(p.on_event("Friends", {"players": _online(["f1"]), "page": 1, "hasMore": false}, 0.0), [], "a late Friends")
+	eq(p.players, [], "still none")
+
+
+func test_friends_cards_status_and_nickname() -> void:
+	var p := _party()
+	p.on_event("LobbyUpdated", _lobby([HOST]), 0.0)
+	p.set_tab(PartyModel.TAB_FRIENDS)
+	p.on_event("Friends", {"players": [
+		{"playerId": "f1", "displayName": "Alex", "nickname": "Anh Tư", "level": 12, "tier": "silver", "division": 2, "characterId": "spark", "status": "idle"},
+		{"playerId": "f2", "displayName": "Hiền", "level": 9, "characterId": "tanko", "status": "in_lobby"},
+		{"playerId": "f3", "displayName": "Bot", "level": 7, "characterId": "flora", "status": "in_match"},
+		{"playerId": "f4", "displayName": "Ngủ", "nickname": "", "level": 3, "characterId": "tanko", "status": "offline"},
+		{"playerId": "f5", "displayName": "Mới", "status": "away"}], "page": 1, "hasMore": false}, 0.0)
+	eq(p.players.size(), 5, "every friend")
+	eq(p.players[0]["nickname"], "Anh Tư", "the nickname kept")
+	eq(PartyModel.shown_name(p.players[0]), "Anh Tư", "the nickname shown")
+	eq(PartyModel.shown_name(p.players[3]), "Ngủ", "no nickname: their name")
+	eq(p.players[3]["status"], PartyModel.OFFLINE, "offline")
+	eq(p.players[4]["status"], PartyModel.IDLE, "an unknown status is idle")
+	eq(p.row_button(p.players[0], 0.0), {"text": "Mời", "disabled": false}, "online: Mời")
+	eq(p.row_button(p.players[1], 0.0)["disabled"], true, "in a lobby: off")
+	eq(p.row_button(p.players[2], 0.0)["disabled"], true, "in a match: off")
+	eq(p.row_button(p.players[3], 0.0), {"text": "Mời", "disabled": true}, "offline: off")
+	eq(p.invite("f1", 1.0), [["send", "InviteToLobby", {"playerId": "f1"}]], "a friend's invite is InviteToLobby")
+	eq(p.on_event("LobbyError", _err("PLAYER_OFFLINE"), 1.2), [["toast", "Người chơi này không còn online"]], "PLAYER_OFFLINE")
+	p.invite("f1", 2.0)
+	eq(p.on_event("LobbyError", _err("PLAYER_BUSY"), 2.2), [["toast", "Người chơi này đang bận"]], "PLAYER_BUSY")
+	eq(p.on_event("Friends", {"players": [], "page": 1, "hasMore": false}, 3.0), [["players"]], "no friends")
+	eq(p.players, [], "an empty list")

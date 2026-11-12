@@ -9,6 +9,7 @@ extends "res://ui/modal.gd"
 const GuildModel := preload("res://screens/guild/guild_model.gd")
 const HeadIcon := preload("res://screens/home/head_icon.gd")
 const OnlinePager := preload("res://screens/home/online_pager.gd")
+const PartyModel := preload("res://screens/home/party_model.gd")
 
 const DEBOUNCE := 0.4
 const REFRESH_SEC := 5.0
@@ -59,6 +60,7 @@ func open_for(host: Node, p) -> void:
 		party.list_page(dir))
 	body.add_child(pager)
 	party.players_changed.connect(_render)
+	party.set_tab(PartyModel.TAB_SUGGEST) # the online players, whatever the teammate popup showed last
 	_render()
 	party.list("", 1)
 
