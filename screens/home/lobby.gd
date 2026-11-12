@@ -1,7 +1,7 @@
 extends Control
 ## The Home lobby (a Gunny-style mobile lobby). Corners: the player (avatar letter, name, EXP
 ## bar, "Lv.N"; tap opens the Nhân vật page) top-left with the rank chip beside it (grade insignia,
-## "Binh nhì 2", the division's points; tap: the rank popup, screens/ranked/rank_chip.gd), the wallet pills top-right, the connection
+## "Binh nhì 2", the division's points; tap: the rank ladder, screens/ranked/rank_chip.gd), the wallet pills top-right, the connection
 ## state top-centre, the gear right of the wallet (the settings popup, settings_popup.gd), one round shortcut per page down the right (Nhân vật, Kho đồ, Nâng cấp,
 ## Hồ sơ, Shop, Xếp hạng: the trophy, a code-drawn glyph), the selected character's icon card on the left (character_card.gd; no sentences: its element chain,
 ## ui/element_chain.gd, beaten by → element → beats; its skill's picture, ui/skill_button.gd, a tap

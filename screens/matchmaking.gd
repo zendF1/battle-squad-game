@@ -8,7 +8,9 @@ extends Control
 ## in capitals (the game data's, "ĐẤU HẠNG 2VS2") centred at the top. Round the emblem the timer
 ## ring (ring_timer.gd: fills clockwise with the wait, 30 s a lap, empty again after each), the
 ## seconds waited small under it ("0:31"). Bottom: a tip changing every TIP_SEC and "Hủy ghép"
-## (also Esc / Android back), which cancels the queue and goes back to Home. MatchFound: "Hủy
+## (also Esc / Android back), which cancels the queue and goes back to Home. A tap on my card's
+## insignia opens the rank ladder over the screen (rank_ladder.gd; its back, Esc or Android back
+## close it, MatchFound too). MatchFound: "Hủy
 ## ghép" goes, the ring runs to full and bursts (flash, sparks, scale pop),
 ## "Tìm thấy trận!" pops and the silhouettes flip one by one into the real players (bots too,
 ## MatchmakingModel order); the match opens once MatchStarted came and the reveal had
@@ -46,6 +48,7 @@ const BossArtView := preload("res://match/boss/boss_art_view.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
 const ElementBackdrop := preload("res://ui/element_backdrop.gd")
 const RingTimer := preload("res://screens/ranked/ring_timer.gd")
+const RankLadder := preload("res://screens/ranked/rank_ladder.gd")
 
 const BOSS_CARD_SCALE := 0.74 # the party's compact cards in a boss queue
 const BOSS_GAP := 16 # between the boss queue's cards
@@ -247,6 +250,8 @@ func _team(enemy: bool) -> Control:
 		else:
 			cards.add_child(card)
 		_cards.append(card)
+		if card.mine:
+			card.rank_pressed.connect(open_ladder)
 	return cards
 
 
@@ -495,6 +500,9 @@ func _next_tip() -> void:
 
 func _on_found(data: Variant) -> void:
 	_found_for = 0.0
+	var ladder := RankLadder.find_in(self) # the reveal shows
+	if ladder != null:
+		ladder.close()
 	_cancel.disabled = true
 	var fade := _cancel.create_tween()
 	fade.tween_property(_cancel, "modulate:a", 0.0, 0.25)
@@ -573,6 +581,15 @@ func _maybe_go() -> void:
 	Router.go(Router.MATCH)
 
 
+## The rank ladder over the screen (a tap on my card's insignia) while searching; it closes at
+## MatchFound.
+func open_ladder() -> Control:
+	if _found_for >= 0.0:
+		return null
+	var open := RankLadder.find_in(self)
+	return open if open != null else RankLadder.open(self, "Quay lại")
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
@@ -580,5 +597,5 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST and RankLadder.find_in(self) == null: # the ladder closes first
 		cancel()

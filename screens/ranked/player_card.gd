@@ -3,7 +3,8 @@ extends Control
 ## a big "?" and "Đang ghép..." with a light band sweeping over the card. Filled: the player's
 ## title plate (when known), the character's full-body picture breathing on a glowing floor,
 ## name, "Lv.N" (" · Máy" for a bot) and, with a badge (rankBadge: last season's final grade),
-## its insignia with the grade's name; the badge's frame (grade_frame.gd) round the card. The rim
+## its insignia with the grade's name (on my own card a tap there: rank_pressed); the badge's
+## frame (grade_frame.gd) round the card. The rim
 ## and the glow are the team's colour (blue mine, red the enemies'). With real frame art in the
 ## row (fit_art, set by the screen for every card when any card's badge has art): the art's outer
 ## bounds fit the card's own rect and everything else shrinks into its window
@@ -62,6 +63,9 @@ void fragment() {
 	COLOR = vec4(c, bg.a * inside);
 }
 """
+
+## A tap on the insignia of my own card (the Matchmaking screen opens the rank ladder).
+signal rank_pressed
 
 static var _face_shader: Shader
 
@@ -312,6 +316,13 @@ func _build() -> void:
 		rl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(rl)
 		col.add_child(row)
+		if mine: # a tap: the rank ladder
+			row.name = "RankRow"
+			row.mouse_filter = MOUSE_FILTER_STOP
+			row.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+			row.gui_input.connect(func(e: InputEvent) -> void:
+				if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+					rank_pressed.emit())
 
 
 func _label(value: String, font_size: int, color: Color) -> Label:
