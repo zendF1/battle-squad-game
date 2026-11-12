@@ -3,9 +3,12 @@ extends RefCounted
 ## teammate slots and the invite popups), without UI or socket: the lobby from LobbyUpdated (its
 ## queue: the mode the host chose; its size: that mode's partySize, capacity()), my role in it
 ## (host / member), the teammates, the invites I sent with
-## their expiry, the invite shown to me, and the rows of the invite popup (OnlinePlayers: one page
-## of them, its number and whether more follow; list() / list_page() ask for a page, a new query
-## goes back to page 1, an answer without `page` (an older server) is page 1 with no more).
+## their expiry, the invite shown to me, and the rows of the invite popup (one page of them, its
+## number and whether more follow; list() / list_page() ask for a page, a new query goes back to
+## page 1, an answer without `page` (an older server) is page 1 with no more). The popup's tab
+## (`tab`, set_tab()) picks the list: TAB_SUGGEST the suggestions (ListOnlinePlayers →
+## OnlinePlayers), TAB_FRIENDS my friends (ListFriends → Friends, offline ones too; server contract
+## docs/contracts/friends-invite.md); an answer for the other tab is dropped.
 ## on_event(), tick() and the commands (invite(), respond(), kick(), set_ready(), confirm_ready(),
 ## set_character(), select_queue(), leave(), list(), list_page()) return the actions the owner (screens/home/party.gd) carries out, in order:
 ##   ["send", event, data]  send it on the game socket
@@ -43,6 +46,10 @@ const GameData := preload("res://autoload/game_data_model.gd")
 const IDLE := "idle"
 const IN_LOBBY := "in_lobby"
 const IN_MATCH := "in_match"
+const OFFLINE := "offline" # a friend not online (only in Friends)
+const STATUSES := [IDLE, IN_LOBBY, IN_MATCH, OFFLINE]
+const TAB_SUGGEST := "suggest" # the invite popup's tabs
+const TAB_FRIENDS := "friends"
 const ERROR_WINDOW := 5.0 # s after a request of mine its LobbyError is mine to show
 
 const KICKED := "Bạn đã bị mời ra khỏi đội"
@@ -62,10 +69,13 @@ var queue := "" # the queue of the mode chosen on Home ("" the server's default)
 var lobby := {} # parse_lobby() of the last LobbyUpdated; {} not in a lobby
 var sent := {} # playerId -> expiry (s) of my invites still waiting
 var incoming := {} # the invite shown to me: parse_invite() + expires_at; {} none
-var players: Array = [] # parse_player() of the last OnlinePlayers
-var page := 1 # the page of the last OnlinePlayers (1 the first)
+var tab := TAB_SUGGEST # the list the invite popup shows (TAB_SUGGEST / TAB_FRIENDS)
+var invite_tab := TAB_SUGGEST # the tab the teammate invite popup last showed (it opens on it again)
+var players: Array = [] # parse_player() of the last OnlinePlayers / Friends of the tab
+var page := 1 # the page of that answer (1 the first)
 var has_more := false # more players after that page
-var query := "" # the query of the last ListOnlinePlayers
+var loaded := false # an answer for the tab came (the popup says "Đang tải..." before it)
+var query := "" # the query of the last ListOnlinePlayers / ListFriends
 var _want_page := 1 # the page the popup is on (sent again by a refresh)
 var _invite_after_create := "" # a playerId to invite once CreateLobby answers
 var _inviting := "" # the playerId of the InviteToLobby waiting for its answer
@@ -119,16 +129,25 @@ static func parse_lobby(d: Variant) -> Dictionary:
 		"queue": _str(d.get("queue"), GameData.ranked_mode()), "members": members}
 
 
-## An OnlinePlayer: {playerId, displayName, level, rankBadge ("" none), characterId, status (idle /
-## in_lobby / in_match)}; {} not a player.
+## An OnlinePlayer (a Friends card too): {playerId, displayName, nickname (my private name for a
+## friend, "" none), level, rankBadge ("" none), characterId, status (idle / in_lobby / in_match /
+## offline; an unknown one is idle)}; {} not a player.
 static func parse_player(p: Variant) -> Dictionary:
 	if not p is Dictionary or _str(p.get("playerId")) == "":
 		return {}
 	var id := _str(p.get("playerId"))
 	var status := _str(p.get("status"), IDLE)
-	return {"playerId": id, "displayName": _str(p.get("displayName"), id.left(8)), "level": _num(p.get("level")),
-		"rankBadge": RankModel.badge_of(p),
+	if not status in STATUSES:
+		status = IDLE
+	return {"playerId": id, "displayName": _str(p.get("displayName"), id.left(8)), "nickname": _str(p.get("nickname")),
+		"level": _num(p.get("level")), "rankBadge": RankModel.badge_of(p),
 		"characterId": _str(p.get("characterId"), GameData.default_character_id()), "status": status}
+
+
+## The name a row shows: my nickname for them, else their name.
+static func shown_name(p: Dictionary) -> String:
+	var nick := str(p.get("nickname", ""))
+	return nick if nick != "" else str(p.get("displayName", ""))
 
 
 ## A LobbyInvite: {inviteId, lobbyId, mode, expiresInSec, from: parse_player()}; {} without an id.
@@ -238,17 +257,14 @@ func sent_left(player_id: String, now: float) -> int:
 
 
 ## The popup row's button for an OnlinePlayer: {text, disabled}. Already in my lobby: "Trong đội";
-## in a match: "Đang trận"; in a lobby with someone: "Bận"; invited: "Đã mời (12s)"; my party full:
-## "Mời" off; else "Mời".
+## in a match, in a lobby with someone (the server answers PLAYER_BUSY) or offline: "Mời" off (the
+## row's status picture says why); invited: "Đã mời (12s)"; my party full: "Mời" off; else "Mời".
 func row_button(p: Dictionary, now: float) -> Dictionary:
 	var id := str(p.get("playerId", ""))
 	if id != me and teammates().any(func(m): return m["playerId"] == id):
 		return {"text": IN_TEAM, "disabled": true}
-	match str(p.get("status", IDLE)):
-		IN_MATCH:
-			return {"text": "Đang trận", "disabled": true}
-		IN_LOBBY:
-			return {"text": "Bận", "disabled": true}
+	if str(p.get("status", IDLE)) != IDLE:
+		return {"text": "Mời", "disabled": true}
 	var left := sent_left(id, now)
 	if left > 0:
 		return {"text": "Đã mời (%ds)" % left, "disabled": true}
@@ -273,8 +289,24 @@ func _expect(now: float) -> void:
 	_expect_until = now + ERROR_WINDOW
 
 
-## ListOnlinePlayers {query?, page}: "" lists everyone. at_page ≥ 1 asks for that page; 0 asks
-## again for the page the popup is on, page 1 when the query changed.
+## The invite popup shows tab `t` (TAB_SUGGEST / TAB_FRIENDS; anything else is TAB_SUGGEST): a
+## new tab drops the rows and goes back to page 1 (["players"]); list() then asks for it.
+func set_tab(t: String) -> Array:
+	if t != TAB_FRIENDS:
+		t = TAB_SUGGEST
+	if t == tab:
+		return []
+	tab = t
+	players = []
+	page = 1
+	has_more = false
+	loaded = false
+	_want_page = 1
+	return [["players"]]
+
+
+## ListOnlinePlayers (ListFriends on TAB_FRIENDS) {query?, page}: "" lists everyone. at_page ≥ 1
+## asks for that page; 0 asks again for the page the popup is on, page 1 when the query changed.
 func list(q: String, at_page: int = 0) -> Array:
 	q = q.strip_edges()
 	if at_page >= 1:
@@ -285,7 +317,7 @@ func list(q: String, at_page: int = 0) -> Array:
 	var data := {"page": _want_page}
 	if q != "":
 		data["query"] = q
-	return [["send", "ListOnlinePlayers", data]]
+	return [["send", "ListFriends" if tab == TAB_FRIENDS else "ListOnlinePlayers", data]]
 
 
 ## The page before (step -1, while page > 1) or after (+1, while has_more) the one shown.
@@ -441,7 +473,10 @@ func on_event(event: String, data: Variant, now: float) -> Array:
 				return []
 			forget()
 			return [["toast", KICKED], ["changed"]]
-		"OnlinePlayers":
+		"OnlinePlayers", "Friends":
+			if (event == "Friends") != (tab == TAB_FRIENDS):
+				return [] # the answer for the other tab (switched since)
+			loaded = true
 			players = []
 			if data is Dictionary and data.get("players") is Array:
 				for p in data["players"]:
@@ -576,5 +611,5 @@ func _on_error(data: Variant, now: float) -> Array:
 func _name_of(id: String) -> String:
 	for p in players:
 		if p["playerId"] == id:
-			return p["displayName"]
+			return shown_name(p)
 	return id.left(8)

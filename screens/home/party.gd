@@ -36,7 +36,12 @@ func _on_event(event: String, data: Variant) -> void:
 	_run(model.on_event(event, data, now()))
 
 
-## ListOnlinePlayers: at_page ≥ 1 that page, 0 the page shown (page 1 for a new query).
+## The invite popup's tab (PartyModel.TAB_SUGGEST / TAB_FRIENDS): a new one empties the rows.
+func set_tab(tab: String) -> void:
+	_run(model.set_tab(tab))
+
+
+## ListOnlinePlayers (ListFriends on the Friends tab): at_page ≥ 1 that page, 0 the page shown (page 1 for a new query).
 func list(query: String, at_page: int = 0) -> void:
 	_run(model.list(query, at_page))
 
