@@ -55,7 +55,7 @@ func test_entries() -> void:
 	var bot := ResultModel.entry("bot_a", PLAYERS["bot_a"], {}, "me", 40, "", 0)
 	eq([bot["badge"], ResultModel.level_text(bot)], ["", ""], "a quick play bot: no line")
 	var ranked_bot := ResultModel.entry("bot_a", PLAYERS["bot_a"], {"level": 30}, "me", 40, "", 0)
-	eq(ResultModel.level_text(ranked_bot), "Lv.30 · Máy", "a ranked bot")
+	eq(ResultModel.level_text(ranked_bot), "Lv.30", "a ranked bot: the level only, no \"Máy\"")
 	eq(ResultModel.entry("me", PLAYERS["me"], {}, "me", 7, "", 0)["badge"], "", "no badge")
 	check(not me.has("tier"), "the old tier is never shown")
 

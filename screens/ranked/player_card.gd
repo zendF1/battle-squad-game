@@ -2,9 +2,9 @@ extends Control
 ## One tall card of the matchmaking screen. Empty (searching): a dark silhouette of a fighter,
 ## a big "?" and "Đang ghép..." with a light band sweeping over the card. Filled: the player's
 ## title plate (when known), the character's full-body picture breathing on a glowing floor,
-## name, "Lv.N" (" · Máy" for a bot) and, with a badge (rankBadge: last season's final grade),
-## its insignia with the grade's name (on my own card a tap there: rank_pressed); the badge's
-## frame (grade_frame.gd, its medallion carrying the insignia) round the card. Without a badge
+## name and "Lv.N"; with a badge (rankBadge: last season's final grade) the badge's frame
+## (grade_frame.gd, its medallion carrying the insignia) round the card says the rank, no words
+## (on my own card a tap: rank_pressed). Without a badge
 ## the rim and the glow are the team's colour (blue mine, red the enemies'); a badge holder's card
 ## takes the grade's look (grade_look.gd: the tier's background with a spotlight, sparkles, the
 ## grade's dais under the figure) and keeps the team's colour as a band behind the name. With
@@ -19,17 +19,15 @@ const LobbyUi := preload("res://ui/lobby_ui.gd")
 const CharacterView := preload("res://ui/character_view.gd")
 const Art := preload("res://ui/art.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
-const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
 const GradeFrame := preload("res://screens/ranked/grade_frame.gd")
 const GradeLook := preload("res://screens/ranked/grade_look.gd")
 const GradePedestal := preload("res://screens/ranked/grade_pedestal.gd")
-const RankModel := preload("res://screens/ranked/rank_model.gd")
 const MatchmakingModel := preload("res://screens/ranked/matchmaking_model.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
 const SIZE := Vector2(268, 520)
-const COMPACT_SIZE := Vector2(268, 432) # compact: no "BẠN" tag, no rank row
+const COMPACT_SIZE := Vector2(268, 448) # compact: a lower name, a smaller dais
 const ART_TOP := 46.0
 const ART_H := 290.0
 const BLUE := Color(0.36, 0.62, 1.0)
@@ -40,7 +38,9 @@ const RADIUS := 22
 const FLIP_SEC := 0.16
 const FRAME_OUT := 5.0 # the badge's frame sits this far outside the card's rim
 const CREST := 40.0 # the badge on the code frame's medallion
-const DAIS_RX := 66.0 # a badge holder's dais: its top face's half-width
+const DAIS_RX := 94.0 # a badge holder's dais: its top face's half-width (wider than the shoulders)
+const COMPACT_DAIS_RX := 74.0
+const FEET_Y := ART_TOP + ART_H - 18.0 # the figure's feet: the dais's top face is centred here
 const TITLE_DROP := 26.0 # the title plate under the badge frame's medallion (every card alike)
 const TEAM_BAND := 40.0 # a badge holder's team colour: a band this tall behind the name
 
@@ -192,7 +192,7 @@ func _restyle() -> void:
 ## dais (grade_pedestal.gd); without a badge the team-coloured floor light.
 func _draw_floor(c: Control) -> void:
 	var rim := _rim()
-	var at := Vector2(_size().x / 2, ART_TOP + ART_H - 10)
+	var at := Vector2(_size().x / 2, FEET_Y)
 	var g := _badge()
 	if GradeLook.tier_of(g) >= 0:
 		GradeLook.draw_sparkles(c, Rect2(Vector2.ZERO, _size()), g)
@@ -201,16 +201,16 @@ func _draw_floor(c: Control) -> void:
 		c.draw_polygon(PackedVector2Array([Vector2(0, y), Vector2(w / 2, y), Vector2(w, y), Vector2(w, y + TEAM_BAND),
 			Vector2(w / 2, y + TEAM_BAND), Vector2(0, y + TEAM_BAND)]),
 			PackedColorArray([Color(rim, 0.0), Color(rim, 0.6), Color(rim, 0.0), Color(rim, 0.0), Color(rim, 0.6), Color(rim, 0.0)]))
-		GradePedestal.draw(c, at, DAIS_RX, g)
+		GradePedestal.draw(c, at, COMPACT_DAIS_RX if compact else DAIS_RX, g)
 		return
 	_ellipse(c, at, Vector2(_size().x * 0.4, 22), Color(rim, 0.28))
 	_ellipse(c, at, Vector2(_size().x * 0.26, 12), Color(rim.lightened(0.4), 0.3))
 
 
-## The name and the rows sit this much lower than the art's foot (clear of a badge holder's
+## The name and the level sit this much lower than the art's foot (clear of a badge holder's
 ## dais; less on a compact card). Every card alike, so a row's names line up.
 func _drop() -> float:
-	return 14.0 if compact else 30.0
+	return 22.0 if compact else 58.0
 
 
 ## The shown player's badge ("" none or the searching card).
@@ -267,6 +267,10 @@ func _build() -> void:
 	face.set_shader_parameter("foot_y", ART_TOP + ART_H + _drop())
 	_floor.queue_redraw()
 	_rim_layer.queue_redraw()
+	# my own badge holder's card: a tap opens the rank ladder (the frame says the rank)
+	var tap := mine and not compact and _badge() != ""
+	mouse_filter = MOUSE_FILTER_STOP if tap else MOUSE_FILTER_IGNORE
+	mouse_default_cursor_shape = CURSOR_POINTING_HAND if tap else CURSOR_ARROW
 	if not empty and title.size() > 0:
 		var plate := TitlePlate.new()
 		plate.plate_height = 34
@@ -309,23 +313,11 @@ func _build() -> void:
 	var lv := MatchmakingModel.level_text(_player)
 	if lv != "":
 		col.add_child(_label(lv, 22, LobbyUi.GOLD))
-	var badge := "" if compact else str(_player.get("rankBadge", ""))
-	if badge != "":
-		var row := Ui.hbox(6)
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.mouse_filter = MOUSE_FILTER_IGNORE
-		row.add_child(GradeBadge.make(badge, 0, 48))
-		var rl := _label(RankModel.grade_name(badge), 24, GradeBadge.text_color(badge))
-		rl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		row.add_child(rl)
-		col.add_child(row)
-		if mine: # a tap: the rank ladder
-			row.name = "RankRow"
-			row.mouse_filter = MOUSE_FILTER_STOP
-			row.mouse_default_cursor_shape = CURSOR_POINTING_HAND
-			row.gui_input.connect(func(e: InputEvent) -> void:
-				if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
-					rank_pressed.emit())
+
+
+func _gui_input(e: InputEvent) -> void:
+	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+		rank_pressed.emit()
 
 
 func _label(value: String, font_size: int, color: Color) -> Label:
