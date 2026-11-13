@@ -126,11 +126,9 @@ static func entry(id: String, p: Dictionary, roster: Dictionary, me: String, my_
 		"level": level, "damage": damage}
 
 
-## "Lv.40" (" · Máy" for a bot), "" without a level (a Quick Play bot: its name says it).
+## "Lv.40", "" without a level. A bot reads like a player (no "Máy").
 static func level_text(e: Dictionary) -> String:
-	if int(e["level"]) <= 0:
-		return ""
-	return "Lv.%d · Máy" % e["level"] if e["isBot"] else "Lv.%d" % e["level"]
+	return "Lv.%d" % e["level"] if int(e["level"]) > 0 else ""
 
 
 ## "Sát thương 1.240", "" when unknown.
