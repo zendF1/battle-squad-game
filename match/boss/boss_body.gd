@@ -56,6 +56,17 @@ extends Node2D
 ## z): they fall with gravity, pushed out a little from the heart, spinning, bounce and settle on
 ## the ground, the helmet a beat later and the horns last (HORN_DELAY), tumbling; dust bursts and
 ## pebbles fly, then everything fades (CRUMBLE_FADE).
+## Mộc Tinh drawn (its frames and skinned idle, points.json): it stands on its roots (the skin
+## breathes: the canopy, twigs and side roots sway; the mint heart glows on the trunk, the eyes
+## flicker); the heart (the drain's end, the heal's mint light) is the shown frame's, its muzzle the
+## canopy while its thorns shake out (BossArt.MUZZLE_FOLLOW), root_tip_position() the dragging root's
+## tip while root_drag shows it (RootDragFx joins it). Now and then a leaf falls off its canopy
+## (BossArt.LEAVES, FallingLeaves). It dies withering (BossArt.DEATH "wither", death_phase() wither →
+## drop → fade → gone): its death frames 0..WITHER_SWAP_FRAME brown it, drop its leaves, put its
+## glows out and crack it; then it is its parts (posed as that frame; the frame stays over them a
+## moment, WITHER_COVER, fading, so their cut edges never show assembled): the canopy clumps and the
+## twigs drop off one after another, tumbling slowly, and settle on the ground with a little dust,
+## the trunk and the roots sag a little (WITHER_SAG), withered leaves shower down; then it all fades.
 ## Round 2 (Đĩa Bay Thép): a boss with a turret (Art.boss_turret(): its twin cannon, the body frames
 ## without it) draws it over the body at the mount of the frame shown (turret.json bodyFrames: the
 ## hurt's tilt moves and turns it), turned to its aim (TurretModel: clamped to its range, a quick
@@ -76,6 +87,7 @@ const BomberModel := preload("res://match/boss/bomber_model.gd")
 const TurretModel := preload("res://match/boss/turret_model.gd")
 const ShieldBall := preload("res://match/views/shield_ball.gd")
 const ShockwaveFx := preload("res://match/boss/shockwave_fx.gd")
+const FallingLeaves := preload("res://match/boss/falling_leaves.gd")
 
 const FLASH_SEC := 0.28
 const DEATH_SEC := 1.2
@@ -235,6 +247,21 @@ var _crumbled := false # the parts took over
 var _dust: Array = [] # [{p, v, r, grow, age, life}] (local px)
 var _pebbles: Array = [] # [{p, v, r, rot, spin, age, life, col, ground}] (local px)
 var _last_frame: Array = []
+const WITHER_SWAP_FRAME := 3 # Mộc Tinh's death frame its parts are posed as (the last)
+const WITHER_HOLD := 0.25 # s that frame shows before they take over
+const WITHER_COVER := 0.22 # s the frame stays over the parts, fading, as they start to separate
+const WITHER_FALL := 1.5 # s from the swap: the clumps and twigs drop and settle
+const WITHER_FADE := 0.7 # s: then it all fades
+const WITHER_SAG := 0.06 # the trunk and roots squash this much toward the ground
+const WITHER_GRAVITY := 0.7 # × RUBBLE_GRAVITY: leafy clumps fall softer
+const WITHER_BOUNCE := 0.12
+## The parts that drop off (s after the swap; the rest stay on the trunk and sag with it).
+const WITHER_DROP := {"canopy_ml": 0.0, "canopy_mr": 0.1, "canopy_l": 0.18, "canopy_r": 0.26, "branch_l": 0.34, "branch_r": 0.4}
+const WITHER_LEAVES := 26 # the shower at the swap
+const WITHER_LEAF_EVERY := 0.05 # s between two while the death frames wither it
+var _leaves := FallingLeaves.new() # the falling leaves (BossArt.LEAVES)
+var _leaf_in := 1.5 # s to the next idle leaf
+var _leaf_emit := 0.0
 
 
 func setup(art_id: String, height_px: float) -> void:
@@ -317,6 +344,7 @@ func _process(delta: float) -> void:
 		_anim.step(delta)
 		_check_stomp()
 	_step_dust(delta)
+	_step_leaves(delta)
 	if _fly_view != null:
 		_fly_view.glide(delta, _flying_now and not _dead)
 	if _skin_view != null:
@@ -389,6 +417,7 @@ func _draw() -> void:
 	if _heal > 0.0 and not _dead: # a heal: a green halo behind the figure (round its heart when drawn)
 		var hr := height * (0.6 + 0.12 * (1.0 - _heal))
 		var hc := _heart_local() if not _points.is_empty() else Vector2(0, -height * 0.5)
+		hc.y = minf(hc.y, _bob_px() - height * 0.45) # round the body, not sunk into the ground (the tree's low heart)
 		draw_texture_rect(halo_texture(), Rect2(hc - Vector2(hr, hr), Vector2(hr, hr) * 2.0), false,
 			Color(HEAL_GLOW, 0.55 * _heal))
 	var glow := leap_glow()
@@ -548,9 +577,10 @@ func die() -> void:
 		_dead_t = 0.0
 		if _crashes():
 			_emit = 0.0
-		elif _crumbles():
+		elif _breaks_apart():
 			_rubble.clear()
 			_crumbled = false
+			_leaf_emit = 0.0
 		else:
 			_cracks = _make_cracks()
 
@@ -620,14 +650,15 @@ func shown_frame() -> Array:
 	if _anim == null:
 		return []
 	if _dead:
-		if _crumbles() and _anim.has("death"):
+		if _breaks_apart() and _anim.has("death"):
 			return ["death", mini(int(floor(_dead_t * _anim.fps("death"))), _anim.count("death") - 1)]
 		return [BossAnim.HURT if _anim.has(BossAnim.HURT) else "idle", 0]
 	return _anim.frame()
 
 
 ## The death's phase now: "crack", "freeze", "shatter" or "gone"; a crash: "wobble", "fall", "boom"
-## or "gone" ("" alive or no frames).
+## or "gone"; a crumble: "crack", "crumble", "fade", "gone"; a wither: "wither", "drop", "fade", "gone"
+## ("" alive or no frames).
 func death_phase() -> String:
 	if not _dead or _side.is_empty():
 		return ""
@@ -637,6 +668,13 @@ func death_phase() -> String:
 		if _dead_t < CRASH_WOBBLE + CRASH_FALL:
 			return "fall"
 		return "boom" if _dead_t < CRASH_SEC else "gone"
+	if _withers():
+		var swap := crumble_swap_sec()
+		if _dead_t < swap:
+			return "wither"
+		if _dead_t < swap + WITHER_FALL:
+			return "drop"
+		return "fade" if _dead_t < swap + WITHER_FALL + WITHER_FADE else "gone"
 	if _crumbles():
 		var swap := crumble_swap_sec()
 		if _dead_t < swap:
@@ -661,6 +699,9 @@ func _step_death(delta: float) -> void:
 		return
 	if _crumbles():
 		_step_crumble(delta)
+		return
+	if _withers():
+		_step_wither(delta)
 		return
 	var was := _dead_t
 	_dead_t += delta
@@ -783,7 +824,7 @@ func _frame_look() -> Dictionary:
 	var swell := 1.0
 	var icy := 0.0
 	var flash := _flash * 0.85
-	if _dead and not _crumbles():
+	if _dead and not _breaks_apart():
 		icy = 0.5 * clampf(_dead_t / CRACK_SEC, 0.0, 1.0)
 		if _dead_t >= CRACK_SEC and _dead_t < FREEZE_END: # the freeze: a white pulse building to the break
 			flash = maxf(flash, 0.45 * smoothstep(CRACK_SEC, FREEZE_END, _dead_t))
@@ -840,12 +881,13 @@ func _draw_frame() -> void:
 func _draw_shatter() -> void:
 	_draw_turret_fx()
 	_draw_dust()
+	_leaves.draw(_over)
 	if not _dead or _side.is_empty():
 		return
 	if _crashes():
 		_draw_crash_fx()
 		return
-	if _crumbles():
+	if _breaks_apart():
 		return
 	var look := _frame_look()
 	if not look.is_empty() and float(look["alpha"]) > 0.0 and not _cracks.is_empty(): # the cracks over her
@@ -1200,8 +1242,9 @@ func muzzle_position() -> Vector2:
 		return to_global(_art_xform() * _tip_art("mid", _aim))
 	var f := shown_frame()
 	var fp := _frame_points()
-	if not f.is_empty() and str(f[0]) == "throw" and fp.get("hand_r") is Vector2: # the throwing knuckles now
-		return to_global(_unit_xform() * Vector2(fp["hand_r"]))
+	var follow: Dictionary = BossArt.MUZZLE_FOLLOW.get(art, {})
+	if not f.is_empty() and not follow.is_empty() and str(f[0]) == str(follow["anim"]) and fp.get(str(follow["point"])) is Vector2:
+		return to_global(_unit_xform() * Vector2(fp[str(follow["point"])])) # the giant's throwing knuckles, the tree's canopy
 	var m := BossArt.muzzle(art, height, facing) + Vector2(0, _bob_px())
 	return to_global(_turn() * m)
 
@@ -1458,7 +1501,7 @@ func _draw_plates() -> void:
 		var r := height * 0.09 * (0.8 + 0.4 * _heal)
 		var c := _heart_local()
 		_plate_view.draw_texture_rect(halo_texture(), Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0), false,
-			Color(HEAL_GLOW.lerp(BossArt.AMBER, 0.35), 0.85 * _heal))
+			Color(BossArt.heart_light(art), 0.85 * _heal))
 
 
 ## The stomp's peak frame just showed (BossArt.STOMP): the dust and the shockwave at the foot.
@@ -1537,10 +1580,13 @@ func _crumbles() -> bool:
 	return not _side.is_empty() and BossArt.death_of(art) == "crumble"
 
 
-## s into the death the parts take over (CRUMBLE_SWAP_FRAME of the death animation).
+## s into the death the parts take over (CRUMBLE_SWAP_FRAME of the death animation; a wither:
+## WITHER_SWAP_FRAME, WITHER_HOLD later).
 func crumble_swap_sec() -> float:
 	if _anim == null or not _anim.has("death"):
 		return 0.0
+	if _withers(): # Mộc Tinh: after its last death frame showed a moment
+		return float(mini(WITHER_SWAP_FRAME, _anim.count("death") - 1)) / _anim.fps("death") + WITHER_HOLD
 	return float(mini(CRUMBLE_SWAP_FRAME, _anim.count("death") - 1)) / _anim.fps("death")
 
 
@@ -1562,12 +1608,17 @@ func _step_crumble(delta: float) -> void:
 		_crumble()
 	if not _crumbled:
 		return
+	_fall_parts(delta, _dead_t - swap, 1.0, RUBBLE_BOUNCE)
+
+
+## The loose parts fall (gravity × g_scale), spin, bounce (bounce of their speed back up) and slide
+## to a stop on their ground, a dust puff under a heavy landing; anchored ones stay (a wither's trunk).
+func _fall_parts(delta: float, since: float, g_scale: float, bounce: float) -> void:
 	var h := float(_side["height"])
-	var g := RUBBLE_GRAVITY * h
-	var since := _dead_t - swap
+	var g := RUBBLE_GRAVITY * h * g_scale
 	var to_local := _crash_local()
 	for r in _rubble:
-		if since < float(r["delay"]):
+		if since < float(r["delay"]) or bool(r.get("anchored", false)):
 			continue
 		var v: Vector2 = r["v"]
 		v.y += g * delta
@@ -1583,7 +1634,7 @@ func _step_crumble(delta: float) -> void:
 					var at := to_local * Vector2(c.x, ground)
 					_dust.append({"p": at, "v": Vector2(randf_range(-0.2, 0.2), -0.12) * height, "r": height * clampf(sz.x / h, 0.08, 0.2) * 0.6,
 						"grow": 1.2, "age": 0.0, "life": 0.7})
-				v.y = -v.y * RUBBLE_BOUNCE if v.y > h * 0.5 else 0.0
+				v.y = -v.y * bounce if v.y > h * 0.5 else 0.0
 				v.x *= 0.5
 				r["spin"] = float(r["spin"]) * 0.45
 			v.x *= exp(-5.0 * delta) # it slides to a stop
@@ -1643,7 +1694,10 @@ func _crumble() -> void:
 
 ## The parts on the ground and falling (in z order), fading at the end.
 func _draw_rubble() -> void:
-	var fade := clampf(1.0 - (_dead_t - crumble_swap_sec() - CRUMBLE_FALL) / CRUMBLE_FADE, 0.0, 1.0)
+	var fall := WITHER_FALL if _withers() else CRUMBLE_FALL
+	var fade_sec := WITHER_FADE if _withers() else CRUMBLE_FADE
+	var since := _dead_t - crumble_swap_sec()
+	var fade := clampf(1.0 - (since - fall) / fade_sec, 0.0, 1.0)
 	_mat.set_shader_parameter("flash", 0.0)
 	_mat.set_shader_parameter("icy", 0.0)
 	if fade <= 0.0:
@@ -1651,6 +1705,135 @@ func _draw_rubble() -> void:
 	var to_local := _crash_local()
 	for r in _rubble:
 		var sz: Vector2 = r["size"]
-		_figure.draw_set_transform_matrix(to_local * Transform2D(float(r["rot"]), Vector2(r["c"])))
+		_figure.draw_set_transform_matrix(to_local * Transform2D(float(r["rot"]), Vector2(1.0, float(r.get("sy", 1.0))), 0.0, Vector2(r["c"])))
 		_figure.draw_texture_rect(r["tex"], Rect2(-sz / 2.0, sz), false, Color(1, 1, 1, fade))
+	var cover := wither_cover()
+	if cover > 0.0: # the whole frame over the parts a moment: their cut edges never show assembled
+		var look := _frame_look()
+		if not look.is_empty():
+			_figure.draw_set_transform_matrix(look["xform"])
+			_figure.draw_texture(look["tex"], Vector2.ZERO, Color(1, 1, 1, cover))
 	_figure.draw_set_transform(Vector2.ZERO)
+
+
+# ── Mộc Tinh's drawn art: leaves, the dragging root, the wither ─────────────
+
+## Dies withering (BossArt.DEATH "wither", drawn from frames).
+func _withers() -> bool:
+	return not _side.is_empty() and BossArt.death_of(art) == "wither"
+
+
+## Falls apart into its parts (a crumble or a wither).
+func _breaks_apart() -> bool:
+	return _crumbles() or _withers()
+
+
+## The falling leaves (tests): their count.
+func leaf_count() -> int:
+	return _leaves.count()
+
+
+## The dragging root's tip now (global; Vector2.INF while no frame shows it): points.json rootTip.
+func root_tip_position() -> Vector2:
+	if _dead or _vanished:
+		return Vector2.INF
+	var fp := _frame_points()
+	if fp.get("rootTip") is Vector2:
+		return to_global(_unit_xform() * Vector2(fp["rootTip"]))
+	return Vector2.INF
+
+
+## 0..1: the last death frame over the parts as they start to separate (a wither, WITHER_COVER).
+func wither_cover() -> float:
+	if not _withers() or not _crumbled:
+		return 0.0
+	return clampf(1.0 - (_dead_t - crumble_swap_sec()) / WITHER_COVER, 0.0, 1.0)
+
+
+## A leaf off the canopy (local px): round the shown frame's canopy point, spread over the crown.
+func _canopy_leaf_at(spread: float) -> Vector2:
+	var fp := _frame_points()
+	var c: Vector2 = fp["canopy"] if fp.get("canopy") is Vector2 else Vector2(0, -80)
+	return _unit_xform() * (c + Vector2(randf_range(-spread, spread), randf_range(-4.0, 14.0)))
+
+
+## The idle's leaves now and then (BossArt.LEAVES), the death's shower while it withers; all fall.
+func _step_leaves(delta: float) -> void:
+	_leaves.step(delta, height)
+	var look: Dictionary = BossArt.LEAVES.get(art, {})
+	if look.is_empty() or _side.is_empty() or _vanished:
+		return
+	if _dead:
+		if _withers() and _dead_t < crumble_swap_sec() + 0.6:
+			_leaf_emit -= delta
+			while _leaf_emit <= 0.0:
+				_leaf_emit += WITHER_LEAF_EVERY
+				var cols: Array = look["wither"]
+				_leaves.add(_canopy_leaf_at(42.0), height * randf_range(0.02, 0.03), cols[randi() % cols.size()],
+					height * randf_range(0.0, 0.03), Vector2(randf_range(-0.25, 0.25), randf_range(-0.05, 0.05)) * height, 3.0, 1.7)
+		if _withers(): # they fade with it
+			_leaves.fade = clampf(1.0 - (_dead_t - crumble_swap_sec() - WITHER_FALL) / WITHER_FADE, 0.0, 1.0)
+		return
+	_leaf_in -= delta
+	if _leaf_in <= 0.0:
+		var every: Vector2 = look["every"]
+		_leaf_in = randf_range(every.x, every.y)
+		var cols: Array = look["colours"]
+		var side := -1.0 if randf() < 0.5 else 1.0 # off the crown's sides, clear of the trunk
+		_leaves.add(_canopy_leaf_at(0.0) + _unit_xform().basis_xform(Vector2(side * randf_range(28.0, 62.0), 6.0)),
+			height * randf_range(0.026, 0.032), cols[randi() % cols.size()], height * randf_range(0.0, 0.025),
+			Vector2(side * randf_range(0.02, 0.08), 0.0) * height, 6.0)
+
+
+func _step_wither(delta: float) -> void:
+	_dead_t += delta
+	var swap := crumble_swap_sec()
+	_death = minf(1.0, _dead_t / (swap + WITHER_FALL + WITHER_FADE))
+	if not _crumbled and _dead_t >= swap:
+		_wither()
+	if not _crumbled:
+		return
+	var since := _dead_t - swap
+	_fall_parts(delta, since, WITHER_GRAVITY, WITHER_BOUNCE)
+	var sag := WITHER_SAG * smoothstep(WITHER_COVER, WITHER_FALL * 0.8, since) # squashing toward the feet
+	for r in _rubble:
+		if bool(r.get("anchored", false)):
+			var c0: Vector2 = r["c0"]
+			r["c"] = Vector2(c0.x, c0.y * (1.0 - sag))
+			r["sy"] = 1.0 - sag
+
+
+## The parts take over from the last death frame: the clumps and twigs to drop, the trunk and roots
+## anchored; a shower of withered leaves and a little dust at the foot.
+func _wither() -> void:
+	_crumbled = true
+	_rubble.clear()
+	var parts := Art.boss_parts(art)
+	if parts.is_empty():
+		return
+	var h := float(_side["height"])
+	var ph := h / float(parts["height"])
+	var top_z := 1
+	for name in parts["parts"]:
+		top_z = maxi(top_z, int(parts["parts"][name].get("z", 0)))
+	for name in parts["parts"]:
+		var n := str(name)
+		var pt: Dictionary = parts["parts"][name]
+		var sz: Vector2 = Vector2(pt["size"]) * ph
+		var c: Vector2 = Vector2(pt["at"]) * ph + sz / 2.0
+		var z := int(pt.get("z", 0))
+		var drops := WITHER_DROP.has(n)
+		var out := signf(c.x) if absf(c.x) > 1.0 else (1.0 if z % 2 == 0 else -1.0)
+		var spin := out * (randf_range(0.3, 0.8) if n.begins_with("canopy") else randf_range(2.0, 3.5))
+		_rubble.append({"name": n, "tex": pt["texture"], "size": sz, "z": z, "c": c, "c0": c, "sy": 1.0, "anchored": not drops,
+			"v": Vector2(out * randf_range(0.22, 0.4), -0.08) * h if drops else Vector2.ZERO, "rot": 0.0, "spin": spin if drops else 0.0,
+			"delay": float(WITHER_DROP.get(n, 0.0)), "ground": h * (0.005 + 0.03 * float(z) / float(top_z))})
+	_rubble.sort_custom(func(a, b): return int(a["z"]) < int(b["z"]))
+	var cols: Array = BossArt.LEAVES.get(art, {}).get("wither", [Color(0.55, 0.33, 0.14)])
+	for i in WITHER_LEAVES:
+		_leaves.add(_canopy_leaf_at(48.0), height * randf_range(0.02, 0.032), cols[i % cols.size()], height * randf_range(0.0, 0.035),
+			Vector2(randf_range(-0.45, 0.45), randf_range(-0.25, 0.05)) * height, 3.2, 1.7)
+	for i in 4: # a little dust at the foot
+		var side := -1.0 if i % 2 == 0 else 1.0
+		_dust.append({"p": Vector2(side * randf_range(0.05, 0.3) * height, -0.02 * height), "v": Vector2(side * 0.15, -0.06) * height,
+			"r": height * randf_range(0.05, 0.08), "grow": 1.2, "age": 0.0, "life": randf_range(0.8, 1.1)})

@@ -491,9 +491,9 @@ static var _boss_points := {} # boss art id -> boss_points() ({} = none)
 
 
 ## A drawn boss's points per frame (assets/bosses/<id>/side/points.json, written by its
-## make_frames.py: Khổng Lồ Đá), in the unit frame (the body 100 tall, the feet at the origin, facing
-## right, y down): {rest {joint: Vector2} (restJoints), frames {anim: [{name: Vector2 (a point) or
-## Vector3 (x, y, degrees: a joint and its turn)}]}}; {} without one.
+## make_frames.py: Khổng Lồ Đá, Mộc Tinh), in the unit frame (the body 100 tall, the feet at the origin,
+## facing right, y down): {rest {joint: Vector2} (restJoints), frames {anim: [{name: Vector2 (a point),
+## Vector3 (x, y, degrees: a joint and its turn) or float (a level: glow, eyesLit)}]}}; {} without one.
 static func boss_points(id: String) -> Dictionary:
 	if _boss_points.has(id):
 		return _boss_points[id]
@@ -521,6 +521,8 @@ static func boss_points(id: String) -> Dictionary:
 						pts[str(key)] = Vector3(float(v[0]), float(v[1]), float(v[2]))
 					elif v is Array and v.size() == 2:
 						pts[str(key)] = Vector2(float(v[0]), float(v[1]))
+					elif v is float or v is int: # a level (Mộc Tinh's glow, eyesLit)
+						pts[str(key)] = float(v)
 			list.append(pts)
 		frames[str(anim)] = list
 	out.merge({"rest": rest, "frames": frames})

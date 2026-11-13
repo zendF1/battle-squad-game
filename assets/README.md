@@ -145,7 +145,8 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   the heart on the trunk, mint, `glowBone` trunk; `eyes`), `parts/` (the death's pieces: four withered
   canopy clumps, twigs, side roots, outer roots, the trunk; `z`) and `side/points.json` (per frame:
   the heart, the canopy's thorn point, the eyes, the mushroom cluster, glow / eyes levels, the drag
-  root's tip).
+  root's tip; how the match uses them, its skills' animations, its falling leaves and its wither:
+  `docs/boss-moc-tinh-art.md`).
 - **Title plates** (`ui/titles/title_<rarity>.png`, blue / orange / purple / red, and
   `ui/titles/titles.json`: the banner the title name is drawn on, `ui/title_plate.gd`): AI-drawn
   with no text on a dark background, `art_source/ui/titles/title_<rarity>.png`, keyed by

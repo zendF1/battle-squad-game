@@ -2130,7 +2130,8 @@ func _roll(e: Dictionary) -> void:
 
 
 ## The tree's roots drag a member (pull {playerId, from, to, duration, path}): roots burst under
-## it and haul it along the ground toward the tree on the replay's clock; its position is `to`.
+## it and haul it along the ground toward the tree on the replay's clock (joined to the tree's drawn
+## root when the drag ends near it, RootDragFx.tree); its position is `to`.
 func _pull(e: Dictionary) -> void:
 	var id := str(e.get("playerId", ""))
 	if e.get("to") is Dictionary:
@@ -2143,7 +2144,9 @@ func _pull(e: Dictionary) -> void:
 	burst.position = from
 	_fx_layer.add_child(burst)
 	var m = _moves_fx.add(view, e)
-	_mark_view.add_child(RootDragFx.new(m.points, view, m.duration))
+	var roots := RootDragFx.new(m.points, view, m.duration)
+	roots.tree = _views.get(_boss.player_id) # its ground root runs into the tree's drawn one when near
+	_mark_view.add_child(roots)
 	_hold_focus({"view": view}, m.duration + CameraModel.HOLD_SEC)
 	_cam.shake(16.0)
 

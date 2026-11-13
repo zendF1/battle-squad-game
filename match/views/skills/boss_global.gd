@@ -13,6 +13,8 @@ extends "res://match/views/skills/skill_view.gd"
 ## point up); at the global event with `flash` the whole screen flashes white for everyone
 ## (FlashFx on the screen layer: FLASH_HOLD s full, then fading over the event's duration). The
 ## blind that follows is match_screen's (its status events; my white-out, BlindOverlay).
+## Mộc Tinh's thorns (poison_thorn) leave its canopy (the boss's muzzle_position(): points.json canopy
+## while poison_thorns shows, else BossArt.MUZZLE), easing onto the server's paths (UnitShell.lead).
 
 const StormOverlay := preload("res://match/boss/storm_overlay.gd")
 const BossArt := preload("res://match/boss/boss_art.gd")
@@ -29,22 +31,25 @@ func flash() -> Control:
 	return _flash
 
 
-## The flash flare leaves from the top of the craft (the boss's dome), easing onto its path.
+## The flash flare leaves from the top of the craft (the boss's dome), the tree's thorns from its
+## canopy, easing onto their paths.
 func projectile_view(_i: int, projectile: Dictionary, view: Node2D) -> Node2D:
-	if str(projectile.get("kind", "")) != UnitShell.FLASH_FLARE or not "lead" in view:
+	var kind := str(projectile.get("kind", ""))
+	if not kind in [UnitShell.FLASH_FLARE, UnitShell.POISON_THORN] or not "lead" in view:
 		return view
 	var shooter = ctx.get("views", {}).get(str(ctx.get("shooter", "")))
 	var path = projectile.get("path")
 	if shooter == null or not is_instance_valid(shooter) or not shooter.has_method("figure") or not path is Array or path.is_empty():
 		return view
 	var fig = shooter.figure()
-	if fig == null or not fig.has_method("top_position"):
+	var from := "top_position" if kind == UnitShell.FLASH_FLARE else "muzzle_position"
+	if fig == null or not fig.has_method(from):
 		return view
 	var first = path[0].get("position") if path[0] is Dictionary else null
 	if not first is Dictionary:
 		return view
 	var start := Vector2(float(first.get("x", 0.0)), float(first.get("y", 0.0)))
-	view.lead = fig.top_position() - start # the fx layer is the world (no transform of its own)
+	view.lead = Vector2(fig.call(from)) - start # the fx layer is the world (no transform of its own)
 	return view
 
 

@@ -16,15 +16,24 @@ const HURT := "hurt"
 ## The animation of a boss skill by its skillId, else by its kind (GameData.boss_skill()).
 ## Khổng Lồ Đá: the boulders thrown (giant_boulder; boulder_rain, an older id), pushed (rolling_boulder),
 ## the stomp (earthquake), the fists on the ground (stone_spikes: its marks and, on its turn start,
-## their eruption).
+## their eruption). Mộc Tinh: each skill its own animation (named after it).
 const BY_SKILL := {"ice_spikes": "cast", "frost_beam": "burst", "blizzard": "blizzard",
-	"giant_boulder": "throw", "boulder_rain": "throw", "rolling_boulder": "roll", "earthquake": "stomp", "stone_spikes": "spikes"}
+	"giant_boulder": "throw", "boulder_rain": "throw", "rolling_boulder": "roll", "earthquake": "stomp", "stone_spikes": "spikes",
+	"vine_lash": "vine_lash", "poison_thorns": "poison_thorns", "life_drain": "life_drain", "root_drag": "root_drag"}
 const BY_KIND := {"beam": "burst", "rain": "cast", "shockwave": "cast", "summon": "summon"}
-## An animation a boss does not have → the one it plays instead (Khổng Lồ Đá throws for a cast: its
-## plain shot).
-const FALLBACK := {"cast": "throw", "blizzard": "throw", "burst": "throw"}
-## The event its peak lands on (the first of these types in the replay), else the first projectile.
-const PEAK_ON := {"stomp": ["global"], "spikes": ["mark", "eruption"]}
+## An animation a boss does not have → the first of these it has (Khổng Lồ Đá throws for a cast: its
+## plain shot; Mộc Tinh shakes its thorns out of the canopy, drains for a beam).
+const FALLBACK := {"cast": ["throw", "poison_thorns"], "blizzard": ["throw", "poison_thorns"], "burst": ["throw", "life_drain"]}
+## The event its peak lands on (the first of these types in the replay), else the first projectile
+## (Mộc Tinh: the vines strike the ground, the root hooks the member it drags; its thorns leave the
+## canopy with the projectiles).
+const PEAK_ON := {"stomp": ["global"], "spikes": ["mark", "eruption"], "vine_lash": ["ground_strike"], "root_drag": ["pull"]}
+## Held over the beams (the peak on the first one, held while they fire): the witch's burst, Mộc
+## Tinh's drain (its eyes and mushrooms blazing while the life flows in).
+const BEAM_HOLD := ["burst", "life_drain"]
+## The peak held this share of its event's duration (Mộc Tinh's root at full reach while the member
+## is hauled in; yanked back as it arrives).
+const PEAK_HOLD := {"root_drag": 0.75}
 
 var anims: Dictionary = {} # name -> {frames (count or Array), fps, loop, peak}
 var base := "idle"
@@ -84,8 +93,10 @@ func play(anim: String, timing: Dictionary = {}) -> float:
 
 ## The animation played for `anim`: itself, else its FALLBACK when this boss has that one.
 func resolve(anim: String) -> String:
-	if not has(anim) and FALLBACK.has(anim) and has(FALLBACK[anim]):
-		return str(FALLBACK[anim])
+	if not has(anim):
+		for other in FALLBACK.get(anim, []):
+			if has(str(other)):
+				return str(other)
 	return anim
 
 
@@ -165,15 +176,18 @@ static func action_for(mode: String, skill_id: String, skill: Dictionary, events
 		if not e is Dictionary or not (e.get("t") is float or e.get("t") is int):
 			continue
 		var type := str(e.get("type", ""))
-		if anim == "burst" and type == "beam":
+		if anim in BEAM_HOLD and type == "beam":
 			beams_end = maxf(beams_end, float(e["t"]) + (float(e["duration"]) if e.get("duration") is float or e.get("duration") is int else 0.0))
 			beam_ts[snappedf(float(e["t"]), 0.001)] = true
-		if (anim == "burst" and type == "beam") or (anim == "summon" and type == "summon") or type in PEAK_ON.get(anim, []):
+		if (anim in BEAM_HOLD and type == "beam") or (anim == "summon" and type == "summon") or type in PEAK_ON.get(anim, []):
 			if float(e["t"]) < at:
 				at = float(e["t"])
-				if anim == "burst" and (e.get("duration") is float or e.get("duration") is int):
-					hold = clampf(float(e["duration"]) * 0.6, 0.15, 0.8)
-	if anim == "burst" and at < INF and beam_ts.size() > 1: # beams one after another: hot over all of them
+				var dur := float(e["duration"]) if e.get("duration") is float or e.get("duration") is int else -1.0
+				if anim in BEAM_HOLD and dur >= 0.0:
+					hold = clampf(dur * 0.6, 0.15, 0.8)
+				elif PEAK_HOLD.has(anim) and dur > 0.0:
+					hold = clampf(dur * float(PEAK_HOLD[anim]), 0.15, 2.0)
+	if anim in BEAM_HOLD and at < INF and beam_ts.size() > 1: # beams one after another: hot over all of them
 		hold = clampf(beams_end - at, 0.15, 4.0)
 	if at == INF and anim != "summon":
 		var last := -INF
