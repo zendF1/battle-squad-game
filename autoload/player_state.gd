@@ -95,7 +95,7 @@ signal maps_changed # a GET /maps answer changed the map catalog
 signal gamedata_changed # a GET /gamedata answer brought a new game data version
 signal _gamedata_done # a load_gamedata() fetch ended
 signal chests_changed # owned chests, their loading / error or chest_busy changed
-signal season_rewards_changed # a GET /rank/season-rewards answer was applied, or a claim ended
+signal mail_changed # a GET /mail answer was applied, a mail was read, or a claim started or ended
 signal leaderboard_changed(type: String) # a GET /leaderboard answer (or its failure) was applied, or a load started
 signal reward_landed # a match reward that was on its way reached the profile (watch_pending_reward())
 
@@ -112,6 +112,7 @@ const MapCatalog := preload("res://match/theme/map_catalog.gd")
 const ChestModel := preload("res://screens/home/chest_model.gd")
 const BossTrailModel := preload("res://ui/boss_trail_model.gd")
 const SeasonRewardModel := preload("res://screens/ranked/season_reward_model.gd")
+const MailboxModel := preload("res://screens/home/mailbox_model.gd")
 const LeaderboardModel := preload("res://screens/home/leaderboard_model.gd")
 const ShowcaseModel := preload("res://screens/home/showcase_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
@@ -248,11 +249,12 @@ var _chests_player := ""
 var _chests_gate := Coalescer.new()
 var chest_busy := "" # the chest being opened
 
-# Season rewards: the unclaimed ones (SeasonRewardModel.parse), [] none or not loaded
-var season_rewards: Array = []
-var _season_rewards_player := ""
-var _season_gate := Coalescer.new()
-var season_busy := "" # the season being claimed
+# Mailbox: the mails (MailboxModel.parse, newest first), [] none or not loaded
+var mails: Array = []
+var _mail_player := ""
+var _mail_gate := Coalescer.new()
+var mail_busy := "" # the mail being claimed ("*": all of them)
+var mail_available := true # false once GET /mail answered 404 (a server without a mailbox)
 
 # Leaderboards: type -> LeaderboardModel.parse() of this account's last answer / its error text
 var leaderboards := {}
@@ -271,10 +273,13 @@ var _known_ids := {} # purchaseIds / transactionIds this client has seen (replay
 ## at a time (chest_busy) and reloads the chests and the stones (and the equipment when it gave a
 ## piece) whatever the answer.
 ##
-## Season rewards: GET /rank/season-rewards (SeasonRewardModel.parse) when Home shows
-## (load_season_rewards(), coalesced; season_rewards_changed), claim_season_reward(seasonId) runs
-## POST /rank/season-rewards/claim {seasonId} one at a time: the wallet takes the answer's wallet
-## at once, the chests / stones / profile reload, the list reloads whatever the answer.
+## Mailbox ("Hòm thư", season rewards arrive there): GET /mail (MailboxModel.parse) when the
+## lobby shows and on the socket's MailNew (load_mail(), coalesced; mail_changed; a 404 means a
+## server without a mailbox: mail_available false). mark_mail_read(id) posts POST /mail/read and
+## marks it at once; claim_mail(id) / claim_all_mail() run POST /mail/claim {mailId} /
+## POST /mail/claim-all one at a time (mail_busy; a claim is idempotent by the mail's state, a
+## repeat answers MAIL_ALREADY_CLAIMED): the wallet takes the
+## answer's wallet at once, the chests / stones / profile reload, the list reloads whatever the answer.
 ##
 ## Leaderboards ("Xếp hạng"): GET /leaderboard?type=level|rank|power (LeaderboardModel.parse) per
 ## board, loaded when its tab shows (load_leaderboard(type), one request per board at a time; an
@@ -810,7 +815,7 @@ func key_target(id: String) -> String:
 # ── Đăng xuất ───────────────────────────────────────────────────────────────
 
 ## Signed out (core/logout.gd): forgets everything of the account (profile, characters, equipment,
-## stones, milestones, titles, daily missions, rank, boss runs, chests, season rewards, leaderboards,
+## stones, milestones, titles, daily missions, rank, boss runs, chests, mail, leaderboards,
 ## the reward watch, the actions running) so the next sign-in starts empty. Answers still on their way
 ## are dropped (account_gen, and the loaders' player check). No signal: the scene goes to Login.
 ## Game data and the map list (not the account's) and the idempotency keys (per player) stay.
@@ -877,9 +882,10 @@ func reset_account() -> void:
 	chests_stale = true
 	_chests_player = ""
 	chest_busy = ""
-	season_rewards = []
-	_season_rewards_player = ""
-	season_busy = ""
+	mails = []
+	_mail_player = ""
+	mail_busy = ""
+	mail_available = true
 	leaderboards = {}
 	leaderboard_errors = {}
 	leaderboard_loading = {}
@@ -1636,55 +1642,116 @@ func open_chest(chest_id: String, count: int) -> Dictionary:
 	return res
 
 
-# ── Season rewards ──────────────────────────────────────────────────────────
+# ── Mailbox ─────────────────────────────────────────────────────────────────
 
-## Loads GET /rank/season-rewards; a failure keeps the last answer for this account.
-func load_season_rewards() -> void:
-	if not _season_gate.ask():
+## Loads GET /mail; a failure keeps the last answer for this account, a 404 hides the mailbox.
+func load_mail() -> void:
+	if not _mail_gate.ask():
 		return
 	while true:
-		var t := _season_gate.ticket()
+		var t := _mail_gate.ticket()
 		var player := Session.player_id
-		var res: Dictionary = await _api().get_json("/rank/season-rewards")
-		if not _season_gate.finish(t):
+		var res: Dictionary = await _api().get_json("/mail")
+		if not _mail_gate.finish(t):
 			continue
 		if player != Session.player_id:
 			break # signed out (or another account) meanwhile
 		if res.ok and res.data is Dictionary:
-			season_rewards = SeasonRewardModel.parse(res.data)
-			_season_rewards_player = player
-			season_rewards_changed.emit()
+			mails = MailboxModel.parse(res.data)
+			_mail_player = player
+			mail_available = true
+			mail_changed.emit()
+		elif int(res.get("status", 0)) == 404 and str(res.get("code", "")) in ["", "NOT_FOUND"]:
+			mails = []
+			mail_available = false
+			mail_changed.emit()
 		break
 
 
-## The unclaimed season rewards of the signed-in player, oldest first ([] none or not loaded).
-func my_season_rewards() -> Array:
-	return season_rewards if _season_rewards_player == Session.player_id else []
+## The signed-in player's mails, newest first ([] none or not loaded).
+func my_mail() -> Array:
+	return mails if _mail_player == Session.player_id else []
 
 
-## POST /rank/season-rewards/claim {seasonId}: the wallet takes the answer's wallet at once; the
-## chests, the stones and the profile reload; the list reloads whatever the answer.
-func claim_season_reward(season_id: String) -> Dictionary:
-	if season_busy != "":
+## How many mails can be claimed now.
+func mail_unclaimed() -> int:
+	return MailboxModel.claimable(my_mail(), int(Time.get_unix_time_from_system())).size()
+
+
+## The lobby badge: the mails to claim plus the unread ones without rewards.
+func mail_attention() -> int:
+	return MailboxModel.attention(my_mail(), int(Time.get_unix_time_from_system()))
+
+
+## A socket event: MailNew {unclaimedCount} (or {}) reloads the mailbox.
+func on_socket_event(event: String, _data: Variant) -> void:
+	if event == "MailNew":
+		load_mail()
+
+
+## Marks a mail read at once and tells the server (POST /mail/read {mailId}; a failure is ignored).
+func mark_mail_read(mail_id: String) -> void:
+	var now := Time.get_datetime_string_from_system(true) + "Z"
+	var found := false
+	for m in mails:
+		if m["mailId"] == mail_id and not MailboxModel.is_read(m):
+			m["readAt"] = now
+			found = true
+	if not found:
+		return
+	mail_changed.emit()
+	await _api().post_json("/mail/read", {"mailId": mail_id})
+
+
+## POST /mail/claim {mailId}: the mail is claimed and the wallet takes the
+## answer's wallet at once; the chests, stones and profile reload; the list reloads whatever the
+## answer. MAIL_ALREADY_CLAIMED marks it claimed, MAIL_NOT_FOUND takes it off the list.
+func claim_mail(mail_id: String) -> Dictionary:
+	if mail_busy != "":
 		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null}
-	season_busy = season_id
-	season_rewards_changed.emit()
-	var res: Dictionary = await _api().post_json("/rank/season-rewards/claim", {"seasonId": season_id})
-	season_busy = ""
-	var gone := str(res.get("code", "")) in ["SEASON_REWARD_ALREADY_CLAIMED", "SEASON_REWARD_NOT_FOUND"]
-	if gone: # claimed elsewhere, or nothing to claim: off the list, the reload below confirms
-		season_rewards = season_rewards.filter(func(r): return r["seasonId"] != season_id)
+	mail_busy = mail_id
+	mail_changed.emit()
+	var res: Dictionary = await _api().post_json("/mail/claim", {"mailId": mail_id})
+	mail_busy = ""
+	var code := str(res.get("code", ""))
+	var now := Time.get_datetime_string_from_system(true) + "Z"
+	if code == "MAIL_NOT_FOUND":
+		mails = mails.filter(func(m): return m["mailId"] != mail_id)
+	elif res.ok or code == "MAIL_ALREADY_CLAIMED":
+		mails = mails.map(func(m): return MailboxModel.claimed(m, res.data if res.ok else null, now) if m["mailId"] == mail_id else m)
 	if res.ok:
-		var wallet := SeasonRewardModel.wallet_of(res.data)
-		if not profile.is_empty() and not wallet.is_empty():
-			for k in wallet:
-				profile[k] = wallet[k]
-			changed.emit()
-		season_rewards = season_rewards.filter(func(r): return r["seasonId"] != season_id)
-		chests_dirty()
-		stones_dirty()
-		milestones_dirty()
-		refresh()
-	season_rewards_changed.emit()
-	load_season_rewards()
+		_after_mail_claim(res.data)
+	mail_changed.emit()
+	load_mail()
 	return res
+
+
+## POST /mail/claim-all {}: every claimed mail is marked at once, the wallet and the
+## rest as claim_mail().
+func claim_all_mail() -> Dictionary:
+	if mail_busy != "":
+		return {"ok": false, "status": -1, "code": "BUSY", "message": "", "data": null}
+	mail_busy = "*"
+	mail_changed.emit()
+	var res: Dictionary = await _api().post_json("/mail/claim-all", {})
+	mail_busy = ""
+	if res.ok:
+		var ids := MailboxModel.claimed_ids(res.data)
+		var now := Time.get_datetime_string_from_system(true) + "Z"
+		mails = mails.map(func(m): return MailboxModel.claimed(m, null, now) if ids.has(m["mailId"]) else m)
+		_after_mail_claim(res.data)
+	mail_changed.emit()
+	load_mail()
+	return res
+
+
+func _after_mail_claim(data: Variant) -> void:
+	var wallet := SeasonRewardModel.wallet_of(data)
+	if not profile.is_empty() and not wallet.is_empty():
+		for k in wallet:
+			profile[k] = wallet[k]
+		changed.emit()
+	chests_dirty()
+	stones_dirty()
+	milestones_dirty()
+	refresh()

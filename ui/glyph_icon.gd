@@ -13,14 +13,15 @@ extends Control
 ## onboarding name field's random name button ("dice": a white die showing five) and a shell's
 ## blast reach ("blast": an orange burst inside a dashed ring, Bán kính nổ) and a match reward still on
 ## its way ("hourglass": gold sand running down a glass between two wooden caps; "check": a white
-## tick on a green disc once it landed) and the lobby's settings button ("gear": a steel cog). Drawn on
+## tick on a green disc once it landed) and the lobby's settings button ("gear": a steel cog) and
+## the mailbox ("mail": a cream envelope shut with a red seal). Drawn on
 ## a 96 × 96 canvas scaled into the control's square and centred (a single-focus picture). make()
 ## for a layout, info_button() for the round "i" button that opens a card's popup.
 
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 
 const KINDS := ["heart", "sword", "shield", "info", "clock", "arrow", "power", "level", "insignia", "trophy",
-	"boot", "magic", "terrain", "crit", "gem", "wind", "offline", "retry", "browser", "dice", "blast", "hourglass", "check", "gear"]
+	"boot", "magic", "terrain", "crit", "gem", "wind", "offline", "retry", "browser", "dice", "blast", "hourglass", "check", "gear", "mail"]
 const OUTLINE := Color(0.07, 0.07, 0.14)
 const W := 5.0
 const HEART := Color(1.0, 0.33, 0.4)
@@ -158,6 +159,7 @@ func _draw() -> void:
 		"hourglass": _hourglass()
 		"check": _check()
 		"gear": _gear()
+		"mail": _mail()
 
 
 func _poly(pts: PackedVector2Array, fill: Color, w: float = W) -> void:
@@ -478,3 +480,15 @@ func _gear() -> void:
 	draw_arc(c, 24.0, PI * 1.05, PI * 1.6, 16, Color(1, 1, 1, 0.55), 4.0, true)
 	draw_circle(c, 13.0, OUTLINE, true, -1.0, true)
 	draw_circle(c, 8.0, STEEL_DARK, true, -1.0, true)
+
+
+func _mail() -> void:
+	var paper := Color(0.98, 0.95, 0.86)
+	var fold := Color(0.78, 0.7, 0.55)
+	_poly(_rounded(Rect2(10, 24, 76, 52), 6.0), paper)
+	for pts in [PackedVector2Array([Vector2(13, 73), Vector2(40, 50)]), PackedVector2Array([Vector2(83, 73), Vector2(56, 50)])]:
+		_stroke(pts, fold, 3.0, 0.0)
+	_poly(PackedVector2Array([Vector2(12, 26), Vector2(84, 26), Vector2(48, 56)]), Color(0.93, 0.87, 0.74), 3.0)
+	draw_circle(Vector2(48, 55), 10.0 + 3.0, OUTLINE, true, -1.0, true)
+	draw_circle(Vector2(48, 55), 10.0, Color(0.88, 0.22, 0.24), true, -1.0, true)
+	draw_circle(Vector2(45, 52), 3.0, Color(1, 1, 1, 0.45), true, -1.0, true)

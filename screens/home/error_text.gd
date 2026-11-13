@@ -19,10 +19,12 @@ const CHEST := {
 	"CHEST_UNKNOWN": "Rương này không còn",
 	"BUSY": "Đang mở rương, chờ chút",
 }
-const SEASON_REWARD := {
-	"SEASON_REWARD_ALREADY_CLAIMED": "Phần thưởng mùa này đã được nhận",
-	"SEASON_REWARD_NOT_FOUND": "Không có phần thưởng mùa để nhận",
-	"BUSY": "Đang nhận thưởng, chờ chút",
+const MAIL := {
+	"MAIL_NOT_FOUND": "Thư không còn nữa",
+	"MAIL_ALREADY_CLAIMED": "Đã nhận quà của thư này",
+	"MAIL_EXPIRED": "Thư đã hết hạn",
+	"MAIL_NO_REWARDS": "Thư này không có quà",
+	"BUSY": "Đang nhận quà, chờ chút",
 }
 const IAP := {
 	"IAP_VERIFICATION_FAILED": "Giao dịch bị từ chối",
@@ -425,14 +427,14 @@ static func chest(res: Dictionary) -> String:
 	return CHEST.get(code, "Mở rương thất bại: %s" % res.get("message", ""))
 
 
-## POST /rank/season-rewards/claim failure.
-static func season_reward(res: Dictionary) -> String:
+## POST /mail/claim or /mail/claim-all failure.
+static func mail(res: Dictionary) -> String:
 	var code := str(res.get("code", ""))
 	if code == "BUSY":
-		return SEASON_REWARD[code]
+		return MAIL[code]
 	if int(res.get("status", 0)) == 0:
 		return OFFLINE
-	return SEASON_REWARD.get(code, "Nhận thưởng mùa thất bại: %s" % res.get("message", ""))
+	return MAIL.get(code, "Nhận quà thất bại: %s" % res.get("message", ""))
 
 
 ## POST /player/titles/equip failure.

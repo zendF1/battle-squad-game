@@ -1,0 +1,23 @@
+{
+	"mails": [
+		{"mailId": "m_admin", "kind": "admin", "title": "Quà bảo trì", "body": "Cảm ơn bạn đã chờ đợi.",
+			"meta": {}, "rewards": {"coin": 5000, "gem": 0, "items": []},
+			"createdAt": "2026-11-12T08:00:00Z", "expiresAt": null, "readAt": null, "claimedAt": null},
+		{"mailId": "m_season3", "kind": "season_reward", "title": "Thưởng Mùa 3", "body": "Mùa 3 đã kết thúc.",
+			"meta": {"seasonId": "s3", "seasonName": "Mùa 3", "grade": "thuong_tuong", "division": 1, "rankPos": 3, "rankPoints": 4230},
+			"rewards": {"coin": 100000, "gem": 1000, "items": [{"kind": "chest", "id": "stone_chest", "qty": 18, "name": "Rương đá"},
+				{"kind": "chest", "id": "equip_chest_16", "qty": 1, "name": "Rương trang bị +16"}]},
+			"createdAt": "2026-11-13T00:05:00Z", "expiresAt": "2026-12-13T00:05:00Z", "readAt": null, "claimedAt": null},
+		{"mailId": "m_season2", "kind": "season_reward", "title": "Thưởng Mùa 2", "body": "",
+			"meta": {"seasonId": "s2", "seasonName": "Mùa 2", "grade": "trung_si", "division": 2, "rankPos": 57, "rankPoints": 1080},
+			"rewards": {"coin": 5000, "gem": 20, "items": [{"kind": "chest", "id": "stone_chest", "qty": 2, "name": "Rương đá"}]},
+			"createdAt": "2026-10-13T00:05:00Z", "expiresAt": null, "readAt": "2026-10-13T09:00:00Z", "claimedAt": "2026-10-13T09:00:05Z"},
+		{"mailId": "m_old", "kind": "admin", "title": "Quà sự kiện", "body": "",
+			"meta": {}, "rewards": {"coin": 0, "gem": 50, "items": []},
+			"createdAt": "2026-09-01T00:00:00Z", "expiresAt": "2026-10-01T00:00:00Z", "readAt": null, "claimedAt": null},
+		{"mailId": "m_note", "kind": "admin", "title": "Thông báo", "body": "Sự kiện mới sắp diễn ra.",
+			"meta": {}, "rewards": {"coin": 0, "gem": 0, "items": []},
+			"createdAt": "2026-11-10T00:00:00Z", "expiresAt": null, "readAt": null, "claimedAt": null}
+	],
+	"unclaimedCount": 2
+}

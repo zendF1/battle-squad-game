@@ -22,6 +22,7 @@ const Art := preload("res://ui/art.gd")
 const CharacterView := preload("res://ui/character_view.gd")
 const PedestalGun := preload("res://screens/home/pedestal_gun.gd")
 const GradeFrame := preload("res://screens/ranked/grade_frame.gd")
+const GradePedestal := preload("res://screens/ranked/grade_pedestal.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 
@@ -30,6 +31,7 @@ const SIZE := Vector2(330, 500)
 const FEET := Vector2(165, 400) # the teammate's feet (the pedestal's top) in the slot
 const ART := Vector2(375, 400) # the lobby stage's character rect, scaled by SCALE here
 const ART_FEET := 380.0 # its feet from its top on the stage
+const DAIS_K := 0.8 # a badge holder's dais: this much of the stage's (room for the ready mark)
 const PEDESTAL_DROP := 6.0 # the pedestal's centre below the feet (lobby: 528 vs 522)
 const PLUS := 150.0
 const PLUS_DISC := 112.0
@@ -80,6 +82,8 @@ func _ready() -> void:
 	_frame = GradeFrame.make("", 26.0, CREST, true)
 	_frame.name = "Frame"
 	_frame.fill = Color(0.04, 0.06, 0.16, 0.3)
+	_frame.back = true # a badge holder's slot: the grade's background
+	_frame.back_foot_y = FEET.y + 30.0 - FRAME.position.y
 	_frame.position = FRAME.position
 	_frame.size = FRAME.size
 	_body.add_child(_frame)
@@ -235,8 +239,10 @@ func _place_marks() -> void:
 
 
 func _draw_pedestal() -> void:
+	var centre := FEET + Vector2(0, PEDESTAL_DROP * SCALE)
+	if not _member.is_empty() and GradePedestal.draw(_pedestal, centre, GradePedestal.STAGE_RX * SCALE * DAIS_K, str(_member.get("rankBadge", ""))):
+		return # a badge holder's dais
 	var tex := Art.env("pedestal")
 	if tex == null:
 		return
-	var centre := FEET + Vector2(0, PEDESTAL_DROP * SCALE)
 	_pedestal.draw_texture_rect(tex, Rect2(centre - Art.PEDESTAL_CENTER * SCALE, tex.get_size() * SCALE), false)

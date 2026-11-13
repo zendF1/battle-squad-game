@@ -3,9 +3,12 @@ extends Control
 ## rank chip, my card's insignia on the Matchmaking screen): open(host). The header has the back
 ## button ("Sảnh" from Home, "Quay lại" elsewhere; Esc and Android back too) and the title. Under
 ## it a row of every grade, lowest first (RankLadderModel.columns(): the ladder grades then the
-## generals), scrolled by drag, mouse wheel or touchpad, padded so any column can sit dead centre;
-## on open the player's grade sits there. Each column: the insignia (its name only as a tooltip;
-## grades not reached yet a little dimmer), its pill on the one shared track (the points that reach
+## generals), scrolled by drag, mouse wheel or touchpad, never past the first or the last column
+## (a small margin at each end; a row that fits sits centred). On open, and on every resize until
+## the player scrolls, the player's grade sits dead centre (near the ends the row stops against the
+## edge instead: RankLadderModel.centre_scroll()). Each column: the insignia with its grade's name
+## on one short line under it (the current grade's in gold; grades not reached yet a little
+## dimmer), its pill on the one shared track (the points that reach
 ## it; a general's crown and leaderboard positions "#2–3"), its win / loss points as ▲30 ▼5 (the
 ## ladder grades) and the tiles of its season reward (ui/reward_strip.gd). The track is filled up
 ## to the player's points (RankLadderModel.fill()), with a tag of the exact points over the fill's
@@ -29,20 +32,23 @@ const HEADER_H := 96.0
 const BAR_H := 96.0
 const COL_W := 320.0
 const BADGE := 168.0
-const PIPS_Y := 178.0
-const TAG_Y := 202.0
+const NAME_Y := BADGE + 2.0 # the grade's name under its insignia
+const NAME_H := 30.0
+const PIPS_Y := 210.0
+const TAG_Y := 234.0
 const TAG_H := 38.0
-const TRACK_Y := 272.0 # the track's centre line
+const TRACK_Y := 304.0 # the track's centre line
 const TRACK_H := 14.0
 const PILL_H := 44.0
-const CHIPS_Y := 308.0
-const REWARDS_Y := 360.0
+const CHIPS_Y := 340.0
+const REWARDS_Y := 392.0
 const TILE := Vector2(88, 96)
 const TILE_ICON := 52
 const TILE_GAP := 8.0
 const REWARDS_H := TILE.y * 2 + TILE_GAP # two rows at most
 const BLOCK_H := REWARDS_Y + REWARDS_H + 16.0
 const WHEEL_STEP := 120.0
+const MARGIN := 24.0 # the row's margin at each end of the view
 
 const NAVY := Color(0.07, 0.1, 0.26, 0.92)
 const NAVY_EDGE := Color(0.45, 0.58, 0.95, 0.55)
@@ -70,7 +76,7 @@ var _season_dot: Control
 var _me_badge: Control
 var _me_points: Label
 var _scroll := 0.0
-var _centred := false # the current grade was put dead centre once
+var _follow := true # keep the current grade dead centre (open, resizes) until the player scrolls
 var _dragging := false
 var _fill := -1.0
 var _current := -1
@@ -223,6 +229,8 @@ func _build_bar() -> void:
 func _render() -> void:
 	if not is_inside_tree():
 		return
+	if _cols.is_empty(): # the game data came after the ladder opened
+		_cols = RankLadderModel.columns()
 	var data: Dictionary = preview_rank if not preview_rank.is_empty() else PlayerState.my_rank()
 	_rank = RankModel.from_me(data) if not data.is_empty() else {}
 	_current = RankLadderModel.current_index(_cols, _rank)
@@ -230,10 +238,8 @@ func _render() -> void:
 	_fill = RankLadderModel.fill(_cols, _rank)
 	_build_row()
 	_render_bar()
-	if not _centred and (_current >= 0 or _cols.is_empty()):
-		_centred = true
-		_scroll = RankLadderModel.centre_scroll(_current, _cols.size(), COL_W)
 	_place()
+	_place.call_deferred() # again once the view has its laid-out size
 
 
 func _render_bar() -> void:
@@ -288,11 +294,22 @@ func _build_column(i: int, col: Dictionary) -> void:
 	var badge := GradeBadge.make(grade, 0, BADGE)
 	badge.name = "Badge_%s" % grade
 	badge.position = Vector2(cx - BADGE / 2.0, 0)
-	badge.tooltip_text = str(col["name"])
-	badge.mouse_filter = MOUSE_FILTER_PASS # the name on hover; a drag still scrolls the row
-	if _current >= 0 and i > _fill + 0.0001 and i != _current:
-		badge.modulate = DIM # not reached yet
+	badge.mouse_filter = MOUSE_FILTER_PASS # a drag still scrolls the row
+	var dim := _current >= 0 and i > _fill + 0.0001 and i != _current # not reached yet
+	if dim:
+		badge.modulate = DIM
 	_content.add_child(badge)
+	var title := LobbyUi.text(str(col["name"]), 24, LobbyUi.GOLD if i == _current else Color(0.9, 0.93, 1.0), true)
+	title.name = "Name_%s" % grade
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title.mouse_filter = MOUSE_FILTER_IGNORE
+	title.position = Vector2(x + 8, NAME_Y)
+	title.size = Vector2(COL_W - 16, NAME_H)
+	if dim:
+		title.modulate = DIM
+	_content.add_child(title)
 	var pill := _pill(i, col)
 	_content.add_child(pill)
 	pill.reset_size()
@@ -486,26 +503,31 @@ func _draw_crown(c: Control, lit: bool) -> void:
 
 # ── Scroll ─────────────────────────────────────────────────────────────────
 
-func _max_scroll() -> float:
-	return maxf(_cols.size() - 1, 0) * COL_W
-
-
+## Puts the row in the view: the current grade dead centre while following (RankLadderModel
+## clamps it so the row never scrolls past its ends), else the player's scroll clamped to the row
+## (a resize can shorten it); a row narrower than the view sits centred.
 func _place() -> void:
-	if _content == null or _view == null:
+	if _content == null or _view == null or not is_instance_valid(_content):
 		return
-	_scroll = clampf(_scroll, 0.0, _max_scroll())
-	var pad := (_view.size.x - COL_W) / 2.0
-	_content.position = Vector2(roundf(pad - _scroll), roundf(maxf((_view.size.y - BLOCK_H) / 2.0, 0.0)))
+	var view_w := _view.size.x
+	var n := _cols.size()
+	if _follow and _current >= 0:
+		_scroll = RankLadderModel.centre_scroll(_current, n, COL_W, MARGIN, view_w)
+	var most := RankLadderModel.max_scroll(n, COL_W, MARGIN, view_w)
+	_scroll = clampf(_scroll, 0.0, most)
+	var x := MARGIN - _scroll if most > 0.0 else (view_w - n * COL_W) / 2.0
+	_content.position = Vector2(roundf(x), roundf(maxf((_view.size.y - BLOCK_H) / 2.0, 0.0)))
 
 
 func scroll_by(dx: float) -> void:
+	_follow = false
 	_scroll += dx
 	_place()
 
 
 ## The column at the centre now (previews, tests).
 func centred_index() -> int:
-	return roundi(_scroll / COL_W)
+	return RankLadderModel.centred_index(_scroll, _cols.size(), COL_W, MARGIN, _view.size.x if _view != null else 0.0)
 
 
 func _on_view_input(event: InputEvent) -> void:
