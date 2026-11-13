@@ -44,6 +44,16 @@ extends Node2D
 ## flashes a green halo behind the figure and lights its heart (a drain or a regen heal); puff()
 ## squashes a poison mushroom and springs it up as it puffs its spores; a stone totem nods as it
 ## shoots; a stone totem crumbles into falling stones as it dies.
+## Round 2 (Đĩa Bay Thép): a boss with a turret (Art.boss_turret(): its twin cannon, the body frames
+## without it) draws it over the body at the mount of the frame shown (turret.json bodyFrames: the
+## hurt's tilt moves and turns it), turned to its aim (TurretModel: clamped to its range, a quick
+## eased turn, TURN_SEC), at rest (20°, toward the side it faces) otherwise. Its picture follows the
+## body's animation (TurretModel.state_for(): the cast charges and recoils on its peak with a flash
+## at both muzzles and smoke after, the burst charges and holds hot while its beams fire). A boss
+## shot's plan (play_turret(): TurretModel.cues(), on the replay's clock) turns it onto each beam's
+## target and each projectile it fires, then back to rest. muzzle_position() is its turned mid tip
+## (following the bob, the lean and the hurt's tilt); aim_turret_at() / tip_toward() turn it / say
+## where the tip will be. Its crash pops the cannon part off too.
 
 const BossArt := preload("res://match/boss/boss_art.gd")
 const BossAnim := preload("res://match/boss/boss_anim.gd")
@@ -51,6 +61,7 @@ const BossSkinView := preload("res://match/boss/boss_skin_view.gd")
 const SkinIdle := preload("res://match/boss/skin_idle.gd")
 const Art := preload("res://ui/art.gd")
 const BomberModel := preload("res://match/boss/bomber_model.gd")
+const TurretModel := preload("res://match/boss/turret_model.gd")
 const ShieldBall := preload("res://match/views/shield_ball.gd")
 
 const FLASH_SEC := 0.28
@@ -166,6 +177,23 @@ var _heal := 0.0 # 0..1 the heal glow (heal_glow())
 var _puff := -1.0 # s into a spore puff (puff(); -1 none)
 var _nod := 0.0 # 0..1 a totem's shot nod
 const HEAL_SEC := 1.1
+const TIP_FLASH_SEC := 0.14 # the muzzle flash at the turret's tips when it recoils
+const TIP_SMOKE_LIFE := 0.7
+const TIP_SMOKE_EVERY := 0.05 # s between two puffs at each tip while it cools (recoil_1)
+var _turret := {} # Art.boss_turret(): {} none
+var _aim := 0.0 # the turret's angle now (degrees, relative to the body, art frame)
+var _aim_from := 0.0
+var _aim_to := 0.0
+var _aim_k := 1.0 # 0..1 through the turn onto _aim_to
+var _aim_sec := TurretModel.TURN_SEC
+var _plan := {} # play_turret(): TurretModel.cues() on the replay's clock
+var _plan_t := -1.0 # s into it (-1 none)
+var _tstate := "idle" # the turret picture shown
+var _tip_flash := 0.0 # s left of the muzzle flash
+var _tip_smoke: Array = [] # [{p (global), v, r, age, life}]
+var _tip_emit := 0.0
+var _turret_fires := true # the shot playing fires from the turret (play_turret() with aims): its cast recoils
+var _cannon := {} # the crash's popped cannon {p (its hub), v, rot, spin} (body px)
 const PLATES_IN_SEC := 0.5
 const NOD_SEC := 0.45
 const PUFF_SEC := 0.7
@@ -194,6 +222,10 @@ func setup(art_id: String, height_px: float) -> void:
 		if _crashes():
 			_mat.set_shader_parameter("icy_colour", SOOT) # the crash chars it instead of icing it
 			_parts = Art.boss_parts(art)
+		_turret = Art.boss_turret(art)
+		if not _turret.is_empty():
+			_aim = float(_turret["rest"])
+			_aim_to = _aim
 		_figure = Node2D.new()
 		_figure.name = "Frames"
 		_figure.material = _mat
@@ -254,6 +286,7 @@ func _process(delta: float) -> void:
 		_flash = maxf(_flash, 0.35 + 0.35 * absf(sin(_t * 18.0)))
 	_step_shards(delta)
 	_step_trail(delta)
+	_step_turret(delta)
 	_heal = maxf(0.0, _heal - delta / HEAL_SEC)
 	_nod = maxf(0.0, _nod - delta / NOD_SEC)
 	if _puff >= 0.0:
@@ -526,6 +559,7 @@ func set_stunned(on: bool) -> void:
 func play_action(action: Dictionary) -> float:
 	if _anim == null or _dead:
 		return 0.0
+	_turret_fires = true
 	return _anim.play(str(action.get("anim", "")), {"at": float(action.get("at", -1.0)), "hold": float(action.get("hold", -1.0))})
 
 
@@ -724,11 +758,18 @@ func _draw_frame() -> void:
 	_mat.set_shader_parameter("icy", look["icy"])
 	_figure.draw_set_transform_matrix(look["xform"])
 	_figure.draw_texture(look["tex"], Vector2.ZERO, Color(1, 1, 1, look["alpha"]))
+	if has_turret() and not _dead:
+		var m := _frame_mount()
+		var tex: Texture2D = _turret["frames"].get(_tstate, _turret["frames"]["idle"])
+		_figure.draw_set_transform_matrix(_art_xform() * Transform2D(deg_to_rad(_aim + m.z), Vector2(m.x, m.y)) \
+			* Transform2D(0.0, -Vector2(_turret["pivot"])))
+		_figure.draw_texture(tex, Vector2.ZERO, Color(1, 1, 1, look["alpha"]))
 	_figure.draw_set_transform(Vector2.ZERO)
 
 
 ## The shatter over the figure: the frost puff, the shards falling, the sparkles.
 func _draw_shatter() -> void:
+	_draw_turret_fx()
 	if not _dead or _side.is_empty():
 		return
 	if _crashes():
@@ -837,6 +878,12 @@ func _step_crash(delta: float) -> void:
 				"v": Vector2(randf_range(-0.5, -0.25), -1.55) * h, "rot": HURT_TILT, "spin": randf_range(-6.5, -4.0)}
 		for i in 5:
 			_add_zap(_crash_pose(CRASH_WOBBLE, true) * (Vector2(randf_range(-0.2, 0.2), -0.62) * h))
+		var cannon: Dictionary = _parts.get("parts", {}).get("cannon", {})
+		if not cannon.is_empty() and has_turret(): # the turret pops off its socket, nose first
+			var m := _hurt_mount()
+			_cannon = {"p": _crash_pose(CRASH_WOBBLE, false) * Vector2(m.x, m.y), "v": Vector2(randf_range(0.45, 0.7), -1.2) * h,
+				"rot": deg_to_rad(_aim + m.z), "spin": randf_range(5.0, 8.0)}
+			_add_zap(Vector2(_cannon["p"]))
 	if was < fall_end and s >= fall_end:
 		_boom()
 	_emit -= delta
@@ -863,6 +910,10 @@ func _step_crash(delta: float) -> void:
 		b["v"] = Vector2(b["v"]) + Vector2(0, g * delta)
 		b["p"] = Vector2(b["p"]) + Vector2(b["v"]) * delta
 		b["rot"] = float(b["rot"]) + float(b["spin"]) * delta
+	if not _cannon.is_empty():
+		_cannon["v"] = Vector2(_cannon["v"]) + Vector2(0, g * delta)
+		_cannon["p"] = Vector2(_cannon["p"]) + Vector2(_cannon["v"]) * delta
+		_cannon["rot"] = float(_cannon["rot"]) + float(_cannon["spin"]) * delta
 	if not _dome.is_empty():
 		_dome["v"] = Vector2(_dome["v"]) + Vector2(0, g * delta)
 		_dome["p"] = Vector2(_dome["p"]) + Vector2(_dome["v"]) * delta
@@ -905,9 +956,21 @@ func _draw_crash_body() -> void:
 			var hurt: Array = _side["anims"].get(BossAnim.HURT, _side["anims"].values()[0])["frames"]
 			_figure.draw_set_transform_matrix(l * _crash_pose(s, false) * Transform2D(0.0, -Vector2(_side["pivot"])))
 			_figure.draw_texture(hurt[0], Vector2.ZERO)
+			if has_turret() and s < CRASH_WOBBLE: # still on its socket while it shakes
+				var m := _hurt_mount()
+				_figure.draw_set_transform_matrix(l * _crash_pose(s, false) * Transform2D(deg_to_rad(_aim + m.z), Vector2(m.x, m.y)) \
+					* Transform2D(0.0, -Vector2(_turret["pivot"])))
+				_figure.draw_texture(_turret["frames"]["idle"], Vector2.ZERO)
 		else:
 			_figure.draw_set_transform_matrix(l * _crash_pose(s, true) * Transform2D(0.0, Vector2(hull["at"])))
 			_figure.draw_texture(hull["texture"], Vector2.ZERO)
+	if not _cannon.is_empty():
+		var cannon: Dictionary = _parts["parts"]["cannon"]
+		var ca := clampf((CRASH_SEC - s) / 0.45, 0.0, 1.0)
+		if ca > 0.0:
+			_figure.draw_set_transform_matrix(l * Transform2D(float(_cannon["rot"]), Vector2(_cannon["p"])) \
+				* Transform2D(0.0, -Vector2(cannon.get("pivot", Vector2(cannon["size"]) * 0.5))))
+			_figure.draw_texture(cannon["texture"], Vector2.ZERO, Color(1, 1, 1, ca))
 	if not _dome.is_empty():
 		var dome: Dictionary = _parts["parts"]["dome"]
 		var a := clampf((CRASH_SEC - s) / 0.45, 0.0, 1.0)
@@ -977,8 +1040,11 @@ func _draw_crash_fx() -> void:
 	_over.draw_set_transform(Vector2.ZERO)
 
 
-func aim(_angle: float) -> void:
-	pass
+## A turret points along an aim angle (degrees, the Shoot convention: 0 right, 90 up); others: nothing.
+func aim(angle: float) -> void:
+	if has_turret() and not is_nan(angle):
+		var a := deg_to_rad(angle)
+		aim_turret_at(turret_pivot() + Vector2(cos(a), -sin(a)) * 300.0)
 
 
 func draw_gun() -> void:
@@ -986,7 +1052,8 @@ func draw_gun() -> void:
 
 
 func clear_aim() -> void:
-	pass
+	if has_turret():
+		rest_turret()
 
 
 func gun_state() -> String:
@@ -1049,9 +1116,207 @@ func heart_position() -> Vector2:
 
 
 func muzzle_position() -> Vector2:
+	if has_turret():
+		return to_global(_art_xform() * _tip_art("mid", _aim))
 	var m := BossArt.muzzle(art, height, facing) + Vector2(0, _bob_px())
 	return to_global(_turn() * m)
 
 
 func fire_muzzle_position() -> Vector2:
 	return muzzle_position()
+
+
+# ── The turret (round 2: Đĩa Bay Thép's twin cannon) ─────────────────────────
+
+## Drawn with a turret of its own (Art.boss_turret(), on drawn frames).
+func has_turret() -> bool:
+	return not _turret.is_empty() and not _side.is_empty()
+
+
+## The art frame (texture px from the feet, facing right, y down) → local px: scaled to `height`,
+## mirrored facing left, on the hover bob, turned by the lean / sway (the frame's own transform).
+func _art_xform() -> Transform2D:
+	var k := height / float(_side["height"])
+	return _turn() * Transform2D(0.0, Vector2(float(facing * int(_side["facing"])) * k, k), 0.0, Vector2(0, _bob_px()))
+
+
+## The turret's mount on the body frame shown: Vector3(x, y, turn degrees) (art frame).
+func _frame_mount() -> Vector3:
+	var f := shown_frame()
+	if not f.is_empty():
+		var list = _turret["body_frames"].get(str(f[0]))
+		if list is Array and int(f[1]) >= 0 and int(f[1]) < list.size():
+			return list[int(f[1])]
+	var m: Vector2 = _turret["mount"]
+	return Vector3(m.x, m.y, 0.0)
+
+
+## The mount on the first hurt frame (the crash shakes that frame).
+func _hurt_mount() -> Vector3:
+	var list = _turret["body_frames"].get(BossAnim.HURT)
+	if list is Array and not list.is_empty():
+		return list[0]
+	var m: Vector2 = _turret["mount"]
+	return Vector3(m.x, m.y, 0.0)
+
+
+## A muzzle (turret.json tips: mid, upper, lower) at turret angle `a` (art frame).
+func _tip_art(key: String, a: float) -> Vector2:
+	var m := _frame_mount()
+	return TurretModel.tip(Vector2(m.x, m.y), a + m.z, _turret["tips"].get(key, Vector2.ZERO))
+
+
+## The top of the figure (global): its dome's top (a flare shot up leaves from there).
+func top_position() -> Vector2:
+	if _side.is_empty():
+		return to_global(_turn() * Vector2(0, _bob_px() - height))
+	return to_global(_art_xform() * Vector2(0, -float(_side["height"]) * 0.97))
+
+
+## The turret angle now (degrees, relative to the body; tests).
+func turret_angle() -> float:
+	return _aim
+
+
+## The angle it is turning to.
+func turret_goal() -> float:
+	return _aim_to
+
+
+## The turret picture shown (idle, charge_0, charge_1, hot, recoil_0, recoil_1).
+func turret_state() -> String:
+	return _tstate
+
+
+## The pivot (global).
+func turret_pivot() -> Vector2:
+	var m := _frame_mount()
+	return to_global(_art_xform() * Vector2(m.x, m.y))
+
+
+## The turret angle that points it at `p` (global), clamped.
+func _aim_for(p: Vector2) -> float:
+	var m := _frame_mount()
+	var r: Vector2 = _turret["range"]
+	return TurretModel.aim_deg(Vector2(m.x, m.y), _art_xform().affine_inverse() * to_local(p), m.z, r.x, r.y)
+
+
+## Turns the turret onto `p` (global) over `sec` s (0: at once).
+func aim_turret_at(p: Vector2, sec: float = TurretModel.TURN_SEC) -> void:
+	if not has_turret() or _dead:
+		return
+	_turn_to(_aim_for(p), sec)
+
+
+## Where its mid tip will be once aimed at `p` (global; the bob as now).
+func tip_toward(p: Vector2) -> Vector2:
+	if not has_turret():
+		return muzzle_position()
+	return to_global(_art_xform() * _tip_art("mid", _aim_for(p)))
+
+
+## Back to the rest angle (toward the side it faces).
+func rest_turret(sec: float = TurretModel.TURN_SEC * 1.5) -> void:
+	if has_turret():
+		_turn_to(float(_turret["rest"]), sec)
+
+
+func _turn_to(a: float, sec: float) -> void:
+	_aim_from = _aim
+	_aim_to = a
+	_aim_sec = sec
+	_aim_k = 0.0 if sec > 0.0 else 1.0
+	if sec <= 0.0:
+		_aim = a
+
+
+## A boss shot's turret plan (TurretModel.cues(), times from now = the replay's start): it turns
+## TURN_SEC before each aim's moment, holds hot over the beams, rests after.
+func play_turret(plan: Dictionary) -> void:
+	if not has_turret():
+		return
+	_plan = plan.duplicate(true)
+	_plan_t = 0.0
+	_turret_fires = not (plan.get("aims", []) as Array).is_empty() # Bom mù's flare leaves from the dome: no recoil
+
+
+## The plan's hot window is on (tests).
+func turret_hot() -> bool:
+	return _plan_t >= 0.0 and float(_plan.get("hot_from", -1.0)) >= 0.0 and _plan_t >= float(_plan["hot_from"]) - 0.1 \
+		and _plan_t < float(_plan.get("hot_until", -1.0))
+
+
+func _step_turret(delta: float) -> void:
+	for p in _tip_smoke:
+		p["age"] = float(p["age"]) + delta
+		p["p"] = Vector2(p["p"]) + Vector2(p["v"]) * delta
+	_tip_smoke = _tip_smoke.filter(func(p): return float(p["age"]) < float(p["life"]))
+	_tip_flash = maxf(0.0, _tip_flash - delta)
+	if not has_turret() or _dead:
+		return
+	var hot := turret_hot()
+	if _plan_t >= 0.0:
+		_plan_t += delta
+		var aims: Array = _plan.get("aims", [])
+		while not aims.is_empty() and _plan_t >= float(aims[0]["t"]) - TurretModel.TURN_SEC:
+			var a: Dictionary = aims.pop_front()
+			aim_turret_at(a["at"], clampf(float(a["t"]) - _plan_t + delta, 0.05, TurretModel.TURN_SEC))
+		var rest := float(_plan.get("rest", -1.0))
+		if aims.is_empty() and (rest < 0.0 or _plan_t >= rest):
+			if rest >= 0.0:
+				rest_turret()
+			_plan_t = -1.0
+	if _aim_k < 1.0:
+		_aim_k = minf(1.0, _aim_k + delta / maxf(_aim_sec, 0.001))
+		_aim = TurretModel.eased(_aim_from, _aim_to, _aim_k)
+	var f := shown_frame()
+	var state := "idle"
+	if not f.is_empty():
+		var peak := int(_side["anims"].get(str(f[0]), {}).get("peak", -1))
+		state = TurretModel.state_for(str(f[0]), int(f[1]), peak, hot, _turret["frames"]) if _turret_fires or hot else "idle"
+	if state == "recoil_0" and _tstate != "recoil_0": # the shot leaves: a flash at both muzzles
+		_tip_flash = TIP_FLASH_SEC
+		for key in ["upper", "lower"]:
+			for i in 3:
+				_add_tip_smoke(key, 1.0)
+	if state == "recoil_1":
+		_tip_emit -= delta
+		if _tip_emit <= 0.0:
+			_tip_emit = TIP_SMOKE_EVERY
+			_add_tip_smoke("upper" if randf() < 0.5 else "lower", 0.6)
+	_tstate = state
+
+
+## A smoke puff off a muzzle (global, drifting out along the barrel and up).
+func _add_tip_smoke(key: String, strength: float) -> void:
+	var at := to_global(_art_xform() * _tip_art(key, _aim))
+	var dir := (at - turret_pivot()).normalized()
+	var k := height / 240.0
+	_tip_smoke.append({"p": at, "v": dir * randf_range(30.0, 80.0) * strength * k + Vector2(randf_range(-10, 10), -randf_range(25.0, 45.0)) * k,
+		"r": randf_range(7.0, 12.0) * k * (0.6 + 0.4 * strength), "age": 0.0, "life": TIP_SMOKE_LIFE * randf_range(0.7, 1.1)})
+
+
+## The muzzle flash at both tips (where the recoiled barrels' mouths are) and the smoke off them.
+func _draw_turret_fx() -> void:
+	for p in _tip_smoke:
+		var k := float(p["age"]) / float(p["life"])
+		var r := float(p["r"]) * (1.0 + 1.6 * k)
+		var at := _over.to_local(p["p"])
+		_over.draw_texture_rect(halo_texture(), Rect2(at - Vector2(r, r), Vector2(r, r) * 2.0), false,
+			Color(Color(0.42, 0.4, 0.42).lerp(Color(0.72, 0.72, 0.74), k), 0.6 * (1.0 - k)))
+	if _tip_flash <= 0.0 or not has_turret() or _dead:
+		return
+	var u := _tip_flash / TIP_FLASH_SEC # 1 → 0
+	var back := float(_turret["recoil"].get("recoil_0", 0.0))
+	var hk := height / float(_side["height"])
+	for key in ["upper", "lower"]:
+		var at := _over.to_local(to_global(_art_xform() * _tip_art(key, _aim)))
+		var dir := (at - _over.to_local(turret_pivot())).normalized()
+		at -= dir * back * hk
+		var r := height * 0.16 * (0.6 + 0.4 * u)
+		_over.draw_texture_rect(halo_texture(), Rect2(at - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(1.0, 0.62, 0.2, 0.9 * u))
+		var c := r * 0.45
+		_over.draw_texture_rect(halo_texture(), Rect2(at - Vector2(c, c), Vector2(c, c) * 2.0), false, Color(1.0, 0.97, 0.85, u))
+		var side := Vector2(-dir.y, dir.x)
+		var tip := at + dir * r * 1.5
+		_over.draw_colored_polygon(PackedVector2Array([at + side * r * 0.22, tip, at - side * r * 0.22]), Color(1.0, 0.9, 0.55, u))

@@ -26,6 +26,15 @@ extends Node2D
 ## - pebble (a stone totem's shot): a small sharp pebble with an amber chip; a little dust;
 ## - poison_thorn (Mộc Tinh's Mưa gai độc): a curved wooden thorn pointing along its flight, a drop
 ##   of glowing yellow-green poison at its tip, two leaves at its base; a poison mist trail.
+## round 2 (Đĩa Bay Thép):
+## - saucer_missile (Mưa đạn pháo's missiles falling from the top of the map): a small steel missile
+##   with a bold outline, a red nose cone, a cyan band, four fins and a flickering flame at its tail,
+##   nose along its flight (down); a flame-and-smoke trail;
+## - signal_flare (the signal it fires onto the ground first): a small red canister with a white
+##   band, its back end burning bright orange; a spark trail (RainFx adds its red light and smoke);
+## - flash_flare (Bom mù's flare shot up into the sky): a white-hot flare in a pale yellow glow; a
+##   spark trail. It leaves from the top of the craft (the turret cannot point up): `lead` is where
+##   it is drawn at launch, off its server path, easing onto the path over LEAD_SEC.
 ## Any other kind is not this view: ShotPlayer keeps the gun's shell for it (is_kind()). The
 ## impact of each kind is UnitImpact's. Trail particles live in a fixed pool (global positions,
 ## oldest reused), so a long flight costs the same.
@@ -45,19 +54,26 @@ const BOULDER := "boulder"
 const GIANT_BOULDER := "giant_boulder"
 const PEBBLE := "pebble"
 const POISON_THORN := "poison_thorn"
+const SAUCER_MISSILE := "saucer_missile"
+const SIGNAL_FLARE := "signal_flare"
+const FLASH_FLARE := "flash_flare"
 const KINDS := [STEEL_SHELL, MAGMA_BOMB, ICE_SHARD, ICE_SPIKE, DRONE_BOLT, CRAB_SPIT, SNOWBALL, BOULDER, GIANT_BOULDER, PEBBLE,
-	POISON_THORN]
-const BOSS_KINDS := [STEEL_SHELL, MAGMA_BOMB, ICE_SHARD, ICE_SPIKE, BOULDER, GIANT_BOULDER, POISON_THORN]
+	POISON_THORN, SAUCER_MISSILE, SIGNAL_FLARE, FLASH_FLARE]
+const BOSS_KINDS := [STEEL_SHELL, MAGMA_BOMB, ICE_SHARD, ICE_SPIKE, BOULDER, GIANT_BOULDER, POISON_THORN, SAUCER_MISSILE, SIGNAL_FLARE,
+	FLASH_FLARE]
+## Signals and flares: no blast of their own (no impact drawn where they end).
+const SIGNALS := [SIGNAL_FLARE, FLASH_FLARE]
 ## The kinds drawn turned to their flight (the rest tumble or roll).
-const POINTED := [STEEL_SHELL, ICE_SPIKE, DRONE_BOLT, POISON_THORN]
+const POINTED := [STEEL_SHELL, ICE_SPIKE, DRONE_BOLT, POISON_THORN, SAUCER_MISSILE, SIGNAL_FLARE, FLASH_FLARE]
+const LEAD_SEC := 0.3 # s a `lead` offset takes to ease onto the path
 const BOSS_SIZE := 1.8 # a boss's projectile × a player's shell
 ## A boss kind drawn at its own size (× a player's shell) instead of BOSS_SIZE: the giant boulder
 ## huge, the thorns of a 30-thorn rain smaller.
-const SIZE := {GIANT_BOULDER: 4.2, POISON_THORN: 1.3}
+const SIZE := {GIANT_BOULDER: 4.2, POISON_THORN: 1.3, SAUCER_MISSILE: 1.7, SIGNAL_FLARE: 1.1, FLASH_FLARE: 1.6}
 const BOMB_PX := 2.0 # ProjectileView's picture px per world px
 ## Each body's longest side in its drawing frame (units), so it is drawn at its size.
 const EXTENT := {STEEL_SHELL: 30.0, MAGMA_BOMB: 24.0, ICE_SHARD: 24.0, ICE_SPIKE: 38.0, DRONE_BOLT: 26.0, CRAB_SPIT: 16.0, SNOWBALL: 17.0,
-	BOULDER: 24.0, GIANT_BOULDER: 26.0, PEBBLE: 12.0, POISON_THORN: 30.0}
+	BOULDER: 24.0, GIANT_BOULDER: 26.0, PEBBLE: 12.0, POISON_THORN: 30.0, SAUCER_MISSILE: 34.0, SIGNAL_FLARE: 18.0, FLASH_FLARE: 16.0}
 
 const OUT := Color(0.08, 0.06, 0.12)
 const POOL := 18 # trail particles per shell (40 of the witch's shards fly at once)
@@ -83,6 +99,12 @@ const TRAILS := {
 	PEBBLE: {"every": 7.0, "life": 0.35, "r0": 2.0, "r1": 4.5, "color": Color(0.78, 0.66, 0.48, 0.6), "drift": -6.0},
 	POISON_THORN: {"every": 5.0, "life": 0.45, "r0": 2.6, "r1": 0.8, "color": Color(0.72, 0.95, 0.3, 0.85), "drift": 24.0, "glow": true,
 		"mix": 0.25, "look2": "glint", "color2": Color(0.92, 1.0, 0.6)},
+	SAUCER_MISSILE: {"every": 5.0, "life": 0.35, "r0": 4.0, "r1": 1.5, "color": Color(1.0, 0.62, 0.2, 0.95), "drift": -10.0, "glow": true,
+		"mix": 0.5, "look2": "smoke", "color2": Color(0.5, 0.5, 0.56, 0.5)},
+	SIGNAL_FLARE: {"every": 5.0, "life": 0.4, "r0": 3.0, "r1": 0.8, "color": Color(1.0, 0.45, 0.15, 0.95), "drift": 30.0, "glow": true,
+		"mix": 0.45, "look2": "spark", "color2": Color(1.0, 0.85, 0.4)},
+	FLASH_FLARE: {"every": 5.0, "life": 0.5, "r0": 4.0, "r1": 1.0, "color": Color(1.0, 1.0, 0.85, 0.95), "drift": 24.0, "glow": true,
+		"mix": 0.45, "look2": "spark", "color2": Color(1.0, 0.95, 0.6)},
 }
 
 static var _player_px := -1.0
@@ -91,6 +113,8 @@ var kind := ICE_SHARD
 var trail_length := 1.0 # the share of its trail kept (ShotPlayer's callers set it like a shell's)
 var skill := false # unused (a gun shell's flag; kept so the callers can set it)
 var heading := Vector2.ZERO
+var lead := Vector2.ZERO # drawn this far off the path at launch (px), easing onto it over LEAD_SEC
+var _shown_t := 0.0 # s since it first showed (launched: ShotPlayer hides it until then)
 
 var _t := 0.0
 var _dir := Vector2.RIGHT
@@ -148,8 +172,16 @@ func _init(kind_id: String = ICE_SHARD) -> void:
 func _ready() -> void:
 	if heading.length_squared() > 0.0:
 		_dir = heading.normalized()
-	_last = global_position
+	_last = global_position + lead
 	_s = size_px(kind) / float(EXTENT.get(kind, 24.0))
+
+
+## How far off its path it is drawn now (the launch's `lead`, easing out).
+func lead_offset() -> Vector2:
+	if lead == Vector2.ZERO:
+		return Vector2.ZERO
+	var u := 1.0 - clampf(_shown_t / LEAD_SEC, 0.0, 1.0)
+	return lead * u * u
 
 
 ## The body's drawn length now (px).
@@ -188,7 +220,9 @@ func draw_angle() -> float:
 
 func _process(delta: float) -> void:
 	_t += delta
-	var p := global_position
+	if visible:
+		_shown_t += delta
+	var p := global_position + lead_offset()
 	if _last == Vector2.INF:
 		_last = p
 	var step := p.distance_to(_last)
@@ -212,7 +246,8 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	_draw_trail()
 	var rot := draw_angle()
-	draw_set_transform(Vector2.ZERO, rot, Vector2(_s, _s))
+	var o := lead_offset()
+	draw_set_transform(o, rot, Vector2(_s, _s))
 	match kind:
 		STEEL_SHELL:
 			_steel_shell()
@@ -224,11 +259,11 @@ func _draw() -> void:
 			_ice_spike()
 		DRONE_BOLT:
 			var f := 1.0 + 0.15 * sin(_t * 60.0)
-			draw_set_transform(Vector2.ZERO, rot, Vector2(_s, _s * f))
+			draw_set_transform(o, rot, Vector2(_s, _s * f))
 			_drone_bolt()
 		CRAB_SPIT:
 			var w := 1.0 + 0.12 * sin(_t * 14.0)
-			draw_set_transform(Vector2.ZERO, rot, Vector2(_s * w, _s * (2.0 - w)))
+			draw_set_transform(o, rot, Vector2(_s * w, _s * (2.0 - w)))
 			_crab_spit()
 		SNOWBALL:
 			_snowball()
@@ -240,6 +275,12 @@ func _draw() -> void:
 			_pebble()
 		POISON_THORN:
 			_poison_thorn()
+		SAUCER_MISSILE:
+			_saucer_missile()
+		SIGNAL_FLARE:
+			_signal_flare()
+		FLASH_FLARE:
+			_flash_flare()
 	draw_set_transform(Vector2.ZERO)
 	if kind == MAGMA_BOMB:
 		_drips()
@@ -309,6 +350,50 @@ func _steel_shell() -> void:
 		draw_rect(Rect2(x, -5.5, 3.0, 3.0), Color(0.96, 0.8, 0.42))
 		for y in [-3.0, 0.5, 3.6]:
 			draw_circle(Vector2(x + 1.5, y), 0.75, Color(0.4, 0.28, 0.1))
+
+
+## Đĩa Bay Thép's missile (pointing +x): flame, fins, a steel body, a cyan band, a red nose.
+func _saucer_missile() -> void:
+	var flame := 0.75 + 0.25 * sin(_t * 55.0) + 0.1 * sin(_t * 23.0)
+	draw_circle(Vector2(-20, 0), 8.0 * flame, Color(1.0, 0.5, 0.15, 0.4))
+	draw_colored_polygon(PackedVector2Array([Vector2(-14, -3.4), Vector2(-14 - 11.0 * flame, 0), Vector2(-14, 3.4)]), Color(1.0, 0.62, 0.2))
+	draw_colored_polygon(PackedVector2Array([Vector2(-14, -2.0), Vector2(-14 - 6.5 * flame, 0), Vector2(-14, 2.0)]), Color(1.0, 0.95, 0.7))
+	# fins (the far pair darker, the near pair over the body's tail)
+	_outlined(PackedVector2Array([Vector2(-6, -4), Vector2(-14, -10), Vector2(-15, -10), Vector2(-13, -4)]), Color(0.3, 0.33, 0.4), 2.6)
+	_outlined(PackedVector2Array([Vector2(-6, 4), Vector2(-14, 10), Vector2(-15, 10), Vector2(-13, 4)]), Color(0.3, 0.33, 0.4), 2.6)
+	var body := PackedVector2Array([Vector2(9, -4.6), Vector2(-12, -4.6), Vector2(-14, -3.0), Vector2(-14, 3.0), Vector2(-12, 4.6),
+		Vector2(9, 4.6)])
+	_outlined(body, Color(0.55, 0.6, 0.68), 2.6)
+	draw_colored_polygon(PackedVector2Array([Vector2(9, 0.6), Vector2(9, 4.2), Vector2(-12, 4.2), Vector2(-13.6, 2.8), Vector2(-13.6, 0.6)]),
+		Color(0.36, 0.39, 0.47))
+	draw_line(Vector2(-11, -2.6), Vector2(7, -2.6), Color(0.92, 0.95, 1.0, 0.85), 1.3, true)
+	draw_rect(Rect2(-3, -4.6, 3.0, 9.2), Color(0.35, 0.95, 1.0))
+	draw_rect(Rect2(-3, -4.6, 3.0, 2.4), Color(0.8, 1.0, 1.0))
+	_outlined(PackedVector2Array([Vector2(9, -4.6), Vector2(14, -2.6), Vector2(17, 0), Vector2(14, 2.6), Vector2(9, 4.6)]),
+		Color(0.92, 0.22, 0.16), 2.6)
+	draw_colored_polygon(PackedVector2Array([Vector2(9.5, -3.8), Vector2(14, -2.0), Vector2(15.5, -0.6), Vector2(9.5, -1.2)]), Color(1.0, 0.55, 0.45))
+
+
+## The signal flare (pointing +x): a red canister with a white band, its back burning.
+func _signal_flare() -> void:
+	var f := 0.8 + 0.2 * sin(_t * 47.0)
+	draw_circle(Vector2(-10, 0), 9.0 * f, Color(1.0, 0.35, 0.12, 0.45))
+	draw_circle(Vector2(-9, 0), 4.5 * f, Color(1.0, 0.85, 0.5, 0.95))
+	_outlined(PackedVector2Array([Vector2(-8, -3.6), Vector2(6, -3.6), Vector2(6, 3.6), Vector2(-8, 3.6)]), Color(0.9, 0.2, 0.14), 2.4)
+	draw_rect(Rect2(-8, 0.6, 14, 2.8), Color(0.62, 0.1, 0.08))
+	draw_rect(Rect2(-2, -3.6, 3.0, 7.2), Color(0.98, 0.96, 0.92))
+	_outlined(PackedVector2Array([Vector2(6, -3.0), Vector2(9, -2.0), Vector2(9, 2.0), Vector2(6, 3.0)]), Color(0.25, 0.22, 0.26), 2.4)
+	draw_circle(Vector2(-9, 0), 2.0, Color(1, 1, 1))
+
+
+## The flash flare (pointing +x): a white-hot head in a pale yellow glow.
+func _flash_flare() -> void:
+	var f := 0.85 + 0.15 * sin(_t * 61.0)
+	draw_circle(Vector2(0, 0), 15.0 * f, Color(1.0, 0.95, 0.6, 0.28))
+	draw_circle(Vector2(0, 0), 9.0 * f, Color(1.0, 0.98, 0.8, 0.6))
+	_outlined(PackedVector2Array([Vector2(-6, -3.0), Vector2(4, -3.0), Vector2(7, 0), Vector2(4, 3.0), Vector2(-6, 3.0)]),
+		Color(0.96, 0.96, 0.9), 2.2)
+	draw_circle(Vector2(1, 0), 3.2 * f, Color(1, 1, 1))
 
 
 func _magma_bomb() -> void:

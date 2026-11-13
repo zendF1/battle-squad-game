@@ -1,0 +1,1666 @@
+{
+ "_comment": "Đĩa Bay Thép round 2 (server docs/contracts/ufo-skills.md, migration 113; built to the contract's timings, not recorded): the boss hovering at its position facing the party (turret pivot = position + (facing × 0.5088 H, −0.3455 H), H = 120); laser_beam pattern each (a beam per member, nearest by x first, t = 0.6 + 0.35 k, duration 0.28, to = the member's body centre, the damage at t + distance / 12000); shell_barrage (signal_flare from the pivot onto the ground at the party's mean x, the flare event when it lands, rain 0.6 s later, 24 saucer_missile from y −60, 0.08 s apart); blind_bomb (kind global: flash_flare from the pivot up to y −120 80 px forward in 0.6 s, global flash at 1.2 s with a blind status per member, no damage).",
+ "pivot": {
+  "x": 1833.94,
+  "y": 413.54
+ },
+ "facing": -1,
+ "players": {
+  "boss_steel_robot": {
+   "playerId": "boss_steel_robot",
+   "role": "boss",
+   "bossId": "steel_robot",
+   "bodySize": 3,
+   "teamId": 2,
+   "characterId": "",
+   "displayName": "Đĩa Bay Thép",
+   "hp": 19000,
+   "maxHp": 19000,
+   "isAlive": true,
+   "position": {
+    "x": 1895.0,
+    "y": 455.0
+   }
+  },
+  "p1": {
+   "playerId": "p1",
+   "teamId": 1,
+   "characterId": "tanko",
+   "displayName": "",
+   "hp": 2000,
+   "maxHp": 2000,
+   "isAlive": true,
+   "position": {
+    "x": 640.0,
+    "y": 640.0
+   }
+  },
+  "me": {
+   "playerId": "me",
+   "teamId": 1,
+   "characterId": "rookie",
+   "displayName": "",
+   "hp": 1800,
+   "maxHp": 1800,
+   "isAlive": true,
+   "position": {
+    "x": 900.0,
+    "y": 640.0
+   }
+  },
+  "p2": {
+   "playerId": "p2",
+   "teamId": 1,
+   "characterId": "spark",
+   "displayName": "",
+   "hp": 1800,
+   "maxHp": 1800,
+   "isAlive": true,
+   "position": {
+    "x": 1180.0,
+    "y": 640.0
+   }
+  }
+ },
+ "laser_beam": {
+  "actionMode": "skill",
+  "shooterId": "boss_steel_robot",
+  "skillEnergy": 0,
+  "skillId": "laser_beam",
+  "duration": 2.08,
+  "events": [
+   {
+    "t": 0.6,
+    "type": "beam",
+    "playerId": "boss_steel_robot",
+    "skillId": "laser_beam",
+    "targetId": "p2",
+    "from": {
+     "x": 1833.94,
+     "y": 413.54
+    },
+    "to": {
+     "x": 1180.0,
+     "y": 620.0
+    },
+    "duration": 0.28
+   },
+   {
+    "t": 0.657,
+    "type": "damage",
+    "playerId": "p2",
+    "amount": 400,
+    "hp": 1400,
+    "cause": "laser"
+   },
+   {
+    "t": 0.95,
+    "type": "beam",
+    "playerId": "boss_steel_robot",
+    "skillId": "laser_beam",
+    "targetId": "me",
+    "from": {
+     "x": 1833.94,
+     "y": 413.54
+    },
+    "to": {
+     "x": 900.0,
+     "y": 620.0
+    },
+    "duration": 0.28
+   },
+   {
+    "t": 1.03,
+    "type": "damage",
+    "playerId": "me",
+    "amount": 405,
+    "hp": 1395,
+    "cause": "laser"
+   },
+   {
+    "t": 1.3,
+    "type": "beam",
+    "playerId": "boss_steel_robot",
+    "skillId": "laser_beam",
+    "targetId": "p1",
+    "from": {
+     "x": 1833.94,
+     "y": 413.54
+    },
+    "to": {
+     "x": 640.0,
+     "y": 620.0
+    },
+    "duration": 0.28
+   },
+   {
+    "t": 1.401,
+    "type": "damage",
+    "playerId": "p1",
+    "amount": 410,
+    "hp": 1590,
+    "cause": "laser"
+   }
+  ],
+  "projectiles": []
+ },
+ "shell_barrage": {
+  "actionMode": "skill",
+  "shooterId": "boss_steel_robot",
+  "skillEnergy": 0,
+  "skillId": "shell_barrage",
+  "duration": 4.805,
+  "events": [
+   {
+    "t": 1.498,
+    "type": "flare",
+    "projectileId": "a1",
+    "skillId": "shell_barrage",
+    "position": {
+     "x": 906.67,
+     "y": 640.0
+    }
+   },
+   {
+    "t": 2.098,
+    "type": "rain",
+    "position": {
+     "x": 906.67,
+     "y": 640.0
+    },
+    "radius": 840,
+    "count": 24
+   },
+   {
+    "t": 2.565,
+    "type": "explode",
+    "projectileId": "a2",
+    "position": {
+     "x": 610.71,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 2.565,
+    "type": "damage",
+    "playerId": "p1",
+    "amount": 120,
+    "hp": 1880,
+    "cause": "explosion"
+   },
+   {
+    "t": 2.645,
+    "type": "explode",
+    "projectileId": "a3",
+    "position": {
+     "x": 320.1,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 2.725,
+    "type": "explode",
+    "projectileId": "a4",
+    "position": {
+     "x": 1160.24,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 2.725,
+    "type": "damage",
+    "playerId": "p2",
+    "amount": 120,
+    "hp": 1680,
+    "cause": "explosion"
+   },
+   {
+    "t": 2.805,
+    "type": "explode",
+    "projectileId": "a5",
+    "position": {
+     "x": 641.44,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 2.805,
+    "type": "damage",
+    "playerId": "p1",
+    "amount": 120,
+    "hp": 1760,
+    "cause": "explosion"
+   },
+   {
+    "t": 2.885,
+    "type": "explode",
+    "projectileId": "a6",
+    "position": {
+     "x": 681.03,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 2.885,
+    "type": "damage",
+    "playerId": "p1",
+    "amount": 120,
+    "hp": 1640,
+    "cause": "explosion"
+   },
+   {
+    "t": 2.965,
+    "type": "explode",
+    "projectileId": "a7",
+    "position": {
+     "x": 164.11,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 3.045,
+    "type": "explode",
+    "projectileId": "a8",
+    "position": {
+     "x": 919.16,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 3.045,
+    "type": "damage",
+    "playerId": "me",
+    "amount": 120,
+    "hp": 1680,
+    "cause": "explosion"
+   },
+   {
+    "t": 3.125,
+    "type": "explode",
+    "projectileId": "a9",
+    "position": {
+     "x": 129.66,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 3.205,
+    "type": "explode",
+    "projectileId": "a10",
+    "position": {
+     "x": 795.19,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 3.285,
+    "type": "explode",
+    "projectileId": "a11",
+    "position": {
+     "x": 883.63,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 3.285,
+    "type": "damage",
+    "playerId": "me",
+    "amount": 120,
+    "hp": 1560,
+    "cause": "explosion"
+   },
+   {
+    "t": 3.365,
+    "type": "explode",
+    "projectileId": "a12",
+    "position": {
+     "x": 779.86,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 3.445,
+    "type": "explode",
+    "projectileId": "a13",
+    "position": {
+     "x": 1455.78,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 3.525,
+    "type": "explode",
+    "projectileId": "a14",
+    "position": {
+     "x": 274.66,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 3.605,
+    "type": "explode",
+    "projectileId": "a15",
+    "position": {
+     "x": 441.71,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 3.685,
+    "type": "explode",
+    "projectileId": "a16",
+    "position": {
+     "x": 1120.76,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 3.685,
+    "type": "damage",
+    "playerId": "p2",
+    "amount": 120,
+    "hp": 1560,
+    "cause": "explosion"
+   },
+   {
+    "t": 3.765,
+    "type": "explode",
+    "projectileId": "a17",
+    "position": {
+     "x": 1183.08,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 3.765,
+    "type": "damage",
+    "playerId": "p2",
+    "amount": 120,
+    "hp": 1440,
+    "cause": "explosion"
+   },
+   {
+    "t": 3.845,
+    "type": "explode",
+    "projectileId": "a18",
+    "position": {
+     "x": 733.09,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 3.925,
+    "type": "explode",
+    "projectileId": "a19",
+    "position": {
+     "x": 1706.78,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 4.005,
+    "type": "explode",
+    "projectileId": "a20",
+    "position": {
+     "x": 144.93,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 4.085,
+    "type": "explode",
+    "projectileId": "a21",
+    "position": {
+     "x": 1508.9,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 4.165,
+    "type": "explode",
+    "projectileId": "a22",
+    "position": {
+     "x": 553.21,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 4.245,
+    "type": "explode",
+    "projectileId": "a23",
+    "position": {
+     "x": 309.02,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 4.325,
+    "type": "explode",
+    "projectileId": "a24",
+    "position": {
+     "x": 264.56,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 4.405,
+    "type": "explode",
+    "projectileId": "a25",
+    "position": {
+     "x": 584.92,
+     "y": 640.0
+    },
+    "radius": 21,
+    "crater": "bowl"
+   },
+   {
+    "t": 4.405,
+    "type": "damage",
+    "playerId": "p1",
+    "amount": 120,
+    "hp": 1520,
+    "cause": "explosion"
+   }
+  ],
+  "projectiles": [
+   {
+    "projectileId": "a1",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "signal_flare",
+    "launchDelay": 0.6,
+    "path": [
+     {
+      "position": {
+       "x": 1833.94,
+       "y": 413.54
+      },
+      "velocity": {
+       "x": -1032.92,
+       "y": -697.84
+      },
+      "time": 0.6
+     },
+     {
+      "position": {
+       "x": 1741.21,
+       "y": 359.42
+      },
+      "velocity": {
+       "x": -1032.92,
+       "y": -507.82
+      },
+      "time": 0.69
+     },
+     {
+      "position": {
+       "x": 1648.49,
+       "y": 322.36
+      },
+      "velocity": {
+       "x": -1032.92,
+       "y": -317.8
+      },
+      "time": 0.78
+     },
+     {
+      "position": {
+       "x": 1555.76,
+       "y": 302.36
+      },
+      "velocity": {
+       "x": -1032.92,
+       "y": -127.78
+      },
+      "time": 0.869
+     },
+     {
+      "position": {
+       "x": 1463.03,
+       "y": 299.42
+      },
+      "velocity": {
+       "x": -1032.92,
+       "y": 62.24
+      },
+      "time": 0.959
+     },
+     {
+      "position": {
+       "x": 1370.31,
+       "y": 313.54
+      },
+      "velocity": {
+       "x": -1032.92,
+       "y": 252.26
+      },
+      "time": 1.049
+     },
+     {
+      "position": {
+       "x": 1277.58,
+       "y": 344.72
+      },
+      "velocity": {
+       "x": -1032.92,
+       "y": 442.28
+      },
+      "time": 1.139
+     },
+     {
+      "position": {
+       "x": 1184.85,
+       "y": 392.95
+      },
+      "velocity": {
+       "x": -1032.92,
+       "y": 632.3
+      },
+      "time": 1.228
+     },
+     {
+      "position": {
+       "x": 1092.12,
+       "y": 458.24
+      },
+      "velocity": {
+       "x": -1032.92,
+       "y": 822.32
+      },
+      "time": 1.318
+     },
+     {
+      "position": {
+       "x": 999.4,
+       "y": 540.59
+      },
+      "velocity": {
+       "x": -1032.92,
+       "y": 1012.34
+      },
+      "time": 1.408
+     },
+     {
+      "position": {
+       "x": 906.67,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": -1032.92,
+       "y": 1202.36
+      },
+      "time": 1.498
+     }
+    ],
+    "explosionPoint": {
+     "x": 906.67,
+     "y": 640.0
+    },
+    "explosionRadius": 0,
+    "craterRadius": 0
+   },
+   {
+    "projectileId": "a2",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 2.098,
+    "path": [
+     {
+      "position": {
+       "x": 610.71,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.098
+     },
+     {
+      "position": {
+       "x": 610.71,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.565
+     }
+    ],
+    "explosionPoint": {
+     "x": 610.71,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a3",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 2.178,
+    "path": [
+     {
+      "position": {
+       "x": 320.1,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.178
+     },
+     {
+      "position": {
+       "x": 320.1,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.645
+     }
+    ],
+    "explosionPoint": {
+     "x": 320.1,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a4",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 2.258,
+    "path": [
+     {
+      "position": {
+       "x": 1160.24,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.258
+     },
+     {
+      "position": {
+       "x": 1160.24,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.725
+     }
+    ],
+    "explosionPoint": {
+     "x": 1160.24,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a5",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 2.338,
+    "path": [
+     {
+      "position": {
+       "x": 641.44,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.338
+     },
+     {
+      "position": {
+       "x": 641.44,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.805
+     }
+    ],
+    "explosionPoint": {
+     "x": 641.44,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a6",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 2.418,
+    "path": [
+     {
+      "position": {
+       "x": 681.03,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.418
+     },
+     {
+      "position": {
+       "x": 681.03,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.885
+     }
+    ],
+    "explosionPoint": {
+     "x": 681.03,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a7",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 2.498,
+    "path": [
+     {
+      "position": {
+       "x": 164.11,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.498
+     },
+     {
+      "position": {
+       "x": 164.11,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.965
+     }
+    ],
+    "explosionPoint": {
+     "x": 164.11,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a8",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 2.578,
+    "path": [
+     {
+      "position": {
+       "x": 919.16,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.578
+     },
+     {
+      "position": {
+       "x": 919.16,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.045
+     }
+    ],
+    "explosionPoint": {
+     "x": 919.16,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a9",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 2.658,
+    "path": [
+     {
+      "position": {
+       "x": 129.66,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.658
+     },
+     {
+      "position": {
+       "x": 129.66,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.125
+     }
+    ],
+    "explosionPoint": {
+     "x": 129.66,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a10",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 2.738,
+    "path": [
+     {
+      "position": {
+       "x": 795.19,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.738
+     },
+     {
+      "position": {
+       "x": 795.19,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.205
+     }
+    ],
+    "explosionPoint": {
+     "x": 795.19,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a11",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 2.818,
+    "path": [
+     {
+      "position": {
+       "x": 883.63,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.818
+     },
+     {
+      "position": {
+       "x": 883.63,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.285
+     }
+    ],
+    "explosionPoint": {
+     "x": 883.63,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a12",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 2.898,
+    "path": [
+     {
+      "position": {
+       "x": 779.86,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.898
+     },
+     {
+      "position": {
+       "x": 779.86,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.365
+     }
+    ],
+    "explosionPoint": {
+     "x": 779.86,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a13",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 2.978,
+    "path": [
+     {
+      "position": {
+       "x": 1455.78,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 2.978
+     },
+     {
+      "position": {
+       "x": 1455.78,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.445
+     }
+    ],
+    "explosionPoint": {
+     "x": 1455.78,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a14",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 3.058,
+    "path": [
+     {
+      "position": {
+       "x": 274.66,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.058
+     },
+     {
+      "position": {
+       "x": 274.66,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.525
+     }
+    ],
+    "explosionPoint": {
+     "x": 274.66,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a15",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 3.138,
+    "path": [
+     {
+      "position": {
+       "x": 441.71,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.138
+     },
+     {
+      "position": {
+       "x": 441.71,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.605
+     }
+    ],
+    "explosionPoint": {
+     "x": 441.71,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a16",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 3.218,
+    "path": [
+     {
+      "position": {
+       "x": 1120.76,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.218
+     },
+     {
+      "position": {
+       "x": 1120.76,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.685
+     }
+    ],
+    "explosionPoint": {
+     "x": 1120.76,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a17",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 3.298,
+    "path": [
+     {
+      "position": {
+       "x": 1183.08,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.298
+     },
+     {
+      "position": {
+       "x": 1183.08,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.765
+     }
+    ],
+    "explosionPoint": {
+     "x": 1183.08,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a18",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 3.378,
+    "path": [
+     {
+      "position": {
+       "x": 733.09,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.378
+     },
+     {
+      "position": {
+       "x": 733.09,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.845
+     }
+    ],
+    "explosionPoint": {
+     "x": 733.09,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a19",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 3.458,
+    "path": [
+     {
+      "position": {
+       "x": 1706.78,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.458
+     },
+     {
+      "position": {
+       "x": 1706.78,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.925
+     }
+    ],
+    "explosionPoint": {
+     "x": 1706.78,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a20",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 3.538,
+    "path": [
+     {
+      "position": {
+       "x": 144.93,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.538
+     },
+     {
+      "position": {
+       "x": 144.93,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 4.005
+     }
+    ],
+    "explosionPoint": {
+     "x": 144.93,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a21",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 3.618,
+    "path": [
+     {
+      "position": {
+       "x": 1508.9,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.618
+     },
+     {
+      "position": {
+       "x": 1508.9,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 4.085
+     }
+    ],
+    "explosionPoint": {
+     "x": 1508.9,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a22",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 3.698,
+    "path": [
+     {
+      "position": {
+       "x": 553.21,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.698
+     },
+     {
+      "position": {
+       "x": 553.21,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 4.165
+     }
+    ],
+    "explosionPoint": {
+     "x": 553.21,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a23",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 3.778,
+    "path": [
+     {
+      "position": {
+       "x": 309.02,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.778
+     },
+     {
+      "position": {
+       "x": 309.02,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 4.245
+     }
+    ],
+    "explosionPoint": {
+     "x": 309.02,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a24",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 3.858,
+    "path": [
+     {
+      "position": {
+       "x": 264.56,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.858
+     },
+     {
+      "position": {
+       "x": 264.56,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 4.325
+     }
+    ],
+    "explosionPoint": {
+     "x": 264.56,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   },
+   {
+    "projectileId": "a25",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "shell_barrage",
+    "kind": "saucer_missile",
+    "launchDelay": 3.938,
+    "path": [
+     {
+      "position": {
+       "x": 584.92,
+       "y": -60.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 3.938
+     },
+     {
+      "position": {
+       "x": 584.92,
+       "y": 640.0
+      },
+      "velocity": {
+       "x": 0,
+       "y": 1500.0
+      },
+      "time": 4.405
+     }
+    ],
+    "explosionPoint": {
+     "x": 584.92,
+     "y": 640.0
+    },
+    "explosionRadius": 75,
+    "craterRadius": 21
+   }
+  ]
+ },
+ "blind_bomb": {
+  "actionMode": "skill",
+  "shooterId": "boss_steel_robot",
+  "skillEnergy": 0,
+  "skillId": "blind_bomb",
+  "duration": 2.4,
+  "events": [
+   {
+    "t": 1.2,
+    "type": "global",
+    "playerId": "boss_steel_robot",
+    "skillId": "blind_bomb",
+    "duration": 1.2,
+    "flash": true
+   },
+   {
+    "t": 1.2,
+    "type": "status",
+    "playerId": "p1",
+    "effectId": "blind",
+    "turns": 1
+   },
+   {
+    "t": 1.2,
+    "type": "status",
+    "playerId": "me",
+    "effectId": "blind",
+    "turns": 1
+   },
+   {
+    "t": 1.2,
+    "type": "status",
+    "playerId": "p2",
+    "effectId": "blind",
+    "turns": 1
+   }
+  ],
+  "projectiles": [
+   {
+    "projectileId": "b1",
+    "ownerPlayerId": "boss_steel_robot",
+    "skillId": "blind_bomb",
+    "kind": "flash_flare",
+    "launchDelay": 0.6,
+    "path": [
+     {
+      "position": {
+       "x": 1833.94,
+       "y": 413.54
+      },
+      "velocity": {
+       "x": -133.33,
+       "y": -889.23
+      },
+      "time": 0.6
+     },
+     {
+      "position": {
+       "x": 1820.61,
+       "y": 324.62
+      },
+      "velocity": {
+       "x": -133.33,
+       "y": -889.23
+      },
+      "time": 0.7
+     },
+     {
+      "position": {
+       "x": 1807.27,
+       "y": 235.69
+      },
+      "velocity": {
+       "x": -133.33,
+       "y": -889.23
+      },
+      "time": 0.8
+     },
+     {
+      "position": {
+       "x": 1793.94,
+       "y": 146.77
+      },
+      "velocity": {
+       "x": -133.33,
+       "y": -889.23
+      },
+      "time": 0.9
+     },
+     {
+      "position": {
+       "x": 1780.61,
+       "y": 57.85
+      },
+      "velocity": {
+       "x": -133.33,
+       "y": -889.23
+      },
+      "time": 1.0
+     },
+     {
+      "position": {
+       "x": 1767.27,
+       "y": -31.08
+      },
+      "velocity": {
+       "x": -133.33,
+       "y": -889.23
+      },
+      "time": 1.1
+     },
+     {
+      "position": {
+       "x": 1753.94,
+       "y": -120.0
+      },
+      "velocity": {
+       "x": -133.33,
+       "y": -889.23
+      },
+      "time": 1.2
+     }
+    ],
+    "explosionRadius": 0,
+    "craterRadius": 0
+   }
+  ]
+ }
+}

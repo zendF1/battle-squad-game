@@ -3,7 +3,8 @@ extends RefCounted
 ## events at the same t, each {playerId, from, to, duration}:
 ## - Phù Thuỷ Băng's Tia băng: a radial burst, every beam from her body centre out to the map
 ##   bounds, evenly spaced (20 beams, every 18°);
-## - Đĩa Bay Thép's Tia laze nghiền: parallel horizontal beams across the whole map width.
+## - parallel horizontal beams across the whole map width (Đĩa Bay Thép's round-1 laser; since
+##   migration 113 its beams go one per member, boss_beam.gd's TurretBeamsFx).
 ## beams() reads them from the events, layout() says which shape they make (single / radial /
 ## parallel / multi) with the shared origin and the even spacing, ray_to_bounds() is where a ray
 ## from inside the map meets its bounds (the server's beamEnd), nearest_beam() the beam a hit body

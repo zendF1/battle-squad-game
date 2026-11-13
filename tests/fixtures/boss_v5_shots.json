@@ -1,48 +1,29 @@
 {
- "_comment": "Boss v5 (server feat/visual-ui-boss-skills, migration 063), recorded from the server's match code with the boss_v5_test.go set-ups: per case the ShotResolved as sent (shot) and the living units before it (players: position, role, bossId, minionId, bodySize, teamId, characterId); frozen_turn: a frozen boss's TurnStarted.",
+ "_comment": "Boss v5 (server feat/visual-ui-boss-skills, migration 063), recorded from the server's match code with the boss_v5_test.go set-ups: per case the ShotResolved as sent (shot) and the living units before it (players: position, role, bossId, minionId, bodySize, teamId, characterId); frozen_turn: a frozen boss's TurnStarted. blind_bomb rebuilt for migration 113 (docs/contracts/ufo-skills.md: kind global, the flash flare from the turret pivot up off the map, global flash at 1.2 s, a blind status per member, no damage).",
  "blind_bomb": {
   "shot": {
    "actionMode": "skill",
-   "duration": 1.9,
+   "duration": 2.4,
    "events": [
     {
+     "duration": 1.2,
+     "flash": true,
      "playerId": "boss_steel_robot",
-     "position": {
-      "x": 168,
-      "y": 608
-     },
-     "radius": 200,
      "skillId": "blind_bomb",
-     "t": 1.9,
-     "type": "airburst"
-    },
-    {
-     "amount": 206,
-     "cause": "airburst",
-     "hp": 99794,
-     "playerId": "p0",
-     "t": 1.9,
-     "type": "damage"
+     "t": 1.2,
+     "type": "global"
     },
     {
      "effectId": "blind",
      "playerId": "p0",
-     "t": 1.9,
+     "t": 1.2,
      "turns": 1,
      "type": "status"
     },
     {
-     "amount": 168,
-     "cause": "airburst",
-     "hp": 99832,
-     "playerId": "p1",
-     "t": 1.9,
-     "type": "damage"
-    },
-    {
      "effectId": "blind",
      "playerId": "p1",
-     "t": 1.9,
+     "t": 1.2,
      "turns": 1,
      "type": "status"
     }
@@ -50,214 +31,98 @@
    "projectiles": [
     {
      "craterRadius": 0,
-     "explosionPoint": {
-      "x": 168,
-      "y": 608
-     },
-     "explosionRadius": 200,
-     "kind": "orb",
+     "explosionRadius": 0,
+     "kind": "flash_flare",
      "launchDelay": 0.6,
      "ownerPlayerId": "boss_steel_robot",
      "path": [
       {
        "position": {
-        "x": 1992,
-        "y": 612
+        "x": 1930.94,
+        "y": 630.54
        },
        "time": 0.6,
        "velocity": {
-        "x": -1403.076923076923,
-        "y": -1787.6923076923076
+        "x": -133.33,
+        "y": -1250.9
        }
       },
       {
        "position": {
-        "x": 1878,
-        "y": 475.8125
+        "x": 1917.61,
+        "y": 505.45
        },
-       "time": 0.681,
+       "time": 0.7,
        "velocity": {
-        "x": -1403.076923076923,
-        "y": -1564.6153846153845
+        "x": -133.33,
+        "y": -1250.9
        }
       },
       {
        "position": {
-        "x": 1764,
-        "y": 357.75
+        "x": 1904.27,
+        "y": 380.36
        },
-       "time": 0.763,
+       "time": 0.8,
        "velocity": {
-        "x": -1403.076923076923,
-        "y": -1341.5384615384614
+        "x": -133.33,
+        "y": -1250.9
        }
       },
       {
        "position": {
-        "x": 1650,
-        "y": 257.8125
+        "x": 1890.94,
+        "y": 255.27
        },
-       "time": 0.844,
+       "time": 0.9,
        "velocity": {
-        "x": -1403.076923076923,
-        "y": -1118.4615384615383
+        "x": -133.33,
+        "y": -1250.9
        }
       },
       {
        "position": {
-        "x": 1536,
-        "y": 176
+        "x": 1877.61,
+        "y": 130.18
        },
-       "time": 0.925,
+       "time": 1.0,
        "velocity": {
-        "x": -1403.076923076923,
-        "y": -895.3846153846154
+        "x": -133.33,
+        "y": -1250.9
        }
       },
       {
        "position": {
-        "x": 1422,
-        "y": 112.3125
+        "x": 1864.27,
+        "y": 5.09
        },
-       "time": 1.006,
+       "time": 1.1,
        "velocity": {
-        "x": -1403.076923076923,
-        "y": -672.3076923076923
+        "x": -133.33,
+        "y": -1250.9
        }
       },
       {
        "position": {
-        "x": 1308,
-        "y": 66.75
+        "x": 1850.94,
+        "y": -120.0
        },
-       "time": 1.088,
+       "time": 1.2,
        "velocity": {
-        "x": -1403.076923076923,
-        "y": -449.2307692307692
-       }
-      },
-      {
-       "position": {
-        "x": 1194,
-        "y": 39.3125
-       },
-       "time": 1.169,
-       "velocity": {
-        "x": -1403.076923076923,
-        "y": -226.15384615384613
-       }
-      },
-      {
-       "position": {
-        "x": 1080,
-        "y": 30
-       },
-       "time": 1.25,
-       "velocity": {
-        "x": -1403.076923076923,
-        "y": -3.0769230769230766
-       }
-      },
-      {
-       "position": {
-        "x": 966,
-        "y": 38.8125
-       },
-       "time": 1.331,
-       "velocity": {
-        "x": -1403.076923076923,
-        "y": 220
-       }
-      },
-      {
-       "position": {
-        "x": 852,
-        "y": 65.75
-       },
-       "time": 1.413,
-       "velocity": {
-        "x": -1403.076923076923,
-        "y": 443.07692307692304
-       }
-      },
-      {
-       "position": {
-        "x": 738,
-        "y": 110.8125
-       },
-       "time": 1.494,
-       "velocity": {
-        "x": -1403.076923076923,
-        "y": 666.1538461538461
-       }
-      },
-      {
-       "position": {
-        "x": 624,
-        "y": 174
-       },
-       "time": 1.575,
-       "velocity": {
-        "x": -1403.076923076923,
-        "y": 889.2307692307692
-       }
-      },
-      {
-       "position": {
-        "x": 510,
-        "y": 255.3125
-       },
-       "time": 1.656,
-       "velocity": {
-        "x": -1403.076923076923,
-        "y": 1112.3076923076924
-       }
-      },
-      {
-       "position": {
-        "x": 396,
-        "y": 354.75
-       },
-       "time": 1.738,
-       "velocity": {
-        "x": -1403.076923076923,
-        "y": 1335.3846153846152
-       }
-      },
-      {
-       "position": {
-        "x": 282,
-        "y": 472.3125
-       },
-       "time": 1.819,
-       "velocity": {
-        "x": -1403.076923076923,
-        "y": 1558.4615384615383
-       }
-      },
-      {
-       "position": {
-        "x": 168,
-        "y": 608
-       },
-       "time": 1.9,
-       "velocity": {
-        "x": -1403.076923076923,
-        "y": 1781.5384615384614
+        "x": -133.33,
+        "y": -1250.9
        }
       }
      ],
-     "projectileId": "proj-edcd3e6c54eef48d",
+     "projectileId": "b1",
      "skillId": "blind_bomb"
     }
    ],
    "shooterId": "boss_steel_robot",
    "skillEnergies": {
     "boss_steel_robot": 0,
-    "minion_drone_1": 0,
-    "minion_drone_2": 0,
-    "p0": 10,
-    "p1": 10
+    "p0": 0,
+    "p1": 0
    },
    "skillEnergy": 0,
    "skillId": "blind_bomb"

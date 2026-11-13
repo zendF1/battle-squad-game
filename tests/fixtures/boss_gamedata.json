@@ -1,5 +1,5 @@
 {
- "_comment": "GET /gamedata boss additions (built by the server's gamedata.Build from its configs and boss defaults at feat/visual-ui-boss-skills, migration 063: every boss turnLimit 20, summon rounds [0, 10, 15] with skillId / name / description, the five-role kits with skills[].role, the new kinds airburst / pincer / global / roll / pull with moveRange / reach / moveSpeed / projectileKind, minions[].maxLeaps; earlier: boss v4 rock_giant / tree_spirit, eruption / ground_strike, drainPct, the minion auras): modes.lobby / modes.categories / extra modes.match and bosses, merged over tests/fixtures/gamedata.json by tests/boss_fixture.gd.",
+ "_comment": "GET /gamedata boss additions (built by the server's gamedata.Build from its configs and boss defaults at feat/visual-ui-boss-skills, migration 063: every boss turnLimit 20, summon rounds [0, 10, 15] with skillId / name / description, the five-role kits with skills[].role, the new kinds airburst / pincer / global / roll / pull with moveRange / reach / moveSpeed / projectileKind, minions[].maxLeaps; migration 113 (Đĩa Bay Thép round 2): bosses[].turret {x, y, reach} (null: none), steel_robot laser_beam pattern each + interval, shell_barrage saucer_missile + signalKind / signalDelay, blind_bomb kind global + signalKind / flash, damage 0; earlier: boss v4 rock_giant / tree_spirit, eruption / ground_strike, drainPct, the minion auras): modes.lobby / modes.categories / extra modes.match and bosses, merged over tests/fixtures/gamedata.json by tests/boss_fixture.gd.",
  "categories": [
   {
    "categoryId": "pvp",
@@ -150,7 +150,7 @@
   {
    "bossId": "steel_robot",
    "name": "Đĩa Bay Thép",
-   "description": "Phi công ngoài hành tinh lái đĩa bay thép lơ lửng trên xưởng sắt bỏ hoang. Nã pháo phủ kín chiến trường, quét năm tia laze ngang map, bắn bom mù làm loá mắt và thả drone che chắn.",
+   "description": "Phi công ngoài hành tinh lái đĩa bay thép lơ lửng trên xưởng sắt bỏ hoang. Gọi tên lửa phủ kín chiến trường, chiếu laze vào từng người, bắn pháo sáng làm cả đội loá mắt và thả drone che chắn.",
    "recommendedLevel": 10,
    "modeId": "",
    "queue": "boss:steel_robot",
@@ -200,24 +200,28 @@
     {
      "skillId": "shell_barrage",
      "name": "Mưa đạn pháo",
-     "description": "Hai mươi bốn quả đạn pháo dội xuống bảy phần mười chiến trường quanh cả đội.",
+     "description": "Đĩa bay bắn pháo hiệu xuống chỗ cả đội, rồi hai mươi bốn quả tên lửa từ trên trời lao xuống quanh đó.",
      "kind": "rain",
-     "projectileKind": "steel_shell"
+     "projectileKind": "saucer_missile",
+     "signalKind": "signal_flare",
+     "signalDelay": 0.6
     },
     {
      "skillId": "laser_beam",
      "name": "Tia laze nghiền",
-     "description": "Năm tia laze xuyên địa hình quét ngang toàn map ở độ cao của từng người chơi.",
+     "description": "Tháp pháo xoay về từng người chơi, chiếu thẳng một tia laze vào người đó: xuyên địa hình, không né được.",
      "kind": "beam",
-     "pattern": "sweep"
+     "pattern": "each",
+     "interval": 0.35
     },
     {
      "skillId": "blind_bomb",
      "name": "Bom mù",
-     "description": "Quả cầu năng lượng vút lên cao rồi nổ chói loà trên đầu một người chơi: ai trong vùng nổ mất máu và bị mù một lượt.",
-     "kind": "airburst",
-     "projectileKind": "orb",
-     "radius": 200,
+     "description": "Pháo sáng vọt lên trời, cả bản đồ loé trắng: không mất máu nhưng cả đội bị mù tới hết lượt kế tiếp.",
+     "kind": "global",
+     "damage": 0,
+     "signalKind": "flash_flare",
+     "flash": true,
      "status": "blind",
      "statusTurns": 1,
      "statusChance": 1
@@ -241,6 +245,7 @@
     "minMove": 200,
     "flySpeed": 220
    },
+   "turret": {"x": 0.5088, "y": 0.3455, "reach": 0.4244},
    "summon": {
     "minionId": "drone",
     "count": 3,
@@ -347,6 +352,7 @@
    },
    "flying": false,
    "hover": null,
+   "turret": null,
    "summon": {
     "minionId": "crab",
     "count": 4,
@@ -470,6 +476,7 @@
     "minMove": 200,
     "flySpeed": 220
    },
+   "turret": null,
    "summon": {
     "minionId": "snowman",
     "count": 5,
@@ -585,6 +592,7 @@
    },
    "flying": false,
    "hover": null,
+   "turret": null,
    "summon": {
     "minionId": "stone_totem",
     "count": 5,
@@ -706,6 +714,7 @@
    },
    "flying": false,
    "hover": null,
+   "turret": null,
    "summon": {
     "minionId": "poison_mushroom",
     "count": 4,

@@ -92,8 +92,9 @@ extends Node2D
 ## Lost turns and blind (063): a stunned / frozen unit's TurnStarted (skipped + skipAfter) shows a
 ## countdown, no text: a ring emptying with the seconds left over the unit (CountdownRing on its
 ## PlayerView) and, for my own, dead centre on the HUD under the turn banner (SkipCountdown; a
-## TurnStarted held back by a replay counts from its arrival). While I am blinded my own turn is
-## whited out (BlindOverlay on the screen layer, until my shot is answered); others see the
+## TurnStarted held back by a replay counts from its arrival). While I am blinded (round 2: from
+## the Bom mù flash until the end of my next own turn) my screen is whited out except a small clear
+## circle round my own unit, following it (BlindOverlay on the screen layer); others see the
 ## blindfold on my unit (StatusLook "blind"). The snowman (leapDetonateNextTurn false) leaps
 ## without the fuse warning. The summon is named as the boss's kit names it (summon.name).
 ## Boss mode v5 (063): the new ShotResolved events play on the replay's clock: airburst (Bom mù:
@@ -104,6 +105,11 @@ extends Node2D
 ## GroundCrackFx; a shard / thorn bursts on the member it hits), roll (the thrown boulder is a
 ## RollingBoulderView via boss_roll, then rolls along the path from where it lands) and pull (the
 ## member dragged along the path, RootDragFx along the ground, its state `to`).
+## Đĩa Bay Thép round 2 (its turret, BossBody): a boss shot turns the boss toward where its skill
+## leaves from (the events' turret pivot: a beam's from, the turret's first projectile) and plays a
+## turret plan on the replay's clock (_drive_turret(): TurretModel.cues(): onto each beam's target,
+## along each projectile it fires, then back to rest); a projectile the turret fires leaves from its
+## turned tip (ShotPlayer.muzzle).
 ## Gear effects (server contract docs/contracts/gear-effects.md, BattlePlayerState.gear): every
 ## shell of a weapon from +10 glows in its aura colour (ShotLook.bullet_aura()); a player in a
 ## 6-piece set stands in its set aura (PlayerView.set_set_aura()); my +16 weapon / gloves / boots
@@ -180,6 +186,7 @@ const ShockwaveFx := preload("res://match/boss/shockwave_fx.gd")
 const JumpModel := preload("res://match/boss/jump_model.gd")
 const LeapWarning := preload("res://match/boss/leap_warning.gd")
 const UnitShell := preload("res://match/views/unit_shell.gd")
+const TurretModel := preload("res://match/boss/turret_model.gd")
 const UnitImpact := preload("res://match/views/unit_impact.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -900,6 +907,7 @@ func _apply(event: String, data: Variant) -> void:
 			var lead_in := _show_shooting(shooter, timeline)
 			_cast_shards(shooter, timeline)
 			_play_boss_action(shooter, timeline)
+			_drive_turret(shooter, timeline)
 			_focus.clear()
 			_cam.start_shot()
 			var area: Vector2 = _skill_view.frame_size() if _skill_view != null else Vector2.ZERO
@@ -2340,6 +2348,42 @@ func _play_boss_action(shooter: String, timeline) -> void:
 		timeline.events, launches))
 
 
+## A boss with a turret (BossBody.has_turret(): Đĩa Bay Thép) faces the side its skill leaves from
+## (the server's pivot is on the side it faces: a beam's from, a projectile's first point from the
+## turret), then plays its turret plan; the turret's projectiles leave from its turned tip.
+func _drive_turret(shooter: String, timeline) -> void:
+	var view = _views.get(shooter)
+	if view == null or not view.is_boss() or not view.figure().has_method("has_turret") or not view.figure().has_turret():
+		return
+	var fig = view.figure()
+	var origin = null
+	for e in timeline.events:
+		if e is Dictionary and str(e.get("type", "")) == "beam" and e.get("from") is Dictionary:
+			origin = _vec(e["from"])
+			break
+	var near := []
+	for i in timeline.projectiles.size():
+		var start: Vector2 = timeline.sample(i, timeline.launch_time(i))
+		if start.distance_to(view.position) <= view.figure().height * 0.8: # from the craft, not from the sky
+			near.append(i)
+			if origin == null:
+				origin = start
+	if origin is Vector2 and absf(origin.x - view.position.x) > 1.0:
+		view.face(signf(origin.x - view.position.x))
+	var shots: Array = []
+	for i in near:
+		if TurretModel.SKY_KINDS.has(timeline.kind(i)):
+			continue
+		var start: Vector2 = timeline.sample(i, timeline.launch_time(i))
+		var dir: Vector2 = timeline.sample(i, timeline.launch_time(i) + 0.05) - start
+		shots.append({"t": timeline.launch_time(i), "from": start, "dir": dir})
+	var plan := TurretModel.cues(timeline.events, shots)
+	fig.play_turret(plan)
+	if not shots.is_empty():
+		var s0: Dictionary = shots[0]
+		_shot_player.muzzle = _fx_layer.to_local(fig.tip_toward(Vector2(s0["from"]) + Vector2(s0["dir"]).normalized() * 400.0))
+
+
 ## A summon's minions appear farther apart than the view is wide.
 func _summons_spread(events: Array) -> bool:
 	var lo := INF
@@ -2494,11 +2538,18 @@ func countdown_state() -> Dictionary:
 		"unit_ring": _unit_ring != null and is_instance_valid(_unit_ring) and _unit_ring.visible}
 
 
-## My blind white-out: on while BlindOverlay.wanted() (my turn, blinded, before my shot is answered).
+## My blind white-out: on while BlindOverlay.wanted() (alive and blinded), its clear circle on my unit.
 func _refresh_blind(delta: float) -> void:
 	if _blind == null:
 		return
-	_blind.set_on(BlindOverlay.wanted(_is_my_turn(), _players.get(_me, {}).get("statusEffects"), _turn_resolved))
+	var me: Dictionary = _players.get(_me, {})
+	_blind.set_on(BlindOverlay.wanted(not _ended and bool(me.get("isAlive", false)), me.get("statusEffects")))
+	var view = _views.get(_me)
+	if view != null and is_instance_valid(view):
+		# on screen: through the camera (outside the tree, tests: the world transform)
+		var xf: Transform2D = view.get_global_transform_with_canvas() if view.is_inside_tree() else view.get_global_transform()
+		var c := BlindOverlay.clear_circle(xf, view.head_lift() - 10.0)
+		_blind.set_clear(c["centre"], c["radius"])
 	_blind.step(delta)
 
 

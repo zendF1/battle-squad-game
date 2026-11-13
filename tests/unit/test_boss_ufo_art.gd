@@ -88,7 +88,10 @@ func test_alpha_key_keeps_the_picture() -> void:
 
 
 func test_the_ufo_in_a_match_hovers_banks_and_trails() -> void:
-	eq(BossArt.MUZZLE["steel_robot"], Vector2(64.3, -18.5), "the muzzle between the twin barrels' mouths")
+	var t = JSON.parse_string(FileAccess.get_file_as_string("res://assets/bosses/steel_robot/turret/turret.json"))
+	var rest := deg_to_rad(float(t["rest"]))
+	var tip := Vector2(t["unit"]["mount"][0], t["unit"]["mount"][1]) + Vector2(float(t["unit"]["tips"]["mid"][0]), 0.0).rotated(rest)
+	check(BossArt.MUZZLE["steel_robot"].distance_to(tip) < 0.2, "the muzzle: the turret's mid tip at rest (%s, %s)" % [BossArt.MUZZLE["steel_robot"], tip])
 	near(BossArt.top("steel_robot"), 1.125, 0.001, "the antenna over the dome")
 	check(BossArt.TRAIL.has("steel_robot") and BossArt.trail_from("steel_robot") < 0.05, "jet puffs under the claws")
 	near(BossArt.trail_from("ice_witch"), BossArt.TRAIL_FROM_DEFAULT, 0.001, "the witch's trail where it was")

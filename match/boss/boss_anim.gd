@@ -123,7 +123,8 @@ func playing() -> String:
 ## events / launches: the replay's events and its projectiles' launch times. The peak lands on
 ## the first beam (a burst: held over most of the beams' duration), the first summon (a summon),
 ## else the first projectile leaving (a cast's rain; the blizzard's whirl held while its shards
-## leave one after another).
+## leave one after another; beams one after another, the saucer's turret laser: held until the last
+## one ends).
 static func action_for(mode: String, skill_id: String, skill: Dictionary, events: Array, launches: Array) -> Dictionary:
 	var anim := ""
 	if mode == "summon":
@@ -137,15 +138,22 @@ static func action_for(mode: String, skill_id: String, skill: Dictionary, events
 		anim = "cast"
 	var at := INF
 	var hold := -1.0
+	var beams_end := -INF # the last beam's end (round 2: the saucer's beams one after another)
+	var beam_ts := {}
 	for e in events:
 		if not e is Dictionary or not (e.get("t") is float or e.get("t") is int):
 			continue
 		var type := str(e.get("type", ""))
+		if anim == "burst" and type == "beam":
+			beams_end = maxf(beams_end, float(e["t"]) + (float(e["duration"]) if e.get("duration") is float or e.get("duration") is int else 0.0))
+			beam_ts[snappedf(float(e["t"]), 0.001)] = true
 		if (anim == "burst" and type == "beam") or (anim == "summon" and type == "summon"):
 			if float(e["t"]) < at:
 				at = float(e["t"])
 				if anim == "burst" and (e.get("duration") is float or e.get("duration") is int):
 					hold = clampf(float(e["duration"]) * 0.6, 0.15, 0.8)
+	if anim == "burst" and at < INF and beam_ts.size() > 1: # beams one after another: hot over all of them
+		hold = clampf(beams_end - at, 0.15, 4.0)
 	if at == INF and anim != "summon":
 		var last := -INF
 		for t in launches:

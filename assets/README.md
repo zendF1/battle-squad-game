@@ -117,7 +117,9 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   `turret/turret.json` (the importer's `turret`: the mount from the feet and the muzzle tips from the
   pivot in texture px and in the unit frame, the recoil per state, rest 20 and range 10..120 degrees,
   the mount and turn per body frame) for the match to turn toward each shot, the muzzle flash, smoke
-  and beams drawn at the tips. In a
+  and beams drawn at the tips (read by `Art.boss_turret()`; `match/boss/boss_body.gd` draws it over
+  the body and turns it, `match/boss/turret_model.gd` the angles, clamp and plan; the crash pops
+  `parts/cannon.png` off round its `pivot`). In a
   match it hovers (game data `flying`: the flier's bob, banking into a flight × `BossArt.LEAN`, pale
   cyan jet puffs under the claws, `BossArt.TRAIL`) and dies by crashing (`BossArt.DEATH` "crash", in
   code: the hurt frame shakes with sparks and smoke, the dome part pops off, the hull part tumbles

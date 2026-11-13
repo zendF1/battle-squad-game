@@ -449,7 +449,8 @@ static var _boss_parts := {} # boss art id -> boss_parts() ({} = none)
 ## A boss's loose parts (assets/bosses/<id>/parts/parts.json and its PNGs, written by
 ## tools/import_boss_frames.gd: Đĩa Bay Thép's hull and dome, its death pops the dome off):
 ## {height (the body, texture px as in side.json), parts {name: {texture, at (its top-left from the
-## feet, texture px at the frames' scale), size}}}; {} without them or when a part is missing.
+## feet, texture px at the frames' scale), size, pivot (optional: the point it turns round, its own
+## px)}}}; {} without them or when a part is missing.
 static func boss_parts(id: String) -> Dictionary:
 	if _boss_parts.has(id):
 		return _boss_parts[id]
@@ -471,7 +472,64 @@ static func boss_parts(id: String) -> Dictionary:
 			push_warning("art: %s%s missing, no boss parts" % [dir, spec.get("file", "")])
 			return out
 		parts[str(name)] = {"texture": tex, "at": _vec2(spec.get("at", [])), "size": _vec2(spec.get("size", []))}
+		if spec.get("pivot") is Array: # the point it turns round (its own px: the cannon's hub)
+			parts[str(name)]["pivot"] = _vec2(spec["pivot"])
 	out.merge({"height": float(data["height"]), "parts": parts})
+	return out
+
+
+static var _boss_turrets := {} # boss art id -> boss_turret() ({} = none)
+
+
+## A boss's turret (assets/bosses/<id>/turret/turret.json and its state pictures, written by
+## tools/import_boss_frames.gd: Đĩa Bay Thép's twin cannon, drawn over the body and turned to aim):
+## {height (the body, texture px as in side.json), size, pivot (the hub in each picture, px),
+## frames {state: Texture2D} (idle, charge_0, charge_1, hot, recoil_0, recoil_1), mount (the pivot
+## from the feet, texture px at the frames' scale), tips {mid, upper, lower} (the muzzles from the
+## pivot pointing right, texture px), recoil {state: px back}, rest (degrees), range (Vector2 lo, hi
+## degrees: 0 forward, + down, facing right), body_frames {anim: [Vector3(x, y, turn)]} (the
+## mount and the degrees each body frame adds)}; {} without one or when a picture is missing.
+static func boss_turret(id: String) -> Dictionary:
+	if _boss_turrets.has(id):
+		return _boss_turrets[id]
+	var out := {}
+	_boss_turrets[id] = out
+	var dir := boss_dir(id) + "turret/"
+	if id == "" or not id.is_valid_filename() or not FileAccess.file_exists(dir + "turret.json"):
+		return out
+	var data := _load_json(dir + "turret.json")
+	if not data.get("frames") is Array or not data.get("mount") is Array or not data.get("tips") is Dictionary \
+			or float(data.get("height", 0.0)) <= 0.0:
+		return out
+	var frames := {}
+	for stem in data["frames"]:
+		var tex := _boss_texture(dir + str(stem) + ".png")
+		if tex == null:
+			push_warning("art: %s%s.png missing, no turret" % [dir, stem])
+			return out
+		frames[str(stem)] = tex
+	if not frames.has("idle"):
+		return out
+	var tips := {}
+	for k in data["tips"]:
+		if data["tips"][k] is Array:
+			tips[str(k)] = _vec2(data["tips"][k])
+	var body_frames := {}
+	if data.get("bodyFrames") is Dictionary:
+		for anim in data["bodyFrames"]:
+			var list: Array = []
+			for f in data["bodyFrames"][anim]:
+				if f is Array and f.size() >= 3:
+					list.append(Vector3(float(f[0]), float(f[1]), float(f[2])))
+			body_frames[str(anim)] = list
+	var recoil := {}
+	if data.get("recoil") is Dictionary:
+		for k in data["recoil"]:
+			recoil[str(k)] = float(data["recoil"][k])
+	var rng: Array = data.get("range", [10.0, 120.0]) if data.get("range") is Array else [10.0, 120.0]
+	out.merge({"height": float(data["height"]), "size": _vec2(data.get("size", [])), "pivot": _vec2(data.get("pivot", [])),
+		"frames": frames, "mount": _vec2(data["mount"]), "tips": tips, "recoil": recoil, "rest": float(data.get("rest", 20.0)),
+		"range": _vec2(rng), "body_frames": body_frames})
 	return out
 
 

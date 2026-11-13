@@ -12,6 +12,12 @@ extends "res://match/views/skills/rain.gd"
 ## shell will land (the server's explode positions) until it does, the camera frames the whole
 ## map (frames_map()), and the boss's storm (BossArt.STORM: snow for the witch, embers for the
 ## crab) blows across the screen while it plays (StormOverlay on the screen layer).
+## Round 2 (its skill's signalKind, Đĩa Bay Thép's Mưa đạn pháo): projectile 0 is a signal flare
+## (UnitShell signal_flare) fired from the turret's tip onto the ground at the rain's centre, with the
+## rain's red light and smoke trail (RainFx follows it as the flare); at its flare event it lands:
+## the flash and sparks, then it lies there (RainFx canister: blinking, its end burning) puffing its
+## red signal smoke until the rain is over; the rain's missiles (saucer_missile) fall from the top
+## of the map after it, nose down. A map-wide rain keeps its landing marks.
 
 const StormOverlay := preload("res://match/boss/storm_overlay.gd")
 const UnitShell := preload("res://match/views/unit_shell.gd")
@@ -40,12 +46,18 @@ func begin(context: Dictionary) -> void:
 	_wide = false
 	_storm = null
 	_marks = null
+	_flare_view = null
 	var timeline = ctx.get("timeline")
 	_single = timeline != null and timeline.projectiles.size() == 1
 	if timeline != null: # the boss's own shells (steel_shell, magma_bomb, ice_shard, ice_spike) are its rain's too
 		for i in timeline.projectiles.size():
-			if UnitShell.is_kind(timeline.kind(i)):
+			if UnitShell.SIGNALS.has(timeline.kind(i)): # its signal flare: RainFx's flare, not a shell
+				if _flare < 0:
+					_flare = i
+			elif UnitShell.is_kind(timeline.kind(i)):
 				_missile_ids[str(timeline.projectiles[i].get("projectileId", ""))] = true
+	if _flare >= 0 and _fx != null:
+		_fx.canister = true
 	var terrain = ctx.get("terrain")
 	var width := float(terrain.width) if terrain != null and "width" in terrain else 0.0
 	if timeline != null:
@@ -77,10 +89,38 @@ func storm() -> Node2D:
 	return _storm
 
 
+var _flare_view: Node2D = null
+
+
+## The signal flare's view (drawn from the turret's tip, blending onto its path): RainFx's light
+## and smoke follow it, not the bare path from the turret's pivot.
+func projectile_view(i: int, projectile: Dictionary, view: Node2D) -> Node2D:
+	var out := super.projectile_view(i, projectile, view)
+	if i == _flare:
+		_flare_view = out
+	return out
+
+
+func _flare_at(timeline, t: float) -> Vector2:
+	if _flare_view != null and is_instance_valid(_flare_view) and _flare_view.visible:
+		return _flare_view.position
+	return super._flare_at(timeline, t)
+
+
+## Its signal flare is down (RainFx lands it): the rain that follows does not land it again.
+func signalled() -> bool:
+	return _flare >= 0
+
+
 func on_event(event: Dictionary) -> void:
+	if str(event.get("type", "")) == "flare":
+		super.on_event(event)
+		return
 	if _wide:
 		if str(event.get("type", "")) == "rain":
 			_start_wide(float(event.get("t", 0.0)))
+			if _fx != null and is_instance_valid(_fx):
+				_fx.rain() # a signal flare on the ground flares up
 		return
 	super.on_event(event)
 	if str(event.get("type", "")) != "rain":
@@ -89,7 +129,7 @@ func on_event(event: Dictionary) -> void:
 	if not p is Dictionary:
 		return
 	var at := Vector2(float(p.get("x", 0.0)), float(p.get("y", 0.0)))
-	if _fx != null and is_instance_valid(_fx):
+	if _fx != null and is_instance_valid(_fx) and not signalled():
 		_fx.land(at)
 	var layer = ctx.get("layer")
 	if layer is Node2D:

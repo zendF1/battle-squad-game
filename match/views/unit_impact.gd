@@ -1,7 +1,7 @@
 extends Node2D
 ## The impact of a boss's or minion's projectile (UnitShell's kinds, boss mode v3), drawn in code
 ## on the fx layer at the explode, as wide as its blast (radius), each kind its own (original art):
-## - steel_shell: a hot flash, sparks flying out and falling, grey smoke rolling up;
+## - steel_shell (and the saucer's missiles): a hot flash, sparks flying out and falling, grey smoke rolling up;
 ## - magma_bomb: a lava splash (glowing drops arcing out), a molten flash, embers rising;
 ## - ice_shard / ice_spike: the ice shatters (crystal splinters spinning out), a frost ring;
 ## - drone_bolt: an energy pop (a ring and short sparks in the drone's red);
@@ -50,7 +50,7 @@ func _draw() -> void:
 	var k := clampf(_t / LIFE, 0.0, 1.0)
 	var life := 1.0 - k
 	match kind:
-		UnitShell.STEEL_SHELL:
+		UnitShell.STEEL_SHELL, UnitShell.SAUCER_MISSILE:
 			_flash(Color(1.0, 0.85, 0.5), k, 0.5)
 			_puffs(Color(0.55, 0.56, 0.6), k, 5, -40.0)
 			_sparks(Color(1.0, 0.85, 0.4), k, 1.2)

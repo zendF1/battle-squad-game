@@ -112,9 +112,14 @@ func process(t: float) -> void:
 			_fx.set_body(i, b.position)
 	var timeline = ctx.get("timeline")
 	if _flare >= 0 and timeline != null and t >= timeline.launch_time(_flare) and t < timeline.projectile_end(_flare):
-		_fx.follow(timeline.sample(_flare, t))
+		_fx.follow(_flare_at(timeline, t))
 	else:
 		_fx.follow_none()
+
+
+## Where the flare is drawn at t (layer coordinates): on its server path.
+func _flare_at(timeline, t: float) -> Vector2:
+	return timeline.sample(_flare, t)
 
 
 func end() -> void:
@@ -165,6 +170,7 @@ class RainFx extends Node2D:
 	var _since := 0.0
 	# landed
 	var _landed := false
+	var canister := false # a boss's signal flare: the canister itself lies there, blinking (boss_rain.gd)
 	var _land := Vector2.ZERO
 	var _land_t := 0.0
 	var _column_acc := 0.0
@@ -383,6 +389,8 @@ class RainFx extends Node2D:
 		draw_texture_rect(_glow_tex, Rect2(_land - Vector2(gr, gr), Vector2(gr, gr) * 2), false, Color(FLARE_RED, 0.7 * fade))
 		var core := 7.0 * flicker
 		draw_texture_rect(_glow_tex, Rect2(_land - Vector2(core, core), Vector2(core, core) * 2), false, Color(1, 0.92, 0.85, 0.95 * fade))
+		if canister:
+			_draw_canister(fade)
 		for i in SPARKS:
 			var a: float = _sp_age[i]
 			if a >= SPARK_LIFE:
@@ -390,3 +398,24 @@ class RainFx extends Node2D:
 			var f := a / SPARK_LIFE
 			var tail: Vector2 = _sp_pos[i] - _sp_vel[i] * 0.03
 			draw_line(tail, _sp_pos[i], Color(1.0, lerpf(0.85, 0.3, f), lerpf(0.6, 0.2, f), 1.0 - f), 2.5 * (1.0 - f) + 0.8, true)
+
+	## The signal flare lying where it landed: a red canister on its side, a white band, its end
+	## burning, a lamp on it blinking (outlined like the cartoon units).
+	func _draw_canister(fade: float) -> void:
+		var out := Color(0.08, 0.06, 0.12, fade)
+		draw_set_transform(_land + Vector2(0, -5), -0.18, Vector2.ONE)
+		var body := PackedVector2Array([Vector2(-13, -5), Vector2(11, -5), Vector2(11, 5), Vector2(-13, 5)])
+		draw_colored_polygon(body, Color(0.9, 0.2, 0.14, fade))
+		draw_rect(Rect2(-13, 1, 24, 4), Color(0.6, 0.1, 0.08, fade))
+		draw_rect(Rect2(-3, -5, 4, 10), Color(0.98, 0.96, 0.92, fade))
+		draw_rect(Rect2(11, -4, 4, 8), Color(0.25, 0.22, 0.26, fade))
+		var closed := body.duplicate()
+		closed.append(body[0])
+		draw_polyline(closed, out, 2.4, true)
+		draw_rect(Rect2(11, -4, 4, 8), out, false, 2.0)
+		var blink := 1.0 if fmod(_t, 0.5) < 0.25 else 0.25
+		draw_circle(Vector2(5, -7), 3.2, Color(1.0, 0.95, 0.7, fade * blink))
+		draw_texture_rect(_glow_tex, Rect2(Vector2(5, -7) - Vector2(18, 18), Vector2(36, 36)), false, Color(1.0, 0.3, 0.15, 0.8 * fade * blink))
+		var f := 0.8 + 0.2 * sin(_t * 41.0)
+		draw_circle(Vector2(-14, 0), 5.0 * f, Color(1.0, 0.85, 0.5, 0.95 * fade))
+		draw_set_transform(Vector2.ZERO)

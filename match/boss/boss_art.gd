@@ -42,8 +42,9 @@ const SHOT_LOOK := {"steel_robot": {"kind": "cannon", "tier": "titan"}, "lava_cr
 	"ice_witch": {"kind": "shock_rifle", "tier": "iron"}, "rock_giant": {"kind": "cannon", "tier": "basic"},
 	"tree_spirit": {"kind": "seed_launcher", "tier": "mithril"}}
 ## The point (unit frame, facing right) a boss's beam and muzzle flash leave from (Đĩa Bay Thép:
-## between its twin barrels' mouths, low on the right of the hull).
-const MUZZLE := {"steel_robot": Vector2(64.3, -18.5), "lava_crab": Vector2(64, -58), "ice_witch": Vector2(30, -98),
+## its turret's mid tip at rest, turret.json mount (35.09, -23.83) + 29.27 at 20°; in a match BossBody
+## turns the turret and its muzzle_position() is the turned tip).
+const MUZZLE := {"steel_robot": Vector2(62.6, -13.8), "lava_crab": Vector2(64, -58), "ice_witch": Vector2(30, -98),
 	"drone": Vector2(10, -62), "crab": Vector2(60, -54), "snowman": Vector2(26, -58), "rock_giant": Vector2(52, -40),
 	"stone_totem": Vector2(20, -72), "tree_spirit": Vector2(3, -27), "poison_mushroom": Vector2(0, -80)}
 ## The accent colour of each art (the HUD bar's name, the shield's tint, the card's glow).

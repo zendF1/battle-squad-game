@@ -1,7 +1,8 @@
 extends "res://tests/test_case.gd"
 ## Boss v5 / items and status (server feat/visual-ui-boss-skills, migration 063): the lost turn's
 ## countdown (TurnStarted skipAfter: SkipCountdown, the ring over the unit and on my HUD, no text),
-## the blind white-out (BlindOverlay.wanted(), the blindfold on the unit), the new ShotResolved
+## the blind white-out (BlindOverlay.wanted(), the blindfold on the unit; round 2: the circle round
+## my unit, test_boss_ufo_skills.gd), the new ShotResolved
 ## events replayed on the timeline's clock (PathMotion; move + pincer, airburst, global, roll,
 ## pull: the fixture tests/fixtures/boss_v5_shots.json recorded from the server), the new skill
 ## views, the snowman's single leap, the freeze bomb factor and the boss result's gift box.
@@ -67,7 +68,7 @@ func test_game_data_063() -> void:
 	for b in GameData.bosses():
 		eq(int(b["turnLimit"]), 20, "%s: 20 turns" % b["bossId"])
 		eq(b["summon"]["rounds"], [0.0, 10.0, 15.0], "%s: waves at rounds 0, 10, 15" % b["bossId"])
-	eq(GameData.boss_skill("steel_robot", "blind_bomb")["kind"], "airburst", "Bom mù")
+	eq(GameData.boss_skill("steel_robot", "blind_bomb")["kind"], "global", "Bom mù (113: a map-wide flash)")
 	eq([GameData.boss_skill("lava_crab", "pincer")["moveRange"], GameData.boss_skill("lava_crab", "pincer")["reach"]], [600.0, 60.0], "Kẹp càng")
 	check(not GameData.minion_leap_detonates("ice_witch", "snowman"), "the snowman leaps once and does not blow up")
 	check(GameData.minion_leap_detonates("ice_witch", "nobody"), "unknown: the old behaviour")
@@ -75,16 +76,15 @@ func test_game_data_063() -> void:
 
 func test_skill_views_by_kind() -> void:
 	BossFixture.take()
-	check(Skills.view_for_skill("blind_bomb") is BossAirburst, "airburst")
+	check(Skills.view_for_skill("blind_bomb") is BossGlobal, "Bom mù is global since 113")
 	check(Skills.view_for_skill("blizzard") is BossGlobal and Skills.view_for_skill("earthquake") is BossGlobal
 		and Skills.view_for_skill("poison_thorns") is BossGlobal, "global")
 	check(Skills.view_for_skill("rolling_boulder") is BossRoll, "roll")
 	var g = Skills.view_for_skill("earthquake")
 	check(g.frames_map() and not g.tracks_shells(), "a global frames the whole map")
-	var shot: Dictionary = _fixture()["blind_bomb"]["shot"]
 	var plain := Node2D.new()
-	var orb: Node2D = Skills.view_for_skill("blind_bomb").projectile_view(0, shot["projectiles"][0], plain)
-	check(orb is OrbView, "the orb flies as the energy orb")
+	var orb: Node2D = BossAirburst.new().projectile_view(0, {"kind": "orb"}, plain)
+	check(orb is OrbView, "an airburst's orb flies as the energy orb")
 	orb.free()
 	var roll: Dictionary = _fixture()["rolling_boulder"]["shot"]
 	var boulder: Node2D = Skills.view_for_skill("rolling_boulder").projectile_view(0, roll["projectiles"][0], plain)
@@ -183,18 +183,17 @@ func test_countdown_centred_on_hud() -> void:
 
 func test_blind_overlay_state() -> void:
 	var blind := [{"effectId": "blind", "durationTurn": 1}]
-	check(BlindOverlay.wanted(true, blind, false), "my turn, blinded, aiming: white-out")
-	check(not BlindOverlay.wanted(false, blind, false), "another's turn: none")
-	check(not BlindOverlay.wanted(true, blind, true), "my shot answered: it lifts for the replay")
-	check(not BlindOverlay.wanted(true, [{"effectId": "blind", "durationTurn": 0}], false), "expired")
-	check(not BlindOverlay.wanted(true, [], false), "not blind")
+	check(BlindOverlay.wanted(true, blind), "blinded: white-out, whoever's turn it is")
+	check(not BlindOverlay.wanted(false, blind), "dead: none")
+	check(not BlindOverlay.wanted(true, [{"effectId": "blind", "durationTurn": 0}]), "expired")
+	check(not BlindOverlay.wanted(true, []), "not blind")
 	var o := BlindOverlay.new()
 	o.set_on(true)
 	o.step(BlindOverlay.FADE_IN / 2.0)
 	check(o.visible and o.shown > 0.4 and o.shown < 0.6, "fading in")
 	o.step(1.0)
 	near(o.shown, 1.0, 1e-6, "full")
-	check(BlindOverlay.CENTRE_ALPHA > 0.85 and BlindOverlay.EDGE_ALPHA < BlindOverlay.CENTRE_ALPHA, "strong, a little thinner at the edges")
+	check(BlindOverlay.GLARE > 0.9, "all but white outside my circle")
 	check(o.mouse_filter == Control.MOUSE_FILTER_IGNORE, "taps go through")
 	o.set_on(false)
 	o.step(1.0)
@@ -203,7 +202,8 @@ func test_blind_overlay_state() -> void:
 	eq(StatusLook.looks_of(blind).keys(), ["blind"], "teammates see the blindfold on the unit")
 
 
-## The robot's blind bomb on me: my next turn is whited out until my shot is answered.
+## The saucer's blind bomb on me (113): the map flashes, then I am whited out (a clear circle on me)
+## from the flash until the end of my next own turn.
 func test_screen_blind() -> void:
 	var m := _screen("steel_robot", "blind_bomb")
 	var shot: Dictionary = _fixture()["blind_bomb"]["shot"].duplicate(true)
@@ -215,17 +215,21 @@ func test_screen_blind() -> void:
 	check(not m._shot_player.is_playing(), "replayed")
 	check(m._players["me"]["statusEffects"].any(func(e): return e["effectId"] == "blind"), "blind on me")
 	check(m._views["me"].status_looks().has("blind"), "the blindfold on my unit")
-	check(_fx(m, AirburstFx).size() == 1, "the burst drawn")
+	check(_fx(m, AirburstFx).is_empty(), "no burst over anyone any more")
 	m._process(DT)
-	check(not m.blind_overlay().is_on(), "not my turn yet: no white-out")
+	check(m.blind_overlay().is_on(), "from the flash on: white-out, before my turn")
 	m._on_event("TurnStarted", {"turnIndex": 6, "currentPlayerId": "me", "moveEnergy": 100, "maxMoveEnergy": 100,
 		"wind": {"direction": 1, "power": 1.0}})
 	m._process(DT)
-	check(m.blind_overlay().is_on(), "my turn: white-out")
+	check(m.blind_overlay().is_on(), "my turn: still")
 	check(m._can_act(), "I still play (purely visual)")
 	m._turn_resolved = true
 	m._process(DT)
-	check(not m.blind_overlay().is_on(), "my shot answered: lifted")
+	check(m.blind_overlay().is_on(), "my shot answered: still, until my turn is over")
+	m._on_event("TurnStarted", {"turnIndex": 7, "currentPlayerId": "p1", "moveEnergy": 100, "maxMoveEnergy": 100,
+		"wind": {"direction": 1, "power": 1.0}})
+	m._process(DT)
+	check(not m.blind_overlay().is_on(), "my turn over: lifted")
 	_free(m)
 
 
