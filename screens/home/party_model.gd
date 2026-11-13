@@ -42,6 +42,7 @@ const ErrorText := preload("res://screens/home/error_text.gd")
 const EquipmentModel := preload("res://screens/home/equipment_model.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
+const TitleModel := preload("res://screens/home/title_model.gd")
 
 const IDLE := "idle"
 const IN_LOBBY := "in_lobby"
@@ -95,7 +96,8 @@ static func _str(v: Variant, fallback: String = "") -> String:
 
 
 ## A LobbyMember: {playerId, displayName, characterId, level (0 unknown), rankBadge (last season's
-## final grade: the slot's frame, "" none), ready, gun: {kind, tier}} (gun: the server's, else the character's basic gun); {} not a member.
+## final grade: the slot's dais, "" none), ready, gun: {kind, tier}, title: its equippedTitle
+## (TitleModel.parse_title(), {} none)} (gun: the server's, else the character's basic gun); {} not a member.
 static func parse_member(m: Variant) -> Dictionary:
 	if not m is Dictionary or _str(m.get("playerId")) == "":
 		return {}
@@ -107,7 +109,8 @@ static func parse_member(m: Variant) -> Dictionary:
 	if g is Dictionary:
 		gun = {"kind": _str(g.get("kind"), basic["kind"]), "tier": _str(g.get("tier"), basic["tier"])}
 	return {"playerId": id, "displayName": _str(m.get("displayName"), id.left(8)), "characterId": character,
-		"level": _num(m.get("level")), "rankBadge": RankModel.badge_of(m), "ready": m.get("ready") == true, "gun": gun}
+		"level": _num(m.get("level")), "rankBadge": RankModel.badge_of(m), "ready": m.get("ready") == true, "gun": gun,
+		"title": TitleModel.from_profile(m)}
 
 
 ## A LobbyState: {lobbyId, hostPlayerId, status, queue, members: [parse_member()]} (the host always
