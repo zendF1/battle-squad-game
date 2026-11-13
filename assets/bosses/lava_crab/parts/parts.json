@@ -1,0 +1,198 @@
+{
+	"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/<id>/import.json parts (do not edit). Each part: file, at (its top-left from the feet, the frames' pivot, texture px at the frames' scale), size, z (the draw order: the config's order, back to front), pivot (optional: the point it turns round, px in its own picture: the cannon drawn pointing right, its hub); height: the body (texture px) as in side.json.",
+	"height": 320.0,
+	"parts": {
+		"leg_a_lo": {
+			"file": "leg_a_lo.png",
+			"at": [
+				-276.4,
+				-64.1
+			],
+			"size": [
+				45,
+				68
+			],
+			"z": 0
+		},
+		"leg_a_up": {
+			"file": "leg_a_up.png",
+			"at": [
+				-267.4,
+				-96.2
+			],
+			"size": [
+				103,
+				60
+			],
+			"z": 1
+		},
+		"leg_c_lo": {
+			"file": "leg_c_lo.png",
+			"at": [
+				113.2,
+				-55.1
+			],
+			"size": [
+				38,
+				48
+			],
+			"z": 2
+		},
+		"leg_c_up": {
+			"file": "leg_c_up.png",
+			"at": [
+				55.1,
+				-76.1
+			],
+			"size": [
+				87,
+				49
+			],
+			"z": 3
+		},
+		"leg_d_lo": {
+			"file": "leg_d_lo.png",
+			"at": [
+				122.2,
+				-100.2
+			],
+			"size": [
+				80,
+				103
+			],
+			"z": 4
+		},
+		"leg_d_up": {
+			"file": "leg_d_up.png",
+			"at": [
+				69.1,
+				-97.2
+			],
+			"size": [
+				82,
+				65
+			],
+			"z": 5
+		},
+		"shell_r": {
+			"file": "shell_r.png",
+			"at": [
+				7.0,
+				-188.3
+			],
+			"size": [
+				133,
+				163
+			],
+			"z": 6
+		},
+		"shell_l": {
+			"file": "shell_l.png",
+			"at": [
+				-112.2,
+				-196.3
+			],
+			"size": [
+				142,
+				170
+			],
+			"z": 7
+		},
+		"arm_l": {
+			"file": "arm_l.png",
+			"at": [
+				-186.3,
+				-104.2
+			],
+			"size": [
+				94,
+				78
+			],
+			"z": 8
+		},
+		"leg_b_lo": {
+			"file": "leg_b_lo.png",
+			"at": [
+				-171.3,
+				-132.2
+			],
+			"size": [
+				84,
+				138
+			],
+			"z": 9
+		},
+		"leg_b_up": {
+			"file": "leg_b_up.png",
+			"at": [
+				-122.2,
+				-123.2
+			],
+			"size": [
+				93,
+				83
+			],
+			"z": 10
+		},
+		"claw_l": {
+			"file": "claw_l.png",
+			"at": [
+				-261.4,
+				-215.3
+			],
+			"size": [
+				163,
+				166
+			],
+			"z": 11
+		},
+		"finger_l": {
+			"file": "finger_l.png",
+			"at": [
+				-274.4,
+				-240.4
+			],
+			"size": [
+				93,
+				130
+			],
+			"z": 12
+		},
+		"arm_r": {
+			"file": "arm_r.png",
+			"at": [
+				74.1,
+				-94.1
+			],
+			"size": [
+				110,
+				64
+			],
+			"z": 13
+		},
+		"palm_r": {
+			"file": "palm_r.png",
+			"at": [
+				153.2,
+				-146.2
+			],
+			"size": [
+				173,
+				166
+			],
+			"z": 14
+		},
+		"finger_r": {
+			"file": "finger_r.png",
+			"at": [
+				233.4,
+				-150.2
+			],
+			"size": [
+				132,
+				86
+			],
+			"z": 15
+		}
+	}
+}

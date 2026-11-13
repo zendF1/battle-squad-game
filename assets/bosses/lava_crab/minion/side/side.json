@@ -1,0 +1,62 @@
+{
+	"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/lava_crab/minion/import.json (do not edit: edit the config and re-run). size / pivot (the feet: the frost-mist hem's bottom centre) / height (the body: the hood's top to the feet) / width (the cloak) in texture px; facing 1: drawn facing right; anims {name: {frames, fps, loop, peak}}.",
+	"size": [
+		309,
+		192
+	],
+	"pivot": [
+		137.0,
+		186.0
+	],
+	"height": 160.0,
+	"width": 219.8,
+	"facing": 1,
+	"anims": {
+		"idle": {
+			"frames": [
+				"idle_0",
+				"idle_1",
+				"idle_2",
+				"idle_3",
+				"idle_4",
+				"idle_5",
+				"idle_6",
+				"idle_7"
+			],
+			"fps": 8.0,
+			"loop": true
+		},
+		"walk": {
+			"frames": [
+				"walk_0",
+				"walk_1",
+				"walk_2",
+				"walk_3",
+				"walk_4",
+				"walk_5",
+				"walk_6",
+				"walk_7"
+			],
+			"fps": 14.0,
+			"loop": true
+		},
+		"prime": {
+			"frames": [
+				"prime_0",
+				"prime_1",
+				"prime_2",
+				"prime_3"
+			],
+			"fps": 10.0,
+			"loop": true
+		},
+		"hurt": {
+			"frames": [
+				"hurt_0",
+				"hurt_1"
+			],
+			"fps": 7.0,
+			"loop": false
+		}
+	}
+}

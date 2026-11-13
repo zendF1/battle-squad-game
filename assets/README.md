@@ -88,8 +88,8 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   `match/views/status_icons.gd`): none shipped yet, the badges are code-drawn; drop a square PNG
   (transparent background, about 64 × 64) named after the effect to replace one (read directly
   until the editor imports it).
-- **Bosses** (`bosses/<bossId>/`: Phù Thuỷ Băng, Đĩa Bay Thép (`steel_robot`), Khổng Lồ Đá (`rock_giant`) and Mộc Tinh (`tree_spirit`) have them; the
-  others are drawn in code, `match/boss/boss_art.gd`, and so is every minion): `side/<anim>_<i>.png` + `side/side.json` (her
+- **Bosses** (`bosses/<bossId>/`: Phù Thuỷ Băng, Đĩa Bay Thép (`steel_robot`), Khổng Lồ Đá (`rock_giant`), Mộc Tinh (`tree_spirit`) and Cua Dung Nham (`lava_crab`) have them; the
+  others are drawn in code, `match/boss/boss_art.gd`, and so is every minion (Cua con's drawn frames wait in `bosses/lava_crab/minion/`)): `side/<anim>_<i>.png` + `side/side.json` (her
   match figure: cast, burst, blizzard, summon, hurt (and the unused fly frames) on one shared canvas,
   the feet = the frost-mist hem's bottom centre on the pivot; `match/boss/boss_body.gd` draws them
   `bodySize` × 40 × 1.45 px tall, mirrored facing left; her death is made in code from the first hurt
@@ -147,6 +147,19 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   the heart, the canopy's thorn point, the eyes, the mushroom cluster, glow / eyes levels, the drag
   root's tip; how the match uses them, its skills' animations, its falling leaves and its wither:
   `docs/boss-moc-tinh-art.md`).
+  Cua Dung Nham (`lava_crab`) too (`art_source/bosses/lava_crab/concept/lava_crab_v1.png`, the user's: 3/4
+  view facing right): `make_frames.py` there cuts it into rigid parts (shell, arms, claws, upper
+  pincers, two-segment legs posed by IK on their tips, four far legs added behind, the drips hanging
+  down) and draws the lava's glow / blaze / cooling, the eyes' blink, falling drops, a lava spout, cracks
+  and smoke: idle 12, walk 8 (the sideways scuttle, looping while it moves), fire_bombs 8, claw_slam 9,
+  pincer 8, summon 7, hurt 2, death 5 (the body = the raised left claw's top to the ground, the feet =
+  the middle of the legs' ground contact), `skin/idle/` (motion "breath", glow = the shell's middle in
+  ember orange, `glowBone` body, `eyes`), `parts/` (the death's pieces: legs, shell halves, arms, claws,
+  pincers; `z`) and `side/points.json` (per frame: heart, shellTop (the bombs), eyes, claw tips, the
+  slam's knuckle, the drips' tips, glow / eyes levels). Its minion Cua con: the same picture warmed
+  and brighter, `minion/side/` (idle, walk, prime, hurt; height 160) + `minion/side/points.json`,
+  imported with `-- lava_crab/minion`; the match still draws the minion in code until it reads that
+  folder.
 - **Title plates** (`ui/titles/title_<rarity>.png`, blue / orange / purple / red, and
   `ui/titles/titles.json`: the banner the title name is drawn on, `ui/title_plate.gd`): AI-drawn
   with no text on a dark background, `art_source/ui/titles/title_<rarity>.png`, keyed by

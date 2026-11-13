@@ -58,7 +58,7 @@ func test_big_hit_radius() -> void:
 
 func test_body_flash_shield_death() -> void:
 	var b := BossBody.new()
-	b.setup("lava_crab", 156.0)
+	b.setup(BossArt.GENERIC_BOSS, 156.0) # a code-drawn body (every boss has drawn frames now)
 	eq(b.art_height(), 156.0, "its height")
 	b.hurt()
 	check(b.is_flashing(), "a hit flashes")

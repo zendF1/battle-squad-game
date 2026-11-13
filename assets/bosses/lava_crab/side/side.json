@@ -1,0 +1,127 @@
+{
+	"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/lava_crab/import.json (do not edit: edit the config and re-run). size / pivot (the feet: the frost-mist hem's bottom centre) / height (the body: the hood's top to the feet) / width (the cloak) in texture px; facing 1: drawn facing right; anims {name: {frames, fps, loop, peak}}.",
+	"size": [
+		690,
+		431
+	],
+	"pivot": [
+		279.0,
+		423.0
+	],
+	"height": 320.0,
+	"width": 443.7,
+	"facing": 1,
+	"anims": {
+		"idle": {
+			"frames": [
+				"idle_0",
+				"idle_1",
+				"idle_2",
+				"idle_3",
+				"idle_4",
+				"idle_5",
+				"idle_6",
+				"idle_7",
+				"idle_8",
+				"idle_9",
+				"idle_10",
+				"idle_11"
+			],
+			"fps": 6.0,
+			"loop": true
+		},
+		"walk": {
+			"frames": [
+				"walk_0",
+				"walk_1",
+				"walk_2",
+				"walk_3",
+				"walk_4",
+				"walk_5",
+				"walk_6",
+				"walk_7"
+			],
+			"fps": 12.0,
+			"loop": true
+		},
+		"fire_bombs": {
+			"frames": [
+				"fire_bombs_0",
+				"fire_bombs_1",
+				"fire_bombs_2",
+				"fire_bombs_3",
+				"fire_bombs_4",
+				"fire_bombs_5",
+				"fire_bombs_6",
+				"fire_bombs_7"
+			],
+			"fps": 10.0,
+			"loop": false,
+			"peak": 4
+		},
+		"claw_slam": {
+			"frames": [
+				"claw_slam_0",
+				"claw_slam_1",
+				"claw_slam_2",
+				"claw_slam_3",
+				"claw_slam_4",
+				"claw_slam_5",
+				"claw_slam_6",
+				"claw_slam_7",
+				"claw_slam_8"
+			],
+			"fps": 10.0,
+			"loop": false,
+			"peak": 4
+		},
+		"pincer": {
+			"frames": [
+				"pincer_0",
+				"pincer_1",
+				"pincer_2",
+				"pincer_3",
+				"pincer_4",
+				"pincer_5",
+				"pincer_6",
+				"pincer_7"
+			],
+			"fps": 10.0,
+			"loop": false,
+			"peak": 5
+		},
+		"summon": {
+			"frames": [
+				"summon_0",
+				"summon_1",
+				"summon_2",
+				"summon_3",
+				"summon_4",
+				"summon_5",
+				"summon_6"
+			],
+			"fps": 8.0,
+			"loop": false,
+			"peak": 3
+		},
+		"hurt": {
+			"frames": [
+				"hurt_0",
+				"hurt_1"
+			],
+			"fps": 7.0,
+			"loop": false
+		},
+		"death": {
+			"frames": [
+				"death_0",
+				"death_1",
+				"death_2",
+				"death_3",
+				"death_4"
+			],
+			"fps": 6.0,
+			"loop": false
+		}
+	}
+}
