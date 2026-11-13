@@ -59,7 +59,7 @@ extends Node2D
 ## Boss mode v3: the boss summons for free at the start of its turn (ShotResolved actionMode
 ## "summon", "Triệu hồi" under the boss bar; the turn is not resolved by it: its attack's
 ## ActionSelected and ShotResolved follow). Many beams at once (the witch's radial burst, the
-## robot's parallel sweep) and a map-wide rain (with the boss's storm over the screen) frame the
+## saucer's parallel sweep) and a map-wide rain (with the boss's storm over the screen) frame the
 ## whole map (SkillView.frames_map(): the camera zooms out, then back after the replay); a ground
 ## shockwave (Shockwave: the slam's explode, then explodes stepping out to both edges) is a ripple
 ## along the ground with a dust burst at each step (ShockwaveFx), the map framed too. UnitJumped

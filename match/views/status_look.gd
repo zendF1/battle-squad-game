@@ -15,7 +15,7 @@ extends RefCounted
 ##   off it and popping, drips running down and falling, a small green drop over the head (the
 ##   status's icon on the body);
 ## - "stars" (stun): stars circling the head;
-## - "blind" (063, Rô-bốt Thép's Bom mù): a white blindfold tied over the eyes, its ends fluttering
+## - "blind" (063, Đĩa Bay Thép's Bom mù): a white blindfold tied over the eyes, its ends fluttering
 ##   (the blinded player's own turn is whited out besides: match/views/blind_overlay.gd);
 ## - "aura": a good effect (an armed shot item: power_shot, drill_bomb, spider_net, freeze_bomb,
 ##   air_strike; wind_stop): a soft glow round the body in the effect's colour (AURA_COLORS; the

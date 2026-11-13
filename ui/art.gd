@@ -443,6 +443,38 @@ static func boss_picture(id: String, name: String) -> Texture2D:
 	return t
 
 
+static var _boss_parts := {} # boss art id -> boss_parts() ({} = none)
+
+
+## A boss's loose parts (assets/bosses/<id>/parts/parts.json and its PNGs, written by
+## tools/import_boss_frames.gd: Đĩa Bay Thép's hull and dome, its death pops the dome off):
+## {height (the body, texture px as in side.json), parts {name: {texture, at (its top-left from the
+## feet, texture px at the frames' scale), size}}}; {} without them or when a part is missing.
+static func boss_parts(id: String) -> Dictionary:
+	if _boss_parts.has(id):
+		return _boss_parts[id]
+	var out := {}
+	_boss_parts[id] = out
+	var dir := boss_dir(id) + "parts/"
+	if id == "" or not id.is_valid_filename() or not FileAccess.file_exists(dir + "parts.json"):
+		return out
+	var data := _load_json(dir + "parts.json")
+	if not data.get("parts") is Dictionary or float(data.get("height", 0.0)) <= 0.0:
+		return out
+	var parts := {}
+	for name in data["parts"]:
+		var spec = data["parts"][name]
+		if not spec is Dictionary:
+			continue
+		var tex := _boss_texture(dir + str(spec.get("file", "")))
+		if tex == null:
+			push_warning("art: %s%s missing, no boss parts" % [dir, spec.get("file", "")])
+			return out
+		parts[str(name)] = {"texture": tex, "at": _vec2(spec.get("at", [])), "size": _vec2(spec.get("size", []))}
+	out.merge({"height": float(data["height"]), "parts": parts})
+	return out
+
+
 ## A boss texture: the imported one, else the PNG itself with mipmaps (not imported yet).
 static func _boss_texture(path: String) -> Texture2D:
 	if ResourceLoader.exists(path) and _imported(path):

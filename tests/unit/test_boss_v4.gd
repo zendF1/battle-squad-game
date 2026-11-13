@@ -62,7 +62,7 @@ func test_game_data_of_the_new_bosses() -> void:
 func test_art_of_the_new_bosses_and_minions() -> void:
 	eq([BossArt.art_of("rock_giant"), BossArt.art_of("tree_spirit")], ["rock_giant", "tree_spirit"], "drawn bosses, not the blob")
 	eq([BossArt.art_of("", "stone_totem"), BossArt.art_of("", "poison_mushroom")], ["stone_totem", "poison_mushroom"], "their minions")
-	check(BossArt.top("tree_spirit") > 1.0 and BossArt.top("steel_robot") == 1.0, "the crown stands over the unit height")
+	check(BossArt.top("tree_spirit") > 1.0 and BossArt.top("lava_crab") == 1.0, "the crown stands over the unit height")
 	var h := BossArt.heart("tree_spirit", 200.0, -1)
 	check(h.x < 0.0 and h.y < 0.0, "the sap heart, mirrored facing left (%s)" % h)
 	check(BossArt.blast_look("poison_mushroom").get("spore", false), "the mushroom blows up into spores")

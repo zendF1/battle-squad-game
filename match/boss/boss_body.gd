@@ -5,7 +5,8 @@ extends Node2D
 ## tilts and fades out), and for the boss its shield ball round the figure's centre
 ## (set_shielded(): pops in, shrinks away; a ShieldBall child: hexes wrapped on a breathing ball). It answers the calls PlayerView makes on a character (face, set_walking, aim, shoot,
 ## muzzle positions...) with what a body without a gun does: nothing to draw out, the shot leaving
-## at once from its muzzle point (BossArt.MUZZLE: the robot's cannon, the witch's crystal).
+## at once from its muzzle point (BossArt.MUZZLE: the saucer's twin barrels, the witch's crystal),
+## following the hover bob and the lean.
 ## Boss mode v2: a flying unit (flying) hovers round its feet point in the air and leans into a
 ## flight (lean, PlayerView's UnitFlew flight), the witch with her cape and both fliers with a
 ## trail in the air (BossArt.TRAIL); a bomber (bomber) pulses red while warn (a party player within
@@ -23,7 +24,15 @@ extends Node2D
 ## moment), hurt briefly on a hit. Its death (die()) is its own (FRAMES_DEATH_SEC): the first hurt
 ## frame tinted icy white while cracks spread over her, a held freeze-frame, then she shatters: the
 ## figure fades and swells away while ice shards (the witch's shard art) burst out and fall, with a
-## frost puff and a few sparkles. Without frames everything is as before (BossArt, the death fade).
+## frost puff and a few sparkles. Đĩa Bay Thép crashes instead (BossArt.DEATH "crash", CRASH_SEC):
+## the first hurt frame shakes harder and harder with sparks and smoke puffs off the hull, then the
+## dome pops off (its parts, Art.boss_parts(): the hull with the cockpit open and the dome tumbling
+## away) and the hull tumbles down nose first, charring, trailing smoke, and blows up in mid-air: a
+## fire burst with a shock ring, smoke and steel debris. A drawn flier leaves its trail
+## (BossArt.TRAIL from BossArt.TRAIL_FROM: the saucer's jet puffs under its claws) and leans into a
+## flight by BossArt.LEAN round BossArt.LEAN_ABOUT (the saucer banks round its hull's middle). The
+## shield ball takes the boss's own accent and follows the bob. Without frames everything is as
+## before (BossArt, the death fade).
 ## A boss with a skinned idle (Art.boss_skin(): her portrait on a skeleton, BossSkinView) shows it
 ## instead of the idle frames, on the same feet and body height, and floats by its hover
 ## (SkinIdle.hover()) in every animation, so idle ↔ fly / cast do not jump. One with a skinned glide
@@ -66,6 +75,20 @@ const VANISH_SEC := 0.22 # the figure fades away after it
 const SHATTER_SHARDS := 30
 const SHATTER_GRAVITY := 950.0 # px/s² at a 160 px body
 const ICY := Color(0.86, 0.96, 1.0)
+const CRASH_WOBBLE := 0.55 # s: the crash's shaking hurt frame (sparks, smoke)
+const CRASH_FALL := 0.7 # s: the dome popped off, the hull tumbles down
+const CRASH_BOOM := 0.9 # s: the explosion dies down
+const CRASH_SEC := CRASH_WOBBLE + CRASH_FALL + CRASH_BOOM
+const CRASH_DROP := 0.6 # of the body's height the hull falls before it blows up
+const CRASH_DRIFT := 0.12 # of the height it slides toward its nose as it dives
+const CRASH_TUMBLE := 0.62 # rad nose down when it blows up
+const HURT_TILT := -0.157 # rad: the first hurt frame's nose-up tilt (make_frames.py: 9°), the hull starts there
+const HURT_SHIFT := Vector2(-4.9, -2.1) # texture px: its knock back
+const CRASH_DEBRIS := 14
+const ZAP_SEC := 0.22 # one spark's life
+const SOOT := Color(0.3, 0.27, 0.26) # the crash's charring (the shader's tint)
+const SMOKE := Color(0.15, 0.14, 0.16)
+const FIRE := [Color(1.0, 0.95, 0.72), Color(1.0, 0.6, 0.16), Color(0.86, 0.26, 0.1)]
 const FRAME_SHADER := """shader_type canvas_item;
 uniform float flash = 0.0;
 uniform float icy = 0.0;
@@ -124,6 +147,13 @@ var _dead_t := 0.0 # s into a drawn boss's death
 var _cracks: Array = [] # [PackedVector2Array] texture px, spreading over CRACK_SEC
 var _bits: Array = [] # the shatter's shards [{p, v, r, rot, spin}] (local px)
 var _sparks: Array = [] # [{p, r, delay}]
+var _parts := {} # the loose parts (Art.boss_parts(): the saucer's hull and dome)
+var _smoke: Array = [] # the crash's smoke [{p, v, r, grow, age, life}] (body px: texture px from the feet, facing right)
+var _zaps: Array = [] # its sparks [{p, r, rot, age}] (body px)
+var _debris: Array = [] # its steel bits [{p, v, r, rot, spin, col}] (body px)
+var _dome := {} # the popped dome {p (its centre), v, rot, spin} (body px)
+var _boom_at := Vector2.ZERO # where it blew up (body px)
+var _emit := 0.0 # s to the next spark / puff
 static var _shader: Shader
 var _skin := {} # the skinned idle (Art.boss_skin()); {} the idle frames
 var _skin_view: BossSkinView
@@ -152,7 +182,7 @@ func setup(art_id: String, height_px: float) -> void:
 		add_child(_ball)
 	_ball.position = Vector2(0, -height * 0.5) # round the figure's centre
 	_ball.radius = BossArt.shield_radius(art, height)
-	_ball.tint = BossArt.accent("ice_witch")
+	_ball.tint = BossArt.accent(art)
 	_side = Art.boss_side(art)
 	if not _side.is_empty() and _figure == null:
 		_anim = BossAnim.new(_side["anims"])
@@ -161,6 +191,9 @@ func setup(art_id: String, height_px: float) -> void:
 			_shader.code = FRAME_SHADER
 		_mat = ShaderMaterial.new()
 		_mat.shader = _shader
+		if _crashes():
+			_mat.set_shader_parameter("icy_colour", SOOT) # the crash chars it instead of icing it
+			_parts = Art.boss_parts(art)
 		_figure = Node2D.new()
 		_figure.name = "Frames"
 		_figure.material = _mat
@@ -234,6 +267,8 @@ func _process(delta: float) -> void:
 		if _plate_break >= BossArt.PLATE_BREAK_SEC:
 			_plate_break = -1.0
 	if _ball != null:
+		if not _dead:
+			_ball.position = _centre() # round the figure, bobbing with it
 		var alpha := maxf(_shield, _shield_pop * 0.8) if not _vanished else 0.0
 		_ball.set_look(1.0 + _shield_pop * 0.12, alpha)
 	queue_redraw()
@@ -249,7 +284,7 @@ func _step_trail(delta: float) -> void:
 	_trail = _trail.filter(func(p): return float(p["age"]) < TRAIL_LIFE)
 	if not flying or _dead or _vanished or not BossArt.TRAIL.has(art) or not is_inside_tree():
 		return
-	var at := global_position + Vector2(0, -height * 0.35)
+	var at := to_global(Vector2(0, _bob_px() - height * BossArt.trail_from(art)))
 	_trail_idle += delta
 	if _trail_from == Vector2.INF:
 		_trail_from = at
@@ -429,7 +464,10 @@ func die() -> void:
 	_dead = true
 	if not _side.is_empty():
 		_dead_t = 0.0
-		_cracks = _make_cracks()
+		if _crashes():
+			_emit = 0.0
+		else:
+			_cracks = _make_cracks()
 
 
 ## About to blow up in sec (a detonation's lead-in): the body swells, flashing red.
@@ -500,10 +538,17 @@ func shown_frame() -> Array:
 	return _anim.frame()
 
 
-## The death's phase now: "crack", "freeze", "shatter" or "gone" ("" alive or no frames).
+## The death's phase now: "crack", "freeze", "shatter" or "gone"; a crash: "wobble", "fall", "boom"
+## or "gone" ("" alive or no frames).
 func death_phase() -> String:
 	if not _dead or _side.is_empty():
 		return ""
+	if _crashes():
+		if _dead_t < CRASH_WOBBLE:
+			return "wobble"
+		if _dead_t < CRASH_WOBBLE + CRASH_FALL:
+			return "fall"
+		return "boom" if _dead_t < CRASH_SEC else "gone"
 	if _dead_t < CRACK_SEC:
 		return "crack"
 	if _dead_t < FREEZE_END:
@@ -516,6 +561,9 @@ func shatter_count() -> int:
 
 
 func _step_death(delta: float) -> void:
+	if _crashes():
+		_step_crash(delta)
+		return
 	var was := _dead_t
 	_dead_t += delta
 	_death = minf(1.0, _dead_t / FRAMES_DEATH_SEC)
@@ -645,16 +693,28 @@ func _frame_look() -> Dictionary:
 			swell = 1.0 + 0.14 * v
 			flash = maxf(flash, 0.6 * (1.0 - v))
 	var bob := _bob_px()
-	var rot := (lean + _anim.sway()) if not _dead else 0.0
 	var centre := Vector2(0, -height * 0.5) # a swell grows round the body's centre
-	var xform := Transform2D(rot, Vector2(mirror * k, k) * swell, 0.0, Vector2(0, bob) + centre * (1.0 - swell))
+	var xform := _turn() * Transform2D(0.0, Vector2(mirror * k, k) * swell, 0.0, Vector2(0, bob) + centre * (1.0 - swell))
 	return {"tex": tex, "xform": xform * Transform2D(0.0, -Vector2(_side["pivot"])), "alpha": alpha, "flash": flash, "icy": icy}
+
+
+## The lean (× BossArt.LEAN) and the stun's sway now, turning round BossArt.LEAN_ABOUT over the
+## bobbing feet (local px); none once dead.
+func _turn() -> Transform2D:
+	if _dead:
+		return Transform2D.IDENTITY
+	var rot := lean * (BossArt.lean_scale(art) if not _side.is_empty() else 1.0) + (_anim.sway() if _anim != null else 0.0)
+	var c := Vector2(0, _bob_px() - height * (BossArt.lean_about(art) if not _side.is_empty() else 0.0))
+	return Transform2D(rot, c) * Transform2D(0.0, -c)
 
 
 ## The frame: its texture scaled to `height`, on the feet (plus the bob, the lean or the stun's
 ## sway), mirrored facing left, through the shader (the hit flash, the death's icy tint).
 func _draw_frame() -> void:
 	if showing_skin() or showing_glide(): # a skinned view draws her (and owns the shader's flash)
+		return
+	if _dead and _crashes():
+		_draw_crash_body()
 		return
 	var look := _frame_look()
 	if look.is_empty() or float(look["alpha"]) <= 0.0:
@@ -670,6 +730,9 @@ func _draw_frame() -> void:
 ## The shatter over the figure: the frost puff, the shards falling, the sparkles.
 func _draw_shatter() -> void:
 	if not _dead or _side.is_empty():
+		return
+	if _crashes():
+		_draw_crash_fx()
 		return
 	var look := _frame_look()
 	if not look.is_empty() and float(look["alpha"]) > 0.0 and not _cracks.is_empty(): # the cracks over her
@@ -707,6 +770,211 @@ func _draw_shatter() -> void:
 		_over.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -r), p + Vector2(r * 0.22, -r * 0.22), p + Vector2(r, 0),
 			p + Vector2(r * 0.22, r * 0.22), p + Vector2(0, r), p + Vector2(-r * 0.22, r * 0.22), p + Vector2(-r, 0),
 			p + Vector2(-r * 0.22, -r * 0.22)]), col)
+
+
+# ── The crash (Đĩa Bay Thép's death) ────────────────────────────────────────
+
+## Dies by crashing (BossArt.DEATH "crash", drawn from frames).
+func _crashes() -> bool:
+	return not _side.is_empty() and BossArt.death_of(art) == "crash"
+
+
+## Body px (texture px from the feet, facing right: the frames' own units) → local px: scaled to
+## `height`, mirrored facing left, on the (still) hover bob.
+func _crash_local() -> Transform2D:
+	var k := height / float(_side["height"])
+	return Transform2D(0.0, Vector2(float(facing * int(_side["facing"])) * k, k), 0.0, Vector2(0, _bob_px()))
+
+
+## The falling body's pose at s into the death (body px → body px): the hurt frame (hull false)
+## shakes round the hull's middle, harder and harder; then the hull (hull true: it starts at the
+## hurt frame's tilt and knock back) dives nose down, falling and sliding toward its nose.
+func _crash_pose(s: float, hull: bool) -> Transform2D:
+	var h := float(_side["height"])
+	var c := Vector2(0, -h * BossArt.lean_about(art))
+	var ang := 0.0
+	var off := Vector2.ZERO
+	if s < CRASH_WOBBLE:
+		var w := s / CRASH_WOBBLE
+		ang = sin(s * 26.0) * 0.09 * (0.4 + 0.6 * w)
+		off = Vector2(sin(s * 61.0) * 2.5, cos(s * 47.0) * 1.8) * h / 240.0
+	else:
+		var u := clampf((s - CRASH_WOBBLE) / CRASH_FALL, 0.0, 1.0)
+		ang = (HURT_TILT if hull else 0.0) + (CRASH_TUMBLE - HURT_TILT) * u * u + sin(s * 19.0) * 0.05 * (1.0 - u)
+		off = (HURT_SHIFT if hull else Vector2.ZERO) + Vector2(CRASH_DRIFT, CRASH_DROP) * h * u * u
+	return Transform2D(ang, off + c) * Transform2D(0.0, -c)
+
+
+## A point of the hull (body px, before the pose), at random: its rim and its middle.
+func _hull_point() -> Vector2:
+	var h := float(_side["height"])
+	return Vector2(randf_range(-0.55, 0.55), -BossArt.lean_about(art) + randf_range(-0.1, 0.12)) * h
+
+
+## A smoke puff at p (body px); big: the explosion's, rolling out after a short delay.
+func _add_smoke(p: Vector2, big: bool, out: Vector2 = Vector2.ZERO) -> void:
+	var h := float(_side["height"])
+	_smoke.append({"p": p, "v": (Vector2(randf_range(-0.06, 0.06), randf_range(-0.22, -0.12)) + out) * h,
+		"r": h * (randf_range(0.15, 0.22) if big else randf_range(0.09, 0.14)), "grow": 1.5 if big else 1.8,
+		"age": -randf_range(0.08, 0.22) if big else 0.0, "life": randf_range(0.9, 1.1) if big else randf_range(0.6, 0.9)})
+
+
+func _add_zap(p: Vector2) -> void:
+	_zaps.append({"p": p, "r": float(_side["height"]) * randf_range(0.07, 0.11), "rot": randf() * TAU, "age": 0.0})
+
+
+func _step_crash(delta: float) -> void:
+	var was := _dead_t
+	_dead_t += delta
+	var s := _dead_t
+	_death = minf(1.0, s / CRASH_SEC)
+	var h := float(_side["height"])
+	var fall_end := CRASH_WOBBLE + CRASH_FALL
+	if was < CRASH_WOBBLE and s >= CRASH_WOBBLE: # the dome pops off
+		var dome: Dictionary = _parts.get("parts", {}).get("dome", {})
+		if not dome.is_empty():
+			_dome = {"p": _crash_pose(CRASH_WOBBLE, true) * (Vector2(dome["at"]) + Vector2(dome["size"]) * 0.5),
+				"v": Vector2(randf_range(-0.5, -0.25), -1.55) * h, "rot": HURT_TILT, "spin": randf_range(-6.5, -4.0)}
+		for i in 5:
+			_add_zap(_crash_pose(CRASH_WOBBLE, true) * (Vector2(randf_range(-0.2, 0.2), -0.62) * h))
+	if was < fall_end and s >= fall_end:
+		_boom()
+	_emit -= delta
+	if s < fall_end and _emit <= 0.0:
+		var pose := _crash_pose(s, s >= CRASH_WOBBLE)
+		if s < CRASH_WOBBLE:
+			_emit = 0.06
+			_add_zap(pose * _hull_point())
+			_add_smoke(pose * Vector2(randf_range(-0.45, 0.45) * h, -h * (BossArt.lean_about(art) + 0.06)), false, Vector2(0, -0.15))
+		else: # smoke pours out of the open cockpit as it falls, sparks off the rim
+			_emit = 0.04
+			_add_smoke(pose * Vector2(randf_range(-0.12, 0.12) * h, -h * (BossArt.lean_about(art) + 0.12)), false)
+			if randf() < 0.45:
+				_add_zap(pose * _hull_point())
+	for p in _smoke:
+		p["age"] = float(p["age"]) + delta
+		p["p"] = Vector2(p["p"]) + Vector2(p["v"]) * delta
+	_smoke = _smoke.filter(func(p): return float(p["age"]) < float(p["life"]))
+	for z in _zaps:
+		z["age"] = float(z["age"]) + delta
+	_zaps = _zaps.filter(func(z): return float(z["age"]) < ZAP_SEC)
+	var g := 3.2 * h
+	for b in _debris:
+		b["v"] = Vector2(b["v"]) + Vector2(0, g * delta)
+		b["p"] = Vector2(b["p"]) + Vector2(b["v"]) * delta
+		b["rot"] = float(b["rot"]) + float(b["spin"]) * delta
+	if not _dome.is_empty():
+		_dome["v"] = Vector2(_dome["v"]) + Vector2(0, g * delta)
+		_dome["p"] = Vector2(_dome["p"]) + Vector2(_dome["v"]) * delta
+		_dome["rot"] = float(_dome["rot"]) + float(_dome["spin"]) * delta
+
+
+## It blows up: steel bits fly out, big smoke rolls, a few last sparks.
+func _boom() -> void:
+	var h := float(_side["height"])
+	_boom_at = _crash_pose(CRASH_WOBBLE + CRASH_FALL, true) * Vector2(0, -h * BossArt.lean_about(art))
+	_debris.clear()
+	var cols := [BossArt.STEEL, BossArt.STEEL_DARK, BossArt.STEEL_LIGHT, BossArt.HAZARD]
+	for i in CRASH_DEBRIS:
+		var dir := Vector2.from_angle(randf_range(-PI * 0.95, -PI * 0.05) if i % 3 != 0 else randf_range(0.0, TAU))
+		_debris.append({"p": _boom_at + dir * h * 0.08, "v": dir * randf_range(0.9, 2.3) * h, "r": h * randf_range(0.04, 0.08),
+			"rot": randf() * TAU, "spin": randf_range(-12.0, 12.0), "col": cols[i % cols.size()]})
+	for i in 9:
+		var d := Vector2.from_angle(TAU * i / 9.0)
+		_add_smoke(_boom_at + d * h * 0.18, true, d * 0.35)
+	for i in 6:
+		_add_zap(_boom_at + Vector2(randf_range(-0.4, 0.4), randf_range(-0.35, 0.25)) * h)
+
+
+## The crash's body through the shader: the shaking hurt frame, then the hull (dome off) diving;
+## the popped dome tumbling away; charring as it goes, a white pop when the dome flies.
+func _draw_crash_body() -> void:
+	var s := _dead_t
+	var fall_end := CRASH_WOBBLE + CRASH_FALL
+	var flash := _flash * 0.85
+	if s < CRASH_WOBBLE:
+		flash = maxf(flash, 0.3 * maxf(0.0, sin(s * 38.0)) * s / CRASH_WOBBLE)
+	else:
+		flash = maxf(flash, 0.8 * clampf(1.0 - (s - CRASH_WOBBLE) / 0.15, 0.0, 1.0))
+	_mat.set_shader_parameter("flash", flash)
+	_mat.set_shader_parameter("icy", 0.6 * clampf(s / fall_end, 0.0, 1.0))
+	var l := _crash_local()
+	var hull: Dictionary = _parts.get("parts", {}).get("hull", {})
+	if s < fall_end:
+		if s < CRASH_WOBBLE or hull.is_empty() or _dome.is_empty():
+			var hurt: Array = _side["anims"].get(BossAnim.HURT, _side["anims"].values()[0])["frames"]
+			_figure.draw_set_transform_matrix(l * _crash_pose(s, false) * Transform2D(0.0, -Vector2(_side["pivot"])))
+			_figure.draw_texture(hurt[0], Vector2.ZERO)
+		else:
+			_figure.draw_set_transform_matrix(l * _crash_pose(s, true) * Transform2D(0.0, Vector2(hull["at"])))
+			_figure.draw_texture(hull["texture"], Vector2.ZERO)
+	if not _dome.is_empty():
+		var dome: Dictionary = _parts["parts"]["dome"]
+		var a := clampf((CRASH_SEC - s) / 0.45, 0.0, 1.0)
+		if a > 0.0:
+			_figure.draw_set_transform_matrix(l * Transform2D(float(_dome["rot"]), Vector2(_dome["p"])) \
+				* Transform2D(0.0, -Vector2(dome["size"]) * 0.5))
+			_figure.draw_texture(dome["texture"], Vector2.ZERO, Color(1, 1, 1, a))
+	_figure.draw_set_transform(Vector2.ZERO)
+
+
+## The crash's smoke (over the figure, under the fire; body px): soft dark puffs growing and rising.
+func _draw_smoke() -> void:
+	for p in _smoke:
+		if float(p["age"]) <= 0.0:
+			continue
+		var k := float(p["age"]) / float(p["life"])
+		var r := float(p["r"]) * (1.0 + float(p["grow"]) * k)
+		var a := 0.75 * (1.0 - k) * minf(1.0, float(p["age"]) / 0.08)
+		_over.draw_texture_rect(halo_texture(), Rect2(Vector2(p["p"]) - Vector2(r, r), Vector2(r, r) * 2.0), false,
+			Color(SMOKE.lerp(Color(0.36, 0.35, 0.38), k), a))
+
+
+## Over the figure: the explosion (fire, fireballs, the shock ring), the steel debris and the sparks.
+func _draw_crash_fx() -> void:
+	var h := float(_side["height"])
+	var hs := h / 240.0
+	var s := _dead_t
+	_over.draw_set_transform_matrix(_crash_local())
+	var b := s - CRASH_WOBBLE - CRASH_FALL
+	if b >= 0.0: # the fire under the smoke it makes
+		var kb := clampf(b / 0.55, 0.0, 1.0)
+		var out := 1.0 - (1.0 - kb) * (1.0 - kb)
+		var c := _boom_at
+		for layer in [[FIRE[2], 0.6, 0.8], [FIRE[1], 0.5, 0.65], [FIRE[0], 0.34, 0.3]]:
+			var r: float = h * (float(layer[1]) + float(layer[2]) * out)
+			var a := (1.0 - kb) * (1.0 - kb if layer[0] == FIRE[0] else 1.0)
+			for _n in 2: # twice: a dense fireball, not a faint glow
+				_over.draw_texture_rect(halo_texture(), Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(layer[0], a))
+		for i in 8:
+			var at := c + Vector2.from_angle(TAU * i / 8.0 + 0.4) * h * (0.3 + 0.12 * (i % 2)) * out
+			var r := h * (0.2 if i % 2 == 0 else 0.15) * (1.0 - 0.45 * kb)
+			_over.draw_texture_rect(halo_texture(), Rect2(at - Vector2(r, r), Vector2(r, r) * 2.0), false,
+				Color(FIRE[1 + i % 2], (1.0 - kb)))
+	_draw_smoke()
+	if b >= 0.0:
+		var c := _boom_at
+		var kr := clampf(b / 0.32, 0.0, 1.0)
+		if kr < 1.0:
+			_over.draw_arc(c, h * (0.2 + 0.9 * kr), 0.0, TAU, 48, Color(1.0, 0.86, 0.6, 0.85 * (1.0 - kr)), (10.0 * (1.0 - kr) + 1.0) * hs, true)
+		var fade := clampf((CRASH_SEC - s) / 0.35, 0.0, 1.0)
+		for d in _debris:
+			var r := float(d["r"])
+			var pts := PackedVector2Array()
+			for q in [Vector2(-1.0, -0.6), Vector2(1.0, -0.4), Vector2(0.7, 0.65), Vector2(-0.8, 0.5)]:
+				pts.append(Vector2(d["p"]) + (q * r).rotated(float(d["rot"])))
+			_over.draw_colored_polygon(pts, Color(d["col"], fade))
+			pts.append(pts[0])
+			_over.draw_polyline(pts, Color(BossArt.OUT, fade), 2.0 * hs, true)
+	for z in _zaps:
+		var k := float(z["age"]) / ZAP_SEC
+		var r := float(z["r"]) * (0.5 + 0.8 * k)
+		var col := Color(1.0, 0.9, 0.5, 1.0 - k)
+		for i in 5:
+			var d := Vector2.from_angle(float(z["rot"]) + TAU * i / 5.0)
+			_over.draw_line(Vector2(z["p"]) + d * r * 0.3, Vector2(z["p"]) + d * r, col, 4.5 * hs, true)
+		_over.draw_circle(Vector2(z["p"]), r * 0.3 * (1.0 - k), Color(1, 1, 1, 1.0 - k))
+	_over.draw_set_transform(Vector2.ZERO)
 
 
 func aim(_angle: float) -> void:
@@ -781,7 +1049,8 @@ func heart_position() -> Vector2:
 
 
 func muzzle_position() -> Vector2:
-	return to_global(BossArt.muzzle(art, height, facing))
+	var m := BossArt.muzzle(art, height, facing) + Vector2(0, _bob_px())
+	return to_global(_turn() * m)
 
 
 func fire_muzzle_position() -> Vector2:

@@ -7,6 +7,7 @@ const ImportBossFrames := preload("res://tools/import_boss_frames.gd")
 const Art := preload("res://ui/art.gd")
 const BossBody := preload("res://match/boss/boss_body.gd")
 const BossArtView := preload("res://match/boss/boss_art_view.gd")
+const BossArt := preload("res://match/boss/boss_art.gd")
 
 
 func test_the_ufo_has_frames_pictures_and_parts() -> void:
@@ -51,3 +52,63 @@ func test_alpha_key_keeps_the_picture() -> void:
 	eq(img.get_pixel(4, 4).a, 1.0, "the body as it was")
 	eq(img.get_pixel(15, 5).a, 0.0, "faint px cleared")
 	check(img.get_pixel(16, 5).a > 0.4, "soft alpha kept")
+
+
+func test_the_ufo_in_a_match_hovers_banks_and_trails() -> void:
+	eq(BossArt.MUZZLE["steel_robot"], Vector2(64.3, -18.5), "the muzzle between the twin barrels' mouths")
+	near(BossArt.top("steel_robot"), 1.125, 0.001, "the antenna over the dome")
+	check(BossArt.TRAIL.has("steel_robot") and BossArt.trail_from("steel_robot") < 0.05, "jet puffs under the claws")
+	near(BossArt.trail_from("ice_witch"), BossArt.TRAIL_FROM_DEFAULT, 0.001, "the witch's trail where it was")
+	check(BossArt.lean_scale("steel_robot") > 1.0 and BossArt.lean_scale("ice_witch") == 1.0, "the saucer banks harder")
+	var b := BossBody.new()
+	b.setup("steel_robot", 240.0)
+	b.flying = true
+	var ys := []
+	for i in 30:
+		b._process(0.05)
+		ys.append(b._bob_px())
+	check(ys.max() - ys.min() > 4.0, "a flying drawn boss bobs (%f..%f)" % [ys.min(), ys.max()])
+	near(b.shield_ball().position.y, b._bob_px() - 120.0, 0.01, "the shield follows the bob")
+	eq(b.shield_ball().tint, BossArt.accent("steel_robot"), "the shield in its own accent")
+	var still := b.muzzle_position()
+	b.lean = 0.2
+	check(b.muzzle_position().distance_to(still) > 5.0, "the muzzle turns with the lean")
+	b.free()
+	var w := BossBody.new()
+	w.setup("ice_witch", 162.4)
+	eq(w.shield_ball().tint, BossArt.accent("ice_witch"), "the witch keeps her icy shield")
+	w.free()
+
+
+func test_the_ufo_crashes_instead_of_shattering() -> void:
+	check(not Art.boss_parts("steel_robot").is_empty(), "its parts load")
+	eq(Art.boss_parts("ice_witch"), {}, "none for the witch")
+	var b := BossBody.new()
+	b.setup("steel_robot", 240.0)
+	b.flying = true
+	b.die()
+	eq(b.death_phase(), "wobble", "first it shakes")
+	eq(b.shown_frame(), ["hurt", 0], "on its first hurt frame")
+	b._process(0.3)
+	eq(b.shatter_count(), 0, "no ice shards")
+	check(b._cracks.is_empty(), "no cracks")
+	check(not b._zaps.is_empty() or not b._smoke.is_empty(), "sparks and smoke")
+	b._process(BossBody.CRASH_WOBBLE - 0.3 + 0.01)
+	eq(b.death_phase(), "fall", "then it falls")
+	check(not b._dome.is_empty(), "the dome popped off")
+	var dome_y: float = b._dome["p"].y
+	b._process(0.3)
+	check(b._dome["p"].y != dome_y, "the dome flies")
+	b._process(BossBody.CRASH_FALL)
+	eq(b.death_phase(), "boom", "then it blows up")
+	eq(b._debris.size(), BossBody.CRASH_DEBRIS, "steel debris")
+	check(b._boom_at.y > -240.0 * 0.43 + 50.0, "lower than it flew")
+	b._process(BossBody.CRASH_SEC)
+	eq(b.death_phase(), "gone", "over")
+	near(b.death_progress(), 1.0, 0.001, "done")
+	b.free()
+	var w := BossBody.new()
+	w.setup("ice_witch", 162.4)
+	w.die()
+	eq(w.death_phase(), "crack", "the witch still cracks")
+	w.free()

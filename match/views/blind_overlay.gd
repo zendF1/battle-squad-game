@@ -1,5 +1,5 @@
 extends ColorRect
-## The blind white-out (063, status blind: the robot's Bom mù): while I am blinded, my own turn
+## The blind white-out (063, status blind: the saucer's Bom mù): while I am blinded, my own turn
 ## shows the battlefield behind a strong white glare, a little thinner at the screen's edges, so
 ## aiming is mostly guesswork; it fades in at my turn's start and out when my shot is answered or
 ## the turn passes. Purely visual (the server does not change the shot). On the screen layer over

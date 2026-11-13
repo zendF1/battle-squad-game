@@ -1,5 +1,5 @@
 extends Node2D
-## Rô-bốt Thép's energy orb (projectile kind "orb", Bom mù) in flight: a white-hot core in a
+## Đĩa Bay Thép's energy orb (projectile kind "orb", Bom mù) in flight: a white-hot core in a
 ## pulsing pale-blue halo, little electric arcs crackling round it, and a trail of fading glow
 ## motes; ShotPlayer moves it along the server path (no turning: it is round). Drawn in code.
 

@@ -8,7 +8,7 @@ const LavaZones := preload("res://match/boss/lava_zones.gd")
 
 const SNAP := {"mode": "boss:steel_robot", "boss": {"bossId": "steel_robot", "playerId": "boss_steel_robot", "round": 0, "turnLimit": 15},
 	"bossShielded": true, "players": {
-		"boss_steel_robot": {"playerId": "boss_steel_robot", "displayName": "Rô-bốt Thép", "role": "boss", "bossId": "steel_robot",
+		"boss_steel_robot": {"playerId": "boss_steel_robot", "displayName": "Đĩa Bay Thép", "role": "boss", "bossId": "steel_robot",
 			"hp": 12000, "maxHp": 12000, "isAlive": true, "teamId": 2},
 		"minion_drone_1": {"playerId": "minion_drone_1", "role": "minion", "minionId": "drone", "hp": 650, "maxHp": 650, "isAlive": true}}}
 
@@ -18,7 +18,7 @@ func test_from_the_snapshot() -> void:
 	var m := BossHudModel.new()
 	check(m.load_snapshot(SNAP), "a boss match")
 	var s := m.state()
-	eq([s["name"], s["hp"], s["max_hp"], s["shielded"], s["turn_limit"]], ["Rô-bốt Thép", 12000, 12000, true, 15], "the boss")
+	eq([s["name"], s["hp"], s["max_hp"], s["shielded"], s["turn_limit"]], ["Đĩa Bay Thép", 12000, 12000, true, 15], "the boss")
 	eq(s["hp_text"], "12.000 / 12.000", "HP numbers")
 	eq(s["round_text"], "Vòng 1/15", "before its first turn: round 1")
 	check(not BossHudModel.new().load_snapshot({"players": {}}), "no boss block: inactive")

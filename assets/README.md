@@ -110,7 +110,11 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   concept/ufo_v1.png`): `make_frames.py` there cuts it into parts and redraws every frame (idle 7,
   fly 4, cast 6, burst 6, summon 4, hurt 2; transparent sheets, `background.key` "alpha") and its
   pictures, plus `parts/hull.png`, `parts/dome.png` + `parts/parts.json` (each part's top-left from
-  the feet) for its death; the feet = the claw's bottom centre.
+  the feet, read by `Art.boss_parts()`) for its death; the feet = the claw's bottom centre. In a
+  match it hovers (game data `flying`: the flier's bob, banking into a flight × `BossArt.LEAN`, pale
+  cyan jet puffs under the claws, `BossArt.TRAIL`) and dies by crashing (`BossArt.DEATH` "crash", in
+  code: the hurt frame shakes with sparks and smoke, the dome part pops off, the hull part tumbles
+  down charring and blows up in fire, smoke and steel debris) instead of the witch's shatter.
 - **Title plates** (`ui/titles/title_<rarity>.png`, blue / orange / purple / red, and
   `ui/titles/titles.json`: the banner the title name is drawn on, `ui/title_plate.gd`): AI-drawn
   with no text on a dark background, `art_source/ui/titles/title_<rarity>.png`, keyed by

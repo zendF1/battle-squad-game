@@ -6,7 +6,7 @@ extends Node2D
 ## Sizes: a minion's shot is as big as a player character's shell (player_shell_px(): the mean
 ## longest side of the guns' shell pictures as ProjectileView draws them), a boss's BOSS_SIZE × it
 ## and drawn with more detail (shading, highlights, an outline, richer trails):
-## - steel_shell (Rô-bốt Thép's shell rain): a steel shell with a shaded body, a highlight, two brass
+## - steel_shell (Đĩa Bay Thép's shell rain): a steel shell with a shaded body, a highlight, two brass
 ##   bands with rivets, tail fins and a hot exhaust, pointing along its flight; smoke and sparks;
 ## - magma_bomb (Cua Dung Nham's fire bombs): a basalt crust shaded round, glowing cracks over a
 ##   molten core shining through, hot spots, lava drips falling off; embers and dark smoke;

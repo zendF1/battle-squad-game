@@ -10,7 +10,7 @@ const PLAYERS := {
 	"me": {"playerId": "me", "displayName": "Tôi", "teamId": 1, "characterId": "rookie"},
 	"p2": {"playerId": "p2", "displayName": "Bạn", "teamId": 1, "characterId": "tanko"},
 	"bot_1a": {"playerId": "bot_1a", "displayName": "Bot Mây", "teamId": 1, "characterId": "spark", "isBot": true},
-	"boss_steel_robot": {"playerId": "boss_steel_robot", "displayName": "Rô-bốt Thép", "teamId": 2, "role": "boss", "bossId": "steel_robot"},
+	"boss_steel_robot": {"playerId": "boss_steel_robot", "displayName": "Đĩa Bay Thép", "teamId": 2, "role": "boss", "bossId": "steel_robot"},
 	"minion_drone_1": {"playerId": "minion_drone_1", "teamId": 2, "role": "minion", "minionId": "drone"}}
 
 const WIN := {"winningTeam": 1, "result": "boss_defeated", "mvpPlayerId": "p2",
@@ -39,7 +39,7 @@ func test_ranking_and_mvp() -> void:
 	check(rows[1]["mine"] and rows[2]["isBot"], "me and the bot")
 	eq(info["outcome"], ResultModel.WIN, "a win")
 	eq(info["round_text"], "Vòng 9/15", "the round")
-	eq([info["boss"]["name"], info["boss"]["hp_text"], info["boss"]["art"]], ["Rô-bốt Thép", "0 / 12.000", "steel_robot"], "the boss")
+	eq([info["boss"]["name"], info["boss"]["hp_text"], info["boss"]["art"]], ["Đĩa Bay Thép", "0 / 12.000", "steel_robot"], "the boss")
 	var d: Dictionary = WIN.duplicate(true)
 	d.erase("mvpPlayerId")
 	eq(BossResultModel.mvp_of(d, PLAYERS, "me"), "p2", "no MVP sent: the most damage")
@@ -103,7 +103,7 @@ func test_podium_order_and_heights() -> void:
 func test_subtitle() -> void:
 	BossFixture.take()
 	var win := BossResultModel.info(WIN, PLAYERS, "me", "steel_robot", null)
-	eq(BossResultModel.subtitle(win), "Rô-bốt Thép · Vòng 9/15", "a win: the boss and the round")
+	eq(BossResultModel.subtitle(win), "Đĩa Bay Thép · Vòng 9/15", "a win: the boss and the round")
 	var d := {"winningTeam": 2, "result": "boss_escaped", "boss": {"bossId": "lava_crab", "round": 15, "turnLimit": 15,
 		"bossHp": 3400, "bossMaxHp": 12000, "bossDamage": {"me": 9000}}}
 	var lose := BossResultModel.info(d, PLAYERS, "me", "", null)

@@ -67,7 +67,8 @@ func test_bomber_warning() -> void:
 func test_unit_kinds_from_state_and_game_data() -> void:
 	BossFixture.take()
 	check(GameData.unit_flying({"role": "boss", "bossId": "ice_witch"}), "the witch flies (game data)")
-	check(not GameData.unit_flying({"role": "boss", "bossId": "steel_robot"}), "the robot stands")
+	check(GameData.unit_flying({"role": "boss", "bossId": "steel_robot"}), "the saucer flies (game data)")
+	check(not GameData.unit_flying({"role": "boss", "bossId": "rock_giant"}), "the giant stands")
 	check(GameData.unit_flying({"role": "minion", "bossId": "steel_robot", "minionId": "drone"}), "a drone flies (movement fly)")
 	check(not GameData.unit_flying({"role": "minion", "bossId": "lava_crab", "minionId": "crab"}), "a crabling walks")
 	check(not GameData.unit_flying({"role": "boss", "bossId": "ice_witch", "flying": false}), "the state's flying wins")
@@ -83,7 +84,8 @@ func test_unit_kinds_from_state_and_game_data() -> void:
 	eq(GameData.unit_explode_radius({"role": "minion", "bossId": "ice_witch", "minionId": "snowman"}), 140.0, "explodeRadius")
 	eq(int(GameData.boss("ice_witch")["turnLimit"]), 20, "the witch's 20 turns (every boss 20 since 063)")
 	check(GameData.boss_hover("ice_witch").has("minX"), "her hover band")
-	eq(GameData.boss_hover("steel_robot"), {}, "none on the ground")
+	check(GameData.boss_hover("steel_robot").has("minX"), "the saucer's hover band")
+	eq(GameData.boss_hover("rock_giant"), {}, "none on the ground")
 
 
 func _players() -> Dictionary:

@@ -3,7 +3,7 @@ extends "res://match/views/skills/laser.gd"
 ## beam event is the laser's visuals (laser_fx.gd: the charge at the boss's muzzle point, the beam
 ## sweeping through the terrain to the map edge in the boss's shot look, a burst on every player
 ## hit), its timing from the beam event (t, duration). Boss mode v3: a shot with many beams at
-## once (the witch's radial burst of 20, the robot's 5 parallel sweeps; BeamFan) is drawn by one
+## once (the witch's radial burst of 20, the saucer's 5 parallel sweeps; BeamFan) is drawn by one
 ## BeamFanFx: all of them together, a burst glow round a radial centre, a flash on each player hit
 ## (a stun / freeze shows on the body: PlayerView's StatusFx); the camera frames the whole map
 ## for it (frames_map()). Boss skills have no game data tuning of their own: the laser effect's

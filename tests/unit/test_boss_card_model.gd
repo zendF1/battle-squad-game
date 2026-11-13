@@ -20,11 +20,11 @@ func test_one_card_per_boss_mode_in_order() -> void:
 	BossFixture.take()
 	var cards := BossCardModel.cards(-1, RUNS, 420)
 	eq(cards.map(func(c): return c["boss_id"]), ["steel_robot", "lava_crab", "ice_witch", "rock_giant", "tree_spirit"], "the game data's order")
-	eq(cards.map(func(c): return c["name"]), ["Rô-bốt Thép", "Cua Dung Nham", "Phù Thuỷ Băng", "Khổng Lồ Đá", "Mộc Tinh"], "names from bosses")
+	eq(cards.map(func(c): return c["name"]), ["Đĩa Bay Thép", "Cua Dung Nham", "Phù Thuỷ Băng", "Khổng Lồ Đá", "Mộc Tinh"], "names from bosses")
 	check(cards.all(func(c): return not c.has("level") and not c.has("level_text")), "no recommended level anywhere")
 	eq(cards.map(func(c): return c["party_size"]), [4, 4, 4, 4, 4], "the party size (the info popup)")
 	eq(cards.map(func(c): return c["element"]), ["metal", "fire", "water", "earth", "wood"], "their elements (the badges, the backdrops)")
-	check(str(cards[0]["description"]).begins_with("Người khổng lồ cơ khí"), "the boss's description")
+	check(str(cards[0]["description"]).begins_with("Phi công ngoài hành tinh"), "the boss's description")
 	eq(cards[0]["index"], LobbyModel.index_of_queue("boss:steel_robot"), "the mode a tap chooses")
 
 

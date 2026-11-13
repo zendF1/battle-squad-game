@@ -1,5 +1,5 @@
 extends Node2D
-## Rô-bốt Thép's Bom mù bursting over the party (ShotResolved airburst {position, radius}): a
+## Đĩa Bay Thép's Bom mù bursting over the party (ShotResolved airburst {position, radius}): a
 ## blinding white flash at the burst point, a white-blue shock ring opening to the burst's reach,
 ## light rays spinning out, and glittering motes drifting down over everyone it blinds. Drawn in
 ## code, timed from its own start (the event's t), freed when done. ScreenFlash (below): the whole

@@ -61,7 +61,7 @@
   },
   {
    "modeId": "boss_steel_robot",
-   "name": "Rô-bốt Thép",
+   "name": "Đĩa Bay Thép",
    "description": "Đánh boss, tối đa 4 người",
    "queue": "boss:steel_robot",
    "bot": "",
@@ -127,7 +127,7 @@
   },
   {
    "modeId": "boss:steel_robot",
-   "name": "Rô-bốt Thép"
+   "name": "Đĩa Bay Thép"
   },
   {
    "modeId": "boss:lava_crab",
@@ -149,8 +149,8 @@
  "bosses": [
   {
    "bossId": "steel_robot",
-   "name": "Rô-bốt Thép",
-   "description": "Người khổng lồ cơ khí canh giữ xưởng sắt bỏ hoang. Nã pháo phủ kín chiến trường, quét năm tia laze ngang map, bắn bom mù làm loá mắt và thả drone che chắn.",
+   "name": "Đĩa Bay Thép",
+   "description": "Phi công ngoài hành tinh lái đĩa bay thép lơ lửng trên xưởng sắt bỏ hoang. Nã pháo phủ kín chiến trường, quét năm tia laze ngang map, bắn bom mù làm loá mắt và thả drone che chắn.",
    "recommendedLevel": 10,
    "modeId": "",
    "queue": "boss:steel_robot",
@@ -232,8 +232,15 @@
     "perfect": {"requiredWins": 3, "firstBonusRunsOnly": true,
      "chests": [{"chestId": "stone_chest_gold", "quantity": 1}]}
    },
-   "flying": false,
-   "hover": null,
+   "flying": true,
+   "hover": {
+    "minX": 1720,
+    "maxX": 2240,
+    "minY": 340,
+    "maxY": 560,
+    "minMove": 200,
+    "flySpeed": 220
+   },
    "summon": {
     "minionId": "drone",
     "count": 3,
@@ -246,7 +253,7 @@
     ],
     "skillId": "drone_call",
     "name": "Gọi drone",
-    "description": "Drone bay ra che chắn cho rô-bốt: hai chiếc từ đầu trận, ba chiếc ở vòng 10 và vòng 15."
+    "description": "Drone bay ra che chắn cho đĩa bay: hai chiếc từ đầu trận, ba chiếc ở vòng 10 và vòng 15."
    },
    "element": "metal"
   },

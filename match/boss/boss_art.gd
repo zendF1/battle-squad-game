@@ -1,7 +1,8 @@
 extends RefCounted
 ## Placeholder art of the bosses and their minions, drawn in code (original designs, cartoon with
-## a dark outline like the characters; the real art replaces it later): Rô-bốt Thép (a steel mech
-## titan with a reactor core, a visor, an arm cannon and a claw), its Drone (a floating eye with two
+## a dark outline like the characters; the real art replaces it later): steel_robot (Đĩa Bay Thép, drawn
+## from frames in a match: a hovering saucer; this code fallback is the older steel mech titan with a
+## reactor core, a visor, an arm cannon and a claw, shown only without its frames), its Drone (a floating eye with two
 ## rotors), Cua Dung Nham (a basalt-shelled lava crab with glowing cracks, seen from the front and
 ## symmetric: three legs and a raised pincer facing outward on each side, the eye stalks in the
 ## middle), its Cua con (a small bright crab, the same build), Phù Thuỷ Băng (a hooded ice witch floating on frost
@@ -40,8 +41,9 @@ const HOVER := {"drone": 10.0, "ice_witch": 6.0}
 const SHOT_LOOK := {"steel_robot": {"kind": "cannon", "tier": "titan"}, "lava_crab": {"kind": "bazooka", "tier": "dragon"},
 	"ice_witch": {"kind": "shock_rifle", "tier": "iron"}, "rock_giant": {"kind": "cannon", "tier": "basic"},
 	"tree_spirit": {"kind": "seed_launcher", "tier": "mithril"}}
-## The point (unit frame, facing right) a boss's beam and muzzle flash leave from.
-const MUZZLE := {"steel_robot": Vector2(64, -60), "lava_crab": Vector2(64, -58), "ice_witch": Vector2(30, -98),
+## The point (unit frame, facing right) a boss's beam and muzzle flash leave from (Đĩa Bay Thép:
+## between its twin barrels' mouths, low on the right of the hull).
+const MUZZLE := {"steel_robot": Vector2(64.3, -18.5), "lava_crab": Vector2(64, -58), "ice_witch": Vector2(30, -98),
 	"drone": Vector2(10, -62), "crab": Vector2(60, -54), "snowman": Vector2(26, -58), "rock_giant": Vector2(52, -40),
 	"stone_totem": Vector2(20, -72), "tree_spirit": Vector2(3, -27), "poison_mushroom": Vector2(0, -80)}
 ## The accent colour of each art (the HUD bar's name, the shield's tint, the card's glow).
@@ -52,11 +54,11 @@ const ACCENT := {"steel_robot": Color(1.0, 0.62, 0.22), "drone": Color(1.0, 0.35
 	GENERIC_BOSS: Color(0.85, 0.5, 1.0), GENERIC_MINION: Color(0.85, 0.6, 0.9)}
 
 ## How wide each figure is for its height (the shield's ellipse, a UI box fitting it).
-const WIDTH := {"lava_crab": 1.7, "crab": 1.7, "steel_robot": 1.35, "ice_witch": 1.1, "rock_giant": 1.4, "tree_spirit": 1.35,
+const WIDTH := {"lava_crab": 1.7, "crab": 1.7, "steel_robot": 1.38, "ice_witch": 1.1, "rock_giant": 1.4, "tree_spirit": 1.35,
 	"stone_totem": 0.75, "poison_mushroom": 1.0}
 ## How far a figure reaches over its feet, of its height (the name and the bar above it): Mộc
-## Tinh's crown and Khổng Lồ Đá's quartz stand over the unit height; 1 for the rest.
-const TOP := {"tree_spirit": 1.12, "rock_giant": 1.04}
+## Tinh's crown, Khổng Lồ Đá's quartz and Đĩa Bay Thép's antenna stand over the unit height; 1 for the rest.
+const TOP := {"tree_spirit": 1.12, "rock_giant": 1.04, "steel_robot": 1.125}
 ## The heart of a boss (unit frame, facing right): where the life it drains flows in (Mộc Tinh's sap
 ## heart) and its heal glows; others: the body's middle.
 const HEART := {"tree_spirit": Vector2(3, -27), "rock_giant": Vector2(4, -60)}
@@ -168,6 +170,22 @@ static func top(art: String) -> float:
 	return float(TOP.get(art, 1.0))
 
 
+static func trail_from(art: String) -> float:
+	return float(TRAIL_FROM.get(art, TRAIL_FROM_DEFAULT))
+
+
+static func lean_scale(art: String) -> float:
+	return float(LEAN.get(art, 1.0))
+
+
+static func lean_about(art: String) -> float:
+	return float(LEAN_ABOUT.get(art, 0.0))
+
+
+static func death_of(art: String) -> String:
+	return str(DEATH.get(art, "shatter"))
+
+
 ## The heart point (px from the feet, facing applied) of an art drawn `height` px tall.
 static func heart(art: String, height: float, facing: int) -> Vector2:
 	var m: Vector2 = HEART.get(art, Vector2(0, -50))
@@ -183,8 +201,20 @@ const BLAST_LOOK := {"drone": {"kind": "cannon", "tier": "dragon", "icy": false}
 	GENERIC_MINION: {"kind": "bazooka", "tier": "dragon", "icy": false}}
 ## The storm a boss's map-wide rain blows across the screen (match/boss/storm_overlay.gd kind).
 const STORM := {"ice_witch": "snow", "lava_crab": "ember", "tree_spirit": "spores"}
-## The trail a flying figure leaves in the air (its colour; none: no trail).
-const TRAIL := {"ice_witch": Color(0.75, 0.95, 1.0), "drone": Color(0.8, 0.82, 0.88, 0.6)}
+## The trail a flying figure leaves in the air (its colour; none: no trail): Đĩa Bay Thép's pale
+## cyan jet puffs under its claws.
+const TRAIL := {"ice_witch": Color(0.75, 0.95, 1.0), "drone": Color(0.8, 0.82, 0.88, 0.6), "steel_robot": Color(0.72, 0.95, 1.0, 0.65)}
+## Where the trail leaves the figure (share of its height above the feet; TRAIL_FROM_DEFAULT for others).
+const TRAIL_FROM := {"steel_robot": -0.02}
+const TRAIL_FROM_DEFAULT := 0.35
+## A flight's lean (FlightModel.lean_at()) × this for a drawn figure (Đĩa Bay Thép's fly frames are
+## level: the whole saucer banks into the flight), turning round LEAN_ABOUT (share of the height
+## above the feet: the hull's middle, not the claws); 1 and the feet for the rest.
+const LEAN := {"steel_robot": 1.7}
+const LEAN_ABOUT := {"steel_robot": 0.43}
+## How a boss drawn from frames dies (BossBody): "shatter" (Phù Thuỷ Băng: cracks, a freeze, ice
+## shards) or "crash" (Đĩa Bay Thép: sparks and smoke, it tumbles down, the dome pops off, it blows up).
+const DEATH := {"steel_robot": "crash"}
 
 static var _opts := {}
 
@@ -277,7 +307,7 @@ static func _line(ci: CanvasItem, a: Vector2, b: Vector2, col: Color, px: float)
 	ci.draw_line(a, b, _c(col), _w(px), true)
 
 
-# ── Rô-bốt Thép ─────────────────────────────────────────────────────────────
+# ── steel_robot (the code fallback: the old steel mech) ─────────────────────
 
 const STEEL := Color(0.56, 0.62, 0.7)
 const STEEL_DARK := Color(0.34, 0.38, 0.46)

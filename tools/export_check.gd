@@ -27,6 +27,7 @@ func _initialize() -> void:
 	for boss in DirAccess.get_directories_at(Art.ROOT + "bosses"):
 		out.append("boss %s side: %s" % [boss, _desc(Art.boss_side(boss))])
 		out.append("boss %s skin: %s" % [boss, _desc(Art.boss_skin(boss))])
+		out.append("boss %s parts: %s" % [boss, _desc(Art.boss_parts(boss))])
 		for pic in ["portrait", "bust"]:
 			out.append("boss %s %s: %s" % [boss, pic, _tex(Art.boss_picture(boss, pic))])
 	var bgs: Array = [Art.BG_HOME, Art.BG_DEFAULT, Art.BG_PVP, Art.BG_RESULT, Art.boss_background("no_such_boss")]

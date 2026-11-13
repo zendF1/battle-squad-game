@@ -1,6 +1,6 @@
 extends Node2D
-## Many boss beams at once (boss mode v3: Phù Thuỷ Băng's radial burst of 20 ice beams, Rô-bốt
-## Thép's 5 parallel sweeping lasers), drawn by one node on the fx layer (layer = world
+## Many boss beams at once (boss mode v3: Phù Thuỷ Băng's radial burst of 20 ice beams, Đĩa
+## Bay Thép's 5 parallel sweeping lasers), drawn by one node on the fx layer (layer = world
 ## coordinates), from the server timeline only (the beam events: from, to, t, duration; the hits'
 ## damage events and the stun / freeze status events):
 ## - charge (0 .. beam t): an orb grows at each beam start (one for a radial burst, at its centre)
