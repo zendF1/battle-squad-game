@@ -15,7 +15,8 @@ extends Control
 ## in a guild) above the chat box bottom-left (screens/social/chat_box.gd: the newest Thế giới /
 ## Bang hội lines; a tap opens the chat popup) and the mode card with "BẮT ĐẦU" bottom-right.
 ## Centre stage: the worn title's plate (ui/title_plate.gd; nothing without one) over the selected
-## character's name and level, the character drawn big on a pedestal with
+## character's name and level, the character drawn big on a pedestal (with a badge, rankBadge:
+## the grade's dais, grade_pedestal.gd) with
 ## its hands free; the gun it wears (its basic gun when none) rests on the pedestal at its left
 ## (pedestal_gun.gd, no name under it), updated on equip / unequip. ◀ ▶ or a swipe cycles
 ## the four characters. The character is the Loadout's (saved
@@ -79,6 +80,7 @@ const MissionArt := preload("res://screens/home/mission_art.gd")
 const RankChip := preload("res://screens/ranked/rank_chip.gd")
 const PartySlot := preload("res://screens/home/party_slot.gd")
 const GradeFrame := preload("res://screens/ranked/grade_frame.gd")
+const GradePedestal := preload("res://screens/ranked/grade_pedestal.gd")
 const InvitePopup := preload("res://screens/home/invite_popup.gd")
 const Modal := preload("res://ui/modal.gd")
 const ModeSelectModel := preload("res://screens/home/mode_select_model.gd")
@@ -536,6 +538,8 @@ func _add_stage() -> void:
 	pedestal.mouse_filter = MOUSE_FILTER_IGNORE
 	pedestal.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	pedestal.draw.connect(_draw_pedestal.bind(pedestal))
+	PlayerState.rank_changed.connect(pedestal.queue_redraw) # my badge (the dais) arrives
+	PlayerState.changed.connect(pedestal.queue_redraw) # the profile's rankBadge
 	stage.add_child(pedestal)
 
 	var head := Ui.vbox(0)
@@ -585,6 +589,8 @@ const PEDESTAL_AT := 528.0 # stage y of the pedestal centre (the character's fee
 
 
 func _draw_pedestal(c: Control) -> void:
+	if GradePedestal.draw(c, Vector2(STAGE.x / 2, PEDESTAL_AT), GradePedestal.STAGE_RX, PlayerState.rank_badge()):
+		return # my badge's dais (grade_pedestal.gd)
 	var tex := Art.env("pedestal")
 	c.draw_texture(tex, Vector2(STAGE.x / 2, PEDESTAL_AT) - Art.PEDESTAL_CENTER) # assets/env/pedestal.png
 

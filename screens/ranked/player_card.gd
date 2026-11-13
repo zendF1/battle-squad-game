@@ -4,12 +4,15 @@ extends Control
 ## title plate (when known), the character's full-body picture breathing on a glowing floor,
 ## name, "Lv.N" (" · Máy" for a bot) and, with a badge (rankBadge: last season's final grade),
 ## its insignia with the grade's name (on my own card a tap there: rank_pressed); the badge's
-## frame (grade_frame.gd) round the card. The rim
-## and the glow are the team's colour (blue mine, red the enemies'). With real frame art in the
-## row (fit_art, set by the screen for every card when any card's badge has art): the art's outer
-## bounds fit the card's own rect and everything else shrinks into its window
-## (GradeFrame.fit(): the same size for every card of the row, mirrored sides alike); the face is a rounded-rect shader (FACE_CODE). flip_to() turns
-## the card edge-on, swaps the content and turns it back with a white flash.
+## frame (grade_frame.gd, its medallion carrying the insignia) round the card. Without a badge
+## the rim and the glow are the team's colour (blue mine, red the enemies'); a badge holder's card
+## takes the grade's look (grade_look.gd: the tier's background with a spotlight, sparkles, the
+## grade's dais under the figure) and keeps the team's colour as a band behind the name. With
+## real frame art in the row (fit_art, set by the screen for every card when any card's badge has
+## art): the art's outer bounds fit the card's own rect and everything else shrinks into its
+## window (GradeFrame.fit(): the same size for every card of the row, mirrored sides alike); the
+## face is a rounded-rect shader (GradeLook.FACE_CODE). flip_to() turns the card edge-on, swaps
+## the content and turns it back with a white flash.
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
@@ -18,6 +21,8 @@ const Art := preload("res://ui/art.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
 const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
 const GradeFrame := preload("res://screens/ranked/grade_frame.gd")
+const GradeLook := preload("res://screens/ranked/grade_look.gd")
+const GradePedestal := preload("res://screens/ranked/grade_pedestal.gd")
 const RankModel := preload("res://screens/ranked/rank_model.gd")
 const MatchmakingModel := preload("res://screens/ranked/matchmaking_model.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
@@ -34,40 +39,13 @@ const BG := Color(0.05, 0.08, 0.2, 0.9)
 const RADIUS := 22
 const FLIP_SEC := 0.16
 const FRAME_OUT := 5.0 # the badge's frame sits this far outside the card's rim
-
-## The card's face: a rounded rect (so nothing shows past the corners) with the team's glow from
-## the top and the sweeping light band of a searching card.
-const FACE_CODE := """
-shader_type canvas_item;
-uniform vec2 rect_size = vec2(268.0, 520.0);
-uniform float radius = 22.0;
-uniform vec4 bg : source_color = vec4(0.05, 0.08, 0.2, 0.9);
-uniform vec4 rim : source_color = vec4(0.36, 0.62, 1.0, 1.0);
-uniform float glow = 0.38;
-uniform float shine_x = -1000.0;
-varying vec2 local;
-void vertex() {
-	local = VERTEX;
-}
-float sd_round(vec2 p, vec2 b, float r) {
-	vec2 q = abs(p) - b + r;
-	return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
-}
-void fragment() {
-	float d = sd_round(local - rect_size * 0.5, rect_size * 0.5, radius);
-	float inside = 1.0 - smoothstep(-1.0, 0.5, d);
-	vec3 c = mix(bg.rgb, rim.rgb, glow * (1.0 - smoothstep(0.0, rect_size.y * 0.55, local.y)));
-	float x = local.x + (local.y - rect_size.y * 0.5) * 0.3;
-	float band = 1.0 - smoothstep(0.0, 70.0, abs(x - shine_x));
-	c += vec3(band * band * 0.14);
-	COLOR = vec4(c, bg.a * inside);
-}
-"""
+const CREST := 40.0 # the badge on the code frame's medallion
+const DAIS_RX := 66.0 # a badge holder's dais: its top face's half-width
+const TITLE_DROP := 26.0 # the title plate under the badge frame's medallion (every card alike)
+const TEAM_BAND := 40.0 # a badge holder's team colour: a band this tall behind the name
 
 ## A tap on the insignia of my own card (the Matchmaking screen opens the rank ladder).
 signal rank_pressed
-
-static var _face_shader: Shader
 
 var enemy := false:
 	set(v):
@@ -115,14 +93,11 @@ func _ready() -> void:
 	_body.size = _size()
 	_body.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(_body)
-	if _face_shader == null:
-		_face_shader = Shader.new()
-		_face_shader.code = FACE_CODE
 	_face = ColorRect.new()
 	_face.size = _size()
 	_face.mouse_filter = MOUSE_FILTER_IGNORE
 	var mat := ShaderMaterial.new()
-	mat.shader = _face_shader
+	mat.shader = GradeLook.face_shader()
 	mat.set_shader_parameter("rect_size", _size())
 	mat.set_shader_parameter("radius", float(RADIUS))
 	mat.set_shader_parameter("bg", BG)
@@ -134,7 +109,7 @@ func _ready() -> void:
 	_content.mouse_filter = MOUSE_FILTER_IGNORE
 	_body.add_child(_content)
 	_rim_layer = _layer(_draw_rim)
-	_frame = GradeFrame.make("", RADIUS + FRAME_OUT, 0.0)
+	_frame = GradeFrame.make("", RADIUS + FRAME_OUT, CREST)
 	_frame.name = "Frame"
 	_body.add_child(_frame)
 	_apply_fit()
@@ -213,12 +188,34 @@ func _restyle() -> void:
 	_rim_layer.queue_redraw()
 
 
-## The floor light under the figure.
+## Under the figure: a badge holder's sparkles, the team's band behind the name and the grade's
+## dais (grade_pedestal.gd); without a badge the team-coloured floor light.
 func _draw_floor(c: Control) -> void:
 	var rim := _rim()
 	var at := Vector2(_size().x / 2, ART_TOP + ART_H - 10)
+	var g := _badge()
+	if GradeLook.tier_of(g) >= 0:
+		GradeLook.draw_sparkles(c, Rect2(Vector2.ZERO, _size()), g)
+		var y := ART_TOP + ART_H + 4.0 + _drop()
+		var w := _size().x
+		c.draw_polygon(PackedVector2Array([Vector2(0, y), Vector2(w / 2, y), Vector2(w, y), Vector2(w, y + TEAM_BAND),
+			Vector2(w / 2, y + TEAM_BAND), Vector2(0, y + TEAM_BAND)]),
+			PackedColorArray([Color(rim, 0.0), Color(rim, 0.6), Color(rim, 0.0), Color(rim, 0.0), Color(rim, 0.6), Color(rim, 0.0)]))
+		GradePedestal.draw(c, at, DAIS_RX, g)
+		return
 	_ellipse(c, at, Vector2(_size().x * 0.4, 22), Color(rim, 0.28))
 	_ellipse(c, at, Vector2(_size().x * 0.26, 12), Color(rim.lightened(0.4), 0.3))
+
+
+## The name and the rows sit this much lower than the art's foot (clear of a badge holder's
+## dais; less on a compact card). Every card alike, so a row's names line up.
+func _drop() -> float:
+	return 14.0 if compact else 30.0
+
+
+## The shown player's badge ("" none or the searching card).
+func _badge() -> String:
+	return "" if _player.is_empty() else str(_player.get("rankBadge", ""))
 
 
 ## The team-coloured rim, and the white flash of a flip over everything.
@@ -229,7 +226,8 @@ func _draw_rim(c: Control) -> void:
 			_flash_box = _box(Color.WHITE, Color(0, 0, 0, 0), 0).duplicate()
 		_flash_box.bg_color = Color(1, 1, 1, _flash * 0.75)
 		c.draw_style_box(_flash_box, r)
-	c.draw_style_box(_box(Color(0, 0, 0, 0), _rim(), 4), r)
+	if GradeLook.tier_of(_badge()) < 0: # a badge holder's team colour: the band behind the name
+		c.draw_style_box(_box(Color(0, 0, 0, 0), _rim(), 4), r)
 
 
 static func _ellipse(c: Control, at: Vector2, radii: Vector2, color: Color) -> void:
@@ -263,13 +261,18 @@ func _build() -> void:
 	_art = null
 	var empty := _player.is_empty()
 	_set_shine(empty)
-	_frame.grade = "" if empty else str(_player.get("rankBadge", ""))
+	_frame.grade = _badge()
+	var face := _face.material as ShaderMaterial
+	GradeLook.set_face(face, _badge())
+	face.set_shader_parameter("foot_y", ART_TOP + ART_H + _drop())
+	_floor.queue_redraw()
+	_rim_layer.queue_redraw()
 	if not empty and title.size() > 0:
 		var plate := TitlePlate.new()
 		plate.plate_height = 34
 		plate.max_width = _size().x - 20
 		plate.set_title(title)
-		plate.position = Vector2(0, 10)
+		plate.position = Vector2(0, 10 + TITLE_DROP)
 		plate.size = Vector2(_size().x, 38)
 		plate.mouse_filter = MOUSE_FILTER_IGNORE
 		_content.add_child(plate)
@@ -282,7 +285,7 @@ func _build() -> void:
 		_art.modulate = Color(0.02, 0.03, 0.1, 0.78) # a silhouette
 	_content.add_child(_art)
 	var col := Ui.vbox(2)
-	col.position = Vector2(10, ART_TOP + ART_H + 6)
+	col.position = Vector2(10, ART_TOP + ART_H + 6 + _drop())
 	col.size = Vector2(_size().x - 20, 0)
 	col.mouse_filter = MOUSE_FILTER_IGNORE
 	_content.add_child(col)
