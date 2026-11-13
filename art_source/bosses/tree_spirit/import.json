@@ -1,0 +1,682 @@
+{
+	"_doc": "Written by make_frames.py here (do not edit: edit the script and re-run it). tools/import_boss_frames.gd reads it (see its header and README.txt here). The sheets are already transparent (background.key 'alpha'), one row per animation in fixed 550 x 410 cells with the feet (the trunk's foot on the ground line) at (210, 394) of every cell: cuts at the cells, anchors the feet, bodyHeight 351 (the canopy's top to the feet, sheet px) -> height texture px. body: every colour (measured only for the width). skins.idle: the rest pose (skin/rest_v1.png, full size) on a skeleton: joints (that picture's px), bones, feet / bodyHeight given, tracks (the sway: a sine per bone), glow = the heart on the trunk, eyes. parts: the death's pieces in the last death frame's pose, one cell each at the frames' scale (feet given), back to front.",
+	"out": "res://assets/bosses/tree_spirit/",
+	"height": 320,
+	"pad": 4,
+	"background": {
+		"key": "alpha"
+	},
+	"alphaCut": 4,
+	"edgeFade": 0,
+	"body": {
+		"hue": [
+			0,
+			360
+		],
+		"minSat": 0.0,
+		"minVal": 0.12,
+		"maxVal": 1.0,
+		"centreRows": [
+			0.6,
+			0.85
+		],
+		"minPiece": 0.08
+	},
+	"anims": {
+		"idle": {
+			"src": "side_idle/sheet_v1.png",
+			"frames": 12,
+			"fps": 6,
+			"loop": true,
+			"bodyHeight": 351.0,
+			"cuts": [
+				550,
+				1100,
+				1650,
+				2200,
+				2750,
+				3300,
+				3850,
+				4400,
+				4950,
+				5500,
+				6050
+			],
+			"anchors": [
+				[
+					210.0,
+					394.0
+				],
+				[
+					760.0,
+					394.0
+				],
+				[
+					1310.0,
+					394.0
+				],
+				[
+					1860.0,
+					394.0
+				],
+				[
+					2410.0,
+					394.0
+				],
+				[
+					2960.0,
+					394.0
+				],
+				[
+					3510.0,
+					394.0
+				],
+				[
+					4060.0,
+					394.0
+				],
+				[
+					4610.0,
+					394.0
+				],
+				[
+					5160.0,
+					394.0
+				],
+				[
+					5710.0,
+					394.0
+				],
+				[
+					6260.0,
+					394.0
+				]
+			]
+		},
+		"vine_lash": {
+			"src": "side_vine_lash/sheet_v1.png",
+			"frames": 7,
+			"fps": 10,
+			"loop": false,
+			"bodyHeight": 351.0,
+			"cuts": [
+				550,
+				1100,
+				1650,
+				2200,
+				2750,
+				3300
+			],
+			"anchors": [
+				[
+					210.0,
+					394.0
+				],
+				[
+					760.0,
+					394.0
+				],
+				[
+					1310.0,
+					394.0
+				],
+				[
+					1860.0,
+					394.0
+				],
+				[
+					2410.0,
+					394.0
+				],
+				[
+					2960.0,
+					394.0
+				],
+				[
+					3510.0,
+					394.0
+				]
+			],
+			"peak": 3
+		},
+		"poison_thorns": {
+			"src": "side_poison_thorns/sheet_v1.png",
+			"frames": 8,
+			"fps": 10,
+			"loop": false,
+			"bodyHeight": 351.0,
+			"cuts": [
+				550,
+				1100,
+				1650,
+				2200,
+				2750,
+				3300,
+				3850
+			],
+			"anchors": [
+				[
+					210.0,
+					394.0
+				],
+				[
+					760.0,
+					394.0
+				],
+				[
+					1310.0,
+					394.0
+				],
+				[
+					1860.0,
+					394.0
+				],
+				[
+					2410.0,
+					394.0
+				],
+				[
+					2960.0,
+					394.0
+				],
+				[
+					3510.0,
+					394.0
+				],
+				[
+					4060.0,
+					394.0
+				]
+			],
+			"peak": 4
+		},
+		"life_drain": {
+			"src": "side_life_drain/sheet_v1.png",
+			"frames": 8,
+			"fps": 8,
+			"loop": false,
+			"bodyHeight": 351.0,
+			"cuts": [
+				550,
+				1100,
+				1650,
+				2200,
+				2750,
+				3300,
+				3850
+			],
+			"anchors": [
+				[
+					210.0,
+					394.0
+				],
+				[
+					760.0,
+					394.0
+				],
+				[
+					1310.0,
+					394.0
+				],
+				[
+					1860.0,
+					394.0
+				],
+				[
+					2410.0,
+					394.0
+				],
+				[
+					2960.0,
+					394.0
+				],
+				[
+					3510.0,
+					394.0
+				],
+				[
+					4060.0,
+					394.0
+				]
+			],
+			"peak": 3
+		},
+		"root_drag": {
+			"src": "side_root_drag/sheet_v1.png",
+			"frames": 8,
+			"fps": 9,
+			"loop": false,
+			"bodyHeight": 351.0,
+			"cuts": [
+				550,
+				1100,
+				1650,
+				2200,
+				2750,
+				3300,
+				3850
+			],
+			"anchors": [
+				[
+					210.0,
+					394.0
+				],
+				[
+					760.0,
+					394.0
+				],
+				[
+					1310.0,
+					394.0
+				],
+				[
+					1860.0,
+					394.0
+				],
+				[
+					2410.0,
+					394.0
+				],
+				[
+					2960.0,
+					394.0
+				],
+				[
+					3510.0,
+					394.0
+				],
+				[
+					4060.0,
+					394.0
+				]
+			],
+			"peak": 4
+		},
+		"summon": {
+			"src": "side_summon/sheet_v1.png",
+			"frames": 7,
+			"fps": 8,
+			"loop": false,
+			"bodyHeight": 351.0,
+			"cuts": [
+				550,
+				1100,
+				1650,
+				2200,
+				2750,
+				3300
+			],
+			"anchors": [
+				[
+					210.0,
+					394.0
+				],
+				[
+					760.0,
+					394.0
+				],
+				[
+					1310.0,
+					394.0
+				],
+				[
+					1860.0,
+					394.0
+				],
+				[
+					2410.0,
+					394.0
+				],
+				[
+					2960.0,
+					394.0
+				],
+				[
+					3510.0,
+					394.0
+				]
+			],
+			"peak": 2
+		},
+		"hurt": {
+			"src": "side_hurt/sheet_v1.png",
+			"frames": 2,
+			"fps": 7,
+			"loop": false,
+			"bodyHeight": 351.0,
+			"cuts": [
+				550
+			],
+			"anchors": [
+				[
+					210.0,
+					394.0
+				],
+				[
+					760.0,
+					394.0
+				]
+			]
+		},
+		"death": {
+			"src": "side_death/sheet_v1.png",
+			"frames": 4,
+			"fps": 6,
+			"loop": false,
+			"bodyHeight": 351.0,
+			"cuts": [
+				550,
+				1100,
+				1650
+			],
+			"anchors": [
+				[
+					210.0,
+					394.0
+				],
+				[
+					760.0,
+					394.0
+				],
+				[
+					1310.0,
+					394.0
+				],
+				[
+					1860.0,
+					394.0
+				]
+			]
+		}
+	},
+	"skins": {
+		"idle": {
+			"motion": "breath",
+			"src": "skin/rest_v1.png",
+			"height": 360,
+			"pad": 6,
+			"feet": [
+				420,
+				788
+			],
+			"bodyHeight": 702.0,
+			"glow": {
+				"joint": "heart",
+				"bone": "trunk",
+				"colour": [
+					0.6,
+					1.0,
+					0.78
+				]
+			},
+			"eyes": [
+				[
+					424.4,
+					514.1
+				],
+				[
+					502.4,
+					516.0
+				]
+			],
+			"joints": {
+				"hips": [
+					422.0,
+					710.0
+				],
+				"neck": [
+					426.0,
+					400.0
+				],
+				"canopy_l": [
+					274.0,
+					322.0
+				],
+				"canopy_l_tip": [
+					134.0,
+					260.0
+				],
+				"canopy_ml": [
+					364.0,
+					284.0
+				],
+				"canopy_ml_tip": [
+					324.0,
+					150.0
+				],
+				"canopy_mr": [
+					504.0,
+					284.0
+				],
+				"canopy_mr_tip": [
+					534.0,
+					150.0
+				],
+				"canopy_r": [
+					614.0,
+					322.0
+				],
+				"canopy_r_tip": [
+					724.0,
+					260.0
+				],
+				"branch_l": [
+					302.0,
+					422.0
+				],
+				"branch_l_tip": [
+					166.0,
+					442.0
+				],
+				"branch_r": [
+					658.0,
+					460.0
+				],
+				"branch_r_tip": [
+					744.0,
+					438.0
+				],
+				"tendril_l": [
+					262.0,
+					632.0
+				],
+				"tendril_l_tip": [
+					146.0,
+					530.0
+				],
+				"tendril_r": [
+					650.0,
+					668.0
+				],
+				"tendril_r_tip": [
+					698.0,
+					570.0
+				],
+				"root_l": [
+					234.0,
+					720.0
+				],
+				"root_l_tip": [
+					94.0,
+					760.0
+				],
+				"root_r": [
+					634.0,
+					710.0
+				],
+				"root_r_tip": [
+					744.0,
+					750.0
+				],
+				"heart": [
+					426.0,
+					636.0
+				]
+			},
+			"bones": [
+				[
+					"root",
+					"",
+					"feet",
+					"hips",
+					0
+				],
+				[
+					"trunk",
+					"root",
+					"hips",
+					"neck",
+					1.5
+				],
+				[
+					"canopy_l",
+					"trunk",
+					"canopy_l",
+					"canopy_l_tip",
+					2
+				],
+				[
+					"canopy_ml",
+					"trunk",
+					"canopy_ml",
+					"canopy_ml_tip",
+					2
+				],
+				[
+					"canopy_mr",
+					"trunk",
+					"canopy_mr",
+					"canopy_mr_tip",
+					2
+				],
+				[
+					"canopy_r",
+					"trunk",
+					"canopy_r",
+					"canopy_r_tip",
+					2
+				],
+				[
+					"branch_l",
+					"trunk",
+					"branch_l",
+					"branch_l_tip",
+					2
+				],
+				[
+					"branch_r",
+					"trunk",
+					"branch_r",
+					"branch_r_tip",
+					2
+				],
+				[
+					"tendril_l",
+					"root",
+					"tendril_l",
+					"tendril_l_tip",
+					2
+				],
+				[
+					"tendril_r",
+					"root",
+					"tendril_r",
+					"tendril_r_tip",
+					2
+				],
+				[
+					"root_l",
+					"root",
+					"root_l",
+					"root_l_tip",
+					1
+				],
+				[
+					"root_r",
+					"root",
+					"root_r",
+					"root_r_tip",
+					1
+				]
+			],
+			"tracks": {
+				"period": 3.0,
+				"keys": 16,
+				"bones": {
+					"trunk": {
+						"rot": 0.3,
+						"lag": 0.0
+					},
+					"canopy_l": {
+						"rot": 1.2,
+						"lag": 0.9,
+						"y": 0.002
+					},
+					"canopy_ml": {
+						"rot": 0.8,
+						"lag": 0.6,
+						"y": 0.002
+					},
+					"canopy_mr": {
+						"rot": 0.8,
+						"lag": 1.1,
+						"y": 0.002
+					},
+					"canopy_r": {
+						"rot": -1.2,
+						"lag": 1.4,
+						"y": 0.002
+					},
+					"branch_l": {
+						"rot": 2.0,
+						"lag": 1.2
+					},
+					"branch_r": {
+						"rot": -2.0,
+						"lag": 1.6
+					},
+					"tendril_l": {
+						"rot": 2.5,
+						"lag": 0.5
+					},
+					"tendril_r": {
+						"rot": -2.5,
+						"lag": 2.0
+					}
+				}
+			}
+		}
+	},
+	"parts": {
+		"bodyHeight": 351.0,
+		"feet": [
+			210.0,
+			394.0
+		],
+		"src": {
+			"tendril_l": "parts/tendril_l_v1.png",
+			"tendril_r": "parts/tendril_r_v1.png",
+			"root_l": "parts/root_l_v1.png",
+			"root_r": "parts/root_r_v1.png",
+			"trunk": "parts/trunk_v1.png",
+			"branch_l": "parts/branch_l_v1.png",
+			"branch_r": "parts/branch_r_v1.png",
+			"canopy_l": "parts/canopy_l_v1.png",
+			"canopy_r": "parts/canopy_r_v1.png",
+			"canopy_ml": "parts/canopy_ml_v1.png",
+			"canopy_mr": "parts/canopy_mr_v1.png"
+		}
+	},
+	"pictures": {
+		"portrait": {
+			"src": "portrait/portrait_v1.png",
+			"size": 512,
+			"margin": 8
+		},
+		"bust": {
+			"src": "portrait/bust_v1.png",
+			"size": 384,
+			"margin": 6
+		}
+	}
+}

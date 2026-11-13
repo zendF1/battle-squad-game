@@ -1,172 +1,95 @@
-# Mộc Tinh (boss hệ Mộc, mới): prompt tạo ảnh boss
+# Mộc Tinh (boss hệ Mộc, `tree_spirit`): prompt tạo ảnh boss
 
-Dùng cho AI vẽ ảnh (GPT-image / Gemini / Midjourney / Flux…). Prompt viết bằng tiếng Anh vì các model
-hiểu tiếng Anh tốt nhất; phần giải thích bằng tiếng Việt. Thiết kế là thiết kế riêng của game, không
-lấy theo game nào khác: đừng thêm tên game / tên hãng / "in the style of <game>" vào prompt.
+**Hình hiện tại đến từ ảnh của người dùng**, `concept/ancient_tree_v1.png`: cây cổ thụ thân nâu xám xoắn,
+khuôn mặt cau có trên thân với hai mắt xanh bạc hà sáng viền tím, tán lá xanh đậm có lá tím, nấm phát
+sáng xanh / tím trên thân và cành, vài tinh thể, hai rễ khô cong vểnh hai bên, bộ rễ lớn bám đất; **nhìn
+thẳng (mặt trước)**, đứng yên. Mọi frame trong game do `make_frames.py` làm từ ảnh này (tách phần, gắn
+xương, uốn mềm như gỗ, vẽ thêm rễ kéo / lá rơi / vết nứt; xem `README.txt`); không có sheet nào do AI
+vẽ. Thiết kế "cây có tay cành, tim nhựa hổ phách, quả vàng, hoa kem" cũ trong file này đã bỏ.
 
-Boss mới, chưa có trong game; tên và kỹ năng theo bản thiết kế đang chờ duyệt (đổi thì sửa file
-này). Mộc Tinh là cây cổ thụ thành tinh, **cắm rễ một chỗ, không di chuyển**. Kỹ năng trong trận:
-**Roi dây leo** (dây leo trồi lên dưới chân từng người, có thể trói chân), **Mưa gai độc** (gai rơi
-khắp map, gây trúng độc), **Hút sinh lực** (hút máu một người để hồi máu cho mình), và gọi **Nấm
-độc** (lính con phun bào tử; còn nấm thì Mộc Tinh hồi máu).
+Prompt dưới đây **chỉ dùng khi muốn AI vẽ lại** một sheet đẹp hơn cách dựng bằng script (vd. tán lá
+rung thật mạnh có lá bay, rễ trườn có phối cảnh, cây chết héo vẽ tay). Ảnh AI vẽ xong nhập bằng
+`tools/import_boss_frames.gd` như Phù Thuỷ Băng, thay cho sheet do script làm (bỏ animation đó khỏi
+`ANIMS` của script và thêm mục của nó vào phần `import.json` mà script viết ra). Giữ đúng số frame và
+frame đỉnh để `side/points.json` và phần game khớp (hoặc cập nhật cả hai).
+
+Prompt viết bằng tiếng Anh vì model hiểu tiếng Anh tốt nhất; phần giải thích bằng tiếng Việt. Thiết kế
+là của riêng game: không thêm tên game / tên hãng / "in the style of <game>" vào prompt.
 
 ## Cách dùng
 
-1. **Tạo ảnh thiết kế gốc (mục 1) trước**, chọn 1 bản ưng nhất. Từ đó về sau luôn **đính kèm ảnh
-   gốc làm ảnh tham chiếu** cho mọi prompt khác, để Mộc Tinh giữ đúng dáng, màu ở mọi frame.
-2. Mỗi prompt = **khối STYLE** (mục 0) + **khối BOSS** + phần riêng của ảnh đó. Dán cả ba.
-3. **Animation**: tạo kiểu **sprite sheet một hàng** (mọi frame trong một ảnh, cùng cỡ, cách đều).
-   Model vẽ lệch giữa các frame thì tạo từng frame với ảnh tham chiếu + câu "same character, same
-   scale, same position on the canvas, only the pose changes".
-4. **Nền**: hồng tím đặc **#FF00FF** (magenta), một màu phẳng, không bóng đổ. **Không dùng nền xanh
-   lá** (lẫn với lá cây). Trên người Mộc Tinh không được có màu hồng / tím (hoa vẽ màu trắng kem),
-   vì tool sẽ xoá nhầm. Dấu ✦ của AI ở góc tool tự xoá.
-5. **Khung**: mỗi frame 1280×720, Mộc Tinh **nhìn sang PHẢI** (3/4 về phía người xem), giữa khung,
-   cao khoảng 85% khung (tán lá là phần cao nhất). Sheet N frame: N × 1280 ngang, 720 dọc, hoặc lưới
-   vuông nếu model không ra được ảnh dài: ghi rõ số hàng / cột.
-6. Bỏ ảnh vào `art_source/bosses/tree_spirit/<thư mục ghi ở từng mục>/`, tên `sheet_v1.png` (ảnh
-   chân dung: `portrait_v1.png`, `bust_v1.png`).
+1. **Luôn đính kèm `concept/ancient_tree_v1.png` làm ảnh tham chiếu** (`--ref` của `tools/gen_image.py`).
+2. Mỗi prompt = **[STYLE]** (mục 0) + **[BOSS]** (mục 0b) + phần riêng của ảnh đó. Dán nguyên văn.
+3. **Mặt trước**: cây luôn nhìn thẳng ra người xem như ảnh gốc. Hành động "về phía trước" (rễ trườn ra)
+   hướng sang **PHẢI** màn hình; game tự lật ảnh khi boss quay sang trái (cây gần đối xứng nên lật vẫn ổn).
+4. **Nền**: xanh dương đặc **#0000FF**, một màu phẳng: trên cây có xanh lá, tím, nâu, xanh bạc hà nên
+   không dùng nền xanh lá hay magenta. **Không vẽ bóng đổ dưới gốc** (game tự vẽ bóng), không vẽ mặt đất.
+   Quầng sáng của nấm / tinh thể được phép loang ra nền (tool tách thành lớp sáng mềm), nhưng mảnh, nhỏ.
+5. **Khung**: sprite sheet **một hàng**, mỗi frame 1024×1024, cây giữa ô, cao khoảng 72 % ô, gốc chạm
+   cùng một đường ngang ở mọi frame; root_drag chừa bên phải cho rễ trườn ra.
+6. **Không vẽ hiệu ứng game tự vẽ**: dây leo trồi dưới chân người chơi, gai độc bay, mưa bào tử, tia /
+   luồng sinh lực, rễ kéo người chơi ở xa, nấm độc (lính con), chớp trắng khi trúng đòn, khiên, ánh hồi
+   máu, chữ, icon. Ánh sáng trên người (mắt, nấm, tinh thể, tim) nằm trong viền đậm.
+7. Đặt file vào `art_source/bosses/tree_spirit/<thư mục ở từng mục>/sheet_v2.png` (không ghi đè `_v1`).
+   Dấu ✦ của AI ở góc: ghi toạ độ vào `watermark` trong `import.json`.
 
 ---
 
-## 0. Khối STYLE chung (dán vào đầu mọi prompt)
+## 0. [STYLE]
 
 ```
-2D mobile game character art, cartoon style matching a cute military artillery game:
-bold clean black outlines of even thickness, flat cel-shaded colours with one soft shade
-tone and one highlight tone, slightly chibi proportions, rounded friendly shapes, crisp
-vector-like edges, no texture noise, no painterly brush strokes, no gradients on the
-background, no text, no watermark, no frame border, no drop shadow on the background.
-Solid flat magenta background #FF00FF. Character centred, full body visible, facing right
-(side view, 3/4 towards the viewer), canvas 1280x720.
+2D mobile game boss art, cartoon style for a cute military artillery game: bold clean
+dark navy outlines of even thickness, flat cel-shaded colours with one shade tone and one
+highlight tone, chunky readable shapes, crisp vector-like edges, no texture noise, no
+painterly brush strokes, no text, no watermark, no frame border, no drop shadow, no ground.
+Solid flat pure blue background #0000FF. Front view, the face looking at the viewer.
 ```
 
-## Khối BOSS (giữ cố định ở mọi prompt)
+## 0b. [BOSS] (giữ cố định ở mọi prompt)
 
 ```
-BOSS: "Tree Spirit", an ancient tree of a deep forest come alive. A thick, short, gnarled
-trunk as its body, warm brown bark (#7A5232) with darker grooves (#4D3320) and light bark
-edges (#A87A4F), a big round knot in the chest glowing golden-amber (#FFC94D) like a heart
-of sap. A face in the bark: two glowing yellow-green eyes (#D6FF66), a heavy bark brow, a
-wide mouth like a crack in the wood, a long mossy beard of hanging leaves. Two long branch
-arms with twig-like three-finger claws and a few leaves on them. Thick roots spread out on
-the ground like feet, firmly rooted. A big round crown of leaves on its head and shoulders
-in fresh greens (#4FA83D, light #8FD95A, dark #2E6B2A), a few small cream-white blossoms
-and a few small glowing golden fruits hanging in the leaves. No pink or purple anywhere.
-Old, wise and menacing but cute and readable at small size.
-```
-
----
-
-## 1. Ảnh thiết kế gốc (model sheet): `concept/`
-
-```
-[STYLE] [BOSS]
-Character model sheet on one image: the same tree spirit three times side by side, same
-scale: (1) front view, (2) side view facing right, (3) back view. Neutral standing pose,
-the branch arms relaxed at its sides, the roots on the ground. Canvas 2560x1280.
-```
-
-## 2. Chân dung: `portrait/`
-
-Thẻ boss ở tab Boss, màn tìm trận. Ảnh này cũng là dáng đứng yên trong trận (game gắn xương và tự
-làm tán lá đung đưa, tay cành lắc nhẹ, tim nhựa nhấp nháy), nên vẽ **dáng đứng, rễ bám đất, hai tay
-dang ra khỏi thân** (để game tách tay).
-
-```
-[STYLE] [BOSS]
-Heroic boss pose for a selection card: rooted firmly, both branch arms spread wide away
-from the trunk with the twig claws open, the sap heart and the eyes glowing bright, a few
-leaves drifting around it, the leaf crown full, glaring at the viewer. Full body, centred,
-square canvas 1024x1024, leave 8% empty margin around it.
-```
-
-Ảnh nhỏ cho thanh máu:
-
-```
-[STYLE] [BOSS]
-Head-and-shoulders bust icon: the bark face with the glowing eyes and the leaf beard, the
-lower part of the leaf crown, the top of the glowing sap heart, facing slightly right.
-Square 512x512, the face fills 85% of the canvas.
+BOSS: "Ancient Tree Spirit", an old living tree. A thick twisted grey-brown trunk (#665A4C,
+shade #42383F, olive highlights #706A50) with dark grooves, wide at the base where big
+gnarled roots spread over the ground, two thin bare roots curling up at the sides. A grumpy
+face in the bark in the middle of the trunk: a heavy frowning brow, two glowing mint-green
+eyes (#9AF6B4, white centre) with purple rims (#8847AC), a downturned crack of a mouth.
+Thick limbs fork out under a wide round canopy of dark green leaf clumps (#36664E, light
+#4F9A66) with some purple leaves (#6E4E8C). Small glowing mint-green mushrooms (#7EF3A3)
+and lilac mushrooms (#9C8CD0) grow on the trunk and the limbs, a few pale lilac crystals
+in the canopy and on the right limb; one glowing mint crystal leaf in the canopy's left
+side. Two small leafy twigs hang off the lower limbs, one each side. Old, grumpy and
+menacing but readable at small size.
 ```
 
 ---
 
-## 3. Animation trong trận (nhìn sang phải, 1280×720 mỗi frame)
+## 1. Ảnh đứng yên và chân dung: `portrait/`
 
-Mọi sheet thêm khối SHEET:
+- `portrait/portrait_v2.png`: `[STYLE] [BOSS] Full body, standing still, the eyes and the mushrooms glowing softly. Centred on a 1024x1024 canvas.`
+- `portrait/bust_v2.png`: `[STYLE] [BOSS] Close-up of the face in the bark with the fork of the limbs above it and the bottom of the canopy, the eyes and the mushrooms glowing. Centred on a 1024x1024 canvas, the face filling the lower middle.`
 
-```
-Horizontal sprite sheet, N frames in one row, every frame the same size (1280x720 each),
-evenly spaced, the tree spirit at the same scale with its roots on the same ground line
-and at the same spot in every frame, only the pose changes between frames. The roots
-never move.
-```
+## 2. Animation (một hàng, mỗi frame 1024×1024)
 
-(Thay N bằng số frame của từng mục. Game tự vẽ dây leo, gai, bào tử, tia hút máu: **không vẽ
-chúng** trong ảnh, chỉ vẽ dáng và ánh sáng trên người.)
+Số frame và frame đỉnh giữ đúng như dưới (khớp `ANIMS` trong `make_frames.py`); gốc ở cùng chỗ trong
+mọi ô; cây không nhấc rễ khỏi đất (trừ hai rễ khô và đầu các rễ ngoài).
 
-### 3a. Roi dây leo (vine lash): `side_vines/`, 6 frame, không lặp
-
-```
-[STYLE] [BOSS] [SHEET N=6]
-Vine command, not looping: frames 1-2 the tree spirit raises both branch arms high, the
-eyes glowing brighter, frame 3 it swings both arms down and forward to the right, claws
-pointing at the ground, frame 4 the same with the sap heart flashing, frames 5-6 it lifts
-its arms back to standing. Do NOT draw vines on the ground, only the tree spirit.
-```
-
-### 3b. Mưa gai độc (thorn rain): `side_thorns/`, 6 frame, không lặp
-
-Gai bắn lên từ tán lá.
-
-```
-[STYLE] [BOSS] [SHEET N=6]
-Thorn volley, not looping: frames 1-2 the tree spirit leans back and its leaf crown puffs
-up and bristles, frame 3 it shakes violently, the crown flung upward, the leaves standing
-on end, frame 4 a second smaller shake, frames 5-6 it settles back, a few leaves falling.
-Do NOT draw thorns or projectiles, only the tree spirit.
-```
-
-### 3c. Hút sinh lực (life drain): `side_drain/`, 6 frame, không lặp
-
-Game vẽ tia sinh lực từ người chơi bay về tim nhựa.
-
-```
-[STYLE] [BOSS] [SHEET N=6]
-Life drain, not looping: frame 1 it reaches one branch arm forward to the right, claws
-open, frame 2 it clenches the claws as if pulling something towards itself, frames 3-4
-it draws the arm back to its chest, the sap heart glowing brighter and brighter, small
-fresh leaves sprouting on its arms, frames 5-6 it stands tall and satisfied, the glow
-fading. Do NOT draw the beam, only the tree spirit.
-```
-
-### 3d. Gọi nấm độc (summon): `side_summon/`, 4 frame, không lặp
-
-```
-[STYLE] [BOSS] [SHEET N=4]
-Summon, not looping: frame 1 it presses both claws down towards its roots, frame 2 its
-roots and the bark glow faintly golden, frame 3 the glow peaks, the eyes bright, frame 4
-back to standing. No mushrooms in the image.
-```
-
-### 3e. Trúng đòn (hurt): `side_hurt/`, 2 frame
-
-Game làm cảnh chết từ frame đầu của sheet này (lá rụng, thân héo), không cần sheet chết riêng.
-
-```
-[STYLE] [BOSS] [SHEET N=2]
-Hit reaction: frame 1 the trunk jolted back to the left, wood chips and leaves flying
-off, eyes squeezed shut, the arms flung up, frame 2 recovering, eyes narrowed angrily.
-```
+- `side_idle/`, 12 frame, lặp: `[STYLE] [BOSS] Horizontal sprite sheet of 12 frames of a slow idle loop: the canopy clumps sway gently one after another, the leafy twigs stir, the bare side roots curl a little, the mushrooms pulse brighter and dimmer, the eyes dim once in frame 9. The trunk and the roots stay put. Frame 12 flows back into frame 1.`
+- `side_vine_lash/`, 7 frame (đỉnh frame 4): `[STYLE] [BOSS] Horizontal sprite sheet of 7 frames: frames 2-3 the eyes flare bright mint, the bare side roots writhe upward, the leafy twigs lift; frame 4 the twigs and the canopy whip down hard, the side roots snap down, the eyes blazing; frames 5-6 settle; frame 7 rest. No vines on the ground.`
+- `side_poison_thorns/`, 8 frame (đỉnh frame 5): `[STYLE] [BOSS] Horizontal sprite sheet of 8 frames: frame 2 the canopy draws in; frames 3-4 the canopy shakes hard left and right; frame 5 the canopy puffs up and bristles, the clumps flung outward, a few leaves torn off; frames 6-7 it shakes less and settles, the loose leaves drifting down; frame 8 rest. No thorns drawn.`
+- `side_life_drain/`, 8 frame (đỉnh frame 4, giữ lâu): `[STYLE] [BOSS] Horizontal sprite sheet of 8 frames: the eyes and every mushroom glow brighter and brighter, a soft mint glow swells on the trunk under the mouth (its heart), the trunk swells slightly as if breathing in, the canopy lifts; strongest in frame 4, a second smaller swell in frame 6, fading to rest in frame 8. No beam, no stream of light.`
+- `side_root_drag/`, 8 frame (đỉnh frame 5): `[STYLE] [BOSS] Horizontal sprite sheet of 8 frames: a thick gnarled root snakes out from under the right side of the tree along the ground to the right, longer each frame (frames 2-4), the tree leaning toward it, eyes narrowed; frame 5 the root at full reach, its tip curled up like a hook; frames 6-7 it yanks back fast, the tree leaning back left; frame 8 rest, no root.`
+- `side_summon/`, 7 frame (đỉnh frame 3): `[STYLE] [BOSS] Horizontal sprite sheet of 7 frames: the mushrooms on the trunk and the limbs flare bright mint and lilac (strongest in frame 3), the roots shiver, the eyes glow; then the glow fades back to rest. No poison mushroom creatures.`
+- `side_hurt/`, 2 frame: `[STYLE] [BOSS] Horizontal sprite sheet of 2 frames: frame 1 the whole tree shudders back to the left, the canopy jolted, the eyes squeezed half shut, a few leaves knocked off; frame 2 half recovered, the leaves falling lower.`
+- `side_death/`, 4 frame: `[STYLE] [BOSS] Horizontal sprite sheet of 4 frames: the leaves wither from green to dry brown and orange (a little in frame 1, all brown by frame 3), leaves falling; the eyes and the mushrooms go dark; cracks open in the bark; the canopy and the limbs droop and the tree sags lower each frame. It does not fall apart (the game breaks it into pieces).`
 
 ---
 
-## 4. Nấm độc (lính con): `minion_mushroom/`
+## 3. Nấm độc (lính con): `minion_mushroom/`
 
 Nấm mọc lên trên mặt đất, đứng yên, mỗi lượt phun bào tử quanh mình, bị bắn chết thì nổ ra bào tử.
-Nền magenta, nhìn sang phải. Mỗi prompt = [STYLE] + khối MINION dưới đây + phần riêng (cỡ canvas
-ghi trong phần riêng thay cho 1280×720 của khối STYLE).
+Hiện nấm vẽ bằng code (giữ như vậy); prompt này chỉ khi muốn có ảnh vẽ. Nấm không có hồng / tím nên
+dùng nền magenta **#FF00FF** (thay câu nền và câu "Front view" trong [STYLE]), nhìn sang phải. Mỗi prompt = [STYLE] + khối
+MINION dưới đây + phần riêng.
 
 ```
 MINION: "Poison Mushroom", a small mushroom creature of the Tree Spirit: a big round cap in
@@ -181,11 +104,12 @@ nasty.
 
 ---
 
-## 5. Đạn và hiệu ứng (nền magenta, mỗi cái một ảnh vuông 512×512)
+## 4. Đạn và hiệu ứng (nền magenta, mỗi cái một ảnh vuông 512×512)
 
-Đạn vẽ **nằm ngang, mũi sang PHẢI** (game tự xoay theo đường bay).
+Đạn vẽ **nằm ngang, mũi sang PHẢI** (game tự xoay theo đường bay). Câu nền trong [STYLE] đổi thành
+magenta như mục 3 (prompt dưới đã ghi nền magenta); không thêm câu "Front view".
 
-### 5a. Gai độc: `fx/poison_thorn.png`
+### 4a. Gai độc: `fx/poison_thorn.png`
 
 ```
 [STYLE]
@@ -195,7 +119,7 @@ the left. Bold black outline. Centred on a 512x512 canvas, solid magenta backgro
 #FF00FF.
 ```
 
-### 5b. Dây leo trồi lên: `fx/vine_burst.png`
+### 4b. Dây leo trồi lên: `fx/vine_burst.png`
 
 Dây leo trồi lên khỏi mặt đất; vẽ **dựng đứng, ngọn hướng LÊN**, gốc phẳng (game cắm gốc xuống đất).
 
@@ -207,7 +131,7 @@ hands, a flat cut base at the bottom. Bold black outline. Centred on a 512x512 c
 solid magenta background #FF00FF.
 ```
 
-### 5c. Đám bào tử: `fx/spore_cloud.png`
+### 4c. Đám bào tử: `fx/spore_cloud.png`
 
 ```
 [STYLE]
@@ -218,10 +142,12 @@ background #FF00FF.
 
 ---
 
-## 6. Kiểm tra trước khi đưa vào game
+## 5. Kiểm tra trước khi đưa vào game
 
-- **Nhân vật:** mọi frame cùng một Mộc Tinh, cùng màu, cùng cỡ; rễ ở cùng một chỗ và cùng đường đất.
-- **Hướng:** nhìn sang phải. Game tự lật ảnh khi quay sang trái.
-- **Nền:** chỉ một màu magenta phẳng; không có màu hồng / tím trên người hay trên nấm.
-- **Nội dung:** không chữ, không viền; không vẽ dây leo, gai, bào tử, tia hay icon trong ảnh nhân vật.
-- **Đặt file:** đúng các thư mục ở trên, rồi báo để làm `import.json` và nối ảnh vào trận.
+- Cùng một Mộc Tinh ở mọi frame (mặt, mắt viền tím, nấm, tinh thể, lá tím, màu), cùng cỡ, gốc trên
+  cùng một đường.
+- Mặt trước; rễ kéo trườn sang bên PHẢI màn hình (game tự lật).
+- Nền một màu xanh dương phẳng #0000FF; không bóng đổ, không mặt đất, không chữ, không viền; quầng sáng
+  mềm quanh nấm / tinh thể nhỏ gọn.
+- Không vẽ dây leo, gai, bào tử, tia hút, nấm độc lính con trong ảnh boss.
+- Dấu ✦ ghi vào `watermark`; đặt file `_v2` đúng thư mục rồi chạy lại import.

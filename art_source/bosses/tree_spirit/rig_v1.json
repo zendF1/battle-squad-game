@@ -1,0 +1,62 @@
+{
+	"_doc": "Written by make_frames.py (do not edit). Source px of concept/ancient_tree_v1.png (the body: TOP \u2192 FEET, 702 px) and the unit frame BossArt draws in (the body 100 tall, the feet at the origin, facing right, y down).",
+	"feet": [
+		706.0,
+		718.0
+	],
+	"top": 16.0,
+	"bodyHeight": 702.0,
+	"heart": {
+		"src": [
+			712.0,
+			566.0
+		],
+		"unit": [
+			0.85,
+			-21.65
+		]
+	},
+	"canopy": {
+		"src": [
+			706.0,
+			120.0
+		],
+		"unit": [
+			0.0,
+			-85.19
+		]
+	},
+	"eyes": {
+		"src": [
+			[
+				710.4,
+				444.1
+			],
+			[
+				788.4,
+				446.0
+			]
+		],
+		"unit": [
+			[
+				0.62,
+				-39.02
+			],
+			[
+				11.74,
+				-38.75
+			]
+		]
+	},
+	"mushrooms": {
+		"src": [
+			778,
+			326
+		],
+		"unit": [
+			10.26,
+			-55.84
+		]
+	},
+	"width": 1.067
+}

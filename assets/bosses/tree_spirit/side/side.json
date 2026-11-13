@@ -1,0 +1,125 @@
+{
+	"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/tree_spirit/import.json (do not edit: edit the config and re-run). size / pivot (the feet: the frost-mist hem's bottom centre) / height (the body: the hood's top to the feet) / width (the cloak) in texture px; facing 1: drawn facing right; anims {name: {frames, fps, loop, peak}}.",
+	"size": [
+		478,
+		347
+	],
+	"pivot": [
+		191.0,
+		334.0
+	],
+	"height": 320.0,
+	"width": 186.0,
+	"facing": 1,
+	"anims": {
+		"idle": {
+			"frames": [
+				"idle_0",
+				"idle_1",
+				"idle_2",
+				"idle_3",
+				"idle_4",
+				"idle_5",
+				"idle_6",
+				"idle_7",
+				"idle_8",
+				"idle_9",
+				"idle_10",
+				"idle_11"
+			],
+			"fps": 6.0,
+			"loop": true
+		},
+		"vine_lash": {
+			"frames": [
+				"vine_lash_0",
+				"vine_lash_1",
+				"vine_lash_2",
+				"vine_lash_3",
+				"vine_lash_4",
+				"vine_lash_5",
+				"vine_lash_6"
+			],
+			"fps": 10.0,
+			"loop": false,
+			"peak": 3
+		},
+		"poison_thorns": {
+			"frames": [
+				"poison_thorns_0",
+				"poison_thorns_1",
+				"poison_thorns_2",
+				"poison_thorns_3",
+				"poison_thorns_4",
+				"poison_thorns_5",
+				"poison_thorns_6",
+				"poison_thorns_7"
+			],
+			"fps": 10.0,
+			"loop": false,
+			"peak": 4
+		},
+		"life_drain": {
+			"frames": [
+				"life_drain_0",
+				"life_drain_1",
+				"life_drain_2",
+				"life_drain_3",
+				"life_drain_4",
+				"life_drain_5",
+				"life_drain_6",
+				"life_drain_7"
+			],
+			"fps": 8.0,
+			"loop": false,
+			"peak": 3
+		},
+		"root_drag": {
+			"frames": [
+				"root_drag_0",
+				"root_drag_1",
+				"root_drag_2",
+				"root_drag_3",
+				"root_drag_4",
+				"root_drag_5",
+				"root_drag_6",
+				"root_drag_7"
+			],
+			"fps": 9.0,
+			"loop": false,
+			"peak": 4
+		},
+		"summon": {
+			"frames": [
+				"summon_0",
+				"summon_1",
+				"summon_2",
+				"summon_3",
+				"summon_4",
+				"summon_5",
+				"summon_6"
+			],
+			"fps": 8.0,
+			"loop": false,
+			"peak": 2
+		},
+		"hurt": {
+			"frames": [
+				"hurt_0",
+				"hurt_1"
+			],
+			"fps": 7.0,
+			"loop": false
+		},
+		"death": {
+			"frames": [
+				"death_0",
+				"death_1",
+				"death_2",
+				"death_3"
+			],
+			"fps": 6.0,
+			"loop": false
+		}
+	}
+}

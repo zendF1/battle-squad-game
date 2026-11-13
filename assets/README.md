@@ -88,7 +88,7 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   `match/views/status_icons.gd`): none shipped yet, the badges are code-drawn; drop a square PNG
   (transparent background, about 64 × 64) named after the effect to replace one (read directly
   until the editor imports it).
-- **Bosses** (`bosses/<bossId>/`: Phù Thuỷ Băng, Đĩa Bay Thép (`steel_robot`) and Khổng Lồ Đá (`rock_giant`) have them; the
+- **Bosses** (`bosses/<bossId>/`: Phù Thuỷ Băng, Đĩa Bay Thép (`steel_robot`), Khổng Lồ Đá (`rock_giant`) and Mộc Tinh (`tree_spirit`) have them; the
   others are drawn in code, `match/boss/boss_art.gd`, and so is every minion): `side/<anim>_<i>.png` + `side/side.json` (her
   match figure: cast, burst, blizzard, summon, hurt (and the unused fly frames) on one shared canvas,
   the feet = the frost-mist hem's bottom centre on the pivot; `match/boss/boss_body.gd` draws them
@@ -135,6 +135,17 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   knuckles, the eyes, the chest / pads / belt / head joints and turns, for the plates and glows the
   game draws: `Art.boss_points()`; how the match uses them, its skills' animations and its crumble:
   `docs/boss-khong-lo-da-art.md`).
+  Mộc Tinh (`tree_spirit`) too (`art_source/bosses/tree_spirit/concept/ancient_tree_v1.png`, the user's:
+  front view): `make_frames.py` there poses the whole picture with a smooth skin (a tree bends: the
+  parts' weights blurred, no rigid cut-outs) and draws the glows (eyes, mushrooms, crystals with their
+  soft halo layer, the heart), the withering, the cracks, a root that snakes along the ground and
+  falling leaves: idle 12, vine_lash 7, poison_thorns 8, life_drain 8, root_drag 8, summon 7, hurt 2,
+  death 4 (named after its skills; the body = the canopy's top to the ground line, the feet = the
+  trunk's foot), `skin/idle/` (motion "breath": the canopy clumps, twigs and side roots sway; glow =
+  the heart on the trunk, mint, `glowBone` trunk; `eyes`), `parts/` (the death's pieces: four withered
+  canopy clumps, twigs, side roots, outer roots, the trunk; `z`) and `side/points.json` (per frame:
+  the heart, the canopy's thorn point, the eyes, the mushroom cluster, glow / eyes levels, the drag
+  root's tip).
 - **Title plates** (`ui/titles/title_<rarity>.png`, blue / orange / purple / red, and
   `ui/titles/titles.json`: the banner the title name is drawn on, `ui/title_plate.gd`): AI-drawn
   with no text on a dark background, `art_source/ui/titles/title_<rarity>.png`, keyed by
