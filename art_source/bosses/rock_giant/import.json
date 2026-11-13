@@ -1,0 +1,620 @@
+{
+	"_doc": "Written by make_frames.py here (do not edit: edit the script and re-run it). tools/import_boss_frames.gd reads it (see its header and README.txt here). The sheets are already transparent (background.key 'alpha'), one row per animation in fixed 590 x 470 cells with the feet (the midpoint between the soles) at (280, 450) of every cell: cuts at the cells, anchors the feet, bodyHeight 330 (the horns' top to the feet, sheet px) -> height texture px. body: every colour (measured only for the width). skins.idle: the rest pose (skin/rest_v1.png, full size) on a skeleton: joints (that picture's px), bones, feet / bodyHeight given, tracks (the breath: a sine per bone). parts: the death's pieces in the last death frame's pose, one cell each at the frames' scale (feet given), back to front.",
+	"out": "res://assets/bosses/rock_giant/",
+	"height": 320,
+	"pad": 4,
+	"background": {
+		"key": "alpha"
+	},
+	"alphaCut": 6,
+	"edgeFade": 0,
+	"body": {
+		"hue": [
+			0,
+			360
+		],
+		"minSat": 0.0,
+		"minVal": 0.12,
+		"maxVal": 1.0,
+		"centreRows": [
+			0.45,
+			0.7
+		],
+		"minPiece": 0.08
+	},
+	"anims": {
+		"idle": {
+			"src": "side_idle/sheet_v1.png",
+			"frames": 10,
+			"fps": 5,
+			"loop": true,
+			"bodyHeight": 330.0,
+			"cuts": [
+				590,
+				1180,
+				1770,
+				2360,
+				2950,
+				3540,
+				4130,
+				4720,
+				5310
+			],
+			"anchors": [
+				[
+					280.0,
+					450.0
+				],
+				[
+					870.0,
+					450.0
+				],
+				[
+					1460.0,
+					450.0
+				],
+				[
+					2050.0,
+					450.0
+				],
+				[
+					2640.0,
+					450.0
+				],
+				[
+					3230.0,
+					450.0
+				],
+				[
+					3820.0,
+					450.0
+				],
+				[
+					4410.0,
+					450.0
+				],
+				[
+					5000.0,
+					450.0
+				],
+				[
+					5590.0,
+					450.0
+				]
+			]
+		},
+		"throw": {
+			"src": "side_throw/sheet_v1.png",
+			"frames": 8,
+			"fps": 10,
+			"loop": false,
+			"bodyHeight": 330.0,
+			"cuts": [
+				590,
+				1180,
+				1770,
+				2360,
+				2950,
+				3540,
+				4130
+			],
+			"anchors": [
+				[
+					280.0,
+					450.0
+				],
+				[
+					870.0,
+					450.0
+				],
+				[
+					1460.0,
+					450.0
+				],
+				[
+					2050.0,
+					450.0
+				],
+				[
+					2640.0,
+					450.0
+				],
+				[
+					3230.0,
+					450.0
+				],
+				[
+					3820.0,
+					450.0
+				],
+				[
+					4410.0,
+					450.0
+				]
+			],
+			"peak": 4
+		},
+		"roll": {
+			"src": "side_roll/sheet_v1.png",
+			"frames": 7,
+			"fps": 9,
+			"loop": false,
+			"bodyHeight": 330.0,
+			"cuts": [
+				590,
+				1180,
+				1770,
+				2360,
+				2950,
+				3540
+			],
+			"anchors": [
+				[
+					280.0,
+					450.0
+				],
+				[
+					870.0,
+					450.0
+				],
+				[
+					1460.0,
+					450.0
+				],
+				[
+					2050.0,
+					450.0
+				],
+				[
+					2640.0,
+					450.0
+				],
+				[
+					3230.0,
+					450.0
+				],
+				[
+					3820.0,
+					450.0
+				]
+			],
+			"peak": 3
+		},
+		"stomp": {
+			"src": "side_stomp/sheet_v1.png",
+			"frames": 9,
+			"fps": 10,
+			"loop": false,
+			"bodyHeight": 330.0,
+			"cuts": [
+				590,
+				1180,
+				1770,
+				2360,
+				2950,
+				3540,
+				4130,
+				4720
+			],
+			"anchors": [
+				[
+					280.0,
+					450.0
+				],
+				[
+					870.0,
+					450.0
+				],
+				[
+					1460.0,
+					450.0
+				],
+				[
+					2050.0,
+					450.0
+				],
+				[
+					2640.0,
+					450.0
+				],
+				[
+					3230.0,
+					450.0
+				],
+				[
+					3820.0,
+					450.0
+				],
+				[
+					4410.0,
+					450.0
+				],
+				[
+					5000.0,
+					450.0
+				]
+			],
+			"peak": 4
+		},
+		"spikes": {
+			"src": "side_spikes/sheet_v1.png",
+			"frames": 7,
+			"fps": 9,
+			"loop": false,
+			"bodyHeight": 330.0,
+			"cuts": [
+				590,
+				1180,
+				1770,
+				2360,
+				2950,
+				3540
+			],
+			"anchors": [
+				[
+					280.0,
+					450.0
+				],
+				[
+					870.0,
+					450.0
+				],
+				[
+					1460.0,
+					450.0
+				],
+				[
+					2050.0,
+					450.0
+				],
+				[
+					2640.0,
+					450.0
+				],
+				[
+					3230.0,
+					450.0
+				],
+				[
+					3820.0,
+					450.0
+				]
+			],
+			"peak": 3
+		},
+		"summon": {
+			"src": "side_summon/sheet_v1.png",
+			"frames": 6,
+			"fps": 7,
+			"loop": false,
+			"bodyHeight": 330.0,
+			"cuts": [
+				590,
+				1180,
+				1770,
+				2360,
+				2950
+			],
+			"anchors": [
+				[
+					280.0,
+					450.0
+				],
+				[
+					870.0,
+					450.0
+				],
+				[
+					1460.0,
+					450.0
+				],
+				[
+					2050.0,
+					450.0
+				],
+				[
+					2640.0,
+					450.0
+				],
+				[
+					3230.0,
+					450.0
+				]
+			],
+			"peak": 2
+		},
+		"hurt": {
+			"src": "side_hurt/sheet_v1.png",
+			"frames": 2,
+			"fps": 7,
+			"loop": false,
+			"bodyHeight": 330.0,
+			"cuts": [
+				590
+			],
+			"anchors": [
+				[
+					280.0,
+					450.0
+				],
+				[
+					870.0,
+					450.0
+				]
+			]
+		},
+		"death": {
+			"src": "side_death/sheet_v1.png",
+			"frames": 3,
+			"fps": 6,
+			"loop": false,
+			"bodyHeight": 330.0,
+			"cuts": [
+				590,
+				1180
+			],
+			"anchors": [
+				[
+					280.0,
+					450.0
+				],
+				[
+					870.0,
+					450.0
+				],
+				[
+					1460.0,
+					450.0
+				]
+			]
+		}
+	},
+	"skins": {
+		"idle": {
+			"motion": "breath",
+			"src": "skin/rest_v1.png",
+			"height": 360,
+			"pad": 6,
+			"feet": [
+				560,
+				900
+			],
+			"bodyHeight": 660.0,
+			"glow": {
+				"joint": "crystal",
+				"bone": "torso",
+				"colour": [
+					1.0,
+					0.76,
+					0.24
+				]
+			},
+			"eyes": [
+				[
+					582.0,
+					400.0
+				],
+				[
+					652.0,
+					402.0
+				]
+			],
+			"joints": {
+				"hips": [
+					582.0,
+					688.0
+				],
+				"neck": [
+					602.0,
+					488.0
+				],
+				"crown": [
+					602.0,
+					296.0
+				],
+				"shoulder_l": [
+					412.0,
+					540.0
+				],
+				"elbow_l": [
+					330.0,
+					620.0
+				],
+				"fist_l": [
+					322.0,
+					778.0
+				],
+				"shoulder_r": [
+					726.0,
+					540.0
+				],
+				"elbow_r": [
+					764.0,
+					620.0
+				],
+				"fist_r": [
+					782.0,
+					772.0
+				],
+				"horn_l_root": [
+					540.0,
+					338.0
+				],
+				"horn_l_tip": [
+					312.0,
+					378.0
+				],
+				"horn_r_root": [
+					666.0,
+					338.0
+				],
+				"horn_r_tip": [
+					790.0,
+					378.0
+				],
+				"knee_l": [
+					450.0,
+					788.0
+				],
+				"knee_r": [
+					690.0,
+					788.0
+				],
+				"crystal": [
+					604.0,
+					564.0
+				]
+			},
+			"bones": [
+				[
+					"root",
+					"",
+					"feet",
+					"hips",
+					0
+				],
+				[
+					"leg_l",
+					"root",
+					"hips",
+					"knee_l",
+					0.6
+				],
+				[
+					"leg_r",
+					"root",
+					"hips",
+					"knee_r",
+					0.6
+				],
+				[
+					"torso",
+					"root",
+					"hips",
+					"neck",
+					1.5
+				],
+				[
+					"head",
+					"torso",
+					"neck",
+					"crown",
+					3
+				],
+				[
+					"horn_l",
+					"head",
+					"horn_l_root",
+					"horn_l_tip",
+					3
+				],
+				[
+					"horn_r",
+					"head",
+					"horn_r_root",
+					"horn_r_tip",
+					3
+				],
+				[
+					"arm_l",
+					"torso",
+					"shoulder_l",
+					"elbow_l",
+					1.5
+				],
+				[
+					"fore_l",
+					"arm_l",
+					"elbow_l",
+					"fist_l",
+					2
+				],
+				[
+					"arm_r",
+					"torso",
+					"shoulder_r",
+					"elbow_r",
+					1.5
+				],
+				[
+					"fore_r",
+					"arm_r",
+					"elbow_r",
+					"fist_r",
+					2
+				]
+			],
+			"tracks": {
+				"period": 2.6,
+				"keys": 14,
+				"bones": {
+					"torso": {
+						"rot": 0.25,
+						"lag": 0.0,
+						"sy": 0.008
+					},
+					"head": {
+						"rot": 0.6,
+						"lag": 0.6,
+						"y": 0.003
+					},
+					"arm_l": {
+						"rot": -0.9,
+						"lag": 0.6
+					},
+					"arm_r": {
+						"rot": 0.9,
+						"lag": 0.6
+					},
+					"fore_l": {
+						"rot": 1.0,
+						"lag": 1.0
+					},
+					"fore_r": {
+						"rot": -1.0,
+						"lag": 1.0
+					}
+				}
+			}
+		}
+	},
+	"parts": {
+		"bodyHeight": 330.0,
+		"feet": [
+			280.0,
+			450.0
+		],
+		"src": {
+			"upper_l": "parts/upper_l_v1.png",
+			"upper_r": "parts/upper_r_v1.png",
+			"leg_l": "parts/leg_l_v1.png",
+			"leg_r": "parts/leg_r_v1.png",
+			"pelvis": "parts/pelvis_v1.png",
+			"pelvis_r": "parts/pelvis_r_v1.png",
+			"chest": "parts/chest_v1.png",
+			"chest_l": "parts/chest_l_v1.png",
+			"chest_r": "parts/chest_r_v1.png",
+			"pauldron_l": "parts/pauldron_l_v1.png",
+			"pauldron_r": "parts/pauldron_r_v1.png",
+			"fist_l": "parts/fist_l_v1.png",
+			"fore_l": "parts/fore_l_v1.png",
+			"fist_r": "parts/fist_r_v1.png",
+			"fore_r": "parts/fore_r_v1.png",
+			"horn_l": "parts/horn_l_v1.png",
+			"horn_r": "parts/horn_r_v1.png",
+			"helmet": "parts/helmet_v1.png"
+		}
+	},
+	"pictures": {
+		"portrait": {
+			"src": "portrait/portrait_v1.png",
+			"size": 512,
+			"margin": 8
+		},
+		"bust": {
+			"src": "portrait/bust_v1.png",
+			"size": 384,
+			"margin": 6
+		}
+	}
+}

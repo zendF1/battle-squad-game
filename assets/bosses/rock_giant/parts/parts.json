@@ -1,0 +1,222 @@
+{
+	"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/<id>/import.json parts (do not edit). Each part: file, at (its top-left from the feet, the frames' pivot, texture px at the frames' scale), size, z (the draw order: the config's order, back to front), pivot (optional: the point it turns round, px in its own picture: the cannon drawn pointing right, its hub); height: the body (texture px) as in side.json.",
+	"height": 320.0,
+	"parts": {
+		"upper_l": {
+			"file": "upper_l.png",
+			"at": [
+				-134.8,
+				-187.2
+			],
+			"size": [
+				90,
+				75
+			],
+			"z": 0
+		},
+		"upper_r": {
+			"file": "upper_r.png",
+			"at": [
+				51.4,
+				-180.4
+			],
+			"size": [
+				69,
+				84
+			],
+			"z": 1
+		},
+		"leg_l": {
+			"file": "leg_l.png",
+			"at": [
+				-94.1,
+				-106.7
+			],
+			"size": [
+				77,
+				111
+			],
+			"z": 2
+		},
+		"leg_r": {
+			"file": "leg_r.png",
+			"at": [
+				25.2,
+				-105.7
+			],
+			"size": [
+				70,
+				103
+			],
+			"z": 3
+		},
+		"pelvis": {
+			"file": "pelvis.png",
+			"at": [
+				-75.6,
+				-134.8
+			],
+			"size": [
+				96,
+				99
+			],
+			"z": 4
+		},
+		"pelvis_r": {
+			"file": "pelvis_r.png",
+			"at": [
+				8.7,
+				-132.8
+			],
+			"size": [
+				64,
+				94
+			],
+			"z": 5
+		},
+		"chest": {
+			"file": "chest.png",
+			"at": [
+				-65.9,
+				-189.1
+			],
+			"size": [
+				152,
+				77
+			],
+			"z": 6
+		},
+		"chest_l": {
+			"file": "chest_l.png",
+			"at": [
+				-89.2,
+				-239.5
+			],
+			"size": [
+				121,
+				87
+			],
+			"z": 7
+		},
+		"chest_r": {
+			"file": "chest_r.png",
+			"at": [
+				23.3,
+				-231.8
+			],
+			"size": [
+				67,
+				92
+			],
+			"z": 8
+		},
+		"pauldron_l": {
+			"file": "pauldron_l.png",
+			"at": [
+				-131.9,
+				-208.5
+			],
+			"size": [
+				94,
+				62
+			],
+			"z": 9
+		},
+		"pauldron_r": {
+			"file": "pauldron_r.png",
+			"at": [
+				74.7,
+				-189.1
+			],
+			"size": [
+				43,
+				48
+			],
+			"z": 10
+		},
+		"fist_l": {
+			"file": "fist_l.png",
+			"at": [
+				-152.2,
+				-104.7
+			],
+			"size": [
+				73,
+				65
+			],
+			"z": 11
+		},
+		"fore_l": {
+			"file": "fore_l.png",
+			"at": [
+				-162.9,
+				-161.9
+			],
+			"size": [
+				80,
+				89
+			],
+			"z": 12
+		},
+		"fist_r": {
+			"file": "fist_r.png",
+			"at": [
+				69.8,
+				-88.2
+			],
+			"size": [
+				59,
+				59
+			],
+			"z": 13
+		},
+		"fore_r": {
+			"file": "fore_r.png",
+			"at": [
+				62.1,
+				-144.5
+			],
+			"size": [
+				72,
+				79
+			],
+			"z": 14
+		},
+		"horn_l": {
+			"file": "horn_l.png",
+			"at": [
+				-121.2,
+				-304.5
+			],
+			"size": [
+				139,
+				127
+			],
+			"z": 15
+		},
+		"horn_r": {
+			"file": "horn_r.png",
+			"at": [
+				52.4,
+				-277.3
+			],
+			"size": [
+				89,
+				129
+			],
+			"z": 16
+		},
+		"helmet": {
+			"file": "helmet.png",
+			"at": [
+				-25.2,
+				-277.3
+			],
+			"size": [
+				145,
+				112
+			],
+			"z": 17
+		}
+	}
+}

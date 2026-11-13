@@ -88,7 +88,7 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   `match/views/status_icons.gd`): none shipped yet, the badges are code-drawn; drop a square PNG
   (transparent background, about 64 × 64) named after the effect to replace one (read directly
   until the editor imports it).
-- **Bosses** (`bosses/<bossId>/`: Phù Thuỷ Băng and Đĩa Bay Thép (`steel_robot`) have them; the
+- **Bosses** (`bosses/<bossId>/`: Phù Thuỷ Băng, Đĩa Bay Thép (`steel_robot`) and Khổng Lồ Đá (`rock_giant`) have them; the
   others are drawn in code, `match/boss/boss_art.gd`, and so is every minion): `side/<anim>_<i>.png` + `side/side.json` (her
   match figure: cast, burst, blizzard, summon, hurt (and the unused fly frames) on one shared canvas,
   the feet = the frost-mist hem's bottom centre on the pivot; `match/boss/boss_body.gd` draws them
@@ -124,6 +124,16 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   cyan jet puffs under the claws, `BossArt.TRAIL`) and dies by crashing (`BossArt.DEATH` "crash", in
   code: the hurt frame shakes with sparks and smoke, the dome part pops off, the hull part tumbles
   down charring and blows up in fire, smoke and steel debris) instead of the witch's shatter.
+  Khổng Lồ Đá (`rock_giant`) also has one source picture only (`art_source/bosses/rock_giant/
+  concept/ram_golem_v1.png`, the user's: front view): `make_frames.py` there cuts it into parts and
+  poses them on a skeleton (idle 10, throw 8, roll 7, stomp 9, spikes 7, summon 6, hurt 2, death 3;
+  the body = the horns' top to the soles, the feet = the soles' midpoint), plus `skin/idle/` (the rest
+  pose on a skeleton, motion "breath": import.json `tracks`, glow = the gem, `glowBone` torso,
+  `glowColour`, `eyes`), `parts/<piece>.png` + `parts.json` (its death's pieces in the last death
+  frame's pose with their `z`: horns, helmet, pads, torso and belt split along the cracks, arms,
+  fists, legs) and `side/points.json` (per frame, unit frame: the gem, the fists, the throwing
+  knuckles, the eyes, the chest / pads / belt / head joints and turns, for the plates and glows the
+  game draws).
 - **Title plates** (`ui/titles/title_<rarity>.png`, blue / orange / purple / red, and
   `ui/titles/titles.json`: the banner the title name is drawn on, `ui/title_plate.gd`): AI-drawn
   with no text on a dark background, `art_source/ui/titles/title_<rarity>.png`, keyed by

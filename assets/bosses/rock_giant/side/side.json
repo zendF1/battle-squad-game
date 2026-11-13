@@ -1,0 +1,121 @@
+{
+	"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/rock_giant/import.json (do not edit: edit the config and re-run). size / pivot (the feet: the frost-mist hem's bottom centre) / height (the body: the hood's top to the feet) / width (the cloak) in texture px; facing 1: drawn facing right; anims {name: {frames, fps, loop, peak}}.",
+	"size": [
+		445,
+		349
+	],
+	"pivot": [
+		214.0,
+		339.0
+	],
+	"height": 320.0,
+	"width": 217.2,
+	"facing": 1,
+	"anims": {
+		"idle": {
+			"frames": [
+				"idle_0",
+				"idle_1",
+				"idle_2",
+				"idle_3",
+				"idle_4",
+				"idle_5",
+				"idle_6",
+				"idle_7",
+				"idle_8",
+				"idle_9"
+			],
+			"fps": 5.0,
+			"loop": true
+		},
+		"throw": {
+			"frames": [
+				"throw_0",
+				"throw_1",
+				"throw_2",
+				"throw_3",
+				"throw_4",
+				"throw_5",
+				"throw_6",
+				"throw_7"
+			],
+			"fps": 10.0,
+			"loop": false,
+			"peak": 4
+		},
+		"roll": {
+			"frames": [
+				"roll_0",
+				"roll_1",
+				"roll_2",
+				"roll_3",
+				"roll_4",
+				"roll_5",
+				"roll_6"
+			],
+			"fps": 9.0,
+			"loop": false,
+			"peak": 3
+		},
+		"stomp": {
+			"frames": [
+				"stomp_0",
+				"stomp_1",
+				"stomp_2",
+				"stomp_3",
+				"stomp_4",
+				"stomp_5",
+				"stomp_6",
+				"stomp_7",
+				"stomp_8"
+			],
+			"fps": 10.0,
+			"loop": false,
+			"peak": 4
+		},
+		"spikes": {
+			"frames": [
+				"spikes_0",
+				"spikes_1",
+				"spikes_2",
+				"spikes_3",
+				"spikes_4",
+				"spikes_5",
+				"spikes_6"
+			],
+			"fps": 9.0,
+			"loop": false,
+			"peak": 3
+		},
+		"summon": {
+			"frames": [
+				"summon_0",
+				"summon_1",
+				"summon_2",
+				"summon_3",
+				"summon_4",
+				"summon_5"
+			],
+			"fps": 7.0,
+			"loop": false,
+			"peak": 2
+		},
+		"hurt": {
+			"frames": [
+				"hurt_0",
+				"hurt_1"
+			],
+			"fps": 7.0,
+			"loop": false
+		},
+		"death": {
+			"frames": [
+				"death_0",
+				"death_1",
+				"death_2"
+			],
+			"fps": 6.0,
+			"loop": false
+		}
+	}
+}

@@ -55,7 +55,8 @@ extends SceneTree
 ## art_source/bosses/steel_robot/make_frames.py) is not keyed, only its faint px cleared; its feet given
 ## per frame (`anchors`) and its scale by `bodyHeight` when the body colours do not measure it.
 ## `parts` (_import_parts()): separate sprites of the figure at the frames' scale, placed from the feet
-## (a part's `pivots` point too: the cannon turns on it).
+## (a part's `pivots` point too: the cannon turns on it; `z`: its place in the config's order, back
+## to front: Khổng Lồ Đá's death pieces).
 ## `turret` (_import_turret()): a part that turns to aim (Đĩa Bay Thép's twin cannon), its states in
 ## one row of fixed cells drawn pointing right round a pivot, with the geometry make_frames.py wrote
 ## (`data`): <out>/turret/<state>.png on one canvas + turret.json (the pivot, its mount from the feet,
@@ -69,8 +70,10 @@ extends SceneTree
 ## its body is `height` px (the frames' feet and body: the boss body draws both at the same size),
 ## its mesh (tools/full_mesh.gd: every visible px covered, gaps 0; faint corner px it misses are
 ## cleared), the `bones` [name, parent, joint, tip joint, strength] on the `joints` (source px; feet =
-## the measured hem bottom; crystal = the staff's glow) and their weights, the loop's tracks
-## (match/boss/skin_idle.gd or skin_fly.gd by `motion`): <out>/skin/<name>/body.png, shard_<i>.png,
+## the measured hem bottom, or `feet` given, with `bodyHeight` (source px) for the scale; crystal = the
+## staff's glow, or `glow` {joint, bone, colour}) and their weights, the loop's tracks
+## (match/boss/skin_idle.gd or skin_fly.gd by `motion`, or the config's own `tracks`: _skin_tracks();
+## `eyes` [[x, y]] source px carried into skin.json): <out>/skin/<name>/body.png, shard_<i>.png,
 ## skin.json (the full.json format of tools/cut_sheet.gd + motion, shards, glow, gaps); a row at
 ## rest on the contact sheet, <name>_bones.png beside it. A new PNG gets an .import with mipmaps (shown smaller than drawn), an existing .import is
 ## never touched; until the editor imports them the game reads the PNGs (ui/art.gd).
@@ -338,12 +341,12 @@ func _import_parts(dir: String, out_dir: String, cfg: Dictionary, target: float)
 		var pic := ImportGuns.scaled(img.get_region(used), size)
 		tone(pic, cfg.get("tone", {}))
 		_save(pic, out_dir + "parts/%s.png" % pname)
-		rows[pname] = {"file": "%s.png" % pname, "at": [snappedf(at.x, 0.1), snappedf(at.y, 0.1)], "size": [size.x, size.y]}
+		rows[pname] = {"file": "%s.png" % pname, "at": [snappedf(at.x, 0.1), snappedf(at.y, 0.1)], "size": [size.x, size.y], "z": rows.size()}
 		if pivots.get(pname) is Array:
 			var sc := Vector2(size) / Vector2(used.size)
 			var pv := (Vector2(float(pivots[pname][0]), float(pivots[pname][1])) - Vector2(used.position)) * sc
 			rows[pname]["pivot"] = [snappedf(pv.x, 0.01), snappedf(pv.y, 0.01)]
-	var out := {"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/<id>/import.json parts (do not edit). Each part: file, at (its top-left from the feet, the frames' pivot, texture px at the frames' scale), size, pivot (optional: the point it turns round, px in its own picture: the cannon drawn pointing right, its hub); height: the body (texture px) as in side.json.",
+	var out := {"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/<id>/import.json parts (do not edit). Each part: file, at (its top-left from the feet, the frames' pivot, texture px at the frames' scale), size, z (the draw order: the config's order, back to front), pivot (optional: the point it turns round, px in its own picture: the cannon drawn pointing right, its hub); height: the body (texture px) as in side.json.",
 		"height": target, "parts": rows}
 	_write_text(out_dir + "parts/parts.json", JSON.stringify(out, "\t", false) + "\n")
 	return true
@@ -455,6 +458,10 @@ func _import_skin(dir: String, out_dir: String, cfg: Dictionary, sname: String, 
 		return {}
 	var src_feet: Vector2 = m["feet"]
 	var src_h := src_feet.y - float(m["top"])
+	if sk.get("feet") is Array: # given (the frames' feet exactly: idle ↔ frames do not jump)
+		src_feet = Vector2(float(sk["feet"][0]), float(sk["feet"][1])) - crop
+	if sk.has("bodyHeight"):
+		src_h = float(sk["bodyHeight"])
 	var height := float(sk.get("height", 360))
 	var s := height / src_h
 	var pad := int(sk.get("pad", 6))
@@ -508,7 +515,12 @@ func _import_skin(dir: String, out_dir: String, cfg: Dictionary, sname: String, 
 		var at: Vector2 = to_px.call(Vector2(r.position))
 		rest.blend_rect(simg, Rect2i(Vector2i.ZERO, ss), Vector2i(at.round()))
 		shards.append({"file": "shard_%d.png" % i, "at": [at.x, at.y], "size": [ss.x, ss.y]})
-	var glow: Vector2 = to_px.call(joints.get("crystal", Vector2.ZERO))
+	var glow_cfg: Dictionary = sk.get("glow", {}) if sk.get("glow") is Dictionary else {}
+	var glow: Vector2 = to_px.call(joints.get(str(glow_cfg.get("joint", "crystal")), Vector2.ZERO))
+	var eyes: Array = []
+	for e in sk.get("eyes", []):
+		var ep: Vector2 = to_px.call(Vector2(float(e[0]), float(e[1])) - crop)
+		eyes.append([ep.x, ep.y])
 	var v: Array = []
 	for p in mesh["vertices"]:
 		v.append([snappedf(p.x, 0.1), snappedf(p.y, 0.1)])
@@ -525,14 +537,14 @@ func _import_skin(dir: String, out_dir: String, cfg: Dictionary, sname: String, 
 			"strength": b["strength"]})
 	var names: Array = bones.map(func(b): return b["name"])
 	var out := {
-		"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/<id>/import.json skin (do not edit: edit the config and re-run). The full.json format of the lobby characters (ui/art.gd parse_full(), scenes/character/full_body.gd): size, pivot (the feet: the frost-mist hem's bottom centre), height (the body, hood top to the feet, px), scale, bones, anims (the idle: match/boss/skin_idle.gd), mesh, weights; plus shards [{file, at (top-left px), size}] and glow (the staff crystal, px).",
+		"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/<id>/import.json skin (do not edit: edit the config and re-run). The full.json format of the lobby characters (ui/art.gd parse_full(), scenes/character/full_body.gd): size, pivot (the feet: the frost-mist hem's bottom centre), height (the body, hood top to the feet, px), scale, bones, anims (the idle: match/boss/skin_idle.gd), mesh, weights; plus shards [{file, at (top-left px), size}] and glow (the staff crystal, or the config's glow joint, px); optional glowBone (the bone carrying the glow), glowColour [r, g, b] and eyes [[x, y], ...] (px).",
 		"source": "art_source/bosses/" + dir.trim_suffix("/").get_file() + "/" + str(sk["src"]),
 		"size": [size.x, size.y],
 		"pivot": [pivot.x, pivot.y],
 		"height": height,
 		"scale": 1.0,
 		"bones": bone_rows,
-		"anims": {"idle": SkinFly.tracks(names, height) if str(sk.get("motion", "idle")) == "glide" else SkinIdle.tracks(names, height)},
+		"anims": {"idle": _skin_tracks(sk, names, height)},
 		"motion": str(sk.get("motion", "idle")),
 		"shards": shards,
 		"glow": [glow.x, glow.y],
@@ -540,6 +552,12 @@ func _import_skin(dir: String, out_dir: String, cfg: Dictionary, sname: String, 
 		"mesh": {"vertices": v, "triangles": Array(mesh["triangles"])},
 		"weights": wt,
 	}
+	if glow_cfg.has("bone"):
+		out["glowBone"] = str(glow_cfg["bone"])
+	if glow_cfg.get("colour") is Array:
+		out["glowColour"] = glow_cfg["colour"]
+	if not eyes.is_empty():
+		out["eyes"] = eyes
 	_write_text(sub + "skin.json", JSON.stringify(out) + "\n")
 	if debug_dir != "":
 		var dbg := rest.duplicate()
@@ -558,6 +576,36 @@ func _import_skin(dir: String, out_dir: String, cfg: Dictionary, sname: String, 
 		DirAccess.make_dir_recursive_absolute(debug_dir)
 		dbg.save_png(debug_dir.path_join("%s_bones.png" % sname))
 	return {"image": rest, "pivot": pivot, "height": height}
+
+
+## A skin's loop as lobby_full_anims.json tracks: `motion` "glide" match/boss/skin_fly.gd, "idle"
+## match/boss/skin_idle.gd (the witch's float), or a `tracks` config of its own ({period (s), keys,
+## bones {name: {rot (degrees), y (of the height, up), sy, lag (radians behind), harmonic}}}: each a
+## sine of the loop, the same formula as SkinIdle.bone(); Khổng Lồ Đá's breath, motion "breath").
+static func _skin_tracks(sk: Dictionary, names: Array, height: float) -> Dictionary:
+	if str(sk.get("motion", "idle")) == "glide":
+		return SkinFly.tracks(names, height)
+	if not sk.get("tracks") is Dictionary:
+		return SkinIdle.tracks(names, height)
+	var tc: Dictionary = sk["tracks"]
+	var period := float(tc.get("period", SkinIdle.PERIOD))
+	var keys := maxi(3, int(tc.get("keys", SkinIdle.KEYS)))
+	var motion: Dictionary = tc.get("bones", {})
+	var out := {}
+	for b in names:
+		if not motion.has(str(b)):
+			continue
+		var m: Dictionary = motion[str(b)]
+		var tr := {"t": [], "rot": [], "y": [], "sy": []}
+		for k in keys:
+			var t := period * k / float(keys - 1)
+			var ph := TAU / period * t * float(m.get("harmonic", 1.0)) - float(m.get("lag", 0.0))
+			tr["t"].append(snappedf(t, 0.0001))
+			tr["rot"].append(snappedf(float(m.get("rot", 0.0)) * sin(ph), 0.0001))
+			tr["y"].append(snappedf(-float(m.get("y", 0.0)) * sin(ph) * height, 0.01))
+			tr["sy"].append(snappedf(1.0 + float(m.get("sy", 0.0)) * sin(ph), 0.0001))
+		out[str(b)] = tr
+	return {"length": period, "loop": true, "tracks": out}
 
 
 ## The skin picture's orbiting shards cut out (`shards` {centres [[x, y]] source px, radius}): every

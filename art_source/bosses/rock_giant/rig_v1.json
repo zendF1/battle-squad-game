@@ -1,0 +1,53 @@
+{
+	"_doc": "Written by make_frames.py (do not edit). Source px of concept/ram_golem_v1.png (the body: TOP \u2192 FEET, 660 px) and the unit frame BossArt draws in (the body 100 tall, the feet at the origin, facing right, y down).",
+	"feet": [
+		700.0,
+		712.0
+	],
+	"top": 52.0,
+	"bodyHeight": 660.0,
+	"heart": {
+		"src": [
+			744,
+			376
+		],
+		"unit": [
+			6.67,
+			-50.91
+		]
+	},
+	"throwHand": {
+		"src": [
+			1122.1,
+			217.4
+		],
+		"unit": [
+			63.95,
+			-74.94
+		],
+		"frame": 4
+	},
+	"eyes": {
+		"src": [
+			[
+				722,
+				212
+			],
+			[
+				792,
+				214
+			]
+		],
+		"unit": [
+			[
+				3.33,
+				-75.76
+			],
+			[
+				13.94,
+				-75.45
+			]
+		]
+	},
+	"width": 0.924
+}
