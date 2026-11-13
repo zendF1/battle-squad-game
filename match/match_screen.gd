@@ -2063,7 +2063,8 @@ func _path_walk(e: Dictionary) -> void:
 
 
 ## The crab's claw grabs (pincer {playerId: the crab, targetId, position: the target's body
-## centre}): the claw snaps shut on the target from the crab's side, the target jolts.
+## centre}): the claw snaps shut on the target from the crab's side, the target jolts (a crab drawn
+## from frames snaps its own pincer, its animation's peak on this event; the grab's clamp on the target).
 func _pincer(e: Dictionary) -> void:
 	var target := str(e.get("targetId", ""))
 	var at := Vector2.INF
@@ -2077,7 +2078,8 @@ func _pincer(e: Dictionary) -> void:
 	var side := 1.0 if crab == null or crab.position.x >= at.x else -1.0
 	if crab != null:
 		crab.face(-side)
-	var fx := PincerFx.new(side)
+	var drawn: bool = crab != null and crab.has_method("figure") and crab.figure().has_method("has_frames") and crab.figure().has_frames()
+	var fx := PincerFx.new(side, drawn) # a drawn crab's own pincer snaps (BossAnim): no code claw
 	fx.position = at
 	_fx_layer.add_child(fx)
 	if _views.has(target):
@@ -2275,6 +2277,9 @@ func _start_shockwave(timeline) -> bool:
 		return false
 	_wave_fx = ShockwaveFx.new()
 	_wave_fx.setup(wave, _mask, BossArt.accent(BossArt.art_of(_boss.boss_id)))
+	var boss = _views.get(_boss.player_id)
+	if boss != null and boss.has_method("figure"):
+		_wave_fx.slammer = boss.figure() # its ring opens where the drawn claw hits (Cua Dung Nham)
 	_fx_layer.add_child(_wave_fx)
 	return true
 

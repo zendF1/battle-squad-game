@@ -67,6 +67,20 @@ extends Node2D
 ## moment, WITHER_COVER, fading, so their cut edges never show assembled): the canopy clumps and the
 ## twigs drop off one after another, tumbling slowly, and settle on the ground with a little dust,
 ## the trunk and the roots sag a little (WITHER_SAG), withered leaves shower down; then it all fades.
+## Cua Dung Nham drawn (its frames and skinned idle, points.json): it stands on its legs (the skin
+## breathes, the ember glow in its shell, the eyes flicker); walking along the ground (set_walking():
+## its crawl to the pincer) it plays its walk loop, back to the idle when it stops; its heart is the
+## shown frame's, its muzzle the shell top while fire_bombs shows, where a spout of lava globs shoots
+## up at the peak (BossArt.SPOUT); its claw_slam's peak frame throws basalt chips and embers up at the
+## claw's impact (BossArt.STOMP, no ring of its own: the game's shockwave opens its slam ring there,
+## slam_point()); now and then a lava drop falls off one of its drips and sizzles on the ground
+## (BossArt.DRIPS, LavaDrips). It dies cooling (BossArt.DEATH "cool", death_phase() cool → split →
+## fade → gone): its death frames cool the lava to stone, crack it and buckle its legs, smoke rising;
+## then it is its parts (posed as the last frame, which stays over them a moment, COOL_COVER): the
+## shell splits in two and topples apart, the claws and the legs fall off and settle, smoke puffs
+## and embers, then it all fades. Its Cua con (art crab, frames from lava_crab/minion/) walks on its
+## walk loop, plays prime while warned or primed with the bomber's red tint on its frames (the
+## shader's tint), and dies fading (BossArt.DEATH "fade": the hurt frame sinks, tilts and fades).
 ## Round 2 (Đĩa Bay Thép): a boss with a turret (Art.boss_turret(): its twin cannon, the body frames
 ## without it) draws it over the body at the mount of the frame shown (turret.json bodyFrames: the
 ## hurt's tilt moves and turns it), turned to its aim (TurretModel: clamped to its range, a quick
@@ -88,6 +102,7 @@ const TurretModel := preload("res://match/boss/turret_model.gd")
 const ShieldBall := preload("res://match/views/shield_ball.gd")
 const ShockwaveFx := preload("res://match/boss/shockwave_fx.gd")
 const FallingLeaves := preload("res://match/boss/falling_leaves.gd")
+const LavaDrips := preload("res://match/boss/lava_drips.gd")
 
 const FLASH_SEC := 0.28
 const DEATH_SEC := 1.2
@@ -129,10 +144,13 @@ const FRAME_SHADER := """shader_type canvas_item;
 uniform float flash = 0.0;
 uniform float icy = 0.0;
 uniform vec4 icy_colour : source_color = vec4(0.86, 0.96, 1.0, 1.0);
+uniform float tint = 0.0; // a bomber's red warning pulse (BomberModel.pulse(), as BossArt's code art: half way to WARN_RED)
+uniform vec4 tint_colour : source_color = vec4(1.0, 0.22, 0.16, 1.0);
 void fragment() {
 	vec4 c = COLOR; // Godot 4: already the texture × the modulate (sampling it again would square it: darker, more saturated)
 	float l = dot(c.rgb, vec3(0.3, 0.59, 0.11));
 	c.rgb = mix(c.rgb, icy_colour.rgb * (0.8 + 0.25 * l), icy * smoothstep(0.1, 0.42, l)); // the dark outline stays
+	c.rgb = mix(c.rgb, tint_colour.rgb, tint * 0.5);
 	c.rgb = mix(c.rgb, vec3(1.0), flash);
 	COLOR = c;
 }
@@ -262,6 +280,33 @@ const WITHER_LEAF_EVERY := 0.05 # s between two while the death frames wither it
 var _leaves := FallingLeaves.new() # the falling leaves (BossArt.LEAVES)
 var _leaf_in := 1.5 # s to the next idle leaf
 var _leaf_emit := 0.0
+## Cua Dung Nham's cooling death (BossArt.DEATH "cool").
+const COOL_SWAP_FRAME := 4 # its last death frame: the parts are posed as it
+const COOL_HOLD := 0.3 # s that frame shows before they take over
+const COOL_COVER := 0.22 # s the frame stays over the parts, fading
+const COOL_FALL := 1.5 # s from the swap: the shell splits, claws and legs fall and settle
+const COOL_FADE := 0.7 # s: then it all fades
+const COOL_BOUNCE := 0.22
+const COOL_SMOKE_EVERY := 0.09 # s between two smoke puffs off the cooling shell
+const COOL_SMOKE := Color(0.32, 0.3, 0.3)
+const EMBERS := [Color(1.0, 0.62, 0.18), Color(1.0, 0.82, 0.34), Color(0.95, 0.4, 0.1)]
+## The shell's halves topple apart (rad they end turned, outward; they slide COOL_SLIDE body heights
+## out over COOL_TOPPLE_SEC, their bottoms kept on the ground).
+const COOL_TOPPLE := {"shell_l": -0.5, "shell_r": 0.55}
+const COOL_TOPPLE_SEC := 0.75
+const COOL_SLIDE := 0.1
+const COOL_SINK := 0.03 # body heights they settle down as they tip
+## The other parts' start (body heights / s, facing right: x out, y up negative; spin rad / s; delay
+## s): the claws drop off tumbling, the legs slump outward.
+const COOL_PARTS := {"shell_l": {"v": Vector2.ZERO, "spin": 0.0, "delay": 0.0}, "shell_r": {"v": Vector2.ZERO, "spin": 0.0, "delay": 0.04},
+	"arm_l": {"v": Vector2(-0.12, -0.05), "spin": -1.8, "delay": 0.12}, "claw_l": {"v": Vector2(-0.3, -0.22), "spin": -3.2, "delay": 0.16},
+	"finger_l": {"v": Vector2(-0.36, -0.3), "spin": -4.5, "delay": 0.2},
+	"arm_r": {"v": Vector2(0.14, -0.06), "spin": 1.6, "delay": 0.14}, "palm_r": {"v": Vector2(0.24, -0.14), "spin": 2.4, "delay": 0.18},
+	"finger_r": {"v": Vector2(0.34, -0.24), "spin": 4.0, "delay": 0.24}}
+const COOL_LEG := {"v": Vector2(0.07, -0.03), "spin": 0.7, "delay": 0.06} # every leg_* (x and spin outward from the heart)
+var _drips := LavaDrips.new() # the lava drops (BossArt.DRIPS, the spout)
+var _drip_in := 0.8 # s to the next drip
+var _smoke_emit := 0.0
 
 
 func setup(art_id: String, height_px: float) -> void:
@@ -332,7 +377,7 @@ func _process(delta: float) -> void:
 	_shield_pop = maxf(0.0, _shield_pop - delta * 2.5)
 	var want := 1.0 if shielded and not _dead else 0.0
 	_shield = move_toward(_shield, want, delta / SHIELD_SEC)
-	if _dead and not _side.is_empty():
+	if _dead and not _side.is_empty() and not _fades():
 		_step_death(delta)
 	elif _dead and _death < 1.0:
 		_death = minf(1.0, _death + delta / DEATH_SEC)
@@ -341,10 +386,14 @@ func _process(delta: float) -> void:
 		position.y = height * 0.08 * _death
 	if _anim != null:
 		_anim.stunned = _stunned and not _dead
+		_anim.set_primed((bomber or leaper) and not _dead and (warn or _prime > 0.0))
 		_anim.step(delta)
 		_check_stomp()
+	if _mat != null:
+		_mat.set_shader_parameter("tint", _tint_now())
 	_step_dust(delta)
 	_step_leaves(delta)
+	_step_drips(delta)
 	if _fly_view != null:
 		_fly_view.glide(delta, _flying_now and not _dead)
 	if _skin_view != null:
@@ -425,10 +474,8 @@ func _draw() -> void:
 		var r := height * (0.62 + 0.08 * glow)
 		draw_texture_rect(halo_texture(), Rect2(Vector2(-r, -height * 0.48 - r), Vector2(r, r) * 2.0), false,
 			Color(LEAP_GLOW, 0.3 + 0.45 * glow))
-	var tint := BomberModel.pulse(_t, (bomber or leaper) and not _dead and (warn or _prime > 0.0))
-	if glow > 0.0:
-		tint = maxf(tint, LEAP_TINT * glow)
-	if not _side.is_empty(): # the frames' node draws the figure
+	var tint := _tint_now()
+	if not _side.is_empty(): # the frames' node draws the figure (the tint through its shader)
 		return
 	var wobble := Vector2.ZERO
 	if _walking and not _dead and not flying:
@@ -445,6 +492,16 @@ func _draw() -> void:
 			var y0 := -height * (0.2 + 0.7 * fmod(i * 0.37, 1.0))
 			var p := Vector2(x * (1.0 + u), minf(y0 + 0.5 * 1400.0 * u * u * 0.5, 2.0))
 			draw_circle(p, height * 0.05 * (1.0 - 0.4 * u), Color(CRUMBLE[i % 3], 1.0 - u))
+
+
+## The red warning tint now (0..1): a bomber warned or primed pulses (BomberModel.pulse()), a leapt
+## snowman glows a little.
+func _tint_now() -> float:
+	var tint := BomberModel.pulse(_t, (bomber or leaper) and not _dead and (warn or _prime > 0.0))
+	var glow := leap_glow()
+	if glow > 0.0:
+		tint = maxf(tint, LEAP_TINT * glow)
+	return tint
 
 
 ## The witch casts her shards (her blizzard): over lead s they spin up and multiply round her,
@@ -552,8 +609,16 @@ func face(dir: float) -> void:
 		facing = 1 if dir > 0.0 else -1
 
 
+## Walking along the ground (PlayerView: its x changing): the code art wobbles; drawn frames play
+## their walk loop (BossAnim base walk; the crab's crawl, its Cua con), back to the idle when it stops.
 func set_walking(on: bool) -> void:
 	_walking = on
+	if _anim != null:
+		_anim.set_walking(on and not _dead)
+
+
+func walking() -> bool:
+	return _walking
 
 
 func hurt() -> void:
@@ -642,7 +707,8 @@ func play_action(action: Dictionary) -> float:
 	if _anim == null or _dead:
 		return 0.0
 	_turret_fires = true
-	return _anim.play(str(action.get("anim", "")), {"at": float(action.get("at", -1.0)), "hold": float(action.get("hold", -1.0))})
+	return _anim.play(str(action.get("anim", "")), {"at": float(action.get("at", -1.0)), "hold": float(action.get("hold", -1.0)),
+		"delay": float(action.get("delay", 0.0))})
 
 
 ## The frame shown: [anim, index] (the death shows the first hurt frame).
@@ -658,10 +724,19 @@ func shown_frame() -> Array:
 
 ## The death's phase now: "crack", "freeze", "shatter" or "gone"; a crash: "wobble", "fall", "boom"
 ## or "gone"; a crumble: "crack", "crumble", "fade", "gone"; a wither: "wither", "drop", "fade", "gone"
-## ("" alive or no frames).
+## a cool: "cool", "split", "fade", "gone"; a fade (a drawn minion): "fade", "gone" ("" alive or no frames).
 func death_phase() -> String:
 	if not _dead or _side.is_empty():
 		return ""
+	if _fades():
+		return "fade" if _death < 1.0 else "gone"
+	if _cools():
+		var swap := crumble_swap_sec()
+		if _dead_t < swap:
+			return "cool"
+		if _dead_t < swap + COOL_FALL:
+			return "split"
+		return "fade" if _dead_t < swap + COOL_FALL + COOL_FADE else "gone"
 	if _crashes():
 		if _dead_t < CRASH_WOBBLE:
 			return "wobble"
@@ -702,6 +777,9 @@ func _step_death(delta: float) -> void:
 		return
 	if _withers():
 		_step_wither(delta)
+		return
+	if _cools():
+		_step_cool(delta)
 		return
 	var was := _dead_t
 	_dead_t += delta
@@ -824,7 +902,7 @@ func _frame_look() -> Dictionary:
 	var swell := 1.0
 	var icy := 0.0
 	var flash := _flash * 0.85
-	if _dead and not _breaks_apart():
+	if _dead and not _breaks_apart() and not _fades():
 		icy = 0.5 * clampf(_dead_t / CRACK_SEC, 0.0, 1.0)
 		if _dead_t >= CRACK_SEC and _dead_t < FREEZE_END: # the freeze: a white pulse building to the break
 			flash = maxf(flash, 0.45 * smoothstep(CRACK_SEC, FREEZE_END, _dead_t))
@@ -882,12 +960,13 @@ func _draw_shatter() -> void:
 	_draw_turret_fx()
 	_draw_dust()
 	_leaves.draw(_over)
+	_drips.draw(_over)
 	if not _dead or _side.is_empty():
 		return
 	if _crashes():
 		_draw_crash_fx()
 		return
-	if _breaks_apart():
+	if _breaks_apart() or _fades():
 		return
 	var look := _frame_look()
 	if not look.is_empty() and float(look["alpha"]) > 0.0 and not _cracks.is_empty(): # the cracks over her
@@ -1504,26 +1583,53 @@ func _draw_plates() -> void:
 			Color(BossArt.heart_light(art), 0.85 * _heal))
 
 
-## The stomp's peak frame just showed (BossArt.STOMP): the dust and the shockwave at the foot.
+## The stomp's peak frame just showed (BossArt.STOMP): the dust and the shockwave at the foot; a
+## spout's (BossArt.SPOUT): the lava globs out of its point.
 func _check_stomp() -> void:
 	var f := _anim.frame()
-	var st: Dictionary = BossArt.STOMP.get(art, {})
-	if not st.is_empty() and not _dead and _anim.playing() == str(st["anim"]) and str(f[0]) == str(st["anim"]) \
-			and int(f[1]) == int(_side["anims"].get(str(st["anim"]), {}).get("peak", -1)) and f != _last_frame:
-		stomp_fx()
+	if f != _last_frame and not _dead:
+		if _at_peak(f, BossArt.STOMP.get(art, {})):
+			stomp_fx()
+		if _at_peak(f, BossArt.SPOUT.get(art, {})):
+			spout_fx()
 	_last_frame = f
 
 
-## The stomp lands: a dust burst at the foot, pebbles thrown up, the ground's shockwave ring.
+## The frame f is the peak of the animation `cfg` names, played now.
+func _at_peak(f: Array, cfg: Dictionary) -> bool:
+	return not cfg.is_empty() and _anim.playing() == str(cfg["anim"]) and str(f[0]) == str(cfg["anim"]) \
+		and int(f[1]) == int(_side["anims"].get(str(cfg["anim"]), {}).get("peak", -1))
+
+
+## Where the stomp / slam hits the ground (global; Vector2.INF: no such point): BossArt.STOMP's
+## foot on the feet, facing applied (Cua Dung Nham's claw_slam: the game's shockwave opens its slam
+## ring there).
+func slam_point() -> Vector2:
+	var st: Dictionary = BossArt.STOMP.get(art, {})
+	if st.is_empty() or _side.is_empty():
+		return Vector2.INF
+	return to_global(_unit_xform() * Vector2(st.get("foot", Vector2.ZERO)))
+
+
+## The stomp lands: a dust burst at the foot, pebbles thrown up (embers with them: the crab's lava),
+## the ground's shockwave ring (unless ring false: the game's own slam ring opens there).
 func stomp_fx() -> void:
 	var st: Dictionary = BossArt.STOMP.get(art, {})
 	var foot := _unit_xform() * Vector2(st.get("foot", Vector2.ZERO))
-	var ring := ShockwaveFx.new()
-	ring.name = "StompRing"
-	ring.setup({"origin": foot, "t0": 0.0, "left": [], "right": []}, null, BossArt.accent(art))
-	ring.release()
-	add_child(ring)
-	move_child(ring, 0) # on the ground, behind the figure
+	if bool(st.get("ring", true)):
+		var ring := ShockwaveFx.new()
+		ring.name = "StompRing"
+		ring.setup({"origin": foot, "t0": 0.0, "left": [], "right": []}, null, BossArt.accent(art))
+		ring.release()
+		add_child(ring)
+		move_child(ring, 0) # on the ground, behind the figure
+	var stones: Array = st.get("pebbles", STONE)
+	if bool(st.get("embers", false)):
+		for i in STOMP_PEBBLES:
+			var a := -PI * 0.5 + (randf() - 0.5) * 2.0
+			_pebbles.append({"p": foot + Vector2(0, -0.02 * height), "v": Vector2.from_angle(a) * height * randf_range(1.0, 2.0),
+				"r": height * randf_range(0.008, 0.014), "rot": 0.0, "spin": 0.0, "age": 0.0, "life": randf_range(0.5, 0.8),
+				"col": EMBERS[i % EMBERS.size()], "ground": foot.y, "ember": true})
 	for i in STOMP_PUFFS:
 		var side := -1.0 if i % 2 == 0 else 1.0
 		var spread := 0.3 + 0.7 * float(i) / STOMP_PUFFS
@@ -1532,7 +1638,52 @@ func stomp_fx() -> void:
 	for i in STOMP_PEBBLES:
 		var a := -PI * 0.5 + (float(i) / (STOMP_PEBBLES - 1) - 0.5) * 1.8
 		_pebbles.append({"p": foot + Vector2(0, -0.01 * height), "v": Vector2.from_angle(a) * height * randf_range(1.4, 2.2), "r": height * randf_range(0.012, 0.022),
-			"rot": randf() * TAU, "spin": randf_range(-10.0, 10.0), "age": 0.0, "life": 0.9, "col": STONE[i % STONE.size()], "ground": foot.y})
+			"rot": randf() * TAU, "spin": randf_range(-10.0, 10.0), "age": 0.0, "life": 0.9, "col": stones[i % stones.size()], "ground": foot.y})
+
+
+## The spout's peak (BossArt.SPOUT): lava globs shoot up out of the frame's point (the crab's shell
+## top: its bombs leave there, falling from the sky after), a hot flash puff over it.
+func spout_fx() -> void:
+	var sp: Dictionary = BossArt.SPOUT.get(art, {})
+	var fp := _frame_points()
+	if sp.is_empty() or not fp.get(str(sp["point"])) is Vector2:
+		return
+	var at := _unit_xform() * Vector2(fp[str(sp["point"])])
+	for i in int(sp.get("globs", 8)):
+		var v := Vector2(randf_range(-0.45, 0.45), -randf_range(2.2, 3.4)) * height
+		_drips.add(at + Vector2(randf_range(-0.03, 0.03) * height, 0), height * randf_range(0.022, 0.034), INF, v, randf_range(0.7, 1.0))
+	_dust.append({"p": at, "v": Vector2(0, -0.3) * height, "r": height * 0.08, "grow": 1.6, "age": 0.0, "life": 0.45,
+		"col": LavaDrips.LAVA})
+
+
+## The lava drops now and then off the drips' tips (BossArt.DRIPS: alive, not hidden), all moving on.
+func _step_drips(delta: float) -> void:
+	_drips.step(delta, height)
+	var cfg: Dictionary = BossArt.DRIPS.get(art, {})
+	if cfg.is_empty() or _side.is_empty() or _dead or _vanished:
+		return
+	_drip_in -= delta
+	if _drip_in > 0.0:
+		return
+	var every: Vector2 = cfg["every"]
+	_drip_in = randf_range(every.x, every.y)
+	var fp := _frame_points()
+	var tips: Array = (cfg["tips"] as Array).filter(func(k): return fp.get(str(k)) is Vector2)
+	if tips.is_empty():
+		return
+	var tip: Vector2 = fp[str(tips[randi() % tips.size()])]
+	var r := float(cfg.get("r", 1.0)) * height / BossArt.UNIT * randf_range(0.85, 1.2)
+	_drips.add(_unit_xform() * tip + Vector2(0, r * 0.6), r, randf_range(0.0, 0.025) * height)
+
+
+## The lava drops (tests): their count.
+func drip_count() -> int:
+	return _drips.count()
+
+
+## The lava drops (tests).
+func drips() -> LavaDrips:
+	return _drips
 
 
 ## The dust puffs and the pebbles (local px): puffs drift and slow down, grow and fade; pebbles fall,
@@ -1542,7 +1693,7 @@ func _step_dust(delta: float) -> void:
 		return
 	for d in _dust:
 		d["age"] = float(d["age"]) + delta
-		d["v"] = Vector2(d["v"]) * exp(-3.0 * delta)
+		d["v"] = Vector2(d["v"]) * exp(-float(d.get("drag", 3.0)) * delta)
 		d["p"] = Vector2(d["p"]) + Vector2(d["v"]) * delta
 	_dust = _dust.filter(func(d): return float(d["age"]) < float(d["life"]))
 	var g := RUBBLE_GRAVITY * height
@@ -1563,11 +1714,17 @@ func _draw_dust() -> void:
 		var k := float(d["age"]) / float(d["life"])
 		var r := float(d["r"]) * (1.0 + float(d["grow"]) * k)
 		_over.draw_texture_rect(halo_texture(), Rect2(Vector2(d["p"]) - Vector2(r, r), Vector2(r, r) * 2.0), false,
-			Color(DUST, 0.85 * (1.0 - k)))
+			Color(d.get("col", DUST), 0.85 * (1.0 - k) * minf(1.0, float(d["age"]) / 0.1 + 0.3)))
 	for p in _pebbles:
 		var k := float(p["age"]) / float(p["life"])
 		var r := float(p["r"])
 		var col: Color = p["col"]
+		if bool(p.get("ember", false)): # a lava spark: a hot dot with a glow
+			var a := clampf((1.0 - k) * 2.0, 0.0, 1.0)
+			_over.draw_set_transform(Vector2.ZERO)
+			_over.draw_circle(p["p"], r * 2.4, Color(col, 0.25 * a))
+			_over.draw_circle(p["p"], r, Color(col.lightened(0.3), a))
+			continue
 		_over.draw_set_transform(p["p"], float(p["rot"]), Vector2.ONE)
 		_over.draw_colored_polygon(PackedVector2Array([Vector2(-r, -r * 0.6), Vector2(r * 0.4, -r), Vector2(r, r * 0.2), Vector2(-r * 0.2, r)]),
 			Color(col, clampf((1.0 - k) * 3.0, 0.0, 1.0)))
@@ -1587,6 +1744,8 @@ func crumble_swap_sec() -> float:
 		return 0.0
 	if _withers(): # Mộc Tinh: after its last death frame showed a moment
 		return float(mini(WITHER_SWAP_FRAME, _anim.count("death") - 1)) / _anim.fps("death") + WITHER_HOLD
+	if _cools(): # Cua Dung Nham: the same after its last death frame
+		return float(mini(COOL_SWAP_FRAME, _anim.count("death") - 1)) / _anim.fps("death") + COOL_HOLD
 	return float(mini(CRUMBLE_SWAP_FRAME, _anim.count("death") - 1)) / _anim.fps("death")
 
 
@@ -1694,8 +1853,8 @@ func _crumble() -> void:
 
 ## The parts on the ground and falling (in z order), fading at the end.
 func _draw_rubble() -> void:
-	var fall := WITHER_FALL if _withers() else CRUMBLE_FALL
-	var fade_sec := WITHER_FADE if _withers() else CRUMBLE_FADE
+	var fall := WITHER_FALL if _withers() else (COOL_FALL if _cools() else CRUMBLE_FALL)
+	var fade_sec := WITHER_FADE if _withers() else (COOL_FADE if _cools() else CRUMBLE_FADE)
 	var since := _dead_t - crumble_swap_sec()
 	var fade := clampf(1.0 - (since - fall) / fade_sec, 0.0, 1.0)
 	_mat.set_shader_parameter("flash", 0.0)
@@ -1723,9 +1882,9 @@ func _withers() -> bool:
 	return not _side.is_empty() and BossArt.death_of(art) == "wither"
 
 
-## Falls apart into its parts (a crumble or a wither).
+## Falls apart into its parts (a crumble, a wither or a cool).
 func _breaks_apart() -> bool:
-	return _crumbles() or _withers()
+	return _crumbles() or _withers() or _cools()
 
 
 ## The falling leaves (tests): their count.
@@ -1743,11 +1902,12 @@ func root_tip_position() -> Vector2:
 	return Vector2.INF
 
 
-## 0..1: the last death frame over the parts as they start to separate (a wither, WITHER_COVER).
+## 0..1: the last death frame over the parts as they start to separate (a wither, WITHER_COVER; a
+## cool, COOL_COVER).
 func wither_cover() -> float:
-	if not _withers() or not _crumbled:
+	if not (_withers() or _cools()) or not _crumbled:
 		return 0.0
-	return clampf(1.0 - (_dead_t - crumble_swap_sec()) / WITHER_COVER, 0.0, 1.0)
+	return clampf(1.0 - (_dead_t - crumble_swap_sec()) / (COOL_COVER if _cools() else WITHER_COVER), 0.0, 1.0)
 
 
 ## A leaf off the canopy (local px): round the shown frame's canopy point, spread over the crown.
@@ -1837,3 +1997,94 @@ func _wither() -> void:
 		var side := -1.0 if i % 2 == 0 else 1.0
 		_dust.append({"p": Vector2(side * randf_range(0.05, 0.3) * height, -0.02 * height), "v": Vector2(side * 0.15, -0.06) * height,
 			"r": height * randf_range(0.05, 0.08), "grow": 1.2, "age": 0.0, "life": randf_range(0.8, 1.1)})
+
+
+# ── Cua Dung Nham's drawn art: the cooling death, its Cua con's fade ─────────
+
+## Dies cooling (BossArt.DEATH "cool", drawn from frames).
+func _cools() -> bool:
+	return not _side.is_empty() and BossArt.death_of(art) == "cool"
+
+
+## Dies fading like the code art (BossArt.DEATH "fade": a minion drawn from frames).
+func _fades() -> bool:
+	return not _side.is_empty() and BossArt.death_of(art) == "fade"
+
+
+## A smoke puff rising off the shell (local px), round the shown frame's heart.
+func _add_cool_smoke(spread: float, big: bool = false) -> void:
+	var c := _heart_local() + Vector2(randf_range(-spread, spread), -randf_range(0.05, 0.2)) * height
+	_dust.append({"p": c, "v": Vector2(randf_range(-0.06, 0.06), -randf_range(0.25, 0.4)) * height, "drag": 0.8,
+		"r": height * (randf_range(0.09, 0.13) if big else randf_range(0.055, 0.08)), "grow": 1.8, "age": 0.0,
+		"life": randf_range(0.9, 1.3), "col": COOL_SMOKE})
+
+
+func _step_cool(delta: float) -> void:
+	_dead_t += delta
+	var swap := crumble_swap_sec()
+	_death = minf(1.0, _dead_t / (swap + COOL_FALL + COOL_FADE))
+	if _dead_t < swap + COOL_FALL * 0.6 and _dead_t > 1.0 / maxf(_anim.fps("death"), 0.1): # smoke off the cooling shell
+		_smoke_emit -= delta
+		while _smoke_emit <= 0.0:
+			_smoke_emit += COOL_SMOKE_EVERY
+			_add_cool_smoke(0.3)
+	if not _crumbled and _dead_t >= swap:
+		_split()
+	if not _crumbled:
+		return
+	var since := _dead_t - swap
+	_fall_parts(delta, since, 1.0, COOL_BOUNCE)
+	var h := float(_side["height"])
+	for r in _rubble:
+		if not r.has("topple"):
+			continue
+		var u := clampf((since - float(r["delay"])) / COOL_TOPPLE_SEC, 0.0, 1.0)
+		u = 1.0 - pow(1.0 - u, 3.0) + 0.06 * sin(PI * u) * (1.0 - u) # eased out, a little rock at the end
+		var rot := float(r["topple"]) * u
+		var c0: Vector2 = r["c0"]
+		r["rot"] = rot
+		r["c"] = c0 + Vector2(signf(float(r["topple"])) * COOL_SLIDE * h, COOL_SINK * h) * u # tipping over, settling a little
+
+
+## The parts take over from the last death frame: the shell's halves split apart, the claws and the
+## legs fall off (COOL_PARTS, COOL_LEG), a smoke burst and embers out of the crack.
+func _split() -> void:
+	_crumbled = true
+	_rubble.clear()
+	var parts := Art.boss_parts(art)
+	if parts.is_empty():
+		return
+	var h := float(_side["height"])
+	var ph := h / float(parts["height"])
+	var fp := _frame_points()
+	var heart: Vector2 = (Vector2(fp["heart"]) if fp.get("heart") is Vector2 else Vector2(BossArt.HEART.get(art, Vector2(0, -50)))) * h / BossArt.UNIT
+	var top_z := 1
+	for name in parts["parts"]:
+		top_z = maxi(top_z, int(parts["parts"][name].get("z", 0)))
+	for name in parts["parts"]:
+		var n := str(name)
+		var pt: Dictionary = parts["parts"][name]
+		var sz: Vector2 = Vector2(pt["size"]) * ph
+		var c: Vector2 = Vector2(pt["at"]) * ph + sz / 2.0
+		var z := int(pt.get("z", 0))
+		var cfg: Dictionary = COOL_PARTS.get(n, COOL_LEG)
+		var v: Vector2 = cfg["v"]
+		var spin := float(cfg["spin"])
+		if not COOL_PARTS.has(n): # a leg: outward from the heart
+			var out := signf(c.x - heart.x) if absf(c.x - heart.x) > 1.0 else 1.0
+			v = Vector2(out * absf(v.x), v.y)
+			spin = out * absf(spin) * randf_range(0.6, 1.2)
+		var part := {"name": n, "tex": pt["texture"], "size": sz, "z": z, "c": c, "v": v * h * randf_range(0.85, 1.15), "rot": 0.0,
+			"spin": spin, "delay": float(cfg["delay"]), "ground": h * (0.005 + 0.03 * float(z) / float(top_z))}
+		if COOL_TOPPLE.has(n): # a shell half: toppled by hand (_step_cool), not falling
+			part.merge({"anchored": true, "topple": float(COOL_TOPPLE[n]), "c0": c})
+		_rubble.append(part)
+	_rubble.sort_custom(func(a, b): return int(a["z"]) < int(b["z"]))
+	for i in 7: # the smoke burst out of the crack
+		_add_cool_smoke(0.25, true)
+	var crack := _unit_xform() * (heart * BossArt.UNIT / h)
+	for i in RUBBLE_PEBBLES:
+		var a := -PI * 0.5 + (randf() - 0.5) * 1.6
+		_pebbles.append({"p": crack + Vector2(randf_range(-0.08, 0.08), randf_range(-0.05, 0.05)) * height,
+			"v": Vector2.from_angle(a) * height * randf_range(0.7, 1.5), "r": height * randf_range(0.007, 0.013), "rot": 0.0, "spin": 0.0,
+			"age": 0.0, "life": randf_range(0.5, 0.9), "col": EMBERS[i % EMBERS.size()], "ground": 0.0, "ember": true})

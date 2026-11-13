@@ -3,9 +3,11 @@ extends RefCounted
 ## a dark outline like the characters; the real art replaces it later): steel_robot (Đĩa Bay Thép, drawn
 ## from frames in a match: a hovering saucer; this code fallback is the older steel mech titan with a
 ## reactor core, a visor, an arm cannon and a claw, shown only without its frames), its Drone (a floating eye with two
-## rotors), Cua Dung Nham (a basalt-shelled lava crab with glowing cracks, seen from the front and
-## symmetric: three legs and a raised pincer facing outward on each side, the eye stalks in the
-## middle), its Cua con (a small bright crab, the same build), Phù Thuỷ Băng (a hooded ice witch floating on frost
+## rotors), Cua Dung Nham (drawn from frames in a match, assets/bosses/lava_crab/: a 3/4 crab facing
+## right; this code fallback is an older basalt-shelled lava crab seen from the front and symmetric:
+## three legs and a raised pincer facing outward on each side, the eye stalks in the middle, shown
+## only without its frames), its Cua con (its frames in assets/bosses/lava_crab/minion/; the
+## fallback a small bright crab of the same build), Phù Thuỷ Băng (a hooded ice witch floating on frost
 ## mist with a crystal staff and orbiting shards) and its Người tuyết (a snowman with a pail, a
 ## scarf and a carrot nose); boss v4: Khổng Lồ Đá (a giant of stacked sandstone boulders with a
 ## glowing amber chest gem and rune lines, huge boulder fists, amber quartz on the shoulders; opts
@@ -45,9 +47,11 @@ const SHOT_LOOK := {"steel_robot": {"kind": "cannon", "tier": "titan"}, "lava_cr
 ## its turret's mid tip at rest, turret.json mount (35.09, -23.83) + 29.27 at 20°; in a match BossBody
 ## turns the turret and its muzzle_position() is the turned tip; Khổng Lồ Đá: the throwing knuckles at
 ## the throw's peak, rig_v1.json, BossBody follows points.json hand_r while a throw shows; Mộc Tinh: the
-## canopy's thorn point, rig_v1.json, BossBody follows points.json canopy while poison_thorns shows).
-const MUZZLE := {"steel_robot": Vector2(62.6, -13.8), "lava_crab": Vector2(64, -58), "ice_witch": Vector2(30, -98),
-	"drone": Vector2(10, -62), "crab": Vector2(60, -54), "snowman": Vector2(26, -58), "rock_giant": Vector2(63.95, -74.94),
+## canopy's thorn point, rig_v1.json, BossBody follows points.json canopy while poison_thorns shows;
+## Cua Dung Nham: its shell's top crack at rest, where its lava bombs burst out, BossBody follows
+## points.json shellTop while fire_bombs shows; Cua con: its mouth under the eyes, where it spits).
+const MUZZLE := {"steel_robot": Vector2(62.6, -13.8), "lava_crab": Vector2(5.63, -76.06), "ice_witch": Vector2(30, -98),
+	"drone": Vector2(10, -62), "crab": Vector2(16, -43), "snowman": Vector2(26, -58), "rock_giant": Vector2(63.95, -74.94),
 	"stone_totem": Vector2(20, -72), "tree_spirit": Vector2(0, -85.19), "poison_mushroom": Vector2(0, -80)}
 ## The accent colour of each art (the HUD bar's name, the shield's tint, the card's glow).
 const ACCENT := {"steel_robot": Color(1.0, 0.62, 0.22), "drone": Color(1.0, 0.35, 0.3), "lava_crab": Color(1.0, 0.45, 0.12),
@@ -57,24 +61,28 @@ const ACCENT := {"steel_robot": Color(1.0, 0.62, 0.22), "drone": Color(1.0, 0.35
 	GENERIC_BOSS: Color(0.85, 0.5, 1.0), GENERIC_MINION: Color(0.85, 0.6, 0.9)}
 
 ## How wide each figure is for its height (the shield's ellipse, a UI box fitting it).
-const WIDTH := {"lava_crab": 1.7, "crab": 1.7, "steel_robot": 1.38, "ice_witch": 1.1, "rock_giant": 0.92, "tree_spirit": 1.067,
+const WIDTH := {"lava_crab": 1.768, "crab": 1.768, "steel_robot": 1.38, "ice_witch": 1.1, "rock_giant": 0.92, "tree_spirit": 1.067,
 	"stone_totem": 0.75, "poison_mushroom": 1.0}
 ## How far a figure reaches over its feet, of its height (the name and the bar above it): Đĩa Bay
 ## Thép's antenna stands over the unit height; 1 for the rest (Khổng Lồ Đá's drawn horns and Mộc
-## Tinh's drawn canopy are their top).
-const TOP := {"tree_spirit": 1.0, "rock_giant": 1.0, "steel_robot": 1.125}
+## Tinh's drawn canopy and Cua Dung Nham's raised left claw are their top).
+const TOP := {"tree_spirit": 1.0, "rock_giant": 1.0, "steel_robot": 1.125, "lava_crab": 1.0, "crab": 1.0}
 ## The heart of a boss (unit frame, facing right): where the life it drains flows in (Mộc Tinh's sap
 ## heart) and its heal glows (Khổng Lồ Đá: its chest gem at rest; BossBody follows points.json heart
-## per frame; Mộc Tinh: the heart on its trunk under the mouth, the same per frame); others: the
-## body's middle.
-const HEART := {"tree_spirit": Vector2(0.85, -21.65), "rock_giant": Vector2(6.67, -50.91)}
+## per frame; Mộc Tinh: the heart on its trunk under the mouth, the same per frame; Cua Dung Nham
+## and its Cua con: the shell's middle, the same per frame); others: the body's middle.
+const HEART := {"tree_spirit": Vector2(0.85, -21.65), "rock_giant": Vector2(6.67, -50.91), "lava_crab": Vector2(7.51, -51.96),
+	"crab": Vector2(7.51, -51.96)}
 ## A drawn boss's muzzle while one animation shows (BossBody.muzzle_position()): that frame's
-## points.json point (Khổng Lồ Đá's throwing knuckles; Mộc Tinh's canopy, where its thorns leave).
-const MUZZLE_FOLLOW := {"rock_giant": {"anim": "throw", "point": "hand_r"}, "tree_spirit": {"anim": "poison_thorns", "point": "canopy"}}
+## points.json point (Khổng Lồ Đá's throwing knuckles; Mộc Tinh's canopy, where its thorns leave; Cua
+## Dung Nham's shell top, where its lava bombs burst out).
+const MUZZLE_FOLLOW := {"rock_giant": {"anim": "throw", "point": "hand_r"}, "tree_spirit": {"anim": "poison_thorns", "point": "canopy"},
+	"lava_crab": {"anim": "fire_bombs", "point": "shellTop"}}
 const MINT := Color(0.6, 1.0, 0.78) # Mộc Tinh's glow (its eyes, mushrooms, heart: skin.json glowColour)
+const EMBER := Color(1.0, 0.55, 0.16) # Cua Dung Nham's lava glow (skin.json glowColour)
 ## The heal's light on a drawn boss's heart (BossBody's plate view: Khổng Lồ Đá's gem amber, Mộc
 ## Tinh's heart mint); others the heal green warmed a little.
-const HEART_LIGHT := {"tree_spirit": MINT}
+const HEART_LIGHT := {"tree_spirit": MINT, "lava_crab": EMBER}
 
 static var _s := 1.0 # px per unit of the figure being drawn
 static var _out_px := OUT_PX # the outline on screen: thinner on a small figure
@@ -234,16 +242,30 @@ const LEAN_ABOUT := {"steel_robot": 0.43}
 ## shards), "crash" (Đĩa Bay Thép: sparks and smoke, it tumbles down, the dome pops off, it blows up) or
 ## "crumble" (Khổng Lồ Đá: its death frames crack it, then it falls apart into its parts, the horns last)
 ## or "wither" (Mộc Tinh: its death frames wither it, then the canopy clumps and the twigs drop off
-## its parts, the trunk sinks a little, brown leaves fall, everything fades).
-const DEATH := {"steel_robot": "crash", "rock_giant": "crumble", "tree_spirit": "wither"}
+## its parts, the trunk sinks a little, brown leaves fall, everything fades) or "cool" (Cua Dung Nham:
+## its death frames cool its lava to stone, crack it and buckle its legs; then its shell splits in two,
+## the claws and legs fall off and settle, smoke rises, everything fades) or "fade" (a minion drawn
+## from frames, the Cua con: its hurt frame sinks, tilts and fades like the code art).
+const DEATH := {"steel_robot": "crash", "rock_giant": "crumble", "tree_spirit": "wither", "lava_crab": "cool", "crab": "fade"}
 ## A drawn boss's falling leaves (BossBody): idle ones now and then off the canopy (every: s between
 ## two, lo..hi; colours), the death's withered ones (wither).
 const LEAVES := {"tree_spirit": {"every": Vector2(2.4, 5.0),
 	"colours": [Color(0.36, 0.62, 0.3), Color(0.62, 0.45, 0.78), Color(0.45, 0.7, 0.34)],
 	"wither": [Color(0.55, 0.33, 0.14), Color(0.72, 0.45, 0.16), Color(0.42, 0.26, 0.12), Color(0.8, 0.56, 0.22)]}}
 ## A drawn boss's stomp (its animation, BossBody at its peak frame): the foot that lands (unit frame,
-## facing right) where the dust bursts and the ground's shockwave ring opens.
-const STOMP := {"rock_giant": {"anim": "stomp", "foot": Vector2(18, -1)}}
+## facing right) where the dust bursts and the ground's shockwave ring opens (ring false: the game's
+## own slam ring opens there instead, Cua Dung Nham's claw_slam: its shockwave, ShockwaveFx slam_at;
+## pebbles: their colours, the giant's stones by default; embers: lava sparks thrown up with them).
+const STOMP := {"rock_giant": {"anim": "stomp", "foot": Vector2(18, -1)},
+	"lava_crab": {"anim": "claw_slam", "foot": Vector2(81.69, 0.31), "ring": false, "embers": true,
+		"pebbles": [Color(0.26, 0.2, 0.19), Color(0.36, 0.28, 0.25), Color(0.2, 0.15, 0.14)]}}
+## A drawn boss's lava drips (BossBody, LavaDrips): now and then (every: s between two, lo..hi) a drop
+## falls off one of its drips' tips (points.json keys, those the shown frame has) and sizzles on the
+## ground; r: the drop's radius (units).
+const DRIPS := {"lava_crab": {"every": Vector2(0.45, 1.3), "tips": ["drip_fl", "drip_cl", "drip_fr", "drip_p1", "drip_p2"], "r": 1.1}}
+## A drawn boss's lava spout (BossBody, at its animation's peak frame): globs shoot up out of that
+## frame's point (Cua Dung Nham's shell top as its lava bombs leave; they fall from the sky after).
+const SPOUT := {"lava_crab": {"anim": "fire_bombs", "point": "shellTop", "globs": 10}}
 
 static var _opts := {}
 

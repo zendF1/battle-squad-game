@@ -9,6 +9,7 @@ extends "res://tests/test_case.gd"
 const ImportBossFrames := preload("res://tools/import_boss_frames.gd")
 const Art := preload("res://ui/art.gd")
 const BossAnim := preload("res://match/boss/boss_anim.gd")
+const BossArt := preload("res://match/boss/boss_art.gd")
 const BossBody := preload("res://match/boss/boss_body.gd")
 const BossArtView := preload("res://match/boss/boss_art_view.gd")
 const V3 := preload("res://tests/unit/test_boss_v3.gd")

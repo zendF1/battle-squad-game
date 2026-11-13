@@ -1,8 +1,10 @@
 extends RefCounted
 ## Which frame of a drawn boss (ui/art.gd boss_side(): the Ice Witch's imported frames) shows
-## now: a looping base state (idle; fly while it flies, UnitFlew; idle slowed down while stunned
-## or frozen, the body swaying a little: sway()) and over it one animation played once (a skill's
-## cast, a summon, a hit), back to the base state when it is over. Pure: step() moves it on.
+## now: a looping base state (idle; fly while it flies, UnitFlew; walk while it walks on the ground,
+## Cua Dung Nham's crawl to its pincer and its Cua con; prime while a bomber is about to blow up;
+## idle slowed down while stunned or frozen, the body swaying a little: sway()) and over it one
+## animation played once (a skill's cast, a summon, a hit), back to the base state when it is over;
+## one played with a delay (the crab's pincer: it crawls first) starts later. Pure: step() moves it on.
 ## play() can put an animation's `peak` frame (the burst's flash, the blizzard's whirl) on a given
 ## moment: the frames before it are spread over the time until then, the peak holds `hold` s, the
 ## rest run at the animation's fps.
@@ -16,18 +18,27 @@ const HURT := "hurt"
 ## The animation of a boss skill by its skillId, else by its kind (GameData.boss_skill()).
 ## Khổng Lồ Đá: the boulders thrown (giant_boulder; boulder_rain, an older id), pushed (rolling_boulder),
 ## the stomp (earthquake), the fists on the ground (stone_spikes: its marks and, on its turn start,
-## their eruption). Mộc Tinh: each skill its own animation (named after it).
+## their eruption). Mộc Tinh, Cua Dung Nham: each skill its own animation (named after it; the crab's
+## crab_call summon is a summon).
 const BY_SKILL := {"ice_spikes": "cast", "frost_beam": "burst", "blizzard": "blizzard",
 	"giant_boulder": "throw", "boulder_rain": "throw", "rolling_boulder": "roll", "earthquake": "stomp", "stone_spikes": "spikes",
-	"vine_lash": "vine_lash", "poison_thorns": "poison_thorns", "life_drain": "life_drain", "root_drag": "root_drag"}
+	"vine_lash": "vine_lash", "poison_thorns": "poison_thorns", "life_drain": "life_drain", "root_drag": "root_drag",
+	"fire_bombs": "fire_bombs", "claw_slam": "claw_slam", "pincer": "pincer"}
 const BY_KIND := {"beam": "burst", "rain": "cast", "shockwave": "cast", "summon": "summon"}
 ## An animation a boss does not have → the first of these it has (Khổng Lồ Đá throws for a cast: its
 ## plain shot; Mộc Tinh shakes its thorns out of the canopy, drains for a beam).
 const FALLBACK := {"cast": ["throw", "poison_thorns"], "blizzard": ["throw", "poison_thorns"], "burst": ["throw", "life_drain"]}
 ## The event its peak lands on (the first of these types in the replay), else the first projectile
 ## (Mộc Tinh: the vines strike the ground, the root hooks the member it drags; its thorns leave the
-## canopy with the projectiles).
-const PEAK_ON := {"stomp": ["global"], "spikes": ["mark", "eruption"], "vine_lash": ["ground_strike"], "root_drag": ["pull"]}
+## canopy with the projectiles. Cua Dung Nham: the claw hits the ground on the slam's explode, the
+## pincer snaps on its pincer event; its lava bombs leave the shell with the projectiles).
+const PEAK_ON := {"stomp": ["global"], "spikes": ["mark", "eruption"], "vine_lash": ["ground_strike"], "root_drag": ["pull"],
+	"claw_slam": ["explode"], "pincer": ["pincer"]}
+## Played only when its PEAK_ON event comes (the crab's pincer: out of reach it only crawls).
+const NEEDS_PEAK := ["pincer"]
+## At most this long (s) before the peak the animation starts (the crab crawls to its target first,
+## on its walk loop, then reaches and snaps); the rest of the wait shows the base state.
+const PEAK_LEAD := {"pincer": 0.45}
 ## Held over the beams (the peak on the first one, held while they fire): the witch's burst, Mộc
 ## Tinh's drain (its eyes and mushrooms blazing while the life flows in).
 const BEAM_HOLD := ["burst", "life_drain"]
@@ -39,6 +50,10 @@ var anims: Dictionary = {} # name -> {frames (count or Array), fps, loop, peak}
 var base := "idle"
 var stunned := false
 var current := "" # the one played once ("" none)
+var flying := false # set_flying(): a hover move under way
+var walking := false # set_walking(): moving along the ground
+var primed := false # set_primed(): a bomber about to blow up (warned or its detonation's lead-in)
+var _pending := {} # play() with a delay: {anim, timing, in (s left)}
 var _times := PackedFloat32Array() # its frames' end times
 var _t := 0.0 # into it
 var _base_t := 0.0 # into the base loop
@@ -71,11 +86,35 @@ func play(anim: String, timing: Dictionary = {}) -> float:
 	var n := count(anim)
 	if n <= 0:
 		return 0.0
+	var delay := float(timing.get("delay", 0.0))
+	if delay > 0.0: # it starts later (the base state shows until then)
+		var rest := timing.duplicate()
+		rest.erase("delay")
+		_pending = {"anim": anim, "timing": rest, "in": delay}
+		return delay + _length(anim, rest)
+	if anim != HURT: # a hit does not cancel the one waiting
+		_pending = {}
+	_times = _timeline(anim, timing)
+	current = anim
+	_t = 0.0
+	return _times[_times.size() - 1]
+
+
+## The animation's duration with this timing.
+func _length(anim: String, timing: Dictionary) -> float:
+	var times := _timeline(anim, timing)
+	return times[times.size() - 1] if not times.is_empty() else 0.0
+
+
+## Its frames' end times with this timing (the frames before the peak spread until `at`, the peak
+## held `hold` s, the rest at its fps).
+func _timeline(anim: String, timing: Dictionary) -> PackedFloat32Array:
+	var n := count(anim)
 	var step := 1.0 / fps(anim)
 	var peak := int(timing.get("peak", anims[anim].get("peak", -1)))
 	var at := float(timing.get("at", -1.0))
 	var hold := float(timing.get("hold", step))
-	_times = PackedFloat32Array()
+	var times := PackedFloat32Array()
 	var t := 0.0
 	for i in n:
 		var d := step
@@ -85,10 +124,8 @@ func play(anim: String, timing: Dictionary = {}) -> float:
 			elif i == peak:
 				d = maxf(hold, step)
 		t += d
-		_times.append(t)
-	current = anim
-	_t = 0.0
-	return t
+		times.append(t)
+	return times
 
 
 ## The animation played for `anim`: itself, else its FALLBACK when this boss has that one.
@@ -100,17 +137,50 @@ func resolve(anim: String) -> String:
 	return anim
 
 
-## The base loop: idle, or fly (flying: a hover move under way).
+## The base loop: fly while flying (a hover move under way), else walk while walking, else prime
+## while primed, else idle (each only when it has that animation).
 func set_flying(on: bool) -> void:
-	var want := "fly" if on and has("fly") else "idle"
+	flying = on
+	_rebase()
+
+
+func set_walking(on: bool) -> void:
+	walking = on
+	_rebase()
+
+
+func set_primed(on: bool) -> void:
+	primed = on
+	_rebase()
+
+
+func _rebase() -> void:
+	var want := "idle"
+	if flying and has("fly"):
+		want = "fly"
+	elif walking and has("walk"):
+		want = "walk"
+	elif primed and has("prime"):
+		want = "prime"
 	if want != base:
 		base = want
 		_base_t = 0.0
 
 
+## An animation waiting to start (play() with a delay): its name, "" none.
+func pending() -> String:
+	return str(_pending.get("anim", ""))
+
+
 func step(delta: float) -> void:
 	_clock += delta
 	_base_t += delta * (STUN_SPEED if stunned and base == "idle" else 1.0)
+	if not _pending.is_empty():
+		_pending["in"] = float(_pending["in"]) - delta
+		if float(_pending["in"]) <= 0.0:
+			var p := _pending
+			play(str(p["anim"]), p["timing"])
+			_t = -float(p["in"]) - delta # the time past its start (the delta is added below)
 	if current != "":
 		_t += delta
 		if _times.is_empty() or _t >= _times[_times.size() - 1]:
@@ -146,7 +216,8 @@ func playing() -> String:
 
 
 ## The animation a boss's shot plays and when its peak falls: {anim, at (s into the replay; -1:
-## none, the animation's own pace), hold (s the peak frame shows; -1: one frame)}. mode: the
+## none, the animation's own pace), hold (s the peak frame shows; -1: one frame), delay (optional,
+## PEAK_LEAD: s before it starts; at then counts from its start)}. mode: the
 ## ShotResolved actionMode (turn_start: a mapped skill going off then, the spikes erupting); skill: its
 ## game data entry (GameData.boss_skill(), {} unknown);
 ## events / launches: the replay's events and its projectiles' launch times. The peak lands on
@@ -189,6 +260,11 @@ static func action_for(mode: String, skill_id: String, skill: Dictionary, events
 					hold = clampf(dur * float(PEAK_HOLD[anim]), 0.15, 2.0)
 	if anim in BEAM_HOLD and at < INF and beam_ts.size() > 1: # beams one after another: hot over all of them
 		hold = clampf(beams_end - at, 0.15, 4.0)
+	if at == INF and anim in NEEDS_PEAK:
+		return {"anim": "", "at": -1.0, "hold": -1.0} # out of reach: it only crawls (its walk loop)
+	if at < INF and PEAK_LEAD.has(anim) and at > float(PEAK_LEAD[anim]):
+		var lead := float(PEAK_LEAD[anim])
+		return {"anim": anim, "at": lead, "hold": hold, "delay": at - lead}
 	if at == INF and anim != "summon":
 		var last := -INF
 		for t in launches:

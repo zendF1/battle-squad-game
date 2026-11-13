@@ -23,6 +23,7 @@ const SLAM_SEC := 0.4 # the slam's ring opens this long
 const SLAM_R := 190.0
 
 var wave := {}
+var slammer: Node2D = null # the boss's figure (its slam_point(): where its drawn claw hits, Cua Dung Nham), null: the feet
 var terrain = null # the TerrainMask (the surface under the crest), null: the steps' heights
 var accent := Color(1.0, 0.5, 0.15)
 
@@ -130,17 +131,37 @@ func _draw_side(side: String, sgn: float) -> void:
 		draw_circle(Vector2(px, surface_y(px, fy) - r * 0.4), r, Color(DUST, 0.45 * (1.0 - u) * alive))
 
 
-## The slam at the boss's feet: a flat ring opening on the ground, a flash in the middle.
+## The slam at the boss's feet (or where its drawn claw hits the ground, slammer): a flat ring
+## opening on the ground, a flash in the middle.
 func _draw_slam(age: float) -> void:
 	if age < 0.0 or age > SLAM_SEC:
 		return
 	var k := age / SLAM_SEC
-	var o: Vector2 = wave["origin"]
+	var o := slam_origin()
 	var r := SLAM_R * (1.0 - (1.0 - k) * (1.0 - k))
 	draw_set_transform(o, 0.0, Vector2(1.0, 0.3))
 	draw_arc(Vector2.ZERO, r, 0.0, TAU, 48, Color(accent.lerp(Color.WHITE, 0.4), 0.9 * (1.0 - k)), 10.0 * (1.0 - k) + 2.0, true)
 	draw_circle(Vector2.ZERO, r * 0.6, Color(accent, 0.25 * (1.0 - k)))
 	draw_set_transform(Vector2.ZERO)
+
+
+var _slam_at := Vector2.INF
+
+
+## Where the slam's ring opens (layer px): the boss figure's slam_point() as the slam lands (kept
+## from then on), else the server's slam position (the boss's feet).
+func slam_origin() -> Vector2:
+	if _slam_at != Vector2.INF:
+		return _slam_at
+	var o: Vector2 = wave.get("origin", Vector2.ZERO)
+	if slammer != null and is_instance_valid(slammer) and slammer.has_method("slam_point"):
+		var p: Vector2 = slammer.slam_point()
+		if p != Vector2.INF:
+			var at := to_local(p)
+			if absf(at.y - o.y) < 120.0: # on the same ground
+				_slam_at = Vector2(at.x, surface_y(at.x, o.y))
+				return _slam_at
+	return o
 
 
 ## When the front passed x on a side (the time between the steps around it).

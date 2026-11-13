@@ -346,8 +346,13 @@ static var _boss_sides := {} # boss art id -> boss_side() ({} = none)
 static var _boss_pictures := {} # path -> Texture2D (null = none)
 
 
+## A minion's art folder under its boss's (art id -> path under bosses/): Cua Dung Nham's Cua con.
+const MINION_DIRS := {"crab": "lava_crab/minion"}
+
+
+## A boss's (or a minion's, MINION_DIRS) art folder.
 static func boss_dir(id: String) -> String:
-	return ROOT + "bosses/%s/" % id
+	return ROOT + "bosses/%s/" % str(MINION_DIRS.get(id, id))
 
 
 ## A boss's drawn side view (assets/bosses/<id>/side/side.json and its frames, written by

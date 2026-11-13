@@ -24,6 +24,9 @@ func _initialize() -> void:
 		for tier in Art.GUN_TIERS[kind]:
 			var g := Art.gun(kind, tier)
 			out.append("gun %s %s: %s ui=%s" % [kind, tier, _desc(g), _tex(Art.ui_gun_texture(g))])
+	for minion in Art.MINION_DIRS:
+		out.append("minion %s side: %s" % [minion, _desc(Art.boss_side(minion))])
+		out.append("minion %s points: %s" % [minion, _desc(Art.boss_points(minion))])
 	for boss in DirAccess.get_directories_at(Art.ROOT + "bosses"):
 		out.append("boss %s side: %s" % [boss, _desc(Art.boss_side(boss))])
 		out.append("boss %s skin: %s" % [boss, _desc(Art.boss_skin(boss))])

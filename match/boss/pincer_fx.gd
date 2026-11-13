@@ -3,7 +3,9 @@ extends Node2D
 ## lava-crab claw lunges in from the crab's side and snaps shut on the target (the two halves
 ## close over SNAP s), holds it with a squeeze, a burst of sparks and a white "clack" ring on the
 ## snap, then opens and fades. Drawn in code in the crab's colours; `side` -1 when the crab is on
-## the target's left. Freed when done.
+## the target's left. drawn: the crab is drawn from frames (its pincer animation snaps on this event,
+## BossAnim PEAK_ON): no code claw, the grab reads on the target as a hot clamp ring closing onto it
+## (the claw's grip) with the clack ring and the sparks. Freed when done.
 
 const LIFE := 0.95
 const SNAP := 0.16
@@ -15,11 +17,13 @@ const OUT := Color(0.12, 0.04, 0.03)
 const SIZE := 46.0
 
 var side := 1.0 # the crab is on this side of the target (+1 right)
+var drawn := false # the crab's drawn pincer grabs: no code claw
 var _t := 0.0
 
 
-func _init(crab_side: float = 1.0) -> void:
+func _init(crab_side: float = 1.0, drawn_claw: bool = false) -> void:
 	side = 1.0 if crab_side >= 0.0 else -1.0
+	drawn = drawn_claw
 	z_index = 4
 
 
@@ -45,6 +49,10 @@ func _draw() -> void:
 	var lunge := clampf(_t / SNAP, 0.0, 1.0)
 	var shut := closed()
 	var squeeze := 1.0 + (0.05 * sin(_t * 40.0) if _t > SNAP and _t < HOLD_END else 0.0)
+	if drawn:
+		_clamp(shut, squeeze, fade)
+		_clack()
+		return
 	# the tips land just past the target's centre when the lunge is done
 	draw_set_transform(Vector2(side * SIZE * (0.85 + 0.7 * (1.0 - lunge)), 0), 0.0, Vector2(side * squeeze, squeeze))
 	_arm(fade)
@@ -52,6 +60,11 @@ func _draw() -> void:
 	_jaw(-1.0, open * 0.35, fade) # the fixed upper jaw barely moves
 	_jaw(1.0, open, fade) # the lower one snaps
 	draw_set_transform(Vector2.ZERO)
+	_clack()
+
+
+## The clack on the snap: a white ring opening, sparks flying out.
+func _clack() -> void:
 	if _t >= SNAP:
 		var k := clampf((_t - SNAP) / 0.3, 0.0, 1.0)
 		draw_arc(Vector2.ZERO, SIZE * (0.4 + 1.1 * k), 0.0, TAU, 40, Color(1, 1, 1, 0.8 * (1.0 - k)), 5.0 * (1.0 - k) + 1.0, true)
@@ -60,6 +73,24 @@ func _draw() -> void:
 			var d := SIZE * (0.35 + 1.2 * k)
 			var p := Vector2.from_angle(a) * d
 			draw_line(p, p + Vector2.from_angle(a) * 10.0 * (1.0 - k), Color(GLOW, 1.0 - k), 3.0, true)
+
+
+## The drawn crab's grip on the target: two hot jaw arcs closing onto it from the crab's side and the
+## far side (shut 0..1), squeezing while held, a hot glow under them; they open and fade at the end.
+func _clamp(shut: float, squeeze: float, fade: float) -> void:
+	var r := SIZE * (1.25 - 0.62 * shut) * squeeze
+	draw_circle(Vector2.ZERO, SIZE * 0.55 * squeeze, Color(GLOW, 0.28 * shut * fade))
+	for up: float in [-1.0, 1.0]:
+		var mid := -PI * 0.5 * up # the top / bottom of the target
+		var a0 := mid - 1.05
+		var a1 := mid + 1.05
+		draw_arc(Vector2.ZERO, r, a0, a1, 18, Color(OUT, 0.9 * fade), 12.0, true)
+		draw_arc(Vector2.ZERO, r, a0, a1, 18, Color(SHELL, fade), 8.0, true)
+		draw_arc(Vector2.ZERO, r - 2.0, a0 + 0.15, a1 - 0.15, 14, Color(GLOW, 0.95 * fade), 3.0, true)
+		for e: float in [a0, a1]: # the jaws' tips, pointing in
+			var tip := Vector2.from_angle(e) * r
+			draw_line(tip, tip * 0.78, Color(OUT, fade), 7.0, true)
+			draw_line(tip, tip * 0.8, Color(1.0, 0.92, 0.75, fade), 3.0, true)
 
 
 static func _bez(a: Vector2, b: Vector2, c: Vector2, n: int, out: PackedVector2Array) -> void:

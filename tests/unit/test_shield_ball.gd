@@ -72,7 +72,7 @@ func test_pop_in_and_out() -> void:
 
 
 func test_boss_shield_is_round() -> void:
-	near(BossArt.shield_radius("lava_crab", 100.0), 85.0 + 100.0 * BossArt.SHIELD_MARGIN, 0.01, "the wide crab: half its width and a margin")
+	near(BossArt.shield_radius("lava_crab", 100.0), 88.4 + 100.0 * BossArt.SHIELD_MARGIN, 0.01, "the wide crab: half its width and a margin")
 	near(BossArt.shield_radius("steel_robot", 100.0), 69.0 + 100.0 * BossArt.SHIELD_MARGIN, 0.01, "the saucer")
 	near(BossArt.shield_radius("ice_witch", 100.0), 55.0 + 100.0 * BossArt.SHIELD_MARGIN, 0.01, "the witch")
 	near(BossArt.shield_radius("snowman", 100.0), 50.0 + 100.0 * BossArt.SHIELD_MARGIN, 0.01, "a narrow one: half its height")

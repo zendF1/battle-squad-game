@@ -89,7 +89,7 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   (transparent background, about 64 × 64) named after the effect to replace one (read directly
   until the editor imports it).
 - **Bosses** (`bosses/<bossId>/`: Phù Thuỷ Băng, Đĩa Bay Thép (`steel_robot`), Khổng Lồ Đá (`rock_giant`), Mộc Tinh (`tree_spirit`) and Cua Dung Nham (`lava_crab`) have them; the
-  others are drawn in code, `match/boss/boss_art.gd`, and so is every minion (Cua con's drawn frames wait in `bosses/lava_crab/minion/`)): `side/<anim>_<i>.png` + `side/side.json` (her
+  others are drawn in code, `match/boss/boss_art.gd`, and so is every minion but Cua con (`crab`: its frames in `bosses/lava_crab/minion/`, `ui/art.gd` MINION_DIRS)): `side/<anim>_<i>.png` + `side/side.json` (her
   match figure: cast, burst, blizzard, summon, hurt (and the unused fly frames) on one shared canvas,
   the feet = the frost-mist hem's bottom centre on the pivot; `match/boss/boss_body.gd` draws them
   `bodySize` × 40 × 1.45 px tall, mirrored facing left; her death is made in code from the first hurt
@@ -158,8 +158,10 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   pincers; `z`) and `side/points.json` (per frame: heart, shellTop (the bombs), eyes, claw tips, the
   slam's knuckle, the drips' tips, glow / eyes levels). Its minion Cua con: the same picture warmed
   and brighter, `minion/side/` (idle, walk, prime, hurt; height 160) + `minion/side/points.json`,
-  imported with `-- lava_crab/minion`; the match still draws the minion in code until it reads that
-  folder.
+  imported with `-- lava_crab/minion` (the match reads it through `ui/art.gd` MINION_DIRS). How the
+  match uses them (the walk loop, its skills' animations, the spout, the slam at the claw, the lava
+  drips, the drawn pincer's grab, the cooling death, the minion's walk / prime / fade):
+  `docs/boss-cua-dung-nham-art.md`.
 - **Title plates** (`ui/titles/title_<rarity>.png`, blue / orange / purple / red, and
   `ui/titles/titles.json`: the banner the title name is drawn on, `ui/title_plate.gd`): AI-drawn
   with no text on a dark background, `art_source/ui/titles/title_<rarity>.png`, keyed by
