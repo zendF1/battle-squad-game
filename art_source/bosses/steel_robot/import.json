@@ -1,0 +1,32 @@
+{
+	"_doc": "tools/import_boss_frames.gd reads this (see its header and README.txt here). The sheets are made by make_frames.py here from concept/ufo_v1.png (already transparent: background.key 'alpha'), one row per animation in fixed 620 x 590 cells with the feet (the claw's bottom centre) at (305, 448) of every cell: cuts at the cells, anchors the feet, bodyHeight 342 (the dome's top to the claw's bottom, sheet px) → height texture px. body: the hull's grey (measured only for the width). parts: the hull and the dome as their own sprites (one cell each, the same feet). Re-run make_frames.py first when the concept or the frames change.",
+	"out": "res://assets/bosses/steel_robot/",
+	"height": 240,
+	"pad": 4,
+	"background": {"key": "alpha"},
+	"alphaCut": 6,
+	"edgeFade": 0,
+	"body": {"hue": [0, 360], "minSat": 0.0, "minVal": 0.42, "maxVal": 0.78, "centreRows": [0.45, 0.62], "minPiece": 0.08},
+	"anims": {
+		"idle": {"src": "side_idle/sheet_v1.png", "frames": 7, "fps": 7, "loop": true, "bodyHeight": 342,
+			"cuts": [620, 1240, 1860, 2480, 3100, 3720],
+			"anchors": [[305, 448], [925, 448], [1545, 448], [2165, 448], [2785, 448], [3405, 448], [4025, 448]]},
+		"fly": {"src": "side_fly/sheet_v1.png", "frames": 4, "fps": 10, "loop": true, "bodyHeight": 342,
+			"cuts": [620, 1240, 1860], "anchors": [[305, 448], [925, 448], [1545, 448], [2165, 448]]},
+		"cast": {"src": "side_cast/sheet_v1.png", "frames": 6, "fps": 10, "loop": false, "peak": 3, "bodyHeight": 342,
+			"cuts": [620, 1240, 1860, 2480, 3100],
+			"anchors": [[305, 448], [925, 448], [1545, 448], [2165, 448], [2785, 448], [3405, 448]]},
+		"burst": {"src": "side_burst/sheet_v1.png", "frames": 6, "fps": 9, "loop": false, "peak": 2, "bodyHeight": 342,
+			"cuts": [620, 1240, 1860, 2480, 3100],
+			"anchors": [[305, 448], [925, 448], [1545, 448], [2165, 448], [2785, 448], [3405, 448]]},
+		"summon": {"src": "side_summon/sheet_v1.png", "frames": 4, "fps": 7, "loop": false, "peak": 2, "bodyHeight": 342,
+			"cuts": [620, 1240, 1860], "anchors": [[305, 448], [925, 448], [1545, 448], [2165, 448]]},
+		"hurt": {"src": "side_hurt/sheet_v1.png", "frames": 2, "fps": 7, "loop": false, "bodyHeight": 342,
+			"cuts": [620], "anchors": [[305, 448], [925, 448]]}
+	},
+	"parts": {"bodyHeight": 342, "feet": [305, 448], "src": {"hull": "parts/hull_v1.png", "dome": "parts/dome_v1.png"}},
+	"pictures": {
+		"portrait": {"src": "portrait/portrait_v1.png", "size": 512, "margin": 8},
+		"bust": {"src": "portrait/bust_v1.png", "size": 384, "margin": 6}
+	}
+}

@@ -51,6 +51,10 @@ extends SceneTree
 ## <out>/side/side.json: {size [w, h], pivot [x, y] (the feet, texture px), height (the body,
 ## texture px), width (the cloak's median width), facing 1 (drawn facing right), anims {name:
 ## {frames [stems], fps, loop, peak (optional: the frame of the effect's peak, the burst's flash)}}}.
+## A sheet already on transparency (`background.key` "alpha": frames made by a script, such as
+## art_source/bosses/steel_robot/make_frames.py) is not keyed, only its faint px cleared; its feet given
+## per frame (`anchors`) and its scale by `bodyHeight` when the body colours do not measure it.
+## `parts` (_import_parts()): separate sprites of the figure at the frames' scale, placed from the feet.
 ## Pictures (`pictures.<name>`: src, watermark, size): keyed the same way, trimmed to the content
 ## (+ `margin` px), centred on a square canvas, scaled to `size` px: <out>/<name>.png (portrait,
 ## bust). Every frame and picture last gets the `tone` lift (tone(): lighten, desaturateDark).
@@ -192,7 +196,10 @@ func _import(id: String, contact: String) -> bool:
 			frames[key] = composed[key]
 		var sorted := heights.duplicate()
 		sorted.sort()
-		var body_h := float(spec.get("bodyHeight", sorted[sorted.size() / 2]))
+		if not spec.has("bodyHeight") and sorted.is_empty():
+			push_error("import_boss_frames: %s: no frame measured and no bodyHeight" % anim)
+			return false
+		var body_h := float(spec["bodyHeight"]) if spec.has("bodyHeight") else float(sorted[sorted.size() / 2])
 		for m in frames:
 			if is_nan(float(m["top"])):
 				m["top"] = float(m["feet"].y) - body_h
@@ -274,6 +281,8 @@ func _import(id: String, contact: String) -> bool:
 		var pic := picture(src_img, int(pc.get("size", 512)), int(pc.get("margin", 8)))
 		tone(pic, cfg.get("tone", {}))
 		_save(pic, out_dir + str(pname) + ".png")
+	if cfg.get("parts") is Dictionary and not _import_parts(dir, out_dir, cfg, target):
+		return false
 	var skins: Dictionary = cfg.get("skins", {}) if cfg.get("skins") is Dictionary else {}
 	var skin_rows: Array = []
 	for sname in skins:
@@ -291,6 +300,39 @@ func _import(id: String, contact: String) -> bool:
 	order = skin_rows + order
 	if contact != "":
 		_contact(written, order, canvas, pivot, target, contact)
+	return true
+
+
+## Separate sprites of the figure (config `parts`: {bodyHeight (source px), feet [x, y] (source px),
+## src {name: picture}}: pictures the size of one frame cell with the figure where a frame has it,
+## each a piece of it, such as the UFO's hull and dome for its death): keyed like the frames, scaled
+## by the same `height` / bodyHeight, trimmed, written as <out>/parts/<name>.png, and
+## <out>/parts/parts.json {height, parts {name: {file, at (its top-left from the feet, texture px),
+## size}}}: drawn at `at` from the frames' pivot they sit where the frame shows them.
+func _import_parts(dir: String, out_dir: String, cfg: Dictionary, target: float) -> bool:
+	var pc: Dictionary = cfg["parts"]
+	var k := target / float(pc.get("bodyHeight", target))
+	var feet := Vector2(float(pc["feet"][0]), float(pc["feet"][1])) if pc.get("feet") is Array else Vector2.ZERO
+	var rows := {}
+	for pname in pc.get("src", {}):
+		var img := _load(dir + str(pc["src"][pname]))
+		if img == null:
+			return false
+		keyed(img, spec_cfg(cfg, pc))
+		var used := img.get_used_rect()
+		if used.size == Vector2i.ZERO:
+			push_error("import_boss_frames: part %s is empty" % pname)
+			return false
+		used = used.grow(2).intersection(Rect2i(Vector2i.ZERO, img.get_size()))
+		var at := (Vector2(used.position) - feet) * k
+		var size := Vector2i(maxi(1, roundi(used.size.x * k)), maxi(1, roundi(used.size.y * k)))
+		var pic := ImportGuns.scaled(img.get_region(used), size)
+		tone(pic, cfg.get("tone", {}))
+		_save(pic, out_dir + "parts/%s.png" % pname)
+		rows[pname] = {"file": "%s.png" % pname, "at": [snappedf(at.x, 0.1), snappedf(at.y, 0.1)], "size": [size.x, size.y]}
+	var out := {"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/<id>/import.json parts (do not edit). Each part: file, at (its top-left from the feet, the frames' pivot, texture px at the frames' scale), size; height: the body (texture px) as in side.json.",
+		"height": target, "parts": rows}
+	_write_text(out_dir + "parts/parts.json", JSON.stringify(out, "\t", false) + "\n")
 	return true
 
 
@@ -543,6 +585,9 @@ static func spec_cfg(cfg: Dictionary, spec: Dictionary) -> Dictionary:
 static func keyed(img: Image, opts: Dictionary) -> int:
 	img.convert(Image.FORMAT_RGBA8)
 	var bg: Dictionary = opts["background"]
+	if str(bg.get("key", "")) == "alpha": # already transparent (frames made from parts): only the faint px cleared
+		ImportFrames.clean(img, {"alphaCut": opts["alphaCut"], "keepPieces": 0.0, "defringe": {"band": 0}})
+		return 0
 	var kc := ImportFrames.corner_colour(img, int(bg.get("corner", 8)))
 	var n := ImportFrames.key_background(img, bg)
 	var ds = opts.get("despill")

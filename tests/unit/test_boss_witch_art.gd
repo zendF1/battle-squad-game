@@ -3,7 +3,7 @@ extends "res://tests/test_case.gd"
 ## made-up sheets), the imported frames and pictures (ui/art.gd boss_side() / boss_picture()),
 ## which frame shows (BossAnim: the base loops, a skill's animation with its peak on its moment,
 ## the stun's slow sway, the shot → animation mapping), the boss body drawn from them (hurt, fly,
-## the shattering death; the robot keeps its code art) and the UI pictures (BossArtView: portrait
+## the shattering death; a boss without frames keeps its code art) and the UI pictures (BossArtView: portrait
 ## and bust, centred; the snowman keeps its figure).
 
 const ImportBossFrames := preload("res://tools/import_boss_frames.gd")
@@ -114,7 +114,7 @@ func test_the_witch_has_frames_and_pictures() -> void:
 	eq(Vector2(png.get_size()), side["size"], "every frame on the shared canvas")
 	check(side["pivot"].y > side["height"], "the feet under the body's top")
 	check(Art.boss_picture("ice_witch", "portrait") != null and Art.boss_picture("ice_witch", "bust") != null, "portrait and bust")
-	check(Art.boss_side("steel_robot").is_empty() and Art.boss_picture("lava_crab", "portrait") == null, "others: none (code art)")
+	check(Art.boss_side("lava_crab").is_empty() and Art.boss_picture("lava_crab", "portrait") == null, "others: none (code art)")
 
 
 # ── Which frame shows ───────────────────────────────────────────────────────
@@ -211,8 +211,8 @@ func test_witch_body_draws_frames_hurt_and_flight() -> void:
 	b._process(2.0)
 	check(b.anim().stunned, "stunned: the slow idle")
 	var robot := BossBody.new()
-	robot.setup("steel_robot", 150.0)
-	check(not robot.has_frames() and robot.anim() == null, "the robot keeps its code art")
+	robot.setup("lava_crab", 150.0)
+	check(not robot.has_frames() and robot.anim() == null, "the crab keeps its code art")
 	b.free()
 	robot.free()
 
@@ -267,7 +267,7 @@ func test_art_view_pictures_centred() -> void:
 	check(card.picture_rect().size.y <= 210.0 and card.picture_rect().get_center().is_equal_approx(Vector2(150, 105)), "fitted, dead centre")
 	var snowman = BossArtView.make("snowman", Vector2(70, 70), 1, "bust")
 	check(snowman.picture_texture() == null, "a minion keeps its figure")
-	var robot = BossArtView.make("steel_robot", Vector2(70, 70), 1, "bust")
+	var robot = BossArtView.make("lava_crab", Vector2(70, 70), 1, "bust")
 	check(robot.picture_texture() == null, "a boss without a picture too")
 	for v in [bust, card, snowman, robot]:
 		v.free()

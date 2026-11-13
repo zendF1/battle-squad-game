@@ -1,0 +1,28 @@
+{
+	"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/<id>/import.json parts (do not edit). Each part: file, at (its top-left from the feet, the frames' pivot, texture px at the frames' scale), size; height: the body (texture px) as in side.json.",
+	"height": 240.0,
+	"parts": {
+		"hull": {
+			"file": "hull.png",
+			"at": [
+				-162.1,
+				-245.6
+			],
+			"size": [
+				343,
+				247
+			]
+		},
+		"dome": {
+			"file": "dome.png",
+			"at": [
+				-76.5,
+				-273.7
+			],
+			"size": [
+				154,
+				133
+			]
+		}
+	}
+}

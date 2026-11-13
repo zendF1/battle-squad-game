@@ -88,8 +88,8 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   `match/views/status_icons.gd`): none shipped yet, the badges are code-drawn; drop a square PNG
   (transparent background, about 64 × 64) named after the effect to replace one (read directly
   until the editor imports it).
-- **Bosses** (`bosses/<bossId>/`: Phù Thuỷ Băng has them; the others are drawn in code,
-  `match/boss/boss_art.gd`, and so is every minion): `side/<anim>_<i>.png` + `side/side.json` (her
+- **Bosses** (`bosses/<bossId>/`: Phù Thuỷ Băng and Đĩa Bay Thép (`steel_robot`) have them; the
+  others are drawn in code, `match/boss/boss_art.gd`, and so is every minion): `side/<anim>_<i>.png` + `side/side.json` (her
   match figure: cast, burst, blizzard, summon, hurt (and the unused fly frames) on one shared canvas,
   the feet = the frost-mist hem's bottom centre on the pivot; `match/boss/boss_body.gd` draws them
   `bodySize` × 40 × 1.45 px tall, mirrored facing left; her death is made in code from the first hurt
@@ -106,7 +106,11 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   shards; `README.txt` there):
   `$GODOT --headless --path . -s tools/import_boss_frames.gd -- ice_witch`. A boss gets drawn art
   by getting a `side/side.json` (with an idle), no code change; read directly until the editor
-  imports the PNGs.
+  imports the PNGs. Đĩa Bay Thép has one source picture only (`art_source/bosses/steel_robot/
+  concept/ufo_v1.png`): `make_frames.py` there cuts it into parts and redraws every frame (idle 7,
+  fly 4, cast 6, burst 6, summon 4, hurt 2; transparent sheets, `background.key` "alpha") and its
+  pictures, plus `parts/hull.png`, `parts/dome.png` + `parts/parts.json` (each part's top-left from
+  the feet) for its death; the feet = the claw's bottom centre.
 - **Title plates** (`ui/titles/title_<rarity>.png`, blue / orange / purple / red, and
   `ui/titles/titles.json`: the banner the title name is drawn on, `ui/title_plate.gd`): AI-drawn
   with no text on a dark background, `art_source/ui/titles/title_<rarity>.png`, keyed by
