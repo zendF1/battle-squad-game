@@ -1,12 +1,12 @@
 {
 	"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/steel_robot/import.json (do not edit: edit the config and re-run). size / pivot (the feet: the frost-mist hem's bottom centre) / height (the body: the hood's top to the feet) / width (the cloak) in texture px; facing 1: drawn facing right; anims {name: {frames, fps, loop, peak}}.",
 	"size": [
-		373,
-		321
+		340,
+		320
 	],
 	"pivot": [
-		172.0,
-		278.0
+		169.0,
+		277.0
 	],
 	"height": 240.0,
 	"width": 253.3,

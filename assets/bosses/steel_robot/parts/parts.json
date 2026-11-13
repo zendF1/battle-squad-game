@@ -1,16 +1,16 @@
 {
-	"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/<id>/import.json parts (do not edit). Each part: file, at (its top-left from the feet, the frames' pivot, texture px at the frames' scale), size; height: the body (texture px) as in side.json.",
+	"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/<id>/import.json parts (do not edit). Each part: file, at (its top-left from the feet, the frames' pivot, texture px at the frames' scale), size, pivot (optional: the point it turns round, px in its own picture: the cannon drawn pointing right, its hub); height: the body (texture px) as in side.json.",
 	"height": 240.0,
 	"parts": {
 		"hull": {
 			"file": "hull.png",
 			"at": [
-				-162.1,
-				-245.6
+				-160.7,
+				-183.2
 			],
 			"size": [
-				343,
-				247
+				324,
+				185
 			]
 		},
 		"dome": {
@@ -22,6 +22,21 @@
 			"size": [
 				154,
 				133
+			]
+		},
+		"cannon": {
+			"file": "cannon.png",
+			"at": [
+				72.3,
+				-84.9
+			],
+			"size": [
+				105,
+				55
+			],
+			"pivot": [
+				11.98,
+				27.5
 			]
 		}
 	}

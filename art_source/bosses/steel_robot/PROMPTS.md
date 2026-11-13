@@ -13,6 +13,12 @@ dùng, `concept/ufo_v1.png` (xem `README.txt`). Prompt dưới đây chỉ dùng
 cho đẹp hơn (vd. đĩa nghiêng thật khi trúng đòn, vuốt mở chi tiết hơn). Ảnh AI vẽ xong thì nhập bằng
 `tools/import_boss_frames.gd` như Phù Thuỷ Băng (mục 5), thay cho sheet do script làm.
 
+**Vòng 2 (tháp pháo xoay):** cụm hai nòng nay là một hình riêng (`turret/`), game xoay nó về phía mỗi
+phát bắn. Vì vậy mọi sheet thân **không vẽ nòng pháo**: dưới vành bên phải chỉ có một ổ tròn nhỏ (vòng
+thép quanh lỗ tối) để tháp pháo gắn vào. Khi dán khối UFO (mục 0b) cho sheet thân, thay dòng `CANNONS`
+bằng khối **[NO-CANNON]** (mục 0d). Tháp pháo vẽ riêng ở mục 3g; pháo hiệu và tên lửa (tuỳ chọn) ở mục 4b.
+Hiện chưa có key Gemini trong `.env` nên các ảnh này đang do `make_frames.py` cắt từ ảnh gốc.
+
 ## Cách dùng
 
 1. **Luôn đính kèm `concept/ufo_v1.png` làm ảnh tham chiếu** (`--ref` của `tools/gen_image.py`) cho
@@ -38,13 +44,13 @@ cho đẹp hơn (vd. đĩa nghiêng thật khi trúng đòn, vuốt mở chi ti�
 |---|---|---|---|---|---|---|
 | `side_idle/` | `idle` | 6 | 3×2 | lặp | | lơ lửng tại chỗ (game tự nhấp nhô; chậm lại, lắc nhẹ khi bị choáng / đóng băng) |
 | `side_fly/` | `fly` | 4 | 2×2 | lặp | | bay tới chỗ mới đầu lượt boss (`UnitFlew`; game tự nghiêng theo hướng bay) |
-| `side_cast/` | `cast` | 6 | 3×2 | không | frame 4 | bắn thường **và** Mưa đạn pháo, Bom mù |
-| `side_burst/` | `burst` | 6 | 3×2 | không | frame 3 (giữ lâu) | Tia laze nghiền (game vẽ 5 tia ngang map từ nòng) |
+| `side_cast/` | `cast` | 6 | 3×2 | không | frame 4 | bắn thường **và** pháo hiệu của Mưa đạn pháo, Bom mù (tháp pháo giật lùi riêng) |
+| `side_burst/` | `burst` | 6 | 3×2 | không | frame 3 (giữ lâu) | Tia laze nghiền (game vẽ mỗi tia từ đầu nòng tháp pháo đã xoay) |
 | `side_summon/` | `summon` | 4 | 2×2 | không | frame 3 | thả drone |
 | `side_hurt/` | `hurt` | 2–4 | 2×2 | không | | trúng đòn; **frame 1 cũng là ảnh khởi đầu cảnh chết** |
 
 Peak đếm từ 1 ở đây; trong `import.json` là chỉ số từ 0 (frame 4 → `"peak": 3`). Không có sheet chết
-riêng (game làm cảnh chết từ frame hurt 1 và hai mảnh `parts/hull`, `parts/dome`).
+riêng (game làm cảnh chết từ frame hurt 1 và các mảnh `parts/hull`, `parts/dome`, `parts/cannon`).
 
 ---
 
@@ -125,6 +131,17 @@ cell borders, frame numbers, a floor or a shadow.
 
 ---
 
+## 0d. Khối NO-CANNON (thay dòng CANNONS của khối UFO trong mọi sheet thân)
+
+```
+CANNONS: NONE on the saucer in this picture (the game draws the cannon separately).
+Under the right side of the rim, on the lower bowl, only a small round turret socket:
+a steel grey ring (#6E757F, highlight #C8CDD4) round a dark hole (#2E3240), about a
+fifth of the bowl's height, outlined like everything else. Nothing sticks out of it.
+```
+
+---
+
 ## 1. Ảnh thiết kế gốc: `concept/ufo_v1.png`
 
 Đã có (ảnh người dùng gửi). Không vẽ lại; mọi prompt khác đính kèm nó.
@@ -177,23 +194,20 @@ alternating pattern. No speed lines, no trail.
 ### 3c. Bắn pháo / Mưa đạn pháo (cast): `side_cast/`, 6 frame, peak frame 4
 
 ```
-ANIMATION: twin cannon shot, 6 frames, not looping. Do NOT draw the shells.
-Frame 1: rest. Frame 2: the muzzles start to glow brighter orange. Frame 3: the barrels
-push forward a little, the muzzles bright yellow-orange. Frame 4 (the key frame): both
-barrels recoil back into their mount, a small orange-yellow star flash at each muzzle,
-the whole saucer jolted slightly to the left. Frame 5: the barrels sliding out again, a
-small grey smoke puff at each muzzle. Frame 6: back to rest, a thin wisp of smoke.
+ANIMATION: firing (the cannon is drawn separately: no barrels, no shells, no flash),
+6 frames, not looping, the saucer level and in place in every frame. Frame 1: rest.
+Frames 2-3: the orange port warms brighter. Frame 4 (the key frame): every rim lamp
+flashes bright, the thruster flames dip short. Frames 5-6: back to rest.
 ```
 
 ### 3d. Tia laze nghiền (burst): `side_burst/`, 6 frame, peak frame 3
 
 ```
-ANIMATION: laser charge and fire, 6 frames, not looping. Do NOT draw the laser beams.
-Frame 1: the orange port and the muzzles start to glow. Frame 2: brighter, small
-orange energy sparks drawn into the muzzles, all rim lamps lit. Frame 3 (the key frame,
-held while the beams fire): each muzzle a white-hot core in an orange ring, the port
-blazing pale yellow, the saucer pushed back a little. Frames 4-6: the glow fading back
-to rest, a thin smoke wisp at the muzzles in frame 5.
+ANIMATION: laser charge and fire (the cannon is drawn separately: no barrels, no
+beams), 6 frames, not looping, the saucer level and in place. Frame 1: the orange port
+starts to glow. Frame 2: brighter, all rim lamps lit. Frame 3 (the key frame, held while
+the beams fire): the port blazing pale yellow, every rim lamp and dome dot lit, the
+thruster flames long. Frames 4-6: the glow fading back to rest.
 ```
 
 ### 3e. Thả drone (summon): `side_summon/`, 4 frame, peak frame 3
@@ -215,12 +229,57 @@ sputtering short, two or three small yellow sparks on the hull at the front. Fra
 tilted 4 degrees, lamps flickering. Frame 3: almost level. Frame 4: back to rest.
 ```
 
+### 3g. Tháp pháo (turret): `turret/sheet_v2.png`, 6 ô ngang
+
+Sheet riêng của cụm hai nòng, **nằm ngang chĩa thẳng sang phải**, cùng chỗ trong mọi ô (game xoay nó
+quanh tâm cái trục tròn bên trái). Nền magenta, `--aspect 21:9`, `--ref concept/ufo_v1.png`. Sau khi
+vẽ: `make_frames.py` cần đọc sheet này thay cho phần tự cắt (chưa làm: hiện tháp pháo do script cắt).
+
+```
+SUBJECT: only the saucer's twin cannon as a separate turret piece, NOT the saucer. Six
+cells in one row, the same turret at the same place and size in every cell, pointing
+straight RIGHT (perfectly horizontal). From left to right: a round steel hub (a disc
+with a small cap in its centre, this is the pivot), a short thick neck, a dark grey
+housing block, and from it two parallel round light-grey barrels side by side (the upper
+one behind and a little further right, the lower one in front), each ending in a thick
+blue-violet ring (#6E62B8) round an orange glowing muzzle face (#FF8A1F).
+Cell 1: rest. Cell 2: the muzzle faces brighter orange with a thin orange ring of light.
+Cell 3: brighter still, three or four small orange sparks drawn toward each muzzle.
+Cell 4: each muzzle face a white-hot core in an orange ring with a short spiky rim.
+Cell 5: both barrels slid back into the housing about a quarter of their length, the
+muzzles hot orange. Cell 6: the barrels halfway out again, cooling. No flash, no smoke,
+no beam, no shell, no saucer.
+```
+
 ---
 
 ## 4. Drone (lính con)
 
 Drone vẫn vẽ bằng code (`match/boss/boss_art.gd` `_drone`). Nếu sau này cần ảnh: thư mục riêng
 `art_source/bosses/drone/`, cùng khối STYLE, thiết kế nhỏ cùng tông thép xám, sọc vàng đen, một mắt đỏ.
+
+## 4b. Pháo hiệu và tên lửa của Mưa đạn pháo (tuỳ chọn)
+
+Hiện game vẽ bằng code. Muốn ảnh thì vẽ trên nền **trắng phẳng** (kiểu "solid" của
+`tools/import_projectiles.gd`: viền đen dày, nền trắng loang từ mép), mỗi hình một ảnh, nằm ngang mũi
+sang phải; khói màu và tia lửa lấp lánh vẫn để game vẽ (hạt khói bay lên, nhấp nháy). Cần thêm vào
+`import_projectiles.gd` một mục cho ảnh của boss (hiện tool chỉ đọc đạn theo loại súng × bậc).
+
+```
+SUBJECT: a signal flare canister lying on its side on nothing, pointing right: a short
+red-orange cylinder (#E8402C, shade #B02A1E) with two white bands, a dark grey cap at the
+left end, and at the right end a small bright burning tip: a yellow-white flame core
+(#FFF3B0) inside a short orange flame shape, both outlined. No smoke, no sparks, no glow
+halo, no ground, no shadow. Flat pure white background #FFFFFF everywhere around it.
+```
+
+```
+SUBJECT: a small cartoon missile flying right, horizontal: a light steel grey body
+(#9CA3AD, shade #6E757F) with a yellow and near-black hazard stripe ring, a red nose cone
+(#E8402C), four small red tail fins (two visible), and a short orange exhaust flame at the
+tail (yellow core), all outlined. No smoke trail, no motion lines, no glow halo. Flat pure
+white background #FFFFFF everywhere around it.
+```
 
 ---
 
@@ -247,9 +306,10 @@ python3 -I art_source/bosses/steel_robot/make_frames.py      # các sheet còn l
 - **Tách frame:** đúng số ô, đúng thứ tự; mỗi đĩa nằm trọn trong ô, hai hình cạnh nhau không chạm
   nhau (kể cả ăng-ten, nòng, lửa đẩy). Không có đường kẻ ô, số frame.
 - **Cùng cỡ, cùng chỗ:** đáy vuốt cùng độ cao ở mọi ô, vòm không nhảy giữa các frame.
-- **Thiết kế:** nhìn sang phải, hai nòng bên phải chếch xuống; vòm kính xanh trời **đặc** (không lộ
+- **Thiết kế:** nhìn sang phải; sheet thân **không có nòng** (chỉ ổ tròn dưới vành phải), sheet tháp
+  pháo chĩa thẳng ngang cùng chỗ mọi ô; vòm kính xanh trời **đặc** (không lộ
   nền), phi công xanh lá; sọc vàng đen, năm đèn đỏ trên vành; cửa cam bên phải vòm.
 - **Nền:** một màu #FF00FF phẳng; không quầng sáng lớn toả ra nền.
-- **Nội dung:** không chữ, không đạn, không tia laze, không drone, không khói dày.
+- **Nội dung:** không chữ, không đạn, không tia laze, không chớp nòng, không drone, không khói dày.
 - **Nối animation:** frame cuối của cast / burst / summon / hurt = dáng idle frame 1.
 - **Dấu ✦:** ghi toạ độ vào `watermark` khi nhập; nếu đè lên đĩa thì xem lại sau khi xoá.

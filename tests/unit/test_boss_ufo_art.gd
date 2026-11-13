@@ -23,11 +23,44 @@ func test_the_ufo_has_frames_pictures_and_parts() -> void:
 	check(side["pivot"].y > side["height"], "the feet under the dome's top")
 	check(Art.boss_picture("steel_robot", "portrait") != null and Art.boss_picture("steel_robot", "bust") != null, "portrait and bust")
 	var parts = JSON.parse_string(FileAccess.get_file_as_string("res://assets/bosses/steel_robot/parts/parts.json"))
-	check(parts is Dictionary and parts["parts"].has("hull") and parts["parts"].has("dome"), "the hull and the dome parts")
-	for p in ["hull", "dome"]:
+	check(parts is Dictionary and parts["parts"].has("hull") and parts["parts"].has("dome") and parts["parts"].has("cannon"),
+		"the hull, the dome and the cannon parts")
+	check(parts["parts"]["cannon"].get("pivot") is Array, "the cannon part turns round its hub")
+	for p in ["hull", "dome", "cannon"]:
 		var img := Image.load_from_file(ProjectSettings.globalize_path("res://assets/bosses/steel_robot/parts/%s.png" % p))
 		eq([img.get_width(), img.get_height()], [int(parts["parts"][p]["size"][0]), int(parts["parts"][p]["size"][1])], "%s size" % p)
 	check(float(parts["parts"]["dome"]["at"][1]) < float(parts["parts"]["hull"]["at"][1]), "the dome over the hull")
+
+
+func test_the_ufo_turret_turns_on_its_own() -> void:
+	var t = JSON.parse_string(FileAccess.get_file_as_string("res://assets/bosses/steel_robot/turret/turret.json"))
+	check(t is Dictionary, "assets/bosses/steel_robot/turret/turret.json loads")
+	eq(t["frames"], ["idle", "charge_0", "charge_1", "hot", "recoil_0", "recoil_1"], "the turret's states")
+	eq(t["states"]["charge"], ["charge_0", "charge_1"], "the states grouped")
+	for f in t["frames"]:
+		var img := Image.load_from_file(ProjectSettings.globalize_path("res://assets/bosses/steel_robot/turret/%s.png" % f))
+		eq([img.get_width(), img.get_height()], [int(t["size"][0]), int(t["size"][1])], "%s on the turret's canvas" % f)
+	var pivot := Vector2(float(t["pivot"][0]), float(t["pivot"][1]))
+	var idle := Image.load_from_file(ProjectSettings.globalize_path("res://assets/bosses/steel_robot/turret/idle.png"))
+	check(idle.get_pixelv(Vector2i(pivot.round())).a > 0.9, "the pivot is on the hub")
+	var mid := Vector2(float(t["tips"]["mid"][0]), float(t["tips"]["mid"][1]))
+	near(mid.y, 0.0, 0.05, "the tips' middle on the line from the pivot (pointing right)")
+	var upper := pivot + Vector2(float(t["tips"]["upper"][0]), float(t["tips"]["upper"][1]))
+	var px := idle.get_pixelv(Vector2i(upper.round()))
+	check(px.a > 0.9 and px.r > 0.85 and px.b < 0.5, "the upper tip on its glowing orange muzzle (%s)" % px)
+	var unit_mount := Vector2(float(t["unit"]["mount"][0]), float(t["unit"]["mount"][1]))
+	check(unit_mount.x > 30.0 and unit_mount.x < 40.0 and unit_mount.y < -18.0 and unit_mount.y > -30.0,
+		"the mount under the hull's right side (unit frame %s)" % unit_mount)
+	near(float(t["unit"]["tips"]["mid"][0]) * 2.4, float(t["tips"]["mid"][0]), 0.05, "unit frame = texture px / 2.4")
+	check(float(t["range"][0]) < float(t["rest"]) and float(t["rest"]) < float(t["range"][1]), "it rests inside its range")
+	for anim in Art.boss_side("steel_robot")["anims"]:
+		eq(t["bodyFrames"][anim].size(), Art.boss_side("steel_robot")["anims"][anim]["frames"].size(), "a mount per %s frame" % anim)
+	eq(t["bodyFrames"]["idle"][0][2], 0.0, "no turn on the idle frames")
+	check(float(t["bodyFrames"]["hurt"][0][2]) < 0.0, "the hurt's nose-up tilt turns it up")
+	var parts = JSON.parse_string(FileAccess.get_file_as_string("res://assets/bosses/steel_robot/parts/parts.json"))
+	var cannon: Dictionary = parts["parts"]["cannon"]
+	var at := Vector2(float(cannon["at"][0]), float(cannon["at"][1])) + Vector2(float(cannon["pivot"][0]), float(cannon["pivot"][1]))
+	check(at.distance_to(Vector2(float(t["mount"][0]), float(t["mount"][1]))) < 1.0, "the cannon part's hub on the mount")
 
 
 func test_the_ufo_body_draws_frames() -> void:

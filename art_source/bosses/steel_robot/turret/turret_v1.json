@@ -1,0 +1,205 @@
+{
+	"_doc": "Written by make_frames.py (do not edit): the turret pictures' geometry in sheet px (half the source; the importer scales it like the frames). cell: one picture's cell in turret/sheet_v1.png; pivot: the hub's centre in each cell; mount: the pivot from the feet on a body frame at rest; tips: the muzzles' glowing centres from the pivot (pointing right); recoil: how far a state has the barrels slid back; rest / range: degrees (0 right, positive down, facing right); bodyFrames: per body frame the pivot from the feet and the turn it adds (the hurt's tilt).",
+	"cell": [
+		240,
+		170
+	],
+	"pivot": [
+		32.0,
+		85.0
+	],
+	"frames": [
+		"idle",
+		"charge_0",
+		"charge_1",
+		"hot",
+		"recoil_0",
+		"recoil_1"
+	],
+	"mount": [
+		120.0,
+		-81.5
+	],
+	"tips": {
+		"upper": [
+			111.52,
+			-16.5
+		],
+		"lower": [
+			88.72,
+			16.5
+		],
+		"mid": [
+			100.12,
+			0.0
+		]
+	},
+	"recoil": {
+		"recoil_0": 12.0,
+		"recoil_1": 5.0
+	},
+	"rest": 20.0,
+	"range": [
+		10.0,
+		120.0
+	],
+	"bodyFrames": {
+		"idle": [
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			]
+		],
+		"fly": [
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			]
+		],
+		"cast": [
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			]
+		],
+		"burst": [
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			]
+		],
+		"summon": [
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			],
+			[
+				120.0,
+				-81.5,
+				0.0
+			]
+		],
+		"hurt": [
+			[
+				121.85,
+				-104.08,
+				-9.0
+			],
+			[
+				121.31,
+				-89.95,
+				-3.5
+			]
+		]
+	}
+}

@@ -1,0 +1,242 @@
+{
+	"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/<id>/import.json turret and make_frames.py's turret data (do not edit). The turret pictures (turret/<frame>.png, one canvas `size`) are drawn pointing right (0 degrees) round `pivot` (texture px in each picture). Points in texture px at the frames' scale (height: the body as in side.json) and in `unit` (the unit frame: the body 100 tall, the feet at the origin, facing right, y down): mount = the pivot from the feet on a body frame at rest; tips = the muzzles' glowing centres from the pivot when pointing right (upper = the far barrel, lower = the near one, mid = between them, on the line from the pivot); recoil = how far back a state has the barrels; rest / range = degrees (0 right, positive down, facing right; mirror for facing left); bodyFrames = per body frame [x, y, turn]: the pivot from the feet and the degrees that frame adds (the hurt's tilt).",
+	"height": 240.0,
+	"size": [
+		122,
+		87
+	],
+	"pivot": [
+		11.92,
+		43.5
+	],
+	"frames": [
+		"idle",
+		"charge_0",
+		"charge_1",
+		"hot",
+		"recoil_0",
+		"recoil_1"
+	],
+	"states": {
+		"idle": [
+			"idle"
+		],
+		"charge": [
+			"charge_0",
+			"charge_1"
+		],
+		"hot": [
+			"hot"
+		],
+		"recoil": [
+			"recoil_0",
+			"recoil_1"
+		]
+	},
+	"mount": [
+		84.21,
+		-57.19
+	],
+	"tips": {
+		"upper": [
+			78.26,
+			-11.58
+		],
+		"lower": [
+			62.26,
+			11.58
+		],
+		"mid": [
+			70.26,
+			0.0
+		]
+	},
+	"recoil": {
+		"recoil_0": 8.42,
+		"recoil_1": 3.51
+	},
+	"unit": {
+		"mount": [
+			35.09,
+			-23.83
+		],
+		"tips": {
+			"upper": [
+				32.61,
+				-4.82
+			],
+			"lower": [
+				25.94,
+				4.82
+			],
+			"mid": [
+				29.27,
+				0.0
+			]
+		}
+	},
+	"rest": 20.0,
+	"range": [
+		10.0,
+		120.0
+	],
+	"bodyFrames": {
+		"idle": [
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			]
+		],
+		"fly": [
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			]
+		],
+		"cast": [
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			]
+		],
+		"burst": [
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			]
+		],
+		"summon": [
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			],
+			[
+				84.21,
+				-57.19,
+				0.0
+			]
+		],
+		"hurt": [
+			[
+				85.51,
+				-73.04,
+				-9.0
+			],
+			[
+				85.13,
+				-63.12,
+				-3.5
+			]
+		]
+	}
+}

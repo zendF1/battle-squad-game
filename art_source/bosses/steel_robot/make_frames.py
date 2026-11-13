@@ -10,26 +10,39 @@ The concept is cut into parts and redrawn into the animations (no AI sheets exis
      keyed too (never the dome's), every backdrop px un-mixed (colour-to-alpha against the backdrop
      colour: the red lamps' and the muzzles' glows keep their own colour at soft alpha, no blue
      fringe); the AI's thruster jets are dropped and painted again (jet()) so they can flicker;
-  2. parts by geometry (constants below, source px): the twin barrels (slid back along their axis
-     for the recoil), the bottom claw (its two halves swung open round their roots, a lit hatch
-     between them), the lamps (blinking), the orange port, the dome (glass, pilot, antenna, ring);
-  3. each frame drawn at full size in a fixed cell (the claw's bottom, the feet, at the same cell
+  2. the twin cannon cut off (round 2: it turns to aim, a sprite of its own): its housing and barrels
+     cut along the stripe band's outline (CANNON_CUT), the cut edges re-outlined; the hull under the
+     band right of HULL_SEAM refilled from its own mirror image (the left side turned over: the bowl,
+     the right leg, the glows under the lamps; cross-faded at the seam, the band's outline drawn
+     again over it) and a turret socket painted at PIVOT under the bowl;
+  3. parts by geometry (constants below, source px): the barrels (slid back along their axis for the
+     recoil), the bottom claw (its two halves swung open round their roots, a lit hatch between
+     them), the lamps (blinking), the orange port, the dome (glass, pilot, antenna, ring);
+  4. each body frame drawn at full size in a fixed cell (the claw's bottom, the feet, at the same cell
      point in every frame), turned / shifted for the hurt, then halved (Lanczos on premultiplied
-     colour) into one row per animation: side_<anim>/sheet_v1.png, transparent.
+     colour) into one row per animation: side_<anim>/sheet_v1.png, transparent;
+  5. the turret: the cut cannon moved so its barrels' middle axis runs through PIVOT, turned to point
+     straight right, a round hub painted at the pivot with a neck into the housing, in its own fixed
+     cell (the pivot at TURRET_AT); its states (TURRET: idle, charge, hot, recoil) in one row,
+     turret/sheet_v1.png, and turret/turret_v1.json (the pivot, its mount from the feet per body
+     frame, the muzzle tips, the rest angle and the range, sheet px).
 
-tools/import_boss_frames.gd then imports them like the witch's sheets (import.json here: "key":
-"alpha", the cuts and feet anchors at the fixed cells, bodyHeight). Pictures: portrait/portrait_v1.png
-(the whole craft, full size), portrait/bust_v1.png (the dome with the pilot), parts/hull_v1.png and
-parts/dome_v1.png (one cell each, for a death that pops the dome off).
+tools/import_boss_frames.gd then imports them (import.json here: "key": "alpha", the cuts and feet
+anchors at the fixed cells, bodyHeight; `turret`; `parts`). Pictures: portrait/portrait_v1.png (the
+whole craft, the turret at its rest angle, full size), portrait/bust_v1.png (the dome with the pilot),
+parts/hull_v1.png, parts/dome_v1.png and parts/cannon_v1.png (one cell each, the cannon pointing right
+at its mount: for the crash death).
 
 Run in battle-squad-game (Python 3 with numpy, scipy, Pillow):
 
   python3 -I art_source/bosses/steel_robot/make_frames.py [--debug DIR]
   /Applications/Godot.app/Contents/MacOS/Godot --headless --path . -s tools/import_boss_frames.gd -- steel_robot
 
---debug DIR writes the keyed picture on dark / orange and the part masks over the picture.
+--debug DIR writes the keyed picture on dark / orange, the part masks over the picture, the hull
+without its cannon and the turret's overlap with the hull per angle (the range).
 """
 import argparse
+import json
 import math
 import os
 
@@ -44,6 +57,7 @@ SRC = os.path.join(HERE, "concept", "ufo_v1.png")
 WATERMARK = (990, 965, 36)  # the ✦: centre, radius
 OUTLINE_LUM = 75  # darker than this is the black outline (the flood's wall)
 NOISE = 0.12  # un-mixed alpha under this is backdrop noise / JPEG ringing: cleared
+SPECK_ALPHA = 0.55  # light, not warm, outside the outline and fainter than this: backdrop noise (despeckle())
 FEET = (512, 855)  # the claw head's bottom centre (measured: check_geometry())
 DOME_TOP = 171  # the glass dome's top (the body: dome top → feet)
 # The twin barrels: axis direction (degrees below horizontal), muzzle face centres, half width.
@@ -77,6 +91,47 @@ PORT = (662, 496, 40)
 # Thruster jets: top centre (under each foot), width, length (the AI's were about this size).
 JETS = [(337, 776, 34, 70), (514, 853, 42, 72), (689, 776, 34, 70)]
 JET_RECTS = [(295, 768, 380, 900), (466, 848, 562, 960), (640, 768, 735, 900)]
+
+# ── The twin cannon, a turret of its own (round 2: it turns to aim) ───────────
+# The stripe band's bottom outline over the cannon: its centre line (source px, measured), BAND_INK
+# thick. The hull keeps it; the cut cannon's top edge is it (the housing was tucked under the band).
+BAND_EDGE = [(580, 679), (600, 677), (620, 674.5), (640, 672), (660, 669.5), (680, 667), (700, 665), (720, 662),
+             (740, 658.5), (760, 655), (780, 649.5), (800, 644.5), (820, 639), (840, 631.5), (860, 623.5), (880, 615),
+             (900, 602.5), (920, 587), (940, 566.5), (948, 556), (1045, 556)]
+BAND_INK = 6
+BAND_REDRAW = (612, 944)  # the outline drawn again between these x (over the refill's seam)
+# Under the band right of HULL_SEAM the hull is refilled from its mirror image (x → MIRROR_X2 - x: the
+# axis fitted on the legs and the bowl), cross-faded over SEAM_FADE px, down to REFILL_BOTTOM.
+MIRROR_X2 = 1028
+HULL_SEAM = 620
+SEAM_FADE = 8
+REFILL_BOTTOM = 900
+# The cannon's housing and barrels (with the muzzles' glow): inside this polygon and under the band's
+# outline top. Its left side follows the back of the lower barrel's collar (the arm behind it, joining
+# the old mount to the hull, is dropped: the hub replaces it). The lamp's glow strip next to the housing
+# (CANNON_NOT: centre, radius; its warm px) stays with the hull.
+CANNON_CUT = [(794, 590), (1045, 590), (1045, 830), (960, 830), (905, 800), (840, 776), (791, 754), (778, 738),
+              (773, 712), (774, 690), (788, 668)]
+CANNON_NOT = (893, 609, 30)
+# Of that, only what lies within CANNON_HALF of either barrel's axis and CANNON_BACK behind its muzzle
+# (the barrels, their collars and the housing between them; the housing's wedge up under the band and
+# its bracket under the barrels are dropped: the hub and its neck hold the barrels).
+CANNON_HALF = 42
+CANNON_BACK = 175
+# The turret's pivot on the hull (source px): the centre of the socket painted under the bowl's right
+# side; the cut cannon is moved (perpendicular to its barrels) so their middle axis runs through it.
+PIVOT = (752, 692)
+SOCKET_R = 37  # the hull's socket ring (outer, ink included)
+HUB_R = 29  # the turret's round hub on it
+NECK = (52, 25)  # the neck from the hub into the housing: length along the axis, half width
+# The turret pictures: a full-size cell, the pivot at TURRET_AT (even: halves exactly), pointing right.
+TURRET_CELL = (480, 340)
+TURRET_AT = (64, 170)
+TURRET_REST = 20.0  # degrees below horizontal at rest (the concept drew it at BARREL_DEG)
+# The angles it may point (0 right, positive down, facing right): the turret off the band and the
+# saucer above it, not swung back under the belly (--debug writes turret_range.txt: the overlap per
+# angle).
+TURRET_RANGE = (10.0, 120.0)
 
 # ── Frames ────────────────────────────────────────────────────────────────────
 CELL = (1240, 1180)  # full-size cell
@@ -167,6 +222,16 @@ def strip_jets(colour, alpha, outside):
         reg = (slice(y0, y1), slice(x0, x1))
         kill = outside[reg] & (alpha[reg] < 0.35) & (lum[reg] > 100)
         alpha[reg][kill] = 0.0
+
+
+def despeckle(colour, alpha, outside):
+    """The backdrop's noise left by the un-mixing (faint light specks round the craft, not the lamps'
+    and muzzles' warm glow, not the dark edge of the outline) cleared."""
+    lum = colour @ np.array([0.299, 0.587, 0.114])
+    speck = outside & (alpha < SPECK_ALPHA) & (lum > 90) & (colour[..., 0] - colour[..., 2] < 60)
+    alpha[speck] = 0.0
+    colour[speck] = 0.0
+    return int(speck.sum())
 
 
 # ── Premultiplied layers ──────────────────────────────────────────────────────
@@ -306,43 +371,6 @@ def star(d, k, cx, cy, n, r_out, r_in, rot, fill, outline=None, width=0):
         d.line(pts + [pts[0]], fill=outline, width=int(width * k), joint="curve")
 
 
-def muzzle_flash(dst, cx, cy, size):
-    """The shot leaving: a two-tone starburst with a dark-orange outline (cell px)."""
-    r = int(size * 1.3)
-
-    def paint(d, k):
-        c = r
-        star(d, k, c, c, 8, size, size * 0.45, 0.2, (255, 160, 40, 255), (130, 50, 12, 255), 4)
-        star(d, k, c, c, 8, size * 0.62, size * 0.28, 0.2 + math.pi / 8, (255, 236, 150, 255))
-        d.ellipse([(c - size * 0.2) * k, (c - size * 0.2) * k, (c + size * 0.2) * k, (c + size * 0.2) * k],
-                  fill=(255, 255, 245, 255))
-
-    glow(dst, cx, cy, size * 1.2, (255, 170, 60), 0.55)
-    over(dst, draw_layer((2 * r, 2 * r), paint), (int(cx - r), int(cy - r)))
-
-
-def puffs(dst, blobs, alpha=0.92):
-    """Smoke: round grey puffs, a shade, the dark outline (cell px: [(x, y, r)])."""
-    x0 = int(min(b[0] - b[2] for b in blobs)) - 8
-    y0 = int(min(b[1] - b[2] for b in blobs)) - 8
-    x1 = int(max(b[0] + b[2] for b in blobs)) + 8
-    y1 = int(max(b[1] + b[2] for b in blobs)) + 8
-
-    def paint(d, k):
-        a = int(255 * alpha)
-        for x, y, r in blobs:
-            e = [(x - x0 - r - 4) * k, (y - y0 - r - 4) * k, (x - x0 + r + 4) * k, (y - y0 + r + 4) * k]
-            d.ellipse(e, fill=(52, 50, 62, a))
-        for x, y, r in blobs:
-            d.ellipse([(x - x0 - r) * k, (y - y0 - r) * k, (x - x0 + r) * k, (y - y0 + r) * k], fill=(168, 168, 180, a))
-        for x, y, r in blobs:
-            q = r * 0.78
-            d.ellipse([(x - x0 - q - r * 0.12) * k, (y - y0 - q - r * 0.16) * k, (x - x0 + q - r * 0.12) * k,
-                       (y - y0 + q - r * 0.16) * k], fill=(214, 214, 222, a))
-
-    over(dst, draw_layer((x1 - x0, y1 - y0), paint), (x0, y0))
-
-
 def sparks(dst, cx, cy, size, seed):
     """A burst of sparks: short bright strokes with a dark edge and a few dots (cell px)."""
     rng = np.random.default_rng(seed)
@@ -364,6 +392,39 @@ def sparks(dst, cx, cy, size, seed):
     over(dst, draw_layer((2 * r, 2 * r), paint), (int(cx - r), int(cy - r)))
 
 
+def band_y(x):
+    """The band's bottom outline (its centre line) at x (source px)."""
+    return np.interp(x, [p[0] for p in BAND_EDGE], [p[1] for p in BAND_EDGE])
+
+
+def poly_mask(h, w, pts):
+    img = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(img).polygon(pts, fill=255)
+    return np.asarray(img) > 127
+
+
+def unpm(layer):
+    """Straight colour (0..255) and alpha of a premultiplied layer."""
+    a = layer[..., 3]
+    col = np.where(a[..., None] > 1e-4, layer[..., :3] / np.maximum(a, 1e-4)[..., None], 0.0) * 255.0
+    return np.clip(col, 0, 255), np.clip(a, 0.0, 1.0)
+
+
+def rot(deg):
+    """[[cos, -sin], [sin, cos]]: turns (1, 0) to the direction `deg` below horizontal (screen, y down)."""
+    t = math.radians(deg)
+    return np.array([[math.cos(t), -math.sin(t)], [math.sin(t), math.cos(t)]])
+
+
+def place(dst, layer, at_layer, at_dst, deg):
+    """layer turned by deg (positive: clockwise on screen, the barrels down) round its px at_layer,
+    drawn over dst with that px on dst's at_dst."""
+    m = rot(deg).T  # dst px → layer px: the inverse turn
+    t = np.array(at_layer) - m @ np.array(at_dst)
+    turned = affine(layer, [[m[0, 0], m[0, 1], t[0]], [m[1, 0], m[1, 1], t[1]]], dst.shape[:2])
+    return over(dst, turned)
+
+
 # ── The craft ─────────────────────────────────────────────────────────────────
 
 class Craft:
@@ -373,24 +434,43 @@ class Craft:
         colour, alpha, outside = key(rgb)
         self.keyed_with_jets = (colour.copy(), alpha.copy())
         strip_jets(colour, alpha, outside)
-        self.colour, self.alpha = colour, alpha
+        despeckle(colour, alpha, outside)
         h, w = self.h, self.w
         yy, xx = np.mgrid[0:h, 0:w]
         self.yy, self.xx = yy, xx
+        # The concept as drawn (the cannon on it): the turret is cut from it.
+        self.concept = (colour.copy(), alpha.copy())
+        warm0 = self._warm(colour)
         # The barrels' band (the sliding part): axis frame per muzzle.
         t = math.radians(BARREL_DEG)
         self.axis = np.array([math.cos(t), math.sin(t)])
-        normal = np.array([-math.sin(t), math.cos(t)])
+        self.normal = np.array([-math.sin(t), math.cos(t)])
         band = np.zeros((h, w), bool)
         for mx, my in MUZZLES:
             along = (xx - mx) * self.axis[0] + (yy - my) * self.axis[1]
-            across = (xx - mx) * normal[0] + (yy - my) * normal[1]
+            across = (xx - mx) * self.normal[0] + (yy - my) * self.normal[1]
             band |= (along >= -BARREL_BACK) & (along <= BARREL_FRONT) & (np.abs(across) <= BARREL_HALF)
         self.barrels = band & (alpha > 0)
+        self.muzzle_discs = [self._disc((x, y, 22)) & warm0 for x, y in MUZZLES]
+        # The cannon: the housing and the barrels under the band's outline top (the outline its top edge).
+        self.cannon = poly_mask(h, w, CANNON_CUT) & (yy >= band_y(xx) - BAND_INK / 2.0 - 1) & (alpha > 0)
+        self.cannon &= ~(self._disc(CANNON_NOT) & warm0)
+        # Only round the barrels (the housing's wedge up under the band and its bracket under them off).
+        zone = np.zeros((h, w), bool)
+        for mx, my in MUZZLES:
+            along = (xx - mx) * self.axis[0] + (yy - my) * self.axis[1]
+            across = (xx - mx) * self.normal[0] + (yy - my) * self.normal[1]
+            zone |= (along >= -CANNON_BACK) & (np.abs(across) <= CANNON_HALF)
+        self.cannon &= zone
+        # Moved perpendicular to the barrels so their middle axis runs through the pivot.
+        mid = np.mean(np.array(MUZZLES, float), axis=0)
+        self.shift = float(self.normal @ (np.array(PIVOT, float) - mid)) * self.normal
+        # The hull without it: refilled from the mirror image, the band's outline again, the socket.
+        colour, alpha = self._refill(colour, alpha)
+        self.colour, self.alpha = colour, alpha
         self.claw = (yy >= CLAW_Y) & (xx >= CLAW_X[0]) & (xx <= CLAW_X[1]) & (alpha > 0)
         self.dome = dome_mask(h, w) & (alpha > 0)
-        r, g, b = colour[..., 0], colour[..., 1], colour[..., 2]
-        self.warm = (r > 150) & (r - b > 70) & (g < r * 0.72)
+        self.warm = self._warm(colour)
         self.lamps = []
         for bulb, strip in LAMPS:
             m = self._disc(bulb) & self.warm
@@ -399,13 +479,62 @@ class Craft:
             self.lamps.append(m)
         self.dots = [self._disc((x, y, 7)) & self.warm for x, y in RING_DOTS]
         self.port = self._disc(PORT) & self.warm
-        self.muzzle_discs = [self._disc((x, y, 22)) & self.warm for x, y in MUZZLES]
         if debug:
             self._debug(debug)
+
+    @staticmethod
+    def _warm(colour):
+        r, g, b = colour[..., 0], colour[..., 1], colour[..., 2]
+        return (r > 150) & (r - b > 70) & (g < r * 0.72)
 
     def _disc(self, c):
         x, y, r = c
         return (self.xx - x) ** 2 + (self.yy - y) ** 2 <= r * r
+
+    def _refill(self, colour, alpha):
+        """The hull under the band right of HULL_SEAM: its mirror image (the left side turned over),
+        cross-faded at the seam; the band's outline drawn again over it; the turret's socket."""
+        yy, xx = self.yy, self.xx
+        under = (yy >= band_y(xx) + BAND_INK / 2.0) & (yy < REFILL_BOTTOM)
+        t = np.clip((xx - HULL_SEAM) / float(SEAM_FADE), 0.0, 1.0) * under
+        src = pm(colour, alpha)
+        mir = src[yy, np.clip(MIRROR_X2 - xx, 0, self.w - 1)]
+        out = src * (1 - t[..., None]) + mir * t[..., None]
+        # The band's outline over the seam (and the cut under the band's right end).
+        x0, x1 = BAND_REDRAW
+        top = int(min(band_y(x) for x in range(x0, x1 + 1))) - 12
+        bot = int(max(band_y(x) for x in range(x0, x1 + 1))) + 12
+
+        def outline(d, k):
+            pts = [((x - x0 + 4) * k, (band_y(x) - top) * k) for x in range(x0, x1 + 1, 2)]
+            d.line(pts, fill=INK + (255,), width=int(BAND_INK * k), joint="curve")
+
+        over(out, draw_layer((x1 - x0 + 8, bot - top), outline), (x0 - 4, top))
+        self._socket(out)
+        return unpm(out)
+
+    def _socket(self, out):
+        """The turret's socket under the bowl at PIVOT: a steel ring round a dark well, tucked under
+        the band (never over its outline)."""
+        R = SOCKET_R
+        n = 2 * R + 8
+        c = n / 2.0
+
+        def paint(d, k):
+            e = lambda r: [(c - r) * k, (c - r) * k, (c + r) * k, (c + r) * k]  # noqa: E731
+            d.ellipse(e(R), fill=INK + (255,))
+            d.ellipse(e(R - 5), fill=(110, 120, 130, 255))
+            d.chord(e(R - 5), 200, 340, fill=(150, 160, 170, 255))  # its lit top
+            d.arc(e(R - 9), 215, 300, fill=(197, 207, 216, 255), width=int(3 * k))
+            d.ellipse(e(R - 12), fill=INK + (255,))
+            d.ellipse(e(R - 16), fill=(46, 50, 62, 255))  # the well the hub turns in
+
+        lay = draw_layer((n, n), paint)
+        px, py = PIVOT
+        x0, y0 = int(round(px - c)), int(round(py - c))
+        ys, xs = np.mgrid[y0:y0 + n, x0:x0 + n]
+        lay[ys < band_y(xs) + BAND_INK / 2.0] = 0.0  # under the band
+        over(out, lay, (x0, y0))
 
     def _debug(self, out):
         os.makedirs(out, exist_ok=True)
@@ -415,14 +544,21 @@ class Craft:
             Image.fromarray((c * a[..., None] + bg * (1 - a[..., None])).round().astype(np.uint8)).save(
                 os.path.join(out, "keyed_%s.png" % name))
         bg = np.ones_like(c) * np.array((40, 30, 45))
-        base = self.colour * self.alpha[..., None] + bg * (1 - self.alpha[..., None])
+        Image.fromarray((self.colour * self.alpha[..., None] + bg * (1 - self.alpha[..., None])).round().clip(0, 255)
+                        .astype(np.uint8)).save(os.path.join(out, "hull_no_cannon.png"))
+        c0, a0 = self.concept
+        base = c0 * a0[..., None] + bg * (1 - a0[..., None])
         tint = base.copy()
-        for m, col in ((self.barrels, (0, 255, 255)), (self.claw, (255, 0, 255)), (self.dome, (0, 255, 0)),
-                       (self.port, (255, 255, 0))):
+        for m, col in ((self.barrels, (0, 255, 255)), (self.cannon, (255, 120, 0)), (self.claw, (255, 0, 255)),
+                       (self.dome, (0, 255, 0)), (self.port, (255, 255, 0))):
             tint[m] = tint[m] * 0.5 + np.array(col) * 0.5
         for m in self.lamps + self.dots + self.muzzle_discs:
             tint[m] = tint[m] * 0.3 + np.array((255, 255, 255)) * 0.7
         Image.fromarray(tint.round().clip(0, 255).astype(np.uint8)).save(os.path.join(out, "masks.png"))
+        with open(os.path.join(out, "turret_range.txt"), "w") as f:
+            f.write("angle  px of the turret over the band / saucer top  over the belly and claw\n")
+            for deg, top, belly in self.turret_overlap():
+                f.write("%5d  %8d  %8d\n" % (deg, top, belly))
 
     def check_geometry(self):
         a = self.alpha
@@ -432,7 +568,7 @@ class Craft:
         top = np.nonzero((a[:, 480:546] > 0.5).any(axis=1))[0].min()
         print("measured: feet y %d (FEET %d), dome top %d (DOME_TOP %d)" % (feet, FEET[1], top, DOME_TOP))
 
-    # A frame, full size, in the cell: premultiplied (CELL[1], CELL[0], 4).
+    # A body frame (no cannon: the turret is drawn by the game), full size, in the cell: premultiplied.
     def frame(self, st):
         ox, oy = OFFSET
         colour = self.colour.copy()
@@ -449,10 +585,6 @@ class Craft:
         port = float(st.get("port", 0.0))
         if port > 0:
             colour[self.port] = colour[self.port] * (1 - 0.6 * port) + np.array((255, 238, 180)) * 0.6 * port
-        heat = float(st.get("heat", 0.0))
-        if heat > 0:
-            for m in self.muzzle_discs:
-                colour[m] = colour[m] * (1 - 0.75 * heat) + np.array((255, 246, 205)) * 0.75 * heat
         full = pm(colour, alpha)
         cell = np.zeros((CELL[1], CELL[0], 4))
         # Behind the craft: the jets (their tops under the feet).
@@ -464,10 +596,7 @@ class Craft:
                 jet(cell, x + ox, y + oy - 4, wd * widen, ln * k, power)
         # The craft, its moving parts cut out of it.
         moving = np.zeros(alpha.shape, bool)
-        recoil = float(st.get("recoil", 0.0))
         claw = float(st.get("claw", 0.0))
-        if recoil:
-            moving |= self.barrels
         if claw:
             moving |= self.claw
         if st.get("no_dome"):
@@ -479,23 +608,13 @@ class Craft:
             self._cockpit(cell)
         if claw:
             self._claw(cell, full, claw, float(st.get("hatch", 0.0)))
-        if recoil:
-            bar = np.zeros_like(full)
-            bar[self.barrels] = full[self.barrels]
-            d = -recoil * self.axis
-            moved = affine(bar, [[1, 0, -d[0]], [0, 1, -d[1]]], bar.shape[:2])
-            moved[~self.barrels] = 0.0  # it slides into the mount: clipped to its band
-            over(cell, moved, (ox, oy))
         # Lights over it.
         for x, y, r in on_glows:
             glow(cell, x + ox, y + oy, r * 1.9, (255, 120, 60), 0.42)
         if port > 0:
             glow(cell, PORT[0] + ox, PORT[1] + oy, PORT[2] * 1.5, (255, 170, 70), 0.5 * port)
-        if heat > 0:
-            for mx, my in self._muzzles(recoil):
-                glow(cell, mx + ox, my + oy, 34 + 14 * heat, tuple(st.get("heat_colour", (255, 160, 60))), 0.6 * heat)
         for kind, arg in st.get("fx", []):
-            self._fx(cell, kind, arg, recoil)
+            self._fx(cell, kind, arg)
         tilt = float(st.get("tilt", 0.0))
         shift = st.get("shift", (0.0, 0.0))
         if tilt or shift != (0.0, 0.0):
@@ -503,9 +622,19 @@ class Craft:
             cell = affine(cell, rotation_about(cx, cy, tilt, shift), cell.shape[:2])
         return cell
 
-    def _muzzles(self, recoil=0.0):
-        d = -recoil * self.axis
-        return [(mx + d[0], my + d[1]) for mx, my in MUZZLES]
+    @staticmethod
+    def mount(st):
+        """Where a body frame has the turret's pivot (cell px) and the turn it adds (degrees, positive:
+        the barrels down): the hurt's tilt (anticlockwise, nose up) and knock back move it."""
+        ox, oy = OFFSET
+        p = np.array([PIVOT[0] + ox, PIVOT[1] + oy], float)
+        c = np.array([HULL_CENTRE[0] + ox, HULL_CENTRE[1] + oy], float)
+        tilt = float(st.get("tilt", 0.0))
+        sx, sy = st.get("shift", (0.0, 0.0))
+        t = math.radians(tilt)
+        d = p - c
+        q = c + np.array([math.cos(t) * d[0] + math.sin(t) * d[1], -math.sin(t) * d[0] + math.cos(t) * d[1]]) + (sx, sy)
+        return q, -tilt
 
     @staticmethod
     def _lamp(colour, m, s):
@@ -514,39 +643,101 @@ class Craft:
         elif s == "on":
             colour[m] = colour[m] * 0.55 + np.array((255, 226, 160)) * 0.45
 
-    def _fx(self, cell, kind, arg, recoil):
+    def _fx(self, cell, kind, arg):
         ox, oy = OFFSET
-        u = self.axis
-        if kind == "flash":  # arg: size
-            for mx, my in self._muzzles(recoil):
-                muzzle_flash(cell, mx + ox + u[0] * arg * 0.55, my + oy + u[1] * arg * 0.55, arg)
-        elif kind == "smoke":  # arg: (along, rise, scale)
-            along, rise, k = arg
-            for i, (mx, my) in enumerate(self._muzzles(recoil)):
-                bx, by = mx + ox + u[0] * along, my + oy + u[1] * along - rise
-                puffs(cell, [(bx, by, 17 * k), (bx + 18 * k, by - 10 * k, 13 * k), (bx - 6 * k, by - 20 * k, 11 * k)],
-                      0.9 if i == 1 else 0.85)
-        elif kind == "laser":  # arg: level 0..1 (the charge), ≥ 1: firing
-            lvl = float(arg)
-            for mx, my in self._muzzles(recoil):
-                cx, cy = mx + ox, my + oy
-                glow(cell, cx, cy, 40 + 34 * lvl, (255, 90, 40), min(0.85, 0.35 + 0.45 * lvl))
-                self._laser_core(cell, cx + u[0] * 6, cy + u[1] * 6, lvl)
-        elif kind == "motes":  # energy drawn into the muzzles: arg: (seed, reach)
-            seed, reach = arg
-            rng = np.random.default_rng(seed)
-            for mx, my in self._muzzles(recoil):
-                for _ in range(5):
-                    a = rng.uniform(-1.9, 1.9) + math.atan2(u[1], u[0])
-                    d = reach * rng.uniform(0.6, 1.0)
-                    px, py = mx + ox + d * math.cos(a), my + oy + d * math.sin(a)
-                    glow(cell, px, py, 9, (255, 140, 60), 0.55)
-                    self._dot(cell, px, py, 4.5)
-        elif kind == "sparks":  # arg: [(x, y, size, seed)] source px
+        if kind == "sparks":  # arg: [(x, y, size, seed)] source px
             for x, y, size, seed in arg:
                 sparks(cell, x + ox, y + oy, size, seed)
         elif kind == "beam_light":  # the hatch's light falling: arg: strength
             self._cone(cell, float(arg))
+
+    # ── The turret ──
+
+    def to_turret(self, p, recoil=0.0):
+        """A concept px on the cannon → its turret cell px (pointing right, the pivot at TURRET_AT), the
+        barrels slid back by recoil."""
+        v = np.array(p, float) + self.shift - np.array(PIVOT, float)
+        q = rot(BARREL_DEG).T @ v
+        return np.array(TURRET_AT, float) + q - (recoil, 0.0)
+
+    def turret(self, st):
+        """A turret picture: the cut cannon pointing straight right, its hub on the pivot (TURRET_AT),
+        full size, premultiplied (TURRET_CELL)."""
+        colour, alpha = self.concept[0].copy(), self.concept[1].copy()
+        heat = float(st.get("heat", 0.0))
+        if heat > 0:
+            for m in self.muzzle_discs:
+                colour[m] = colour[m] * (1 - 0.75 * heat) + np.array((255, 246, 205)) * 0.75 * heat
+        full = pm(colour, alpha)
+        piece = np.zeros_like(full)
+        piece[self.cannon] = full[self.cannon]
+        # Where the cut went through the drawing (the back of the housing over the collar, under the
+        # band's outline), the black outline again.
+        inner = ndimage.binary_erosion(self.cannon, iterations=4)
+        cut = ndimage.binary_dilation((~self.cannon) & (alpha > 0.5) & ~(self._disc(CANNON_NOT) & self._warm(colour)),
+                                      iterations=4)
+        piece[self.cannon & ~inner & cut] = np.array([INK[0] / 255, INK[1] / 255, INK[2] / 255, 1.0])
+        recoil = float(st.get("recoil", 0.0))
+        if recoil:
+            slide = self.barrels & self.cannon
+            bar = np.zeros_like(piece)
+            bar[slide] = piece[slide]
+            piece[slide] = 0.0
+            d = -recoil * self.axis
+            moved = affine(bar, [[1, 0, -d[0]], [0, 1, -d[1]]], bar.shape[:2])
+            moved[~slide] = 0.0  # it slides into the housing: clipped to its band
+            over(piece, moved)
+        cell = np.zeros((TURRET_CELL[1], TURRET_CELL[0], 4))
+        self._hub(cell)
+        place(cell, piece, np.array(PIVOT, float) - self.shift, TURRET_AT, -BARREL_DEG)
+        muzzles = [self.to_turret(m, recoil) for m in MUZZLES]
+        if heat > 0:
+            for mx, my in muzzles:
+                glow(cell, mx, my, 34 + 14 * heat, (255, 160, 60), 0.6 * heat)
+        for kind, arg in st.get("fx", []):
+            if kind == "laser":  # arg: level 0..1 (the charge), ≥ 1: firing
+                lvl = float(arg)
+                for mx, my in muzzles:
+                    glow(cell, mx, my, 40 + 34 * lvl, (255, 90, 40), min(0.85, 0.35 + 0.45 * lvl))
+                    self._laser_core(cell, mx + 6, my, lvl)
+            elif kind == "motes":  # energy drawn into the muzzles: arg: (seed, reach)
+                seed, reach = arg
+                rng = np.random.default_rng(seed)
+                for mx, my in muzzles:
+                    for _ in range(5):
+                        a = rng.uniform(-1.9, 1.9)
+                        dd = reach * rng.uniform(0.6, 1.0)
+                        px, py = mx + dd * math.cos(a), my + dd * math.sin(a)
+                        glow(cell, px, py, 9, (255, 140, 60), 0.55)
+                        self._dot(cell, px, py, 4.5)
+        return cell
+
+    @staticmethod
+    def _hub(cell):
+        """The turret's round hub on the pivot and the neck from it into the housing (behind the cut
+        cannon), cell px."""
+        ax, ay = TURRET_AT
+        ln, hw = NECK
+        pad = HUB_R + 8
+        w, h = pad + ln + 8, 2 * pad
+        c = (pad, pad)  # the pivot in the layer
+
+        def paint(d, k):
+            d.rounded_rectangle([(c[0]) * k, (c[1] - hw - 5) * k, (c[0] + ln + 5) * k, (c[1] + hw + 5) * k],
+                                radius=int(11 * k), fill=INK + (255,))
+            d.rounded_rectangle([(c[0]) * k, (c[1] - hw) * k, (c[0] + ln) * k, (c[1] + hw) * k], radius=int(7 * k),
+                                fill=(110, 120, 130, 255))
+            d.rectangle([(c[0]) * k, (c[1] - hw + 2) * k, (c[0] + ln - 4) * k, (c[1] - hw + 9) * k], fill=(156, 166, 175, 255))
+            d.rectangle([(c[0]) * k, (c[1] + hw - 9) * k, (c[0] + ln - 4) * k, (c[1] + hw) * k], fill=(76, 81, 87, 255))
+            e = lambda r: [(c[0] - r) * k, (c[1] - r) * k, (c[0] + r) * k, (c[1] + r) * k]  # noqa: E731
+            d.ellipse(e(HUB_R), fill=INK + (255,))
+            d.ellipse(e(HUB_R - 5), fill=(110, 120, 130, 255))
+            d.chord(e(HUB_R - 5), 160, 330, fill=(156, 166, 175, 255))
+            d.arc(e(HUB_R - 9), 190, 280, fill=(197, 207, 216, 255), width=int(3 * k))
+            d.ellipse(e(10), fill=INK + (255,))
+            d.ellipse(e(6), fill=(156, 166, 175, 255))
+
+        over(cell, draw_layer((w, h), paint), (ax - pad, ay - pad))
 
     @staticmethod
     def _dot(cell, x, y, r):
@@ -575,6 +766,27 @@ class Craft:
 
         over(cell, draw_layer((n, n), paint), (int(cx - n / 2), int(cy - n / 2)))
 
+    def with_turret(self, cell, turret, st, deg):
+        """A body frame (cell) with a turret picture on its mount, pointing deg (+ the frame's own turn)."""
+        q, turn = self.mount(st)
+        return place(cell, turret, TURRET_AT, q, deg + turn)
+
+    def turret_overlap(self, step=5):
+        """Per angle: the turret's opaque px over the band and the saucer above it, and over the belly
+        and the claw (the turret's range: where both stay near 0)."""
+        ox, oy = OFFSET
+        body = self.frame({})
+        opaque = body[..., 3] > 0.5
+        ys, xs = np.mgrid[0:CELL[1], 0:CELL[0]]
+        top = opaque & (ys < band_y(xs - ox) + oy + BAND_INK / 2.0)
+        belly = opaque & (xs - ox < 640) & (ys - oy > 690)
+        t = self.turret({})
+        out = []
+        for deg in range(-40, 181, step):
+            on = place(np.zeros_like(body), t, TURRET_AT, self.mount({})[0], deg)[..., 3] > 0.5
+            out.append((deg, int((on & top).sum()), int((on & belly).sum())))
+        return out
+
     def _cone(self, cell, strength):
         ox, oy = OFFSET
         x, y = HATCH[0] + ox, HATCH[1] + oy
@@ -587,7 +799,6 @@ class Craft:
         a = strength * 0.42 * inside * (1 - t) ** 1.4
         src = np.dstack([np.array((255, 226, 150))[None, None, :] / 255.0 * a[..., None], a])
         over(cell, src, (int(x - 120), int(y)))
-
     def _claw(self, cell, full, open_k, hatch):
         """The claw's halves swung open by open_k (0..1: 0..26 degrees) round their roots, the hatch lit
         between them."""
@@ -684,6 +895,7 @@ def twinkle(i):
     return ["on" if (k + i) % 3 == 0 else "n" for k in range(len(RING_DOTS))]
 
 
+# The body (no cannon: the turret's states below carry the muzzles' heat, the recoil, the charge).
 ANIMS = {}
 ANIMS["idle"] = [
     {"lamps": chase(i), "dots": twinkle(i // 2), "jets": [j * a for a in (1.0, 0.94, 1.04)], "port": p}
@@ -696,20 +908,18 @@ ANIMS["fly"] = [
 ]
 ANIMS["cast"] = [
     {"jets": [1.0, 1.0, 1.0]},
-    {"jets": [1.05, 1.05, 1.05], "heat": 0.35, "port": 0.2},
-    {"jets": [1.1, 1.1, 1.1], "heat": 0.75, "port": 0.4, "recoil": -4},
-    {"jets": [0.8, 0.8, 0.8], "heat": 1.0, "port": 0.5, "recoil": 24, "shift": (-10, -2), "fx": [("flash", 64)],
-     "lamps": ["on"] * len(LAMPS)},
-    {"jets": [0.9, 0.9, 0.9], "heat": 0.5, "port": 0.25, "recoil": 12, "shift": (-4, 0), "fx": [("smoke", (34, 10, 1.6))]},
-    {"jets": [1.0, 1.0, 1.0], "heat": 0.15, "recoil": 3, "fx": [("smoke", (28, 40, 1.3))]},
+    {"jets": [1.05, 1.05, 1.05], "port": 0.2},
+    {"jets": [1.1, 1.1, 1.1], "port": 0.4},
+    {"jets": [0.8, 0.8, 0.8], "port": 0.5, "lamps": ["on"] * len(LAMPS)},
+    {"jets": [0.9, 0.9, 0.9], "port": 0.25},
+    {"jets": [1.0, 1.0, 1.0], "port": 0.05},
 ]
 ANIMS["burst"] = [
-    {"jets": [1.0, 1.0, 1.0], "port": 0.35, "fx": [("laser", 0.15)], "lamps": chase(0)},
-    {"jets": [1.1, 1.1, 1.1], "port": 0.7, "heat": 0.6, "fx": [("motes", (3, 85)), ("laser", 0.55)], "lamps": ["on"] * len(LAMPS)},
-    {"jets": [1.2, 1.25, 1.2], "port": 1.0, "heat": 1.0, "recoil": 7, "shift": (-5, 0), "fx": [("laser", 1.0)],
-     "lamps": ["on"] * len(LAMPS), "dots": ["on"] * len(RING_DOTS)},
-    {"jets": [1.05, 1.05, 1.05], "port": 0.6, "heat": 0.7, "recoil": 4, "fx": [("laser", 0.45)]},
-    {"jets": [1.0, 1.0, 1.0], "port": 0.25, "heat": 0.3, "recoil": 1, "fx": [("smoke", (24, 18, 1.2))]},
+    {"jets": [1.0, 1.0, 1.0], "port": 0.35, "lamps": chase(0)},
+    {"jets": [1.1, 1.1, 1.1], "port": 0.7, "lamps": ["on"] * len(LAMPS)},
+    {"jets": [1.2, 1.25, 1.2], "port": 1.0, "lamps": ["on"] * len(LAMPS), "dots": ["on"] * len(RING_DOTS)},
+    {"jets": [1.05, 1.05, 1.05], "port": 0.6},
+    {"jets": [1.0, 1.0, 1.0], "port": 0.25},
     {"jets": [1.0, 1.0, 1.0], "port": 0.05},
 ]
 ANIMS["summon"] = [
@@ -722,6 +932,17 @@ ANIMS["hurt"] = [
     {"tilt": 9.0, "shift": (-14, -6), "jets": [0.45, 0.3, 0.55], "lamps": ["off"] * len(LAMPS),
      "dots": ["off"] * len(RING_DOTS), "fx": [("sparks", [(880, 560, 62, 1), (735, 650, 48, 2), (600, 470, 40, 3)])]},
     {"tilt": 3.5, "shift": (-5, -2), "jets": [0.8, 0.7, 0.85], "lamps": ["off" if k % 2 else "n" for k in range(len(LAMPS))]},
+]
+
+# The turret's states, one row (turret/sheet_v1.png), in this order. The muzzle flash and the smoke
+# are the game's (drawn at the tips), not here.
+TURRET = [
+    ("idle", {}),  # the muzzles' own orange glow
+    ("charge_0", {"heat": 0.45, "fx": [("laser", 0.3)]}),  # the laser charging (and a shot's wind-up)
+    ("charge_1", {"heat": 0.85, "fx": [("motes", (3, 85)), ("laser", 0.7)]}),
+    ("hot", {"heat": 1.0, "fx": [("laser", 1.0)]}),  # white-hot, held while the beams fire
+    ("recoil_0", {"heat": 1.0, "recoil": 24}),  # the shot: both barrels slid back (the game's flash at the tips)
+    ("recoil_1", {"heat": 0.5, "recoil": 10}),  # sliding home, cooling (then idle)
 ]
 
 
@@ -740,9 +961,43 @@ def save(img, rel):
     print("  %s  %dx%d  %.1f KB" % (rel, img.width, img.height, os.path.getsize(path) / 1024.0))
 
 
+def turret_data(craft):
+    """turret/turret_v1.json: the turret's geometry in sheet px (half the source), for the importer."""
+    k = SCALE
+    at = np.array(TURRET_AT, float)
+    tips = [craft.to_turret(m) - at for m in MUZZLES]
+    mid = (tips[0] + tips[1]) / 2.0
+    feet = np.array(FEET_CELL, float)
+    frames = {}
+    for name, states in ANIMS.items():
+        rows = []
+        for st in states:
+            q, turn = craft.mount(st)
+            rows.append([round((q[0] - feet[0]) * k, 2) + 0.0, round((q[1] - feet[1]) * k, 2) + 0.0, round(turn, 2) + 0.0])
+        frames[name] = rows
+    r = lambda v: [round(float(v[0]) * k, 2) + 0.0, round(float(v[1]) * k, 2) + 0.0]  # noqa: E731
+    return {
+        "_doc": "Written by make_frames.py (do not edit): the turret pictures' geometry in sheet px (half the "
+                "source; the importer scales it like the frames). cell: one picture's cell in turret/sheet_v1.png; "
+                "pivot: the hub's centre in each cell; mount: the pivot from the feet on a body frame at rest; tips: "
+                "the muzzles' glowing centres from the pivot (pointing right); recoil: how far a state has the "
+                "barrels slid back; rest / range: degrees (0 right, positive down, facing right); bodyFrames: per body "
+                "frame the pivot from the feet and the turn it adds (the hurt's tilt).",
+        "cell": [TURRET_CELL[0] // 2, TURRET_CELL[1] // 2],
+        "pivot": [TURRET_AT[0] * k, TURRET_AT[1] * k],
+        "frames": [n for n, _ in TURRET],
+        "mount": r(np.array(PIVOT, float) - np.array(FEET, float)),
+        "tips": {"upper": r(tips[0]), "lower": r(tips[1]), "mid": r(mid)},
+        "recoil": {n: round(float(st.get("recoil", 0.0)) * k, 2) for n, st in TURRET if st.get("recoil")},
+        "rest": TURRET_REST,
+        "range": list(TURRET_RANGE),
+        "bodyFrames": frames,
+    }
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--debug", help="write the keyed picture and the part masks here")
+    ap.add_argument("--debug", help="write the keyed picture, the part masks, the hull without its cannon and the turret's overlap per angle here")
     ap.add_argument("--only", help="only this animation (a quick look)")
     args = ap.parse_args()
     craft = Craft(args.debug)
@@ -761,13 +1016,32 @@ def main():
                                              [[CELL_OUT[0] * i + fx, fy] for i in range(n)]))
     if args.only:
         return
-    # The pictures: the whole craft at rest (full size, the jets painted), the dome with the pilot.
-    rest = craft.frame({"dots": twinkle(0)})
+    # The turret: its states in one row, its geometry.
+    turrets = {n: craft.turret(st) for n, st in TURRET}
+    tw, th = TURRET_CELL[0] // 2, TURRET_CELL[1] // 2
+    row = Image.new("RGBA", (tw * len(TURRET), th), (0, 0, 0, 0))
+    for i, (n, _st) in enumerate(TURRET):
+        row.paste(to_image(halve(turrets[n])), (i * tw, 0))
+    save(row, "turret/sheet_v1.png")
+    data = turret_data(craft)
+    with open(os.path.join(HERE, "turret", "turret_v1.json"), "w") as f:
+        json.dump(data, f, indent="\t")
+        f.write("\n")
+    print("  turret/turret_v1.json  pivot %s mount %s tips %s" % (data["pivot"], data["mount"], data["tips"]))
+    # The pictures: the whole craft at rest (full size, the jets painted, the turret at its rest angle),
+    # the dome with the pilot.
+    st = {"dots": twinkle(0)}
+    rest = craft.with_turret(craft.frame(st), turrets["idle"], st, TURRET_REST)
     save(to_image(rest), "portrait/portrait_v1.png")
     save(to_image(craft.dome_only()), "portrait/bust_v1.png")
-    # Parts for a death that pops the dome off: the hull (the cockpit open) and the dome, one cell each.
+    # Parts for the crash: the hull (the cockpit open, no cannon), the dome, the cannon (pointing right
+    # on its mount: the importer's `pivots` gives its pivot), one cell each.
     save(to_image(halve(craft.frame({"no_dome": True, "jets": [0, 0, 0]}))), "parts/hull_v1.png")
     save(to_image(halve(craft.dome_only())), "parts/dome_v1.png")
+    cannon = craft.with_turret(np.zeros((CELL[1], CELL[0], 4)), turrets["idle"], {}, 0.0)
+    save(to_image(halve(cannon)), "parts/cannon_v1.png")
+    q = craft.mount({})[0] * SCALE
+    print("    parts pivots: cannon [%g, %g] (sheet px)" % (q[0], q[1]))
 
 
 if __name__ == "__main__":

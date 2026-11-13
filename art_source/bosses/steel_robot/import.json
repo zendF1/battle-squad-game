@@ -1,5 +1,5 @@
 {
-	"_doc": "tools/import_boss_frames.gd reads this (see its header and README.txt here). The sheets are made by make_frames.py here from concept/ufo_v1.png (already transparent: background.key 'alpha'), one row per animation in fixed 620 x 590 cells with the feet (the claw's bottom centre) at (305, 448) of every cell: cuts at the cells, anchors the feet, bodyHeight 342 (the dome's top to the claw's bottom, sheet px) → height texture px. body: the hull's grey (measured only for the width). parts: the hull and the dome as their own sprites (one cell each, the same feet). Re-run make_frames.py first when the concept or the frames change.",
+	"_doc": "tools/import_boss_frames.gd reads this (see its header and README.txt here). The sheets are made by make_frames.py here from concept/ufo_v1.png (already transparent: background.key 'alpha'), one row per animation in fixed 620 x 590 cells with the feet (the claw's bottom centre) at (305, 448) of every cell: cuts at the cells, anchors the feet, bodyHeight 342 (the dome's top to the claw's bottom, sheet px) → height texture px. body: the hull's grey (measured only for the width). parts: the hull (no cannon), the dome and the cannon (pointing right on its mount, `pivots`: its hub) as their own sprites (one cell each, the same feet). turret: the twin cannon's states (idle, charge_0/1, hot, recoil_0/1) in one row of fixed cells, pointing right round the pivot, with the geometry make_frames.py writes (turret/turret_v1.json). Re-run make_frames.py first when the concept or the frames change.",
 	"out": "res://assets/bosses/steel_robot/",
 	"height": 240,
 	"pad": 4,
@@ -24,7 +24,9 @@
 		"hurt": {"src": "side_hurt/sheet_v1.png", "frames": 2, "fps": 7, "loop": false, "bodyHeight": 342,
 			"cuts": [620], "anchors": [[305, 448], [925, 448]]}
 	},
-	"parts": {"bodyHeight": 342, "feet": [305, 448], "src": {"hull": "parts/hull_v1.png", "dome": "parts/dome_v1.png"}},
+	"parts": {"bodyHeight": 342, "feet": [305, 448], "src": {"hull": "parts/hull_v1.png", "dome": "parts/dome_v1.png", "cannon": "parts/cannon_v1.png"},
+		"pivots": {"cannon": [425, 366.5]}},
+	"turret": {"src": "turret/sheet_v1.png", "data": "turret/turret_v1.json", "bodyHeight": 342},
 	"pictures": {
 		"portrait": {"src": "portrait/portrait_v1.png", "size": 512, "margin": 8},
 		"bust": {"src": "portrait/bust_v1.png", "size": 384, "margin": 6}

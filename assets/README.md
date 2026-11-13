@@ -109,8 +109,15 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   imports the PNGs. Đĩa Bay Thép has one source picture only (`art_source/bosses/steel_robot/
   concept/ufo_v1.png`): `make_frames.py` there cuts it into parts and redraws every frame (idle 7,
   fly 4, cast 6, burst 6, summon 4, hurt 2; transparent sheets, `background.key` "alpha") and its
-  pictures, plus `parts/hull.png`, `parts/dome.png` + `parts/parts.json` (each part's top-left from
-  the feet, read by `Art.boss_parts()`) for its death; the feet = the claw's bottom centre. In a
+  pictures, plus `parts/hull.png`, `parts/dome.png`, `parts/cannon.png` + `parts/parts.json` (each
+  part's top-left from the feet, read by `Art.boss_parts()`; the cannon's `pivot`: its hub in its own
+  px) for its death; the feet = the claw's bottom centre. Its twin cannon is a turret of its own
+  (round 2): the body frames have no cannon (a socket under the bowl), `turret/<state>.png` (idle,
+  charge_0, charge_1, hot, recoil_0, recoil_1; one canvas, drawn pointing right round `pivot`) +
+  `turret/turret.json` (the importer's `turret`: the mount from the feet and the muzzle tips from the
+  pivot in texture px and in the unit frame, the recoil per state, rest 20 and range 10..120 degrees,
+  the mount and turn per body frame) for the match to turn toward each shot, the muzzle flash, smoke
+  and beams drawn at the tips. In a
   match it hovers (game data `flying`: the flier's bob, banking into a flight × `BossArt.LEAN`, pale
   cyan jet puffs under the claws, `BossArt.TRAIL`) and dies by crashing (`BossArt.DEATH` "crash", in
   code: the hurt frame shakes with sparks and smoke, the dome part pops off, the hull part tumbles

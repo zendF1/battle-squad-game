@@ -54,7 +54,12 @@ extends SceneTree
 ## A sheet already on transparency (`background.key` "alpha": frames made by a script, such as
 ## art_source/bosses/steel_robot/make_frames.py) is not keyed, only its faint px cleared; its feet given
 ## per frame (`anchors`) and its scale by `bodyHeight` when the body colours do not measure it.
-## `parts` (_import_parts()): separate sprites of the figure at the frames' scale, placed from the feet.
+## `parts` (_import_parts()): separate sprites of the figure at the frames' scale, placed from the feet
+## (a part's `pivots` point too: the cannon turns on it).
+## `turret` (_import_turret()): a part that turns to aim (Đĩa Bay Thép's twin cannon), its states in
+## one row of fixed cells drawn pointing right round a pivot, with the geometry make_frames.py wrote
+## (`data`): <out>/turret/<state>.png on one canvas + turret.json (the pivot, its mount from the feet,
+## the muzzle tips, the rest angle and range, per body frame the mount; texture px and unit frame).
 ## Pictures (`pictures.<name>`: src, watermark, size): keyed the same way, trimmed to the content
 ## (+ `margin` px), centred on a square canvas, scaled to `size` px: <out>/<name>.png (portrait,
 ## bust). Every frame and picture last gets the `tone` lift (tone(): lighten, desaturateDark).
@@ -283,6 +288,8 @@ func _import(id: String, contact: String) -> bool:
 		_save(pic, out_dir + str(pname) + ".png")
 	if cfg.get("parts") is Dictionary and not _import_parts(dir, out_dir, cfg, target):
 		return false
+	if cfg.get("turret") is Dictionary and not _import_turret(dir, out_dir, cfg, target):
+		return false
 	var skins: Dictionary = cfg.get("skins", {}) if cfg.get("skins") is Dictionary else {}
 	var skin_rows: Array = []
 	for sname in skins:
@@ -308,11 +315,13 @@ func _import(id: String, contact: String) -> bool:
 ## each a piece of it, such as the UFO's hull and dome for its death): keyed like the frames, scaled
 ## by the same `height` / bodyHeight, trimmed, written as <out>/parts/<name>.png, and
 ## <out>/parts/parts.json {height, parts {name: {file, at (its top-left from the feet, texture px),
-## size}}}: drawn at `at` from the frames' pivot they sit where the frame shows them.
+## size, pivot (with `pivots` {name: [x, y]} picture px: that point in the part's own px, the cannon's
+## hub it turns round)}}}: drawn at `at` from the frames' pivot they sit where the frame shows them.
 func _import_parts(dir: String, out_dir: String, cfg: Dictionary, target: float) -> bool:
 	var pc: Dictionary = cfg["parts"]
 	var k := target / float(pc.get("bodyHeight", target))
 	var feet := Vector2(float(pc["feet"][0]), float(pc["feet"][1])) if pc.get("feet") is Array else Vector2.ZERO
+	var pivots: Dictionary = pc.get("pivots", {}) if pc.get("pivots") is Dictionary else {}
 	var rows := {}
 	for pname in pc.get("src", {}):
 		var img := _load(dir + str(pc["src"][pname]))
@@ -330,9 +339,88 @@ func _import_parts(dir: String, out_dir: String, cfg: Dictionary, target: float)
 		tone(pic, cfg.get("tone", {}))
 		_save(pic, out_dir + "parts/%s.png" % pname)
 		rows[pname] = {"file": "%s.png" % pname, "at": [snappedf(at.x, 0.1), snappedf(at.y, 0.1)], "size": [size.x, size.y]}
-	var out := {"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/<id>/import.json parts (do not edit). Each part: file, at (its top-left from the feet, the frames' pivot, texture px at the frames' scale), size; height: the body (texture px) as in side.json.",
+		if pivots.get(pname) is Array:
+			var sc := Vector2(size) / Vector2(used.size)
+			var pv := (Vector2(float(pivots[pname][0]), float(pivots[pname][1])) - Vector2(used.position)) * sc
+			rows[pname]["pivot"] = [snappedf(pv.x, 0.01), snappedf(pv.y, 0.01)]
+	var out := {"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/<id>/import.json parts (do not edit). Each part: file, at (its top-left from the feet, the frames' pivot, texture px at the frames' scale), size, pivot (optional: the point it turns round, px in its own picture: the cannon drawn pointing right, its hub); height: the body (texture px) as in side.json.",
 		"height": target, "parts": rows}
 	_write_text(out_dir + "parts/parts.json", JSON.stringify(out, "\t", false) + "\n")
+	return true
+
+
+## A part that turns to aim (config `turret`: {src (one row of fixed cells, transparent, each state
+## drawn pointing right with its pivot at the same cell px), data (the geometry make_frames.py wrote:
+## cell, pivot, frames, mount, tips, recoil, rest, range, bodyFrames; picture px), bodyHeight}): the
+## cells cut, trimmed to their union (+2 px), scaled like the frames (`height` / bodyHeight), written as
+## <out>/turret/<frame>.png on one canvas, and <out>/turret/turret.json: size, pivot (texture px in
+## each picture), states {name: [frames]} (charge_0, charge_1 → charge), every point in texture px and
+## in the unit frame BossArt draws in (`unit`: the body 100 tall, the feet at the origin, facing right):
+## mount (the pivot from the feet), tips (the muzzles' glowing centres from the pivot, pointing right),
+## recoil (how far back a state has the barrels), rest / range (degrees, 0 right, positive down) and
+## bodyFrames (per body frame [x, y, turn]: the pivot from the feet and the degrees the frame adds).
+func _import_turret(dir: String, out_dir: String, cfg: Dictionary, target: float) -> bool:
+	var tc: Dictionary = cfg["turret"]
+	var data = JSON.parse_string(FileAccess.get_file_as_string(dir + str(tc.get("data", ""))))
+	if not data is Dictionary:
+		push_error("import_boss_frames: turret data %s%s missing" % [dir, tc.get("data", "")])
+		return false
+	var sheet := _load(dir + str(tc["src"]))
+	if sheet == null:
+		return false
+	keyed(sheet, spec_cfg(cfg, tc))
+	var k := target / float(tc.get("bodyHeight", target))
+	var cell := Vector2i(int(data["cell"][0]), int(data["cell"][1]))
+	var names: Array = data["frames"]
+	var union := Rect2i()
+	for i in names.size():
+		var u := sheet.get_region(Rect2i(i * cell.x, 0, cell.x, cell.y)).get_used_rect()
+		if u.size != Vector2i.ZERO:
+			union = u if union.size == Vector2i.ZERO else union.merge(u)
+	if union.size == Vector2i.ZERO:
+		push_error("import_boss_frames: the turret sheet is empty")
+		return false
+	union = union.grow(2).intersection(Rect2i(Vector2i.ZERO, cell))
+	var size := Vector2i(maxi(1, roundi(union.size.x * k)), maxi(1, roundi(union.size.y * k)))
+	var sc := Vector2(size) / Vector2(union.size)
+	var states := {}
+	for i in names.size():
+		var pic := ImportGuns.scaled(sheet.get_region(Rect2i(Vector2i(i * cell.x, 0) + union.position, union.size)), size)
+		tone(pic, cfg.get("tone", {}))
+		_save(pic, out_dir + "turret/%s.png" % names[i])
+		var state := str(names[i])
+		var cut := state.rfind("_")
+		if cut > 0 and state.substr(cut + 1).is_valid_int():
+			state = state.substr(0, cut)
+		if not states.has(state):
+			states[state] = []
+		states[state].append(str(names[i]))
+	var pivot := (Vector2(float(data["pivot"][0]), float(data["pivot"][1])) - Vector2(union.position)) * sc
+	var unit := 100.0 / target
+	var pt := func(v: Array, f: float) -> Array: return [snappedf(float(v[0]) * f, 0.01), snappedf(float(v[1]) * f, 0.01)]
+	var tips := {}
+	var tips_unit := {}
+	for t in data["tips"]:
+		tips[t] = pt.call(data["tips"][t], k)
+		tips_unit[t] = pt.call(data["tips"][t], k * unit)
+	var recoil := {}
+	for r in data.get("recoil", {}):
+		recoil[r] = snappedf(float(data["recoil"][r]) * k, 0.01)
+	var body_frames := {}
+	for anim in data.get("bodyFrames", {}):
+		body_frames[anim] = []
+		for row in data["bodyFrames"][anim]:
+			body_frames[anim].append([snappedf(float(row[0]) * k, 0.01), snappedf(float(row[1]) * k, 0.01), float(row[2])])
+	var out := {
+		"_doc": "Written by tools/import_boss_frames.gd from art_source/bosses/<id>/import.json turret and make_frames.py's turret data (do not edit). The turret pictures (turret/<frame>.png, one canvas `size`) are drawn pointing right (0 degrees) round `pivot` (texture px in each picture). Points in texture px at the frames' scale (height: the body as in side.json) and in `unit` (the unit frame: the body 100 tall, the feet at the origin, facing right, y down): mount = the pivot from the feet on a body frame at rest; tips = the muzzles' glowing centres from the pivot when pointing right (upper = the far barrel, lower = the near one, mid = between them, on the line from the pivot); recoil = how far back a state has the barrels; rest / range = degrees (0 right, positive down, facing right; mirror for facing left); bodyFrames = per body frame [x, y, turn]: the pivot from the feet and the degrees that frame adds (the hurt's tilt).",
+		"height": target, "size": [size.x, size.y], "pivot": [snappedf(pivot.x, 0.01), snappedf(pivot.y, 0.01)],
+		"frames": names, "states": states,
+		"mount": pt.call(data["mount"], k), "tips": tips, "recoil": recoil,
+		"unit": {"mount": pt.call(data["mount"], k * unit), "tips": tips_unit},
+		"rest": float(data.get("rest", 0.0)), "range": data.get("range", [0.0, 90.0]),
+		"bodyFrames": body_frames,
+	}
+	_write_text(out_dir + "turret/turret.json", JSON.stringify(out, "\t", false) + "\n")
 	return true
 
 
