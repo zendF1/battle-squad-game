@@ -92,6 +92,7 @@ const ModeSelect := preload("res://screens/home/mode_select.gd")
 const GameData := preload("res://autoload/game_data_model.gd")
 const GuildButton := preload("res://screens/guild/guild_button.gd")
 const SettingsPopup := preload("res://screens/home/settings_popup.gd")
+const MailboxPopup := preload("res://screens/home/mailbox_popup.gd")
 
 const MARGIN := 18
 const STAGE := Vector2(560, 590)
@@ -130,6 +131,8 @@ var _drag_from := -1.0
 var _milestone_badge: PanelContainer
 var _daily_dot: Control
 var _friends_badge: PanelContainer
+var _mail_button: Control # "Hòm thư", hidden on a server without a mailbox
+var _mail_badge: PanelContainer
 
 var rank_chip: RankChip
 
@@ -179,6 +182,7 @@ func _ready() -> void:
 	rewards.add_child(_build_daily_button())
 	rewards.add_child(_build_friends_button())
 	rewards.add_child(GuildButton.make(REWARD_BUTTON, func(): open_guild.emit()))
+	rewards.add_child(_build_mail_button())
 	_pin(rewards, 0, 1, MARGIN + 6, -MARGIN - CHAT_H - 12)
 	_pin(_build_mode_card(), 1, 1, -MARGIN, -MARGIN)
 
@@ -189,6 +193,7 @@ func _ready() -> void:
 	PlayerState.equipment_changed.connect(_render_gun)
 	PlayerState.milestones_changed.connect(_render_milestones)
 	PlayerState.daily_changed.connect(_render_daily)
+	PlayerState.mail_changed.connect(_render_mail)
 	PlayerState.rank_changed.connect(_render_mode)
 	PlayerState.boss_runs_changed.connect(_render_mode)
 	Router.party.changed.connect(_render_mode) # a member follows the host's mode
@@ -232,12 +237,14 @@ func _on_visibility_changed() -> void:
 		PlayerState.need_equipment() # the stage character holds the weapon it wears
 		PlayerState.load_milestone_summary() # back from a match or a page: the badge count
 		PlayerState.load_daily() # the daily missions' red dot (a match or a purchase moves them)
+		PlayerState.load_mail() # the mailbox's count (a season's end sends its reward there)
 		GuildState.load_me() # my guild (the guild button, chat's Bang hội tab)
 		GuildState.load_invites() # the guild button's red dot
 		Router.social.load_friends() # the friends button's count of requests waiting
 		_render_character() # back from a page: whatever it loaded or bought
 		_render_milestones()
 		_render_daily()
+		_render_mail()
 
 
 # ── Player ──────────────────────────────────────────────────────────────────
@@ -426,6 +433,37 @@ func _render_milestones() -> void:
 	(_milestone_badge.get_child(0) as Label).text = text
 	if is_visible_in_tree() and PlayerState.take_new_milestones():
 		Ui.toast(self, "Có mốc thưởng mới!")
+
+
+## "Hòm thư": a round button with an envelope (ui/glyph_icon.gd "mail") and the red count of the
+## mails to claim or read; it opens the mailbox popup.
+func _build_mail_button() -> Control:
+	var col := LobbyUi.icon_button("unknown", "Hòm thư", LobbyUi.ICON_COLORS["orange"], open_mailbox, REWARD_BUTTON)
+	col.name = "MailButton"
+	var b: Button = col.get_child(0)
+	b.icon = null
+	var art = GlyphIcon.make("mail", int(REWARD_BUTTON * 0.7))
+	art.position = Vector2(REWARD_BUTTON, REWARD_BUTTON) * 0.15
+	b.add_child(art)
+	_mail_badge = MilestonePage.badge()
+	_mail_badge.position = Vector2(REWARD_BUTTON - 22, -6)
+	b.add_child(_mail_badge)
+	_mail_button = col
+	return col
+
+
+func _render_mail() -> void:
+	if _mail_badge == null:
+		return
+	_mail_button.visible = PlayerState.mail_available
+	var text := MilestoneModel.badge_text(PlayerState.mail_attention())
+	_mail_badge.visible = text != ""
+	(_mail_badge.get_child(0) as Label).text = text
+
+
+## The mailbox popup (screens/home/mailbox_popup.gd) over Home.
+func open_mailbox():
+	return MailboxPopup.open_on(_host())
 
 
 ## "Nhiệm vụ": a round button with a clipboard and the red dot (anything claimable today).

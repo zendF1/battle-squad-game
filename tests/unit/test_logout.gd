@@ -177,7 +177,7 @@ func _filled_player_state():
 	s.boss_runs = {"bosses": []}
 	s._boss_runs_player = PID
 	s.chests = [{"chestId": "stone_chest", "quantity": 2}]
-	s.season_rewards = [{"seasonId": "s1"}]
+	s.mails = [{"mailId": "m1"}]
 	s.leaderboards = {"level": {"rows": []}}
 	s._leaderboard_player = PID
 	s.busy_id = "offer"
@@ -265,7 +265,7 @@ func test_logout_clears_every_cache() -> void:
 	eq([ps.characters, ps.equipment, ps.stones, ps.milestones, ps.titles, ps.daily, ps.chests], [null, null, null, null, null, null, null],
 		"characters, bag, stones, milestones, titles, missions, chests")
 	check(ps.characters_stale and ps.equipment_stale and ps.stones_stale and ps.chests_stale, "stale: the next account loads its own")
-	eq([ps.rank, ps.boss_runs, ps.leaderboards, ps.season_rewards], [{}, {}, {}, []], "rank, boss runs, leaderboards, season rewards")
+	eq([ps.rank, ps.boss_runs, ps.leaderboards, ps.mails], [{}, {}, {}, []], "rank, boss runs, leaderboards, mail")
 	eq([ps.my_rank(), ps.my_boss_runs()], [{}, {}], "nothing to read back")
 	eq([ps.milestone_count, ps.milestone_seen], [-1, -1], "the milestone badge unknown")
 	eq([ps.busy_id, ps._known_ids], ["", {}], "no purchase running, no ids seen")

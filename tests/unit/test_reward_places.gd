@@ -1,14 +1,12 @@
 extends "res://tests/test_case.gd"
 ## Every place a reward is opened or granted shows it with the reward reveal / glowing tiles:
 ## Kho đồ's chest cards (pictures only) and their open result, milestone / daily claims (a gift
-## box; a new title's plate under the tiles), the season reward popup (tiles) and its claim.
+## box; a new title's plate under the tiles). Season rewards are mail now (test_mailbox_popup.gd).
 
 const BossFixture := preload("res://tests/boss_fixture.gd")
 const BagPage := preload("res://screens/home/bag_page.gd")
 const MilestonePage := preload("res://screens/home/milestone_page.gd")
 const MilestoneModel := preload("res://screens/home/milestone_model.gd")
-const SeasonRewardPopup := preload("res://screens/ranked/season_reward_popup.gd")
-const SeasonRewardModel := preload("res://screens/ranked/season_reward_model.gd")
 const RewardReveal := preload("res://ui/reward_reveal.gd")
 const RewardStrip := preload("res://ui/reward_strip.gd")
 const ChestModel := preload("res://screens/home/chest_model.gd")
@@ -68,18 +66,4 @@ func test_milestone_claim_reveal_with_title() -> void:
 	check(titles != null, "the new title under the tiles")
 	if titles != null:
 		check(not _texts(titles).any(func(t): return "Danh hiệu mới" in t), "the plate says it, no line")
-	host.free()
-
-
-func test_season_popup_tiles() -> void:
-	BossFixture.take()
-	var host := _host()
-	var r := SeasonRewardModel.parse_one({"seasonId": "s1", "seasonName": "Mùa 1", "grade": "dai_tuong", "coin": 2000, "gem": 15,
-		"items": [{"kind": "chest", "id": "stone_chest", "qty": 25, "name": "Rương đá"}]})
-	var p := SeasonRewardPopup.new()
-	p.open_for(host, r)
-	var tiles: Control = p.find_child("Lines", true, false)
-	check(tiles != null and tiles.get_script() == RewardStrip, "the rewards as glowing tiles")
-	var texts := _texts(p)
-	check(not texts.any(func(t): return " xu" in t or "Rương đá" in t or "kim cương" in t), "no reward words: %s" % str(texts))
 	host.free()
