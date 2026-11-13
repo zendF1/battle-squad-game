@@ -538,6 +538,21 @@ about 52 px tall, feet on the server position) and the fallback of the screens o
 (`ui/character_view.gd`, about 2.5 and 1.5 px per unit, when a character has no full-body
 picture; the lobby stage's `hands_free` hides the gun, the bare hand stays).
 
+### characters/rookie/rig/ (TEST bone rig, not used in matches: `scenes/character/rig/`, dev preview `scenes/dev/rig_preview.tscn`)
+
+Rookie's chibi standing picture (`art_source/characters/rookie/side_idle/idle_v2.png`) cut into 14
+parts along its drawn outlines, the hidden areas painted in the same outline and flat colours, by
+`art_source/characters/rookie/rig/make_rig.py` (see its README.txt). Half the source size (the body
+330 px), transparent, mipmapped at runtime; loaded from the PNG when not imported yet.
+
+| File | What |
+|---|---|
+| `head.png`, `torso.png`, `belt.png`, `seat.png` | the head (cap, hair, face), the shirt (back edge, neck and the shirt under the belt painted), the belt (ends under both fists painted), the trousers' seat (all painted, under the thighs) |
+| `n_upper.png`, `n_fore.png`, `n_fist.png` | the near arm (image left): upper arm, forearm with the cuff (elbow cap painted), fist (wrist painted) |
+| `f_upper.png`, `f_fore.png`, `f_fist.png` | the far arm: the picture's sliver over a painted sleeve, its own fist |
+| `n_thigh.png`, `n_shin.png`, `f_thigh.png`, `f_shin.png` | the legs: thighs (hip caps, the hidden back / front painted), shins with the boots (knee caps painted) |
+| `rig.json` | bones (rest joints, rig px, feet at 0,0), parts (bone, rest transform, draw order bottom first), points (soles, the gun's chest point, the outline points a body lying down rests on), `gunUnder` (the gun drawn under this part) |
+
 ### characters/<id>/lobby/full.* (the full-body picture: `scenes/character/full_body.gd`, loaded by `ui/art.gd` `lobby_full()`)
 
 Outside the match (lobby stage, Prep, Nhân vật: `ui/character_view.gd` turns
