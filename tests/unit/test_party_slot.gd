@@ -57,3 +57,5 @@ func test_member_title_parsed() -> void:
 	eq(PartyModel.parse_member(GENERAL)["title"], {}, "no equippedTitle: no plate")
 	var t: Dictionary = PartyModel.parse_member(GENERAL.merged({"equippedTitle": {"id": "t1", "name": "Cao thủ", "rarity": "red"}}))["title"]
 	eq(t.get("name"), "Cao thủ", "the member's equippedTitle")
+	eq(PartyModel.parse_member(GENERAL.merged({"titleId": "t9"}))["titleId"], "t9", "the lobby member's titleId is kept")
+	eq(PartyModel.parse_member(GENERAL)["titleId"], "", "no titleId: empty")

@@ -23,6 +23,7 @@ const Art := preload("res://ui/art.gd")
 const CharacterView := preload("res://ui/character_view.gd")
 const PedestalGun := preload("res://screens/home/pedestal_gun.gd")
 const TitlePlate := preload("res://ui/title_plate.gd")
+const TitleModel := preload("res://screens/home/title_model.gd")
 const GlyphIcon := preload("res://ui/glyph_icon.gd")
 const GradePedestal := preload("res://screens/ranked/grade_pedestal.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
@@ -193,7 +194,10 @@ func show_member(m: Dictionary, host_view: bool, is_host_card: bool = true, can_
 	ElementBadge.fit_label(_name, SIZE.x - (2 * (NAME_PX + 7) if element != "" else 0))
 	var level := int(m.get("level", 0))
 	GlyphIcon.show_level(_level, str(level) if level > 0 else "")
-	_title.set_title(m.get("title", {}) if m.get("title") is Dictionary else {})
+	var title: Dictionary = m.get("title", {}) if m.get("title") is Dictionary else {}
+	if title.is_empty() and str(m.get("titleId", "")) != "":
+		title = TitleModel.find(PlayerState.titles, str(m["titleId"])) # LobbyMember titleId, like the VS cards
+	_title.set_title(title)
 	_head.position = Vector2(0, head_y(_title.has_title()))
 	var ready := bool(m.get("ready", false))
 	_ready_mark.visible = host_view or not is_host_card # the member sees the host, always ready: "Rời đội" there instead

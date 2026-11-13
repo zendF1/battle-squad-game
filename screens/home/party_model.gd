@@ -97,7 +97,8 @@ static func _str(v: Variant, fallback: String = "") -> String:
 
 ## A LobbyMember: {playerId, displayName, characterId, level (0 unknown), rankBadge (last season's
 ## final grade: the slot's dais, "" none), ready, gun: {kind, tier}, title: its equippedTitle
-## (TitleModel.parse_title(), {} none)} (gun: the server's, else the character's basic gun); {} not a member.
+## (TitleModel.parse_title(), {} none), titleId: the lobby member's worn title id (server LobbyMember
+## titleId, "" none; the slot finds it in PlayerState.titles)} (gun: the server's, else the character's basic gun); {} not a member.
 static func parse_member(m: Variant) -> Dictionary:
 	if not m is Dictionary or _str(m.get("playerId")) == "":
 		return {}
@@ -110,7 +111,7 @@ static func parse_member(m: Variant) -> Dictionary:
 		gun = {"kind": _str(g.get("kind"), basic["kind"]), "tier": _str(g.get("tier"), basic["tier"])}
 	return {"playerId": id, "displayName": _str(m.get("displayName"), id.left(8)), "characterId": character,
 		"level": _num(m.get("level")), "rankBadge": RankModel.badge_of(m), "ready": m.get("ready") == true, "gun": gun,
-		"title": TitleModel.from_profile(m)}
+		"title": TitleModel.from_profile(m), "titleId": _str(m.get("titleId"))}
 
 
 ## A LobbyState: {lobbyId, hostPlayerId, status, queue, members: [parse_member()]} (the host always
