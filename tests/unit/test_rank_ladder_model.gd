@@ -71,9 +71,37 @@ func test_pips_and_scroll() -> void:
 	eq(RankLadderModel.pips(_rank(299)), [3, 3], "Binh nhì 1: all three")
 	eq(RankLadderModel.pips(_rank(4300, {"grade": "dai_tuong"})), [0, 0], "a general has no divisions")
 	eq(RankLadderModel.pips({}), [0, 0], "no rank")
-	near(RankLadderModel.centre_scroll(3, 18, 300.0), 900.0, 0.001, "column 3 dead centre")
-	near(RankLadderModel.centre_scroll(-1, 18, 300.0), 0.0, 0.001, "unknown: the first")
-	near(RankLadderModel.centre_scroll(40, 18, 300.0), 5100.0, 0.001, "clamped to the last")
+
+
+## 18 columns 320 wide with a 24 margin: 5808 in all.
+func test_scroll_never_passes_the_ends() -> void:
+	near(RankLadderModel.max_scroll(18, 320.0, 24.0, 1920.0), 3888.0, 0.001, "the last column against the right edge")
+	near(RankLadderModel.max_scroll(18, 320.0, 24.0, 2340.0), 3468.0, 0.001, "a wider view scrolls less")
+	near(RankLadderModel.max_scroll(18, 320.0, 24.0, 6000.0), 0.0, 0.001, "the row fits: no scroll")
+	near(RankLadderModel.max_scroll(0, 320.0, 24.0, 1920.0), 0.0, 0.001, "no columns")
+
+
+func test_centre_scroll_first_middle_last() -> void:
+	for w in [1920.0, 2340.0]:
+		near(RankLadderModel.centre_scroll(0, 18, 320.0, 24.0, w), 0.0, 0.001, "first: against the left edge (%d)" % w)
+		near(RankLadderModel.centre_scroll(2, 18, 320.0, 24.0, w), 0.0, 0.001, "near the start: clamped (%d)" % w)
+		near(RankLadderModel.centre_scroll(-1, 18, 320.0, 24.0, w), 0.0, 0.001, "unknown: the start (%d)" % w)
+		var mid := RankLadderModel.centre_scroll(5, 18, 320.0, 24.0, w)
+		near(24.0 - mid + 5.5 * 320.0, w / 2.0, 0.001, "column 5 dead centre (%d)" % w)
+		near(RankLadderModel.centre_scroll(17, 18, 320.0, 24.0, w), RankLadderModel.max_scroll(18, 320.0, 24.0, w), 0.001,
+			"last: against the right edge (%d)" % w)
+		near(RankLadderModel.centre_scroll(40, 18, 320.0, 24.0, w), RankLadderModel.max_scroll(18, 320.0, 24.0, w), 0.001,
+			"past the last: clamped (%d)" % w)
+	near(RankLadderModel.centre_scroll(5, 18, 320.0, 24.0, 1920.0), 824.0, 0.001, "1920: 824")
+	near(RankLadderModel.centre_scroll(5, 18, 320.0, 24.0, 6000.0), 0.0, 0.001, "the row fits: no scroll")
+
+
+func test_centred_index() -> void:
+	eq(RankLadderModel.centred_index(824.0, 18, 320.0, 24.0, 1920.0), 5, "the centred column")
+	eq(RankLadderModel.centred_index(0.0, 18, 320.0, 24.0, 1920.0), 2, "at the start")
+	eq(RankLadderModel.centred_index(3888.0, 18, 320.0, 24.0, 1920.0), 15, "at the end")
+	eq(RankLadderModel.centred_index(0.0, 18, 320.0, 24.0, 6000.0), 9, "the row fits: its middle")
+	eq(RankLadderModel.centred_index(0.0, 0, 320.0, 24.0, 1920.0), -1, "no columns")
 
 
 func test_season_line() -> void:

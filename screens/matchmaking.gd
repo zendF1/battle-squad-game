@@ -52,6 +52,7 @@ const RankLadder := preload("res://screens/ranked/rank_ladder.gd")
 
 const BOSS_CARD_SCALE := 0.74 # the party's compact cards in a boss queue
 const BOSS_GAP := 16 # between the boss queue's cards
+const TEAM_GAP := 44 # between a side's cards (room for the rank frames' wings)
 
 const MARGIN := 18
 const DIM := Color(0.01, 0.03, 0.1, 0.16) # over the lightly blurred background: kept bright
@@ -230,7 +231,7 @@ func _team(enemy: bool) -> Control:
 		grid.add_theme_constant_override("v_separation", BOSS_GAP)
 		cards = grid
 	else:
-		cards = Ui.hbox(18)
+		cards = Ui.hbox(TEAM_GAP)
 	cards.mouse_filter = MOUSE_FILTER_IGNORE
 	for i in (_left_size() if boss else MatchmakingModel.team_size()):
 		var card := PlayerCard.new()

@@ -119,7 +119,8 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   top medallion; `ranks/ranks.json`, the frame layout in texture px; grade ids as in the game data,
   `binh_nhi` … `dai_tuong`): optional, `ui/art.gd` `rank_frame()` / `rank_badge()` return null
   without the file and `screens/ranked/grade_frame.gd` / `grade_badge.gd` draw their code
-  placeholder. AI-drawn on flat magenta from `art_source/ranks/PROMPTS.md`:
+  placeholder (the frame's look by tier, the card background and the badge holder's dais:
+  `screens/ranked/grade_look.gd`, `grade_pedestal.gd`). AI-drawn on flat magenta from `art_source/ranks/PROMPTS.md`:
   `art_source/ranks/frames/frame_<grade>.png` (1024 × 1280, 4:5, the empty card window 12 % in from
   every edge, filled with the backdrop) and `badges/badge_<grade>.png` (square), imported by
   `tools/import_rank_art.gd` (config `art_source/ranks/ranks.json`: groups, frame layout, badge fill
@@ -709,7 +710,7 @@ hug.json sets them): `icons/equipment/weapon_bazooka_<iron|steel|mithril|dragon>
 | `matchmaking_pvp.png` | 1024x434 | "cover" | the lobby stage after picking a PvP-category mode; Matchmaking of a PvP queue (blurred, dimmed) |
 | `matchmaking_boss_<bossId>.png` | 1024x434 | "cover" | the same for a boss mode (`ice_witch`, `lava_crab`, `steel_robot`, `rock_giant`, `tree_spirit`); a boss without one gets `lobby_bg.png` |
 | `result.png` | 1024x434 | "cover", under the result shade, confetti / rain | `match/result_screen.gd`, `match/boss/boss_result_screen.gd` |
-| `pedestal.png` | 400x112 (5 KB) | the feet stand at (200, 52) | lobby stage, Prep panel (drawn at 0.66x0.6) |
+| `pedestal.png` | 400x112 (5 KB) | the feet stand at (200, 52) | lobby stage, Prep panel (drawn at 0.66x0.6); a badge holder stands on the grade's dais drawn in code instead (`screens/ranked/grade_pedestal.gd`) |
 | `sky_match.png` | 1600x512 (29 KB) | stretched over the map plus 600 px each side (2800x900 for the default map); sun and hills included | `match/views/sky_view.gd` |
 | `cloud_0..2.png` | 288x160 (6–9 KB) | centred; drawn at half size times a random 0.7–1.4 scale | `match/views/sky_view.gd` |
 

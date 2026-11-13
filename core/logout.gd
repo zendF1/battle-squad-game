@@ -6,7 +6,7 @@ extends RefCounted
 ##   friends state, the match / queue payloads and the mode picked (Router.reset_account()); the game
 ##   socket closed, no redial (GameSocket.close()); the profile and every per-account cache
 ##   (PlayerState.reset_account(): characters, bag, stones, milestones, titles, missions, rank,
-##   chests, season rewards, leaderboards, the rewards watch); the guild (GuildState.reset_account());
+##   chests, mail, leaderboards, the rewards watch); the guild (GuildState.reset_account());
 ##   the tokens and the player's id / name (Session.clear_tokens()); the last character / items /
 ##   mode picked (user://loadout.cfg);
 ## - then POST /auth/logout {refreshToken} revokes the refresh session on the server, not awaited:

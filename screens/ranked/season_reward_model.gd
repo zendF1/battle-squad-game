@@ -27,16 +27,22 @@ static func _str(v: Variant) -> String:
 static func parse_one(r: Variant) -> Dictionary:
 	if not r is Dictionary or _str(r.get("seasonId")) == "":
 		return {}
+	var items := parse_items(r.get("items"))
+	return {"seasonId": _str(r["seasonId"]), "seasonName": _str(r.get("seasonName")), "grade": _str(r.get("grade")),
+		"division": _num(r.get("division")), "rankPos": _num(r.get("rankPos")), "rankPoints": maxi(_num(r.get("rankPoints")), 0),
+		"coin": maxi(_num(r.get("coin")), 0), "gem": maxi(_num(r.get("gem")), 0), "items": items}
+
+
+## Reward items [{kind, id, level, qty, name}] (the ones with a quantity); [] for anything else.
+static func parse_items(v: Variant) -> Array:
 	var items: Array = []
-	if r.get("items") is Array:
-		for it in r["items"]:
+	if v is Array:
+		for it in v:
 			if not it is Dictionary or _num(it.get("qty")) <= 0:
 				continue
 			items.append({"kind": _str(it.get("kind")), "id": _str(it.get("id")), "level": _num(it.get("level")),
 				"qty": _num(it["qty"]), "name": _str(it.get("name"))})
-	return {"seasonId": _str(r["seasonId"]), "seasonName": _str(r.get("seasonName")), "grade": _str(r.get("grade")),
-		"division": _num(r.get("division")), "rankPos": _num(r.get("rankPos")), "rankPoints": maxi(_num(r.get("rankPoints")), 0),
-		"coin": maxi(_num(r.get("coin")), 0), "gem": maxi(_num(r.get("gem")), 0), "items": items}
+	return items
 
 
 ## GET /rank/season-rewards data → the unclaimed rewards (parse_one()), in the server's order

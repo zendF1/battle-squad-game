@@ -72,6 +72,7 @@ func go_signed_in(profile: Variant) -> void:
 func _ready() -> void:
 	GameSocket.session_lost.connect(_on_session_lost)
 	GameSocket.event_received.connect(_on_socket_event)
+	GameSocket.event_received.connect(PlayerState.on_socket_event) # MailNew reloads the mailbox
 	party = load("res://screens/home/party.gd").new()
 	party.name = "Party"
 	add_child(party)

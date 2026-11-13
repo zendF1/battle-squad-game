@@ -8,15 +8,15 @@ extends Control
 ## the reward icons with their amounts, then "Nhận" (claimable: gold glow, bouncing, tap to
 ## claim), "Đã nhận" (dim, check) or the progress ("37/50", locked: grey); the weapon aura nodes
 ## add their description; a node giving a title is wider and shows the title's small plate over
-## its other rewards (one row). A claim plays the reward reveal (ui/reward_reveal.gd) of what was
-## received (a new title: its plate and "Đeo ngay" under the tiles); the wallet and the stones
-## update at once (PlayerState). Loads the list when shown; failures show inline with "Thử lại".
+## its other rewards (one row). A claim is instant: the rewards' icons + "×N" fly to the wallet /
+## bag (ui/reward_fly.gd, no gift box: the node already showed them; a title is just added); the
+## wallet and the stones update at once (PlayerState). Loads the list when shown; failures show inline with "Thử lại".
 
 const Ui := preload("res://ui/ui.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
 const Art := preload("res://ui/art.gd")
 const LoadStatus := preload("res://ui/load_status.gd")
-const RewardReveal := preload("res://ui/reward_reveal.gd")
+const RewardFly := preload("res://ui/reward_fly.gd")
 const RewardModel := preload("res://ui/reward_model.gd")
 const MilestoneModel := preload("res://screens/home/milestone_model.gd")
 const ErrorText := preload("res://screens/home/error_text.gd")
@@ -227,7 +227,7 @@ func _node(n: Dictionary, height: int) -> Control:
 	b.custom_minimum_size = Vector2(w, height)
 	for s in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 		b.add_theme_stylebox_override(s, StyleBoxEmpty.new())
-	b.pressed.connect(_on_node.bind(n))
+	b.pressed.connect(_on_node.bind(n, b))
 	var col := Ui.vbox(6)
 	col.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	col.mouse_filter = MOUSE_FILTER_IGNORE
@@ -387,10 +387,11 @@ static func badge() -> PanelContainer:
 
 # ── Claiming ────────────────────────────────────────────────────────────────
 
-func _on_node(n: Dictionary) -> void:
+## from: the tapped node (the rewards pop there).
+func _on_node(n: Dictionary, from: Control = null) -> void:
 	match n["state"]:
 		MilestoneModel.CLAIMABLE:
-			_claim_one(n)
+			_claim_one(n, from)
 		MilestoneModel.CLAIMED:
 			Ui.toast(overlay, "Đã nhận: %s" % MilestoneModel.title(n))
 		_:
@@ -406,83 +407,46 @@ func _first_claimable() -> Dictionary:
 	return {}
 
 
-func _claim_one(n: Dictionary) -> void:
+## Returns the RewardFly layer of what the claim gave (null on a failure or when nothing flies).
+func _claim_one(n: Dictionary, from: Control = null) -> Control:
 	if n.is_empty() or PlayerState.milestone_busy != "":
-		return
+		return null
+	var at: Variant = _centre(from)
 	var res: Dictionary = await PlayerState.claim_milestone(n["id"])
-	_after_claim(res, MilestoneModel.title(n))
+	return _after_claim(res, at)
 
 
-func _claim_every() -> void:
+func _claim_every() -> Control:
 	if PlayerState.milestone_busy != "":
-		return
+		return null
+	var at: Variant = _centre(_claim_all)
 	var res: Dictionary = await PlayerState.claim_all_milestones()
-	var data: Dictionary = res.data if res.ok and res.data is Dictionary else {}
-	var n: int = data.get("claimed", []).size() if data.get("claimed") is Array else 0
-	_after_claim(res, "Đã nhận %d mốc thưởng" % n)
+	return _after_claim(res, at)
 
 
-func _after_claim(res: Dictionary, heading: String) -> void:
+func _centre(c: Control) -> Variant:
+	return c.get_global_transform_with_canvas() * (c.size / 2.0) if is_instance_valid(c) and c.is_inside_tree() else null
+
+
+func _after_claim(res: Dictionary, from: Variant) -> Control:
 	if not is_inside_tree():
-		return
+		return null
 	if not res.ok:
 		Ui.toast(overlay, ErrorText.milestone(res))
-		return
+		return null
 	var data: Dictionary = res.data if res.data is Dictionary else {}
 	var lines := MilestoneModel.reward_lines(MilestoneModel.parse_rewards(data.get("rewards")))
 	if lines.is_empty():
 		Ui.toast(overlay, "Không có mốc nào để nhận")
-		return
-	show_rewards(overlay, heading, lines)
+		return null
+	return show_rewards(overlay, lines, from)
 
 
-## What a claim gave, as the reward reveal (ui/reward_reveal.gd: a gift box bursting open, the
-## rewards flying out as glowing tiles); each new title's plate with "Đeo ngay" under them.
-## `heading` is unused (pictures, not words); kept for the callers.
-static func show_rewards(host: Control, _heading: String, all_lines: Array) -> Control:
-	var extra: Control = null
-	var titles := MilestoneModel.title_lines(all_lines)
-	if not titles.is_empty():
-		extra = Ui.vbox(12)
-		extra.name = "Titles"
-		for t in titles:
-			extra.add_child(_new_title_row(host, t))
-	return RewardReveal.open(host, RewardModel.from_lines(MilestoneModel.other_lines(all_lines)), {"extra": extra})
-
-
-## A title the claim gave: its plate and "Đeo ngay" ("Đang đeo" once worn).
-static func _new_title_row(host: Control, line: Dictionary) -> Control:
-	var col := Ui.vbox(8)
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	var plate := TitlePlate.new()
-	plate.plate_height = 64
-	plate.max_width = 540
-	plate.set_title({"id": line["id"], "name": line["name"], "rarity": line["rarity"]})
-	plate.size_flags_horizontal = SIZE_SHRINK_CENTER
-	col.add_child(plate)
-	var row := Ui.hbox(18)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_child(row)
-	var wear := Ui.button("Đeo ngay", 22)
-	wear.custom_minimum_size = Vector2(150, 56)
-	wear.focus_mode = FOCUS_NONE
-	row.add_child(wear)
-	var worn := func() -> void:
-		wear.text = "Đang đeo"
-		wear.disabled = true
-	if PlayerState.equipped_title().get("id", "") == line["id"]:
-		worn.call()
-	wear.pressed.connect(func():
-		if PlayerState.title_busy:
-			return
-		wear.disabled = true
-		var res: Dictionary = await PlayerState.equip_title(line["id"])
-		if not is_instance_valid(wear):
-			return
-		if res.ok:
-			worn.call()
-			Ui.toast(host, "Đã đeo danh hiệu: %s" % line["name"])
-		else:
-			wear.disabled = false
-			Ui.toast(host, ErrorText.title(res)))
-	return col
+## What a claim gave, at once (fixed rewards the node already showed: no gift box, no "Nhận"):
+## the icons + "×N" fly from `from` to the wallet / bag (ui/reward_fly.gd). A title is just added
+## (PlayerState has it; worn from Danh hiệu). Returns the layer, null when nothing flies.
+static func show_rewards(host: Control, all_lines: Array, from: Variant = null) -> Control:
+	var tiles := RewardModel.from_lines(MilestoneModel.other_lines(all_lines))
+	if tiles.is_empty():
+		return null
+	return RewardFly.play(host, tiles, from)

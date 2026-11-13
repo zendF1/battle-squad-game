@@ -154,7 +154,26 @@ static func season_line(rank: Dictionary, now_unix: int) -> String:
 	return "%s · %s" % [season_name, left] if left != "" else season_name
 
 
-## The row's scroll that puts column `index` dead centre (the row is padded so every column can
-## sit there), clamped to the row.
-static func centre_scroll(index: int, count: int, col_w: float) -> float:
-	return clampf(index * col_w, 0.0, maxf(count - 1, 0) * col_w)
+## How far the row scrolls at most: `count` columns `col_w` wide plus `margin` on both ends, in a
+## view `view_w` wide; 0 when it fits (never past the first or the last column).
+static func max_scroll(count: int, col_w: float, margin: float, view_w: float) -> float:
+	return maxf(maxi(count, 0) * col_w + 2.0 * margin - view_w, 0.0)
+
+
+## The row's scroll (how far its left edge moved left) that puts column `index` dead centre in a
+## view `view_w` wide, clamped to the row: near the ends the first / last column sits against the
+## edge (`margin` from it) instead. An unknown column (-1): the start.
+static func centre_scroll(index: int, count: int, col_w: float, margin: float, view_w: float) -> float:
+	if index < 0:
+		return 0.0
+	var target := margin + (index + 0.5) * col_w - view_w / 2.0
+	return clampf(target, 0.0, max_scroll(count, col_w, margin, view_w))
+
+
+## The column under the view's centre at `scroll` (previews, tests); -1 with no columns.
+static func centred_index(scroll: float, count: int, col_w: float, margin: float, view_w: float) -> int:
+	if count <= 0:
+		return -1
+	if max_scroll(count, col_w, margin, view_w) <= 0.0: # the whole row fits: it sits centred
+		return clampi(int(count / 2.0), 0, count - 1)
+	return clampi(int(floor((scroll + view_w / 2.0 - margin) / col_w)), 0, count - 1)

@@ -1,6 +1,6 @@
 extends "res://tests/test_case.gd"
 ## PlayerState's gems (locked + unlocked), badge, chests (GET /chests, POST /chests/open) and
-## season rewards (GET /rank/season-rewards, POST /rank/season-rewards/claim) against a fake REST
+## mailbox (GET /mail, POST /mail/read, /mail/claim, /mail/claim-all, MailNew) against a fake REST
 ## client, with answers shaped like the contract (spec 4, 6, 8a).
 
 const PlayerStateScript := preload("res://autoload/player_state.gd")
@@ -94,29 +94,72 @@ func test_chest_open_refused() -> void:
 	s.free()
 
 
-func test_season_rewards_claim() -> void:
+const MAIL_ROW := {"mailId": "m1", "kind": "season_reward", "title": "Thưởng Mùa 1", "body": "",
+	"meta": {"seasonId": "s1", "seasonName": "Mùa 1", "grade": "trung_si", "division": 2, "rankPos": 57, "rankPoints": 1080},
+	"rewards": {"coin": 5000, "gem": 20, "items": [{"kind": "chest", "id": "stone_chest", "qty": 2, "name": "Rương đá"}]},
+	"createdAt": "2026-11-13T00:05:00Z", "expiresAt": null, "readAt": null, "claimedAt": null}
+
+
+func test_mail_claim() -> void:
 	var api := FakeApi.new()
-	var row := {"seasonId": "s1", "seasonName": "Mùa 1", "grade": "trung_si", "division": 2, "rankPos": 57, "rankPoints": 1080,
-		"coin": 5000, "gem": 20, "items": [{"kind": "chest", "id": "stone_chest", "qty": 2, "name": "Rương đá"}]}
-	api.answers["/rank/season-rewards"] = FakeApi._ok({"rewards": [row]})
-	var claimed := row.duplicate(true)
-	claimed["wallet"] = {"coin": 5100, "gem": 50, "gemUnlocked": 12}
-	api.answers["/rank/season-rewards/claim"] = FakeApi._ok(claimed)
+	api.answers["/mail"] = FakeApi._ok({"mails": [MAIL_ROW], "unclaimedCount": 1})
+	var claimed := MAIL_ROW.duplicate(true)
+	claimed["claimedAt"] = "2026-11-13T12:00:00Z"
+	api.answers["/mail/claim"] = FakeApi._ok({"mail": claimed, "granted": MAIL_ROW["rewards"],
+		"wallet": {"coin": 5100, "gem": 50, "gemUnlocked": 12}})
 	var s = _state(api)
-	await s.load_season_rewards()
-	eq(s.my_season_rewards().size(), 1, "one to claim")
-	api.answers["/rank/season-rewards"] = FakeApi._ok({"rewards": []})
+	await s.load_mail()
+	eq(s.my_mail().size(), 1, "one mail")
+	eq([s.mail_unclaimed(), s.mail_attention()], [1, 1], "one to claim")
+	api.answers["/mail"] = FakeApi._ok({"mails": [claimed], "unclaimedCount": 0})
 	var seen := []
 	s.changed.connect(func(): seen.append([s.coin(), s.gem_locked(), s.gem_unlocked()]))
-	var res: Dictionary = await s.claim_season_reward("s1")
+	var res: Dictionary = await s.claim_mail("m1")
 	check(res.ok, "claimed")
-	eq(api.posts()[0], ["/rank/season-rewards/claim", {"seasonId": "s1"}], "the request")
+	eq(api.posts()[0], ["/mail/claim", {"mailId": "m1"}], "the request")
 	check(not seen.is_empty() and seen[0] == [5100, 50, 12], "the answer's wallet at once: %s" % str(seen))
 	check(api.gets().has("/player/profile"), "then the profile refreshes")
-	eq(s.my_season_rewards(), [], "gone from the list")
-	check(api.gets().has("/chests") or s.chests_stale, "the chests are out of date")
+	eq(s.mail_unclaimed(), 0, "nothing left to claim")
+	check(s.chests_stale or api.gets().has("/chests"), "the chests are out of date")
 	s.free()
 
+
+func test_mail_read_claim_all_and_errors() -> void:
+	var api := FakeApi.new()
+	var second := MAIL_ROW.duplicate(true)
+	second["mailId"] = "m2"
+	api.answers["/mail"] = FakeApi._ok({"mails": [MAIL_ROW, second], "unclaimedCount": 2})
+	var s = _state(api)
+	await s.load_mail()
+	await s.mark_mail_read("m1")
+	eq(api.posts()[0], ["/mail/read", {"mailId": "m1"}], "read posted")
+	check(s.my_mail()[0]["readAt"] != "" or s.my_mail()[1]["readAt"] != "", "marked read at once")
+	api.answers["/mail/claim-all"] = FakeApi._ok({"claimed": ["m1", "m2"], "granted": {"coin": 10000}, "wallet": {"coin": 10100}})
+	api.answers["/mail"] = FakeApi.fail(500, "INTERNAL") # the reload fails: the answer stays
+	var coins := []
+	s.changed.connect(func(): coins.append(s.coin()))
+	var res: Dictionary = await s.claim_all_mail()
+	check(res.ok, "claimed all")
+	eq(s.mail_unclaimed(), 0, "all claimed at once")
+	check(not coins.is_empty() and coins[0] == 10100, "the wallet at once: %s" % str(coins))
+	api.answers["/mail/claim"] = FakeApi.fail(404, "MAIL_NOT_FOUND")
+	await s.claim_mail("m2")
+	eq(s.my_mail().map(func(m): return m["mailId"]), ["m1"], "not found: off the list")
+	api.answers["/mail"] = FakeApi.fail(404, "NOT_FOUND")
+	await s.load_mail()
+	check(not s.mail_available, "a server without a mailbox")
+	s.free()
+
+
+func test_mail_new_reloads() -> void:
+	var api := FakeApi.new()
+	api.answers["/mail"] = FakeApi._ok({"mails": [MAIL_ROW], "unclaimedCount": 1})
+	var s = _state(api)
+	s.on_socket_event("MailNew", {"unclaimedCount": 1})
+	check(api.gets().has("/mail"), "MailNew loads the mailbox")
+	s.on_socket_event("ChatMessage", {})
+	eq(api.gets().filter(func(g): return g == "/mail").size(), 1, "other events do not")
+	s.free()
 
 func test_gem_answers_carry_both_gems() -> void:
 	var api := FakeApi.new()
@@ -154,7 +197,7 @@ func test_sell_and_milestone_and_upgrade_gems() -> void:
 	s.free()
 
 
-func test_chest_open_takes_remaining_and_season_not_found() -> void:
+func test_chest_open_takes_remaining() -> void:
 	var api := FakeApi.new()
 	api.answers["/chests"] = FakeApi._ok({"chests": [{"chestId": "stone_chest", "quantity": 12}]})
 	var s = _state(api)
@@ -164,10 +207,4 @@ func test_chest_open_takes_remaining_and_season_not_found() -> void:
 	api.answers["/chests"] = FakeApi.fail(500, "INTERNAL") # the reload fails: the answer's count stays
 	await s.open_chest("stone_chest", 10)
 	eq(s.chests.map(func(c): return c["quantity"]), [2], "the answer's remaining at once")
-	api.answers["/rank/season-rewards"] = FakeApi._ok({"rewards": [{"seasonId": "s9", "grade": "ha_si", "division": 1}]})
-	await s.load_season_rewards()
-	api.answers["/rank/season-rewards/claim"] = FakeApi.fail(404, "SEASON_REWARD_NOT_FOUND")
-	api.answers["/rank/season-rewards"] = FakeApi.fail(500, "INTERNAL")
-	await s.claim_season_reward("s9")
-	eq(s.my_season_rewards(), [], "not found: nothing to claim, off the list")
 	s.free()
