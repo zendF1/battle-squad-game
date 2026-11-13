@@ -44,6 +44,24 @@ static func hover(t: float) -> float:
 	return -HOVER * sin(omega() * t)
 
 
+## Whether a skinned idle floats (hover()): the witch's (motion idle) does; one that breathes on its
+## feet (motion "breath": Khổng Lồ Đá) stands on the ground.
+static func hovers(skin: Dictionary) -> bool:
+	return str(skin.get("motion", "idle")) == "idle"
+
+
+## The eyes' glow now (0..1): a slow pulse with a quick flicker in it, dimming once a loop (EYE_DIM_AT
+## of the PERIOD, for EYE_DIM_SEC).
+const EYE_DIM_AT := 0.62
+const EYE_DIM_SEC := 0.16
+static func eyes(t: float) -> float:
+	var g := 0.78 + 0.12 * sin(omega() * t) + 0.08 * sin(23.0 * t) * sin(7.3 * t)
+	var into := fposmod(t, PERIOD) - EYE_DIM_AT * PERIOD
+	if into >= 0.0 and into < EYE_DIM_SEC:
+		g *= 0.25 + 0.75 * absf(into / EYE_DIM_SEC * 2.0 - 1.0)
+	return clampf(g, 0.0, 1.0)
+
+
 ## A bone's offset now: {rot (degrees), y (of the height), sy}; zero for a bone without motion.
 static func bone(name: String, t: float) -> Dictionary:
 	var m: Dictionary = MOTION.get(name, {})

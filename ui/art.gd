@@ -426,6 +426,15 @@ static func boss_skin(id: String, name: String = "idle") -> Dictionary:
 	data["shards"] = shards
 	data["glow"] = _vec2(raw.get("glow", []))
 	data["motion"] = str(raw.get("motion", "idle"))
+	data["glow_bone"] = str(raw.get("glowBone", "staff")) # the bone carrying the glow
+	var gc = raw.get("glowColour")
+	if gc is Array and gc.size() >= 3:
+		data["glow_colour"] = Color(float(gc[0]), float(gc[1]), float(gc[2]))
+	var eyes: Array = []
+	for e in raw.get("eyes", []):
+		if e is Array and e.size() >= 2:
+			eyes.append(_vec2(e))
+	data["eyes"] = eyes
 	out.merge(data)
 	return out
 
@@ -471,10 +480,50 @@ static func boss_parts(id: String) -> Dictionary:
 		if tex == null:
 			push_warning("art: %s%s missing, no boss parts" % [dir, spec.get("file", "")])
 			return out
-		parts[str(name)] = {"texture": tex, "at": _vec2(spec.get("at", [])), "size": _vec2(spec.get("size", []))}
+		parts[str(name)] = {"texture": tex, "at": _vec2(spec.get("at", [])), "size": _vec2(spec.get("size", [])), "z": int(spec.get("z", parts.size()))}
 		if spec.get("pivot") is Array: # the point it turns round (its own px: the cannon's hub)
 			parts[str(name)]["pivot"] = _vec2(spec["pivot"])
 	out.merge({"height": float(data["height"]), "parts": parts})
+	return out
+
+
+static var _boss_points := {} # boss art id -> boss_points() ({} = none)
+
+
+## A drawn boss's points per frame (assets/bosses/<id>/side/points.json, written by its
+## make_frames.py: Khổng Lồ Đá), in the unit frame (the body 100 tall, the feet at the origin, facing
+## right, y down): {rest {joint: Vector2} (restJoints), frames {anim: [{name: Vector2 (a point) or
+## Vector3 (x, y, degrees: a joint and its turn)}]}}; {} without one.
+static func boss_points(id: String) -> Dictionary:
+	if _boss_points.has(id):
+		return _boss_points[id]
+	var out := {}
+	_boss_points[id] = out
+	var path := boss_dir(id) + "side/points.json"
+	if id == "" or not id.is_valid_filename() or not FileAccess.file_exists(path):
+		return out
+	var data := _load_json(path)
+	if not data.get("frames") is Dictionary:
+		return out
+	var rest := {}
+	if data.get("restJoints") is Dictionary:
+		for j in data["restJoints"]:
+			rest[str(j)] = _vec2(data["restJoints"][j])
+	var frames := {}
+	for anim in data["frames"]:
+		var list: Array = []
+		for f in data["frames"][anim]:
+			var pts := {}
+			if f is Dictionary:
+				for key in f:
+					var v = f[key]
+					if v is Array and v.size() >= 3:
+						pts[str(key)] = Vector3(float(v[0]), float(v[1]), float(v[2]))
+					elif v is Array and v.size() == 2:
+						pts[str(key)] = Vector2(float(v[0]), float(v[1]))
+			list.append(pts)
+		frames[str(anim)] = list
+	out.merge({"rest": rest, "frames": frames})
 	return out
 
 

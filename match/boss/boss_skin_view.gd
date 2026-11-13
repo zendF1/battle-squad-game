@@ -4,7 +4,9 @@ extends Node2D
 ## scenes/character/full_body.gd: the Polygon2D mesh on Bone2Ds, the AnimationPlayer playing the
 ## idle tracks of skin.json, match/boss/skin_idle.gd's motion), plus what moves on its own over it:
 ## the orbiting ice shards (their own sprites, drifting on small ellipses round their rest places,
-## SkinIdle.shard()) and the staff crystal's pulsing glow (it follows the staff bone). The feet (the
+## SkinIdle.shard()) and the staff crystal's pulsing glow (it follows the staff bone; a skin's
+## glowBone / glowColour carry and tint it: Khổng Lồ Đá's amber chest gem on the torso), plus its eyes'
+## flicker when the skin has eyes (SkinIdle.eyes(), carried by the head bone). The feet (the
 ## frost-mist hem's bottom centre) at this node's origin, picture px; the owner scales, mirrors and
 ## floats it (SkinIdle.hover()). advance() moves it on (not processed by itself). debug draws the
 ## deformed mesh and the bones over it.
@@ -18,6 +20,9 @@ const SkinFly := preload("res://match/boss/skin_fly.gd")
 
 const GLOW_COLOUR := Color(0.62, 0.95, 1.0)
 const GLOW_R := 0.075 # of the height
+const EYE_R := 0.022 # of the height: one eye's glow
+const EYE_DARK_BELOW := 0.6 # the eyes' glow under this: shaded over (the dim)
+const EYE_SHADE := Color(0.16, 0.11, 0.08)
 
 var skin := {}
 var debug := false:
@@ -108,13 +113,38 @@ func _shard_pose(i: int) -> Dictionary:
 	return glide_state.shard(i) if glide_state != null else SkinIdle.shard(i, _t)
 
 
-## Where the staff crystal is now (px from the feet), carried by the staff bone.
+## Where the staff crystal (the skin's glow) is now (px from the feet), carried by its glowBone
+## (the staff by default).
 func crystal() -> Vector2:
-	var glow: Vector2 = skin.get("glow", Vector2.ZERO)
-	var b: Node2D = _body.bone("staff")
+	return carry(str(skin.get("glow_bone", "staff")), skin.get("glow", Vector2.ZERO))
+
+
+## The glow's colour (skin.json glowColour; the witch's ice cyan without one).
+func glow_colour() -> Color:
+	return skin.get("glow_colour", GLOW_COLOUR)
+
+
+## A point of the picture (px, the rest pose) where the bone `bone_name` carries it now (px from
+## the feet); not moved without that bone.
+func carry(bone_name: String, p: Vector2) -> Vector2:
+	return bone_motion(bone_name) * (p - Vector2(skin["pivot"]))
+
+
+## How the bone `bone_name` moves a point now: px from the feet at rest → px from the feet now
+## (identity without that bone).
+func bone_motion(bone_name: String) -> Transform2D:
+	var b: Node2D = _body.bone(bone_name) if bone_name != "" else null
 	if b == null:
-		return glow - Vector2(skin["pivot"])
-	return _to_self(b) * (glow - _rest_at("staff"))
+		return Transform2D.IDENTITY
+	return _to_self(b) * Transform2D(0.0, Vector2(skin["pivot"]) - _rest_at(bone_name))
+
+
+## The eyes now (px from the feet), carried by the head bone.
+func eyes() -> Array:
+	var out: Array = []
+	for e in skin.get("eyes", []):
+		out.append(carry("head", e))
+	return out
 
 
 ## A bone's joint at rest (picture px).
@@ -140,7 +170,16 @@ func _draw_fx() -> void:
 	var g := SkinIdle.glow(_t)
 	var r := h * GLOW_R * (0.85 + 0.3 * g)
 	var at := crystal()
-	_fx.draw_texture_rect(halo(), Rect2(at - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(GLOW_COLOUR, 0.25 + 0.4 * g))
+	_fx.draw_texture_rect(halo(), Rect2(at - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(glow_colour(), 0.25 + 0.4 * g))
+	var lit := SkinIdle.eyes(_t)
+	for e in eyes():
+		var er := h * EYE_R * (0.8 + 0.4 * lit)
+		_fx.draw_texture_rect(halo(), Rect2(e - Vector2(er, er), Vector2(er, er) * 2.0), false, Color(glow_colour().lightened(0.25), 0.7 * lit))
+		if lit < EYE_DARK_BELOW: # the dim: the drawn eye shaded over
+			var dark := (EYE_DARK_BELOW - lit) / EYE_DARK_BELOW
+			_fx.draw_set_transform(e, 0.0, Vector2(1.0, 0.45))
+			_fx.draw_circle(Vector2.ZERO, h * 0.02, Color(EYE_SHADE, 0.75 * dark))
+			_fx.draw_set_transform(Vector2.ZERO)
 	for i in skin.get("shards", []).size():
 		var s: Dictionary = skin["shards"][i]
 		var pose := _shard_pose(i)

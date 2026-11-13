@@ -84,6 +84,11 @@ func test_body_plates_heal_and_puff() -> void:
 	b.set_armored(true)
 	b._process(BossBody.PLATES_IN_SEC)
 	near(b.plates_shown(), 1.0, 1e-6, "the plates popped on")
+	check(b.has_frames(), "the giant is drawn from its frames")
+	var plates: Node = b.get_node_or_null("Plates")
+	check(plates != null and plates.get_index() > b.get_node("Frames").get_index() and plates.get_index() > b.get_node("Skin").get_index(),
+		"the plates drawn over the frames and the skin")
+	eq(b.plate_poses().size(), BossArt.FRAME_PLATES.size(), "each carried by its joint (test_boss_giant_art)")
 	b.set_armored(false)
 	check(b.plates_breaking() and b.plates_shown() == 0.0, "they break off")
 	b._process(BossArt.PLATE_BREAK_SEC + 0.05)

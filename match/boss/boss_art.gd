@@ -43,9 +43,10 @@ const SHOT_LOOK := {"steel_robot": {"kind": "cannon", "tier": "titan"}, "lava_cr
 	"tree_spirit": {"kind": "seed_launcher", "tier": "mithril"}}
 ## The point (unit frame, facing right) a boss's beam and muzzle flash leave from (Đĩa Bay Thép:
 ## its turret's mid tip at rest, turret.json mount (35.09, -23.83) + 29.27 at 20°; in a match BossBody
-## turns the turret and its muzzle_position() is the turned tip).
+## turns the turret and its muzzle_position() is the turned tip; Khổng Lồ Đá: the throwing knuckles at
+## the throw's peak, rig_v1.json, BossBody follows points.json hand_r while a throw shows).
 const MUZZLE := {"steel_robot": Vector2(62.6, -13.8), "lava_crab": Vector2(64, -58), "ice_witch": Vector2(30, -98),
-	"drone": Vector2(10, -62), "crab": Vector2(60, -54), "snowman": Vector2(26, -58), "rock_giant": Vector2(52, -40),
+	"drone": Vector2(10, -62), "crab": Vector2(60, -54), "snowman": Vector2(26, -58), "rock_giant": Vector2(63.95, -74.94),
 	"stone_totem": Vector2(20, -72), "tree_spirit": Vector2(3, -27), "poison_mushroom": Vector2(0, -80)}
 ## The accent colour of each art (the HUD bar's name, the shield's tint, the card's glow).
 const ACCENT := {"steel_robot": Color(1.0, 0.62, 0.22), "drone": Color(1.0, 0.35, 0.3), "lava_crab": Color(1.0, 0.45, 0.12),
@@ -55,14 +56,16 @@ const ACCENT := {"steel_robot": Color(1.0, 0.62, 0.22), "drone": Color(1.0, 0.35
 	GENERIC_BOSS: Color(0.85, 0.5, 1.0), GENERIC_MINION: Color(0.85, 0.6, 0.9)}
 
 ## How wide each figure is for its height (the shield's ellipse, a UI box fitting it).
-const WIDTH := {"lava_crab": 1.7, "crab": 1.7, "steel_robot": 1.38, "ice_witch": 1.1, "rock_giant": 1.4, "tree_spirit": 1.35,
+const WIDTH := {"lava_crab": 1.7, "crab": 1.7, "steel_robot": 1.38, "ice_witch": 1.1, "rock_giant": 0.92, "tree_spirit": 1.35,
 	"stone_totem": 0.75, "poison_mushroom": 1.0}
 ## How far a figure reaches over its feet, of its height (the name and the bar above it): Mộc
-## Tinh's crown, Khổng Lồ Đá's quartz and Đĩa Bay Thép's antenna stand over the unit height; 1 for the rest.
-const TOP := {"tree_spirit": 1.12, "rock_giant": 1.04, "steel_robot": 1.125}
+## Tinh's crown and Đĩa Bay Thép's antenna stand over the unit height; 1 for the rest (Khổng Lồ Đá's
+## drawn horns are its top).
+const TOP := {"tree_spirit": 1.12, "rock_giant": 1.0, "steel_robot": 1.125}
 ## The heart of a boss (unit frame, facing right): where the life it drains flows in (Mộc Tinh's sap
-## heart) and its heal glows; others: the body's middle.
-const HEART := {"tree_spirit": Vector2(3, -27), "rock_giant": Vector2(4, -60)}
+## heart) and its heal glows (Khổng Lồ Đá: its chest gem at rest; BossBody follows points.json heart
+## per frame); others: the body's middle.
+const HEART := {"tree_spirit": Vector2(3, -27), "rock_giant": Vector2(6.67, -50.91)}
 
 static var _s := 1.0 # px per unit of the figure being drawn
 static var _out_px := OUT_PX # the outline on screen: thinner on a small figure
@@ -214,8 +217,12 @@ const TRAIL_FROM_DEFAULT := 0.35
 const LEAN := {"steel_robot": 1.7}
 const LEAN_ABOUT := {"steel_robot": 0.43}
 ## How a boss drawn from frames dies (BossBody): "shatter" (Phù Thuỷ Băng: cracks, a freeze, ice
-## shards) or "crash" (Đĩa Bay Thép: sparks and smoke, it tumbles down, the dome pops off, it blows up).
-const DEATH := {"steel_robot": "crash"}
+## shards), "crash" (Đĩa Bay Thép: sparks and smoke, it tumbles down, the dome pops off, it blows up) or
+## "crumble" (Khổng Lồ Đá: its death frames crack it, then it falls apart into its parts, the horns last).
+const DEATH := {"steel_robot": "crash", "rock_giant": "crumble"}
+## A drawn boss's stomp (its animation, BossBody at its peak frame): the foot that lands (unit frame,
+## facing right) where the dust bursts and the ground's shockwave ring opens.
+const STOMP := {"rock_giant": {"anim": "stomp", "foot": Vector2(18, -1)}}
 
 static var _opts := {}
 
@@ -729,6 +736,17 @@ const PLATES := [
 	{"pts": [Vector2(10, -80), Vector2(32, -74), Vector2(34, -54), Vector2(20, -44), Vector2(8, -56)], "v": Vector2(80, -80), "spin": 3.2},
 	{"pts": [Vector2(-18, -40), Vector2(20, -40), Vector2(16, -26), Vector2(-14, -26)], "v": Vector2(10, -40), "spin": 1.5},
 ]
+## The same plates on Khổng Lồ Đá's drawn art (its frames / skinned idle, BossBody): each its own slab
+## (pts round its centre) at its rest centre (at, the unit frame, the frames' rest pose: the shoulder
+## pads, the chest beside the gem, the belt), carried by a points.json joint (the frame's joint
+## moves and turns it: frame_plate_pose()); the pop-on and the break-off as PLATES (same index).
+const FRAME_PLATES := [
+	{"at": Vector2(-28, -58.5), "joint": "pauldron_l", "pts": [Vector2(-10, -6), Vector2(-2, -9), Vector2(9, -6), Vector2(10, 3), Vector2(2, 8), Vector2(-9, 5)]},
+	{"at": Vector2(30.6, -58), "joint": "pauldron_r", "pts": [Vector2(-9, -6), Vector2(2, -9), Vector2(10, -5), Vector2(9, 5), Vector2(-2, 8), Vector2(-10, 3)]},
+	{"at": Vector2(-10.6, -50.3), "joint": "chest", "pts": [Vector2(-7, -7), Vector2(6, -8), Vector2(7, 3), Vector2(1, 8), Vector2(-7, 5)]},
+	{"at": Vector2(21.2, -48.8), "joint": "chest", "pts": [Vector2(-6, -8), Vector2(7, -7), Vector2(7, 5), Vector2(-1, 8), Vector2(-7, 3)]},
+	{"at": Vector2(-1.5, -36.4), "joint": "pelvis", "pts": [Vector2(-12, -4), Vector2(12, -4.5), Vector2(10, 4), Vector2(-10, 4.5)]},
+]
 const PLATE_BREAK_SEC := 0.9 # the plates fly off and fade over this
 const PLATE_GRAVITY := 520.0 # units/s²
 
@@ -787,9 +805,45 @@ static func _giant(ci: CanvasItem, t: float) -> void:
 	_plates(ci, t)
 
 
+## Where a frame carries a FRAME_PLATES joint: the transform (unit frame) moving a point of the rest
+## pose with it: by the joint's move from rest (rest: points.json restJoints) and turned round it by
+## its degrees (now: Vector3(x, y, degrees)); identity without the joint.
+static func frame_plate_pose(now: Variant, rest: Variant) -> Transform2D:
+	if not now is Vector3 or not rest is Vector2:
+		return Transform2D.IDENTITY
+	var n: Vector3 = now
+	return Transform2D(deg_to_rad(n.z), Vector2(n.x, n.y)) * Transform2D(0.0, -Vector2(rest))
+
+
+## FRAME_PLATES[i]'s polygon in the frame (pose: frame_plate_pose()).
+static func frame_plate_points(i: int, pose: Transform2D) -> PackedVector2Array:
+	var pl: Dictionary = FRAME_PLATES[i]
+	var out := PackedVector2Array()
+	for p in pl["pts"]:
+		out.append(pose * (Vector2(pl["at"]) + Vector2(p)))
+	return out
+
+
+## The plates over a drawn Khổng Lồ Đá (BossBody): xform the unit frame → ci's local px, height its
+## px tall, poses one Transform2D per FRAME_PLATES (frame_plate_pose()), plates 0..1 popping in,
+## brk s since they broke (-1 none), flash the hit's white.
+static func draw_frame_plates(ci: CanvasItem, xform: Transform2D, height: float, t: float, poses: Array, plates: float, brk: float,
+		flash: float = 0.0) -> void:
+	_s = maxf(height / UNIT, 0.01)
+	_out_px = OUT_PX * clampf(height / 110.0, 0.45, 1.0)
+	_flash = clampf(flash, 0.0, 1.0)
+	_opts = {"plates": plates, "plates_break": brk}
+	ci.draw_set_transform_matrix(xform)
+	_plates(ci, t, poses)
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	_opts = {}
+	_flash = 0.0
+
+
 ## The stone armour on the giant (opts plates 0..1 popping in; plates_break s since it broke: the
-## plates fly off and fade, PLATE_BREAK_SEC).
-static func _plates(ci: CanvasItem, t: float) -> void:
+## plates fly off and fade, PLATE_BREAK_SEC). poses: the drawn art's (FRAME_PLATES, one per plate);
+## empty: the code art's PLATES.
+static func _plates(ci: CanvasItem, t: float, poses: Array = []) -> void:
 	var k := clampf(float(_opts.get("plates", 0.0)), 0.0, 1.0)
 	var brk := float(_opts.get("plates_break", -1.0))
 	if k <= 0.0 and (brk < 0.0 or brk >= PLATE_BREAK_SEC):
@@ -797,7 +851,7 @@ static func _plates(ci: CanvasItem, t: float) -> void:
 	var glow := 0.55 + 0.45 * sin(t * 3.0)
 	for i in PLATES.size():
 		var pl: Dictionary = PLATES[i]
-		var src: Array = pl["pts"]
+		var src: Array = pl["pts"] if poses.is_empty() else Array(frame_plate_points(i, poses[i] if i < poses.size() else Transform2D.IDENTITY))
 		var c := Vector2.ZERO
 		for p in src:
 			c += p

@@ -133,7 +133,8 @@ Total about 7.7 MB of PNG (the full-body pictures about 0.45 MB of it, the AI-dr
   frame's pose with their `z`: horns, helmet, pads, torso and belt split along the cracks, arms,
   fists, legs) and `side/points.json` (per frame, unit frame: the gem, the fists, the throwing
   knuckles, the eyes, the chest / pads / belt / head joints and turns, for the plates and glows the
-  game draws).
+  game draws: `Art.boss_points()`; how the match uses them, its skills' animations and its crumble:
+  `docs/boss-khong-lo-da-art.md`).
 - **Title plates** (`ui/titles/title_<rarity>.png`, blue / orange / purple / red, and
   `ui/titles/titles.json`: the banner the title name is drawn on, `ui/title_plate.gd`): AI-drawn
   with no text on a dark background, `art_source/ui/titles/title_<rarity>.png`, keyed by

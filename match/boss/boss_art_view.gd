@@ -110,7 +110,7 @@ func _place_skin() -> void:
 	var k := minf(size.x / pic.x, size.y / pic.y) * PICTURE_FILL
 	var centre := pic / 2.0 - Vector2(sk["pivot"]) # the picture's middle from the feet
 	_skin_view.scale = Vector2(k, k)
-	_skin_view.position = size / 2.0 - centre * k + Vector2(0, SkinIdle.hover(_skin_view.time()) * _skin_view.height() * k)
+	_skin_view.position = size / 2.0 - centre * k + Vector2(0, (SkinIdle.hover(_skin_view.time()) if SkinIdle.hovers(sk) else 0.0) * _skin_view.height() * k)
 
 
 ## The figure's height in px in a box of `box_size`.

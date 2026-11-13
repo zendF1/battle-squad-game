@@ -44,6 +44,18 @@ extends Node2D
 ## flashes a green halo behind the figure and lights its heart (a drain or a regen heal); puff()
 ## squashes a poison mushroom and springs it up as it puffs its spores; a stone totem nods as it
 ## shoots; a stone totem crumbles into falling stones as it dies.
+## Khổng Lồ Đá drawn (its frames and skinned idle, side/points.json: Art.boss_points()): it stands on
+## its feet (its skin breathes, SkinIdle.hovers() false: no float); the plates are drawn over the
+## frame or the skin (BossArt.FRAME_PLATES, each carried by its points.json joint: they follow every
+## pose; on the skin by the bones), popping on and breaking off as before (and off when it dies); its
+## heart (the drain's end, the heal glow) is the shown frame's gem (points heart), its muzzle the
+## throwing knuckles while a throw shows (hand_r); its stomp's peak frame (BossArt.STOMP) bursts dust
+## at the landing foot and opens the game's shockwave ring there (ShockwaveFx). It dies crumbling
+## (BossArt.DEATH "crumble", death_phase() crack → crumble → fade → gone): the death frames crack it
+## (0 to CRUMBLE_SWAP_FRAME), then it is its parts (Art.boss_parts(), posed as that frame, drawn by
+## z): they fall with gravity, pushed out a little from the heart, spinning, bounce and settle on
+## the ground, the helmet a beat later and the horns last (HORN_DELAY), tumbling; dust bursts and
+## pebbles fly, then everything fades (CRUMBLE_FADE).
 ## Round 2 (Đĩa Bay Thép): a boss with a turret (Art.boss_turret(): its twin cannon, the body frames
 ## without it) draws it over the body at the mount of the frame shown (turret.json bodyFrames: the
 ## hurt's tilt moves and turns it), turned to its aim (TurretModel: clamped to its range, a quick
@@ -63,6 +75,7 @@ const Art := preload("res://ui/art.gd")
 const BomberModel := preload("res://match/boss/bomber_model.gd")
 const TurretModel := preload("res://match/boss/turret_model.gd")
 const ShieldBall := preload("res://match/views/shield_ball.gd")
+const ShockwaveFx := preload("res://match/boss/shockwave_fx.gd")
 
 const FLASH_SEC := 0.28
 const DEATH_SEC := 1.2
@@ -199,6 +212,29 @@ const NOD_SEC := 0.45
 const PUFF_SEC := 0.7
 const HEAL_GLOW := Color(0.6, 1.0, 0.4)
 const CRUMBLE := [Color(0.69, 0.48, 0.27), Color(0.43, 0.29, 0.18), Color(0.85, 0.65, 0.4)]
+## Khổng Lồ Đá's crumble (BossArt.DEATH "crumble").
+const CRUMBLE_SWAP_FRAME := 2 # the death frame the parts take over on (they are posed as it)
+const CRUMBLE_FALL := 1.6 # s from the swap: the parts fall, bounce and settle
+const CRUMBLE_FADE := 0.6 # s: then they fade away
+const HELMET_DELAY := 0.15 # s after the swap the helmet drops
+const HORN_DELAY := 0.4 # s after the swap the horns drop, tumbling
+const RUBBLE_GRAVITY := 5.9 # body heights / s²
+const RUBBLE_PUSH := Vector2(0.12, 0.3) # body heights / s: the push out from the heart (lo, hi)
+const RUBBLE_BOUNCE := 0.3 # of the fall speed back up
+const RUBBLE_PEBBLES := 16
+const STONE := [Color(0.42, 0.33, 0.27), Color(0.3, 0.24, 0.2), Color(0.56, 0.53, 0.49)]
+const DUST := Color(0.62, 0.52, 0.43)
+const STOMP_PUFFS := 10
+const STOMP_PEBBLES := 8
+## The skinned idle's bone carrying each points.json joint (the plates on the skin).
+const SKIN_BONE := {"chest": "torso", "pauldron_l": "arm_l", "pauldron_r": "arm_r", "pelvis": "root", "head": "head"}
+var _points := {} # Art.boss_points(): the frames' points ({} none)
+var _plate_view: Node2D # draws the plates (and the heart's heal light) over the frames / the skin
+var _rubble: Array = [] # the crumble's parts [{tex, size, z, c, v, rot, spin, delay, ground}] (body px)
+var _crumbled := false # the parts took over
+var _dust: Array = [] # [{p, v, r, grow, age, life}] (local px)
+var _pebbles: Array = [] # [{p, v, r, rot, spin, age, life, col, ground}] (local px)
+var _last_frame: Array = []
 
 
 func setup(art_id: String, height_px: float) -> void:
@@ -253,6 +289,12 @@ func setup(art_id: String, height_px: float) -> void:
 			_fly_view.set_shader_material(_mat)
 			add_child(_fly_view)
 			move_child(_fly_view, 1)
+		_points = Art.boss_points(art)
+		_plate_view = Node2D.new()
+		_plate_view.name = "Plates"
+		_plate_view.draw.connect(_draw_plates)
+		add_child(_plate_view)
+		move_child(_plate_view, _ball.get_index()) # over the frames and the skin, under the shield ball
 		if _skin_view != null:
 			_place_skin()
 
@@ -273,6 +315,8 @@ func _process(delta: float) -> void:
 	if _anim != null:
 		_anim.stunned = _stunned and not _dead
 		_anim.step(delta)
+		_check_stomp()
+	_step_dust(delta)
 	if _fly_view != null:
 		_fly_view.glide(delta, _flying_now and not _dead)
 	if _skin_view != null:
@@ -308,6 +352,7 @@ func _process(delta: float) -> void:
 	if _figure != null:
 		_figure.queue_redraw()
 		_over.queue_redraw()
+		_plate_view.queue_redraw()
 
 
 ## The trail puffs in the air behind a flier (global positions, so they stay where it passed).
@@ -341,9 +386,10 @@ func _draw() -> void:
 				draw_line(at - Vector2(0, g), at + Vector2(0, g), Color(1, 1, 1, 0.7 * (1.0 - k)), 1.2, true)
 	if _vanished:
 		return
-	if _heal > 0.0 and not _dead: # a heal: a green halo behind the figure
+	if _heal > 0.0 and not _dead: # a heal: a green halo behind the figure (round its heart when drawn)
 		var hr := height * (0.6 + 0.12 * (1.0 - _heal))
-		draw_texture_rect(halo_texture(), Rect2(Vector2(-hr, -height * 0.5 - hr), Vector2(hr, hr) * 2.0), false,
+		var hc := _heart_local() if not _points.is_empty() else Vector2(0, -height * 0.5)
+		draw_texture_rect(halo_texture(), Rect2(hc - Vector2(hr, hr), Vector2(hr, hr) * 2.0), false,
 			Color(HEAL_GLOW, 0.55 * _heal))
 	var glow := leap_glow()
 	if glow > 0.0:
@@ -495,10 +541,16 @@ func die() -> void:
 	if _dead:
 		return
 	_dead = true
+	if armored and _plates > 0.0: # the plates break off as it dies
+		_plate_break = 0.0
+		_plates = 0.0
 	if not _side.is_empty():
 		_dead_t = 0.0
 		if _crashes():
 			_emit = 0.0
+		elif _crumbles():
+			_rubble.clear()
+			_crumbled = false
 		else:
 			_cracks = _make_cracks()
 
@@ -568,6 +620,8 @@ func shown_frame() -> Array:
 	if _anim == null:
 		return []
 	if _dead:
+		if _crumbles() and _anim.has("death"):
+			return ["death", mini(int(floor(_dead_t * _anim.fps("death"))), _anim.count("death") - 1)]
 		return [BossAnim.HURT if _anim.has(BossAnim.HURT) else "idle", 0]
 	return _anim.frame()
 
@@ -583,6 +637,13 @@ func death_phase() -> String:
 		if _dead_t < CRASH_WOBBLE + CRASH_FALL:
 			return "fall"
 		return "boom" if _dead_t < CRASH_SEC else "gone"
+	if _crumbles():
+		var swap := crumble_swap_sec()
+		if _dead_t < swap:
+			return "crack"
+		if _dead_t < swap + CRUMBLE_FALL:
+			return "crumble"
+		return "fade" if _dead_t < swap + CRUMBLE_FALL + CRUMBLE_FADE else "gone"
 	if _dead_t < CRACK_SEC:
 		return "crack"
 	if _dead_t < FREEZE_END:
@@ -597,6 +658,9 @@ func shatter_count() -> int:
 func _step_death(delta: float) -> void:
 	if _crashes():
 		_step_crash(delta)
+		return
+	if _crumbles():
+		_step_crumble(delta)
 		return
 	var was := _dead_t
 	_dead_t += delta
@@ -619,6 +683,8 @@ func _centre() -> Vector2:
 ## animation (idle ↔ fly / cast do not jump), the others by BossArt.bob(); still once dead.
 func _bob_px() -> float:
 	var t := _t if not _dead else 0.0
+	if not _skin.is_empty() and not SkinIdle.hovers(_skin): # it stands on its feet (its skin breathes)
+		return 0.0
 	if not _skin.is_empty():
 		var a := _fly_view.glide_state.amount() if _fly_view != null and not _dead else 0.0
 		var glide := _fly_view.glide_state.hover() if _fly_view != null and not _dead else 0.0
@@ -717,7 +783,7 @@ func _frame_look() -> Dictionary:
 	var swell := 1.0
 	var icy := 0.0
 	var flash := _flash * 0.85
-	if _dead:
+	if _dead and not _crumbles():
 		icy = 0.5 * clampf(_dead_t / CRACK_SEC, 0.0, 1.0)
 		if _dead_t >= CRACK_SEC and _dead_t < FREEZE_END: # the freeze: a white pulse building to the break
 			flash = maxf(flash, 0.45 * smoothstep(CRACK_SEC, FREEZE_END, _dead_t))
@@ -750,6 +816,9 @@ func _draw_frame() -> void:
 	if _dead and _crashes():
 		_draw_crash_body()
 		return
+	if _dead and _crumbled:
+		_draw_rubble()
+		return
 	var look := _frame_look()
 	if look.is_empty() or float(look["alpha"]) <= 0.0:
 		_mat.set_shader_parameter("flash", 0.0)
@@ -770,10 +839,13 @@ func _draw_frame() -> void:
 ## The shatter over the figure: the frost puff, the shards falling, the sparkles.
 func _draw_shatter() -> void:
 	_draw_turret_fx()
+	_draw_dust()
 	if not _dead or _side.is_empty():
 		return
 	if _crashes():
 		_draw_crash_fx()
+		return
+	if _crumbles():
 		return
 	var look := _frame_look()
 	if not look.is_empty() and float(look["alpha"]) > 0.0 and not _cracks.is_empty(): # the cracks over her
@@ -1110,14 +1182,26 @@ func puffing() -> bool:
 	return _puff >= 0.0
 
 
-## The heart point (global): where drained life flows in (BossArt.HEART).
+## The heart point (global): where drained life flows in (BossArt.HEART; drawn with points: the
+## shown frame's heart).
 func heart_position() -> Vector2:
-	return to_global(BossArt.heart(art, height, facing) + Vector2(0, _bob_px()))
+	return to_global(_heart_local())
+
+
+func _heart_local() -> Vector2:
+	var fp := _frame_points()
+	if fp.get("heart") is Vector2:
+		return _unit_xform() * Vector2(fp["heart"])
+	return BossArt.heart(art, height, facing) + Vector2(0, _bob_px())
 
 
 func muzzle_position() -> Vector2:
 	if has_turret():
 		return to_global(_art_xform() * _tip_art("mid", _aim))
+	var f := shown_frame()
+	var fp := _frame_points()
+	if not f.is_empty() and str(f[0]) == "throw" and fp.get("hand_r") is Vector2: # the throwing knuckles now
+		return to_global(_unit_xform() * Vector2(fp["hand_r"]))
 	var m := BossArt.muzzle(art, height, facing) + Vector2(0, _bob_px())
 	return to_global(_turn() * m)
 
@@ -1320,3 +1404,253 @@ func _draw_turret_fx() -> void:
 		var side := Vector2(-dir.y, dir.x)
 		var tip := at + dir * r * 1.5
 		_over.draw_colored_polygon(PackedVector2Array([at + side * r * 0.22, tip, at - side * r * 0.22]), Color(1.0, 0.9, 0.55, u))
+
+
+# ── Khổng Lồ Đá's drawn art: points, plates, stomp, crumble ─────────────────
+
+## The unit frame (BossArt: the body 100 tall, the feet at the origin, facing right) → local px: as
+## the frames are drawn (scaled to `height`, mirrored facing left, the bob, the lean / sway).
+func _unit_xform() -> Transform2D:
+	var k := height / BossArt.UNIT
+	var mirror := float(facing * (int(_side["facing"]) if not _side.is_empty() else 1))
+	return _turn() * Transform2D(0.0, Vector2(mirror * k, k), 0.0, Vector2(0, _bob_px()))
+
+
+## The shown frame's points (Art.boss_points(), the unit frame): {name: Vector2 / Vector3}; {} none.
+func _frame_points() -> Dictionary:
+	if _points.is_empty():
+		return {}
+	var f := shown_frame()
+	if f.is_empty():
+		return {}
+	var list = _points["frames"].get(str(f[0]))
+	if list is Array and not list.is_empty():
+		return list[clampi(int(f[1]), 0, list.size() - 1)]
+	return {}
+
+
+## Each FRAME_PLATES' pose now (unit frame): by its joint in the shown frame, or on the skinned idle
+## by the bone carrying that joint (SKIN_BONE).
+func plate_poses() -> Array:
+	var out: Array = []
+	var on_skin := showing_skin()
+	var fp := _frame_points()
+	var rest: Dictionary = _points.get("rest", {})
+	for pl in BossArt.FRAME_PLATES:
+		var j := str(pl["joint"])
+		if on_skin:
+			var k := _skin_view.height() / BossArt.UNIT # unit → skin px
+			var m := _skin_view.bone_motion(str(SKIN_BONE.get(j, "torso")))
+			out.append(Transform2D(0.0, Vector2.ONE / k, 0.0, Vector2.ZERO) * m * Transform2D(0.0, Vector2.ONE * k, 0.0, Vector2.ZERO))
+		else:
+			out.append(BossArt.frame_plate_pose(fp.get(j), rest.get(j)))
+	return out
+
+
+## The plates over the frame / the skin (popping on, breaking off), the heart lit by a heal.
+func _draw_plates() -> void:
+	if _vanished or _points.is_empty():
+		return
+	var on := armored and _plates > 0.0 and not _dead
+	if on or _plate_break >= 0.0:
+		BossArt.draw_frame_plates(_plate_view, _unit_xform(), height, _t, plate_poses(), _plates if on else 0.0, _plate_break, _flash)
+	if _heal > 0.0 and not _dead:
+		var r := height * 0.09 * (0.8 + 0.4 * _heal)
+		var c := _heart_local()
+		_plate_view.draw_texture_rect(halo_texture(), Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0), false,
+			Color(HEAL_GLOW.lerp(BossArt.AMBER, 0.35), 0.85 * _heal))
+
+
+## The stomp's peak frame just showed (BossArt.STOMP): the dust and the shockwave at the foot.
+func _check_stomp() -> void:
+	var f := _anim.frame()
+	var st: Dictionary = BossArt.STOMP.get(art, {})
+	if not st.is_empty() and not _dead and _anim.playing() == str(st["anim"]) and str(f[0]) == str(st["anim"]) \
+			and int(f[1]) == int(_side["anims"].get(str(st["anim"]), {}).get("peak", -1)) and f != _last_frame:
+		stomp_fx()
+	_last_frame = f
+
+
+## The stomp lands: a dust burst at the foot, pebbles thrown up, the ground's shockwave ring.
+func stomp_fx() -> void:
+	var st: Dictionary = BossArt.STOMP.get(art, {})
+	var foot := _unit_xform() * Vector2(st.get("foot", Vector2.ZERO))
+	var ring := ShockwaveFx.new()
+	ring.name = "StompRing"
+	ring.setup({"origin": foot, "t0": 0.0, "left": [], "right": []}, null, BossArt.accent(art))
+	ring.release()
+	add_child(ring)
+	move_child(ring, 0) # on the ground, behind the figure
+	for i in STOMP_PUFFS:
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var spread := 0.3 + 0.7 * float(i) / STOMP_PUFFS
+		_dust.append({"p": foot + Vector2(side * spread * 0.1 * height, -0.02 * height), "v": Vector2(side * spread * 1.1, -0.18 - 0.2 * spread) * height,
+			"r": height * (0.07 + 0.04 * spread), "grow": 1.6, "age": 0.0, "life": 0.75 + 0.2 * spread})
+	for i in STOMP_PEBBLES:
+		var a := -PI * 0.5 + (float(i) / (STOMP_PEBBLES - 1) - 0.5) * 1.8
+		_pebbles.append({"p": foot + Vector2(0, -0.01 * height), "v": Vector2.from_angle(a) * height * randf_range(1.4, 2.2), "r": height * randf_range(0.012, 0.022),
+			"rot": randf() * TAU, "spin": randf_range(-10.0, 10.0), "age": 0.0, "life": 0.9, "col": STONE[i % STONE.size()], "ground": foot.y})
+
+
+## The dust puffs and the pebbles (local px): puffs drift and slow down, grow and fade; pebbles fall,
+## bounce once off their ground, fade.
+func _step_dust(delta: float) -> void:
+	if _dust.is_empty() and _pebbles.is_empty():
+		return
+	for d in _dust:
+		d["age"] = float(d["age"]) + delta
+		d["v"] = Vector2(d["v"]) * exp(-3.0 * delta)
+		d["p"] = Vector2(d["p"]) + Vector2(d["v"]) * delta
+	_dust = _dust.filter(func(d): return float(d["age"]) < float(d["life"]))
+	var g := RUBBLE_GRAVITY * height
+	for p in _pebbles:
+		p["age"] = float(p["age"]) + delta
+		p["v"] = Vector2(p["v"]) + Vector2(0, g * delta)
+		p["p"] = Vector2(p["p"]) + Vector2(p["v"]) * delta
+		p["rot"] = float(p["rot"]) + float(p["spin"]) * delta
+		if Vector2(p["p"]).y > float(p["ground"]) and Vector2(p["v"]).y > 0.0:
+			p["p"] = Vector2(Vector2(p["p"]).x, float(p["ground"]))
+			p["v"] = Vector2(Vector2(p["v"]).x * 0.5, -Vector2(p["v"]).y * 0.3)
+			p["spin"] = float(p["spin"]) * 0.5
+	_pebbles = _pebbles.filter(func(p): return float(p["age"]) < float(p["life"]))
+
+
+func _draw_dust() -> void:
+	for d in _dust:
+		var k := float(d["age"]) / float(d["life"])
+		var r := float(d["r"]) * (1.0 + float(d["grow"]) * k)
+		_over.draw_texture_rect(halo_texture(), Rect2(Vector2(d["p"]) - Vector2(r, r), Vector2(r, r) * 2.0), false,
+			Color(DUST, 0.85 * (1.0 - k)))
+	for p in _pebbles:
+		var k := float(p["age"]) / float(p["life"])
+		var r := float(p["r"])
+		var col: Color = p["col"]
+		_over.draw_set_transform(p["p"], float(p["rot"]), Vector2.ONE)
+		_over.draw_colored_polygon(PackedVector2Array([Vector2(-r, -r * 0.6), Vector2(r * 0.4, -r), Vector2(r, r * 0.2), Vector2(-r * 0.2, r)]),
+			Color(col, clampf((1.0 - k) * 3.0, 0.0, 1.0)))
+	if not _pebbles.is_empty():
+		_over.draw_set_transform(Vector2.ZERO)
+
+
+## Dies crumbling (BossArt.DEATH "crumble", drawn from frames).
+func _crumbles() -> bool:
+	return not _side.is_empty() and BossArt.death_of(art) == "crumble"
+
+
+## s into the death the parts take over (CRUMBLE_SWAP_FRAME of the death animation).
+func crumble_swap_sec() -> float:
+	if _anim == null or not _anim.has("death"):
+		return 0.0
+	return float(mini(CRUMBLE_SWAP_FRAME, _anim.count("death") - 1)) / _anim.fps("death")
+
+
+## The crumble's parts (tests): their count.
+func rubble_count() -> int:
+	return _rubble.size()
+
+
+## The parts (tests): [{c (body px centre), v, rot, delay, ground, size, z}].
+func rubble() -> Array:
+	return _rubble
+
+
+func _step_crumble(delta: float) -> void:
+	_dead_t += delta
+	var swap := crumble_swap_sec()
+	_death = minf(1.0, _dead_t / (swap + CRUMBLE_FALL + CRUMBLE_FADE))
+	if not _crumbled and _dead_t >= swap:
+		_crumble()
+	if not _crumbled:
+		return
+	var h := float(_side["height"])
+	var g := RUBBLE_GRAVITY * h
+	var since := _dead_t - swap
+	var to_local := _crash_local()
+	for r in _rubble:
+		if since < float(r["delay"]):
+			continue
+		var v: Vector2 = r["v"]
+		v.y += g * delta
+		var c: Vector2 = Vector2(r["c"]) + v * delta
+		var rot := float(r["rot"]) + float(r["spin"]) * delta
+		var sz: Vector2 = r["size"]
+		var hh := 0.5 * (absf(sz.x * sin(rot)) + absf(sz.y * cos(rot))) * 0.8 # its half height turned (the corners are clear)
+		var ground := float(r["ground"])
+		if c.y + hh >= ground:
+			c.y = ground - hh
+			if v.y > 0.0:
+				if v.y > h * 0.9: # a heavy landing: a dust puff
+					var at := to_local * Vector2(c.x, ground)
+					_dust.append({"p": at, "v": Vector2(randf_range(-0.2, 0.2), -0.12) * height, "r": height * clampf(sz.x / h, 0.08, 0.2) * 0.6,
+						"grow": 1.2, "age": 0.0, "life": 0.7})
+				v.y = -v.y * RUBBLE_BOUNCE if v.y > h * 0.5 else 0.0
+				v.x *= 0.5
+				r["spin"] = float(r["spin"]) * 0.45
+			v.x *= exp(-5.0 * delta) # it slides to a stop
+			r["spin"] = float(r["spin"]) * exp(-4.0 * delta)
+		r["v"] = v
+		r["c"] = c
+		r["rot"] = rot
+
+
+## The parts take over from the death frame: placed as it, pushed out from the heart, a dust burst
+## and pebbles.
+func _crumble() -> void:
+	_crumbled = true
+	_rubble.clear()
+	var parts := Art.boss_parts(art)
+	var h := float(_side["height"])
+	if parts.is_empty():
+		return
+	var ph := h / float(parts["height"])
+	var fp := _frame_points()
+	var heart: Vector2 = (Vector2(fp["heart"]) if fp.get("heart") is Vector2 else Vector2(BossArt.HEART.get(art, Vector2(0, -50)))) * h / BossArt.UNIT
+	var top_z := 1
+	for name in parts["parts"]:
+		top_z = maxi(top_z, int(parts["parts"][name].get("z", 0)))
+	for name in parts["parts"]:
+		var pt: Dictionary = parts["parts"][name]
+		var sz: Vector2 = Vector2(pt["size"]) * ph
+		var c: Vector2 = Vector2(pt["at"]) * ph + sz / 2.0
+		var dir := (c - heart).normalized() if c.distance_to(heart) > 1.0 else Vector2.UP
+		var push := randf_range(RUBBLE_PUSH.x, RUBBLE_PUSH.y) * h
+		var v := Vector2(dir.x * push, -absf(dir.y) * push * 0.3 - 0.15 * h)
+		var spin := randf_range(-2.5, 2.5)
+		var delay := 0.0
+		var n := str(name)
+		if n.begins_with("horn"):
+			delay = HORN_DELAY
+			v = Vector2(signf(c.x - heart.x) * 0.32 * h, -0.45 * h) # tumbling off
+			spin = signf(c.x - heart.x) * randf_range(6.0, 8.0)
+		elif n == "helmet":
+			delay = HELMET_DELAY
+		var z := int(pt.get("z", 0))
+		_rubble.append({"name": n, "tex": pt["texture"], "size": sz, "z": z, "c": c, "v": v, "rot": 0.0, "spin": spin, "delay": delay,
+			"ground": h * (0.005 + 0.035 * float(z) / float(top_z))})
+	_rubble.sort_custom(func(a, b): return int(a["z"]) < int(b["z"]))
+	var to_local := _crash_local()
+	for i in 8: # the dust burst round the lower body
+		var at := to_local * Vector2(randf_range(-0.3, 0.3) * h, -randf_range(0.02, 0.4) * h)
+		_dust.append({"p": at, "v": Vector2(randf_range(-0.4, 0.4), -randf_range(0.05, 0.2)) * height, "r": height * randf_range(0.08, 0.14),
+			"grow": 1.4, "age": 0.0, "life": randf_range(0.9, 1.3)})
+	for i in RUBBLE_PEBBLES:
+		var from := Vector2(randf_range(-0.3, 0.3), -randf_range(0.2, 0.7)) * height
+		var dir := (from - _unit_xform() * (heart * BossArt.UNIT / h)).normalized()
+		_pebbles.append({"p": from, "v": (dir * randf_range(0.5, 1.2) + Vector2(0, -0.6)) * height, "r": height * randf_range(0.01, 0.025),
+			"rot": randf() * TAU, "spin": randf_range(-10.0, 10.0), "age": 0.0, "life": randf_range(1.0, 1.6), "col": STONE[i % STONE.size()],
+			"ground": randf_range(0.0, 0.03) * height})
+
+
+## The parts on the ground and falling (in z order), fading at the end.
+func _draw_rubble() -> void:
+	var fade := clampf(1.0 - (_dead_t - crumble_swap_sec() - CRUMBLE_FALL) / CRUMBLE_FADE, 0.0, 1.0)
+	_mat.set_shader_parameter("flash", 0.0)
+	_mat.set_shader_parameter("icy", 0.0)
+	if fade <= 0.0:
+		return
+	var to_local := _crash_local()
+	for r in _rubble:
+		var sz: Vector2 = r["size"]
+		_figure.draw_set_transform_matrix(to_local * Transform2D(float(r["rot"]), Vector2(r["c"])))
+		_figure.draw_texture_rect(r["tex"], Rect2(-sz / 2.0, sz), false, Color(1, 1, 1, fade))
+	_figure.draw_set_transform(Vector2.ZERO)

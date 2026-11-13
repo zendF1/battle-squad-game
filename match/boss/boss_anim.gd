@@ -14,8 +14,17 @@ const SWAY_RAD := 0.045 # the sway's tilt then
 const SWAY_HZ := 0.55
 const HURT := "hurt"
 ## The animation of a boss skill by its skillId, else by its kind (GameData.boss_skill()).
-const BY_SKILL := {"ice_spikes": "cast", "frost_beam": "burst", "blizzard": "blizzard"}
+## Khổng Lồ Đá: the boulders thrown (giant_boulder; boulder_rain, an older id), pushed (rolling_boulder),
+## the stomp (earthquake), the fists on the ground (stone_spikes: its marks and, on its turn start,
+## their eruption).
+const BY_SKILL := {"ice_spikes": "cast", "frost_beam": "burst", "blizzard": "blizzard",
+	"giant_boulder": "throw", "boulder_rain": "throw", "rolling_boulder": "roll", "earthquake": "stomp", "stone_spikes": "spikes"}
 const BY_KIND := {"beam": "burst", "rain": "cast", "shockwave": "cast", "summon": "summon"}
+## An animation a boss does not have → the one it plays instead (Khổng Lồ Đá throws for a cast: its
+## plain shot).
+const FALLBACK := {"cast": "throw", "blizzard": "throw", "burst": "throw"}
+## The event its peak lands on (the first of these types in the replay), else the first projectile.
+const PEAK_ON := {"stomp": ["global"], "spikes": ["mark", "eruption"]}
 
 var anims: Dictionary = {} # name -> {frames (count or Array), fps, loop, peak}
 var base := "idle"
@@ -49,6 +58,7 @@ func fps(anim: String) -> float:
 ## (frame index, default the animation's own), hold (s the peak frame shows, default one frame)}.
 ## Returns its duration (0: no such animation, nothing changes).
 func play(anim: String, timing: Dictionary = {}) -> float:
+	anim = resolve(anim)
 	var n := count(anim)
 	if n <= 0:
 		return 0.0
@@ -70,6 +80,13 @@ func play(anim: String, timing: Dictionary = {}) -> float:
 	current = anim
 	_t = 0.0
 	return t
+
+
+## The animation played for `anim`: itself, else its FALLBACK when this boss has that one.
+func resolve(anim: String) -> String:
+	if not has(anim) and FALLBACK.has(anim) and has(FALLBACK[anim]):
+		return str(FALLBACK[anim])
+	return anim
 
 
 ## The base loop: idle, or fly (flying: a hover move under way).
@@ -119,9 +136,11 @@ func playing() -> String:
 
 ## The animation a boss's shot plays and when its peak falls: {anim, at (s into the replay; -1:
 ## none, the animation's own pace), hold (s the peak frame shows; -1: one frame)}. mode: the
-## ShotResolved actionMode; skill: its game data entry (GameData.boss_skill(), {} unknown);
+## ShotResolved actionMode (turn_start: a mapped skill going off then, the spikes erupting); skill: its
+## game data entry (GameData.boss_skill(), {} unknown);
 ## events / launches: the replay's events and its projectiles' launch times. The peak lands on
-## the first beam (a burst: held over most of the beams' duration), the first summon (a summon),
+## the first beam (a burst: held over most of the beams' duration), the first summon (a summon), the
+## global skill starting (the stomp), the first mark / eruption (the spikes),
 ## else the first projectile leaving (a cast's rain; the blizzard's whirl held while its shards
 ## leave one after another; beams one after another, the saucer's turret laser: held until the last
 ## one ends).
@@ -129,6 +148,8 @@ static func action_for(mode: String, skill_id: String, skill: Dictionary, events
 	var anim := ""
 	if mode == "summon":
 		anim = "summon"
+	elif mode == "turn_start" and BY_SKILL.has(skill_id):
+		anim = str(BY_SKILL[skill_id]) # a skill going off on the boss's turn start (the spikes' eruption)
 	elif mode == "skill":
 		anim = str(BY_SKILL.get(skill_id, ""))
 		if anim == "":
@@ -147,7 +168,7 @@ static func action_for(mode: String, skill_id: String, skill: Dictionary, events
 		if anim == "burst" and type == "beam":
 			beams_end = maxf(beams_end, float(e["t"]) + (float(e["duration"]) if e.get("duration") is float or e.get("duration") is int else 0.0))
 			beam_ts[snappedf(float(e["t"]), 0.001)] = true
-		if (anim == "burst" and type == "beam") or (anim == "summon" and type == "summon"):
+		if (anim == "burst" and type == "beam") or (anim == "summon" and type == "summon") or type in PEAK_ON.get(anim, []):
 			if float(e["t"]) < at:
 				at = float(e["t"])
 				if anim == "burst" and (e.get("duration") is float or e.get("duration") is int):
