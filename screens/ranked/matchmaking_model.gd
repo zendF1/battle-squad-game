@@ -45,6 +45,10 @@ static func _str(v: Variant, fallback: String = "") -> String:
 	return str(v) if v is String and str(v) != "" else fallback
 
 
+## A nameless bot's card name: a player like any other (nothing on screen says "bot").
+const NO_NAME := "Người chơi"
+
+
 ## A card's player: {playerId, displayName, characterId, isBot, level (0 unknown), rankBadge
 ## (last season's final grade: the card's frame; "" none), titleId, teamId}; {} for anything that
 ## is not a player.
@@ -53,7 +57,7 @@ static func parse_player(p: Variant) -> Dictionary:
 		return {}
 	var id := _str(p.get("playerId"))
 	var is_bot: bool = p.get("isBot") if p.get("isBot") is bool else id.begins_with("bot_")
-	return {"playerId": id, "displayName": _str(p.get("displayName"), "Bot" if is_bot else id.left(8)),
+	return {"playerId": id, "displayName": _str(p.get("displayName"), NO_NAME if is_bot else id.left(8)),
 		"characterId": _str(p.get("characterId"), GameData.default_character_id()), "isBot": is_bot, "level": _num(p.get("level"), 0),
 		"rankBadge": RankModel.badge_of(p), "titleId": _str(p.get("titleId")),
 		"teamId": _num(p.get("teamId"), 0)}
@@ -147,11 +151,7 @@ static func my_player(me: String, display_name: String, character_id: String, le
 		"level": level, "rankBadge": badge, "titleId": "", "teamId": 0}
 
 
-## The line under a card's name: "Lv.40" (with " · Máy" for a bot); "" with neither.
+## The line under a card's name: "Lv.40"; "" without a level. A bot shows like a player
+## (isBot only steers logic, e.g. no Kết bạn, never words on screen).
 static func level_text(p: Dictionary) -> String:
-	var parts := PackedStringArray()
-	if int(p.get("level", 0)) > 0:
-		parts.append("Lv.%d" % p["level"])
-	if p.get("isBot", false):
-		parts.append("Máy")
-	return " · ".join(parts)
+	return "Lv.%d" % p["level"] if int(p.get("level", 0)) > 0 else ""

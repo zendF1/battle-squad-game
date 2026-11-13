@@ -247,7 +247,7 @@ func _add_slot(e: Dictionary, left: bool) -> void:
 	row.add_child(name_label)
 	if FriendsModel.can_befriend(str(e["playerId"]), bool(e.get("isBot", false)), Session.player_id):
 		FriendButton.add_mirrored(row, e, 40, str(e.get("badge", "")) == "") # Kết bạn (hidden for a friend)
-	# the level and the damage dealt as glyph + number (a bot's name says it is one)
+	# the level and the damage dealt as glyph + number
 	var level := int(e.get("level", 0))
 	if level > 0:
 		head.add_child(_glyph_line("level", str(level), 21, LobbyUi.GOLD, ResultModel.level_text(e)))

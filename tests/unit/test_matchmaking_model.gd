@@ -43,10 +43,14 @@ func test_reveal_order_skips_me() -> void:
 func test_parse_player() -> void:
 	var bot := MatchmakingModel.parse_player({"playerId": "bot_x1", "characterId": "", "level": 1})
 	eq(bot["isBot"], true, "a bot by its id")
-	eq(bot["displayName"], "Bot", "a bot's default name")
+	eq(bot["displayName"], "Người chơi", "a nameless bot reads like a player")
 	eq(bot["characterId"], "rookie", "default character")
 	eq(bot["rankBadge"], "", "no badge given")
-	eq(MatchmakingModel.level_text(bot), "Lv.1 · Máy", "bot line")
+	eq(MatchmakingModel.level_text(bot), "Lv.1", "a bot's line: the level only, no \"Máy\"")
+	var real := MatchmakingModel.parse_player({"playerId": "u_77", "displayName": "SongBien", "level": 23,
+		"rankBadge": "trung_si"}) # a temporary bot sent like a player (no isBot)
+	eq([real["isBot"], real["displayName"], real["rankBadge"], MatchmakingModel.level_text(real)],
+		[false, "SongBien", "trung_si", "Lv.23"], "a bot sent like a player shows as one")
 	var p := MatchmakingModel.parse_player({"playerId": "p1", "displayName": "Smoke", "rating": 1250, "tier": "gold",
 		"rankBadge": "dai_ta"})
 	eq(p["rankBadge"], "dai_ta", "the badge (the card's frame)")
