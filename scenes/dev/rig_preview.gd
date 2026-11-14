@@ -1,5 +1,5 @@
 extends Node2D
-## Dev preview of a character's bone rig (Rookie by default, the user arg --character=<id>: spark, tanko; used
+## Dev preview of a character's bone rig (Rookie by default, the user arg --character=<id>: spark, tanko, flora; used
 ## in matches: character.gd match_rig; this preview is not reachable from the game's screens): plays every motion
 ## in turn over a ground line, at the match's size (left) and at 3× (right): idle → raise the gun → aim
 ## sweep -30° .. 90° → two shots → lower → hurt → walk → die. Run it from the editor (F6 on

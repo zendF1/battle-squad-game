@@ -68,8 +68,8 @@ extends Node2D
 ## idling. Order: full.png → frames. The match keeps the side-view frames.
 ##
 ## match_rig (the match only, match/views/player_view.gd; never the lobby, the screens or a portrait):
-## a character with a bone rig (scenes/character/rig/char_rig.gd available(): Rookie's, Spark's and
-## Tanko's chibis, assets/characters/<id>/rig/) is drawn by it instead of Flip (the frames, the gun sprite, the arm;
+## a character with a bone rig (scenes/character/rig/char_rig.gd available(): Rookie's, Spark's,
+## Tanko's and Flora's chibis, assets/characters/<id>/rig/) is drawn by it instead of Flip (the frames, the gun sprite, the arm;
 ## hidden but still run, so animation(), gun_state() and the draw keep their states): standing with
 ## the gun slung on its back, raising it to the grips while aiming or firing (_rig_raised()), following
 ## the real aim -30 .. 90 (rig_elevation(), not snapped), recoiling on the shot (shoot() returns the

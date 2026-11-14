@@ -1,5 +1,5 @@
 extends "res://tests/test_case.gd"
-## The chibi bone rigs (Rookie, Spark, Tanko) in the match (scenes/character/character.gd match_rig, set by
+## The chibi bone rigs (Rookie, Spark, Tanko, Flora) in the match (scenes/character/character.gd match_rig, set by
 ## match/views/player_view.gd): which views use it, the muzzle on the rig's gun, the head over the
 ## tube aiming high, the events driving it.
 
@@ -10,7 +10,7 @@ const Art := preload("res://ui/art.gd")
 
 const DT := 1.0 / 60.0
 ## The characters drawn by a chibi bone rig in the match (assets/characters/<id>/rig/rig.json).
-const RIGGED := ["rookie", "spark", "tanko"]
+const RIGGED := ["rookie", "spark", "tanko", "flora"]
 
 
 ## A match-sized character not in the tree (_ready by hand, stepped by _step()).
@@ -87,6 +87,9 @@ func test_only_rigged_characters_in_the_match_use_the_rig() -> void:
 	rookie.character_id = "tanko"
 	rookie._apply_frames()
 	check(rookie.rig() != null and rookie.rig().character_id == "tanko", "Tanko: his own rig")
+	rookie.character_id = "flora"
+	rookie._apply_frames()
+	check(rookie.rig() != null and rookie.rig().character_id == "flora", "Flora: her own rig")
 	rookie.character_id = "spark"
 	rookie._apply_frames()
 	check(rookie.rig() != null and rookie.rig().character_id == "spark", "Spark: his own rig")

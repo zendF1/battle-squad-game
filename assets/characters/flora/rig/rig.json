@@ -1,0 +1,347 @@
+{
+ "source": "art_source/characters/flora/rig/make_rig.py",
+ "note": "rig px = source px / 2, feet at (0, 0); parts bottom first; xf = the part's rest transform (image px -> rig px, Transform2D columns x, y, origin)",
+ "height": 304.5,
+ "bones": [
+  {
+   "name": "hips",
+   "parent": "",
+   "pos": [
+    0.0,
+    -101.5
+   ]
+  },
+  {
+   "name": "torso",
+   "parent": "hips",
+   "pos": [
+    0.0,
+    -107.5
+   ]
+  },
+  {
+   "name": "head",
+   "parent": "torso",
+   "pos": [
+    8.0,
+    -168.5
+   ]
+  },
+  {
+   "name": "f_shoulder",
+   "parent": "torso",
+   "pos": [
+    24.0,
+    -153.5
+   ]
+  },
+  {
+   "name": "f_elbow",
+   "parent": "f_shoulder",
+   "pos": [
+    30.5,
+    -124.5
+   ]
+  },
+  {
+   "name": "f_hand",
+   "parent": "f_elbow",
+   "pos": [
+    34.0,
+    -95.0
+   ]
+  },
+  {
+   "name": "n_shoulder",
+   "parent": "torso",
+   "pos": [
+    -26.0,
+    -158.5
+   ]
+  },
+  {
+   "name": "n_elbow",
+   "parent": "n_shoulder",
+   "pos": [
+    -31.0,
+    -126.5
+   ]
+  },
+  {
+   "name": "n_hand",
+   "parent": "n_elbow",
+   "pos": [
+    -28.5,
+    -95.0
+   ]
+  },
+  {
+   "name": "f_hip",
+   "parent": "hips",
+   "pos": [
+    15.0,
+    -99.5
+   ]
+  },
+  {
+   "name": "f_knee",
+   "parent": "f_hip",
+   "pos": [
+    21.0,
+    -62.5
+   ]
+  },
+  {
+   "name": "f_ankle",
+   "parent": "f_knee",
+   "pos": [
+    15.0,
+    -28.5
+   ]
+  },
+  {
+   "name": "n_hip",
+   "parent": "hips",
+   "pos": [
+    -13.0,
+    -99.5
+   ]
+  },
+  {
+   "name": "n_knee",
+   "parent": "n_hip",
+   "pos": [
+    -9.0,
+    -62.5
+   ]
+  },
+  {
+   "name": "n_ankle",
+   "parent": "n_knee",
+   "pos": [
+    -15.0,
+    -25.0
+   ]
+  }
+ ],
+ "parts": [
+  {
+   "name": "f_fore",
+   "png": "f_fore.png",
+   "bone": "f_elbow",
+   "xf": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    18.0,
+    -135.5
+   ]
+  },
+  {
+   "name": "f_upper",
+   "png": "f_upper.png",
+   "bone": "f_shoulder",
+   "xf": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    11.0,
+    -166.5
+   ]
+  },
+  {
+   "name": "seat",
+   "png": "seat.png",
+   "bone": "hips",
+   "xf": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    -25.0,
+    -110.5
+   ]
+  },
+  {
+   "name": "f_shin",
+   "png": "f_shin.png",
+   "bone": "f_knee",
+   "xf": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    -3.0,
+    -69.5
+   ]
+  },
+  {
+   "name": "f_thigh",
+   "png": "f_thigh.png",
+   "bone": "f_hip",
+   "xf": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    -6.0,
+    -108.5
+   ]
+  },
+  {
+   "name": "n_shin",
+   "png": "n_shin.png",
+   "bone": "n_knee",
+   "xf": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    -36.0,
+    -70.5
+   ]
+  },
+  {
+   "name": "n_thigh",
+   "png": "n_thigh.png",
+   "bone": "n_hip",
+   "xf": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    -35.0,
+    -108.5
+   ]
+  },
+  {
+   "name": "torso",
+   "png": "torso.png",
+   "bone": "torso",
+   "xf": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    -31.0,
+    -185.5
+   ]
+  },
+  {
+   "name": "belt",
+   "png": "belt.png",
+   "bone": "hips",
+   "xf": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    -25.0,
+    -125.5
+   ]
+  },
+  {
+   "name": "head",
+   "png": "head.png",
+   "bone": "head",
+   "xf": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    -105.0,
+    -306.5
+   ]
+  },
+  {
+   "name": "f_fist",
+   "png": "f_fist.png",
+   "bone": "f_hand",
+   "xf": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    22.0,
+    -114.5
+   ]
+  },
+  {
+   "name": "n_fist",
+   "png": "n_fist.png",
+   "bone": "n_hand",
+   "xf": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    -43.0,
+    -114.5
+   ]
+  },
+  {
+   "name": "n_fore",
+   "png": "n_fore.png",
+   "bone": "n_elbow",
+   "xf": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    -44.0,
+    -132.5
+   ]
+  },
+  {
+   "name": "n_upper",
+   "png": "n_upper.png",
+   "bone": "n_shoulder",
+   "xf": [
+    1.0,
+    0.0,
+    0.0,
+    1.0,
+    -46.0,
+    -180.5
+   ]
+  }
+ ],
+ "points": {
+  "n_sole": [
+   -15.0,
+   0.0
+  ],
+  "f_sole": [
+   15.0,
+   -8.5
+  ],
+  "chest": [
+   3.0,
+   -142.5
+  ],
+  "head_back": [
+   -56.0,
+   -192.5
+  ],
+  "cap_back": [
+   -52.0,
+   -267.5
+  ],
+  "cap_top": [
+   4.0,
+   -303.5
+  ],
+  "back": [
+   -43.0,
+   -132.5
+  ],
+  "eye": [
+   27.0,
+   -222.5
+  ]
+ },
+ "gunUnder": "n_fist",
+ "fallDeg": -80.0
+}
