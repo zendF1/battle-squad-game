@@ -1,6 +1,7 @@
 extends Node2D
 ## One player, drawn at its feet (server Position is the first solid pixel under the feet): a
-## team ring, the character (scenes/character/character.tscn: its art and animations) holding the
+## team ring, the character (scenes/character/character.tscn: its art and animations; Rookie its
+## chibi bone rig, character.gd match_rig) holding the
 ## gun of the weapon it brought (weaponItemId → EquipmentModel.gun()), the HP bar, the name (its
 ## element's badge before it: GameData.unit_element(), ui/element_badge.gd), above it the small plate of the title it wears (the payload's "title", TitleModel; none for
 ## bots: nothing drawn, no gap) and above that the markers of its armed shot modifiers
@@ -176,6 +177,7 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	else:
 		_sprite = CharacterScene.instantiate()
 		_sprite.scale = Vector2.ONE * (ART_SCALE / Art.PX_PER_UNIT)
+		_sprite.match_rig = true # Rookie: its chibi bone rig in the match (character.gd match_rig)
 	_base_scale = _sprite.scale
 	_sprite.show_behind_parent = true
 	_sprite.holster = true # drawn (kneeling) to shoot

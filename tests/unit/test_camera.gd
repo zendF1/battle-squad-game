@@ -418,7 +418,8 @@ func test_screen_shot_follows_the_shell_holds_then_pans() -> void:
 	_frames(m, 0.8)
 	var shell: Vector2 = m._shot_player.live_positions()[0]
 	check(m._cam.view_rect().has_point(shell), "the shell in view mid-flight: %s in %s" % [shell, m._cam.view_rect()])
-	_frames(m, 0.75)
+	# + the lead-in: Rookie's rig raises its gun (fast) before the shot leaves (never aimed here)
+	_frames(m, 0.75 + float(preload("res://scenes/character/rig/rig_motion.gd").T["fastRaiseSec"]))
 	check(m._cam.holding(), "the explosion holds the camera")
 	m._on_event("TurnStarted", {"currentPlayerId": "e1", "turnIndex": 1, "moveEnergy": 100})
 	_frames(m, 0.2)

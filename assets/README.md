@@ -565,7 +565,15 @@ about 52 px tall, feet on the server position) and the fallback of the screens o
 (`ui/character_view.gd`, about 2.5 and 1.5 px per unit, when a character has no full-body
 picture; the lobby stage's `hands_free` hides the gun, the bare hand stays).
 
-### characters/rookie/rig/ (TEST bone rig, not used in matches: `scenes/character/rig/`, dev preview `scenes/dev/rig_preview.tscn`)
+### characters/rookie/rig/ (Rookie's chibi bone rig, matches only: `scenes/character/rig/`, dev preview `scenes/dev/rig_preview.tscn`)
+
+In every match (`match/views/player_view.gd` sets `scenes/character/character.gd` `match_rig`) Rookie
+is drawn by this rig instead of its side frames, in any outfit; everywhere else (lobby, character
+select / view, shop, profile, matchmaking card, results, and the match's turn portrait / HUD, which use
+`portrait.png` and `ui/character_view.gd`) keeps the old art, and the other characters keep theirs.
+The held gun is any kind's hug art (`ui/art.gd` `hug_gun()`, `weapons/hug.json` hold / muzzle) on the
+rig's gun socket, 3/4 of the ready pose's size; aiming 55° and up the head is drawn over the tube. See
+`docs/rookie-match-rig.md`.
 
 Rookie's chibi standing picture (`art_source/characters/rookie/side_idle/idle_v2.png`) cut into 14
 parts along its drawn outlines, the hidden areas painted in the same outline and flat colours, by

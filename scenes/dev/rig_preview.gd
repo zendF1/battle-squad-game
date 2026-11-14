@@ -1,5 +1,5 @@
 extends Node2D
-## Dev preview of Rookie's bone rig (TEST; not reachable from the game's screens): plays every motion
+## Dev preview of Rookie's bone rig (used in matches: character.gd match_rig; this preview is not reachable from the game's screens): plays every motion
 ## in turn over a ground line, at the match's size (left) and at 3× (right): idle → raise the gun → aim
 ## sweep -30° .. 90° → two shots → lower → hurt → walk → die. Run it from the editor (F6 on
 ## scenes/dev/rig_preview.tscn), or record it: tools/record_rig_preview.sh (PNG frames, GIF).

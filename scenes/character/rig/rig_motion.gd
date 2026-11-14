@@ -1,11 +1,12 @@
 extends RefCounted
-## The bone rig's motions (TEST, pure logic, no nodes): what the character is doing (idle, gun raised
+## The bone rig's motions (pure logic, no nodes): what the character is doing (idle, gun raised
 ## and aimed, shooting, hurt, walking, dead) turned every frame into a few eased numbers the rig
 ## (scenes/character/rig/rig_model.gd) solves into bone angles: body offsets and turns, the gun's
 ## raise and aim, the recoil, the arms' swing, the feet's steps, the fall. Every change blends in
 ## over time (rates and envelopes below), so switching from any motion to any other never pops.
 ##
-##   raise_gun(true)  arms rise from hanging to the grips over raiseSec, the body leans in; false lowers
+##   raise_gun(true)  arms rise from hanging to the grips over raiseSec (fast: fastRaiseSec, a shot
+##                    fired with the gun down), the body leans in; false lowers
 ##   set_aim(deg)     the aim the gun turns to (up positive, -30 .. 90), followed with aimRate
 ##   shoot()          recoil: the gun kicks back along its axis, the body rocks back, the head lags
 ##   hurt()           knocked back, the head snaps back, a wobble that dies out
@@ -16,6 +17,7 @@ extends RefCounted
 
 const T := {
 	"raiseSec": 0.25,
+	"fastRaiseSec": 0.12,
 	"lowerSec": 0.3,
 	"aimRate": 9.0, # 1/s: the aim's exponential follow
 	"aimMaxDegSec": 260.0, # and its top speed (a big jump of the aim swings, never whips)
@@ -52,6 +54,7 @@ var aim := 10.0 # degrees, followed
 var aim_target := 10.0
 var raised := 0.0 # 0 hanging .. 1 on the grips (linear; sample() eases it)
 var raise_target := 0.0
+var fast_raise := false # this raise at fastRaiseSec
 var walk := 0.0 # 0 .. 1 blend
 var walk_target := 0.0
 var phase := 0.0 # the step cycle 0 .. 1
@@ -60,9 +63,15 @@ var hurt_age := 99.0
 var dead_age := -1.0 # < 0 alive
 
 
-func raise_gun(on: bool) -> void:
+func raise_gun(on: bool, fast: bool = false) -> void:
 	if dead_age < 0.0:
 		raise_target = 1.0 if on else 0.0
+		fast_raise = (fast or fast_raise) and on
+
+
+## Seconds until the gun is all the way up when raised (fast or not) from where it is now.
+func raise_left(fast: bool = false) -> float:
+	return (1.0 - raised) * float(T["fastRaiseSec"] if fast or fast_raise else T["raiseSec"])
 
 
 func set_aim(deg: float) -> void:
@@ -105,7 +114,8 @@ func advance(dt: float) -> void:
 	hurt_age += dt
 	if dead_age >= 0.0:
 		dead_age += dt
-	var rate := 1.0 / float(T["raiseSec"] if raise_target > raised else T["lowerSec"])
+	var up_sec := float(T["fastRaiseSec"] if fast_raise else T["raiseSec"])
+	var rate := 1.0 / (up_sec if raise_target > raised else float(T["lowerSec"]))
 	if dead_age >= 0.0:
 		rate *= 1.6
 	raised = move_toward(raised, raise_target, rate * dt)

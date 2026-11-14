@@ -1,5 +1,5 @@
 extends "res://tests/test_case.gd"
-## Rookie's bone rig (TEST rig; scenes/character/rig/): the two-bone IK, the rig data, the hands on the
+## Rookie's bone rig (scenes/character/rig/; in matches: test_match_rig.gd): the two-bone IK, the rig data, the hands on the
 ## gun's tube at every aim, the feet planted, and no pops through the dev preview's whole sequence.
 
 const IK := preload("res://scenes/character/rig/rig_ik.gd")

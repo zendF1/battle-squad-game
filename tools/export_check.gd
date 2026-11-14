@@ -20,6 +20,7 @@ func _initialize() -> void:
 		out.append("look %s: %s" % [id, _desc(Art.character_look(id))])
 		out.append("full %s: %s" % [id, _desc(Art.lobby_full(id))])
 		out.append("portrait %s: %s" % [id, _tex(Art.portrait(id))])
+		out.append("rig %s: %s" % [id, _rig(id)])
 	for kind in Art.GUN_TIERS:
 		for tier in Art.GUN_TIERS[kind]:
 			var g := Art.gun(kind, tier)
@@ -84,3 +85,17 @@ func _tex(t: Variant) -> String:
 	if t is Texture2D and t.resource_path != "":
 		return t.resource_path
 	return "%s %s" % [t.get_class(), t.get_size()] if t is Texture2D else str(t)
+
+
+## The match's bone rig of a character (scenes/character/rig/char_rig.gd): none, or its parts and
+## size once set up.
+func _rig(id: String) -> String:
+	const CharRig := preload("res://scenes/character/rig/char_rig.gd")
+	if not CharRig.available(id):
+		return "none"
+	var r := CharRig.new()
+	r.character_id = id
+	var ok := r.setup()
+	var desc := "parts=%d h=%.1f tex=%s" % [r.model.parts.size(), r.height(), r.get_node("Figure/Parts/head").texture != null] if ok else "broken"
+	r.free()
+	return desc

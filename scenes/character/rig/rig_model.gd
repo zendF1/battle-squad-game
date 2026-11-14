@@ -1,6 +1,6 @@
 extends RefCounted
-## The bone rig's geometry (TEST, pure logic, no nodes): a character cut into parts on a skeleton
-## (assets/characters/<id>/rig/rig.json, made by art_source/characters/<id>/rig/make_rig.py) and the
+## The bone rig's geometry (pure logic, no nodes; drawn by scenes/character/rig/char_rig.gd): a
+## character cut into parts on a skeleton (assets/characters/<id>/rig/rig.json, made by art_source/characters/<id>/rig/make_rig.py) and the
 ## gun it holds, solved every frame from a motion sample (scenes/character/rig/rig_motion.gd) into
 ## each bone's transform: hips (root) → torso → head; shoulder → elbow → hand each side; hip → knee
 ## → ankle each side. The arms reach the gun's grips by two-bone IK (blended from their hanging pose
@@ -74,15 +74,25 @@ func setup(data: Dictionary, gun_meta: Dictionary) -> bool:
 			"n_hip", "n_knee", "n_ankle", "f_hip", "f_knee", "f_ankle"]:
 		if not rest.has(need):
 			return false
+	set_gun(gun_meta)
+	return true
+
+
+## The gun held: its art's {size, hold, muzzle} (texture px; arrays or Vector2s), drawn GUN_LENGTH
+## long whatever its picture's size (every gun kind the same length, as on the old ready pose).
+func set_gun(gun_meta: Dictionary) -> void:
 	var size := _vec(gun_meta.get("size", [118, 37]))
+	if size.x <= 0.0:
+		size = Vector2(118, 37)
 	var hold := _vec(gun_meta.get("hold", [size.x * 0.5, size.y * 0.5]))
 	var muzzle := _vec(gun_meta.get("muzzle", [size.x, size.y * 0.5]))
 	var length := GUN_LENGTH * height
 	gun = {"size": size, "hold": hold, "muzzle": muzzle, "scale": length / size.x, "length": length}
-	return true
 
 
 static func _vec(v) -> Vector2:
+	if v is Vector2:
+		return v
 	return Vector2(float(v[0]), float(v[1])) if v is Array and v.size() >= 2 else Vector2.ZERO
 
 

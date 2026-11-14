@@ -66,13 +66,29 @@ extends Node2D
 ## its skeleton, scenes/character/full_body.gd) is drawn by it instead of the frames: one
 ## coherent drawing with no gun in hand (holds_gun() false; the screens show the gun beside it),
 ## idling. Order: full.png → frames. The match keeps the side-view frames.
+##
+## match_rig (the match only, match/views/player_view.gd; never the lobby, the screens or a portrait):
+## a character with a bone rig (scenes/character/rig/char_rig.gd available(): Rookie's chibi,
+## assets/characters/rookie/rig/) is drawn by it instead of Flip (the frames, the gun sprite, the arm;
+## hidden but still run, so animation(), gun_state() and the draw keep their states): standing with
+## the gun slung on its back, raising it to the grips while aiming or firing (_rig_raised()), following
+## the real aim -30 .. 90 (rig_elevation(), not snapped), recoiling on the shot (shoot() returns the
+## wait until the gun is up and on the aim, raised fast when still down: the shot leaves from the
+## rig's muzzle; a gun already up, as after a drag or a remote aim, fires at once), knocked back by
+## hurt(), walking with set_walking(), falling on its back with die(); mirrored with the facing, as
+## tall as the side view (art_height() unchanged, so the labels and effects above it keep their
+## places), tinted like the frames (the hurt flash, the dead grey). The held gun (set_weapon()) is
+## drawn through the rig's gun socket from its hug art (Art.hug_gun(), so any kind), 3/4 of the
+## ready pose's size. Any other character, or match_rig off: the frames.
 
 const Art := preload("res://ui/art.gd")
 const FullBody := preload("res://scenes/character/full_body.gd")
 const GunDraw := preload("res://scenes/character/gun_draw.gd")
 const AimSnap := preload("res://scenes/character/aim_snap.gd")
+const CharRig := preload("res://scenes/character/rig/char_rig.gd")
 
 const HURT_FLASH_SEC := 0.45
+const RIG_FALL_SLIDE := 0.45 # of the height: the rig's fall slid forward over the feet
 const HURT_TINT := Color(1, 0.35, 0.35)
 const DEAD_TINT := Color(0.55, 0.55, 0.6)
 const DEAD_SHADOW := 1.45 # the shadow widens under a body lying down
@@ -125,6 +141,12 @@ const BASE_ANIMS := ["idle", "walk", Art.DRAW_ANIM]
 		if is_node_ready():
 			_settle(true)
 			_update_gun()
+## The match's views: drawn by the character's bone rig when it has one (see above).
+@export var match_rig := false:
+	set(value):
+		match_rig = value
+		if is_node_ready():
+			_apply_frames()
 ## 1 faces right, -1 left.
 var facing := 1:
 	set(value):
@@ -152,6 +174,10 @@ var _full_id := ""
 var _look := {} # Art.character_look()
 var _time := 0.0
 var _gun_draw := GunDraw.new() # the gun draw (holster on)
+var _rig: CharRig # match_rig: the bone rig drawing the character, null otherwise
+var _rig_aim := 0.0 # degrees above level towards the facing side, -30 .. 90 (rig_elevation())
+var _rig_fire_in := -1.0 # s until the rig's shot (>= 0: pending, the gun coming up)
+var _rig_hold := 0.0 # s the gun stays up after the rig's shot
 
 @onready var _flip: Node2D = $Flip
 @onready var _sprite: AnimatedSprite2D = $Flip/Sprite
@@ -211,11 +237,15 @@ func _process(delta: float) -> void:
 	_hand.self_modulate = tint
 	if _full != null:
 		_full.set_tint(tint)
+	if _rig != null:
+		_drive_rig(delta)
+		_rig.modulate = tint
 
 
 func _apply_frames() -> void:
 	var full := Art.lobby_full(character_id) if lobby_full else {}
 	if not full.is_empty():
+		_drop_rig()
 		_apply_full(full)
 		return
 	_drop_full()
@@ -242,6 +272,101 @@ func _apply_frames() -> void:
 	_gun_sprite.visible = not hands_free
 	_settle(true)
 	_apply_gun()
+	_apply_rig()
+
+
+## match_rig and a rig for the character: the rig instead of Flip (made once per character).
+func _apply_rig() -> void:
+	if not match_rig or not CharRig.available(character_id):
+		_drop_rig()
+		return
+	if _rig == null or _rig.character_id != character_id:
+		_drop_rig()
+		var r := CharRig.new()
+		r.name = "Rig"
+		r.character_id = character_id
+		r.gun_art = _rig_gun_art()
+		if not r.setup():
+			r.free()
+			return
+		_rig = r
+		add_child(_rig)
+		move_child(_rig, _flip.get_index() + 1)
+		if _dead:
+			_rig.motion.die()
+			_rig.motion.dead_age = 10.0 # already lying
+	_rig.show_gun = not hands_free
+	_flip.visible = false
+	_apply_motion()
+
+
+func _drop_rig() -> void:
+	if _rig == null:
+		return
+	remove_child(_rig)
+	_rig.queue_free()
+	_rig = null
+	_flip.visible = true
+
+
+## The bone rig drawing the character (match_rig), null: the frames.
+func rig() -> Node2D:
+	return _rig
+
+
+## The held gun's art for the rig's socket: its kind / tier's hug art (Art.hug_gun() fallbacks).
+func _rig_gun_art() -> Dictionary:
+	var kind := _weapon_kind
+	var tier := _weapon_tier
+	if kind == "":
+		kind = Art.character_gun(character_id)
+		tier = Art.GUN_BASIC
+	return Art.hug_gun(kind, tier)
+
+
+## The rig follows the character's state every frame: the walk, the gun up (aiming or a shot),
+## the aim, a pending shot (the aim arriving on it as it leaves).
+func _drive_rig(delta: float) -> void:
+	var m := _rig.motion
+	m.set_walking(_walking and not _dead)
+	_rig_hold = maxf(0.0, _rig_hold - delta)
+	if _rig_fire_in >= 0.0:
+		_rig_fire_in -= delta
+		if _rig_fire_in <= 0.0:
+			_rig_fire()
+		else:
+			m.aim += (_rig_aim - m.aim) * minf(1.0, delta / _rig_fire_in)
+	m.raise_gun(_rig_raised())
+	m.set_aim(_rig_aim)
+
+
+func _rig_fire() -> void:
+	_rig_fire_in = -1.0
+	_rig.motion.aim = _rig_aim
+	_rig.motion.shoot()
+	_rig_hold = GunDraw.TIMINGS["fireHoldSec"]
+
+
+## The rig's gun is up: aiming, a shot pending or just fired (not walking, alive, a gun in hand).
+func _rig_raised() -> bool:
+	if _dead or hands_free:
+		return false
+	if _rig_fire_in >= 0.0 or _rig_hold > 0.0:
+		return true
+	if _walking:
+		return false
+	if not holster:
+		return _aiming
+	return _aiming or _gun_draw.state == GunDraw.FIRING or _gun_draw.fire_pending()
+
+
+## An aim angle (0 right, 90 up, 180 left) as the rig's elevation towards the facing side: the real
+## angle (not snapped), -30 .. 90; behind and below: forward down (-30), behind and above: 90.
+static func rig_elevation(angle: float, facing_dir: int) -> float:
+	var up := wrapf(angle if facing_dir > 0 else 180.0 - angle, -180.0, 180.0)
+	if up < -90.0:
+		up = -30.0
+	return clampf(up, -30.0, 90.0)
 
 
 ## The full-body picture of `data` (Art.lobby_full()) instead of the frames and the gun.
@@ -282,6 +407,8 @@ func full() -> Node2D:
 
 ## A gun is drawn in the character's hand (false: hands free or the full-body picture).
 func holds_gun() -> bool:
+	if _rig != null:
+		return _rig.show_gun and not _dead
 	return _gun_node.visible and _gun_sprite.visible
 
 
@@ -313,6 +440,8 @@ func _apply_gun() -> void:
 		var sock: Transform2D = rp["socket"]
 		_hug_xf = Transform2D(sock.x, sock.y, Vector2.ZERO) * Art.gun_transform(rp, _hug)
 	_carry = _carry_place()
+	if _rig != null:
+		_rig.set_gun(Art.hug_gun(kind, tier))
 	var tex_px := maxf(1.0, float(_flash.texture.get_width()))
 	_flash.scale = Vector2.ONE * (FLASH_PX / tex_px)
 	_set_gun_look(_gun_look, true)
@@ -353,6 +482,7 @@ func _set_gun_look(mode: String, force: bool = false) -> void:
 ## With holster on it draws the gun (not while walking: walk first).
 func aim(angle: float) -> void:
 	_aim_up = aim_elevation(angle, facing)
+	_rig_aim = rig_elevation(angle, facing)
 	_aiming = true
 	if holster:
 		_start_draw()
@@ -366,6 +496,7 @@ func draw_gun() -> void:
 		return
 	if not _gun_draw.armed() or not _aiming: # from the holster or the idle low carry: at level
 		_aim_up = 0.0
+		_rig_aim = 0.0
 	_aiming = true
 	_start_draw()
 	_update_gun()
@@ -445,6 +576,8 @@ func is_aiming() -> bool:
 
 ## The gun's muzzle in global coordinates (where a shot leaves; visual only).
 func muzzle_position() -> Vector2:
+	if _rig != null:
+		return _rig.global_transform * _rig.muzzle_position()
 	if _gun.is_empty():
 		return global_position
 	return _gun_node.global_transform * _flash.position
@@ -453,6 +586,9 @@ func muzzle_position() -> Vector2:
 ## Where the muzzle will be when a shot leaves (global, visual only): the gun all the way out
 ## at the aim, on the first shoot frame (shoot() just called: the gun may still be drawing).
 func fire_muzzle_position() -> Vector2:
+	if _rig != null:
+		_rig.motion.set_aim(_rig_aim)
+		return _rig.global_transform * _rig.fire_muzzle_position()
 	if _gun.is_empty() or _full != null:
 		return global_position
 	var anim := _shoot_anim()
@@ -619,6 +755,11 @@ func _draw_frame() -> int:
 ## facing; the baked frames and the full-body picture have none.
 func _apply_motion() -> void:
 	_flip.transform = _flip_transform(str(_sprite.animation), _progress(), _gun_draw.progress)
+	if _rig != null:
+		var k := art_height() / maxf(1.0, _rig.height())
+		# fallen on its back round the heels: slid forward to lie over its feet (like the frames' fall)
+		var slide := RIG_FALL_SLIDE * art_height() * float(_rig.sample.get("dead", 0.0))
+		_rig.transform = Transform2D(0.0, Vector2(k * facing, k), 0.0, Vector2(slide * facing, 0.0))
 
 
 ## Flip's transform for `anim`'s motion at progress t, with the ready stance of a gun draw at
@@ -765,13 +906,29 @@ func shoot(with_gun: bool = true) -> float:
 		return 0.0
 	if not holster or not with_gun or _full != null:
 		play("shoot")
-		return 0.0
+		return _rig_shoot(with_gun, 0.0)
 	var wait := _gun_draw.fire()
 	if wait <= 0.0:
 		play(_shoot_anim())
 	elif animation() in BASE_ANIMS:
 		play(_base())
 	_update_gun()
+	return _rig_shoot(with_gun, wait)
+
+
+## The rig's side of shoot(): with the gun, the shot leaves once it is up (the wait: the longer of
+## the draw's and the raise's); without (an air strike), only the body's recoil, now.
+func _rig_shoot(with_gun: bool, wait: float) -> float:
+	if _rig == null:
+		return wait
+	if not with_gun or hands_free:
+		_rig.motion.shoot()
+		return wait
+	_rig.motion.raise_gun(true, true) # a gun still down comes up fast
+	wait = maxf(wait, _rig.raise_left())
+	_rig_fire_in = wait
+	if wait <= 0.0:
+		_rig_fire()
 	return wait
 
 
@@ -780,6 +937,8 @@ func hurt() -> void:
 	if not _dead:
 		_hurt_left = HURT_FLASH_SEC
 		play("hurt")
+		if _rig != null:
+			_rig.motion.hurt()
 
 
 func die() -> void:
@@ -792,6 +951,10 @@ func die() -> void:
 	_aiming = false
 	play("die")
 	_shadow.scale.x = DEAD_SHADOW
+	_rig_fire_in = -1.0
+	_rig_hold = 0.0
+	if _rig != null:
+		_rig.motion.die()
 
 
 func is_dead() -> bool:

@@ -1,4 +1,6 @@
-Rookie's bone rig: a TEST (not used in matches; the user decides before it replaces the side view).
+Rookie's bone rig: Rookie in every match (round 2, 2026-11-14: scenes/character/character.gd match_rig,
+set by match/views/player_view.gd; docs/rookie-match-rig.md). Everything outside the match, and the
+match's turn portrait / HUD, keep the old Rookie art; the other characters are unchanged.
 
 Source: ../side_idle/idle_v2.png (the user's chibi picture: 1364 x 768, white backdrop, standing,
 facing right, no gun). Nothing else is drawn: the far arm's sleeve, the torso's back under the near
@@ -34,4 +36,6 @@ scenes/dev/rig_preview.tscn (F6 in the editor), or record it into frames / a GIF
 Another character needs: its standing picture (facing right, plain backdrop, arms hanging clear of
 the body if possible), a copy of this script with its own J / PARTS / UNDER (the cut and the painting
 are per picture), and its rig.json goes to assets/characters/<id>/rig/. The motion and solver code is
-shared; AIM_PATH / GUN_LENGTH may need tuning per body shape.
+shared; AIM_PATH / GUN_LENGTH / char_rig.gd HEAD_OVER_DEG may need tuning per body shape. To use it in
+matches, CharRig.available(<id>) is true once assets/characters/<id>/rig/rig.json exists: the match
+then draws that character by its rig too (character.gd match_rig).
