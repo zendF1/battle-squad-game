@@ -127,7 +127,7 @@ def ellipse(cx, cy, rx, ry, n=48, a0=0.0, a1=360.0, rot=0.0):
 UNDER = {
     "torso": [
         # the shirt under the belt
-        ([(590, 440), (700, 440), (700, 512), (590, 512)], SHIRT, False),
+        ([(590, 460), (697, 460), (697, 501), (590, 501)], SHIRT, False),
         # the neck under the chin strap
         ([(622, 340), (672, 340), (674, 400), (620, 400)], NECK, True),
         # the near shoulder under the shoulder pad and the collar under the strap (a round, outlined
