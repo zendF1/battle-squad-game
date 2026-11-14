@@ -1,3 +1,4 @@
+@tool
 extends RefCounted
 ## The bone rig's geometry (pure logic, no nodes; drawn by scenes/character/rig/char_rig.gd): a
 ## character cut into parts on a skeleton (assets/characters/<id>/rig/rig.json, made by art_source/characters/<id>/rig/make_rig.py) and the
@@ -11,34 +12,38 @@ extends RefCounted
 ## unturned, so a bone's transform is its turn from rest and its joint's place.
 
 const IK := preload("res://scenes/character/rig/rig_ik.gd")
+const RigMotion := preload("res://scenes/character/rig/rig_motion.gd")
 
-## The gun's length, of the figure's height: the match's bazooka hug art at 3/4 × 1.3 (57 → 56 px
-## on the ~62 px body: about the old ready pose's length), every gun kind the same length.
+## The gun's length, of the figure's height, when the character's carry scene does not set it: the
+## match's bazooka hug art at 3/4 × 1.3 (57 → 56 px on the ~62 px body: about the old ready pose's
+## length), every gun kind the same length. The carry scene's Preview scale sets it per character
+## (scenes/character/poses/<id>_carry.tscn, sling(), set_back(); Rookie's scene gives exactly this).
 const GUN_LENGTH := 0.92
-## Where the gun sits per aim (degrees up): [deg, pivot dx, pivot dy (rig px from the chest point),
-## near grip, far grip (rig px along the tube from the pivot, the gun's hold; + towards the muzzle),
-## slide (rig px the tube slides up its axis through the fists: the pivot moves, the grips stay)].
-## Between rows: linear. Up to 60° the tube passes in front of the face (the pivot forward, as far as
-## the short chibi near arm reaches); aiming higher it moves back beside the head (over the ear: in
-## front of the face a vertical tube would hide it) and the far hand slides down to the chin; between
-## 60° and 80° it sweeps across (rig_motion.gd leans back and looks up there). From 60° up the long
-## tube slides up through the fists (70 px at 80°, 90 at 90°) so its tail clears the ground and its
-## tip rises over the cap.
+## Where the gun sits per aim (degrees up; rig.json aimPath overrides it per character, the same rows):
+## [deg, pivot dx, pivot dy (rig px from the chest point), near grip, far grip (rig px along the tube
+## from the pivot, the gun's hold; + towards the muzzle), slide (rig px the tube slides up its axis
+## through the fists: the pivot moves, the grips stay)]. Between rows: linear. The tube passes in
+## front of the face at every aim (drawn over the head: aiming high it covers the face), the pivot
+## forward as far as the short chibi near arm reaches; aiming high the far hand slides down the tube
+## towards the chin and from 60° up the long tube slides up through the fists (70 px at 80°, 90 at
+## 90°) so its tail clears the ground and its warhead rises over the hair.
 const AIM_PATH := [
 	[-30.0, 4.0, 4.0, -10.0, 44.0, 0.0],
 	[0.0, 4.0, 0.0, -12.0, 48.0, 0.0],
 	[45.0, 10.0, -2.0, -14.0, 40.0, 0.0],
 	[60.0, 8.0, -4.0, -14.0, 32.0, 0.0],
-	[80.0, -30.0, -4.0, -16.0, 16.0, 70.0],
-	[90.0, -42.0, -4.0, -16.0, 10.0, 90.0],
+	[80.0, 6.0, -4.0, -16.0, 16.0, 70.0],
+	[90.0, 4.0, -4.0, -16.0, 10.0, 90.0],
 ]
 ## The gun slung on the back while it is down (raise 0: idle, walk, hurt), riding the torso bone:
 ## anchored at `pos` (rig px from the feet, at rest), its axis at `deg` (at rest; -90 muzzle straight
 ## up, more negative tilts it back), the anchor `frac` of the gun's length from its tail on its hold
-## row. Defaults: the side view's carry (assets/characters/rookie/side/carry.json back.scene, the
-## anchor scaled to the rig) tilted BACK_TILT_DEG further back so the tube clears the chibi's big head
-## (character.gd sets it from the carry scene, set_back()). Raising, the one gun swings from there
-## into the grips (pivot and turn blended by the raise), drawn behind the body until SWAP_FRONT.
+## row. The character's carry scene sets it (scenes/character/poses/<id>_carry.tscn: CarrySocket and
+## its Preview drawn over the rig, character.gd rig_back() → sling() → set_back()); without one these
+## defaults: Rookie's old side-view carry (the anchor scaled to the rig) tilted BACK_TILT_DEG further
+## back so the tube clears the chibi's big head (Rookie's carry scene has that tilt baked into its
+## CarrySocket's rotation). Raising, the one gun swings from there into the grips (pivot and turn
+## blended by the raise), drawn behind the body until SWAP_FRONT.
 const BACK_POS := Vector2(-18.5, -94.6)
 const BACK_DEG := -103.0
 const BACK_FRAC := 0.127
@@ -58,7 +63,19 @@ var parts: Array = [] # {name, png, bone, xf: Transform2D (image px -> rig px at
 var points := {} # name -> Vector2
 var gun_under := ""
 var gun := {} # {size, hold, muzzle} (texture px), scale (rig px per texture px), length (rig px)
-var back := {"pos": BACK_POS, "deg": BACK_DEG + BACK_TILT_DEG, "frac": BACK_FRAC} # the sling (see BACK_POS)
+## The sling (see BACK_POS); lift: the anchor off the gun's hold row, of its length (+ down the picture).
+var back := {"pos": BACK_POS, "deg": BACK_DEG + BACK_TILT_DEG, "frac": BACK_FRAC, "lift": 0.0}
+var gun_length := GUN_LENGTH # of the height (set_back())
+var aim_path: Array = AIM_PATH # rig.json aimPath, else AIM_PATH
+## The angle the body lies at once fallen (rig.json fallDeg, else the motion's fallDeg: Rookie's): the
+## motion's fall scaled to it, so a taller head still lies on the ground.
+var fall_deg := float(RigMotion.T["fallDeg"])
+## Aiming straight up (the motion's look_up 1): the head tilted back (chin up) and the torso leaning
+## back by these (degrees; rig.json headBackDeg / torsoBackDeg per character).
+const HEAD_BACK_DEG := 24.0
+const TORSO_BACK_DEG := 6.0
+var head_back_deg := HEAD_BACK_DEG
+var torso_back_deg := TORSO_BACK_DEG
 
 
 ## data: rig.json parsed; gun_meta: the gun art's {size: [w, h], hold: [x, y], muzzle: [x, y]}
@@ -80,6 +97,11 @@ func setup(data: Dictionary, gun_meta: Dictionary) -> bool:
 	for k in pts:
 		points[k] = _vec(pts[k])
 	gun_under = str(data.get("gunUnder", ""))
+	if data.get("aimPath") is Array and data["aimPath"].size() >= 2:
+		aim_path = data["aimPath"]
+	fall_deg = float(data.get("fallDeg", fall_deg))
+	head_back_deg = float(data.get("headBackDeg", HEAD_BACK_DEG))
+	torso_back_deg = float(data.get("torsoBackDeg", TORSO_BACK_DEG))
 	for need in ["hips", "torso", "head", "n_shoulder", "n_elbow", "n_hand", "f_shoulder", "f_elbow", "f_hand",
 			"n_hip", "n_knee", "n_ankle", "f_hip", "f_knee", "f_ankle"]:
 		if not rest.has(need):
@@ -88,22 +110,42 @@ func setup(data: Dictionary, gun_meta: Dictionary) -> bool:
 	return true
 
 
-## The gun held: its art's {size, hold, muzzle} (texture px; arrays or Vector2s), drawn GUN_LENGTH
-## long whatever its picture's size (every gun kind the same length, as on the old ready pose).
+## The gun held: its art's {size, hold, muzzle} (texture px; arrays or Vector2s), drawn gun_length
+## of the height long whatever its picture's size (every gun kind the same length, held and slung).
 func set_gun(gun_meta: Dictionary) -> void:
 	var size := _vec(gun_meta.get("size", [118, 37]))
 	if size.x <= 0.0:
 		size = Vector2(118, 37)
 	var hold := _vec(gun_meta.get("hold", [size.x * 0.5, size.y * 0.5]))
 	var muzzle := _vec(gun_meta.get("muzzle", [size.x, size.y * 0.5]))
-	var length := GUN_LENGTH * height
+	var length := gun_length * height
 	gun = {"size": size, "hold": hold, "muzzle": muzzle, "scale": length / size.x, "length": length}
 
 
 ## The sling: anchor (rig px from the feet, at rest), axis (degrees, at rest), anchor's fraction of
-## the gun's length from its tail.
-func set_back(pos: Vector2, deg: float, frac: float) -> void:
-	back = {"pos": pos, "deg": deg, "frac": clampf(frac, 0.0, 1.0)}
+## the gun's length from its tail, its lift off the gun's hold row (of the length), and the gun's
+## length (rig px, held and slung; <= 0 keeps it).
+func set_back(pos: Vector2, deg: float, frac: float, lift: float = 0.0, length: float = -1.0) -> void:
+	back = {"pos": pos, "deg": deg, "frac": clampf(frac, 0.0, 1.0), "lift": lift}
+	if length > 0.0 and height > 0.0:
+		gun_length = length / height
+		if not gun.is_empty():
+			set_gun({"size": gun["size"], "hold": gun["hold"], "muzzle": gun["muzzle"]})
+
+
+## The sling a carry scene shows (scenes/character/poses/<id>_carry.tscn), in rig px: socket (the
+## CarrySocket's transform, scene px: the character's px, feet at 0), preview (the Preview's texture
+## px → socket px, its offset included), size / hold_row (the Preview gun's picture: its size and its
+## hold row, texture px), k (rig px per scene px: the rig's height / the side view's art height, the
+## match draws the rig at 1 / k). {pos, deg, frac, lift, length} for set_back(): the Preview's texture
+## point under the socket's origin is the anchor, its axis the sling's angle, its drawn length the
+## gun's (held too).
+static func sling(socket: Transform2D, preview: Transform2D, size: Vector2, hold_row: float, k: float) -> Dictionary:
+	var m := Transform2D(0.0, Vector2(k, k), 0.0, Vector2.ZERO) * socket * preview
+	var own: Vector2 = preview.affine_inverse() * Vector2.ZERO
+	var w := maxf(1.0, size.x)
+	return {"pos": socket.origin * k, "deg": rad_to_deg(m.x.angle()), "frac": own.x / w,
+		"lift": (own.y - hold_row) / w, "length": m.x.length() * w}
 
 
 static func _vec(v) -> Vector2:
@@ -116,9 +158,9 @@ func bone_length(nm: String, child: String) -> float:
 	return (rest[child] - rest[nm]).length()
 
 
-## The aim path's row at `deg`: [pivot offset Vector2, near grip, far grip, slide].
-static func aim_row(deg: float) -> Array:
-	var rows := AIM_PATH
+## The aim path's row at `deg`: [pivot offset Vector2, near grip, far grip, slide] (rows: AIM_PATH or
+## a rig's aim_path).
+static func aim_row(deg: float, rows: Array = AIM_PATH) -> Array:
 	if deg <= rows[0][0]:
 		return [Vector2(rows[0][1], rows[0][2]), rows[0][3], rows[0][4], rows[0][5]]
 	for i in range(1, rows.size()):
@@ -153,19 +195,21 @@ func solve(s: Dictionary) -> Dictionary:
 			drop = maxf(drop, feet[side].y - sqrt(reach * reach - dx * dx) - hip.y)
 	hips_pos.y += drop
 	g["hips"] = Transform2D(hips_rot, hips_pos)
-	var torso_rot := hips_rot + deg_to_rad(float(s.get("torso_deg", 0.0)))
+	var look := float(s.get("look_up", 0.0))
+	var torso_rot := hips_rot + deg_to_rad(float(s.get("torso_deg", 0.0)) - torso_back_deg * look)
 	g["torso"] = Transform2D(torso_rot, _at(g, "hips", "torso") + s.get("torso", Vector2.ZERO))
-	g["head"] = Transform2D(torso_rot + deg_to_rad(float(s.get("head_deg", 0.0))), _at(g, "torso", "head"))
+	g["head"] = Transform2D(torso_rot + deg_to_rad(float(s.get("head_deg", 0.0)) - (head_back_deg - torso_back_deg) * look),
+		_at(g, "torso", "head"))
 	# the gun: from the sling on the back (riding the torso) to the aim at the chest
 	var aim := float(s.get("aim", 0.0))
-	var row := aim_row(aim)
+	var row := aim_row(aim, aim_path)
 	var aim_rot := -deg_to_rad(aim)
 	var chest: Vector2 = g["torso"] * (points.get("chest", rest["torso"]) - rest["torso"])
 	var p_aim: Vector2 = chest + row[0] + Vector2.from_angle(aim_rot) * (float(row[3]) - float(s.get("kick", 0.0)))
 	var sc := float(gun["scale"])
 	var hold: Vector2 = gun["hold"]
 	var back_rot := torso_rot + deg_to_rad(float(back["deg"]))
-	var anchor := Vector2(float(back["frac"]) * float(gun["size"].x), hold.y)
+	var anchor := Vector2(float(back["frac"]) * float(gun["size"].x), hold.y + float(back.get("lift", 0.0)) * float(gun["size"].x))
 	var back_xf := Transform2D(back_rot, Vector2(sc, sc), 0.0, g["torso"] * (back["pos"] - rest["torso"])) \
 		* Transform2D(0.0, -anchor)
 	var gun_rot := lerp_angle(back_rot, aim_rot, r)
@@ -223,7 +267,7 @@ func solve(s: Dictionary) -> Dictionary:
 		g[kn] = Transform2D(shin, k)
 		g[an] = Transform2D(shin, a)
 	# the fall: round the near heel, lifted so the lowest outline point lies on the ground
-	var fall := deg_to_rad(float(s.get("fall_deg", 0.0)))
+	var fall := deg_to_rad(float(s.get("fall_deg", 0.0)) * fall_deg / float(RigMotion.T["fallDeg"]))
 	var heel := Vector2(points.get("n_sole", Vector2.ZERO).x - 8.0, 0.0)
 	var fig := Transform2D(0.0, heel) * Transform2D(fall, Vector2.ZERO) * Transform2D(0.0, -heel)
 	if fall != 0.0:

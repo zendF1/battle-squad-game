@@ -9,6 +9,8 @@ const CharRig := preload("res://scenes/character/rig/char_rig.gd")
 const Art := preload("res://ui/art.gd")
 
 const DT := 1.0 / 60.0
+## The characters drawn by a chibi bone rig in the match (assets/characters/<id>/rig/rig.json).
+const RIGGED := ["rookie", "spark"]
 
 
 ## A match-sized character not in the tree (_ready by hand, stepped by _step()).
@@ -50,9 +52,14 @@ func _gun_tip(c: Node2D) -> Vector2:
 	return xf * Vector2(r.model.gun["muzzle"])
 
 
-func test_only_rookie_in_the_match_uses_the_rig() -> void:
+func test_only_rigged_characters_in_the_match_use_the_rig() -> void:
 	var holder := Node2D.new()
-	check(CharRig.available("rookie"), "Rookie has a rig")
+	for id in RIGGED:
+		check(CharRig.available(id), "%s has a rig" % id)
+		var m := _character(id, true, holder)
+		check(m.rig() != null and not m.get_node("Flip").visible, "%s, match view: the rig, its old frames hidden" % id)
+		var l := _character(id, false, holder)
+		check(l.rig() == null and l.get_node("Flip").visible, "%s outside the match (the default): the old art" % id)
 	var rookie := _character("rookie", true, holder)
 	check(rookie.rig() != null, "Rookie, match view: the rig")
 	check(not rookie.get_node("Flip").visible, "its old frames hidden")
@@ -60,7 +67,7 @@ func test_only_rookie_in_the_match_uses_the_rig() -> void:
 	var lobby := _character("rookie", false, holder)
 	check(lobby.rig() == null and lobby.get_node("Flip").visible, "Rookie outside the match (the default): the old art")
 	for id in Art.CHARACTERS:
-		if id == "rookie":
+		if RIGGED.has(id):
 			continue
 		var other := _character(id, true, holder)
 		check(other.rig() == null and other.get_node("Flip").visible, "%s, match view: the old art" % id)
@@ -74,9 +81,12 @@ func test_only_rookie_in_the_match_uses_the_rig() -> void:
 	rookie._apply_frames() # out of the tree the setters wait for _ready
 	check(rookie.rig() == null and rookie.get_node("Flip").visible, "switched off: back to the frames")
 	rookie.match_rig = true
+	rookie.character_id = "tanko"
+	rookie._apply_frames()
+	check(rookie.rig() == null, "a character without a rig: no rig")
 	rookie.character_id = "spark"
 	rookie._apply_frames()
-	check(rookie.rig() == null, "another character: no rig")
+	check(rookie.rig() != null and rookie.rig().character_id == "spark", "Spark: his own rig")
 	rookie.character_id = "rookie"
 	rookie._apply_frames()
 	check(rookie.rig() != null, "back to Rookie: the rig again")
@@ -91,6 +101,11 @@ func test_player_view_sets_the_rig() -> void:
 	v.setup(_player("me", "rookie"), true, 1)
 	v._sprite._ready()
 	check(v._sprite.rig() != null, "a Rookie player in the match: the rig")
+	var sv: Node2D = PlayerView.new()
+	holder.add_child(sv)
+	sv.setup(_player("e2", "spark"), false, 1)
+	sv._sprite._ready()
+	check(sv._sprite.rig() != null and sv._sprite.rig().character_id == "spark", "a Spark player in the match: his rig")
 	var top: float = v._sprite.art_height() * v._sprite.scale.y
 	near(v._sprite.rig().height() * v._sprite.rig().scale.y * v._sprite.scale.y, top, 0.01, "as tall as the old side view (labels keep their places)")
 	var w: Node2D = PlayerView.new()
@@ -111,9 +126,14 @@ func test_elevation_is_the_real_angle() -> void:
 
 
 func test_muzzle_follows_the_rig_gun() -> void:
+	for id in RIGGED:
+		_muzzle_follows_the_rig_gun(id)
+
+
+func _muzzle_follows_the_rig_gun(id: String) -> void:
 	var holder := Node2D.new()
 	holder.position = Vector2(400, 700)
-	var c := _character("rookie", true, holder)
+	var c := _character(id, true, holder)
 	_step(c, 0.5)
 	check(not c.rig().motion.raise_target > 0.0, "idle: the gun down (slung)")
 	c.aim(20.0)
@@ -137,8 +157,13 @@ func test_muzzle_follows_the_rig_gun() -> void:
 
 
 func test_shot_with_the_gun_down_waits_for_it() -> void:
+	for id in RIGGED:
+		_shot_with_the_gun_down_waits_for_it(id)
+
+
+func _shot_with_the_gun_down_waits_for_it(id: String) -> void:
 	var holder := Node2D.new()
-	var c := _character("rookie", true, holder)
+	var c := _character(id, true, holder)
 	_step(c, 0.3)
 	c.aim(45.0) # the replay's aim right before the shot
 	var wait: float = c.shoot()
@@ -163,8 +188,13 @@ func test_shot_with_the_gun_down_waits_for_it() -> void:
 
 
 func test_events_drive_the_rig() -> void:
+	for id in RIGGED:
+		_events_drive_the_rig(id)
+
+
+func _events_drive_the_rig(id: String) -> void:
 	var holder := Node2D.new()
-	var c := _character("rookie", true, holder)
+	var c := _character(id, true, holder)
 	c.set_walking(true)
 	_step(c, 0.3)
 	check(c.rig().motion.walk > 0.9, "walking")
@@ -186,37 +216,87 @@ func test_events_drive_the_rig() -> void:
 	holder.free()
 
 
-func test_head_over_the_tube_aiming_high() -> void:
+## The tube is drawn over the head at every aim (aiming high it covers the face), only the near arm
+## over it, the far arm (upper arm, forearm, fist) behind it, holding it from behind.
+func test_gun_over_the_head_at_every_aim() -> void:
+	for id in RIGGED:
+		_gun_over_the_head_at_every_aim(id)
+
+
+func _gun_over_the_head_at_every_aim(id: String) -> void:
 	var holder := Node2D.new()
-	var c := _character("rookie", true, holder)
+	var c := _character(id, true, holder)
 	var r = c.rig()
 	var parts: Node2D = r.get_node("Figure/Parts")
 	var gun := parts.get_node("Gun")
-	for deg in [-30.0, 0.0, 30.0, 50.0]:
+	for deg in [-30.0, 0.0, 30.0, 50.0, 60.0, 75.0, 90.0]:
 		c.aim(deg)
 		_step(c, 1.0)
-		check(not r.head_over_gun(), "%d°: the tube over the head (in front of the face)" % deg)
-		check(parts.get_node("f_fist").get_index() == gun.get_index() + 1, "%d°: right under the far fist" % deg)
-	for deg in [60.0, 75.0, 90.0]:
-		c.aim(deg)
-		_step(c, 1.0)
-		check(r.head_over_gun(), "%d°: the head over the tube" % deg)
-		eq(parts.get_node("head").get_index(), gun.get_index() + 1, "%d°: the tube right under the head" % deg)
-	for fist in ["f_fist", "n_fist"]:
-		check(parts.get_node(fist).get_index() > parts.get_node("head").get_index(), "%s still over the head and the tube" % fist)
-	near(r.model.gun["length"], 0.708 * 1.3 * r.height(), 0.5, "the gun 3/4 × 1.3 of the hug size (about the ready pose's)")
-	check(r.pose["muzzle"].y < r.model.points["cap_top"].y, "straight up: the long tube's tip over the cap (%s)" % r.pose["muzzle"])
+		check(not r.head_over_gun() and gun.get_index() > parts.get_node("head").get_index(), "%s %d°: the tube over the head" % [id, deg])
+		eq(parts.get_node("n_fist").get_index(), gun.get_index() + 1, "%s %d°: right under the near fist" % [id, deg])
+		for far in ["f_fist", "f_fore", "f_upper"]:
+			check(parts.get_node(far).get_index() < gun.get_index(), "%s %d°: %s behind the tube" % [id, deg, far])
+		# the far fist still meets the tube (held from behind, not floating)
+		var g: Transform2D = r.pose["gun"]
+		var hold: Vector2 = r.model.gun["hold"]
+		var off: Vector2 = g.affine_inverse() * (r.pose["hands"][1] as Vector2)
+		check(absf(off.y - hold.y) < r.model.gun["size"].y * 0.5, "%s %d°: the far fist on the tube (%.1f texture px off its axis)" % [id, deg, off.y - hold.y])
+	for nm in ["n_upper", "n_fore"]:
+		check(parts.get_node(nm).get_index() > gun.get_index(), "%s: %s over the tube" % [id, nm])
+	# 90°: in front of the face (covering it), tip over the hair, tail off the ground
+	var eye: Vector2 = (r.pose["bones"]["head"] as Transform2D) * ((r.model.points["eye"] as Vector2) - r.model.rest["head"] if r.model.points.has("eye") else Vector2(12, -60))
+	var axis_x: float = ((r.pose["gun"] as Transform2D) * Vector2(r.model.gun["hold"])).x
+	check(absf(axis_x - eye.x) < 40.0, "%s 90°: the tube in front of the face (axis x %.1f, eye x %.1f)" % [id, axis_x, eye.x])
+	near(r.model.gun["length"], float(c.rig_back(id, r.height())["length"]), 0.01, "%s: the gun as long as the carry scene's Preview" % id)
+	check(r.pose["muzzle"].y < r.model.points["cap_top"].y, "%s straight up: the long tube's tip over the hair (%s)" % [id, r.pose["muzzle"]])
 	var tail: Vector2 = (r.pose["gun"] as Transform2D) * Vector2(0.0, r.model.gun["hold"].y)
-	check(tail.y < 0.0, "and its tail off the ground (%s)" % tail)
-	c.aim(20.0)
-	_step(c, 1.0)
-	check(not r.head_over_gun(), "back down: the tube in front again")
+	check(tail.y < 0.0, "%s: and its tail off the ground (%s)" % [id, tail])
 	holder.free()
 
 
+## Aiming straight up the head tilts back (chin up) and the torso leans back a little, eased in with
+## the aim, more for a moment at a steep shot, and back once the gun is down.
+func test_head_tilts_back_aiming_up() -> void:
+	for id in RIGGED:
+		var holder := Node2D.new()
+		var c := _character(id, true, holder)
+		var r = c.rig()
+		var angles := func() -> Array:
+			return [(r.pose["bones"]["head"] as Transform2D).get_rotation(), (r.pose["bones"]["torso"] as Transform2D).get_rotation()]
+		c.aim(0.0)
+		_step(c, 1.0)
+		var flat: Array = angles.call()
+		c.aim(45.0)
+		_step(c, 1.0)
+		var mid: Array = angles.call()
+		c.aim(90.0)
+		_step(c, 0.05)
+		var rising: Array = angles.call()
+		_step(c, 1.5)
+		var up: Array = angles.call()
+		var head_back := rad_to_deg(float(flat[0]) - float(up[0]))
+		var torso_back := rad_to_deg(float(flat[1]) - float(up[1]))
+		check(head_back > 15.0 and head_back < 30.0, "%s: 90° tilts the head back (%.1f° from 0°)" % [id, head_back])
+		check(torso_back > 4.0 and torso_back < 10.0, "%s: and leans the torso back (%.1f°)" % [id, torso_back])
+		check(absf(rad_to_deg(float(mid[0]) - float(flat[0]))) < 4.0, "%s: little tilt up to 45°" % id)
+		check(rad_to_deg(float(flat[0]) - float(rising[0])) < head_back * 0.6, "%s: eased in with the aim, not snapped" % id)
+		c.shoot()
+		_step(c, 0.06)
+		check(float(r.sample["look_up"]) > 1.05, "%s: a steep shot throws it further back for a moment" % id)
+		c.clear_aim()
+		_step(c, 1.5)
+		near(float(r.sample["look_up"]), 0.0, 1e-3, "%s: the gun down: the head back to rest" % id)
+		holder.free()
+
+
 func test_swapped_weapon_goes_through_the_socket() -> void:
+	for id in RIGGED:
+		_swapped_weapon_goes_through_the_socket(id)
+
+
+func _swapped_weapon_goes_through_the_socket(id: String) -> void:
 	var holder := Node2D.new()
-	var c := _character("rookie", true, holder)
+	var c := _character(id, true, holder)
 	c.aim(30.0)
 	_step(c, 1.0)
 	var gun: Sprite2D = c.rig().get_node("Figure/Parts/Gun")
@@ -226,20 +306,26 @@ func test_swapped_weapon_goes_through_the_socket() -> void:
 		_step(c, 0.05)
 		var art := Art.hug_gun(kind, Art.GUN_BASIC)
 		check(gun.texture != null and gun.texture.get_size() == (art["texture"] as Texture2D).get_size(), "%s: its hug art on the rig's gun" % kind)
-		near(c.rig().model.gun["length"], c.rig().model.GUN_LENGTH * c.rig().height(), 1e-3, "%s: the rig's gun length" % kind)
+		near(c.rig().model.gun["length"], c.rig().model.gun_length * c.rig().height(), 1e-3, "%s: the rig's gun length" % kind)
+		near(c.rig().model.gun["length"], float(c.rig_back(id, c.rig().height())["length"]), 0.01, "%s %s: the carry scene's Preview length" % [id, kind])
 		near(c.muzzle_position().distance_to(_gun_tip(c)), 0.0, 0.05, "%s: the muzzle on its tip" % kind)
 		eq(c.rig().gun_art.get("kind"), art["kind"], "%s: the rig holds that kind" % kind)
 	holder.free()
 
 
 func test_gun_slung_on_the_back_until_raised() -> void:
+	for id in RIGGED:
+		_gun_slung_on_the_back_until_raised(id)
+
+
+func _gun_slung_on_the_back_until_raised(id: String) -> void:
 	var holder := Node2D.new()
-	var c := _character("rookie", true, holder)
+	var c := _character(id, true, holder)
 	var r = c.rig()
-	var sling: Dictionary = c.rig_back("rookie", r.height())
-	check(not sling.is_empty(), "the sling comes from Rookie's carry scene (carry.json back.scene)")
+	var sling: Dictionary = c.rig_back(id, r.height())
+	check(not sling.is_empty(), "%s: the sling comes from the carry scene (carry.json back.scene)" % id)
 	near(float(r.model.back["deg"]), float(sling["deg"]), 1e-3, "set on the rig")
-	check(float(sling["deg"]) < -110.0 and float(sling["deg"]) > -150.0, "diagonal: muzzle up and back over the shoulder (%.1f°)" % float(sling["deg"]))
+	check(float(sling["deg"]) < -95.0 and float(sling["deg"]) > -165.0, "%s: diagonal: muzzle up and back over the shoulder (%.1f°)" % [id, float(sling["deg"])])
 	_step(c, 0.5)
 	check(r.back_gun_shown() and not r.hand_gun_shown(), "idle: on the back")
 	var parts: Node2D = r.get_node("Figure/Parts")
@@ -278,3 +364,36 @@ func test_gun_slung_on_the_back_until_raised() -> void:
 	_step(c, 1.5)
 	check(not r.back_gun_shown() and not r.hand_gun_shown(), "dead: the gun gone (faded out with the fall)")
 	holder.free()
+
+
+## The carry scene's Preview scale is the rig's gun length, slung and held (character.gd rig_back()):
+## scaling it in the scene scales the gun and moves the muzzle; the rest of the sling stays.
+func test_carry_scene_gun_scale_sets_the_rig_gun() -> void:
+	for id in RIGGED:
+		var path := str(Art.character_look(id)["carry"]["back"]["scene"])
+		var saved: Dictionary = Art.carry_pose(id)
+		var holder := Node2D.new()
+		var c := _character(id, true, holder)
+		c.aim(45.0)
+		_step(c, 1.0)
+		var length: float = c.rig().model.gun["length"]
+		var tip: Vector2 = c.rig().muzzle_position()
+		var deg := float(c.rig().model.back["deg"])
+		# the same scene with its Preview 1.25 × bigger
+		var root: Node2D = load(path).instantiate()
+		var pv: Sprite2D = root.get_node("CarrySocket/Preview")
+		pv.scale *= 1.25
+		var preview := pv.transform * Transform2D(0.0, pv.offset)
+		var big := saved.duplicate()
+		big["preview"] = preview
+		big["hold"] = preview.affine_inverse() * Vector2.ZERO
+		root.free()
+		Art._carry_poses[path] = big
+		var b := _character(id, true, holder)
+		b.aim(45.0)
+		_step(b, 1.0)
+		near(b.rig().model.gun["length"], length * 1.25, 0.01, "%s: the held gun 1.25 × longer" % id)
+		check(b.rig().muzzle_position().distance_to(tip) > 5.0, "%s: its muzzle moved (%s → %s)" % [id, tip, b.rig().muzzle_position()])
+		near(float(b.rig().model.back["deg"]), deg, 1e-3, "%s: the sling's angle unchanged" % id)
+		Art._carry_poses[path] = saved
+		holder.free()

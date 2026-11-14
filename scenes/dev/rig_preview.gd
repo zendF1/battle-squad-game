@@ -1,5 +1,6 @@
 extends Node2D
-## Dev preview of Rookie's bone rig (used in matches: character.gd match_rig; this preview is not reachable from the game's screens): plays every motion
+## Dev preview of a character's bone rig (Rookie by default, the user arg --character=<id>: spark; used
+## in matches: character.gd match_rig; this preview is not reachable from the game's screens): plays every motion
 ## in turn over a ground line, at the match's size (left) and at 3× (right): idle → raise the gun → aim
 ## sweep -30° .. 90° → two shots → lower → hurt → walk → die. Run it from the editor (F6 on
 ## scenes/dev/rig_preview.tscn), or record it: tools/record_rig_preview.sh (PNG frames, GIF).
@@ -40,6 +41,7 @@ const POSES := [
 	["ngắm 60°", [[0.0, "raise", true], [0.0, "aim", 60.0]], 1.5],
 	["ngắm 75°", [[0.0, "raise", true], [0.0, "aim", 75.0]], 1.5],
 	["ngắm 90°", [[0.0, "raise", true], [0.0, "aim", 90.0]], 1.5],
+	["bắn 90°: giật", [[0.0, "raise", true], [0.0, "aim", 90.0], [1.5, "shoot", null]], 1.57],
 	["bắn: giật", [[0.0, "raise", true], [0.0, "aim", 20.0], [1.0, "shoot", null]], 1.06],
 	["bắn: hồi", [[0.0, "raise", true], [0.0, "aim", 20.0], [1.0, "shoot", null]], 1.22],
 	["trúng đạn", [[0.0, "hurt", null]], 0.09],
@@ -64,16 +66,19 @@ var _next := 0
 var _label := ""
 var _start_x: Array = []
 var _quit_at_end := false
+var _character := "rookie"
 
 
 func _ready() -> void:
 	_quit_at_end = OS.get_cmdline_user_args().has("--quit-at-end")
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--character="):
+			_character = a.trim_prefix("--character=")
 	if OS.get_cmdline_user_args().has("--poses"):
 		_build_poses()
 		return
 	for i in 2:
-		var r := CharRig.new()
-		r.auto = false
+		var r := _rig()
 		add_child(r)
 		rigs.append(r)
 	var h: float = rigs[0].height()
@@ -81,6 +86,20 @@ func _ready() -> void:
 	rigs[1].scale = Vector2.ONE * (MATCH_HEIGHT * ZOOM / h)
 	_start_x = [190.0, 600.0]
 	_restart()
+
+
+## A rig of _character, its back sling and gun length from its carry scene when the game's code is
+## there (character.gd rig_back(); the recorder's mini project has only the rig: its defaults).
+func _rig() -> Node2D:
+	var r := CharRig.new()
+	r.auto = false
+	r.character_id = _character
+	r.setup()
+	if ResourceLoader.exists("res://scenes/character/character.gd") and ResourceLoader.exists("res://ui/art.gd"):
+		var sling: Dictionary = load("res://scenes/character/character.gd").rig_back(_character, r.height())
+		if not sling.is_empty():
+			r.model.set_back(sling["pos"], sling["deg"], sling["frac"], sling["lift"], sling["length"])
+	return r
 
 
 func _restart() -> void:
@@ -104,11 +123,10 @@ func _build_poses() -> void:
 	_sheet_vp.add_child(_sheet)
 	for i in POSES.size():
 		var spec: Array = POSES[i]
-		var r := CharRig.new()
-		r.auto = false
+		var r := _rig()
 		_sheet.add_child(r)
 		r.scale = Vector2.ONE * (250.0 / r.height())
-		var lying := 110.0 if str(spec[0]).begins_with("ngã: đổ") or str(spec[0]).begins_with("ngã: nằm") else 0.0
+		var lying := 150.0 if str(spec[0]).begins_with("ngã: đổ") or str(spec[0]).begins_with("ngã: nằm") else 0.0
 		r.position = Vector2((i % POSE_COLS + 0.5) * POSE_CELL.x - 20.0 + lying, (i / POSE_COLS + 1) * POSE_CELL.y - 30.0)
 		var t := 0.0
 		var k := 0

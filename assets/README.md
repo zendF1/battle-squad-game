@@ -536,6 +536,12 @@ Preview shows it** (`ui/art.gd` `carry_pose()` / `carry_gun_transform()`: any ot
 length, hung at the same place along it), plus the bob and ±2° sway on the walk frames
 (`carry_walk_transform()`). Breathing (idle) scales the whole figure with the gun.
 
+A character with a chibi bone rig (Rookie, Spark) has its rig in its carry scene instead
+(`poses/carry_rig.gd`: `Body` the rig at rest at the match's scale, `HeldPreview` the rig holding the
+gun at 0° / 45° / 90°, `WalkPreview` the rig walking): `CarrySocket` / `Preview` are then the rig's back
+sling exactly as the match draws it, and the Preview's scale is the rig's gun length, held and slung,
+every kind. See `docs/match-rig.md` ("The back sling and the gun's size").
+
 ### characters/ (baked frames, scene: `scenes/character/character.tscn`)
 
 The frames draw the character with its hands free (the front arm reaches forward, the hand at the gun's
@@ -565,29 +571,31 @@ about 52 px tall, feet on the server position) and the fallback of the screens o
 (`ui/character_view.gd`, about 2.5 and 1.5 px per unit, when a character has no full-body
 picture; the lobby stage's `hands_free` hides the gun, the bare hand stays).
 
-### characters/rookie/rig/ (Rookie's chibi bone rig, matches only: `scenes/character/rig/`, dev preview `scenes/dev/rig_preview.tscn`)
+### characters/<id>/rig/ (the chibi bone rigs, matches only: Rookie, Spark; `scenes/character/rig/`, dev preview `scenes/dev/rig_preview.tscn`)
 
-In every match (`match/views/player_view.gd` sets `scenes/character/character.gd` `match_rig`) Rookie
-is drawn by this rig instead of its side frames, in any outfit; everywhere else (lobby, character
-select / view, shop, profile, matchmaking card, results, and the match's turn portrait / HUD, which use
-`portrait.png` and `ui/character_view.gd`) keeps the old art, and the other characters keep theirs.
-The held gun is any kind's hug art (`ui/art.gd` `hug_gun()`, `weapons/hug.json` hold / muzzle) on the
-rig's gun socket, 0.92 of the figure's height (3/4 × 1.3 of the hug size), held, and slung on the back
-while down (the side view's carry from `side/carry.json`, tilted back to clear the chibi's head); aiming 55° and up the head is drawn over the tube. See
-`docs/rookie-match-rig.md`.
+In every match (`match/views/player_view.gd` sets `scenes/character/character.gd` `match_rig`) Rookie and
+Spark are drawn by their rigs instead of their side frames, in any outfit; everywhere else (lobby,
+character select / view, shop, profile, matchmaking card, results, and the match's turn portrait / HUD,
+which use `portrait.png` and `ui/character_view.gd`) keeps the old art, and the other characters keep
+theirs. The held gun is any kind's hug art (`ui/art.gd` `hug_gun()`, `weapons/hug.json` hold / muzzle) on
+the rig's gun socket, drawn over the head (covering the face aiming high) and the far arm, under the near
+arm; slung on the back while down. Its length and the sling are the character's carry scene
+(`scenes/character/poses/<id>_carry.tscn`: `CarrySocket` / `Preview` over the rig, tuned in the editor,
+read at runtime). See `docs/match-rig.md`.
 
-Rookie's chibi standing picture (`art_source/characters/rookie/side_idle/idle_v2.png`) cut into 14
-parts along its drawn outlines, the hidden areas painted in the same outline and flat colours, by
-`art_source/characters/rookie/rig/make_rig.py` (see its README.txt). Half the source size (the body
-330 px), transparent, mipmapped at runtime; loaded from the PNG when not imported yet.
+Each character's chibi standing picture (`art_source/characters/<id>/side_idle/idle_v2.png`) cut into 14
+parts along its drawn outlines, the hidden areas painted in the same outline and flat colours (clipped to
+the picture's outline for Spark), by `art_source/characters/<id>/rig/make_rig.py` (see its README.txt).
+Half the source size (Rookie 330 px tall, Spark 342), transparent, mipmapped at runtime; loaded from the
+PNG when not imported yet.
 
 | File | What |
 |---|---|
-| `head.png`, `torso.png`, `belt.png`, `seat.png` | the head (cap, hair, face), the shirt (back edge, neck and the shirt under the belt painted), the belt (ends under both fists painted), the trousers' seat (all painted, under the thighs) |
-| `n_upper.png`, `n_fore.png`, `n_fist.png` | the near arm (image left): upper arm, forearm with the cuff (elbow cap painted), fist (wrist painted) |
-| `f_upper.png`, `f_fore.png`, `f_fist.png` | the far arm: the picture's sliver over a painted sleeve, its own fist |
+| `head.png`, `torso.png`, `belt.png`, `seat.png` | the head (Rookie: cap, hair, face; Spark: the spiky hair, face), the shirt / tank top (back edge, neck and the part under the belt painted), the belt (pouch ends under both fists painted), the trousers' seat (all painted, under the thighs) |
+| `n_upper.png`, `n_fore.png`, `n_fist.png` | the near arm (image left): upper arm, forearm (elbow cap painted), fist (wrist painted) |
+| `f_upper.png`, `f_fore.png`, `f_fist.png` | the far arm: the picture's sliver over a painted sleeve / bare arm, its own fist |
 | `n_thigh.png`, `n_shin.png`, `f_thigh.png`, `f_shin.png` | the legs: thighs (hip caps, the hidden back / front painted), shins with the boots (knee caps painted) |
-| `rig.json` | bones (rest joints, rig px, feet at 0,0), parts (bone, rest transform, draw order bottom first), points (soles, the gun's chest point, the outline points a body lying down rests on), `gunUnder` (the gun drawn under this part) |
+| `rig.json` | bones (rest joints, rig px, feet at 0,0), parts (bone, rest transform, draw order bottom first), points (soles, the gun's chest point, the outline points a body lying down rests on, Spark's eye), `gunUnder` (`n_fist`: the gun drawn right under it), optional tuning (`aimPath`, `fallDeg`, `headBackDeg`, `torsoBackDeg`) |
 
 ### characters/<id>/lobby/full.* (the full-body picture: `scenes/character/full_body.gd`, loaded by `ui/art.gd` `lobby_full()`)
 

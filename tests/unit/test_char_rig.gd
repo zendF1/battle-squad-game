@@ -1,5 +1,5 @@
 extends "res://tests/test_case.gd"
-## Rookie's bone rig (scenes/character/rig/; in matches: test_match_rig.gd): the two-bone IK, the rig data, the hands on the
+## The bone rigs (Rookie, Spark; scenes/character/rig/; in matches: test_match_rig.gd): the two-bone IK, the rig data, the hands on the
 ## gun's tube at every aim, the feet planted, and no pops through the dev preview's whole sequence.
 
 const IK := preload("res://scenes/character/rig/rig_ik.gd")
@@ -7,12 +7,13 @@ const RigModel := preload("res://scenes/character/rig/rig_model.gd")
 const RigMotion := preload("res://scenes/character/rig/rig_motion.gd")
 const Preview := preload("res://scenes/dev/rig_preview.gd")
 
-const RIG := "res://assets/characters/rookie/rig/rig.json"
 const HUG := "res://assets/weapons/hug.json"
+## The characters with a bone rig (assets/characters/<id>/rig/rig.json).
+const RIGGED := ["rookie", "spark"]
 
 
-func _model() -> RigModel:
-	var data = JSON.parse_string(FileAccess.get_file_as_string(RIG))
+func _model(id: String) -> RigModel:
+	var data = JSON.parse_string(FileAccess.get_file_as_string("res://assets/characters/%s/rig/rig.json" % id))
 	var hug = JSON.parse_string(FileAccess.get_file_as_string(HUG))
 	var m := RigModel.new()
 	check(data is Dictionary and hug is Dictionary, "rig.json and hug.json parse")
@@ -35,18 +36,28 @@ func test_ik_reaches_and_bends_to_its_side() -> void:
 
 
 func test_rig_data_is_complete() -> void:
-	var m := _model()
+	for id in RIGGED:
+		_rig_data_is_complete(id)
+
+
+func _rig_data_is_complete(id: String) -> void:
+	var m := _model(id)
 	eq(m.bone_names.size(), 15, "15 bones")
 	eq(m.parts.size(), 14, "14 parts")
 	for p in m.parts:
 		check(m.rest.has(p["bone"]), "part %s rides a bone" % p["name"])
-		check(FileAccess.file_exists("res://assets/characters/rookie/rig/" + p["png"]), "part %s has its png" % p["name"])
+		check(FileAccess.file_exists("res://assets/characters/%s/rig/%s" % [id, p["png"]]), "%s: part %s has its png" % [id, p["name"]])
 	check(m.parts.any(func(p): return p["name"] == m.gun_under), "the gun goes under a part that exists")
 	near(m.gun["length"], m.height * RigModel.GUN_LENGTH, 0.01, "the gun is GUN_LENGTH of the height (3/4 × 1.3 of the hug size)")
 
 
 func test_rest_pose_matches_the_picture() -> void:
-	var m := _model()
+	for id in RIGGED:
+		_rest_pose_matches_the_picture(id)
+
+
+func _rest_pose_matches_the_picture(id: String) -> void:
+	var m := _model(id)
 	var pose := m.solve({})
 	for p in m.parts:
 		var xf: Transform2D = m.part_transform(pose["bones"], p)
@@ -56,7 +67,12 @@ func test_rest_pose_matches_the_picture() -> void:
 
 
 func test_hands_on_the_tube_at_every_aim() -> void:
-	var m := _model()
+	for id in RIGGED:
+		_hands_on_the_tube_at_every_aim(id)
+
+
+func _hands_on_the_tube_at_every_aim(id: String) -> void:
+	var m := _model(id)
 	for deg in range(-30, 91, 5):
 		var pose := m.solve({"raise": 1.0, "aim": float(deg)})
 		var dir: Vector2 = pose["dir"]
@@ -69,13 +85,18 @@ func test_hands_on_the_tube_at_every_aim() -> void:
 		check(along > 10.0, "the far hand further along the tube at %d°" % deg)
 		# the muzzle never ends on the face (the eye ~ (12, -60) from the neck), but in the band where
 		# the tube sweeps from in front of the face to beside the head (rig_model.gd AIM_PATH)
-		var eye: Vector2 = pose["bones"]["head"] * Vector2(12, -60)
+		var eye: Vector2 = pose["bones"]["head"] * (m.points["eye"] - m.rest["head"] if m.points.has("eye") else Vector2(12, -60))
 		if deg < 66 or deg > 84:
 			check(pose["muzzle"].distance_to(eye) > 30.0, "muzzle off the face at %d°" % deg)
 
 
 func test_feet_stay_planted() -> void:
-	var m := _model()
+	for id in RIGGED:
+		_feet_stay_planted(id)
+
+
+func _feet_stay_planted(id: String) -> void:
+	var m := _model(id)
 	var mo := RigMotion.new()
 	mo.raise_gun(true)
 	mo.set_aim(30.0)
@@ -92,7 +113,12 @@ func test_feet_stay_planted() -> void:
 
 
 func test_walk_steps_and_returns_to_rest() -> void:
-	var m := _model()
+	for id in RIGGED:
+		_walk_steps_and_returns_to_rest(id)
+
+
+func _walk_steps_and_returns_to_rest(id: String) -> void:
+	var m := _model(id)
 	var mo := RigMotion.new()
 	mo.set_walking(true)
 	var lifted := 0.0
@@ -137,7 +163,12 @@ func test_motion_rules() -> void:
 
 
 func test_lying_on_the_ground() -> void:
-	var m := _model()
+	for id in RIGGED:
+		_lying_on_the_ground(id)
+
+
+func _lying_on_the_ground(id: String) -> void:
+	var m := _model(id)
 	var mo := RigMotion.new()
 	mo.die()
 	mo.advance(3.0)
@@ -147,13 +178,18 @@ func test_lying_on_the_ground() -> void:
 	for pair in [["head", "head_back"], ["head", "cap_back"], ["head", "cap_top"], ["torso", "back"]]:
 		var q: Vector2 = fig * (pose["bones"][pair[0]] * (m.points[pair[1]] - m.rest[pair[0]]))
 		low = maxf(low, q.y)
-	check(low <= 0.01 and low > -2.0, "lies on the ground: its lowest outline point within 2 px of it (%.2f)" % low)
+	check(low <= 0.01 and low > -2.0, "%s: lies on the ground: its lowest outline point within 2 px of it (%.2f)" % [id, low])
 
 
 ## The dev preview's whole sequence at 60 fps: no joint ever jumps (a pop); the gun's muzzle (at the
 ## end of the long tube) and the fall (the head swinging down fastest) allowed more.
 func test_no_pops_through_the_preview_sequence() -> void:
-	var m := _model()
+	for id in RIGGED:
+		_no_pops_through_the_preview_sequence(id)
+
+
+func _no_pops_through_the_preview_sequence(id: String) -> void:
+	var m := _model(id)
 	var mo := RigMotion.new()
 	var seq: Array = Preview.SEQUENCE
 	var k := 0
@@ -203,8 +239,11 @@ func test_no_pops_through_the_preview_sequence() -> void:
 		last = pts
 	# 18 rig px a frame: the far elbow while the aim sweeps 60° .. 80° at full speed (the far hand
 	# sliding down the tube); a pop (an IK flip, a snapped pose) is 40+
-	check(worst < 18.0, "no joint moves more than 18 rig px in a frame alive (worst %.1f)" % worst)
-	check(worst_muzzle < 26.0, "the muzzle (the end of the long tube) under 26 (worst %.1f)" % worst_muzzle)
+	# the limits in Rookie's rig px (329.5 tall), scaled to this rig's height
+	var u: float = m.height / 329.5
+	check(worst < 18.0 * u, "%s: no joint moves more than 18 rig px in a frame alive (worst %.1f)" % [id, worst])
+	check(worst_muzzle < 26.0 * u, "%s: the muzzle (the end of the long tube) under 26 (worst %.1f)" % [id, worst_muzzle])
 	# the swap (raiseSec 0.25 s): the tube swings ~300 px off the shoulder; an IK flip would be 40+ on a joint
-	check(worst_swap < 45.0, "the swap between back and hands: under 45 a frame, muzzle included (worst %.1f)" % worst_swap)
-	check(worst_fall < 30.0, "falling: under 30 rig px a frame (worst %.1f)" % worst_fall)
+	check(worst_swap < 45.0 * u, "%s: the swap between back and hands: under 45 a frame, muzzle included (worst %.1f)" % [id, worst_swap])
+	# (and the fall by its angle: a rig lying further back falls faster over the same time)
+	check(worst_fall < 30.0 * u * m.fall_deg / float(RigMotion.T["fallDeg"]), "%s: falling: under 30 rig px a frame (worst %.1f)" % [id, worst_fall])

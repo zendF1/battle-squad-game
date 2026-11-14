@@ -1,18 +1,20 @@
+@tool
 extends Node2D
-## A character drawn on its bone rig: Rookie in a match (scenes/character/character.gd match_rig, set
-## by match/views/player_view.gd; everywhere else the old art) and the dev preview
-## scenes/dev/rig_preview.tscn. Its parts (assets/characters/<id>/rig/: the
-## standing picture cut along its outlines, the hidden areas painted) ride a Skeleton2D's Bone2Ds,
-## posed every frame by the motion (rig_motion.gd: idle breathing, gun raised / aimed / fired, hurt,
-## walking, dying) through the rig's solver (rig_model.gd: IK arms on the gun's grips, IK legs with the
-## feet planted). The gun (its hug art, assets/weapons/<kind>/hug_<tier>.png with hug.json's hold /
-## muzzle) is drawn under the far fist (rig.json gunUnder) so the far hand wraps the tube, the near
-## arm over it; while it is down it is slung across the back (behind the body, riding the torso;
-## rig_model.gd back / set_back()), and raising swings it off the shoulder into the grips (drawn
-## behind the body until rig_model.gd SWAP_FRONT, then in the hands' layer). Dead: it fades out.
-## The gun pointing HEAD_OVER_DEG and up (aiming high, the tube beside the head; or swinging up off the
-## back sling) is drawn under the head (the tube passes behind it), the fists still over both. set_gun() swaps the gun (any kind: ui/art.gd hug_gun()'s art, every kind the
-## same length). The parts and the gun are drawn mipmapped (a ~330 px rig shown ~62 px tall).
+## A character drawn on its bone rig: Rookie and Spark in a match (scenes/character/character.gd
+## match_rig, set by match/views/player_view.gd; everywhere else the old art), their carry scenes
+## (scenes/character/poses/carry_rig.gd) and the dev preview scenes/dev/rig_preview.tscn. Its parts
+## (assets/characters/<id>/rig/: the standing picture cut along its outlines, the hidden areas
+## painted) ride a Skeleton2D's Bone2Ds, posed every frame by the motion (rig_motion.gd: idle
+## breathing, gun raised / aimed / fired, hurt, walking, dying) through the rig's solver
+## (rig_model.gd: IK arms on the gun's grips, IK legs with the feet planted). The gun (its hug art,
+## assets/weapons/<kind>/hug_<tier>.png with hug.json's hold / muzzle) is drawn under the near fist
+## (rig.json gunUnder): the far arm behind it (holding the tube from behind), the body and the head
+## under it (aiming high the tube covers the face), only the near arm over it. While it is down it is
+## slung across the back (behind the body, riding the torso; rig_model.gd back / set_back(), from the
+## carry scene), and raising swings it off the shoulder into the grips (drawn behind the body until
+## rig_model.gd SWAP_FRONT, then in the hands' layer). Dead: it fades out. set_gun() swaps the gun
+## (any kind: ui/art.gd hug_gun()'s art, every kind the same length). The parts and the gun are drawn
+## mipmapped (a ~330 px rig shown ~62 px tall).
 ## Feet at this node's origin, facing +x; rig px (set `scale` for the size: rig height() px tall at
 ## scale 1). advance() (or _process when `auto`) steps it; muzzle_position() is the gun's tip here,
 ## fire_muzzle_position() where it is once raised at the aim the motion turns to.
@@ -24,10 +26,6 @@ const HUG_DATA := "res://assets/weapons/hug.json"
 const FLASH_TINT := Color(1.0, 0.9, 0.55)
 ## The muzzle flash's size (about the side view's muzzle sprite at the match size).
 const FLASH_SIZE := 2.5
-## The gun's elevation (degrees up, gun_elevation()) from which the head is drawn over the tube.
-const HEAD_OVER_DEG := 55.0
-## The same while the gun swings between the back and the hands.
-const SWAP_HEAD_OVER_DEG := 30.0
 
 var character_id := "rookie"
 var gun_kind := "bazooka"
@@ -39,6 +37,8 @@ var gun_art := {}
 var show_gun := true
 ## Steps itself in _process (off: the owner calls advance()).
 var auto := true
+## Holds the rest pose (rig_model.gd solve({}): no breathing; the carry scene's Body), not the motion.
+var still := false
 ## Draws the bones, the grips and the hands over the figure.
 var debug := false:
 	set(v):
@@ -199,7 +199,7 @@ static func mipmapped(tex: Texture2D) -> Texture2D:
 
 
 func _process(delta: float) -> void:
-	if auto and model != null:
+	if auto and model != null and not Engine.is_editor_hint():
 		advance(delta)
 
 
@@ -212,7 +212,7 @@ func advance(delta: float) -> void:
 func refresh() -> void:
 	if model == null:
 		return
-	var s := motion.sample()
+	var s := {"raise": 0.0} if still else motion.sample()
 	sample = s
 	pose = model.solve(s)
 	var g: Dictionary = pose["bones"]
@@ -230,19 +230,18 @@ func refresh() -> void:
 		sp.modulate.a = alpha
 	_gun.visible = show_gun and front and alpha > 0.0
 	_back_gun.visible = show_gun and not front and alpha > 0.0
-	var r := float(s["raise"])
-	var over := HEAD_OVER_DEG if r >= 1.0 else SWAP_HEAD_OVER_DEG # mid-swap the tube sweeps the face
-	_place_gun(gun_elevation() >= over and r > 0.0)
+	_place_gun()
 	_flash.queue_redraw()
 	if debug:
 		_overlay.queue_redraw()
 
 
-## The gun in the parts' order: right under the head (head_over: aiming high, the tube passing behind
-## it), else under rig.json's gunUnder part (the far fist wrapping it); the fists over it either way.
-func _place_gun(head_over: bool) -> void:
+## The gun in the parts' order: right under rig.json's gunUnder part (the near fist): over the far
+## arm (upper arm, forearm and fist: it holds the tube from behind), the body and the head (aiming
+## high the tube covers the face), under the near arm (fist, forearm, upper arm) that hugs it.
+func _place_gun() -> void:
 	var parts := _gun.get_parent()
-	var under: Node = _sprites.get("head") if head_over else _sprites.get(model.gun_under)
+	var under: Node = _sprites.get(model.gun_under)
 	if under == null:
 		return
 	var at := under.get_index()
@@ -269,7 +268,8 @@ func gun_elevation() -> float:
 	return -rad_to_deg(d.angle())
 
 
-## The head is drawn over the gun now (aiming high, or the gun swinging up off the back).
+## The head is drawn over the gun now (never: the tube is over the head at every aim, covering the
+## face aiming high).
 func head_over_gun() -> bool:
 	return _sprites.has("head") and _sprites["head"].get_index() > _gun.get_index()
 

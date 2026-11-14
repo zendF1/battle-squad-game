@@ -1,36 +1,41 @@
 [gd_scene format=3 uid="uid://sgw281t51vwj"]
 
-[ext_resource type="Texture2D" uid="uid://cemynu8utuieq" path="res://assets/characters/spark/side/idle_0.png" id="body"]
 [ext_resource type="Texture2D" uid="uid://c64y1xcm1sjas" path="res://assets/weapons/shock_rifle/hug_iron.png" id="gun"]
-[ext_resource type="Script" uid="uid://bw7lsgt5iegse" path="res://scenes/character/poses/carry_walk.gd" id="walk_script"]
+[ext_resource type="Script" path="res://scenes/character/poses/carry_rig.gd" id="rig_script"]
 
 [node name="SparkCarry" type="Node2D" unique_id=1635923494]
 metadata/_edit_lock_ = true
 
 [node name="CarrySocket" type="Node2D" parent="." unique_id=1134109436]
-position = Vector2(6, -91)
-rotation = -2.1293018
+position = Vector2(-16, -86)
+rotation = -2.3212880155982987
 metadata/_edit_group_ = true
 
 [node name="Preview" type="Sprite2D" parent="CarrySocket" unique_id=1168262538]
 texture_filter = 2
-rotation = 0.33161256
-scale = Vector2(2.285714, 2.285714)
+scale = Vector2(2.3950436090225575, 2.3950436090225575)
 texture = ExtResource("gun")
 centered = false
-offset = Vector2(-15, -22.5)
+offset = Vector2(-14.5, -19)
 
-[node name="Body" type="Sprite2D" parent="." unique_id=1508776460]
+[node name="Body" type="Node2D" parent="." unique_id=1508776460]
 texture_filter = 2
-scale = Vector2(2.285714, 2.285714)
-texture = ExtResource("body")
-centered = false
-offset = Vector2(-40.14, -130.84)
+script = ExtResource("rig_script")
+character_id = "spark"
+metadata/_edit_lock_ = true
+
+[node name="HeldPreview" type="Node2D" parent="." unique_id=1508776461]
+texture_filter = 2
+position = Vector2(380, 0)
+script = ExtResource("rig_script")
+character_id = "spark"
+mode = "held"
 metadata/_edit_lock_ = true
 
 [node name="WalkPreview" type="Node2D" parent="." unique_id=1689801528]
 texture_filter = 2
 position = Vector2(200, 0)
-script = ExtResource("walk_script")
+script = ExtResource("rig_script")
 character_id = "spark"
+mode = "walk"
 metadata/_edit_lock_ = true

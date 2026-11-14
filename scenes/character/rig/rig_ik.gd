@@ -1,3 +1,4 @@
+@tool
 extends RefCounted
 ## Two-bone inverse kinematics in 2D (pure math): the bone rig's arms reach the gun's grips and its
 ## legs keep the feet on the ground (scenes/character/rig/rig_model.gd).

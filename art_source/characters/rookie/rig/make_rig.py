@@ -174,8 +174,9 @@ ORDER = [
     ("f_fore", "f_elbow"), ("f_upper", "f_shoulder"),
     ("seat", "hips"), ("f_shin", "f_knee"), ("f_thigh", "f_hip"), ("n_shin", "n_knee"), ("n_thigh", "n_hip"),
     ("torso", "torso"), ("belt", "hips"), ("head", "head"),
-    ("f_fist", "f_hand"),  # the gun goes under the far fist (rig.json gunUnder): the far hand wraps the tube
-    ("n_fist", "n_hand"), ("n_fore", "n_elbow"), ("n_upper", "n_shoulder"),
+    ("f_fist", "f_hand"),
+    ("n_fist", "n_hand"),  # the gun goes right under the near fist (rig.json gunUnder): only the near arm over it
+    ("n_fore", "n_elbow"), ("n_upper", "n_shoulder"),
 ]
 
 
@@ -370,7 +371,7 @@ class Rig:
                 "head_back": to_rig((474, 300)), "cap_back": to_rig((492, 190)), "cap_top": to_rig((640, 72)),
                 "back": to_rig((556, 480)),
             },
-            "gunUnder": "f_fist",
+            "gunUnder": "n_fist",
         }
         with open(os.path.join(OUT, "rig.json"), "w") as f:
             json.dump(data, f, indent=1)

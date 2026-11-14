@@ -6,6 +6,7 @@ const CharacterScene := preload("res://scenes/character/character.tscn")
 const ShotPlayer := preload("res://match/shot/shot_player.gd")
 const ShotTimeline := preload("res://match/shot/shot_timeline.gd")
 const CodeDrawLook := preload("res://tests/fixtures/code_draw_look.gd")
+const CharRig := preload("res://scenes/character/rig/char_rig.gd")
 
 
 func _run(g, sec: float, step: float = 1.0 / 60.0) -> Array:
@@ -251,8 +252,9 @@ func test_idle_gun_slung_on_the_back() -> void:
 		near(gun.modulate.a, 1.0, 1e-6, "%s: fully shown" % id)
 		var hug: Dictionary = Art.hug_gun(Art.character_gun(id), "basic")
 		var gs: Sprite2D = c.get_node("Flip/Gun/Sprite")
-		near(gs.scale.x * float(hug["size"].x), Art.gun_transform(Art.ready_pose(id), hug).x.length() * float(hug["size"].x), 0.01,
-			"%s: the ready pose's size" % id)
+		if not CharRig.available(id): # a rigged character's Preview is its rig's gun length (test_match_rig.gd)
+			near(gs.scale.x * float(hug["size"].x), Art.gun_transform(Art.ready_pose(id), hug).x.length() * float(hug["size"].x), 0.01,
+				"%s: the ready pose's size" % id)
 		var m: Vector2 = c.muzzle_position() - c.global_position
 		c.facing = -1
 		c._apply_motion()
@@ -355,6 +357,10 @@ func test_carry_scenes_match_the_game() -> void:
 			continue
 		var root: Node2D = load(path).instantiate()
 		check(root.get_meta("_edit_lock_", false), "%s: root locked" % id)
+		if CharRig.available(id):
+			_check_rig_carry_scene(id, root)
+			root.free()
+			continue
 		eq(root.get_children().map(func(n): return str(n.name)), ["CarrySocket", "Body", "WalkPreview"], "%s: the gun before (behind) the body" % id)
 		var sock: Node2D = root.get_node("CarrySocket")
 		var pv: Sprite2D = root.get_node("CarrySocket/Preview")
@@ -427,6 +433,62 @@ func test_carry_scenes_match_the_game() -> void:
 	lone.character_id = "nope"
 	eq(lone.walk()["stems"].size(), 8, "an unknown id reads Rookie's walk")
 	bare.free()
+
+
+## A rigged character's carry scene (scenes/character/poses/carry_rig.gd): the rig at the match's
+## scale as the Body (no gun: the Preview is the slung gun, behind it), HeldPreview (the rig holding
+## the gun at a few aims), WalkPreview (the rig walking); the match's rig draws its iron gun slung
+## exactly where the Preview shows it (character px) and as long, held too.
+func _check_rig_carry_scene(id: String, root: Node2D) -> void:
+	var Art := preload("res://ui/art.gd")
+	var CarryRig := load("res://scenes/character/poses/carry_rig.gd")
+	eq(root.get_children().map(func(n): return str(n.name)), ["CarrySocket", "Body", "HeldPreview", "WalkPreview"],
+		"%s: the gun before (behind) the rig" % id)
+	var sock: Node2D = root.get_node("CarrySocket")
+	var pv: Sprite2D = root.get_node("CarrySocket/Preview")
+	check(sock.get_meta("_edit_group_", false), "%s: CarrySocket grouped" % id)
+	var modes := []
+	for nm in ["Body", "HeldPreview", "WalkPreview"]:
+		var n: Node2D = root.get_node(nm)
+		eq(n.get_script(), CarryRig, "%s: %s draws the rig" % [id, nm])
+		eq(str(n.get("character_id")), id, "%s: %s's character" % [id, nm])
+		check(n.get_meta("_edit_lock_", false), "%s: %s locked" % [id, nm])
+		modes.append(str(n.get("mode")))
+	eq(modes, ["rest", "held", "walk"], "%s: rest body, held and walking previews" % id)
+	var kind := str(Art.character_gun(id))
+	check(pv.texture != null and pv.texture.resource_path == Art.hug_gun_path(kind, "iron"), "%s: Preview is the iron hug gun" % id)
+	var scene_gun: Transform2D = sock.transform * pv.transform * Transform2D(0.0, pv.offset)
+	var holder := Node2D.new()
+	var c: Node2D = CharacterScene.instantiate()
+	c.character_id = id
+	c.holster = true
+	c.idle_gun = true
+	c.match_rig = true
+	holder.add_child(c)
+	c.set_weapon(kind, "iron")
+	c._ready()
+	var r: Node2D = c.rig()
+	check(r != null, "%s: the match draws the rig" % id)
+	if r != null:
+		var k: float = c.art_height() / r.height() # rig px → character px
+		var game_gun: Transform2D = Transform2D(0.0, Vector2(k, k), 0.0, Vector2.ZERO) * r.model.solve({})["gun"]
+		check(_xf_close(game_gun, scene_gun, 0.02), "%s: slung exactly where the Preview shows it (%s vs %s)" % [id, game_gun, scene_gun])
+		near(r.model.gun["length"] * k, scene_gun.x.length() * pv.texture.get_width(), 0.02, "%s: held as long as the Preview" % id)
+		# the scene's own rig (the Body) is the match's size, feet at the origin
+		var body: Node2D = root.get_node("Body")
+		holder.add_child(root.duplicate()) # a live copy: the tool nodes build their rigs
+		var live: Node2D = holder.get_child(1)
+		for nm in ["Body", "HeldPreview", "WalkPreview"]:
+			live.get_node(nm).always = true
+			live.get_node(nm).build()
+		var lb: Node2D = live.get_node("Body")
+		check(lb.rigs.size() == 1 and not lb.rigs[0].show_gun, "%s: the Body is the rig without its gun" % id)
+		near(lb.rigs[0].scale.x, k, 1e-4, "%s: drawn at the match's scale" % id)
+		eq(live.get_node("HeldPreview").rigs.size(), 3, "%s: held at three aims" % id)
+		var held: Node2D = live.get_node("HeldPreview").rigs[0]
+		near(held.model.gun["length"], r.model.gun["length"], 1e-3, "%s: the held preview's gun is the match's length" % id)
+		check(body.rigs.is_empty(), "%s: nothing built outside the editor unless asked" % id)
+	holder.free()
 
 
 func _xf_close(a: Transform2D, b: Transform2D, eps: float) -> bool:

@@ -1,3 +1,4 @@
+@tool
 extends RefCounted
 ## The bone rig's motions (pure logic, no nodes): what the character is doing (idle, gun raised
 ## and aimed, shooting, hurt, walking, dead) turned every frame into a few eased numbers the rig
@@ -26,6 +27,8 @@ const T := {
 	"breathDeg": 0.7,
 	"headBreathDeg": 1.4,
 	"leanDeg": 4.0, # gun raised: leaning in
+	"lookUpFrom": 45.0, # the aim (degrees) the head starts tilting back from (all the way at 90)
+	"lookUpKick": 0.4, # a shot at a steep aim: the tilt back grows by this much for a moment
 	"kickPx": 16.0, # the gun's slide back along its axis at the shot
 	"recoilPx": 5.0, # the body pushed back
 	"recoilDeg": -6.0,
@@ -173,15 +176,16 @@ func sample() -> Dictionary:
 	var swing_f := 0.0
 	var bend_n := 0.0
 	var bend_f := 0.0
-	# aiming low: the chin drops a little; 45° .. 85° (the tube sweeping from in front of the face to
-	# beside the head, rig_model.gd AIM_PATH): leaning back, looking up
+	# aiming low: the chin drops a little; aiming high (from lookUpFrom to 90°, following the capped
+	# aim): look_up 0 .. 1, the head tilting back and the torso leaning back (the rig's own amounts,
+	# rig_model.gd head_back_deg / torso_back_deg)
 	var up := clampf(aim / 90.0, -0.4, 1.0)
-	var steep := sin(PI * clampf((aim - 45.0) / 40.0, 0.0, 1.0))
-	head_deg += (5.0 * minf(up, 0.0) - 14.0 * steep) * r
-	torso_deg += -3.0 * steep * r
+	head_deg += 5.0 * minf(up, 0.0) * r
+	var look := smooth(clampf((aim - float(T["lookUpFrom"])) / (90.0 - float(T["lookUpFrom"])), 0.0, 1.0)) * r
 	# recoil
 	var k := kick(shot_age, 0.045, 9.0, 13.0)
 	var kb := kick(shot_age - 0.02, 0.06, 7.0, 10.0)
+	look *= 1.0 + float(T["lookUpKick"]) * maxf(0.0, kb) # a steep shot throws the head and torso further back
 	var kh := kick(shot_age - 0.06, 0.07, 6.5, 11.0)
 	hips.x -= float(T["recoilPx"]) * kb
 	torso_deg += float(T["recoilDeg"]) * kb
@@ -241,6 +245,7 @@ func sample() -> Dictionary:
 	out["torso"] = torso
 	out["torso_deg"] = torso_deg
 	out["head_deg"] = head_deg
+	out["look_up"] = look
 	out["raise"] = r
 	out["aim"] = aim
 	out["swing_n"] = swing_n

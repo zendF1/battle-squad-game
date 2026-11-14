@@ -1386,7 +1386,10 @@ static func parse_carry(json_path: String) -> Dictionary:
 ## own. Placed by hand in scenes/character/poses/<id>_carry.tscn (assets/README.md): root → CarrySocket
 ## (Node2D) → Preview (Sprite2D: the hug gun, horizontal, muzzle right, at its match size), Body (the
 ## idle frame, over the gun: the gun is behind the body), WalkPreview (editor only:
-## poses/carry_walk.gd). A Preview with no picture stands for the character's iron hug gun at the
+## poses/carry_walk.gd). A character with a bone rig (scenes/character/rig/) has its rig there
+## instead (poses/carry_rig.gd: Body, HeldPreview, WalkPreview): CarrySocket / Preview are then its
+## back sling and gun length in the match (character.gd rig_back()). hold_row: the Preview gun's
+## hold row (texture px). A Preview with no picture stands for the character's iron hug gun at the
 ## hug scale, held 0.18 along it on its muzzle row.
 static func carry_pose(id: String) -> Dictionary:
 	var back: Dictionary = character_look(id).get("carry", {}).get("back", {})
@@ -1423,7 +1426,8 @@ static func carry_pose(id: String) -> Dictionary:
 			var hs := hug_scale()
 			preview = Transform2D(0.0, Vector2(hs, hs), 0.0, Vector2.ZERO) * Transform2D(0.0, -Vector2(0.18 * float(own["size"].x), float(own["muzzle"].y)))
 		out.merge({"socket": sock.transform, "preview": preview, "hold": preview.affine_inverse() * Vector2.ZERO,
-			"muzzle_y": float(meta["muzzle"].y), "length": maxf(1.0, float(meta["size"].x)), "texture": tex})
+			"muzzle_y": float(meta["muzzle"].y), "hold_row": float(meta.get("pivot", meta["muzzle"]).y),
+			"length": maxf(1.0, float(meta["size"].x)), "texture": tex})
 	if root != null:
 		root.free()
 	return out

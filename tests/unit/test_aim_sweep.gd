@@ -98,6 +98,8 @@ func test_view_sweep_draws_and_lands_on_the_aim() -> void:
 	var restore: Callable = CodeDrawLook.install("spark")
 	var v := _view("spark")
 	var c: Node2D = v.get_child(1)
+	c.match_rig = false # the side view's code draw (Spark's match chibi rig: test_match_rig.gd)
+	c._apply_frames()
 	v.face(1.0)
 	v.aim_sweep(140.0, 1.5)
 	eq(v.facing(), -1, "faces the aim side")

@@ -1,5 +1,5 @@
 Rookie's bone rig: Rookie in every match (round 2, 2026-11-14: scenes/character/character.gd match_rig,
-set by match/views/player_view.gd; docs/rookie-match-rig.md). Everything outside the match, and the
+set by match/views/player_view.gd; docs/match-rig.md). Everything outside the match, and the
 match's turn portrait / HUD, keep the old Rookie art; the other characters are unchanged.
 
 Source: ../side_idle/idle_v2.png (the user's chibi picture: 1364 x 768, white backdrop, standing,
@@ -31,13 +31,14 @@ hurt, walk with planted feet, die), the solver scenes/character/rig/rig_model.gd
 grips along AIM_PATH, IK legs, the fall), the view scenes/character/rig/char_rig.gd. Watch them:
 scenes/dev/rig_preview.tscn (F6 in the editor), or record it into frames / a GIF / the key poses:
 
-  tools/record_rig_preview.sh OUT_DIR
+  tools/record_rig_preview.sh OUT_DIR [CHARACTER]
 
 Another character needs: its standing picture (facing right, plain backdrop, arms hanging clear of
-the body if possible), a copy of this script with its own J / PARTS / UNDER (the cut and the painting
-are per picture), and its rig.json goes to assets/characters/<id>/rig/. The motion and solver code is
-shared; AIM_PATH (incl. its slide column) / GUN_LENGTH (0.92 of the height: 3/4 x 1.3 of the hug size) /
-BACK_TILT_DEG (the back sling's tilt over the side view's carry) / char_rig.gd HEAD_OVER_DEG may need
-tuning per body shape. To use it in
-matches, CharRig.available(<id>) is true once assets/characters/<id>/rig/rig.json exists: the match
-then draws that character by its rig too (character.gd match_rig).
+the body if possible), its own make_rig.py with its own J / PARTS / UNDER (the cut and the painting are
+per picture; Spark's, ../../spark/rig/make_rig.py, is a copy of this one with an off-white JPEG key and
+the painting clipped to the picture's outline), its rig.json in assets/characters/<id>/rig/, and its
+carry scene scenes/character/poses/<id>_carry.tscn with the rig in it (poses/carry_rig.gd Body /
+HeldPreview / WalkPreview): CarrySocket / Preview there set its back sling and its gun's length. The
+motion and solver code is shared; per character in rig.json: aimPath (else rig_model.gd AIM_PATH),
+fallDeg, headBackDeg, torsoBackDeg. CharRig.available(<id>) is true once rig.json exists: the match then
+draws that character by its rig (character.gd match_rig).
