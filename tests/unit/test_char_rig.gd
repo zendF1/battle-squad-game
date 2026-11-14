@@ -1,5 +1,5 @@
 extends "res://tests/test_case.gd"
-## The bone rigs (Rookie, Spark; scenes/character/rig/; in matches: test_match_rig.gd): the two-bone IK, the rig data, the hands on the
+## The bone rigs (Rookie, Spark, Tanko; scenes/character/rig/; in matches: test_match_rig.gd): the two-bone IK, the rig data, the hands on the
 ## gun's tube at every aim, the feet planted, and no pops through the dev preview's whole sequence.
 
 const IK := preload("res://scenes/character/rig/rig_ik.gd")
@@ -9,7 +9,7 @@ const Preview := preload("res://scenes/dev/rig_preview.gd")
 
 const HUG := "res://assets/weapons/hug.json"
 ## The characters with a bone rig (assets/characters/<id>/rig/rig.json).
-const RIGGED := ["rookie", "spark"]
+const RIGGED := ["rookie", "spark", "tanko"]
 
 
 func _model(id: String) -> RigModel:

@@ -2,7 +2,7 @@
 # Records the bone rig's dev preview (scenes/dev/rig_preview.tscn) into PNG frames and a GIF, without
 # touching the real project's user data: a throwaway mini project (symlinks to the rig's scripts and
 # parts, no autoloads, its own user dir) is run windowed in the background with Godot's movie writer.
-#   tools/record_rig_preview.sh OUT_DIR [CHARACTER]   (default rookie; spark)
+#   tools/record_rig_preview.sh OUT_DIR [CHARACTER]   (default rookie; spark, tanko)
 # The mini project has only the rig: its back sling / gun length are the rig's defaults, not the carry
 # scene's (scenes/character/poses/<id>_carry.tscn shows those live in the editor).
 # OUT_DIR gets frames/ (30 fps), rig_preview.gif, rig_preview.mp4 when ffmpeg is installed, and

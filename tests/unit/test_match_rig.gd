@@ -1,5 +1,5 @@
 extends "res://tests/test_case.gd"
-## Rookie's chibi bone rig in the match (scenes/character/character.gd match_rig, set by
+## The chibi bone rigs (Rookie, Spark, Tanko) in the match (scenes/character/character.gd match_rig, set by
 ## match/views/player_view.gd): which views use it, the muzzle on the rig's gun, the head over the
 ## tube aiming high, the events driving it.
 
@@ -10,7 +10,7 @@ const Art := preload("res://ui/art.gd")
 
 const DT := 1.0 / 60.0
 ## The characters drawn by a chibi bone rig in the match (assets/characters/<id>/rig/rig.json).
-const RIGGED := ["rookie", "spark"]
+const RIGGED := ["rookie", "spark", "tanko"]
 
 
 ## A match-sized character not in the tree (_ready by hand, stepped by _step()).
@@ -81,9 +81,12 @@ func test_only_rigged_characters_in_the_match_use_the_rig() -> void:
 	rookie._apply_frames() # out of the tree the setters wait for _ready
 	check(rookie.rig() == null and rookie.get_node("Flip").visible, "switched off: back to the frames")
 	rookie.match_rig = true
-	rookie.character_id = "tanko"
+	rookie.character_id = "tide"
 	rookie._apply_frames()
 	check(rookie.rig() == null, "a character without a rig: no rig")
+	rookie.character_id = "tanko"
+	rookie._apply_frames()
+	check(rookie.rig() != null and rookie.rig().character_id == "tanko", "Tanko: his own rig")
 	rookie.character_id = "spark"
 	rookie._apply_frames()
 	check(rookie.rig() != null and rookie.rig().character_id == "spark", "Spark: his own rig")
@@ -112,7 +115,12 @@ func test_player_view_sets_the_rig() -> void:
 	holder.add_child(w)
 	w.setup(_player("e1", "tanko"), false, 1)
 	w._sprite._ready()
-	check(w._sprite.rig() == null, "Tanko in the match: its frames")
+	check(w._sprite.rig() != null and w._sprite.rig().character_id == "tanko", "a Tanko player in the match: his rig")
+	var t: Node2D = PlayerView.new()
+	holder.add_child(t)
+	t.setup(_player("e3", "tide"), false, 1)
+	t._sprite._ready()
+	check(t._sprite.rig() == null, "Tide in the match: its frames")
 	holder.free()
 
 

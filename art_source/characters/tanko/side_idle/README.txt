@@ -14,3 +14,5 @@ Cấu hình: ../side_run/import.json, mục poses.stand (px của idle_v1.png):
 Chân tự đặt lên mặt đất. Ảnh đứng phải nằm trong khung chung (import.json canvas), nếu không lệnh in
 "canvas ... grown" và mọi ảnh chạy / quỳ đổi theo: khi đó giảm scale một chút.
 Xem kết quả: assets/characters/tanko/side/idle_0.png (cùng khung với walk_0.png).
+
+idle_v2.png: the chibi standing picture (1365 x 768, off-white backdrop) the match rig is cut from (../rig/make_rig.py).

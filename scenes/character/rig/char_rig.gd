@@ -1,6 +1,6 @@
 @tool
 extends Node2D
-## A character drawn on its bone rig: Rookie and Spark in a match (scenes/character/character.gd
+## A character drawn on its bone rig: Rookie, Spark and Tanko in a match (scenes/character/character.gd
 ## match_rig, set by match/views/player_view.gd; everywhere else the old art), their carry scenes
 ## (scenes/character/poses/carry_rig.gd) and the dev preview scenes/dev/rig_preview.tscn. Its parts
 ## (assets/characters/<id>/rig/: the standing picture cut along its outlines, the hidden areas
