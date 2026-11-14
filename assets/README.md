@@ -572,7 +572,8 @@ is drawn by this rig instead of its side frames, in any outfit; everywhere else 
 select / view, shop, profile, matchmaking card, results, and the match's turn portrait / HUD, which use
 `portrait.png` and `ui/character_view.gd`) keeps the old art, and the other characters keep theirs.
 The held gun is any kind's hug art (`ui/art.gd` `hug_gun()`, `weapons/hug.json` hold / muzzle) on the
-rig's gun socket, 3/4 of the ready pose's size; aiming 55° and up the head is drawn over the tube. See
+rig's gun socket, 0.92 of the figure's height (3/4 × 1.3 of the hug size), held, and slung on the back
+while down (the side view's carry from `side/carry.json`, tilted back to clear the chibi's head); aiming 55° and up the head is drawn over the tube. See
 `docs/rookie-match-rig.md`.
 
 Rookie's chibi standing picture (`art_source/characters/rookie/side_idle/idle_v2.png`) cut into 14

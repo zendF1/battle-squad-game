@@ -78,8 +78,8 @@ extends Node2D
 ## hurt(), walking with set_walking(), falling on its back with die(); mirrored with the facing, as
 ## tall as the side view (art_height() unchanged, so the labels and effects above it keep their
 ## places), tinted like the frames (the hurt flash, the dead grey). The held gun (set_weapon()) is
-## drawn through the rig's gun socket from its hug art (Art.hug_gun(), so any kind), 3/4 of the
-## ready pose's size. Any other character, or match_rig off: the frames.
+## drawn through the rig's gun socket from its hug art (Art.hug_gun(), so any kind), about the
+## ready pose's length (RigModel.GUN_LENGTH), slung on the back off the side view's carry (rig_back()). Any other character, or match_rig off: the frames.
 
 const Art := preload("res://ui/art.gd")
 const FullBody := preload("res://scenes/character/full_body.gd")
@@ -289,6 +289,10 @@ func _apply_rig() -> void:
 		if not r.setup():
 			r.free()
 			return
+		var sling := rig_back(character_id, r.height())
+		if not sling.is_empty():
+			r.model.set_back(sling["pos"], sling["deg"], sling["frac"])
+			r.refresh()
 		_rig = r
 		add_child(_rig)
 		move_child(_rig, _flip.get_index() + 1)
@@ -312,6 +316,26 @@ func _drop_rig() -> void:
 ## The bone rig drawing the character (match_rig), null: the frames.
 func rig() -> Node2D:
 	return _rig
+
+
+## The rig's back sling from the side view's carry (Art.carry_pose(): carry.json back.scene): the
+## carry socket's origin scaled from the side view's height to the rig's (rig_height px), the gun's
+## axis there tilted RigModel.BACK_TILT_DEG further back (the chibi's big head would hide a tube at
+## the side view's angle), the socket's point along the gun as a fraction of its length.
+## {pos, deg, frac}; {} without a carry scene (the rig's defaults).
+static func rig_back(id: String, rig_height: float) -> Dictionary:
+	var cp := Art.carry_pose(id)
+	var look := Art.character_look(id)
+	var top := float(look["extent"]["top"]) * float(look["scale"])
+	if cp.is_empty() or top <= 0.0:
+		return {}
+	var g := Art.hug_gun(Art.character_gun(id), "iron")
+	var gx := Art.carry_gun_transform(cp, g)
+	var axis: Vector2 = (cp["socket"] * gx).x
+	var own: Vector2 = gx.affine_inverse() * Vector2.ZERO
+	return {"pos": cp["socket"].origin * (rig_height / top),
+		"deg": rad_to_deg(axis.angle()) + CharRig.RigModel.BACK_TILT_DEG,
+		"frac": own.x / maxf(1.0, float(g["size"].x))}
 
 
 ## The held gun's art for the rig's socket: its kind / tier's hug art (Art.hug_gun() fallbacks).

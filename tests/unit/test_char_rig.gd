@@ -42,7 +42,7 @@ func test_rig_data_is_complete() -> void:
 		check(m.rest.has(p["bone"]), "part %s rides a bone" % p["name"])
 		check(FileAccess.file_exists("res://assets/characters/rookie/rig/" + p["png"]), "part %s has its png" % p["name"])
 	check(m.parts.any(func(p): return p["name"] == m.gun_under), "the gun goes under a part that exists")
-	near(m.gun["length"], m.height * RigModel.GUN_LENGTH, 0.01, "the gun is 3/4 of the hug size")
+	near(m.gun["length"], m.height * RigModel.GUN_LENGTH, 0.01, "the gun is GUN_LENGTH of the height (3/4 × 1.3 of the hug size)")
 
 
 func test_rest_pose_matches_the_picture() -> void:
@@ -163,6 +163,7 @@ func test_no_pops_through_the_preview_sequence() -> void:
 	var worst := 0.0
 	var worst_fall := 0.0
 	var worst_muzzle := 0.0
+	var worst_swap := 0.0 # the gun swinging between the back sling and the hands (fast by design)
 	while t < float(seq[seq.size() - 1][0]):
 		while k < seq.size() and float(seq[k][0]) <= t:
 			var step: Array = seq[k]
@@ -193,6 +194,8 @@ func test_no_pops_through_the_preview_sequence() -> void:
 				var d: float = pts[nm].distance_to(last[nm])
 				if mo.is_dead():
 					worst_fall = maxf(worst_fall, d)
+				elif mo.raised > 0.0 and mo.raised < 1.0:
+					worst_swap = maxf(worst_swap, d)
 				elif nm == "muzzle":
 					worst_muzzle = maxf(worst_muzzle, d)
 				else:
@@ -201,5 +204,7 @@ func test_no_pops_through_the_preview_sequence() -> void:
 	# 18 rig px a frame: the far elbow while the aim sweeps 60° .. 80° at full speed (the far hand
 	# sliding down the tube); a pop (an IK flip, a snapped pose) is 40+
 	check(worst < 18.0, "no joint moves more than 18 rig px in a frame alive (worst %.1f)" % worst)
-	check(worst_muzzle < 20.0, "the muzzle (the end of the long tube) under 20 (worst %.1f)" % worst_muzzle)
+	check(worst_muzzle < 26.0, "the muzzle (the end of the long tube) under 26 (worst %.1f)" % worst_muzzle)
+	# the swap (raiseSec 0.25 s): the tube swings ~300 px off the shoulder; an IK flip would be 40+ on a joint
+	check(worst_swap < 45.0, "the swap between back and hands: under 45 a frame, muzzle included (worst %.1f)" % worst_swap)
 	check(worst_fall < 30.0, "falling: under 30 rig px a frame (worst %.1f)" % worst_fall)

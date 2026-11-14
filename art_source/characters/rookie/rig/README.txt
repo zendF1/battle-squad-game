@@ -36,6 +36,8 @@ scenes/dev/rig_preview.tscn (F6 in the editor), or record it into frames / a GIF
 Another character needs: its standing picture (facing right, plain backdrop, arms hanging clear of
 the body if possible), a copy of this script with its own J / PARTS / UNDER (the cut and the painting
 are per picture), and its rig.json goes to assets/characters/<id>/rig/. The motion and solver code is
-shared; AIM_PATH / GUN_LENGTH / char_rig.gd HEAD_OVER_DEG may need tuning per body shape. To use it in
+shared; AIM_PATH (incl. its slide column) / GUN_LENGTH (0.92 of the height: 3/4 x 1.3 of the hug size) /
+BACK_TILT_DEG (the back sling's tilt over the side view's carry) / char_rig.gd HEAD_OVER_DEG may need
+tuning per body shape. To use it in
 matches, CharRig.available(<id>) is true once assets/characters/<id>/rig/rig.json exists: the match
 then draws that character by its rig too (character.gd match_rig).

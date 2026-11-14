@@ -7,9 +7,11 @@ extends Node2D
 ## walking, dying) through the rig's solver (rig_model.gd: IK arms on the gun's grips, IK legs with the
 ## feet planted). The gun (its hug art, assets/weapons/<kind>/hug_<tier>.png with hug.json's hold /
 ## muzzle) is drawn under the far fist (rig.json gunUnder) so the far hand wraps the tube, the near
-## arm over it; a second copy is slung across the back while the gun is down.
-## Aiming high (HEAD_OVER_DEG and up, the tube beside the head) the head is drawn over the tube, the
-## fists still over both. set_gun() swaps the gun (any kind: ui/art.gd hug_gun()'s art, every kind the
+## arm over it; while it is down it is slung across the back (behind the body, riding the torso;
+## rig_model.gd back / set_back()), and raising swings it off the shoulder into the grips (drawn
+## behind the body until rig_model.gd SWAP_FRONT, then in the hands' layer). Dead: it fades out.
+## The gun pointing HEAD_OVER_DEG and up (aiming high, the tube beside the head; or swinging up off the
+## back sling) is drawn under the head (the tube passes behind it), the fists still over both. set_gun() swaps the gun (any kind: ui/art.gd hug_gun()'s art, every kind the
 ## same length). The parts and the gun are drawn mipmapped (a ~330 px rig shown ~62 px tall).
 ## Feet at this node's origin, facing +x; rig px (set `scale` for the size: rig height() px tall at
 ## scale 1). advance() (or _process when `auto`) steps it; muzzle_position() is the gun's tip here,
@@ -22,8 +24,10 @@ const HUG_DATA := "res://assets/weapons/hug.json"
 const FLASH_TINT := Color(1.0, 0.9, 0.55)
 ## The muzzle flash's size (about the side view's muzzle sprite at the match size).
 const FLASH_SIZE := 2.5
-## Aim (degrees up) from which the head is drawn over the tube.
+## The gun's elevation (degrees up, gun_elevation()) from which the head is drawn over the tube.
 const HEAD_OVER_DEG := 55.0
+## The same while the gun swings between the back and the hands.
+const SWAP_HEAD_OVER_DEG := 30.0
 
 var character_id := "rookie"
 var gun_kind := "bazooka"
@@ -218,13 +222,17 @@ func refresh() -> void:
 		_bones[nm].transform = (g[par].affine_inverse() * g[nm]) if par != "" else g[nm]
 	for p in model.parts:
 		_sprites[p["name"]].transform = model.part_transform(g, p)
-	_gun.transform = pose["gun"]
-	_gun.modulate.a = pose["gun_alpha"]
-	_gun.visible = show_gun and pose["gun_alpha"] > 0.0
-	_back_gun.transform = pose["back_gun"]
-	_back_gun.modulate.a = pose["back_alpha"]
-	_back_gun.visible = show_gun and pose["back_alpha"] > 0.0
-	_place_gun(float(s["aim"]) >= HEAD_OVER_DEG and float(s["raise"]) > 0.0)
+	# one gun: behind the body on the back sling and on the way off it, in the hands' layer once up
+	var front: bool = pose["gun_front"]
+	var alpha: float = pose["gun_alpha"]
+	for sp in [_gun, _back_gun]:
+		sp.transform = pose["gun"]
+		sp.modulate.a = alpha
+	_gun.visible = show_gun and front and alpha > 0.0
+	_back_gun.visible = show_gun and not front and alpha > 0.0
+	var r := float(s["raise"])
+	var over := HEAD_OVER_DEG if r >= 1.0 else SWAP_HEAD_OVER_DEG # mid-swap the tube sweeps the face
+	_place_gun(gun_elevation() >= over and r > 0.0)
 	_flash.queue_redraw()
 	if debug:
 		_overlay.queue_redraw()
@@ -244,7 +252,24 @@ func _place_gun(head_over: bool) -> void:
 		parts.move_child(_gun, at)
 
 
-## The head is drawn over the gun now (aiming high).
+## The gun is drawn slung on the back (behind the body) now.
+func back_gun_shown() -> bool:
+	return _back_gun.visible
+
+
+## The gun is drawn in the hands' layer now (raised, or most of the way up).
+func hand_gun_shown() -> bool:
+	return _gun.visible
+
+
+## The gun's axis now, degrees above level towards the facing side (over 90: pointing back, as on the
+## sling and swinging off it).
+func gun_elevation() -> float:
+	var d: Vector2 = pose.get("dir", Vector2.RIGHT)
+	return -rad_to_deg(d.angle())
+
+
+## The head is drawn over the gun now (aiming high, or the gun swinging up off the back).
 func head_over_gun() -> bool:
 	return _sprites.has("head") and _sprites["head"].get_index() > _gun.get_index()
 
