@@ -323,9 +323,10 @@ func test_camera_rises_for_a_flier() -> void:
 	cam.pan_to(Vector2(1200, 120))
 	for i in 120:
 		cam.step(DT)
-	check(cam.center.y < 450.0 - 1.0, "a flier's turn: the view rises above the map top (%f)" % cam.center.y)
+	var top: float = cam.world_view().y / 2.0 # the centre with the view's top on the map's
+	check(cam.center.y < top - 1.0, "a flier's turn: the view rises above the map top (%f)" % cam.center.y)
 	cam.sky_turn = false
 	cam.pan_to(Vector2(1200, 120))
 	for i in 120:
 		cam.step(DT)
-	near(cam.center.y, 450.0, 0.5, "a walker's turn stays inside the map")
+	near(cam.center.y, top, 0.5, "a walker's turn stays inside the map")

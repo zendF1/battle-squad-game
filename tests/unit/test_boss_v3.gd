@@ -321,6 +321,7 @@ func test_camera_frames_the_map() -> void:
 	var cam := CameraModel.new()
 	cam.setup(MAP, Vector2(1600, 900))
 	cam.snap(Vector2(400, 600))
+	eq(cam.zoom, CameraModel.MAX_ZOOM, "from the match's starting zoom")
 	cam.frame_map()
 	check(cam.framed() and cam.zooming(), "zooming out")
 	for i in 60:
@@ -330,7 +331,7 @@ func test_camera_frames_the_map() -> void:
 	cam.unframe()
 	for i in 60:
 		cam.step(DT)
-	near(cam.zoom, 1.0, 1e-4, "back to the zoom before")
+	near(cam.zoom, CameraModel.MAX_ZOOM, 1e-4, "back to the zoom before")
 	check(not cam.framed(), "done")
 	cam.frame_map()
 	cam.zoom_at(0.9, cam.view_size / 2.0)

@@ -1,7 +1,8 @@
 extends RefCounted
 ## The match camera, pure math (match/camera/match_camera.gd applies it to a Camera2D every frame).
-## World px; `center` is the camera's centre, `zoom` 1 = one world px per screen px, down to
-## min_zoom() (the whole map fits). The view is clamped to the map rect; while it follows a shot
+## World px; `center` is the camera's centre, `zoom` 1 = one world px per screen px. A match
+## starts at MAX_ZOOM (2: one world px is two screen px), the closest the view goes; the wheel /
+## pinch zooms out down to min_zoom() (the whole map fits). The view is clamped to the map rect; while it follows a shot
 ## (`sky`) its top may rise SKY_RISE px above the map top. A map narrower than the view is
 ## centred and never pans in x; one lower than the view sits on the view's bottom (the extra is
 ## sky above it, not the void under the map) and never pans in y.
@@ -12,9 +13,10 @@ extends RefCounted
 ##   follows it smoothly. A pan asked during a hold (hold(): an explosion, a fall) starts when the
 ##   hold is over;
 ## - AIM (start_aim; aim_at(anchor, tip)): heads for the tip (the guide arc's far end, the beam's
-##   end, a remote aim's look point) kept so the anchor (the shooter) stays KEEP_MARGIN inside the
-##   view; release() (the drag released or cancelled) stays where it is (IDLE). column_scroll()
-##   (air strike) scrolls the view while the pointer is near a screen side;
+##   end, a remote aim's look point) kept so the anchor (the shooter) stays KEEP_MARGIN screen px
+##   inside the view; release() (the drag released or cancelled) stays where it is (IDLE).
+##   column_scroll() (air strike) scrolls the view while the pointer is near a screen side
+##   (EDGE_SPEED world px/s at zoom 1 and closer, the same share of the screen zoomed out);
 ## - SHOT (start_shot; track(points)): heads for the middle of the points' box (the live shells,
 ##   the blasts held HOLD_SEC, falling players), sky allowed; no points: it stays;
 ## - MANUAL (manual_pan in screen px, look_at: an eased pan to a point): stays where it is put;
@@ -30,13 +32,14 @@ enum { IDLE, TURN, AIM, SHOT, MANUAL }
 const PAN_SEC := 0.6
 const HOLD_SEC := 0.4 # an explosion holds the view this long before the next pan
 const SKY_RISE := 300.0 # px the view may rise above the map top while following a shot
-const KEEP_MARGIN := Vector2(150, 120) # the shooter stays this far inside the view while aiming
+const MAX_ZOOM := 2.0 # the closest zoom, and the one a match starts at
+const KEEP_MARGIN := Vector2(150, 120) # screen px: the shooter stays this far inside the view while aiming
 const AIM_RATE := 4.5 # 1/s: exponential follow rates
 const SHOT_RATE := 6.0
 const FOLLOW_RATE := 5.0
 const SETTLE_RATE := 4.0
 const EDGE_ZONE := 0.6 # column mode: the pointer's |offset| from the screen centre (0..1) where scrolling starts
-const EDGE_SPEED := 1100.0 # px/s at the screen's side
+const EDGE_SPEED := 1100.0 # world px/s at the screen's side (zoom 1 and closer)
 const ZOOM_STEP := 1.12 # one wheel notch
 const SHAKE_SEC := 0.35
 const SHAKE_PER_PX := 0.08 # px of shake per px of blast radius
@@ -46,7 +49,7 @@ const FRAME_SEC := 0.45 # s the zoom eases out to the whole map (frame_map) or b
 
 var map_size := Vector2(1600, 900)
 var view_size := Vector2(1600, 900) # screen px
-var zoom := 1.0
+var zoom := MAX_ZOOM
 var center := Vector2(800, 450)
 var mode := IDLE
 var sky := false # the view may rise SKY_RISE above the map (shot follow)
@@ -64,7 +67,7 @@ var _hold := 0.0
 var _shake := 0.0
 var _shake_t := 0.0
 var _zoom_goal := -1.0 # an eased zoom under way (frame_map / unframe), -1 none
-var _zoom_from := 1.0
+var _zoom_from := MAX_ZOOM
 var _zoom_t := 1.0
 var _zoom_sec := FRAME_SEC
 var _framed_from := -1.0 # the zoom before frame_map(), -1 not framed
@@ -73,14 +76,14 @@ var _framed_from := -1.0 # the zoom before frame_map(), -1 not framed
 func setup(map: Vector2, view: Vector2) -> void:
 	map_size = Vector2(maxf(map.x, 1.0), maxf(map.y, 1.0))
 	view_size = Vector2(maxf(view.x, 1.0), maxf(view.y, 1.0))
-	zoom = clampf(zoom, min_zoom(), 1.0)
+	zoom = clampf(zoom, min_zoom(), MAX_ZOOM)
 	center = clamp_center(center)
 	_target = center
 
 
-## The smallest zoom: the whole map fits the view (1 when it already does).
+## The smallest zoom: the whole map fits the view (never past MAX_ZOOM).
 func min_zoom() -> float:
-	return minf(1.0, minf(view_size.x / map_size.x, view_size.y / map_size.y))
+	return minf(MAX_ZOOM, minf(view_size.x / map_size.x, view_size.y / map_size.y))
 
 
 ## The view's size in world px.
@@ -110,9 +113,9 @@ func clamp_center(c: Vector2, sky_ok: bool = false) -> Vector2:
 	return out
 
 
-## Where the camera heads to show tip while anchor stays KEEP_MARGIN inside the view.
+## Where the camera heads to show tip while anchor stays KEEP_MARGIN screen px inside the view.
 func keep_in_view(tip: Vector2, anchor: Vector2) -> Vector2:
-	var reach := (world_view() / 2.0 - KEEP_MARGIN).max(Vector2.ZERO)
+	var reach := (world_view() / 2.0 - KEEP_MARGIN / zoom).max(Vector2.ZERO)
 	return Vector2(clampf(tip.x, anchor.x - reach.x, anchor.x + reach.x), clampf(tip.y, anchor.y - reach.y, anchor.y + reach.y))
 
 
@@ -173,12 +176,12 @@ func manual_pan(screen_delta: Vector2) -> void:
 	_target = center
 
 
-## Zooms to z (clamped to min_zoom()..1) keeping the world point under the screen point anchor
+## Zooms to z (clamped to min_zoom()..MAX_ZOOM) keeping the world point under the screen point anchor
 ## where it is.
 func zoom_at(z: float, anchor: Vector2) -> void:
 	_zoom_goal = -1.0 # a manual zoom ends a framing
 	_framed_from = -1.0
-	z = clampf(z, min_zoom(), 1.0)
+	z = clampf(z, min_zoom(), MAX_ZOOM)
 	if is_equal_approx(z, zoom):
 		return
 	var off := anchor - view_size / 2.0
@@ -231,7 +234,7 @@ func zooming() -> bool:
 
 func _ease_zoom(z: float, sec: float) -> void:
 	_zoom_from = zoom
-	_zoom_goal = clampf(z, min_zoom(), 1.0)
+	_zoom_goal = clampf(z, min_zoom(), MAX_ZOOM)
 	_zoom_sec = maxf(sec, 1e-3)
 	_zoom_t = 0.0
 
@@ -290,7 +293,7 @@ func column_scroll(pointer_x: float, delta: float) -> void:
 	if k <= 0.0:
 		_target = center
 		return
-	center = clamp_center(center + Vector2(signf(u) * EDGE_SPEED * k * k * delta / zoom, 0.0))
+	center = clamp_center(center + Vector2(signf(u) * EDGE_SPEED * k * k * delta / minf(zoom, 1.0), 0.0))
 	_target = center
 
 

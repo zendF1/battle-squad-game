@@ -5,7 +5,9 @@ extends Node2D
 ## gun of the weapon it brought (weaponItemId → EquipmentModel.gun()), the HP bar, the name (its
 ## element's badge before it: GameData.unit_element(), ui/element_badge.gd), above it the small plate of the title it wears (the payload's "title", TitleModel; none for
 ## bots: nothing drawn, no gap) and above that the markers of its armed shot modifiers
-## (match/status_effects.gd); the turn arrow rises over the plate too. Its status effects are drawn
+## (match/status_effects.gd); the turn arrow rises over the plate too. All of that (overhead())
+## keeps its zoom-1 screen size when the match camera is closer (overhead_scale(): scaled round the
+## art's top by 1 / the zoom past 1). Its status effects are drawn
 ## on the body, no icons beside the HP bar (match/views/status_fx.gd, StatusLook: ice crystals,
 ## flames, a web, earth and stone round the feet, stars round the head, a buff's aura; scaled to the body, the
 ## boss's and minions' too); the shield shows on the HP bar as a light-blue segment after
@@ -116,6 +118,8 @@ var element_id := ""
 var _rank_badge: Control # GradeBadge after the name (the player's rankBadge); null without one
 var _title: TitlePlate
 var _title_rise := 0.0 # px the status markers and the turn arrow sit higher for the plate
+var _overhead: Node2D # the name, badges, title plate, markers, use badge (and the HP bar, turn arrow drawn the same way)
+var _overhead_s := 1.0 # their scale round the art's top: 1 / the camera's zoom past 1 (overhead_scale())
 var _sprite: Node2D # scenes/character/character.gd
 var _ring: Node2D
 var _aura: EnergyAura
@@ -204,21 +208,24 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_bubble.radius = maxf(BODY.x * maxf(body_size, 1.0), fig_h) * 0.5 + BUBBLE_MARGIN
 	add_child(_bubble)
 
+	_overhead = Node2D.new()
+	_overhead.name = "Overhead"
+	add_child(_overhead)
 	_name = LobbyUi.text(str(p.get("displayName", "")), 26 if is_boss() else 20, color.lightened(0.55) if not me else LobbyUi.GOLD, true)
 	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_name.size = Vector2(200, 26)
 	_name.position = Vector2(-100, -_art_top - 40)
-	add_child(_name)
+	_overhead.add_child(_name)
 	element_id = GameData.unit_element(p)
 	_element = ElementBadge.make(element_id, ELEMENT_PX_BOSS if is_boss() else ELEMENT_PX)
 	_element.name = "ElementBadge"
 	_element.visible = element_id != ""
-	add_child(_element)
+	_overhead.add_child(_element)
 	var badge := RankModel.badge_of(p) if role == "" else ""
 	if badge != "":
 		_rank_badge = GradeBadge.make(badge, 0, RANK_BADGE_PX)
 		_rank_badge.name = "RankBadge"
-		add_child(_rank_badge)
+		_overhead.add_child(_rank_badge)
 	_place_element()
 	_title = TitlePlate.new()
 	_title.plate_height = TITLE_H
@@ -227,7 +234,7 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_title.size = Vector2(TITLE_MAX_W + 20, TITLE_H)
 	_title.position = Vector2(-(TITLE_MAX_W + 20) / 2, -_art_top - 40 - TITLE_H + 3)
 	_title.set_title(TitleModel.from_player(p))
-	add_child(_title)
+	_overhead.add_child(_title)
 	_title_rise = TITLE_H - 3 if _title.has_title() else 0.0
 	_status = Label.new()
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -236,9 +243,9 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_status.add_theme_color_override("font_color", Color(0.75, 0.9, 1))
 	_status.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	_status.add_theme_constant_override("outline_size", 4)
-	add_child(_status)
+	_overhead.add_child(_status)
 	_badge = UseBadge.new()
-	add_child(_badge)
+	_overhead.add_child(_badge)
 	set_status(p.get("statusEffects"))
 	set_hp(int(p.get("hp", 0)), int(p.get("maxHp", 1)))
 	set_shield(int(p.get("shield", 0)) if (p.get("shield") is int or p.get("shield") is float) else 0, false)
@@ -339,10 +346,34 @@ func heart_position() -> Vector2:
 	return body_centre()
 
 
-## Where a thing hovering over the unit is centred (local px, origin at the feet): `radius` px
+## Where a thing hovering over the unit is centred (overhead() px, origin at the feet): `radius` px
 ## clear above the turn arrow and the status markers (a lost turn's countdown ring).
 func overhead_point(radius: float) -> Vector2:
 	return Vector2(0, -_art_top - 64.0 - _title_rise - radius - 6.0)
+
+
+## The node holding what is drawn over the unit (name, badges, title plate, markers, the use
+## badge): a thing hovering there (overhead_point()) goes in it to keep its screen size too.
+func overhead() -> Node2D:
+	return _overhead
+
+
+## The overhead's scale for a camera zoom z: 1 up to zoom 1 (it zooms with the world, as it always
+## did), 1 / z closer (the match starts at zoom 2: the name, HP bar and badges keep their zoom-1
+## screen size while the characters grow).
+static func overhead_scale(z: float) -> float:
+	return 1.0 / maxf(absf(z), 1.0)
+
+
+## Scales the overhead round the art's top for the camera's zoom now.
+func _fit_overhead() -> void:
+	var s := overhead_scale(get_canvas_transform().get_scale().x) if is_inside_tree() else 1.0
+	if is_equal_approx(s, _overhead_s) or _overhead == null:
+		return
+	_overhead_s = s
+	_overhead.scale = Vector2(s, s)
+	_overhead.position = Vector2(0, -_art_top) * (1.0 - s)
+	queue_redraw()
 
 
 ## A cosmetic hop of the figure (px up, s): an eruption's hit throws it up a little and it lands.
@@ -383,6 +414,7 @@ func figure() -> Node2D:
 
 func _process(delta: float) -> void:
 	_t += delta
+	_fit_overhead()
 	var landing := _land_since >= 0.0 # a jump's landing squash under way (not one starting this frame)
 	var walked := false # this frame's position is the walk's (WalkPath)
 	if _flight != null:
@@ -927,6 +959,7 @@ func _draw_ring() -> void:
 func _draw() -> void:
 	if _dead:
 		return
+	draw_set_transform(Vector2(0, -_art_top) * (1.0 - _overhead_s), 0.0, Vector2(_overhead_s, _overhead_s)) # as the overhead
 	# HP bar: dark rounded back, a fill green → yellow → red, a light top line.
 	var bar := Rect2(-HP_BAR_WIDTH / 2, -_art_top - 12, HP_BAR_WIDTH, 8)
 	if is_boss(): # the HUD's big bar

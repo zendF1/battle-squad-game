@@ -176,20 +176,27 @@ Camera2D (`match/camera/match_camera.gd`) driven by a pure model (`match/camera/
 unit tested); the HUD, the top-edge shell arrows and the off-screen markers stay on CanvasLayers,
 the sky is a far layer behind the world in parallax (backdrop 0.3, clouds 0.5).
 
+- Zoom: a match starts at zoom 2 (`CameraModel.MAX_ZOOM`: one world px is two screen px; until
+  2026-11-16 it was 1), also the closest the view goes. The name, HP bar, badges, title plate,
+  markers and turn arrow over a player keep their zoom-1 screen size there (`PlayerView.overhead()`,
+  scaled by 1 / the zoom past 1); zoomed out they shrink with the world as before.
 - Clamped to the map rect; while following a shot the view may rise 300 px above the map top. A
   map narrower than the view is centred, a lower one sits on the view's bottom; neither pans.
 - Match start: on me, then a 0.6 s eased pan to the current player; each turn start pans to its
   player and follows it walking. An explosion holds the view 0.4 s (falls and teleports longer)
   before the next pan, with a small shake scaled by the blast.
 - My aim drag: follows the guide arc's far end (the beam's end for the laser), the shooter kept
-  150 px inside the view; air strike: the view scrolls while the pointer is near a screen side. The
+  150 × 120 screen px inside the view (at zoom 2 a bronze 700 px guide still fits with its shooter);
+  air strike: the view scrolls while the pointer is near a screen side (1100 world px/s at the edge
+  from zoom 1 up, the same share of the screen zoomed out). The
   slingshot vector is screen px, so the camera never changes the aim. Released or cancelled: it
   stays until the shot. A remote PlayerAiming: looks 520 px along its sweep.
 - Replay: the middle of the box of the live shells and the held points (blasts, falls, teleports,
   the laser's end).
 - Manual: a left drag pans when aiming is off (not my turn, the replay, input locked); a right /
   middle drag, two fingers, a trackpad scroll pan at any time (a second finger cancels an aim
-  drag); the wheel / pinch zoom from 1 down to the whole map fitting. A manual look stays until
+  drag); the wheel / pinch zoom from 2 down to the whole map fitting. Boss map-wide skills ease
+  out to the whole map and back to the zoom before. A manual look stays until
   the next turn, aim, shot or remote aim. A tap on an off-screen marker pans there.
 - Off-screen markers (`match/views/offscreen_markers.gd`): a player whose feet and name are out of
   view gets a marker on the screen edge (portrait in its colour, a pointer, an HP sliver), off the

@@ -2573,7 +2573,7 @@ func _start_countdown(data: Dictionary) -> void:
 		_unit_ring.radius = UNIT_RING_RADIUS * clampf(view.body_size, 1.0, 1.6) if "body_size" in view else UNIT_RING_RADIUS
 		_unit_ring.position = view.overhead_point(_unit_ring.radius)
 		_unit_ring.z_index = 5
-		view.add_child(_unit_ring)
+		(view.overhead() if view.has_method("overhead") else view).add_child(_unit_ring)
 	_show_countdown()
 
 

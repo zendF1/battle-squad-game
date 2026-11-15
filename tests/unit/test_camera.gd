@@ -20,9 +20,13 @@ const VIEW := Vector2(1600, 900)
 const DT := 1.0 / 60.0
 
 
-func _cam(map: Vector2 = MAP, view: Vector2 = VIEW) -> CameraModel:
+## The geometry tests run at zoom 1 (world px = screen px, so the numbers read plainly); a match
+## starts at MAX_ZOOM (the tests under "The starting zoom").
+func _cam(map: Vector2 = MAP, view: Vector2 = VIEW, z: float = 1.0) -> CameraModel:
 	var c := CameraModel.new()
 	c.setup(map, view)
+	c.zoom = clampf(z, c.min_zoom(), CameraModel.MAX_ZOOM)
+	c.snap(c.center)
 	return c
 
 
@@ -78,7 +82,82 @@ func test_zoom_fits_the_map_and_keeps_the_anchor() -> void:
 	near(c.view_rect().size.x, 2400.0, 0.5, "the whole width shows")
 	eq(c.center.x, 1200.0, "centred: nothing left to pan in x")
 	c.zoom_at(5.0, anchor)
-	eq(c.zoom, 1.0, "never past 1")
+	eq(c.zoom, CameraModel.MAX_ZOOM, "never past MAX_ZOOM")
+
+
+# ── The starting zoom ─────────────────────────────────────────────────────────
+
+func test_starts_twice_as_close() -> void:
+	var c := CameraModel.new()
+	eq(c.zoom, 2.0, "a match starts at zoom 2: twice the old zoom 1")
+	eq(CameraModel.MAX_ZOOM, 2.0, "and that is the closest")
+	c.setup(MAP, VIEW)
+	eq(c.zoom, CameraModel.MAX_ZOOM, "the map's setup keeps it")
+	eq(c.world_view(), VIEW / 2.0, "half the world shows each way")
+	c.zoom_at(c.zoom * CameraModel.ZOOM_STEP, VIEW / 2.0)
+	eq(c.zoom, CameraModel.MAX_ZOOM, "the wheel cannot go closer")
+	for i in 40:
+		c.zoom_at(c.zoom / CameraModel.ZOOM_STEP, VIEW / 2.0)
+	near(c.zoom, c.min_zoom(), 1e-6, "zooming out still goes down to the whole map")
+	c.setup(MAP, VIEW * 2.0) # a bigger window: the zoom stays where it was put
+	near(c.zoom, minf(2.0 * 1600.0 / 2400.0, 2.0 * 900.0 / 1120.0), 1e-6, "clamped to the new fit")
+	var tiny := CameraModel.new()
+	tiny.setup(Vector2(400, 200), VIEW)
+	eq(tiny.min_zoom(), CameraModel.MAX_ZOOM, "a map smaller than the view at MAX_ZOOM: no zoom at all")
+
+
+func test_long_aim_at_the_start_zoom() -> void:
+	var c := _cam(MAP, VIEW, CameraModel.MAX_ZOOM)
+	var shooter := Vector2(600, 880)
+	c.snap(shooter)
+	var tip := shooter + Vector2(680, -140) # a flat bronze guide (700 px of arc)
+	c.start_aim(shooter, tip)
+	_run(c, 3.0)
+	var margin := CameraModel.KEEP_MARGIN / c.zoom
+	check(c.view_rect().grow_individual(-margin.x + 1.0, -margin.y + 1.0, -margin.x + 1.0, -margin.y + 1.0).has_point(shooter),
+		"the shooter stays KEEP_MARGIN screen px inside: %s in %s" % [shooter, c.view_rect()])
+	check(c.view_rect().has_point(tip), "the guide's far end in view: %s in %s" % [tip, c.view_rect()])
+	var up := shooter + Vector2(260, -330) # a high lob's far end
+	c.aim_at(shooter, up)
+	_run(c, 3.0)
+	check(c.view_rect().has_point(up) and c.view_rect().has_point(shooter), "a lob: both in view %s" % c.view_rect())
+
+
+func test_names_and_hp_bars_keep_their_screen_size_closer() -> void:
+	eq(PlayerView.overhead_scale(2.0), 0.5, "zoom 2: the overhead at half scale (its zoom-1 screen size)")
+	eq(PlayerView.overhead_scale(1.0), 1.0, "zoom 1: as it was")
+	eq(PlayerView.overhead_scale(0.7), 1.0, "zoomed out: shrinks with the world, as it did")
+	var v: Node2D = PlayerView.new()
+	v.setup(_player("me", 1, 300.0), true, 1)
+	eq(v._name.get_parent(), v.overhead(), "the name in the overhead")
+	eq(v.badge_node().get_parent(), v.overhead(), "the use badge too")
+	eq(v.element_badge().get_parent(), v.overhead(), "and the element badge")
+	eq(v.get_child(1), v.figure(), "the figure stays the second child")
+	v.free()
+
+
+func test_follow_scroll_and_parallax_at_the_start_zoom() -> void:
+	var c := _cam(MAP, VIEW, CameraModel.MAX_ZOOM)
+	c.snap(Vector2(800, 700))
+	c.start_shot()
+	c.track(PackedVector2Array([Vector2(1200, -900)]))
+	_run(c, 3.0)
+	near(c.view_rect().position.y, -CameraModel.SKY_RISE, 0.5, "a shot still rises SKY_RISE above the map")
+	var one := _cam()
+	one.snap(Vector2(1200, 600))
+	one.start_aim(Vector2(1200, 700), one.center)
+	one.column_scroll(VIEW.x - 10.0, 0.25)
+	c.snap(Vector2(1200, 600))
+	c.start_aim(Vector2(1200, 700), c.center)
+	c.column_scroll(VIEW.x - 10.0, 0.25)
+	near(c.center.x - 1200.0, one.center.x - 1200.0, 0.01, "the air strike scrolls as many world px as at zoom 1")
+	var travel := c.parallax_travel(0.3)
+	check(travel.x >= _cam().parallax_travel(0.3).x, "the most sky travel is at the closest zoom (MatchCamera fits the sky there)")
+	for p in [Vector2(0, 0), Vector2(5000, 5000), Vector2(1200, -400)]:
+		c.center = c.clamp_center(p, true)
+		var off := c.parallax(0.3)
+		check(off.x <= 0.0 and off.y <= 0.0 and off.x >= -travel.x - 0.01 and off.y >= -travel.y - 0.01,
+			"at %s the sky covers the screen: %s" % [c.center, off])
 
 
 # ── Modes ────────────────────────────────────────────────────────────────
@@ -400,7 +479,7 @@ func test_screen_turn_start_pans_to_the_player() -> void:
 	m._apply("TurnStarted", {"currentPlayerId": "e1", "turnIndex": 1, "moveEnergy": 100})
 	eq(m._cam.mode, CameraModel.TURN, "a turn start pans")
 	_frames(m, CameraModel.PAN_SEC + 0.1)
-	near(m._cam.center.x, 1600.0, 0.5, "onto the enemy (clamped to the map's right)")
+	near(m._cam.center.x, MAP.x - m._cam.world_view().x / 2.0, 0.5, "onto the enemy (clamped to the map's right)")
 	_free(m)
 
 
@@ -426,7 +505,7 @@ func test_screen_shot_follows_the_shell_holds_then_pans() -> void:
 	check(m._shot_player.is_playing() or m._cam.mode == CameraModel.SHOT, "the pan waits for the hold")
 	_frames(m, CameraModel.HOLD_SEC + CameraModel.PAN_SEC + 0.3)
 	eq(m._cam.mode, CameraModel.TURN, "then the next turn's pan")
-	near(m._cam.center.x, 1600.0, 1.0, "onto its player")
+	near(m._cam.center.x, MAP.x - m._cam.world_view().x / 2.0, 1.0, "onto its player")
 	m._terrain_view.free()
 	_free(m)
 

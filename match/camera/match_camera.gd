@@ -7,7 +7,8 @@ extends Camera2D
 ## - a right or middle drag pans at any time; on a touch screen two fingers pan and pinch-zoom (a
 ##   second finger cancels an aim drag in progress);
 ## - the mouse wheel / a trackpad pinch zooms around the pointer, a trackpad two-finger scroll pans;
-##   zoom from 1 down to the whole map fitting the view (CameraModel.min_zoom()).
+##   zoom from CameraModel.MAX_ZOOM (2, where a match starts) down to the whole map fitting the
+##   view (CameraModel.min_zoom()).
 ## A drag's moves and release are read first (_input), like AimInput's, so a HUD button under the
 ## pointer does not swallow them. What the camera looks at is match_screen's (the model's takes and
 ## updates); a manual look stays until the next take there.
@@ -65,7 +66,7 @@ func _fit_sky() -> void:
 	if sky == null:
 		return
 	var z := model.zoom
-	model.zoom = 1.0 # the most travel there is (at zoom 1)
+	model.zoom = CameraModel.MAX_ZOOM # the most travel there is (at the closest zoom)
 	var travel := model.parallax_travel(SkyView.PARALLAX)
 	model.zoom = z
 	sky.fit(_view(), travel)
