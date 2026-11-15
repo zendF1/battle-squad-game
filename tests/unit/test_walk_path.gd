@@ -275,3 +275,62 @@ func test_local_walk_into_the_hole_falls_out() -> void:
 		w.step(DT)
 	eq(w.drawn, Vector2(32, 64 + WalkPath.OUT_DROP), "the drawn body drops out of sight too")
 	check(not w.falling_out(), "and the fall is over")
+
+
+## A held move button on flat ground: the prediction 1.5 px a frame, the drawn point following.
+func _held_walk(t, frames: int):
+	var w = _walker(t, Vector2(100, 300))
+	var x := 100.0
+	for f in frames:
+		x += WalkPath.WALK_SPEED * DT
+		w.follow(Vector2(floorf(x), 300))
+		w.step(DT)
+	return w
+
+
+func test_settle_ends_the_stride_and_eases_in() -> void:
+	var t = _mask(600, 400, func(_x: int) -> int: return 300)
+	var w = _held_walk(t, 60)
+	check(w.striding(), "held: striding")
+	var gap: float = w.target().x - w.drawn.x
+	check(gap > 2.0, "the drawn point trails the prediction (%.1f px)" % gap)
+	var was: Vector2 = w.drawn
+	w.settle()
+	check(not w.striding(), "let go: standing at once")
+	eq(w.drawn, was, "no jump: drawn where it was")
+	var last: Vector2 = was
+	for f in 30:
+		var p: Vector2 = w.step(DT)
+		check(p.x >= last.x - 1e-4 and p.x <= w.target().x + 1e-4, "eases straight in, no overshoot")
+		last = p
+	check(absf(w.drawn.x - w.target().x) < 0.05 and not w.active(), "in 0.5 s at the target (%.2f)" % w.drawn.x)
+
+
+func test_settle_keeps_a_fall_ahead() -> void:
+	var t = _ledge()
+	var w = _walker(t, Vector2(290, 200))
+	w.follow(t.walk_to(290, 200, 305))
+	w.step(DT)
+	w.settle()
+	var below := false
+	for f in 120:
+		var p: Vector2 = w.step(DT)
+		below = below or (p.x <= 300.0 and p.y > 210.0)
+	check(below, "still falls down the edge, no shortcut through the air")
+	eq(w.drawn, Vector2(305, 320), "lands where WalkTo does")
+
+
+func test_remote_walk_stops_striding_before_its_end() -> void:
+	var t = _mask(600, 400, func(_x: int) -> int: return 300)
+	var w = _walker(t, Vector2(100, 300))
+	w.walk(Vector2(190, 300), 1.0)
+	var stop := -1.0
+	var arrive := -1.0
+	for f in 120:
+		w.step(DT)
+		if stop < 0.0 and not w.striding():
+			stop = f * DT
+			check(w.target().x - w.drawn.x <= WalkPath.STRIDE_STEPS + 1e-4, "stands within a step of the end")
+		if arrive < 0.0 and not w.active():
+			arrive = f * DT
+	check(stop > 0.5 and stop <= arrive, "strides the walk, stands for its last ease (stop %.2f s, there %.2f s)" % [stop, arrive])

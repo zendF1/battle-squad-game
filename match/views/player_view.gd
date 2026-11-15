@@ -12,7 +12,9 @@ extends Node2D
 ## the HP (the bar then spans HP + shield when they pass the max HP), and as a bubble round the body
 ## (match/views/shield_ball.gd: it pops in when a shield comes up, breathes, pops out when it
 ## breaks; set_shield_tint(): the caster's gun tier colour). The boss has its own (set_shielded()).
-## Walking is read from the position changes (prediction or tweens), so callers only move it.
+## Walking (the run) is read from the walk while one draws the body (WalkPath.striding(): stops the
+## moment it eases into its end; a local follow_walk() only while hold_walk() says the move button
+## is down), else from the position changes (a tween, a flight), so callers only move it.
 ## A walk is drawn by `walk` (match/move/walk_path.gd: along the surface, a ledge drop as a fall,
 ## a correction eased out): follow_walk() for the local prediction, walk_to() for a PlayerMoved;
 ## move_to() (a tween: a shot's fall, knockback, teleport) takes over from it. Below the map's
@@ -79,7 +81,7 @@ const ENEMY := Color(1.0, 0.35, 0.3)
 const HP_BAR_WIDTH := 50.0
 const SHIELD_COLOR := Color(0.62, 0.9, 1.0)
 const ART_TOP := 56.0 # px above the feet the art reaches (at least; a taller side view raises it)
-const WALK_HOLD := 0.12 # s a walk animation lasts after the last x change
+const WALK_HOLD := 0.12 # s a walk animation lasts after a tween's / flight's last x change
 const TITLE_H := 34.0 # the title plate over the name
 const TITLE_FONT := 14
 const TITLE_MAX_W := 220.0
@@ -123,6 +125,8 @@ var _active := false
 var _dead := false
 var _last_x := 0.0
 var _walk_left := 0.0
+var _following := false # the walk under way is a follow_walk() (the local prediction)
+var _walk_held := false # hold_walk(): the local player's move button is down
 var _t := 0.0
 var _art_top := ART_TOP
 var _sweep := {} # aim_sweep(): {t, duration, angle, wobble}; {} when none
@@ -380,6 +384,7 @@ func figure() -> Node2D:
 func _process(delta: float) -> void:
 	_t += delta
 	var landing := _land_since >= 0.0 # a jump's landing squash under way (not one starting this frame)
+	var walked := false # this frame's position is the walk's (WalkPath)
 	if _flight != null:
 		position = _flight.step(delta)
 		if "lean" in _sprite:
@@ -390,6 +395,7 @@ func _process(delta: float) -> void:
 			_end_flight() # a jump's landing squash starts with the next frame
 	elif walk.active():
 		position = walk.step(delta)
+		walked = true
 	if landing and _land_since >= 0.0:
 		_land_since += delta
 		_sprite.scale = _base_scale * JumpModel.land_scale(_land_since)
@@ -407,13 +413,16 @@ func _process(delta: float) -> void:
 	var dx := position.x - _last_x
 	_last_x = position.x
 	if absf(dx) > 0.01:
-		_walk_left = WALK_HOLD
 		_sprite.face(dx)
+	if walked: # the walk says when it strides: its last steps easing in, a correction, a let-go button stand
+		_walk_left = WALK_HOLD if _striding() else 0.0
+	elif absf(dx) > 0.01:
+		_walk_left = WALK_HOLD # a tween (knockback, a shot's fall) or a flight moved it
+	else:
+		_walk_left = maxf(0.0, _walk_left - delta)
 	if _fx != null and _fx.facing != float(_sprite.facing):
 		_fx.facing = float(_sprite.facing)
 		_fx.queue_redraw()
-	else:
-		_walk_left = maxf(0.0, _walk_left - delta)
 	_sprite.set_walking(_walk_left > 0.0 and not _dead)
 	if not _sweep.is_empty():
 		_sweep["t"] = float(_sweep["t"]) + delta
@@ -839,13 +848,31 @@ func vanished() -> bool:
 ## The local player's walk: target is MoveSync's predicted position (see WalkPath.follow).
 func follow_walk(target: Vector2) -> void:
 	_take_walk()
+	_following = true
 	walk.follow(target)
+
+
+## The local player's move button is down (on) or let go: a follow_walk() strides only while it
+## is down. Let go, the rest of the walk eases in at once (WalkPath.settle()), standing.
+func hold_walk(on: bool) -> void:
+	if on == _walk_held:
+		return
+	_walk_held = on
+	if not on:
+		walk.settle()
 
 
 ## Another player's walk to the server's target, drawn within max_sec (WalkPath.walk).
 func walk_to(target: Vector2, max_sec: float) -> void:
 	_take_walk()
+	_following = false
 	walk.walk(target, max_sec)
+
+
+## The walk under way is drawn striding (the run): it does (WalkPath.striding()), and a local
+## follow_walk() only while the move button is down.
+func _striding() -> bool:
+	return walk.striding() and (_walk_held or not _following)
 
 
 ## True while the walk under way falls out of the bottom of the map and is still drawn.

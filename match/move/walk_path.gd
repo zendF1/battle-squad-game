@@ -36,6 +36,7 @@ const FALL_MIN := 4 # px: a step down taller than this is a fall (WalkTo climbs 
 const SMOOTH_PX := 4.0 # steps each side the drawn height is averaged over
 const SETTLE_SEC := 0.06 # time constant of a correction's ease-out
 const END_EPS := 0.02 # steps: closer than this to the end is there
+const STRIDE_STEPS := 1.0 # striding(): a walk closer than this to its end is drawn standing
 const MIN_WALK_SEC := 0.2 # walk(): the shortest time a walk is given
 const MAX_WALK_SPEED := 2.0 * WALK_SPEED # walk(): never faster (a long walk with a fall may run over its time)
 ## px below the map's bottom a fall out of the map is drawn to (the body, about 60 px tall, is
@@ -102,6 +103,27 @@ func target() -> Vector2:
 ## True while the drawn point is still on its way or easing out a correction.
 func active() -> bool:
 	return _s < _pts.size() - 1 or _fall_t >= 0.0 or _resid.length_squared() > 0.0
+
+
+## True while the walk is drawn striding: falling, or still at least STRIDE_STEPS from its end (the
+## last of its ease-in, a correction easing out, a walk over: standing).
+func striding() -> bool:
+	return _fall_t >= 0.0 or _left() >= STRIDE_STEPS
+
+
+## The walk stops here (the local player let go of the move button): the rest of the way to the
+## target eases in like a correction (SETTLE_SEC), standing. A fall still ahead is walked and
+## drawn as it is.
+func settle() -> void:
+	if _fall_t >= 0.0 or _falls_sec() > 0.0 or _left() <= 0.0:
+		return
+	var was := drawn
+	_s = float(_pts.size() - 1)
+	_speed = 0.0
+	_resid = was - _draw_point()
+	drawn = was
+	if _resid.length_squared() < 1e-4:
+		_resid = Vector2.ZERO
 
 
 ## True when the walk ends below the map (y >= the terrain's height): a fall out of the map.

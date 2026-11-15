@@ -19,6 +19,17 @@ only the drawing changes.
   for `RUN_HURT_SEC` (0.6 s), then the frames again. **Until a character has run frames** (none yet), walking
   shows the standing picture lifting a little with each step (`rig_motion.gd` `walkBob` 6 rig px, the whole
   figure, never under the ground), arms and legs still. Frames switch on by themselves once `run.json` exists.
+- **The run stops the moment the walk does** (2026-11-16). `player_view.gd` reads walking from the walk
+  itself (`WalkPath.striding()`), not from x changes: the local player's walk (`follow_walk()`, MoveSync's
+  prediction) runs only while the move button is down (`hold_walk()`, set by `match_screen.gd` every frame);
+  let go, the run frames go within a frame (`run_frames_shown()` needs `motion.walk_target > 0`, so the 0.18 s
+  blend out no longer keeps them) and the few px the drawn walk trailed the prediction ease in standing
+  (`WalkPath.settle()`, a correction's `SETTLE_SEC`; a fall still ahead is walked and drawn as it is). A
+  server answer moving it after the release eases in standing too. Another player's walk (`walk_to()`)
+  runs while it walks and stands for its last step (`STRIDE_STEPS` 1 px) of ease-in. Tweens and flights
+  (knockback, a shot's fall, a jump) still count as walking from their x changes (`WALK_HOLD` 0.12 s).
+  Measured (`tests/unit/test_walk_stop.gd`, 60 fps): release to idle 0.68 s before (the drawn walk trails
+  the prediction by ~6 px and crawled in for 0.48 s, + `WALK_HOLD`, + the blend), now the first frame.
 
 ### Where the run frames go
 

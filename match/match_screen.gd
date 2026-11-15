@@ -477,9 +477,13 @@ func _process(delta: float) -> void:
 	# Once the shot is answered the server takes no Moves until TurnStarted: sending one (e.g.
 	# a walk after SHOT_ACK_TIMEOUT gave control back, then a late ShotResolved) would only
 	# lose it and send Reconnect in the middle of the replay.
+	var holding := _hold_dir != 0 and _is_my_turn() and not _commit_sent and not _turn_resolved \
+		and _can_act() and not _is_rooted()
+	if _views.has(_me):
+		_views[_me].hold_walk(holding) # let go: the run stops at once, the last px eased in standing
 	if not _is_my_turn() or _commit_sent or _turn_resolved:
 		return
-	if _hold_dir != 0 and _can_act() and not _is_rooted():
+	if holding:
 		_moves.hold(_hold_dir, delta)
 	# Runs while a Shoot/EndTurn waits too, so the rest of the walk (and a re-send of an
 	# unanswered Move) still goes out before it; _commit_action waits for them.

@@ -259,9 +259,10 @@ func has_run_frames() -> bool:
 	return not run.is_empty()
 
 
-## The run frames are drawn now (walking, the gun on the back, not hit just now, alive) instead of the parts.
+## The run frames are drawn now (walking, the gun on the back, not hit just now, alive) instead of the parts;
+## off the frame set_walking(false) comes (the blend out is the standing picture's).
 func run_frames_shown() -> bool:
-	return has_run_frames() and not still and motion.walk >= 0.5 and motion.raised <= 0.0 \
+	return has_run_frames() and not still and motion.walk >= 0.5 and motion.walk_target > 0.0 and motion.raised <= 0.0 \
 		and not motion.is_dead() and motion.hurt_age >= RUN_HURT_SEC
 
 
