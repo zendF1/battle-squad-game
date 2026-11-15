@@ -342,6 +342,7 @@ var _armor_tagged := false # the "Giáp đá" tag was shown on this armour's fir
 var _drain := {} # the replayed shot drains: {until: s the life flows until}
 
 var _hold_dir := 0
+var _keys_held := {} # move dir (-1 / 1) -> true while a key / gamepad direction for it is down (_input)
 var _action_at := -10_000_000 # Time.get_ticks_usec() when my last Move/Shoot/EndTurn/UseItem was sent
 
 
@@ -405,8 +406,7 @@ func _ready() -> void:
 	_shot_player.event_due.connect(_on_shot_event)
 	_shot_player.fired.connect(_on_shot_fired)
 	_shot_player.finished.connect(_on_shot_finished)
-	_hud.move_pressed.connect(func(dir: int) -> void: _hold_dir = dir)
-	_hud.move_released.connect(func() -> void: _hold_dir = 0)
+	_connect_moves()
 	_hud.skill_pressed.connect(_on_skill_pressed)
 	_hud.item_pressed.connect(_on_item_pressed)
 	_hud.awaken_pressed.connect(_on_awaken_pressed)
@@ -447,6 +447,57 @@ func _notification(what: int) -> void:
 				n.free()
 
 
+## The on-screen arrows hold a move while pressed (the keys: _input()).
+func _connect_moves() -> void:
+	_hud.move_pressed.connect(func(dir: int) -> void: _hold_dir = dir)
+	_hud.move_released.connect(func() -> void: _hold_dir = 0)
+
+
+## The move keys: the arrows, A / D and a gamepad's left / right (ui_left / ui_right) hold a move
+## like the on-screen arrows (read before the GUI, which would move the focus with them); not
+## while a text field (the chat) has the focus.
+func _input(event: InputEvent) -> void:
+	var held := _move_keys(event)
+	if held.is_empty() or _ended or _typing():
+		return
+	var vp := get_viewport()
+	if vp != null:
+		vp.set_input_as_handled()
+	for dir in held:
+		if held[dir]:
+			if not _keys_held.has(dir):
+				_hold_dir = dir # a new press (a key's repeat or a stick's drift is not one)
+			_keys_held[dir] = true
+		elif _keys_held.has(dir):
+			_keys_held.erase(dir)
+			if _hold_dir == dir:
+				_hold_dir = -dir if _keys_held.has(-dir) else 0
+
+
+## What a move key / gamepad event says: {dir (-1 / 1): down}; {} when it is none. A key's repeat
+## says it is still down; a stick's left-right axis sets both sides (past the action's deadzone).
+static func _move_keys(event: InputEvent) -> Dictionary:
+	if event is InputEventJoypadMotion and event.axis == JOY_AXIS_LEFT_X:
+		var dz := InputMap.action_get_deadzone("ui_left") if InputMap.has_action("ui_left") else 0.5
+		return {-1: event.axis_value <= -dz, 1: event.axis_value >= dz}
+	var dir := 0
+	if event is InputEventKey and (event.physical_keycode == KEY_A or event.physical_keycode == KEY_D):
+		dir = -1 if event.physical_keycode == KEY_A else 1
+	elif event.is_action("ui_left", true):
+		dir = -1
+	elif event.is_action("ui_right", true):
+		dir = 1
+	if dir == 0 or event is InputEventJoypadMotion:
+		return {}
+	return {dir: event.is_pressed()}
+
+
+func _typing() -> bool:
+	var vp := get_viewport()
+	var f := vp.gui_get_focus_owner() if vp != null else null
+	return f is LineEdit or f is TextEdit
+
+
 func _process(delta: float) -> void:
 	_track_camera(delta)
 	_step_countdown(delta)
@@ -474,6 +525,12 @@ func _process(delta: float) -> void:
 			_refresh_controls()
 			if _armed == WEAPON:
 				_hold_badge(_me, {}) # a no-aim skill's badge shown at the tap: never answered
+	_step_my_walk(delta)
+
+
+## My walk this frame: a held move (an on-screen arrow, an arrow / A / D key, a gamepad's left)
+## extends MoveSync's prediction, its Moves go out, the view follows it.
+func _step_my_walk(delta: float) -> void:
 	# Once the shot is answered the server takes no Moves until TurnStarted: sending one (e.g.
 	# a walk after SHOT_ACK_TIMEOUT gave control back, then a late ShotResolved) would only
 	# lose it and send Reconnect in the middle of the replay.

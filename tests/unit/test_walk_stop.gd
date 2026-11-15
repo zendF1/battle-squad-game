@@ -2,11 +2,16 @@ extends "res://tests/test_case.gd"
 ## match/views/player_view.gd: the run stops the moment a walk does. The local player let go of
 ## the move button (hold_walk(false)): the run frames go within a frame, the last px of the
 ## drawn walk ease in standing. Another player's walk (walk_to()): runs while it walks, stands
-## as it eases into its end.
+## as it eases into its end. match/match_screen.gd: every move input (the on-screen arrows, the
+## arrow / A / D keys, a gamepad's d-pad and stick) walks my player.
 
 const PlayerView := preload("res://match/views/player_view.gd")
 const MoveSync := preload("res://match/move/move_sync.gd")
 const TerrainMask := preload("res://match/terrain/terrain_mask.gd")
+const MatchScreen := preload("res://match/match_screen.gd")
+const Hud := preload("res://match/hud.gd")
+const AimInput := preload("res://match/aim/aim_input.gd")
+const ShotPlayer := preload("res://match/shot/shot_player.gd")
 
 const DT := 1.0 / 60.0
 ## With run frames (assets/characters/<id>/rig/run.json) and without (the standing picture bobs).
@@ -162,4 +167,122 @@ func test_remote_sweep_waits_only_for_the_walk() -> void:
 			drew_at = f * DT
 			check(not v.walk.striding(), "the gun out only once the walk stands")
 	check(drew_at > 0.0, "the gun comes out after the walk")
+	holder.free()
+
+
+# ── match_screen.gd: the move inputs ────────────────────────────────────────
+
+## My turn in a match on flat ground, its move handling only (_step_my_walk(); no socket: the
+## action interval is never up, so no Move goes out).
+func _screen(holder: Node2D) -> Node2D:
+	var t = _flat()
+	var m: Node2D = MatchScreen.new()
+	holder.add_child(m)
+	m._me = "me"
+	m._current = "me"
+	m._mask = t
+	var v := _view(holder, "rookie", true, t)
+	m._players = {"me": {"playerId": "me", "isAlive": true, "statusEffects": [], "moveEnergy": 100}}
+	m._views = {"me": v}
+	m._moves.terrain = t
+	m._moves.reset(v.position, 100)
+	m._hud = Hud.new()
+	m._hud._ready()
+	m._aim = AimInput.new()
+	m._shot_player = ShotPlayer.new()
+	m._action_at = Time.get_ticks_usec() + 3_600_000_000
+	m._connect_moves()
+	return m
+
+
+## sec seconds of the match: the walk step, then my view.
+func _run(m: Node2D, sec: float) -> void:
+	for f in int(round(sec / DT)):
+		m._step_my_walk(DT)
+		_frame(m._views["me"])
+
+
+func _key(code: Key, down: bool, echo: bool = false) -> InputEventKey:
+	var e := InputEventKey.new()
+	e.keycode = code
+	e.physical_keycode = code
+	e.pressed = down
+	e.echo = echo
+	return e
+
+
+## Holds an input for 0.5 s then lets go: walked dir px (about 45) and stood at once.
+func _walks(m: Node2D, press: Callable, release: Callable, dir: int, what: String) -> void:
+	var v: Node2D = m._views["me"]
+	var x0: float = v.position.x
+	press.call()
+	_run(m, 0.5)
+	var walked: float = (m._moves.position.x - x0) * dir
+	check(walked >= 40.0, "%s: walks (%.0f px)" % [what, walked])
+	check(_running(v), "%s: runs while held" % what)
+	check(v._sprite.facing == dir, "%s: faces the way" % what)
+	release.call()
+	var at: float = m._moves.position.x
+	_run(m, 2.0 * DT)
+	check(not _running(v), "%s: let go, standing within 2 frames" % what)
+	_run(m, 0.5)
+	eq(m._moves.position.x, at, "%s: let go, no more walk" % what)
+	near(v.position.x, at, 0.05, "%s: drawn at the prediction" % what)
+
+
+func test_on_screen_arrows_walk() -> void:
+	var holder := Node2D.new()
+	var m := _screen(holder)
+	var hud = m._hud
+	_walks(m, func() -> void: hud._right.button_down.emit(), func() -> void: hud._right.button_up.emit(), 1, "the right arrow")
+	_walks(m, func() -> void: hud._left.button_down.emit(), func() -> void: hud._left.button_up.emit(), -1, "the left arrow")
+	holder.free()
+
+
+func test_keys_walk() -> void:
+	var holder := Node2D.new()
+	var m := _screen(holder)
+	check(InputMap.event_is_action(_key(KEY_LEFT, true), "ui_left"), "the left arrow is ui_left")
+	for k in [[KEY_RIGHT, 1], [KEY_LEFT, -1], [KEY_D, 1], [KEY_A, -1]]:
+		var code: Key = k[0]
+		_walks(m, func() -> void:
+			m._input(_key(code, true))
+			m._input(_key(code, true, true)), # the key's repeat: still the same walk
+			func() -> void: m._input(_key(code, false)), k[1], OS.get_keycode_string(code))
+	holder.free()
+
+
+func test_keys_both_down_and_the_chat() -> void:
+	var holder := Node2D.new()
+	var m := _screen(holder)
+	m._input(_key(KEY_RIGHT, true))
+	m._input(_key(KEY_LEFT, true))
+	eq(m._hold_dir, -1, "the newest key wins")
+	m._input(_key(KEY_LEFT, false))
+	eq(m._hold_dir, 1, "let go of it: the one still down walks")
+	m._input(_key(KEY_RIGHT, false))
+	eq(m._hold_dir, 0, "both up: standing")
+	m._input(_key(KEY_SPACE, true))
+	eq(m._hold_dir, 0, "other keys: nothing")
+	holder.free()
+
+
+func test_gamepad_walks() -> void:
+	var holder := Node2D.new()
+	var m := _screen(holder)
+	var pad := func(button: JoyButton, down: bool) -> void:
+		var e := InputEventJoypadButton.new()
+		e.button_index = button
+		e.pressed = down
+		m._input(e)
+	_walks(m, func() -> void: pad.call(JOY_BUTTON_DPAD_RIGHT, true), func() -> void: pad.call(JOY_BUTTON_DPAD_RIGHT, false), 1, "the d-pad")
+	var stick := func(value: float) -> void:
+		var e := InputEventJoypadMotion.new()
+		e.axis = JOY_AXIS_LEFT_X
+		e.axis_value = value
+		m._input(e)
+	_walks(m, func() -> void:
+		stick.call(-0.6)
+		stick.call(-0.9), # a stick drifting further: the same walk
+		func() -> void: stick.call(0.0), -1, "the stick")
 	holder.free()

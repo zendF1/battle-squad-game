@@ -30,6 +30,11 @@ only the drawing changes.
   (knockback, a shot's fall, a jump) still count as walking from their x changes (`WALK_HOLD` 0.12 s).
   Measured (`tests/unit/test_walk_stop.gd`, 60 fps): release to idle 0.68 s before (the drawn walk trails
   the prediction by ~6 px and crawled in for 0.48 s, + `WALK_HOLD`, + the blend), now the first frame.
+- **Every move input walks** (`match_screen.gd`): the on-screen arrows (`_connect_moves()`), and from
+  `_input()` (before the GUI, which would move the focus with them; not while the chat field has the
+  focus) the arrow keys and gamepad d-pad / stick (`ui_left` / `ui_right`) and A / D; the newest one held
+  wins, letting it go hands over to one still down. All set `_hold_dir`, which `_step_my_walk()` turns
+  into MoveSync's prediction and `hold_walk()`. Before this the match read no keys at all.
 
 ### Where the run frames go
 
