@@ -62,7 +62,7 @@ func _rest_pose_matches_the_picture(id: String) -> void:
 	for p in m.parts:
 		var xf: Transform2D = m.part_transform(pose["bones"], p)
 		var tol := 3.0 if p["bone"].ends_with("hip") or p["bone"].ends_with("knee") else 1.5
-		check(xf.origin.distance_to(p["xf"].origin) < tol, "part %s at its rest place" % p["name"])
+		check(xf.origin.distance_to(p["xf"].origin) < tol, "%s: part %s at its rest place" % [id, p["name"]])
 		near(xf.get_rotation(), p["xf"].get_rotation(), 0.12 if tol > 2.0 else 0.02, "part %s unturned" % p["name"])
 
 
@@ -80,7 +80,7 @@ func _hands_on_the_tube_at_every_aim(id: String) -> void:
 		for i in 2:
 			var hand: Vector2 = pose["hands"][i]
 			var grip: Vector2 = pose["grips"][i]
-			check(hand.distance_to(grip) < 0.5, "hand %d on its grip at %d° (%.2f px off)" % [i, deg, hand.distance_to(grip)])
+			check(hand.distance_to(grip) < 0.5, "%s: hand %d on its grip at %d° (%.2f px off)" % [id, i, deg, hand.distance_to(grip)])
 		var along: float = (pose["grips"][1] - pose["grips"][0]).dot(dir)
 		check(along > 10.0, "the far hand further along the tube at %d°" % deg)
 		# the muzzle never ends on the face (the eye ~ (12, -60) from the neck), but in the band where
@@ -112,33 +112,39 @@ func _feet_stay_planted(id: String) -> void:
 			check(a.distance_to(m.rest[side + "_ankle"]) < 0.5, "%s foot planted through the recoil and the hit" % side)
 
 
-func test_walk_steps_and_returns_to_rest() -> void:
+func test_walk_moves_no_bones() -> void:
 	for id in RIGGED:
-		_walk_steps_and_returns_to_rest(id)
+		_walk_moves_no_bones(id)
 
 
-func _walk_steps_and_returns_to_rest(id: String) -> void:
+## Walking moves no bone (the run is drawn frames, char_rig.gd): every bone where standing puts it, the
+## standing picture only lifting a little with each step, and back on the ground once stopped.
+func _walk_moves_no_bones(id: String) -> void:
 	var m := _model(id)
 	var mo := RigMotion.new()
+	var still := RigMotion.new()
 	mo.set_walking(true)
+	var bones_ok := true
 	var lifted := 0.0
-	var planted_ok := true
+	var below := false
 	for i in 120:
 		mo.advance(1.0 / 60.0)
-		var s := mo.sample()
-		var pose := m.solve(s)
-		for side in ["n", "f"]:
-			var target: Vector2 = m.rest[side + "_ankle"] + s["foot_" + side]
-			if pose["bones"][side + "_ankle"].origin.distance_to(target) > 0.5:
-				planted_ok = false
-			lifted = maxf(lifted, -float(s["foot_" + side].y))
-	check(planted_ok, "the feet follow their steps")
-	check(lifted > 5.0, "a foot lifts in its swing")
+		still.advance(1.0 / 60.0)
+		var pose := m.solve(mo.sample())
+		var rest_pose := m.solve(still.sample())
+		for nm in m.bone_names:
+			if not (pose["bones"][nm] as Transform2D).is_equal_approx(rest_pose["bones"][nm]):
+				bones_ok = false
+		var y: float = (pose["figure"] as Transform2D).origin.y
+		lifted = maxf(lifted, -y)
+		below = below or y > 0.001
+	check(bones_ok, "%s: walking, every bone as standing" % id)
+	check(lifted > 2.0 and lifted <= float(RigMotion.T["walkBob"]) + 0.01, "%s: the picture lifts a little with each step (%.2f)" % [id, lifted])
+	check(not below, "%s: never under the ground" % id)
 	mo.set_walking(false)
 	for i in 30:
 		mo.advance(1.0 / 60.0)
-	var s := mo.sample()
-	check(s["foot_n"].length() < 0.01 and s["foot_f"].length() < 0.01, "feet back home after the walk")
+	check(absf((m.solve(mo.sample())["figure"] as Transform2D).origin.y) < 0.01, "%s: back on the ground after the walk" % id)
 
 
 func test_motion_rules() -> void:

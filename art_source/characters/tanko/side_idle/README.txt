@@ -15,4 +15,6 @@ Chân tự đặt lên mặt đất. Ảnh đứng phải nằm trong khung chun
 "canvas ... grown" và mọi ảnh chạy / quỳ đổi theo: khi đó giảm scale một chút.
 Xem kết quả: assets/characters/tanko/side/idle_0.png (cùng khung với walk_0.png).
 
-idle_v2.png: the chibi standing picture (1365 x 768, off-white backdrop) the match rig is cut from (../rig/make_rig.py).
+idle_final.png: the user's final chibi picture, 2026-11-15 (896 x 1200, white backdrop, one set with the other
+four). In matches it is the standing picture: the bone rig is cut from it (../rig/make_rig.py). The older
+chibi picture idle_v2.png is no longer used.

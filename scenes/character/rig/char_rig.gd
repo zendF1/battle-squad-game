@@ -14,7 +14,11 @@ extends Node2D
 ## carry scene), and raising swings it off the shoulder into the grips (drawn behind the body until
 ## rig_model.gd SWAP_FRONT, then in the hands' layer). Dead: it fades out. set_gun() swaps the gun
 ## (any kind: ui/art.gd hug_gun()'s art, every kind the same length). The parts and the gun are drawn
-## mipmapped (a ~330 px rig shown ~62 px tall).
+## mipmapped (a ~380 px rig shown ~70 px tall).
+## The bones move only for the gun (drawn and aimed, the shot's recoil), hurt and death: standing is the
+## picture itself (breathing), and walking moves no bone (the user's call): it plays the run frames
+## (assets/characters/<id>/rig/run.json, written by art_source/characters/make_run_frames.py) over the
+## slung gun, or without them the standing picture lifting with each step.
 ## Feet at this node's origin, facing +x; rig px (set `scale` for the size: rig height() px tall at
 ## scale 1). advance() (or _process when `auto`) steps it; muzzle_position() is the gun's tip here,
 ## fire_muzzle_position() where it is once raised at the aim the motion turns to.
@@ -26,6 +30,10 @@ const HUG_DATA := "res://assets/weapons/hug.json"
 const FLASH_TINT := Color(1.0, 0.9, 0.55)
 ## The muzzle flash's size (about the side view's muzzle sprite at the match size).
 const FLASH_SIZE := 2.5
+## The run frames' rate when run.json gives none.
+const RUN_FPS := 12.0
+## A hit while running shows the rig's hurt (bones) this long before the frames come back.
+const RUN_HURT_SEC := 0.6
 
 var character_id := "rookie"
 var gun_kind := "bazooka"
@@ -58,6 +66,11 @@ var _gun: Sprite2D
 var _back_gun: Sprite2D
 var _flash: Node2D
 var _overlay: Node2D
+var _run_sprite: Sprite2D
+## The run frames: {frames: [Texture2D], xf: [Transform2D] (image px -> rig px), bob: [float] (rig px the
+## torso sits lower than standing: the slung gun follows it), fps}; empty: no frames.
+var run := {}
+var _run_time := 0.0
 static var _textures := {}
 
 
@@ -100,6 +113,9 @@ func setup() -> bool:
 	var gun_tex := _gun_texture()
 	_back_gun = _sprite("BackGun", gun_tex)
 	parts.add_child(_back_gun)
+	_run_sprite = _sprite("Run", null)
+	_run_sprite.visible = false
+	parts.add_child(_run_sprite) # over the slung gun, under every part
 	for p in model.parts:
 		if p["name"] == model.gun_under:
 			_gun = _sprite("Gun", gun_tex)
@@ -118,6 +134,7 @@ func setup() -> bool:
 	_overlay.name = "Debug"
 	_overlay.draw.connect(_draw_debug)
 	_figure.add_child(_overlay)
+	load_run(dir)
 	refresh()
 	return true
 
@@ -205,7 +222,53 @@ func _process(delta: float) -> void:
 
 func advance(delta: float) -> void:
 	motion.advance(delta)
+	_run_time = _run_time + delta if motion.walk > 0.0 else 0.0
 	refresh()
+
+
+## Reads the run frames (dir/run.json: {frames: [png paths relative to dir], xf: [[x.x, x.y, y.x, y.y,
+## origin x, origin y]] image px -> rig px, bob: [rig px], fps}); none: the run stays the standing picture.
+func load_run(dir: String) -> void:
+	var path := dir + "/run.json"
+	if not FileAccess.file_exists(path):
+		set_run([], [], [], 0.0)
+		return
+	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if not data is Dictionary:
+		set_run([], [], [], 0.0)
+		return
+	var frames := []
+	var xfs := []
+	for i in (data.get("frames", []) as Array).size():
+		frames.append(texture(dir + "/" + str(data["frames"][i])))
+		var v: Array = data["xf"][i] if i < (data.get("xf", []) as Array).size() else [1, 0, 0, 1, 0, 0]
+		xfs.append(Transform2D(Vector2(v[0], v[1]), Vector2(v[2], v[3]), Vector2(v[4], v[5])))
+	set_run(frames, xfs, data.get("bob", []), float(data.get("fps", RUN_FPS)))
+
+
+## The run frames (textures, their image px -> rig px transforms, the torso's drop per frame, the rate);
+## empty frames: walking shows the standing picture lifting with each step.
+func set_run(frames: Array, xfs: Array, bob: Array, fps: float) -> void:
+	var ok := not frames.is_empty() and xfs.size() == frames.size() and not frames.has(null)
+	run = {"frames": frames, "xf": xfs, "bob": bob, "fps": fps if fps > 0.0 else RUN_FPS} if ok else {}
+	if _flash != null:
+		refresh()
+
+
+func has_run_frames() -> bool:
+	return not run.is_empty()
+
+
+## The run frames are drawn now (walking, the gun on the back, not hit just now, alive) instead of the parts.
+func run_frames_shown() -> bool:
+	return has_run_frames() and not still and motion.walk >= 0.5 and motion.raised <= 0.0 \
+		and not motion.is_dead() and motion.hurt_age >= RUN_HURT_SEC
+
+
+## The run frame shown now (its index in run.frames).
+func run_frame() -> int:
+	var n: int = (run.get("frames", []) as Array).size()
+	return int(_run_time * float(run.get("fps", RUN_FPS))) % n if n > 0 else 0
 
 
 ## Poses the nodes for the motion now.
@@ -213,6 +276,8 @@ func refresh() -> void:
 	if model == null:
 		return
 	var s := {"raise": 0.0} if still else motion.sample()
+	if has_run_frames():
+		s["lift"] = 0.0 # the frames run on their own
 	sample = s
 	pose = model.solve(s)
 	var g: Dictionary = pose["bones"]
@@ -230,6 +295,17 @@ func refresh() -> void:
 		sp.modulate.a = alpha
 	_gun.visible = show_gun and front and alpha > 0.0
 	_back_gun.visible = show_gun and not front and alpha > 0.0
+	# walking: the run frame over the slung gun (riding the frame's torso), the parts hidden
+	var frames_on := run_frames_shown()
+	for p in model.parts:
+		_sprites[p["name"]].visible = not frames_on
+	_run_sprite.visible = frames_on
+	if frames_on:
+		var i := run_frame()
+		_run_sprite.texture = run["frames"][i]
+		_run_sprite.transform = run["xf"][i]
+		var bob: Array = run["bob"]
+		_back_gun.transform = Transform2D(0.0, Vector2(0.0, float(bob[i]) if i < bob.size() else 0.0)) * pose["gun"]
 	_place_gun()
 	_flash.queue_redraw()
 	if debug:

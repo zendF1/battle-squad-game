@@ -3,7 +3,7 @@ extends RefCounted
 ## The bone rig's motions (pure logic, no nodes): what the character is doing (idle, gun raised
 ## and aimed, shooting, hurt, walking, dead) turned every frame into a few eased numbers the rig
 ## (scenes/character/rig/rig_model.gd) solves into bone angles: body offsets and turns, the gun's
-## raise and aim, the recoil, the arms' swing, the feet's steps, the fall. Every change blends in
+## raise and aim, the recoil, the arms' swing, the walk's lift, the fall. Every change blends in
 ## over time (rates and envelopes below), so switching from any motion to any other never pops.
 ##
 ##   raise_gun(true)  arms rise from hanging to the grips over raiseSec (fast: fastRaiseSec, a shot
@@ -11,7 +11,8 @@ extends RefCounted
 ##   set_aim(deg)     the aim the gun turns to (up positive, -30 .. 90), followed with aimRate
 ##   shoot()          recoil: the gun kicks back along its axis, the body rocks back, the head lags
 ##   hurt()           knocked back, the head snaps back, a wobble that dies out
-##   set_walking(on)  the step cycle blends in / out over walkBlendSec
+##   set_walking(on)  the step cycle blends in / out over walkBlendSec: no bones move (the run is
+##                    drawn frames, else the standing picture lifting with each step)
 ##   die()            knees buckle, then the body falls back and lies on the ground (stays)
 ##
 ## Angles in degrees, + clockwise (the body facing right: + leans forward); rig px, y down.
@@ -35,13 +36,9 @@ const T := {
 	"hurtPx": 11.0,
 	"hurtDeg": -10.0,
 	"hurtHeadDeg": -18.0,
-	"walkPeriod": 0.6, # s per two steps
-	"strideHalf": 12.0, # rig px each foot moves either side of its rest place
-	"stepLift": 9.0,
-	"walkBob": 2.2,
-	"walkCrouch": 3.0,
-	"walkLeanDeg": 4.0,
-	"armSwingDeg": 18.0,
+	"walkPeriod": 0.6, # s per two steps (the run frames' cycle too)
+	"strideHalf": 12.0, # rig px a step covers either way (the dev preview's scroll speed)
+	"walkBob": 6.0, # rig px the standing picture lifts at each step (no run frames)
 	"walkBlendSec": 0.18,
 	"buckleSec": 0.34,
 	"buckleDrop": 20.0,
@@ -106,7 +103,7 @@ func is_dead() -> bool:
 	return dead_age >= 0.0
 
 
-## The walk's speed (rig px / s) at full blend: a planted foot moves back this fast under the body.
+## The walk's speed (rig px / s) at full blend: the dev preview scrolls the ground this fast.
 func walk_speed() -> float:
 	return 4.0 * float(T["strideHalf"]) / float(T["walkPeriod"])
 
@@ -146,21 +143,11 @@ static func kick(t: float, rise: float, decay: float, freq: float) -> float:
 	return exp(-u * decay) * cos(u * freq)
 
 
-## One foot's place in the step cycle (u 0 .. 1): planted and sliding back for the first half, then
-## lifted and swung forward. {x: -1 .. 1 of the stride, lift: 0 .. 1}.
-static func step(u: float) -> Dictionary:
-	u = fposmod(u, 1.0)
-	if u < 0.5:
-		return {"x": 1.0 - 4.0 * u, "lift": 0.0}
-	var s := (u - 0.5) / 0.5
-	return {"x": -1.0 + 2.0 * smooth(s), "lift": sin(PI * s)}
-
-
 ## This frame's motion as numbers (rig_model.gd solve()):
 ##   hips (Vector2 offset), hips_deg, torso (Vector2), torso_deg, head_deg,
 ##   raise (0 .. 1 eased), aim (deg), kick (gun slide, rig px), flash (0 .. 1),
 ##   swing_n / swing_f (hanging arms' turn at the shoulder, deg), bend_n / bend_f (elbows, deg),
-##   foot_n / foot_f (Vector2 offsets of the feet from their rest places), fall_deg, dead (0 .. 1: the
+##   lift (rig px the whole figure rises: walking without run frames), fall_deg, dead (0 .. 1: the
 ##   fall's progress), dying (bool).
 func sample() -> Dictionary:
 	var out := {}
@@ -203,21 +190,10 @@ func sample() -> Dictionary:
 	swing_f += 20.0 * h
 	bend_n += 20.0 * absf(h)
 	bend_f += 20.0 * absf(h)
-	# walk
+	# walk: no bones (the user's call: the run is drawn frames, char_rig.gd run_frames()); without frames
+	# the standing picture lifts a little with each step (lift, the whole figure), the arms and legs still
 	var w := smooth(walk)
-	var sn := step(phase)
-	var sf := step(phase + 0.5)
-	var stride := float(T["strideHalf"])
-	var foot_n := Vector2(sn["x"] * stride, -sn["lift"] * float(T["stepLift"])) * w
-	var foot_f := Vector2(sf["x"] * stride, -sf["lift"] * float(T["stepLift"])) * w
-	hips.y += w * (float(T["walkCrouch"]) + float(T["walkBob"]) * 0.5 * (1.0 - cos(TAU * 2.0 * (phase - 0.25))))
-	torso_deg += w * float(T["walkLeanDeg"])
-	head_deg += -w * float(T["walkLeanDeg"]) * 0.5 + w * 1.2 * sin(TAU * 2.0 * (phase - 0.1))
-	var hang := w * (1.0 - r)
-	swing_n += -float(T["armSwingDeg"]) * float(sf["x"]) * hang
-	swing_f += -float(T["armSwingDeg"]) * float(sn["x"]) * hang
-	bend_n += 14.0 * maxf(0.0, float(sf["x"])) * hang
-	bend_f += 14.0 * maxf(0.0, float(sn["x"])) * hang
+	var lift := w * float(T["walkBob"]) * 0.5 * (1.0 - cos(TAU * 2.0 * phase))
 	# death: buckle, fall back, bounce, lie still
 	var fall_deg := 0.0
 	var dead := 0.0
@@ -252,8 +228,7 @@ func sample() -> Dictionary:
 	out["swing_f"] = swing_f
 	out["bend_n"] = bend_n
 	out["bend_f"] = bend_f
-	out["foot_n"] = foot_n
-	out["foot_f"] = foot_f
+	out["lift"] = lift
 	out["fall_deg"] = fall_deg
 	out["dead"] = dead
 	out["dying"] = dead_age >= 0.0

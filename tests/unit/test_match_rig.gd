@@ -414,3 +414,98 @@ func test_carry_scene_gun_scale_sets_the_rig_gun() -> void:
 		near(float(b.rig().model.back["deg"]), deg, 1e-3, "%s: the sling's angle unchanged" % id)
 		Art._carry_poses[path] = saved
 		holder.free()
+
+
+## Standing in the match is the picture itself: the limbs at their rest places (only the breathing
+## moves the chest and head a little); the bones move for the gun, the shot, a hit and the fall.
+func test_bones_only_for_the_gun_the_hit_and_the_fall() -> void:
+	for id in RIGGED:
+		var holder := Node2D.new()
+		var c := _character(id, true, holder)
+		var r = c.rig()
+		_step(c, 1.0)
+		var m = r.model
+		for nm in ["n_shoulder", "n_elbow", "n_hand", "f_hand", "n_hip", "n_knee", "n_ankle", "f_ankle"]:
+			var at: Vector2 = (r.pose["bones"][nm] as Transform2D).origin
+			check(at.distance_to(m.rest[nm]) < 2.5, "%s standing: %s where the picture has it" % [id, nm])
+		var hand_rest: Vector2 = r.pose["bones"]["n_hand"].origin
+		c.aim(45.0)
+		_step(c, 1.0)
+		check(r.pose["bones"]["n_hand"].origin.distance_to(hand_rest) > 20.0, "%s aiming: the arms on the gun" % id)
+		c.shoot()
+		_step(c, 0.05)
+		check(r.sample["kick"] > 1.0, "%s shot: the recoil" % id)
+		c.clear_aim()
+		_step(c, 1.5)
+		c.hurt()
+		_step(c, 0.08)
+		check((r.sample["hips"] as Vector2).length() > 1.0, "%s hit: knocked back" % id)
+		c.die()
+		_step(c, 2.0)
+		check(absf((r.pose["figure"] as Transform2D).get_rotation()) > 1.0, "%s dead: lying down" % id)
+		holder.free()
+
+
+## Walking moves no bone: no run frames, the standing picture lifts a little with each step (the gun
+## on the back), every limb where standing puts it.
+func test_walking_without_frames_lifts_the_picture() -> void:
+	for id in RIGGED:
+		var holder := Node2D.new()
+		var c := _character(id, true, holder)
+		var r = c.rig()
+		r.set_run([], [], [], 0.0)
+		c.set_walking(true)
+		var lifted := 0.0
+		var still := true
+		for i in 60:
+			_step(c, 1.0 / 60.0)
+			lifted = maxf(lifted, -(r.pose["figure"] as Transform2D).origin.y)
+			for nm in ["n_hand", "f_hand", "n_knee", "f_knee", "n_ankle", "f_ankle"]:
+				if (r.pose["bones"][nm] as Transform2D).origin.distance_to(r.model.rest[nm]) > 2.5:
+					still = false
+		check(still, "%s walking: the arms and legs still" % id)
+		check(lifted > 2.0, "%s walking: the picture lifts with each step (%.1f)" % [id, lifted])
+		check(not r.run_frames_shown() and r.get_node("Figure/Parts/head").visible, "%s: the parts drawn (no run frames)" % id)
+		check(r.back_gun_shown(), "%s walking: the gun on the back" % id)
+		holder.free()
+
+
+## With run frames (rig/run.json) walking plays them instead of the parts, over the slung gun; a hit
+## shows the rig's hurt, stopping brings the standing picture back.
+func test_run_frames_replace_the_parts_while_walking() -> void:
+	var holder := Node2D.new()
+	var c := _character("rookie", true, holder)
+	var r = c.rig()
+	var frames := []
+	var xfs := []
+	for i in 4:
+		var img := Image.create(8, 16, false, Image.FORMAT_RGBA8)
+		img.fill(Color(1, 0, 0, 1))
+		frames.append(ImageTexture.create_from_image(img))
+		xfs.append(Transform2D(0.0, Vector2(-4.0, -16.0)))
+	r.set_run(frames, xfs, [0.0, 2.0, 0.0, 2.0], 8.0)
+	check(r.has_run_frames(), "the run frames set")
+	var parts: Node2D = r.get_node("Figure/Parts")
+	var run: Sprite2D = parts.get_node("Run")
+	_step(c, 0.5)
+	check(not run.visible and parts.get_node("head").visible, "standing: the picture, no run frame")
+	c.set_walking(true)
+	_step(c, 0.3)
+	check(r.run_frames_shown() and run.visible, "walking: a run frame")
+	check(not parts.get_node("head").visible and not parts.get_node("n_shin").visible, "walking: no part drawn")
+	check(r.back_gun_shown() and run.get_index() > parts.get_node("BackGun").get_index(), "the slung gun behind the run frame")
+	var seen := {}
+	for i in 30:
+		_step(c, 1.0 / 30.0)
+		seen[r.run_frame()] = true
+		check(run.texture == frames[r.run_frame()], "the frame shown is the frame playing")
+	check(seen.size() == 4, "every frame plays (%d)" % seen.size())
+	c.hurt()
+	_step(c, 0.05)
+	check(not run.visible and parts.get_node("head").visible, "hit while running: the rig's hurt")
+	_step(c, 1.0)
+	check(run.visible, "running again after the hit")
+	c.set_walking(false)
+	_step(c, 0.5)
+	check(not run.visible and parts.get_node("head").visible, "stopped: the standing picture")
+	holder.free()

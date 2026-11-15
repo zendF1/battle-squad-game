@@ -14,3 +14,7 @@ Cấu hình: ../side_run/import.json, mục poses.stand (px của idle_v1.png):
 Chân tự đặt lên mặt đất. Ảnh đứng phải nằm trong khung chung (import.json canvas), nếu không lệnh in
 "canvas ... grown" và mọi ảnh chạy / quỳ đổi theo: khi đó giảm scale một chút.
 Xem kết quả: assets/characters/rookie/side/idle_0.png (cùng khung với walk_0.png).
+
+idle_final.png: the user's final chibi picture, 2026-11-15 (896 x 1200, white backdrop, one set with the other
+four). In matches it is the standing picture: the bone rig is cut from it (../rig/make_rig.py). The older
+chibi picture idle_v2.png is no longer used.

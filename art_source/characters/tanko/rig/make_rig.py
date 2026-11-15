@@ -1,25 +1,26 @@
 #!/usr/bin/env python3
-"""Tanko's chibi bone rig (matches only: scenes/character/character.gd match_rig), the same rig as
-Rookie's and Spark's (../../spark/rig/make_rig.py: the same steps, parts, bones and draw order), made from
-the one picture ../side_idle/idle_v2.png (1365 x 768, off-white backdrop, a grey column on the right edge,
-3/4 facing right, standing, fists down, no gun, no watermark):
+"""Tanko's chibi bone rig (matches only: scenes/character/character.gd match_rig), the same rig as Rookie's,
+Spark's, Flora's and Tide's (the same steps, parts, bones and draw order), made from the one picture
+../side_idle/idle_final.png (the user's final chibi set, 896 x 1200, pure white backdrop, 3/4 facing right,
+standing, fists down, no gun):
 
-  1. keyed: the off-white backdrop (the light px joined to the picture's border, and the gap between the
-     near arm and the chest) removed, the soft outline edge un-mixed against the backdrop's own colour
-     (BG, measured on the border: no grey fringe), the speckle and the right edge's grey column dropped
-     (only the figure's one blob kept);
+  1. keyed: the white backdrop (the light px joined to the picture's border, and the enclosed gaps in HOLES)
+     removed by flood from the border, not by a threshold (the eye whites are inside their outlines), the
+     soft outline edge un-mixed against the white (no grey fringe), the speckle dropped (only the figure's
+     one blob kept);
   2. cut: the picture split into its flat-colour cells (between the dark outlines), each cell given to
      a part by PARTS (a cell mostly inside one polygon goes whole; a cell across two is cut px by px
-     along them); the outline px between two parts belong to the one in front (OWN). The big steel
-     helmet and the chin strap ride the head; the shoulder pads the upper arms; the knee pads the thighs
-     (round on the knee joint, they cover the shin's top however the knee bends);
+     along them; HARD parts cut px by px along their polygon); the outline px between two parts belong
+     to the one in front (OWN). The big steel helmet, the chin strap and its chin cup ride the head (the
+     neck under the strap is the torso's); the shoulder pads the upper arms; the grenade vest the torso;
+     the knee pads the thighs (round on the knee joint, they cover the shin's top however the knee bends);
   3. the hidden areas painted (UNDER) in the picture's flat colours with the bold outline, clipped to
      the picture's own outline (at rest every painted px is under a part in front): the shirt under the
-     near arm, its shoulder and the belt, the neck under the chin strap, the belt's back end under the near sleeve, the
-     seat and the thighs under the fists and each other, the far sleeve and shoulder pad behind the chest
-     (only a sliver shows), and a cap at every joint (elbow, wrist, hips, knees under the pads);
-  4. written at half size: assets/characters/tanko/rig/<part>.png and rig.json (rig px = (source px -
-     ORIGIN) / 2, the feet on y 0).
+     belt, the neck under the strap, the near shoulder under its pad and the shirt's back edge under the
+     near arm, the belt's back end under the near arm, the seat, the thighs' hidden edges, the far sleeve and shoulder pad
+     behind the chest, and a cap at every joint (elbow, wrist, hips, knees);
+  4. written at a third of the size: assets/characters/tanko/rig/<part>.png and rig.json (rig px =
+     (source px - ORIGIN) / 3, the feet on y 0).
 
 Run in battle-squad-game (Python 3 with numpy, scipy, Pillow, OpenCV):
 
@@ -40,46 +41,67 @@ from scipy import ndimage
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
-SRC = os.path.join(HERE, "..", "side_idle", "idle_v2.png")
+SRC = os.path.join(HERE, "..", "side_idle", "idle_final.png")
 OUT = os.path.join(REPO, "assets", "characters", "tanko", "rig")
 ID = "tanko"
 
 NOISE = 0.06
-OUTLINE_LUM = 38  # darker than this: the outline (the cells' walls)
-INK = (30, 30, 26)  # the outline colour
-INK_W = 5  # its width (source px)
-ORIGIN = (638.0, 684.0)  # the feet: the near sole's ground line, under the hips
-TOP_Y = 73.0  # the helmet's top
-HALF = 2  # parts written at 1 / HALF
-CROP = (470, 60, 820, 700)  # the debug pictures' window (source px)
+OUTLINE_LUM = 30  # darker than this: the outline (the cells' walls)
+INK = (16, 16, 14)  # the outline colour
+INK_W = 6  # its width (source px)
+ORIGIN = (510.0, 1172.0)  # the feet: the near sole's ground line, under the hips
+TOP_Y = 27.0  # the helmet's top
+HALF = 3  # parts written at 1 / HALF
+CROP = (100, 15, 740, 1185)  # the debug pictures' window (source px)
 
-# The backdrop seen through the figure (enclosed light areas: the gap between the near arm and the
-# chest, the gap between the boots over the near toe), source px inside them.
-HOLES = [(593, 452), (632, 620)]
+# The backdrop seen through the figure (enclosed white areas), source px inside them: none (the arms and
+# legs touch; the eye white is the eye's).
+HOLES = []
 
-SHIRT = (111, 119, 78)  # the uniform's green (shirt and sleeves)
-SHIRT_DARK = (90, 93, 61)
+SHIRT = (120, 127, 83)  # the uniform's green (shirt and sleeves)
+SHIRT_DARK = (90, 94, 62)
 SLEEVE_FAR = (88, 94, 60)
-PAD = (106, 114, 105)  # the grey steel (shoulder and knee pads, the chest plate)
-PAD_FAR = (86, 93, 86)
-SKIN = (229, 179, 140)
-SKIN_FAR = (205, 158, 126)
-NECK = (205, 150, 125)
-POUCH = (93, 82, 67)
-BELT = (60, 60, 48)
-PANTS = (83, 87, 64)
-PANTS_FAR = (70, 74, 54)
-CUFF = (60, 62, 47)
+PAD = (106, 116, 105)  # the grey steel (shoulder and knee pads, the vest)
+PAD_FAR = (88, 95, 86)
+SKIN = (227, 185, 145)
+SKIN_FAR = (205, 162, 128)
+NECK = (187, 133, 113)
+BELT = (100, 87, 70)
+PANTS = (80, 84, 62)
+PANTS_FAR = (68, 72, 52)
+BOOT = (88, 84, 64)
 
 # The joints (source px).
 J = {
-    "hips": (638, 508), "torso": (638, 496), "head": (648, 378),
-    "n_shoulder": (578, 392), "n_elbow": (572, 458), "n_hand": (580, 525),
-    "f_shoulder": (690, 402), "f_elbow": (702, 460), "f_hand": (709, 517),
-    "n_hip": (608, 512), "n_knee": (614, 570), "n_ankle": (603, 645),
-    "f_hip": (670, 512), "f_knee": (686, 570), "f_ankle": (672, 636),
+    "hips": (510, 892), "torso": (510, 872), "head": (452, 616),
+    "n_shoulder": (312, 660), "n_elbow": (300, 800), "n_hand": (322, 900),
+    "f_shoulder": (594, 680), "f_elbow": (620, 790), "f_hand": (642, 878),
+    "n_hip": (450, 906), "n_knee": (442, 1000), "n_ankle": (405, 1092),
+    "f_hip": (580, 906), "f_knee": (590, 996), "f_ankle": (575, 1080),
 }
-SOLE = {"n": 684.0, "f": 669.0}  # each foot's ground line (the far foot higher: 3/4 view)
+SOLE = {"n": 1172.0, "f": 1156.0}  # each foot's ground line (the far foot higher: 3/4 view)
+
+# Which part a px belongs to: the first polygon holding it (source px); the rest is the torso.
+PARTS = {
+    "head": [(60, 0), (860, 0), (860, 612), (660, 612), (626, 620), (560, 626), (526, 624), (514, 617), (455, 599),
+             (396, 576), (332, 547), (300, 542), (240, 547), (60, 547)],
+    "n_fist": [(230, 896), (400, 896), (420, 915), (420, 960), (400, 974), (230, 974)],
+    "f_fist": [(598, 862), (700, 862), (700, 952), (598, 952)],
+    "n_fore": [(205, 800), (385, 800), (385, 896), (205, 896)],
+    "n_upper": [(200, 580), (330, 575), (385, 600), (392, 700), (382, 760), (382, 800), (200, 800)],
+    "f_upper": [(660, 640), (720, 640), (720, 790), (660, 790)],
+    "f_fore": [(660, 790), (720, 790), (720, 862), (660, 862)],
+    "belt": [(368, 812), (652, 812), (652, 894), (368, 894)],
+    "n_thigh": [(270, 894), (506, 894), (506, 1030), (270, 1030)],
+    "f_thigh": [(506, 894), (650, 894), (650, 1030), (506, 1030)],
+    "n_shin": [(200, 1030), (490, 1030), (488, 1120), (518, 1136), (518, 1210), (200, 1210)],
+    "f_shin": [(490, 1030), (740, 1030), (740, 1210), (518, 1210), (518, 1136), (488, 1120)],
+}
+# Parts cut px by px along their polygon.
+HARD = set()
+# Front-most first: who owns the outline between two parts.
+OWN = ["n_fist", "n_fore", "n_upper", "head", "f_fist", "belt", "torso", "n_thigh", "n_shin", "f_thigh", "f_shin",
+       "f_upper", "f_fore"]
 BONES = [  # name, parent, joint
     ["hips", "", "hips"], ["torso", "hips", "torso"], ["head", "torso", "head"],
     ["f_shoulder", "torso", "f_shoulder"], ["f_elbow", "f_shoulder", "f_elbow"], ["f_hand", "f_elbow", "f_hand"],
@@ -87,30 +109,6 @@ BONES = [  # name, parent, joint
     ["f_hip", "hips", "f_hip"], ["f_knee", "f_hip", "f_knee"], ["f_ankle", "f_knee", "f_ankle"],
     ["n_hip", "hips", "n_hip"], ["n_knee", "n_hip", "n_knee"], ["n_ankle", "n_knee", "n_ankle"],
 ]
-
-# Which part a px belongs to: the first polygon holding it (source px); the rest is the torso.
-# The helmet and the chin strap ride the head; the knee pads ride the thighs (a round pad on the knee
-# joint covers the shin's top whichever way the knee bends).
-PARTS = {
-    "head": [(470, 60), (830, 60), (830, 393), (750, 393), (700, 393), (688, 386), (668, 383), (645, 379), (626, 368),
-             (610, 354), (598, 348), (560, 352), (470, 352)],
-    "n_fist": [(550, 503), (598, 503), (604, 520), (604, 552), (550, 552)],
-    "f_fist": [(698, 496), (730, 496), (730, 545), (694, 545), (694, 508)],
-    "n_fore": [(536, 458), (592, 458), (592, 503), (536, 503)],
-    "n_upper": [(536, 352), (598, 348), (606, 362), (605, 400), (595, 420), (592, 458), (536, 458)],
-    "f_upper": [(686, 384), (720, 384), (720, 460), (690, 460)],
-    "f_fore": [(690, 460), (720, 460), (720, 494), (694, 494)],
-    "belt": [(582, 466), (704, 466), (704, 503), (582, 503)],
-    "n_thigh": [(556, 503), (642, 503), (646, 548), (646, 594), (600, 594), (590, 578), (556, 578)],
-    "f_thigh": [(642, 503), (712, 503), (712, 594), (668, 594), (660, 586), (646, 586)],
-    "n_shin": [(540, 578), (590, 578), (600, 594), (639, 594), (639, 646), (650, 650), (650, 700), (540, 700)],
-    "f_shin": [(646, 586), (660, 586), (668, 594), (740, 594), (740, 700), (650, 700), (650, 650), (639, 646), (639, 594)],
-}
-# Parts cut px by px along their polygon.
-HARD = set()
-# Front-most first: who owns the outline between two parts.
-OWN = ["n_fist", "n_fore", "n_upper", "head", "f_fist", "belt", "torso", "n_thigh", "n_shin", "f_thigh", "f_shin",
-       "f_upper", "f_fore"]
 
 
 def ellipse(cx, cy, rx, ry, n=48, a0=0.0, a1=360.0, rot=0.0):
@@ -122,59 +120,77 @@ def ellipse(cx, cy, rx, ry, n=48, a0=0.0, a1=360.0, rot=0.0):
         out.append((cx + x * c - y * s, cy + x * s + y * c))
     return out
 
-
 # The hidden areas, painted under each part (polygon, fill colour, outlined?): listed bottom first.
 UNDER = {
     "torso": [
         # the shirt under the belt
-        ([(590, 460), (697, 460), (697, 501), (590, 501)], SHIRT, False),
-        # the neck under the chin strap
-        ([(622, 340), (672, 340), (674, 400), (620, 400)], NECK, True),
-        # the near shoulder under the shoulder pad and the collar under the strap (a round, outlined
-        # shoulder: no ragged strap ends show when the near arm swings away)
-        (ellipse(606, 390, 26, 24), SHIRT, True),
+        ([(380, 808), (640, 808), (640, 888), (380, 888)], SHIRT, False),
+        # the neck under the strap
+        ([(330, 500), (470, 500), (530, 640), (320, 640)], NECK, True),
+        # the near shoulder under its pad (round, outlined: no ragged edge when the arm swings away)
+        (ellipse(330, 662, 42, 46), SHIRT, True),
         # the back edge under the near arm: armpit → waist (kept under the arm at rest)
-        ([(566, 392), (600, 378), (612, 390), (604, 470), (590, 470), (588, 440), (572, 420)], SHIRT_DARK, True),
+        ([(270, 690), (320, 640), (380, 670), (386, 830), (342, 830), (320, 760), (286, 730)], SHIRT_DARK, True),
     ],
     "belt": [
-        # the belt's back end under the near forearm
-        ([(584, 468), (604, 468), (604, 502), (584, 502)], BELT, [[(586, 468), (586, 502)]]),
+        # the belt's back end under the near sleeve
+        ([(364, 815), (392, 815), (392, 890), (364, 890)], BELT, [[(366, 815), (366, 890)]]),
     ],
     "seat": [
-        ([(584, 494), (702, 494), (700, 530), (660, 544), (620, 546), (588, 534)], PANTS, False),
+        ([(380, 870), (640, 870), (636, 950), (580, 980), (440, 980), (384, 950)], PANTS, False),
     ],
     "n_thigh": [
-        (ellipse(608, 508, 36, 12), PANTS, False),  # the hip cap under the belt
+        (ellipse(450, 904, 56, 16), PANTS, False),  # the hip cap under the belt
         # the back under the near fist, outlined along the back edge only
-        ([(574, 500), (606, 500), (606, 556), (570, 556)], PANTS, [[(574, 500), (570, 556)]]),
+        ([(372, 890), (415, 890), (415, 975), (366, 975)], PANTS, [[(372, 890), (366, 975)]]),
     ],
     "f_thigh": [
-        (ellipse(670, 508, 34, 12), PANTS, False),
+        (ellipse(580, 904, 50, 16), PANTS_FAR, False),
         # the back under the near thigh, the front under the far fist: outlined on the open edge only
-        ([(632, 500), (654, 500), (654, 590), (632, 590)], PANTS, [[(634, 500), (634, 590)]]),
-        ([(690, 500), (708, 500), (708, 548), (690, 548)], PANTS, [[(708, 500), (708, 548)]]),
+        ([(495, 890), (525, 890), (525, 1000), (495, 1000)], PANTS_FAR, [[(497, 890), (497, 1000)]]),
+        ([(610, 890), (640, 890), (640, 950), (610, 950)], PANTS_FAR, [[(640, 890), (640, 950)]]),
     ],
-    # the far arm behind the chest (the picture shows only its outer sliver): the grey shoulder pad and
-    # the sleeve, open at the elbow (the forearm in front of it shows there)
-    "f_upper": [([(668, 410), (676, 396), (692, 388), (708, 396), (712, 430), (714, 462), (682, 462), (674, 436)],
-                 SLEEVE_FAR, [[(682, 462), (674, 436), (668, 410), (676, 396), (692, 388), (708, 396), (712, 430),
-                               (714, 462)]]),
-                (ellipse(692, 404, 20, 16), PAD_FAR, True)],
-    "f_fore": [[(680, 452), (696, 446), (712, 450), (718, 470), (718, 500), (686, 500), (680, 478)]],
+    # the far arm behind the chest (only a sliver shows): the sleeve and its shoulder pad, open at the
+    # elbow (the forearm in front of it shows there)
+    "f_upper": [([(596, 690), (610, 662), (636, 650), (664, 664), (672, 720), (676, 794), (630, 794), (614, 740)],
+                 SLEEVE_FAR, [[(630, 794), (614, 740), (596, 690), (610, 662), (636, 650), (664, 664), (672, 720),
+                               (676, 794)]]),
+                (ellipse(628, 672, 34, 30), PAD_FAR, True)],
+    "f_fore": [[(612, 770), (640, 760), (670, 768), (684, 800), (684, 868), (626, 868), (614, 820)]],
     # the joint caps (the child's end under its parent), whole ellipses
-    "n_shin": [ellipse(612, 578, 30, 20)],  # the knees under the thighs' pads
-    "f_shin": [ellipse(683, 580, 26, 18)],
-    "n_fore": [ellipse(572, 458, 22, 10)],  # the elbow under the upper arm
-    "n_fist": [ellipse(580, 506, 20, 7)],  # the wrist under the cuff (the far fist is over its forearm)
+    "n_shin": [ellipse(430, 1002, 60, 26)],  # the knees under the thighs' pads
+    "f_shin": [ellipse(577, 996, 54, 24)],
+    # no outline: no line across the arm as it bends
+    "n_fore": [(ellipse(300, 800, 44, 14), SHIRT, False)],  # the elbow under the upper arm
+    "n_fist": [(ellipse(322, 898, 36, 10), SKIN, False)],  # the wrist under the cuff
 }
-UNDER_FILL = {"n_thigh": PANTS, "f_thigh": PANTS_FAR, "n_shin": CUFF, "f_shin": CUFF, "n_fore": SHIRT,
+UNDER_FILL = {"n_thigh": PANTS, "f_thigh": PANTS_FAR, "n_shin": PANTS, "f_shin": PANTS_FAR, "n_fore": SHIRT,
               "n_fist": SKIN, "f_fist": SKIN_FAR, "f_upper": SLEEVE_FAR, "f_fore": SLEEVE_FAR}
 
 # The rig's per-character tuning, written into rig.json (scenes/character/rig/rig_model.gd: aimPath,
 # fallDeg, headBackDeg, torsoBackDeg; the gun's length and back sling are the carry scene's,
 # scenes/character/poses/tanko_carry.tscn).
 RIG_TUNING = {
-    "fallDeg": -80.0,  # lying on the back: the big helmet and the heels on the ground (Rookie -72)
+    "fallDeg": -79.0,  # lying on the back: the big helmet and the heels on the ground
+    # RigModel.AIM_PATH's rows at this rig's size (382 px tall, the default's figure 330), the thick
+    # cannon sliding up through the fists from 30 degrees so its tail stays off the ground
+    "aimPath": [
+        [-30.0, 5.0, 5.0, -12.0, 51.0, 0.0],
+        [0.0, 5.0, 0.0, -14.0, 56.0, 0.0],
+        [30.0, 9.0, -2.0, -15.0, 50.0, 18.0],
+        [45.0, 12.0, -2.0, -16.0, 46.0, 36.0],
+        [60.0, 9.0, -5.0, -16.0, 37.0, 55.0],
+        [80.0, 7.0, -5.0, -19.0, 19.0, 81.0],
+        [90.0, 5.0, -5.0, -19.0, 12.0, 105.0],
+    ],
+}
+
+# The gun's chest point and the outline points a body lying down rests on (source px).
+GUN_CHEST = (500, 720)
+POINTS = {
+    "head_back": (116, 430), "cap_back": (214, 94), "cap_top": (400, 30),
+    "back": (272, 760),
+    "eye": (530, 408),  # the near eye (tests: the muzzle stays off the face)
 }
 
 # Draw order, bottom first: (part png, bone).
@@ -272,10 +288,10 @@ def segment(col, alpha):
         near = ndimage.binary_dilation(label == k, iterations=INK_W + 1)
         near &= ndimage.binary_dilation(idx == k, iterations=3)
         owner[near & outline] = k
+    # The rest of the dark px (the black hair is all "outline": far from any cell) go by the polygons,
+    # not to the nearest cell (that would hand the hair's ends to the shoulder pad under them).
     left = outline & (owner < 0)
-    if left.any():
-        _, (iy, ix) = ndimage.distance_transform_edt(label < 0, return_indices=True)
-        owner[left] = label[iy[left], ix[left]]
+    owner[left] = idx[left]
     label[outline] = owner[outline]
     faint = (alpha > 0) & (label < 0)
     _, (iy, ix) = ndimage.distance_transform_edt(~(label >= 0), return_indices=True)
@@ -368,6 +384,12 @@ class Rig:
             small = cv2.resize(lay, (lay.shape[1] // HALF, lay.shape[0] // HALF), interpolation=cv2.INTER_AREA)
             a = small[..., 3:4]
             rgb = np.where(a > 1e-4, small[..., :3] / np.maximum(a, 1e-4), 0)
+            # the clear px take their nearest drawn px's colour (no dark fringe where the sprite is
+            # filtered, imported or not: like the import's fix_alpha_border)
+            seen = a[..., 0] > 1e-4
+            if seen.any():
+                _, (iy, ix) = ndimage.distance_transform_edt(~seen, return_indices=True)
+                rgb = rgb[iy, ix]
             img = np.dstack([np.clip(rgb, 0, 255), np.clip(a * 255, 0, 255)]).astype(np.uint8)
             Image.fromarray(img, "RGBA").save(os.path.join(OUT, nm + ".png"), optimize=True)
             # image px (halved) → rig px: scale by HALF, place at (x0, y0), the part's rest transform, then
@@ -377,21 +399,18 @@ class Rig:
             parts.append({"name": nm, "png": nm + ".png", "bone": bone,
                           "xf": [round(float(v), 4) for v in (m[0, 0], m[1, 0], m[0, 1], m[1, 1], m[0, 2], m[1, 2])]})
         bones = [{"name": b, "parent": p, "pos": to_rig(J[j])} for b, p, j in BONES]
-        gun_chest = (640, 428)
         data = {
-            "source": "art_source/characters/tanko/rig/make_rig.py",
-            "note": "rig px = source px / 2, feet at (0, 0); parts bottom first; xf = the part's rest "
+            "source": "art_source/characters/%s/rig/make_rig.py" % ID,
+            "note": "rig px = source px / %d, feet at (0, 0);" % HALF + " parts bottom first; xf = the part's rest "
                     "transform (image px -> rig px, Transform2D columns x, y, origin)",
             "height": round((ORIGIN[1] - TOP_Y) / HALF, 1),
             "bones": bones,
             "parts": parts,
             "points": {
                 "n_sole": to_rig((J["n_ankle"][0], SOLE["n"])), "f_sole": to_rig((J["f_ankle"][0], SOLE["f"])),
-                "chest": to_rig(gun_chest),
+                "chest": to_rig(GUN_CHEST),
                 # the outline points a body lying down rests on (char_rig: the fall lifts the lowest to the ground)
-                "head_back": to_rig((494, 272)), "cap_back": to_rig((512, 180)), "cap_top": to_rig((640, 74)),
-                "back": to_rig((550, 440)),
-                "eye": to_rig((706, 262)),  # the near eye (tests: the muzzle stays off the face)
+                **{k: to_rig(v) for k, v in POINTS.items()},
             },
             "gunUnder": "n_fist",
         }

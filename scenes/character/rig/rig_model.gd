@@ -8,7 +8,7 @@ extends RefCounted
 ## by the raise), the legs keep the feet on their places on the ground (two-bone IK, knees forward;
 ## the hips sink when a foot would be out of reach), and a fall turns the whole figure round the
 ## heels and lifts it so its lowest outline point lies on the ground.
-## Rig px: the rig's own units (half the source picture's px), the feet at (0, 0), y down; bones rest
+## Rig px: the rig's own units (a third of the source picture's px), the feet at (0, 0), y down; bones rest
 ## unturned, so a bone's transform is its turn from rest and its joint's place.
 
 const IK := preload("res://scenes/character/rig/rig_ik.gd")
@@ -45,6 +45,8 @@ const AIM_PATH := [
 ## CarrySocket's rotation). Raising, the one gun swings from there into the grips (pivot and turn
 ## blended by the raise), drawn behind the body until SWAP_FRONT.
 const BACK_POS := Vector2(-18.5, -94.6)
+## BACK_POS's rig height (Rookie's first rig): scaled to each figure's height.
+const BACK_RIG_HEIGHT := 329.5
 const BACK_DEG := -103.0
 const BACK_FRAC := 0.127
 const BACK_TILT_DEG := -30.0
@@ -102,6 +104,7 @@ func setup(data: Dictionary, gun_meta: Dictionary) -> bool:
 	fall_deg = float(data.get("fallDeg", fall_deg))
 	head_back_deg = float(data.get("headBackDeg", HEAD_BACK_DEG))
 	torso_back_deg = float(data.get("torsoBackDeg", TORSO_BACK_DEG))
+	back["pos"] = BACK_POS * height / BACK_RIG_HEIGHT # the default sling at this figure's size
 	for need in ["hips", "torso", "head", "n_shoulder", "n_elbow", "n_hand", "f_shoulder", "f_elbow", "f_hand",
 			"n_hip", "n_knee", "n_ankle", "f_hip", "f_knee", "f_ankle"]:
 		if not rest.has(need):
@@ -185,7 +188,7 @@ func solve(s: Dictionary) -> Dictionary:
 	# hips (sunk when a foot would be out of reach)
 	var hips_rot := deg_to_rad(float(s.get("hips_deg", 0.0)))
 	var hips_pos: Vector2 = rest["hips"] + s.get("hips", Vector2.ZERO)
-	var feet := {"n": rest["n_ankle"] + s.get("foot_n", Vector2.ZERO), "f": rest["f_ankle"] + s.get("foot_f", Vector2.ZERO)}
+	var feet := {"n": rest["n_ankle"], "f": rest["f_ankle"]}
 	var drop := 0.0
 	for side in ["n", "f"]:
 		var hip: Vector2 = hips_pos + (rest[side + "_hip"] - rest["hips"]).rotated(hips_rot)
@@ -277,6 +280,8 @@ func solve(s: Dictionary) -> Dictionary:
 				var q: Vector2 = fig * (g[pair[0]] * (points[pair[1]] - rest[pair[0]]))
 				low = maxf(low, q.y)
 		fig = Transform2D(0.0, Vector2(0.0, -low)) * fig
+	# walking without run frames: the standing picture lifts with each step (rig_motion.gd lift)
+	fig = Transform2D(0.0, Vector2(0.0, -float(s.get("lift", 0.0)))) * fig
 	var gun_xf := Transform2D(gun_rot, Vector2(sc, sc), 0.0, pivot) * Transform2D(0.0, -hold)
 	var muzzle: Vector2 = gun_xf * gun["muzzle"]
 	# dead: the sling fades out as the body falls (never pressed into the ground)

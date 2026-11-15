@@ -9,7 +9,8 @@ extends Node2D
 ##         drawn behind it)
 ##   held  the HeldPreview: the rig holding the gun at each of `aims` (degrees up), `spacing` px apart:
 ##         the Preview's scale is the held gun's length too
-##   walk  the WalkPreview: the rig walking in place with the gun slung
+##   walk  the WalkPreview: walking in place with the gun slung (no bones: the run frames, else the
+##         standing picture lifting with each step)
 ## Nothing here is saved (the rigs are internal children); in the game it draws nothing (ui/art.gd
 ## carry_pose() reads only CarrySocket and its Preview) unless `always` (tests, preview pictures).
 

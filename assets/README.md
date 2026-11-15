@@ -583,19 +583,26 @@ arm; slung on the back while down. Its length and the sling are the character's 
 (`scenes/character/poses/<id>_carry.tscn`: `CarrySocket` / `Preview` over the rig, tuned in the editor,
 read at runtime). See `docs/match-rig.md`.
 
-Each character's chibi standing picture (`art_source/characters/<id>/side_idle/idle_v2.png`) cut into 14
-parts along its drawn outlines, the hidden areas painted in the same outline and flat colours (clipped to
-the picture's outline for Spark, Tanko, Flora and Tide), by `art_source/characters/<id>/rig/make_rig.py` (see its README.txt).
-Half the source size (Rookie 330 px tall, Spark 342, Tanko 306, Flora 305, Tide 420), transparent, mipmapped at runtime; loaded from the
+Standing in a match is the picture itself (the rig at rest, breathing); the bones move only for the gun
+(drawn, aimed -30..90, the shot's recoil), a hit and the fall. Walking moves no bone: it plays the run
+frames (`run/run_<i>.png` + `run.json`, below) over the slung gun, or, until they exist, the standing
+picture lifting a little with each step.
+
+Each character's chibi standing picture (`art_source/characters/<id>/side_idle/idle_final.png`: the
+user's final set of five, 896x1200 on white) cut into 14 parts along its drawn outlines, the hidden areas
+painted in the same outline and flat colours (clipped to the picture's outline), by
+`art_source/characters/<id>/rig/make_rig.py` (see its README.txt). A third of the source size (Rookie 384
+px tall, Spark 377, Tanko 382, Flora 391, Tide 376), transparent, mipmapped at runtime; loaded from the
 PNG when not imported yet.
 
 | File | What |
 |---|---|
-| `head.png`, `torso.png`, `belt.png`, `seat.png` | the head (Rookie: cap, hair, face; Spark: the spiky hair, face; Tanko: the steel helmet with its chin strap, face; Flora: the bandana with its flower and two knotted tails, hair, face; Tide: the whole bob, face), the shirt / tank top / sailor shirt (back edge, neck and the part under the belt painted), the belt (pouch ends under both fists painted), the trousers' seat (all painted, under the thighs) |
+| `head.png`, `torso.png`, `belt.png`, `seat.png` | the head (Rookie: cap, hair, face; Spark: the spiky hair, face; Tanko: the steel helmet with its chin strap and chin cup, face; Flora: the bandana with its flower and two knotted tails, hair, face; Tide: the whole bob, face), the shirt / tank top / sailor shirt (back edge, neck and the part under the belt painted), the belt (pouch ends under both fists painted), the trousers' seat (all painted, under the thighs) |
 | `n_upper.png`, `n_fore.png`, `n_fist.png` | the near arm (image left): upper arm (Tanko, Flora: with the shoulder pad; Flora: the elbow pad too; Tide: the sleeve), forearm (elbow cap painted), fist (wrist painted; Tide's are open hands) |
 | `f_upper.png`, `f_fore.png`, `f_fist.png` | the far arm: the picture's sliver over a painted sleeve / bare arm, its own fist |
 | `n_thigh.png`, `n_shin.png`, `f_thigh.png`, `f_shin.png` | the legs: thighs (hip caps, the hidden back / front painted; Tanko's, Flora's and Tide's knee pads ride them), shins with the boots (knee caps painted) |
 | `rig.json` | bones (rest joints, rig px, feet at 0,0), parts (bone, rest transform, draw order bottom first), points (soles, the gun's chest point, the outline points a body lying down rests on, the near eye), `gunUnder` (`n_fist`: the gun drawn right under it), optional tuning (`aimPath`, `fallDeg`, `headBackDeg`, `torsoBackDeg`) |
+| `run.json`, `run/run_<i>.png` (none yet) | the match run frames, written by `art_source/characters/make_run_frames.py <id>` from `art_source/characters/<id>/side_run_v2/sheet.png` (a 4 x 2 grid) or `frame_1.png` .. `frame_8.png`: keyed (white flooded from each cell's border), the tallest frame as tall as the rig, every frame's feet on the ground and its head over the standing head; `frames`, `xf` (image px -> rig px), `bob` (rig px the frame's head sits lower: the slung gun follows it), `fps` (12). No gun in the frames: the game draws the slung gun behind them. Without `run.json` walking shows the standing picture lifting with each step |
 
 ### characters/<id>/lobby/full.* (the full-body picture: `scenes/character/full_body.gd`, loaded by `ui/art.gd` `lobby_full()`)
 

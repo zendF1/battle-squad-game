@@ -1,30 +1,26 @@
 #!/usr/bin/env python3
-"""Tide's chibi bone rig (matches only: scenes/character/character.gd match_rig), the same rig as
-Rookie's, Spark's, Tanko's and Flora's (../../flora/rig/make_rig.py: the same steps, parts, bones and draw
-order), made from the one picture ../side_idle/idle_v2.png (797 x 969, pure white backdrop, 3/4 facing
-right, standing, open hands down, no gun; made chibi from the user's picture by
-../side_idle/chibi_edit/make_chibi.py):
+"""Tide's chibi bone rig (matches only: scenes/character/character.gd match_rig), the same rig as Rookie's,
+Spark's, Tanko's and Flora's (the same steps, parts, bones and draw order), made from the one picture
+../side_idle/idle_final.png (the user's final chibi set, 896 x 1200, pure white backdrop, 3/4 facing right,
+standing, open hands down, no gun):
 
-  0. the chibi edit's two seams mended: the head layer over the neck (the shaded neck above y 510 against
-     the light neck under it, the neck's front outline jogging there) and the shorts' trim over the legs
-     (a faint line across the teal band at y 735);
-  1. keyed: the white backdrop (the light px joined to the picture's border, the gap between the near arm
-     and the waist, the gap between the legs) removed by flood from the border, not by a threshold (the
-     near-white shirt, shorts and boots are inside their outlines), the soft outline edge un-mixed against
-     the white (no grey fringe), the speckle dropped (only the figure's one blob kept);
+  1. keyed: the white backdrop (the light px joined to the picture's border, and the enclosed gaps in HOLES)
+     removed by flood from the border, not by a threshold (the eye whites are inside their outlines), the
+     soft outline edge un-mixed against the white (no grey fringe), the speckle dropped (only the figure's
+     one blob kept);
   2. cut: the picture split into its flat-colour cells (between the dark outlines), each cell given to
      a part by PARTS (a cell mostly inside one polygon goes whole; a cell across two is cut px by px
-     along them; the head's polygon cuts px by px: the shaded neck is one cell with the face); the outline
-     px between two parts belong to the one in front (OWN). The bob ride the head (rigid, its back part
-     too); the sleeves the upper arms; the knee pads the thighs; the open hands stay open (n_fist, f_fist);
+     along them; HARD parts cut px by px along their polygon); the outline px between two parts belong
+     to the one in front (OWN). The whole bob rides the head (rigid, its back part too; the head cut px
+     by px along the jaw: the neck's shade is one cell with the face); the sleeves the upper arms; the
+     knee pads the thighs; the open hands stay open (n_fist, f_fist);
   3. the hidden areas painted (UNDER) in the picture's flat colours with the bold outline, clipped to
      the picture's own outline (at rest every painted px is under a part in front): the shirt under the
      belt, the neck under the chin, the near shoulder under the sleeve and the shirt's back edge under the
-     near arm, the seat, the shorts' edges under the hands, the thighs' hidden backs, the far sleeve and
-     arm behind the chest (only the arm under it shows), and a cap at every joint (elbow, wrist, hips,
-     knees under the pads);
-  4. written at half size: assets/characters/tide/rig/<part>.png and rig.json (rig px = (source px -
-     ORIGIN) / 2, the feet on y 0).
+     near arm, the belt's back end under the near arm, the seat, the shorts' and thighs' hidden edges, the far shoulder
+     behind the chest, and a cap at every joint (elbow, wrist, hips, knees);
+  4. written at a third of the size: assets/characters/tide/rig/<part>.png and rig.json (rig px =
+     (source px - ORIGIN) / 3, the feet on y 0).
 
 Run in battle-squad-game (Python 3 with numpy, scipy, Pillow, OpenCV):
 
@@ -45,45 +41,67 @@ from scipy import ndimage
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
-SRC = os.path.join(HERE, "..", "side_idle", "idle_v2.png")
+SRC = os.path.join(HERE, "..", "side_idle", "idle_final.png")
 OUT = os.path.join(REPO, "assets", "characters", "tide", "rig")
 ID = "tide"
 
 NOISE = 0.06
 OUTLINE_LUM = 24  # darker than this: the outline (the navy hair and leggings are lighter: cells)
-INK = (10, 15, 26)  # the outline colour
-INK_W = 5  # its width (source px)
-ORIGIN = (440.0, 903.0)  # the feet: the near sole's ground line, under the hips
-TOP_Y = 64.0  # the hair's top
-HALF = 2  # parts written at 1 / HALF
-CROP = (140, 50, 660, 912)  # the debug pictures' window (source px)
+INK = (14, 24, 36)  # the outline colour
+INK_W = 6  # its width (source px)
+ORIGIN = (500.0, 1152.0)  # the feet: the near sole's ground line, under the hips
+TOP_Y = 24.0  # the hair's top
+HALF = 3  # parts written at 1 / HALF
+CROP = (100, 10, 790, 1165)  # the debug pictures' window (source px)
 
-# The backdrop seen through the figure (enclosed white areas: the gap between the near arm and the waist,
-# the gap between the legs), source px inside them.
-HOLES = [(372, 640), (432, 825)]
+# The backdrop seen through the figure (enclosed white areas), source px inside them.
+HOLES = [(400, 800), (470, 1050)]  # the gap between the near arm and the waist, the gap between the legs
 
-SHIRT = (214, 236, 236)  # the sailor shirt's near-white
-SHIRT_DARK = (160, 192, 196)
-SHIRT_FAR = (176, 204, 206)
-TEAL = (52, 128, 132)  # the collar, cuffs, belt, trim
-TEAL_FAR = (44, 108, 112)
-SKIN = (244, 180, 140)
-SKIN_FAR = (218, 180, 152)  # the far arm's own skin
-NECK = (205, 145, 120)
-SHORTS = (226, 244, 244)
+SHIRT = (223, 244, 245)  # the sailor shirt's near-white
+SHIRT_DARK = (138, 183, 186)
+TEAL = (40, 102, 104)  # the collar, belt, trim
+TEAL_FAR = (34, 88, 90)
+SKIN = (241, 178, 135)
+SKIN_FAR = (215, 160, 125)  # the far arm's own skin
+NECK = (192, 135, 116)
+SHORTS = (224, 245, 246)
 SHORTS_FAR = (190, 212, 214)
-LEGGING = (34, 52, 80)
-LEGGING_FAR = (28, 42, 66)
+LEGGING = (27, 70, 76)
+LEGGING_FAR = (22, 58, 64)
 
 # The joints (source px).
 J = {
-    "hips": (440, 676), "torso": (440, 660), "head": (440, 488),
-    "n_shoulder": (365, 550), "n_elbow": (338, 630), "n_hand": (336, 708),
-    "f_shoulder": (495, 580), "f_elbow": (520, 640), "f_hand": (530, 708),
-    "n_hip": (405, 690), "n_knee": (410, 782), "n_ankle": (392, 862),
-    "f_hip": (480, 688), "f_knee": (497, 778), "f_ankle": (478, 852),
+    "hips": (500, 840), "torso": (500, 816), "head": (500, 614),
+    "n_shoulder": (380, 702), "n_elbow": (352, 792), "n_hand": (350, 862),
+    "f_shoulder": (590, 722), "f_elbow": (600, 800), "f_hand": (610, 860),
+    "n_hip": (455, 866), "n_knee": (459, 980), "n_ankle": (432, 1080),
+    "f_hip": (556, 866), "f_knee": (576, 970), "f_ankle": (566, 1068),
 }
-SOLE = {"n": 903.0, "f": 888.0}  # each foot's ground line (the far foot higher: 3/4 view)
+SOLE = {"n": 1152.0, "f": 1130.0}  # each foot's ground line (the far foot higher: 3/4 view)
+
+# Which part a px belongs to: the first polygon holding it (source px); the rest is the torso.
+# The whole bob rides the head (its back part too: rigid when she looks up); the sleeves the upper arms;
+# the knee pads the thighs; the neck under the jaw line is the torso's.
+PARTS = {
+    "head": [(60, 0), (860, 0), (860, 590), (690, 580), (650, 600), (600, 606), (560, 596), (520, 580), (490, 566),
+             (470, 553), (458, 560), (456, 596), (440, 606), (60, 632)],
+    "n_fist": [(296, 858), (386, 858), (396, 880), (396, 940), (296, 940)],
+    "f_fist": [(584, 846), (650, 846), (650, 930), (584, 930)],
+    "n_fore": [(296, 792), (388, 792), (386, 858), (296, 858)],
+    "n_upper": [(300, 640), (380, 630), (424, 660), (430, 700), (420, 750), (404, 792), (300, 792)],
+    "f_upper": [(560, 724), (650, 724), (650, 800), (568, 800)],
+    "f_fore": [(574, 800), (650, 800), (650, 846), (584, 846)],
+    "belt": [(396, 770), (590, 770), (590, 832), (396, 832)],
+    "n_thigh": [(340, 832), (508, 832), (508, 1006), (340, 1006)],
+    "f_thigh": [(508, 832), (640, 832), (640, 1000), (508, 1000)],
+    "n_shin": [(300, 1006), (508, 1006), (508, 1000), (482, 1000), (482, 1100), (520, 1120), (520, 1200), (300, 1200)],
+    "f_shin": [(482, 1000), (720, 1000), (720, 1200), (520, 1200), (520, 1120), (482, 1100)],
+}
+# Parts cut px by px along their polygon (the face and the shaded neck are one cell).
+HARD = {"head"}
+# Front-most first: who owns the outline between two parts.
+OWN = ["n_fist", "n_fore", "n_upper", "head", "f_fist", "belt", "torso", "n_thigh", "n_shin", "f_thigh", "f_shin",
+       "f_upper", "f_fore"]
 BONES = [  # name, parent, joint
     ["hips", "", "hips"], ["torso", "hips", "torso"], ["head", "torso", "head"],
     ["f_shoulder", "torso", "f_shoulder"], ["f_elbow", "f_shoulder", "f_elbow"], ["f_hand", "f_elbow", "f_hand"],
@@ -91,30 +109,6 @@ BONES = [  # name, parent, joint
     ["f_hip", "hips", "f_hip"], ["f_knee", "f_hip", "f_knee"], ["f_ankle", "f_knee", "f_ankle"],
     ["n_hip", "hips", "n_hip"], ["n_knee", "n_hip", "n_knee"], ["n_ankle", "n_knee", "n_ankle"],
 ]
-
-# Which part a px belongs to: the first polygon holding it (source px); the rest is the torso.
-# The whole bob rides the head (its back part too: rigid when she looks up); the sleeves the upper arms;
-# the knee pads the thighs; the neck under the jaw line is the torso's.
-PARTS = {
-    "head": [(140, 40), (660, 40), (660, 500), (600, 503), (470, 500), (468, 494), (440, 478), (424, 466),
-             (418, 458), (428, 482), (430, 489), (394, 489), (388, 503), (140, 507)],
-    "n_fist": [(296, 702), (362, 702), (364, 756), (296, 756)],
-    "f_fist": [(514, 702), (562, 702), (562, 756), (516, 756)],
-    "n_fore": [(296, 630), (364, 630), (362, 702), (296, 702)],
-    "n_upper": [(300, 515), (340, 508), (378, 510), (390, 525), (394, 560), (392, 610), (372, 630), (296, 630)],
-    "f_upper": [(500, 586), (556, 586), (556, 642), (508, 642)],
-    "f_fore": [(508, 642), (556, 642), (556, 702), (514, 702)],
-    "belt": [(372, 633), (440, 636), (468, 630), (524, 627), (524, 680), (504, 677), (488, 673), (472, 670), (440, 668), (400, 664), (372, 664)],
-    "n_thigh": [(352, 664), (442, 668), (444, 800), (428, 806), (352, 806)],
-    "f_thigh": [(442, 668), (532, 670), (532, 802), (428, 802)],
-    "n_shin": [(326, 806), (428, 806), (428, 862), (452, 872), (458, 882), (458, 916), (326, 916)],
-    "f_shin": [(428, 802), (592, 802), (592, 916), (458, 916), (458, 882), (452, 872), (428, 862)],
-}
-# Parts cut px by px along their polygon (the face and the shaded neck are one cell).
-HARD = {"head"}
-# Front-most first: who owns the outline between two parts.
-OWN = ["n_fist", "n_fore", "n_upper", "head", "f_fist", "belt", "torso", "n_thigh", "n_shin", "f_thigh", "f_shin",
-       "f_upper", "f_fore"]
 
 
 def ellipse(cx, cy, rx, ry, n=48, a0=0.0, a1=360.0, rot=0.0):
@@ -126,70 +120,73 @@ def ellipse(cx, cy, rx, ry, n=48, a0=0.0, a1=360.0, rot=0.0):
         out.append((cx + x * c - y * s, cy + x * s + y * c))
     return out
 
-
 # The hidden areas, painted under each part (polygon, fill colour, outlined?): listed bottom first.
 UNDER = {
     "torso": [
         # the shirt under the belt
-        ([(374, 636), (500, 634), (504, 670), (470, 666), (440, 662), (374, 658)], SHIRT, False),
+        ([(410, 772), (586, 772), (586, 826), (410, 826)], SHIRT, False),
         # the neck under the chin
-        ([(400, 440), (464, 440), (462, 520), (398, 520)], NECK, True),
+        ([(456, 540), (540, 540), (540, 640), (454, 640)], NECK, True),
         # the near shoulder under the sleeve (round, outlined: no ragged edge when the arm swings away)
-        (ellipse(370, 552, 26, 28), SHIRT, True),
+        (ellipse(394, 704, 32, 36), SHIRT, True),
         # the back edge under the near arm: armpit → waist (kept under the arm at rest)
-        ([(346, 560), (372, 528), (392, 548), (388, 640), (372, 640), (364, 604), (350, 584)], SHIRT_DARK, True),
+        ([(366, 712), (390, 680), (416, 700), (414, 790), (398, 790), (390, 750), (372, 730)], SHIRT_DARK, True),
     ],
     "seat": [
-        ([(366, 664), (508, 668), (508, 720), (480, 736), (400, 736), (368, 720)], SHORTS, False),
+        ([(410, 820), (590, 820), (590, 880), (560, 900), (440, 900), (412, 880)], SHORTS, False),
     ],
     "n_thigh": [
-        (ellipse(405, 678, 40, 12), SHORTS, False),  # the hip cap under the belt
+        (ellipse(455, 864, 50, 14), SHORTS, False),  # the hip cap under the belt
         # the shorts' back edge under the near hand, outlined along the back edge only
-        ([(354, 690), (384, 690), (384, 722), (354, 722)], SHORTS, [[(356, 690), (356, 722)]]),
-        ([(354, 722), (384, 722), (384, 740), (354, 740)], TEAL, [[(356, 722), (356, 740), (384, 740)]]),
+        ([(394, 860), (420, 860), (420, 896), (394, 896)], SHORTS, [[(396, 860), (396, 896)]]),
+        ([(394, 896), (420, 896), (420, 918), (394, 918)], TEAL, [[(396, 896), (396, 918), (420, 918)]]),
     ],
     "f_thigh": [
-        (ellipse(480, 678, 28, 12), SHORTS_FAR, False),
+        (ellipse(556, 864, 40, 14), SHORTS_FAR, False),
         # the back under the near thigh (shorts, then the legging): outlined on the open edge only
-        ([(430, 668), (456, 668), (456, 740), (430, 740)], SHORTS_FAR, [[(432, 668), (432, 740)]]),
-        ([(430, 740), (456, 740), (456, 800), (430, 800)], LEGGING_FAR, [[(432, 740), (432, 800)]]),
+        ([(496, 830), (522, 830), (522, 910), (496, 910)], SHORTS_FAR, [[(498, 830), (498, 910)]]),
+        ([(496, 910), (522, 910), (522, 990), (496, 990)], LEGGING_FAR, [[(498, 910), (498, 990)]]),
         # the shorts' front under the far hand
-        ([(500, 702), (520, 702), (520, 722), (500, 722)], SHORTS_FAR, [[(518, 702), (518, 722)]]),
-        ([(500, 722), (520, 722), (520, 740), (500, 740)], TEAL_FAR, [[(518, 722), (518, 740), (500, 740)]]),
+        ([(570, 850), (594, 850), (594, 896), (570, 896)], SHORTS_FAR, [[(592, 850), (592, 896)]]),
     ],
-    # the far arm behind the chest (the picture shows only the arm under the sleeve): the sleeve with its
-    # teal cuff, open at the elbow (the forearm in front of it shows there)
-    "f_upper": [([(500, 588), (514, 580), (530, 600), (536, 640), (512, 646)], SKIN_FAR,
-                 [[(510, 636), (500, 588)], [(514, 580), (530, 600), (536, 640)]]),
-                ([(476, 574), (488, 556), (508, 556), (522, 576), (528, 606), (496, 610), (484, 596)], SHIRT_FAR, True),
-                ([(492, 598), (528, 594), (530, 614), (494, 618)], TEAL_FAR, True)],
-    "f_fore": [[(508, 628), (528, 626), (542, 664), (540, 704), (516, 706), (510, 664)]],
+    # the far shoulder behind the chest
+    "f_upper": [(ellipse(590, 724, 24, 28), SKIN_FAR, True)],
+    "f_fore": [(ellipse(600, 800, 20, 10), SKIN_FAR, False)],
     # the joint caps (the child's end under its parent), whole ellipses
-    "n_shin": [ellipse(408, 794, 30, 16)],  # the knees under the thighs' pads
-    "f_shin": [ellipse(495, 790, 26, 16)],
+    "n_shin": [ellipse(454, 984, 44, 22)],  # the knees under the thighs' pads
+    "f_shin": [ellipse(568, 974, 44, 20)],
     # bare skin: the elbow and wrist caps without an outline (no line across the arm as it bends)
-    "n_fore": [(ellipse(338, 630, 22, 13), SKIN, False)],  # the elbow under the upper arm
-    "n_fist": [(ellipse(336, 706, 24, 14), SKIN, False)],  # the wrist under the forearm
+    "n_fore": [(ellipse(352, 792, 30, 12), SKIN, False)],  # the elbow under the upper arm
+    "n_fist": [(ellipse(350, 862, 30, 12), SKIN, False)],  # the wrist under the forearm
 }
 UNDER_FILL = {"n_thigh": LEGGING, "f_thigh": LEGGING_FAR, "n_shin": LEGGING, "f_shin": LEGGING_FAR, "n_fore": SKIN,
-              "n_fist": SKIN, "f_fist": SKIN_FAR, "f_upper": SHIRT_FAR, "f_fore": SKIN_FAR}
+              "n_fist": SKIN, "f_fist": SKIN_FAR, "f_upper": SKIN_FAR, "f_fore": SKIN_FAR}
 
 # The rig's per-character tuning, written into rig.json (scenes/character/rig/rig_model.gd: aimPath,
 # fallDeg, headBackDeg, torsoBackDeg; the gun's length and back sling are the carry scene's,
 # scenes/character/poses/tide_carry.tscn).
 RIG_TUNING = {
-    "fallDeg": -72.0,  # lying on the back: the back of the bob on the ground, the heels just off it
-    # RigModel.AIM_PATH's rows, the tube sliding up through the hands from 30 degrees (her chest is low
-    # under the big head: without it the tail digs into the ground at 45)
+    "fallDeg": -73.0,  # lying on the back: the back of the bob on the ground, the heels just off it
+    # RigModel.AIM_PATH's rows at this rig's size (376 px tall, the default's figure 330), the tube sliding
+    # up through the hands from 30 degrees (her chest is low under the big head: without it the tail digs
+    # into the ground at 45)
     "aimPath": [
-        [-30.0, 4.0, 4.0, -10.0, 44.0, 0.0],
-        [0.0, 4.0, 0.0, -12.0, 48.0, 0.0],
-        [30.0, 8.0, -2.0, -14.0, 44.0, 20.0],
-        [45.0, 10.0, -2.0, -14.0, 40.0, 40.0],
-        [60.0, 8.0, -4.0, -14.0, 32.0, 60.0],
-        [80.0, 6.0, -4.0, -16.0, 16.0, 80.0],
-        [90.0, 4.0, -4.0, -16.0, 10.0, 95.0],
+        [-30.0, 5.0, 5.0, -12.0, 51.0, 0.0],
+        [0.0, 5.0, 0.0, -14.0, 56.0, 0.0],
+        [30.0, 9.0, -2.0, -16.0, 51.0, 18.0],
+        [45.0, 12.0, -2.0, -16.0, 46.0, 36.0],
+        [60.0, 9.0, -5.0, -16.0, 37.0, 55.0],
+        [80.0, 7.0, -5.0, -19.0, 19.0, 81.0],
+        [90.0, 5.0, -5.0, -19.0, 12.0, 105.0],
     ],
+}
+
+# The gun's chest point and the outline points a body lying down rests on (source px).
+GUN_CHEST = (510, 700)
+POINTS = {
+    "head_back": (118, 418), "cap_back": (255, 90), "cap_top": (433, 25),
+    "back": (366, 740),
+    "eye": (596, 400),  # the near eye (tests: the muzzle stays off the face)
 }
 
 # Draw order, bottom first: (part png, bone).
@@ -198,64 +195,9 @@ ORDER = [
     ("seat", "hips"), ("f_shin", "f_knee"), ("f_thigh", "f_hip"), ("n_shin", "n_knee"), ("n_thigh", "n_hip"),
     ("torso", "torso"), ("belt", "hips"), ("head", "head"),
     ("f_fist", "f_hand"),
-    ("n_fist", "n_hand"),  # the gun goes right under the near hand (rig.json gunUnder): only the near arm over it
+    ("n_fist", "n_hand"),  # the gun goes right under the near fist (rig.json gunUnder): only the near arm over it
     ("n_fore", "n_elbow"), ("n_upper", "n_shoulder"),
 ]
-
-
-def mend_seams(rgb):
-    """The chibi edit's seams (make_chibi.py stacked the scaled head, shirt and legs): the shaded neck of
-    the head layer (down to y 508) graded towards its bottom into the neck under it (column by
-    column, by their measured difference), the neck's front outline drawn as one stroke
-    across the jog (the backdrop notch right of it whitened); the faint line across the shorts' teal trim
-    (y ~735) smoothed away down each column."""
-    out = rgb.copy()
-    lum_ = lum(rgb)
-    skin = (rgb[..., 0] > 150) & (rgb[..., 0] - rgb[..., 2] > 40) & (lum_ > 110)
-    # per column, the shaded neck's bottom (rows 503..508) against the light neck under it (rows 510..514),
-    # both averaged over the skin of the columns round it (no streaks, the collar's columns borrow their
-    # neighbours'), the difference ramped in over the head layer's rows
-    def band(y0, y1):
-        m = skin[y0:y1].astype(np.float64)
-        c = (rgb[y0:y1] * m[..., None]).sum(axis=0)
-        n = m.sum(axis=0)
-        k = np.ones(13)
-        c = np.stack([np.convolve(c[:, i], k, mode="same") for i in range(3)], 1)
-        n = np.convolve(n, k, mode="same")
-        return c / np.maximum(n, 1e-6)[:, None], n > 0
-    up, ok_up = band(503, 509)
-    down, ok_down = band(510, 515)
-    diff = np.where((ok_up & ok_down)[:, None], down - up, 0.0)
-    for y in range(492, 509):  # the head layer's rows (the shirt layer's start at 509)
-        t = (y - 492) / (508 - 492)
-        t = t * t * (3 - 2 * t)
-        for x in range(396, 462):
-            if skin[y, x]:
-                out[y, x] += diff[x] * t
-    # the front outline: one stroke over the head layer's and the shirt layer's, the notch right of it
-    # backdrop
-    stroke = [(463.0, 488.0), (462.0, 503.0), (456.0, 518.0)]
-    for y in range(494, 517):
-        (xa, ya), (xb, yb) = (stroke[0], stroke[1]) if y < 503 else (stroke[1], stroke[2])
-        cx = xa + (xb - xa) * (y - ya) / (yb - ya)
-        for x in range(int(cx + 3), 474):
-            if lum_[y, x] > 90:
-                out[y, x] = 255.0
-    big = np.zeros((rgb.shape[0] * 4, rgb.shape[1] * 4), np.uint8)
-    cv2.polylines(big, [np.round(np.array(stroke) * 4).astype(np.int32)], False, 255, INK_W * 4, lineType=cv2.LINE_AA)
-    a = cv2.resize(big.astype(np.float32) / 255.0, (rgb.shape[1], rgb.shape[0]), interpolation=cv2.INTER_AREA)
-    out = out * (1 - a[..., None]) + np.array(INK, np.float64) * a[..., None]
-    # the trim: teal px of rows 726..741 smoothed down their column
-    teal = (rgb[..., 1] > 95) & (rgb[..., 2] > 95) & (rgb[..., 0] < 90)
-    for x in range(366, 520):
-        ys = [y for y in range(726, 742) if teal[y, x]]
-        if len(ys) < 6:
-            continue
-        col = out[ys, x].copy()
-        k = np.array([1, 2, 3, 2, 1], np.float64)
-        sm = np.stack([np.convolve(np.pad(col[:, c], 2, mode="edge"), k / k.sum(), mode="valid") for c in range(3)], 1)
-        out[ys, x] = sm
-    return np.clip(out, 0, 255)
 
 
 def lum(rgb):
@@ -388,7 +330,7 @@ class Rig:
     def __init__(self, debug=None):
         rgb = np.asarray(Image.open(SRC).convert("RGB")).astype(np.float64)
         self.h, self.w = rgb.shape[:2]
-        self.col, self.alpha = key(mend_seams(rgb))
+        self.col, self.alpha = key(rgb)
         self.debug = debug
         self.part = segment(self.col, self.alpha)
         self.layers = {}  # name -> premultiplied RGBA at source size
@@ -453,21 +395,18 @@ class Rig:
             parts.append({"name": nm, "png": nm + ".png", "bone": bone,
                           "xf": [round(float(v), 4) for v in (m[0, 0], m[1, 0], m[0, 1], m[1, 1], m[0, 2], m[1, 2])]})
         bones = [{"name": b, "parent": p, "pos": to_rig(J[j])} for b, p, j in BONES]
-        gun_chest = (446, 590)
         data = {
-            "source": "art_source/characters/tide/rig/make_rig.py",
-            "note": "rig px = source px / 2, feet at (0, 0); parts bottom first; xf = the part's rest "
+            "source": "art_source/characters/%s/rig/make_rig.py" % ID,
+            "note": "rig px = source px / %d, feet at (0, 0);" % HALF + " parts bottom first; xf = the part's rest "
                     "transform (image px -> rig px, Transform2D columns x, y, origin)",
             "height": round((ORIGIN[1] - TOP_Y) / HALF, 1),
             "bones": bones,
             "parts": parts,
             "points": {
                 "n_sole": to_rig((J["n_ankle"][0], SOLE["n"])), "f_sole": to_rig((J["f_ankle"][0], SOLE["f"])),
-                "chest": to_rig(gun_chest),
+                "chest": to_rig(GUN_CHEST),
                 # the outline points a body lying down rests on (char_rig: the fall lifts the lowest to the ground)
-                "head_back": to_rig((158, 390)), "cap_back": to_rig((215, 180)), "cap_top": to_rig((400, 66)),
-                "back": to_rig((326, 590)),
-                "eye": to_rig((520, 345)),  # the near eye (tests: the muzzle stays off the face)
+                **{k: to_rig(v) for k, v in POINTS.items()},
             },
             "gunUnder": "n_fist",
         }
