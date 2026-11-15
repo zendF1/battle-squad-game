@@ -5,9 +5,9 @@ extends Node2D
 ## gun of the weapon it brought (weaponItemId → EquipmentModel.gun()), the HP bar, the name (its
 ## element's badge before it: GameData.unit_element(), ui/element_badge.gd), above it the small plate of the title it wears (the payload's "title", TitleModel; none for
 ## bots: nothing drawn, no gap) and above that the markers of its armed shot modifiers
-## (match/status_effects.gd); the turn arrow rises over the plate too. All of that (overhead())
-## keeps its zoom-1 screen size when the match camera is closer (overhead_scale(): scaled round the
-## art's top by 1 / the zoom past 1). Its status effects are drawn
+## (match/status_effects.gd); the turn arrow rises over the plate too. All of that (overhead(), a
+## ScreenFixed round the art's top: match/views/screen_fixed.gd) keeps one screen size at every
+## camera zoom; the figure, its ring and the effects on its body zoom with the world. Its status effects are drawn
 ## on the body, no icons beside the HP bar (match/views/status_fx.gd, StatusLook: ice crystals,
 ## flames, a web, earth and stone round the feet, stars round the head, a buff's aura; scaled to the body, the
 ## boss's and minions' too); the shield shows on the HP bar as a light-blue segment after
@@ -68,6 +68,7 @@ const GameData := preload("res://autoload/game_data_model.gd")
 const FlightModel := preload("res://match/boss/flight_model.gd")
 const JumpModel := preload("res://match/boss/jump_model.gd")
 const ShieldBall := preload("res://match/views/shield_ball.gd")
+const ScreenFixed := preload("res://match/views/screen_fixed.gd")
 const ElementBadge := preload("res://ui/element_badge.gd")
 const SetAura := preload("res://scenes/character/set_aura.gd")
 const GradeBadge := preload("res://screens/ranked/grade_badge.gd")
@@ -118,8 +119,7 @@ var element_id := ""
 var _rank_badge: Control # GradeBadge after the name (the player's rankBadge); null without one
 var _title: TitlePlate
 var _title_rise := 0.0 # px the status markers and the turn arrow sit higher for the plate
-var _overhead: Node2D # the name, badges, title plate, markers, use badge (and the HP bar, turn arrow drawn the same way)
-var _overhead_s := 1.0 # their scale round the art's top: 1 / the camera's zoom past 1 (overhead_scale())
+var _overhead: Node2D # ScreenFixed: the name, badges, title plate, markers, use badge (the HP bar, turn arrow drawn the same way)
 var _sprite: Node2D # scenes/character/character.gd
 var _ring: Node2D
 var _aura: EnergyAura
@@ -208,8 +208,10 @@ func setup(p: Dictionary, me: bool, my_team: int = -1) -> void:
 	_bubble.radius = maxf(BODY.x * maxf(body_size, 1.0), fig_h) * 0.5 + BUBBLE_MARGIN
 	add_child(_bubble)
 
-	_overhead = Node2D.new()
+	_overhead = ScreenFixed.new()
 	_overhead.name = "Overhead"
+	_overhead.pivot = overhead_anchor()
+	_overhead.rescaled.connect(queue_redraw)
 	add_child(_overhead)
 	_name = LobbyUi.text(str(p.get("displayName", "")), 26 if is_boss() else 20, color.lightened(0.55) if not me else LobbyUi.GOLD, true)
 	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -353,27 +355,16 @@ func overhead_point(radius: float) -> Vector2:
 
 
 ## The node holding what is drawn over the unit (name, badges, title plate, markers, the use
-## badge): a thing hovering there (overhead_point()) goes in it to keep its screen size too.
+## badge; a ScreenFixed): a thing hovering there (overhead_point()) goes in it to keep one screen
+## size too.
 func overhead() -> Node2D:
 	return _overhead
 
 
-## The overhead's scale for a camera zoom z: 1 up to zoom 1 (it zooms with the world, as it always
-## did), 1 / z closer (the match starts at zoom 2: the name, HP bar and badges keep their zoom-1
-## screen size while the characters grow).
-static func overhead_scale(z: float) -> float:
-	return 1.0 / maxf(absf(z), 1.0)
-
-
-## Scales the overhead round the art's top for the camera's zoom now.
-func _fit_overhead() -> void:
-	var s := overhead_scale(get_canvas_transform().get_scale().x) if is_inside_tree() else 1.0
-	if is_equal_approx(s, _overhead_s) or _overhead == null:
-		return
-	_overhead_s = s
-	_overhead.scale = Vector2(s, s)
-	_overhead.position = Vector2(0, -_art_top) * (1.0 - s)
-	queue_redraw()
+## The point (local px, origin at the feet) the overhead keeps its screen size round: the art's
+## top. A popup over the unit (match_screen) is held round it too.
+func overhead_anchor() -> Vector2:
+	return Vector2(0, -_art_top)
 
 
 ## A cosmetic hop of the figure (px up, s): an eruption's hit throws it up a little and it lands.
@@ -414,7 +405,6 @@ func figure() -> Node2D:
 
 func _process(delta: float) -> void:
 	_t += delta
-	_fit_overhead()
 	var landing := _land_since >= 0.0 # a jump's landing squash under way (not one starting this frame)
 	var walked := false # this frame's position is the walk's (WalkPath)
 	if _flight != null:
@@ -959,7 +949,8 @@ func _draw_ring() -> void:
 func _draw() -> void:
 	if _dead:
 		return
-	draw_set_transform(Vector2(0, -_art_top) * (1.0 - _overhead_s), 0.0, Vector2(_overhead_s, _overhead_s)) # as the overhead
+	if _overhead != null:
+		draw_set_transform(_overhead.position, 0.0, _overhead.scale) # in the overhead's space
 	# HP bar: dark rounded back, a fill green → yellow → red, a light top line.
 	var bar := Rect2(-HP_BAR_WIDTH / 2, -_art_top - 12, HP_BAR_WIDTH, 8)
 	if is_boss(): # the HUD's big bar

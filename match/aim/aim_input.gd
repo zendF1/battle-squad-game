@@ -23,8 +23,11 @@ extends Node2D
 ##
 ## Under the match camera: the slingshot vector is the pointer's move in SCREEN px (from where the
 ## drag started on the screen), so the camera following the aim never changes it, at any zoom;
-## what is in the world (the cancel zone round the shooter, the air strike's column x) goes
-## through the camera's transform, again every frame the view moves (_process). look_point():
+## what is in the world (the shooter the cancel zone is round, the air strike's column x) goes
+## through the camera's transform, again every frame the view moves (_process). What is drawn
+## keeps one screen size at every zoom (match/views/screen_fixed.gd per_px()): the guide's and the
+## beam's widths, the cancel ring (CANCEL_RADIUS screen px, hit tested on screen too), the cross,
+## the column line, the bullseye; the guide's length is the game data's world px. look_point():
 ## where the camera looks while aiming (the guide arc's far end, the beam's end, the column).
 ##
 ## target_column (air_strike): no slingshot; while pressed, a vertical target line follows the
@@ -47,8 +50,9 @@ signal fire_column(target_x: float)
 
 const Trajectory := preload("res://match/aim/trajectory_predictor.gd")
 const AimAid := preload("res://match/aim/aim_aid.gd")
+const ScreenFixed := preload("res://match/views/screen_fixed.gd")
 const LobbyUi := preload("res://ui/lobby_ui.gd")
-const CANCEL_RADIUS := 60.0
+const CANCEL_RADIUS := 60.0 # screen px round the shooter (drawn and hit tested), at every zoom
 const MIN_POWER := 5.0
 const GameData := preload("res://autoload/game_data_model.gd")
 const ARC_COLOR := Color(1, 1, 1, 0.55) # the air strike's drop preview
@@ -190,10 +194,9 @@ func _process(delta: float) -> void:
 		if target_column:
 			_update(_pointer)
 		else:
-			var was := _in_cancel
-			_in_cancel = _world(_pointer).distance_to(shooter_pos + Trajectory.shot_offset()) <= CANCEL_RADIUS
-			if was != _in_cancel:
-				queue_redraw()
+			_in_cancel = _cancel_at(_pointer)
+			_fit_widths()
+			queue_redraw() # the guide's width and the cancel ring keep their screen size
 
 
 ## A press no Control took starts a drag.
@@ -239,6 +242,26 @@ func _pointer_of(event: InputEventMouse) -> Vector2:
 	return event.position
 
 
+## World px per screen px now (1 / the camera's zoom): the guide, the ring and the bullseye keep
+## one screen size at every zoom (match/views/screen_fixed.gd).
+func _px() -> float:
+	return ScreenFixed.per_px_of(_canvas())
+
+
+## The pointer (screen px) within CANCEL_RADIUS screen px of the shooter's shot origin on screen.
+func _cancel_at(pointer: Vector2) -> bool:
+	return pointer.distance_to(_canvas() * (shooter_pos + Trajectory.shot_offset())) <= CANCEL_RADIUS
+
+
+## The lines' widths in screen px for the zoom now.
+func _fit_widths() -> void:
+	var k := _px()
+	for line in _lines:
+		line.width = (ARC_WIDTH if target_column else (LINE_WIDTH if line_mode else GUIDE_WIDTH)) * k
+	for shadow in _shadows:
+		shadow.width = GUIDE_SHADOW_WIDTH * k
+
+
 ## A screen point in the world (through the camera).
 func _world(screen: Vector2) -> Vector2:
 	return _canvas().affine_inverse() * screen
@@ -278,7 +301,7 @@ func is_dragging() -> bool:
 func _update(pointer: Vector2) -> void:
 	_pointer = pointer
 	_seen = _canvas()
-	_in_cancel = _world(pointer).distance_to(shooter_pos + Trajectory.shot_offset()) <= CANCEL_RADIUS
+	_in_cancel = _cancel_at(pointer)
 	if target_column:
 		_update_column(pointer)
 		return
@@ -286,8 +309,8 @@ func _update(pointer: Vector2) -> void:
 	_power = clampf(d.length() / 2.0, GameData.power_min(), GameData.power_max())
 	for line in _lines:
 		line.default_color = LINE_COLOR if line_mode else GUIDE_COLOR
-		line.width = LINE_WIDTH if line_mode else GUIDE_WIDTH
 		line.gradient = null if line_mode else _arc_gradient()
+	_fit_widths()
 	for shadow in _shadows:
 		if not shadow.points.is_empty():
 			shadow.points = PackedVector2Array()
@@ -371,9 +394,9 @@ func _update_column(pointer: Vector2) -> void:
 	for i in _lines.size():
 		_lines[i].gradient = null
 		_lines[i].default_color = ARC_COLOR
-		_lines[i].width = ARC_WIDTH
 		_lines[i].points = Trajectory.predict(Vector2(_column_x, 0.0), GameData.air_strike_angle(), GameData.air_strike_power(),
 			wind_dir, wind_power, terrain) if i == 0 else PackedVector2Array()
+	_fit_widths()
 	queue_redraw()
 	column_changed.emit(_column_x)
 
@@ -435,14 +458,15 @@ func _draw() -> void:
 		return
 	var c := shooter_pos + Trajectory.shot_offset()
 	var color := Color(1, 0.3, 0.3, 0.9) if _in_cancel else Color(1, 1, 1, 0.5)
-	draw_arc(c, CANCEL_RADIUS, 0.0, TAU, 48, color, 3.0)
-	draw_line(c + Vector2(-14, -14), c + Vector2(14, 14), color, 3.0)
-	draw_line(c + Vector2(-14, 14), c + Vector2(14, -14), color, 3.0)
+	var px := _px() # screen px → world px
+	draw_arc(c, CANCEL_RADIUS * px, 0.0, TAU, 48, color, 3.0 * px)
+	draw_line(c + Vector2(-14, -14) * px, c + Vector2(14, 14) * px, color, 3.0 * px)
+	draw_line(c + Vector2(-14, 14) * px, c + Vector2(14, -14) * px, color, 3.0 * px)
 	if line_mode and not target_column and not _lines.is_empty() and _lines[0].points.size() == 2:
-		draw_line(_lines[0].points[0], _lines[0].points[1], LINE_GLOW, LINE_GLOW_WIDTH, true) # under the line (children draw on top)
+		draw_line(_lines[0].points[0], _lines[0].points[1], LINE_GLOW, LINE_GLOW_WIDTH * px, true) # under the line (children draw on top)
 	if target_column and not _in_cancel:
 		var bottom := float(terrain.height) if terrain != null else 2000.0
-		draw_line(Vector2(_column_x, 0.0), Vector2(_column_x, bottom), Color(1, 0.85, 0.2, 0.8), 3.0)
+		draw_line(Vector2(_column_x, 0.0), Vector2(_column_x, bottom), Color(1, 0.85, 0.2, 0.8), 3.0 * px)
 	for k in _hit:
 		if k < enemies.size():
 			_draw_enemy_hit(enemies[k])
@@ -457,16 +481,18 @@ func _draw_enemy_hit(centre: Vector2) -> void:
 			_ring.append(Vector2(cos(a), sin(a)))
 	var k := 1.0 + BULLSEYE_PULSE * sin(_anim * TAU * BULLSEYE_HZ)
 	var r := BULLSEYE_RADIUS * k
-	draw_set_transform(centre, 0.0, Vector2(r, r))
+	var px := _px() # drawn in screen px round the centre
+	draw_set_transform(centre, 0.0, Vector2(r, r) * px)
 	draw_polyline(_ring, OUTLINE, 6.0 / r, true)
 	draw_polyline(_ring, HIT_COLOR, 3.5 / r, true)
-	draw_set_transform(centre, 0.0, Vector2(r, r) * 0.62)
+	draw_set_transform(centre, 0.0, Vector2(r, r) * 0.62 * px)
 	draw_polyline(_ring, HIT_LIGHT, 2.5 / (r * 0.62), true)
-	draw_set_transform(Vector2.ZERO)
-	draw_circle(centre, 5.5 * k, OUTLINE)
-	draw_circle(centre, 4.0 * k, HIT_COLOR)
+	draw_set_transform(centre, 0.0, Vector2(px, px))
+	draw_circle(Vector2.ZERO, 5.5 * k, OUTLINE)
+	draw_circle(Vector2.ZERO, 4.0 * k, HIT_COLOR)
 	var turn := _anim * TAU / 4.0
 	for q in 4:
 		var d := Vector2.from_angle(turn + q * TAU / 4.0)
-		draw_line(centre + d * (r - 5.0), centre + d * (r + 7.0), OUTLINE, 5.0, true)
-		draw_line(centre + d * (r - 4.0), centre + d * (r + 6.0), HIT_COLOR, 2.5, true)
+		draw_line(d * (r - 5.0), d * (r + 7.0), OUTLINE, 5.0, true)
+		draw_line(d * (r - 4.0), d * (r + 6.0), HIT_COLOR, 2.5, true)
+	draw_set_transform(Vector2.ZERO)

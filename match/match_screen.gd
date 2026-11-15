@@ -175,6 +175,7 @@ const BossResultModel := preload("res://match/boss/boss_result_model.gd")
 const BossResultScreen := preload("res://match/boss/boss_result_screen.gd")
 const StatusGlyph := preload("res://match/views/status_glyph.gd")
 const StatusBurst := preload("res://match/views/status_burst.gd")
+const ScreenFixed := preload("res://match/views/screen_fixed.gd")
 const PopFx := preload("res://match/boss/pop_fx.gd")
 const BlastEvents := preload("res://match/boss/blast_events.gd")
 const BlastFx := preload("res://match/boss/blast_fx.gd")
@@ -2666,7 +2667,7 @@ func _tally(id: String, amount: int, critical: bool, element_effect: String = ""
 	if not _has_tally(id):
 		var t := DamageTally.new()
 		t.follow = _views[id]
-		_fx_layer.add_child(t)
+		_hold_over(id, t, true)
 		_tallies[id] = t
 	_tallies[id].add(amount, critical, element_effect)
 
@@ -2694,7 +2695,16 @@ func _status_burst(id: String, effect_id: String, offset: Vector2 = Vector2.ZERO
 		return
 	var b: Control = StatusBurst.make(effect_id, GameData.status_skips_turn(effect_id))
 	b.position = _views[id].position + Vector2(0, -150) + offset
-	_fx_layer.add_child(b)
+	_hold_over(id, b)
+
+
+## Adds a popup over player id to the FX layer at one screen size at every zoom (ScreenFixed),
+## round the top of its art (where its name and HP bar keep their size too); follow: the pivot
+## moves with the player (a running number).
+func _hold_over(id: String, node: CanvasItem, follow: bool = false) -> void:
+	var v: Node2D = _views[id]
+	var anchor: Vector2 = v.overhead_anchor() if v.has_method("overhead_anchor") else Vector2(0, -PlayerView.ART_TOP)
+	ScreenFixed.hold(_fx_layer, node, v.position + anchor, v if follow else null, anchor)
 
 
 func _popup(id: String, text: String, color: Color, offset: Vector2 = Vector2.ZERO, st: Dictionary = {}) -> void:
@@ -2710,7 +2720,7 @@ func _popup(id: String, text: String, color: Color, offset: Vector2 = Vector2.ZE
 	var n: int = int(last[1]) + 1 if now - int(last[0]) < DamagePopup.STACK_MS else 0
 	_popup_row[id] = [now, n]
 	label.position = _views[id].position + Vector2(0, -140) + offset + DamagePopup.stagger(n)
-	_fx_layer.add_child(label)
+	_hold_over(id, label)
 
 
 # ── Visual only (no game state) ──────────────────────────────────────────────

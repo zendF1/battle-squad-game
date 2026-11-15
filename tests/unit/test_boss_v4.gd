@@ -380,7 +380,7 @@ func test_poison_status_look_and_tick() -> void:
 	_run(m, 0.7)
 	m._apply("PlayerDamaged", [{"playerId": "p2", "damage": 40, "hp": 812, "shield": 0, "isAlive": true, "type": "poison"}])
 	eq(m._players["p2"]["hp"], 812, "the tick's HP")
-	var labels: Array = m._fx_layer.get_children().filter(func(n): return n is DamagePopup and n.text == "-40")
+	var labels: Array = m._fx_layer.find_children("*", "", true, false).filter(func(n): return n is DamagePopup and n.text == "-40")
 	eq(labels.size(), 1, "its number")
 	eq(labels[0].get_theme_color("font_color"), DamagePopup.POISON, "green")
 	var ticks: Array = _fx_of(m, SporeFx).filter(func(f): return f.mode == SporeFx.TICK)
@@ -425,7 +425,7 @@ func test_armour_links_plates_and_the_armoured_number() -> void:
 			{"t": 0.5, "type": "die", "playerId": "minion_stone_totem_2", "cause": "explosion"},
 			{"t": 0.6, "type": "damage", "playerId": "boss_rock_giant", "amount": 300, "hp": 18470, "cause": "explosion"}]})
 	_run(m, 0.25)
-	var nums: Array = m._fx_layer.get_children().filter(func(n): return n is DamagePopup and n.text in ["-120", "-110"])
+	var nums: Array = m._fx_layer.find_children("*", "", true, false).filter(func(n): return n is DamagePopup and n.text in ["-120", "-110"])
 	eq(nums.size(), 2, "two hits on the armoured boss")
 	check(nums[0]._style.get("armored", false) and nums[1]._style.get("armored", false), "both stone grey")
 	eq([nums[0]._style["tag"], nums[1]._style["tag"]], [DamagePopup.ARMOR_TAG, ""], "'Giáp đá' over the first only")
@@ -437,7 +437,7 @@ func test_armour_links_plates_and_the_armoured_number() -> void:
 	check(not m.boss_state()["armored"], "the last totem fell: the armour is off")
 	check(boss.figure().plates_breaking(), "the plates fly off")
 	_run(m, 0.5)
-	var after: Array = m._fx_layer.get_children().filter(func(n): return n is DamagePopup and n.text == "-300")
+	var after: Array = m._fx_layer.find_children("*", "", true, false).filter(func(n): return n is DamagePopup and n.text == "-300")
 	check(not after[0]._style.get("armored", false), "an unarmoured hit: the usual number")
 	m._on_event("ShotResolved", {"shooterId": "boss_rock_giant", "actionMode": "summon", "projectiles": [], "duration": 0.8,
 		"events": [{"t": 0.6, "type": "summon", "playerId": "minion_stone_totem_3", "minionId": "stone_totem", "position": {"x": 1500, "y": 700},

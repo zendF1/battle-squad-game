@@ -14,6 +14,7 @@ const PlayerView := preload("res://match/views/player_view.gd")
 const Hud := preload("res://match/hud.gd")
 const SkyView := preload("res://match/views/sky_view.gd")
 const MatchScreen := preload("res://match/match_screen.gd")
+const ScreenFixed := preload("res://match/views/screen_fixed.gd")
 
 const MAP := Vector2(2400, 1120)
 const VIEW := Vector2(1600, 900)
@@ -123,17 +124,64 @@ func test_long_aim_at_the_start_zoom() -> void:
 	check(c.view_rect().has_point(up) and c.view_rect().has_point(shooter), "a lob: both in view %s" % c.view_rect())
 
 
-func test_names_and_hp_bars_keep_their_screen_size_closer() -> void:
-	eq(PlayerView.overhead_scale(2.0), 0.5, "zoom 2: the overhead at half scale (its zoom-1 screen size)")
-	eq(PlayerView.overhead_scale(1.0), 1.0, "zoom 1: as it was")
-	eq(PlayerView.overhead_scale(0.7), 1.0, "zoomed out: shrinks with the world, as it did")
+## n's transform to the screen under the camera xf, up to (not including) top.
+func _screen_xf(n: CanvasItem, top: Node, xf: Transform2D) -> Transform2D:
+	var t := Transform2D()
+	var c: Node = n
+	while c != null and c != top:
+		t = (c as CanvasItem).get_transform() * t
+		c = c.get_parent()
+	return xf * t
+
+
+func test_hud_in_the_world_keeps_its_screen_size_at_every_zoom() -> void:
+	var layer := Node2D.new()
 	var v: Node2D = PlayerView.new()
-	v.setup(_player("me", 1, 300.0), true, 1)
+	v.position = Vector2(700, 900)
+	layer.add_child(v)
+	v.setup(_player("me", 1, 700.0), true, 1)
 	eq(v._name.get_parent(), v.overhead(), "the name in the overhead")
 	eq(v.badge_node().get_parent(), v.overhead(), "the use badge too")
 	eq(v.element_badge().get_parent(), v.overhead(), "and the element badge")
 	eq(v.get_child(1), v.figure(), "the figure stays the second child")
-	v.free()
+	var pop := Label.new()
+	pop.text = "-120"
+	var anchor: Vector2 = v.position + v.overhead_anchor()
+	pop.position = anchor + Vector2(-20, -84)
+	var holder := ScreenFixed.hold(layer, pop, anchor)
+	for z in [0.5, 1.0, 2.0]:
+		var xf := Transform2D(0.0, Vector2(z, z), 0.0, Vector2(-300, -200))
+		v.overhead().canvas = xf
+		v.overhead().fit()
+		holder.canvas = xf
+		holder.fit()
+		near(_screen_xf(v._name, null, xf).get_scale().x, 1.0, 1e-4, "zoom %s: the name at one screen size" % z)
+		near(_screen_xf(v.badge_node(), null, xf).get_scale().x, 1.0, 1e-4, "zoom %s: the use badge too" % z)
+		near(_screen_xf(pop, null, xf).get_scale().x, 1.0, 1e-4, "zoom %s: a damage number too" % z)
+		var head: Vector2 = xf * anchor
+		_vnear(_screen_xf(pop, null, xf) * Vector2.ZERO, head + Vector2(-20, -84), 0.01, "zoom %s: its offset over the head in screen px" % z)
+		_vnear(_screen_xf(v, null, xf) * v.overhead_anchor(), head, 0.01, "zoom %s: the head where the world puts it" % z)
+		near(_screen_xf(v.figure(), null, xf).get_scale().x, z * v.figure().scale.x, 1e-4, "zoom %s: the figure zooms" % z)
+		var a = AimInput.new()
+		a.terrain = _flat()
+		a.shooter_pos = Vector2(1000, 900)
+		a.enabled = true
+		a.canvas = xf
+		var shooter_screen: Vector2 = xf * (a.shooter_pos + preload("res://match/aim/trajectory_predictor.gd").shot_offset())
+		a._press_starts_drag(_press(shooter_screen + Vector2(200, 0), true))
+		a._drag_event(_motion(shooter_screen + Vector2(-AimInput.CANCEL_RADIUS + 4.0, 0)))
+		check(a._in_cancel, "zoom %s: released %s screen px from the shooter: cancels" % [z, AimInput.CANCEL_RADIUS - 4.0])
+		a._drag_event(_motion(shooter_screen + Vector2(-AimInput.CANCEL_RADIUS - 4.0, 0)))
+		check(not a._in_cancel, "zoom %s: %s screen px away: fires" % [z, AimInput.CANCEL_RADIUS + 4.0])
+		var line := Line2D.new()
+		a._lines.append(line)
+		a._fit_widths()
+		near(line.width * z, AimInput.GUIDE_WIDTH, 1e-4, "zoom %s: the guide's width in screen px" % z)
+		a._lines.clear()
+		line.free()
+		a.cancel()
+		a.free()
+	layer.free()
 
 
 func test_follow_scroll_and_parallax_at_the_start_zoom() -> void:
@@ -204,7 +252,8 @@ func test_aim_follows_the_tip_keeping_the_shooter() -> void:
 	_vnear(c.center, Vector2(1500, 600), 1.0, "heads for the guide's tip")
 	c.aim_at(shooter, Vector2(2300, 400)) # far: the shooter would leave the view
 	_run(c, 3.0)
-	var r := c.view_rect().grow(-CameraModel.KEEP_MARGIN.x + 1.0)
+	var m := CameraModel.KEEP_MARGIN - Vector2.ONE
+	var r := c.view_rect().grow_individual(-m.x, -m.y, -m.x, -m.y)
 	check(r.has_point(shooter), "the shooter stays KEEP_MARGIN inside the view: %s in %s" % [shooter, c.view_rect()])
 	check(c.center.x > 1500.0, "still looking ahead (%f)" % c.center.x)
 	var before := c.center

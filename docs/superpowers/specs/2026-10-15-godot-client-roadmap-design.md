@@ -177,16 +177,25 @@ unit tested); the HUD, the top-edge shell arrows and the off-screen markers stay
 the sky is a far layer behind the world in parallax (backdrop 0.3, clouds 0.5).
 
 - Zoom: a match starts at zoom 2 (`CameraModel.MAX_ZOOM`: one world px is two screen px; until
-  2026-11-16 it was 1), also the closest the view goes. The name, HP bar, badges, title plate,
-  markers and turn arrow over a player keep their zoom-1 screen size there (`PlayerView.overhead()`,
-  scaled by 1 / the zoom past 1); zoomed out they shrink with the world as before.
+  2026-11-16 it was 1), also the closest the view goes.
+- Only the gameplay zooms: characters, bosses, minions and the effects on their bodies (shield
+  bubble, auras, status looks, the team ring at the feet), terrain, guns, shells, blasts and skill
+  effects, and gameplay areas on the ground (boss eruption marks, the blind circle round my body).
+  What is drawn for the player to read keeps one screen size at every zoom (min_zoom() to 2):
+  names, HP bars, element / rank badges, title plates, shot markers, the turn arrow, the use badge,
+  the lost-turn ring (`PlayerView.overhead()`), damage / heal / status-word numbers and status
+  bursts (held over the unit's art top), the aim guide's and beam's widths, the cancel ring (60
+  screen px, hit tested on screen), the air strike's column line, the bullseye. One shared way:
+  `match/views/screen_fixed.gd` (a node scaling what is under it by 1 / the zoom round a pivot,
+  and per_px() for what is drawn directly). The HUD, the off-screen markers and the high-shell
+  arrows are on CanvasLayers (never zoomed).
 - Clamped to the map rect; while following a shot the view may rise 300 px above the map top. A
   map narrower than the view is centred, a lower one sits on the view's bottom; neither pans.
 - Match start: on me, then a 0.6 s eased pan to the current player; each turn start pans to its
   player and follows it walking. An explosion holds the view 0.4 s (falls and teleports longer)
   before the next pan, with a small shake scaled by the blast.
 - My aim drag: follows the guide arc's far end (the beam's end for the laser), the shooter kept
-  150 × 120 screen px inside the view (at zoom 2 a bronze 700 px guide still fits with its shooter);
+  230 × 120 screen px inside the view (clear of the move buttons) (at zoom 2 a bronze 700 px guide still fits with its shooter);
   air strike: the view scrolls while the pointer is near a screen side (1100 world px/s at the edge
   from zoom 1 up, the same share of the screen zoomed out). The
   slingshot vector is screen px, so the camera never changes the aim. Released or cancelled: it
