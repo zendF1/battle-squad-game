@@ -29,6 +29,14 @@ about 80 % of the cell's height, **no gun** (the game draws the slung gun behind
 
     python3 -I art_source/characters/make_run_frames.py <id>     # [--fps 12] [--scale 1.0] [--debug DIR]
 
+From a video (the way the run frames are made now, 2026-11-16): an AI image-to-video clip of the idle picture
+running in place, camera locked, plain white background. One command finds the cleanest loop (any length,
+14-40 video frames: no fixed frame count), writes every frame of it as side_run_v2/frame_1..N.png and imports
+it at the video's fps:
+
+    python3 -I art_source/characters/cut_run_video.py <id> <video.mp4>   # [--min 14] [--max 40] [--no-import]
+
+
 It cuts the cells (by the white gutters, else 4 x 2 equal cells), keys the white by flood from each cell's
 border (the near-white clothes inside their outlines stay; an enclosed gap between an arm and the body stays
 white unless listed in `side_run_v2/holes.json` `{"frame_3": [[x, y]]}`), scales so the tallest frame is as

@@ -1,5 +1,3 @@
-Rookie run frames (match), 2026-11-16: frame_1..24.png cut from the user's Gemini video
-(gemini_generated_video_29c54ce3.mp4, 1280x720, 24 fps, 240 frames): one full stride, every video frame
-41-64 (24 frames; frame 65 matches frame 41, the cleanest loop in the video), cropped to x 400-920;
-played at 24 fps like the video (1 s per stride).
-Import: python3 -I art_source/characters/make_run_frames.py rookie --fps 24
+rookie run frames (match): frame_1..28.png cut by cut_run_video.py from gemini_generated_video_29c54ce3.mp4 (1280x720, 24 fps, 240 frames):
+one full stride, video frames 114-141 (frame 142 matches frame 114, diff 0.0095), cropped to (423, 2, 889, 714);
+played at 24 fps like the video.
