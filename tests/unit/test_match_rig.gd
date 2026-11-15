@@ -357,7 +357,15 @@ func _gun_slung_on_the_back_until_raised(id: String) -> void:
 	c.set_walking(true)
 	_step(c, 0.4)
 	check(r.back_gun_shown() and not r.hand_gun_shown(), "walking: on the back")
-	check((r.pose["bones"]["torso"].affine_inverse() * gun.transform).is_equal_approx(rel), "bobbing with the torso while walking")
+	if r.has_run_frames():
+		# run frames drawn over the standing picture: the slung gun follows each frame's bob, not the bones
+		check(r.run_frames_shown(), "%s: walking shows the run frames" % id)
+		var i: int = r.run_frame()
+		var bob: Array = r.run["bob"]
+		var want := Transform2D(0.0, Vector2(0.0, float(bob[i]) if i < bob.size() else 0.0)) * (r.pose["gun"] as Transform2D)
+		check(gun.transform.is_equal_approx(want), "%s: the slung gun follows the run frame's bob" % id)
+	else:
+		check((r.pose["bones"]["torso"].affine_inverse() * gun.transform).is_equal_approx(rel), "bobbing with the torso while walking")
 	c.set_walking(false)
 	c.hurt()
 	_step(c, 0.1)
