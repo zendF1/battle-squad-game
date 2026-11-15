@@ -1,2 +1,2 @@
 spark run frames (match): frame_1..16.png cut by cut_run_video.py from run.mp4 (1280x720, 24 fps, 240 frames):
-video frames 0 4 9 13 18 22 27 31 36 40 45 49 54 58 63 67, cropped to (419, 0, 867, 713); played at 5.33 fps (the video's speed).
+one stride (the cleanest loop in the first 3 s), video frames 17 19 20 21 23 25 26 27 29 31 32 33 35 37 38 39, cropped to (420, 0, 868, 713); played at 16.00 fps (the video's speed).

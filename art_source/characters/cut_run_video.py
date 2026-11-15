@@ -21,7 +21,7 @@ def main():
     ap.add_argument("--min", type=int, default=14); ap.add_argument("--max", type=int, default=40)
     ap.add_argument("--no-import", action="store_true")
     ap.add_argument("--within", type=float, default=3.0, help="only the first N seconds (the rest just repeats)")
-    ap.add_argument("--count", type=int, default=0, help="instead of a loop: N frames evenly spaced over the first --within seconds")
+    ap.add_argument("--count", type=int, default=0, help="N frames evenly spaced over the loop (default: every frame of it)")
     ap.add_argument("--skip", type=float, default=0.25, help="seconds to skip at the start (the still picture starting to move)")
     a = ap.parse_args()
     cap = cv2.VideoCapture(a.video)
@@ -49,11 +49,10 @@ def main():
     d, s, P = best
     picks = list(range(s, s + P))
     play_fps = fps
-    if a.count:  # the user's way (2026-11-16): the first 3 s, N frames evenly spaced, same speed as the video
-        span = min(len(frames), int(round(a.within * fps)))
-        picks = [int(k * span / a.count) for k in range(a.count)]
-        s, P, d = picks[0], len(picks), float("nan")
-        play_fps = a.count / (span / fps)
+    if a.count:  # N frames evenly spaced over that one loop (the stride keeps the video's duration)
+        picks = [s + int(round(k * P / a.count)) for k in range(a.count)]
+        play_fps = a.count / (P / fps)
+        P = len(picks)
     # crop round the figure over the whole loop, with a margin
     H, W = frames[0].shape[:2]
     full = np.stack([frames[i].astype(np.int16).min(2) < 200 for i in picks]).any(0)
@@ -68,8 +67,8 @@ def main():
     for k, i in enumerate(picks, 1):
         Image.fromarray(frames[i]).crop(box).save(os.path.join(out, "frame_%d.png" % k))
     note = ("%s run frames (match): frame_1..%d.png cut by cut_run_video.py from %s (%dx%d, %.0f fps, %d frames):\n"
-            "video frames %s, cropped to %s; played at %.2f fps (the video's speed).\n"
-            % (a.id, P, os.path.basename(a.video), W, H, fps, len(frames), " ".join(map(str, picks)), box, play_fps))
+            "one stride (the cleanest loop in the first %.0f s), video frames %s, cropped to %s; played at %.2f fps (the video's speed).\n"
+            % (a.id, P, os.path.basename(a.video), W, H, fps, len(frames), a.within, " ".join(map(str, picks)), box, play_fps))
     open(os.path.join(out, "README.txt"), "w").write(note)
     print(note)
     if not a.no_import:
