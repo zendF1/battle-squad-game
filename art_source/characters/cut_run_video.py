@@ -1,11 +1,12 @@
 """Cut a run cycle out of an AI video (character running in place, locked camera, plain background).
 
-Finds the cleanest loop (the start s and length P, 14..40 video frames, whose frame s+P looks most like frame s,
+Finds the cleanest loop inside the first --within seconds (default 3: later the video only repeats), the start s
+and length P, 14..40 video frames, whose frame s+P looks most like frame s,
 over the figure's box), writes every video frame of that loop as side_run_v2/frame_1..P.png (cropped round the
 figure), then runs make_run_frames.py with the video's fps. No fixed frame count: one full stride, however many
 frames it has. Rookie, 2026-11-16: 24 frames (41-64) of a 24 fps Gemini video.
 
-  python3 -I art_source/characters/cut_run_video.py <id> <video.mp4> [--min 14] [--max 40] [--no-import]
+  python3 -I art_source/characters/cut_run_video.py <id> <video.mp4> [--within 3] [--skip 0.25] [--min 14] [--max 40] [--no-import]
 """
 import argparse, os, subprocess, sys
 import cv2, numpy as np
@@ -19,6 +20,9 @@ def main():
     ap.add_argument("id"); ap.add_argument("video")
     ap.add_argument("--min", type=int, default=14); ap.add_argument("--max", type=int, default=40)
     ap.add_argument("--no-import", action="store_true")
+    ap.add_argument("--within", type=float, default=3.0, help="only the first N seconds (the rest just repeats)")
+    ap.add_argument("--count", type=int, default=0, help="instead of a loop: N frames evenly spaced over the first --within seconds")
+    ap.add_argument("--skip", type=float, default=0.25, help="seconds to skip at the start (the still picture starting to move)")
     a = ap.parse_args()
     cap = cv2.VideoCapture(a.video)
     fps = cap.get(cv2.CAP_PROP_FPS) or 24.0
@@ -34,8 +38,8 @@ def main():
     fig = (small < 0.85).any(0)
     ys, xs = np.where(fig)
     g = small[:, ys.min():ys.max() + 1, xs.min():xs.max() + 1]
-    n = len(g)
-    skip = max(2, n // 10)  # the first frames often still morph out of the still picture
+    n = min(len(g), int(round(a.within * fps)) + 1)  # the user: only the first ~3 s are right, the rest repeats
+    skip = int(round(a.skip * fps))
     best = None
     for P in range(a.min, a.max + 1):
         for s in range(skip, n - P):
@@ -43,9 +47,16 @@ def main():
             if best is None or d < best[0]:
                 best = (d, s, P)
     d, s, P = best
+    picks = list(range(s, s + P))
+    play_fps = fps
+    if a.count:  # the user's way (2026-11-16): the first 3 s, N frames evenly spaced, same speed as the video
+        span = min(len(frames), int(round(a.within * fps)))
+        picks = [int(k * span / a.count) for k in range(a.count)]
+        s, P, d = picks[0], len(picks), float("nan")
+        play_fps = a.count / (span / fps)
     # crop round the figure over the whole loop, with a margin
     H, W = frames[0].shape[:2]
-    full = np.stack([f.astype(np.int16).min(2) < 200 for f in frames[s:s + P]]).any(0)
+    full = np.stack([frames[i].astype(np.int16).min(2) < 200 for i in picks]).any(0)
     fy, fx = np.where(full)
     m = int(0.06 * H)
     box = (max(0, fx.min() - m), max(0, fy.min() - m), min(W, fx.max() + m), min(H, fy.max() + m))
@@ -54,12 +65,11 @@ def main():
     for f in os.listdir(out):
         if f.startswith("frame_") and f.endswith(".png"):
             os.remove(os.path.join(out, f))
-    for k, i in enumerate(range(s, s + P), 1):
+    for k, i in enumerate(picks, 1):
         Image.fromarray(frames[i]).crop(box).save(os.path.join(out, "frame_%d.png" % k))
     note = ("%s run frames (match): frame_1..%d.png cut by cut_run_video.py from %s (%dx%d, %.0f fps, %d frames):\n"
-            "one full stride, video frames %d-%d (frame %d matches frame %d, diff %.4f), cropped to %s;\n"
-            "played at %.0f fps like the video.\n" % (a.id, P, os.path.basename(a.video), W, H, fps, n, s, s + P - 1,
-                                                    s + P, s, d, box, fps))
+            "video frames %s, cropped to %s; played at %.2f fps (the video's speed).\n"
+            % (a.id, P, os.path.basename(a.video), W, H, fps, len(frames), " ".join(map(str, picks)), box, play_fps))
     open(os.path.join(out, "README.txt"), "w").write(note)
     print(note)
     if not a.no_import:
@@ -69,7 +79,7 @@ def main():
                 if f.startswith("run_"):
                     os.remove(os.path.join(run_dir, f))
         subprocess.check_call([sys.executable, "-I", os.path.join(REPO, "art_source/characters/make_run_frames.py"),
-                               a.id, "--fps", "%g" % fps])
+                               a.id, "--fps", "%g" % play_fps])
 
 
 if __name__ == "__main__":
