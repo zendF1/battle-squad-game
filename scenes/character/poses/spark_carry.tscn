@@ -1,27 +1,29 @@
 [gd_scene format=3 uid="uid://sgw281t51vwj"]
 
 [ext_resource type="Texture2D" uid="uid://c64y1xcm1sjas" path="res://assets/weapons/shock_rifle/hug_iron.png" id="gun"]
-[ext_resource type="Script" path="res://scenes/character/poses/carry_rig.gd" id="rig_script"]
+[ext_resource type="Script" uid="uid://cmctc2qf4suhh" path="res://scenes/character/poses/carry_rig.gd" id="rig_script"]
 
 [node name="SparkCarry" type="Node2D" unique_id=1635923494]
 metadata/_edit_lock_ = true
 
 [node name="CarrySocket" type="Node2D" parent="." unique_id=1134109436]
 position = Vector2(-16, -86)
-rotation = -2.3212880155982987
+rotation = -2.321288
 metadata/_edit_group_ = true
 
 [node name="Preview" type="Sprite2D" parent="CarrySocket" unique_id=1168262538]
 texture_filter = 2
-scale = Vector2(2.3950436090225575, 2.3950436090225575)
+rotation = 0.31066862
+scale = Vector2(2.3950436, 2.3950436)
 texture = ExtResource("gun")
 centered = false
-offset = Vector2(-14.5, -19)
+offset = Vector2(-14.5, -24)
 
 [node name="Body" type="Node2D" parent="." unique_id=1508776460]
 texture_filter = 2
 script = ExtResource("rig_script")
 character_id = "spark"
+spacing = 170.0
 metadata/_edit_lock_ = true
 
 [node name="HeldPreview" type="Node2D" parent="." unique_id=1508776461]
@@ -30,6 +32,7 @@ position = Vector2(380, 0)
 script = ExtResource("rig_script")
 character_id = "spark"
 mode = "held"
+spacing = 170.0
 metadata/_edit_lock_ = true
 
 [node name="WalkPreview" type="Node2D" parent="." unique_id=1689801528]
@@ -38,4 +41,5 @@ position = Vector2(200, 0)
 script = ExtResource("rig_script")
 character_id = "spark"
 mode = "walk"
+spacing = 170.0
 metadata/_edit_lock_ = true
