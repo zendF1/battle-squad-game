@@ -313,8 +313,9 @@ gun is hug art per tier (`art_source/weapons/hug/water_gun_<tier>.png`, `tools/i
 also the `weapon_water_<tier>` equipment icons), her water orbs per tier
 `art_source/fx/projectiles/water_gun_<tier>.png` (cut from one picture of the four on black,
 `tools/import_projectiles.gd`); the orb's trail and water burst (`fx/water_gun/`) are still painted
-by code. Her pose scenes (`scenes/character/poses/tide_ready.tscn`, `tide_carry.tscn`) hold the hug
-gun on her fists and slung across her back. Her run frames have no water tank on the back (the
+by code. Her ready pose scene (`scenes/character/poses/tide_ready.tscn`) holds the hug gun on her
+fists; in matches she is her chibi bone rig (`characters/tide/rig/`), whose back sling and gun length are
+`tide_carry.tscn`. Her run frames have no water tank on the back (the
 standing, kneeling and lobby pictures do). Her near arm over the hugged gun is the sleeve, the
 forearm and the near fist only (as everyone's: the far fist stays under the gun).
 
@@ -536,7 +537,7 @@ Preview shows it** (`ui/art.gd` `carry_pose()` / `carry_gun_transform()`: any ot
 length, hung at the same place along it), plus the bob and ±2° sway on the walk frames
 (`carry_walk_transform()`). Breathing (idle) scales the whole figure with the gun.
 
-A character with a chibi bone rig (Rookie, Spark, Tanko, Flora) has its rig in its carry scene instead
+A character with a chibi bone rig (every one: Rookie, Spark, Tanko, Flora, Tide) has its rig in its carry scene instead
 (`poses/carry_rig.gd`: `Body` the rig at rest at the match's scale, `HeldPreview` the rig holding the
 gun at 0° / 45° / 90°, `WalkPreview` the rig walking): `CarrySocket` / `Preview` are then the rig's back
 sling exactly as the match draws it, and the Preview's scale is the rig's gun length, held and slung,
@@ -571,13 +572,12 @@ about 52 px tall, feet on the server position) and the fallback of the screens o
 (`ui/character_view.gd`, about 2.5 and 1.5 px per unit, when a character has no full-body
 picture; the lobby stage's `hands_free` hides the gun, the bare hand stays).
 
-### characters/<id>/rig/ (the chibi bone rigs, matches only: Rookie, Spark, Tanko, Flora; `scenes/character/rig/`, dev preview `scenes/dev/rig_preview.tscn`)
+### characters/<id>/rig/ (the chibi bone rigs, matches only: Rookie, Spark, Tanko, Flora, Tide; `scenes/character/rig/`, dev preview `scenes/dev/rig_preview.tscn`)
 
 In every match (`match/views/player_view.gd` sets `scenes/character/character.gd` `match_rig`) Rookie,
-Spark, Tanko and Flora are drawn by their rigs instead of their side frames, in any outfit; everywhere else (lobby,
+Spark, Tanko, Flora and Tide are drawn by their rigs instead of their side frames, in any outfit; everywhere else (lobby,
 character select / view, shop, profile, matchmaking card, results, and the match's turn portrait / HUD,
-which use `portrait.png` and `ui/character_view.gd`) keeps the old art, and the other characters keep
-theirs. The held gun is any kind's hug art (`ui/art.gd` `hug_gun()`, `weapons/hug.json` hold / muzzle) on
+which use `portrait.png` and `ui/character_view.gd`) keeps the old art. The held gun is any kind's hug art (`ui/art.gd` `hug_gun()`, `weapons/hug.json` hold / muzzle) on
 the rig's gun socket, drawn over the head (covering the face aiming high) and the far arm, under the near
 arm; slung on the back while down. Its length and the sling are the character's carry scene
 (`scenes/character/poses/<id>_carry.tscn`: `CarrySocket` / `Preview` over the rig, tuned in the editor,
@@ -585,16 +585,16 @@ read at runtime). See `docs/match-rig.md`.
 
 Each character's chibi standing picture (`art_source/characters/<id>/side_idle/idle_v2.png`) cut into 14
 parts along its drawn outlines, the hidden areas painted in the same outline and flat colours (clipped to
-the picture's outline for Spark, Tanko and Flora), by `art_source/characters/<id>/rig/make_rig.py` (see its README.txt).
-Half the source size (Rookie 330 px tall, Spark 342, Tanko 306, Flora 305), transparent, mipmapped at runtime; loaded from the
+the picture's outline for Spark, Tanko, Flora and Tide), by `art_source/characters/<id>/rig/make_rig.py` (see its README.txt).
+Half the source size (Rookie 330 px tall, Spark 342, Tanko 306, Flora 305, Tide 420), transparent, mipmapped at runtime; loaded from the
 PNG when not imported yet.
 
 | File | What |
 |---|---|
-| `head.png`, `torso.png`, `belt.png`, `seat.png` | the head (Rookie: cap, hair, face; Spark: the spiky hair, face; Tanko: the steel helmet with its chin strap, face; Flora: the bandana with its flower and two knotted tails, hair, face), the shirt / tank top (back edge, neck and the part under the belt painted), the belt (pouch ends under both fists painted), the trousers' seat (all painted, under the thighs) |
-| `n_upper.png`, `n_fore.png`, `n_fist.png` | the near arm (image left): upper arm (Tanko, Flora: with the shoulder pad; Flora: the elbow pad too), forearm (elbow cap painted), fist (wrist painted) |
+| `head.png`, `torso.png`, `belt.png`, `seat.png` | the head (Rookie: cap, hair, face; Spark: the spiky hair, face; Tanko: the steel helmet with its chin strap, face; Flora: the bandana with its flower and two knotted tails, hair, face; Tide: the whole bob, face), the shirt / tank top / sailor shirt (back edge, neck and the part under the belt painted), the belt (pouch ends under both fists painted), the trousers' seat (all painted, under the thighs) |
+| `n_upper.png`, `n_fore.png`, `n_fist.png` | the near arm (image left): upper arm (Tanko, Flora: with the shoulder pad; Flora: the elbow pad too; Tide: the sleeve), forearm (elbow cap painted), fist (wrist painted; Tide's are open hands) |
 | `f_upper.png`, `f_fore.png`, `f_fist.png` | the far arm: the picture's sliver over a painted sleeve / bare arm, its own fist |
-| `n_thigh.png`, `n_shin.png`, `f_thigh.png`, `f_shin.png` | the legs: thighs (hip caps, the hidden back / front painted; Tanko's and Flora's knee pads ride them), shins with the boots (knee caps painted) |
+| `n_thigh.png`, `n_shin.png`, `f_thigh.png`, `f_shin.png` | the legs: thighs (hip caps, the hidden back / front painted; Tanko's, Flora's and Tide's knee pads ride them), shins with the boots (knee caps painted) |
 | `rig.json` | bones (rest joints, rig px, feet at 0,0), parts (bone, rest transform, draw order bottom first), points (soles, the gun's chest point, the outline points a body lying down rests on, the near eye), `gunUnder` (`n_fist`: the gun drawn right under it), optional tuning (`aimPath`, `fallDeg`, `headBackDeg`, `torsoBackDeg`) |
 
 ### characters/<id>/lobby/full.* (the full-body picture: `scenes/character/full_body.gd`, loaded by `ui/art.gd` `lobby_full()`)

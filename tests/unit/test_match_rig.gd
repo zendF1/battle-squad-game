@@ -1,5 +1,5 @@
 extends "res://tests/test_case.gd"
-## The chibi bone rigs (Rookie, Spark, Tanko, Flora) in the match (scenes/character/character.gd match_rig, set by
+## The chibi bone rigs (Rookie, Spark, Tanko, Flora, Tide) in the match (scenes/character/character.gd match_rig, set by
 ## match/views/player_view.gd): which views use it, the muzzle on the rig's gun, the head over the
 ## tube aiming high, the events driving it.
 
@@ -10,7 +10,7 @@ const Art := preload("res://ui/art.gd")
 
 const DT := 1.0 / 60.0
 ## The characters drawn by a chibi bone rig in the match (assets/characters/<id>/rig/rig.json).
-const RIGGED := ["rookie", "spark", "tanko", "flora"]
+const RIGGED := ["rookie", "spark", "tanko", "flora", "tide"]
 
 
 ## A match-sized character not in the tree (_ready by hand, stepped by _step()).
@@ -81,9 +81,15 @@ func test_only_rigged_characters_in_the_match_use_the_rig() -> void:
 	rookie._apply_frames() # out of the tree the setters wait for _ready
 	check(rookie.rig() == null and rookie.get_node("Flip").visible, "switched off: back to the frames")
 	rookie.match_rig = true
+	# every real character has a rig now: an id without rig data has none (an unknown character id is
+	# drawn as the default character, with its rig)
+	check(not CharRig.available("no_such_character") and not CharRig.available(""), "an id without rig data: no rig")
+	rookie.character_id = "no_such_character"
+	rookie._apply_frames()
+	check(rookie.rig() != null and rookie.rig().character_id == Art.DEFAULT_CHARACTER, "an unknown id: the default character's rig")
 	rookie.character_id = "tide"
 	rookie._apply_frames()
-	check(rookie.rig() == null, "a character without a rig: no rig")
+	check(rookie.rig() != null and rookie.rig().character_id == "tide", "Tide: her own rig")
 	rookie.character_id = "tanko"
 	rookie._apply_frames()
 	check(rookie.rig() != null and rookie.rig().character_id == "tanko", "Tanko: his own rig")
@@ -123,7 +129,7 @@ func test_player_view_sets_the_rig() -> void:
 	holder.add_child(t)
 	t.setup(_player("e3", "tide"), false, 1)
 	t._sprite._ready()
-	check(t._sprite.rig() == null, "Tide in the match: its frames")
+	check(t._sprite.rig() != null and t._sprite.rig().character_id == "tide", "a Tide player in the match: her rig")
 	holder.free()
 
 

@@ -13,4 +13,9 @@ Rồi chạy (trong thư mục battle-squad-game):
 Cấu hình: ../side_run/import.json, mục poses.stand (px của idle_v1.png):
   scale   0.91: mặt từ tai đến mũi rộng bằng ảnh chạy (117 / 130 px), dáng đứng cao bằng frame_1
   alignX  [193, 596.5]: giữa mặt trên giữa mặt của frame_1 (đầu không nhảy khi đứng <-> chạy <-> quỳ)
-Súng đeo sau lưng: scenes/character/poses/tide_carry.tscn (CarrySocket sau bình nước của idle_0.png).
+Súng đeo sau lưng trong trận: scenes/character/poses/tide_carry.tscn (khung xương chibi, ../rig/).
+
+idle_v2.png: the chibi standing picture (797 x 969, pure white backdrop) the match rig is cut from (../rig/make_rig.py).
+It is made from idle_v2_ai_source.png (the user's AI picture, 745 x 1000, not chibi) by chibi_edit/make_chibi.py:
+head x1.4, width kept, shirt x0.78 and legs x0.62 tall, on a white 797 x 969 canvas
+(python3 -I art_source/characters/tide/side_idle/chibi_edit/make_chibi.py [OUT.png]).

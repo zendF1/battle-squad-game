@@ -1,22 +1,23 @@
-# The chibi bone rigs in matches (Rookie, Spark, Tanko, Flora)
+# The chibi bone rigs in matches (Rookie, Spark, Tanko, Flora, Tide)
 
 Specs: battle-squad `docs/specs/2026-11-14-nhan-vat-khung-xuong-thu.vi.md` (Rookie, "Vòng 2") and
 `docs/specs/2026-11-14-spark-chibi-khung-xuong.vi.md` (Spark), `docs/specs/2026-11-14-tanko-chibi-khung-xuong.vi.md`
-(Tanko), `docs/specs/2026-11-14-flora-chibi-khung-xuong.vi.md` (Flora). Client only, no server change: aim, power
+(Tanko), `docs/specs/2026-11-14-flora-chibi-khung-xuong.vi.md` (Flora), `docs/specs/2026-11-15-tide-chibi-khung-xuong.vi.md`
+(Tide). Client only, no server change: aim, power
 and trajectories stay server-computed; only the drawing changes.
 
 ## The switch
 
 - `scenes/character/character.gd` `match_rig` (export, default off). On, and the character has a rig
   (`scenes/character/rig/char_rig.gd` `available(id)`: `assets/characters/<id>/rig/rig.json` exists,
-  today Rookie, Spark, Tanko and Flora), the character is drawn by a `CharRig` child instead of `Flip` (the side
+  today all five: Rookie, Spark, Tanko, Flora and Tide), the character is drawn by a `CharRig` child instead of `Flip` (the side
   frames, the gun sprite, the ready pose's arm). Flip is hidden but keeps running, so `animation()`,
   `gun_state()` and the gun draw keep their states for the callers.
 - Only `match/views/player_view.gd` sets it (every match mode with a map: PvP, boss, practice...).
   The lobby, character select / view, shop, profile, matchmaking card, results and the match's turn
   portrait / HUD use `ui/character_view.gd` or `portrait.png` and never set it: the old art. A
   `lobby_full` picture never uses the rig. Any outfit uses the same chibi rig.
-- Tide has no rig: unchanged.
+- Every character has a rig now; an id without `rig.json` would keep its side frames.
 
 ## What drives it (the same public API the match calls)
 
@@ -29,7 +30,7 @@ and trajectories stay server-computed; only the drawing changes.
 | `hurt()` | knocked back, plus the red hurt flash (tint on the whole rig); the gun stays on the back |
 | `set_walking()` | the walk cycle, the gun on the back bobbing with the torso |
 | `clear_aim()` / the shot's hold over | the gun swings back onto the back |
-| `die()` | knees buckle, falls on its back (`fallDeg`: Rookie -72, Spark -82 so his spiky hair rests on the ground, Tanko -80 so his big helmet does, Flora -80 so the back of her head does), slid forward to lie over its feet; grey tint; the gun fades out with the fall |
+| `die()` | knees buckle, falls on its back (`fallDeg`: Rookie -72, Spark -82 so his spiky hair rests on the ground, Tanko -80 so his big helmet does, Flora -80 so the back of her head does, Tide -72 so the back of her big bob does, the heels just off the ground), slid forward to lie over its feet; grey tint; the gun fades out with the fall |
 | `face()` | mirrored round the feet |
 | `muzzle_position()` / `fire_muzzle_position()` | the rig gun's tip now / once up on the aim at the shot's first instant |
 | `set_weapon()` | the kind / tier's hug art (`Art.hug_gun()` fallbacks, so any kind) on the rig's gun socket, every kind the same length: the carry scene's Preview length (below) |
@@ -83,8 +84,13 @@ character's `make_rig.py`, `RIG_TUNING`): `aimPath`, `fallDeg`, `headBackDeg`, `
 - The swap is quick (0.25 s) and the arms' IK slides on the way: a fast swing rather than a drawn pose.
 - The rig's flash is its own drawn one (`char_rig.gd` `_draw_flash()`, FLASH_SIZE), not the side view's
   muzzle sprite.
-- Spark's hair, Tanko's helmet and Flora's bandana with its two tails ride the head part (rigid, no lag
+- Spark's hair, Tanko's helmet, Flora's bandana with its two tails and Tide's bob ride the head part (rigid, no lag
   of their own); lying down, Flora's bandana tails dip a few px under the ground line.
+- Tide's chest is low under her big head: her `aimPath` slides the tube up through the hands from 30° (40 px
+  at 45°) so its tail stays off the ground. Her water gun (a thick tube with a tank on top) at the default
+  length covers her body held, and her face from 75°; her carry scene's Preview scale is the knob.
+- Tide's hands are open (her picture's): held, the near palm lies on the tube, fingers up across it; no
+  separate gripping hand is drawn.
 - Tanko's cannon (the hug art is 108 x 54, twice as thick as the bazooka) at the default length (0.92 of the
   height) covers most of his body held and his whole face aiming 75..90 degrees; his carry scene's Preview
   scale is the knob.

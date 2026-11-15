@@ -143,7 +143,7 @@ func test_drawn_art() -> void:
 	var full = JSON.parse_string(FileAccess.get_file_as_string("res://assets/characters/tide/lobby/full.json"))
 	eq(str(full["source"]), "art_source/characters/tide/lobby/full_v1.png", "the lobby picture cut from her own drawing")
 	var carry: Node = load("res://scenes/character/poses/tide_carry.tscn").instantiate()
-	eq(carry.get_node("Body").texture.resource_path, Art.side_dir("tide") + "idle_0.png", "the carry scene shows her own idle frame")
+	eq(str(carry.get_node("Body").get("character_id")), "tide", "the carry scene draws her own rig (in matches she is the chibi rig)")
 	carry.free()
 	for tier in ["basic", "iron", "steel", "mithril", "dragon"]:
 		check(not Art.hug_meta("water_gun", tier).is_empty(), "her water gun's hug art (%s)" % tier)
